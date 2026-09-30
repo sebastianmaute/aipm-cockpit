@@ -41,8 +41,9 @@ export function isSaveConflict(err: unknown): err is SaveConflictError {
  *  require a Turso-only rename ripple this round does not need. Deliberately
  *  NOT classified by `classifyStorageError`, exactly like
  *  `TursoLockTimeoutError`: a lock timeout is transient (another window is
- *  writing), so it surfaces via the generic save-failure toast rather than a
- *  persistent connectivity/auth banner. */
+ *  writing), so it surfaces as a toast (`isSaveLockTimeout` → the localized
+ *  `storageSaveLockTimeout`, final review m4) rather than a persistent
+ *  connectivity/auth banner. */
 export class SaveLockTimeoutError extends Error {
   constructor(public readonly kind: StorageKind, options?: ErrorOptions) {
     super(`Save lock timed out for ${kind}: another window may be saving.`, options);

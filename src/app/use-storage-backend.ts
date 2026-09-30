@@ -19,7 +19,7 @@ import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
-import { isSaveConflict, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
+import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
 import { storageTargetKey } from "./storage-target-key";
@@ -1030,6 +1030,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         } else if (isTursoLockTimeout(err)) {
           // Localized text — the error's own message is English-only.
           emitToast("error", t(langRef.current, "tursoLockTimeout"));
+        } else if (isSaveLockTimeout(err)) {
+          emitToast("error", t(langRef.current, "storageSaveLockTimeout")); // m4 — browser/local-file Web Lock wait; the Turso copy names a database
         } else if (!(err instanceof StorageNotImplementedError)) {
           emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }

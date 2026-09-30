@@ -232,6 +232,8 @@ interface Scenario {
   cancelPicker?: boolean;
   /** Fail the picker with something that is NOT a cancel. Takes precedence over `cancelPicker`. */
   pickerError?: unknown;
+  /** The handle the picker returns, instead of the plain `PICKED_FILE` view onto `DISK`. */
+  handle?: FsHandle;
 }
 
 /** Held at module scope so `afterEach` can restore exactly this spy and nothing else. Typed by the
@@ -276,7 +278,7 @@ async function setupPick(scenario: Scenario) {
   } else if (scenario.cancelPicker) {
     showSaveFilePicker.mockRejectedValue(new DOMException("The user aborted a request.", "AbortError"));
   } else {
-    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    showSaveFilePicker.mockResolvedValue(scenario.handle ?? handleFor(PICKED_FILE));
   }
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(scenario.confirmAnswer ?? false);
   confirmSpy = confirm;
@@ -879,5 +881,26 @@ describe("§450 — the offer's plural", () => {
     const { confirmSpy } = await setupPick({ fileBytes: oneRecord, confirmAnswer: false });
     expect(confirmSpy).toHaveBeenCalledWith(tPlural("en-US", "storagePickFileHasProject", 1, PICKED_FILE, 1));
     expect(String(confirmSpy.mock.calls[0][0])).toContain("a project with 1 record.");
+  });
+});
+
+// Final review 5a M3 and m10 — the two exits of the pick that spoke the wrong way or left no trail.
+describe("§4 — a pick that cannot be read, or whose write meets a conflict", () => {
+  // KILLED BY: deleting the `logDiag` on the unreadable abort.
+  it("an unreadable pick is aborted with a diagnostics entry, and binds nothing", async () => {
+    const locked: FsHandle = { ...handleFor(PICKED_FILE), getFile: async () => { throw new DOMException("locked by another program", "NotReadableError"); } };
+    await setupPick({ ...POPULATED(), handle: locked });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.pickUnreadableAborted", expect.objectContaining({ name: "NotReadableError" }));
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
+  });
+
+  // KILLED BY: dropping the conflict arm from the pick's outer catch (the toast is then `storageSaveFailed` with the raw English message).
+  it("a write that meets a newer revision of the picked file is announced as a conflict", async () => {
+    let reads = 0;
+    const moving: FsHandle = { ...handleFor(PICKED_FILE), getFile: async () => { reads += 1; const text = DISK.get(PICKED_FILE) ?? ""; return { text: async () => text, lastModified: reads, size: text.length } as unknown as File; } };
+    await setupPick({ fileBytes: "", handle: moving }); // brand new and empty: the ordinary bind-then-write branch
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnRebuild"));
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("Save conflict"));
   });
 });

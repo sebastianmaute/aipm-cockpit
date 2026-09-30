@@ -144,6 +144,7 @@ vi.mock("./turso-backend", () => ({
   },
 }));
 import { TursoLockTimeoutError } from "./turso-backend";
+import { SaveLockTimeoutError } from "./storage-error";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
@@ -922,6 +923,27 @@ describe("useStorageBackend — save effect", () => {
     expect(showToast).toHaveBeenCalledWith(
       "error",
       "Couldn't save: another tab is writing to this database and the wait timed out. Saving retries automatically.",
+    );
+  });
+
+  // Final review m4 — the browser and local-file saves' own bounded Web Lock wait (`SaveLockTimeoutError`).
+  it("localizes a browser or local-file save's lock-timeout failure too", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    mockBackend.save.mockRejectedValueOnce(new SaveLockTimeoutError("browser"));
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      "Couldn't save: another tab is saving to the same storage and the wait timed out. Your changes will be saved with your next edit.",
     );
   });
 

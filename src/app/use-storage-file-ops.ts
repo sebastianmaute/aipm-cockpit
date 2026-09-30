@@ -55,7 +55,7 @@ import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
-import { isSaveConflict, isTursoLockTimeout } from "./storage-error";
+import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
@@ -676,7 +676,11 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   sentence. The bind guards below are what close that stretch.
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "read" }); return; }
       // §4 — a file we could not READ is neither bound nor written (see `readPickedProject`): the app stays on its file.
-      if (existing !== null && existing !== "unparseable" && "unreadable" in existing) { speakReadFailure(existing.unreadable); return; }
+      if (existing !== null && existing !== "unparseable" && "unreadable" in existing) {
+        logDiag("warn", "storage.pickUnreadableAborted", { name: String((existing.unreadable as { name?: unknown } | null)?.name ?? typeof existing.unreadable) }); // 5a M3 — every other abort here leaves a trail. The name only: nothing identifying the file.
+        speakReadFailure(existing.unreadable);
+        return;
+      }
       // ★★★ §590 — THE OFFER. Both halves of the condition are load-bearing and neither implies the
       //   other. (a) the PICKED file holds records somebody authored, so overwriting it destroys
       //   something; (b) the LIVE workspace holds none, so there is nothing of the user's to lose by
@@ -803,7 +807,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       await deps.refreshBackendStatus();
       deps.emitToast("info", t(deps.langRef.current, "storageSwitchedToast"));
     } catch (err) {
-      deps.emitToast("error", t(deps.langRef.current, "storageSaveFailed", String(err)));
+      // m10 — the picked file changed between the read and the write (`guardedWrite` met a newer revision): conflict copy, never the raw English error.
+      deps.emitToast("error", isSaveConflict(err) ? t(deps.langRef.current, "storageConflictNotSavedOnRebuild") : t(deps.langRef.current, "storageSaveFailed", String(err)));
     }
   }
 
@@ -924,6 +929,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       } else if (isTursoLockTimeout(err)) {
         // Conversion target was Turso and the cross-tab write lock timed out.
         deps.emitToast("error", t(deps.langRef.current, "tursoLockTimeout"));
+      } else if (isSaveLockTimeout(err)) {
+        deps.emitToast("error", t(deps.langRef.current, "storageSaveLockTimeout")); // m4 — a browser or local-file target
       } else {
         // StorageNotImplementedError also surfaces here — user confirmed a
         // conversion write, so silent failure is wrong.
