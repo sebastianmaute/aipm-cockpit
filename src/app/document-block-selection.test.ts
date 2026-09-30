@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   selectionAfterMove,
@@ -113,5 +114,26 @@ describe("selectionAfterDelete", () => {
 
   it("leaves an unset selection unset", () => {
     expect(selectionAfterDelete(null, 0)).toBeNull();
+  });
+});
+
+// open-followups §345. The module header promises NO React, NO DOM, NO i18n,
+// and `vitest.config.ts` runs every test under jsdom, so a value import that
+// dragged i18n or DOMPurify in would fail nothing. This source scan is the only
+// thing that can see it: every import (and re-export) must be type-only.
+// ★ cwd-relative path, as in document-model.test.ts's scan.
+describe("document-block-selection stays dependency-free", () => {
+  const src = readFileSync("src/app/document-block-selection.ts", "utf8");
+  const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  it("has only `import type` statements", () => {
+    const imports = codeOnly.match(/^\s*import\b[^;]*;/gm) ?? [];
+    expect(imports.length).toBeGreaterThan(0); // anti-vacuity: the scan found today's import
+    for (const stmt of imports) expect(stmt).toMatch(/^\s*import\s+type\b/);
+  });
+
+  it("has no value re-export and no dynamic import", () => {
+    expect(codeOnly).not.toMatch(/^\s*export\s+(?!type\b)(?:\*|\{[^}]*\})\s*from\b/m);
+    expect(codeOnly).not.toMatch(/\bimport\s*\(/);
   });
 });

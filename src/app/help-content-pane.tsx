@@ -13,6 +13,7 @@ import { stripHelpMarkers } from "./help-body-markup";
 import { HelpBodyText, Highlighted } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
+import { smoothScrollBehavior } from "./reduced-motion";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
  *  relations map + deep-link scroll can target sections this component renders. */
@@ -84,7 +85,7 @@ export function HelpContentPane({
 
   const scrollToSection = (id: string) => {
     setActiveId(id);
-    document.getElementById(helpSectionId(id))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(helpSectionId(id))?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
   };
 
   if (groups.length === 0) {

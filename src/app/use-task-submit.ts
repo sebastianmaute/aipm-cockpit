@@ -34,6 +34,7 @@ import { sanitizeRichHtml } from "./sanitize-html";
 import { describeTextCap } from "./sanitize-report";
 import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
+import { smoothScrollBehavior } from "./reduced-motion";
 
 export interface UseTaskSubmitArgs {
   form: TaskFormDraft;
@@ -591,7 +592,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         calendarOptOut: task.calendarOptOut === true,
       });
       if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: smoothScrollBehavior() });
       }
     },
     [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef, onEditorDiscard],

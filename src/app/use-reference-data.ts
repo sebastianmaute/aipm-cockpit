@@ -14,10 +14,9 @@
 // RolesPanel (task-manager.tsx:2200-2211), which is not memo()'d and whose
 // wrapping JSX is rebuilt every render anyway; handleAssignRoleById is the
 // thirteenth and reaches the memo'd ResourceDirectory already wrapped in
-// guardEdit(), which mints a fresh identity per render regardless; and the
-// remaining TWO — handleAssignResourceRole and handleClearResourceRole — have
-// no production consumer at all, only use-resource-planner.test.tsx (dead at
-// base too, carried through by the move-only rule; open-followups §62).
+// guardEdit(), which mints a fresh identity per render regardless. (Two more
+// handlers with no production consumer were deleted — open-followups §62;
+// handleAssignRoleById covers both assigning and clearing a role.)
 // §1 is about ResourcesPanel and ResourceCalendar, and onAssignRoleById reaches
 // only ResourceDirectory (workspace-section.tsx:486), so neither §1 component
 // receives any handler from this file. Preserving the memoization form needs no
@@ -136,33 +135,8 @@ export function useReferenceData(args: UseReferenceDataArgs) {
     [roles, resources, setRoles, setResources],
   );
 
-  const handleAssignResourceRole = useCallback(
-    (resourceId: number, disciplineId: number, gradeId: number) => {
-      const roleId = resolveOrCreateRole(disciplineId, gradeId);
-      const stamp = new Date().toISOString();
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId ? { ...r, roleId, localModifiedAt: stamp } : r,
-        ),
-      );
-    },
-    [resolveOrCreateRole, setResources],
-  );
-
-  const handleClearResourceRole = useCallback(
-    (resourceId: number) => {
-      const stamp = new Date().toISOString();
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId ? { ...r, roleId: null, localModifiedAt: stamp } : r,
-        ),
-      );
-    },
-    [setResources],
-  );
-
   // Directory single-role picker: assign an existing rate-card role directly by
-  // id (or clear with null). Unlike handleAssignResourceRole this never mints a
+  // id (or clear with null). This never mints a
   // role — new discipline/grade combos are authored in the rate-card editor.
   const handleAssignRoleById = useCallback(
     (resourceId: number, roleId: number | null) => {
@@ -310,9 +284,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
     resolveOrCreateRole,
     handleSaveRole,
     handleDeleteRole,
-    handleAssignResourceRole,
     handleAssignRoleById,
-    handleClearResourceRole,
     handleAddDiscipline,
     handleRenameDiscipline,
     handleAddGrade,

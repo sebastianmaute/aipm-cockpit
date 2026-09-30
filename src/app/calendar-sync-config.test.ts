@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calendarSyncFor } from "./calendar-sync-config";
-import { sanitizeOutlookCalendar, type Settings } from "./settings-types";
+import { calendarSyncFor, withCalendarEnabled } from "./calendar-sync-config";
+import { CALENDAR_ENTITY_TYPES, sanitizeOutlookCalendar, type Settings } from "./settings-types";
 
 it("defaults to disabled when unset", () => {
   expect(calendarSyncFor({} as Settings, "task")).toEqual({ enabled: false, auto: false });
@@ -50,5 +50,32 @@ describe("sanitizeOutlookCalendar", () => {
     expect(
       sanitizeOutlookCalendar({ task: { enabled: true, auto: true } }),
     ).toEqual({ task: { enabled: true, auto: true } });
+  });
+});
+
+// open-followups §57. Every other fixture stubs `auto: false`, so these are the
+// only tests that can see the `enabled ? … : false` guard.
+describe("withCalendarEnabled (toolbar enable-toggle writer)", () => {
+  const armed = (): Settings =>
+    ({
+      outlookCalendar: Object.fromEntries(CALENDAR_ENTITY_TYPES.map((t) => [t, { enabled: true, auto: true }])),
+    }) as unknown as Settings;
+
+  it.each(CALENDAR_ENTITY_TYPES)("switching %s OFF also clears a stored auto:true", (type) => {
+    const next = withCalendarEnabled(armed(), type, false);
+    expect(next.outlookCalendar?.[type]).toEqual({ enabled: false, auto: false });
+  });
+
+  it.each(CALENDAR_ENTITY_TYPES)("switching %s ON keeps the stored auto", (type) => {
+    const s = { outlookCalendar: { [type]: { enabled: false, auto: true } } } as unknown as Settings;
+    expect(withCalendarEnabled(s, type, true).outlookCalendar?.[type]).toEqual({ enabled: true, auto: true });
+    expect(withCalendarEnabled({} as Settings, type, true).outlookCalendar?.[type]).toEqual({ enabled: true, auto: false });
+  });
+
+  it("touches only the named type and does not mutate its input", () => {
+    const s = armed();
+    const next = withCalendarEnabled(s, "raid", false);
+    expect(next.outlookCalendar?.task).toEqual({ enabled: true, auto: true });
+    expect(s.outlookCalendar?.raid).toEqual({ enabled: true, auto: true });
   });
 });

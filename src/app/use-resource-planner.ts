@@ -59,8 +59,10 @@ export interface UseResourcePlannerArgs {
   holidaySet: ReadonlySet<string>;
   /** Capture a pre-op snapshot for undo (RAID/absence/shift delete, resource bulk-edit). */
   capture?: UndoStackApi["capture"];
-  /** Capture a MULTI-array pre-op snapshot for undo — reference-data deletes
-   *  (role/discipline/grade) that cascade an edit into a second array. */
+  /** Capture a MULTI-array pre-op snapshot for undo. Forwarded to both sub-hooks:
+   *  reference-data deletes (role/discipline/grade) that cascade an edit into a
+   *  second array, and resource deletes (resources + absences + shifts) and
+   *  email-correcting resource saves in `use-resource-directory.ts`. */
   captureComposite?: UndoStackApi["captureComposite"];
   /** Capture per-field edits for undo (RAID/resource modal save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];

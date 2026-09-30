@@ -73,7 +73,7 @@ task and is found on opening the file, while a dropped row simply never gets loo
 
 ### Two of the four "Still open, unchanged" bullets have since been fixed
 
-- **The blocked-on-i18n row is DONE.** `stakeholder-recipient-input.tsx`'s remove-recipient button
+- **The blocked-on-i18n row is DONE.** `stakeholder-recipient-input.tsx` (deleted 2026-09-30 — open-followups §265)'s remove-recipient button
   now reads ``aria-label={rowLabel(t(lang, "remove"), name)}`` — translated AND row-token'd, so it
   cleared both the i18n block and the row-unique-names bar in one move (`602a00e4`). **So exactly
   ONE survivor of the original 23 remains: B1.**
@@ -138,7 +138,7 @@ discussing native `<button>` semantics, not markup.
 are reported today — 8 of them real rows and 1 a known scan phantom.**
 The two that remain from the original 23 are exactly the two the snapshot left open on purpose:
 **B1** (`settings-menu.tsx`, held pending the modern shell's own route to Settings) and the
-**blocked-on-i18n** row (`stakeholder-recipient-input.tsx`, still a hardcoded English
+**blocked-on-i18n** row (`stakeholder-recipient-input.tsx` (deleted 2026-09-30 — open-followups §265), still a hardcoded English
 ``aria-label={`Remove ${name}`}``, still needing translation before it can be Class A).
 
 The nine new ones, each opened and read at its site:
@@ -222,7 +222,7 @@ about any name in it.
 | **Class B** — 14 rows | ✅ **13 IMPLEMENTED** (`6ad4ec5f`), user-approved at row level. ⏸ **B1 HELD** — see below. |
 | **keep** | unchanged, by design |
 | **name defect** — 1 row | ❌ **OPEN** — `workspace-section-chrome.tsx`, needs `aria-label`, not a `title`. |
-| **blocked on i18n** — 1 row | ❌ **OPEN** — `stakeholder-recipient-input.tsx`; translate first. |
+| **blocked on i18n** — 1 row | ✅ **GONE** — `stakeholder-recipient-input.tsx` was deleted 2026-09-30 (no production caller, open-followups §265). |
 | 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §109 (filed as §103). |
 
 ★★ **B1 (settings cog) is the ONE Class B row still open**, held deliberately: that control renders
@@ -403,7 +403,7 @@ it removes an inconsistency, it does not introduce a convention.
 tally is how an audit starts looking complete:
 
 - The **23 real controls** (icon-only, no `title`) split **19 A + 3 B (B1 · B2 · B3) + 1
-  blocked-A** (`stakeholder-recipient-input.tsx:154`). That accounts for all 23.
+  blocked-A** (`stakeholder-recipient-input.tsx`, since deleted). That accounts for all 23.
 - **B4** is icon-only-*adjacent* — its visible child is a `+` or a single letter — so it is outside
   the 23.
 - **B5–B14** (10 rows / 12 sites — B10 and B11 are 2 sites each) are visible-label controls from a
@@ -441,7 +441,7 @@ to reuse and inventing one would make the row Class B.
 | A18 | Remove timelog user | `timelog-people-table.tsx:144` | Time bookings | `label={removeLabel}` | "Remove – jdoe" | Local const at `:84`, verb + object. Fix is `title={removeLabel}`. |
 | A19 | Version-modal close | `version-info.tsx:37` | About / version modal | `label={t(lang, "alertModalClose")}` | "Close" | Closes the modal it heads. ★ **Unpinned** — `version-info.test.tsx` does not exist and `grep -rln "VersionInfoModal" src/app e2e` returns only `modern-shell.tsx`, `settings-view.tsx` and the file itself, so **no test anywhere renders this modal**. Task 11 recorded the same gap for the conversion; do not let a green suite imply this row is covered. |
 
-★ **`stakeholder-recipient-input.tsx:154` would be A20 and is deliberately NOT listed as Class A.**
+★ **The `stakeholder-recipient-input.tsx` remove button would have been A20 and was deliberately NOT listed as Class A.** ★ The file was deleted 2026-09-30 (open-followups §265), so the note below is history.
 Its name is a **hardcoded English** template — ``aria-label={`Remove ${name}`}`` — not `t(lang, …)`.
 The shape qualifies, but copying an untranslated string into a `title` doubles a bug rather than
 fixing it. It sits under "Untranslated accessible names" below and must be translated first; after
@@ -569,7 +569,6 @@ grep -rn 'aria-label={`[A-Za-z]' src/app --include=*.tsx --exclude="*.test.tsx"
 |---|---|---|
 | `create-project-wizard.tsx:389` · `:397` | `"Apply Simple preset"` · `"Apply Advanced preset"` | The visible labels beside them *are* translated (`modePresetSimple` · `modePresetAdvanced`), so a German user sees "Einfach" and hears "Apply Simple preset". |
 | `settings-sections/mode-section.tsx:80` · `:88` | same two strings | Duplicate of the pair above. |
-| `stakeholder-recipient-input.tsx:160` | ``` `Remove ${name}` ``` | Would otherwise be Class A — see the note under Class A. ★ `:154` is the `<button`, `:160` the `aria-label`; both numbers appear in this document and they are the same control. |
 | `resource-directory.tsx:84` | ``` `Role for ${…}` ``` | |
 | `resources-panel-rows.tsx:156` · `:168` | ``` `Utilization for …` ``` · ``` `Absence override for …` ``` | |
 | `task-editor-raid-mini.tsx:59` · `:75` | ``` `RAID ${t(lang, …)}` ``` | Half-translated: the prefix "RAID" is literal, the rest is a key. Arguably fine — "RAID" is a proper noun in the DE UI too. |
