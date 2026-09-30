@@ -236,6 +236,31 @@ test.describe("§4 two tabs on browser storage (IndexedDB, Chromium)", () => {
     await expectNoPause(b);
   });
 
+  // ★★ Overwrite is CONDITIONAL: it replaces storage only while storage still holds the revision the
+  // pause was raised on (use-conflict-resolution.ts arms `forceNextSave(seen)`). A blind overwrite
+  // passes the test above, so this one moves storage AGAIN while the banner shows.
+  test("Overwrite refuses when the other version moved again after the banner was shown", async ({ page, context }) => {
+    const { a } = await openTwo(page, context);
+    const mine = "zqtwotabmovedagain";
+    const shown = await raiseConflict(a, mine);
+    const movedAgain = await bumpStoredRevision(a);
+    expect(movedAgain).toBe(shown + 1);
+
+    await confirmBannerAction(a, "Overwrite", "Overwrite the other version");
+    // The gate reopens (the banner goes), the next autosave is refused, and the pause returns.
+    await expect(conflictBanner(a), "the Overwrite reopens the save gate").toHaveCount(0);
+    await expect(conflictBanner(a), "a refused Overwrite pauses again").toBeVisible();
+    await expect(sidebarPaused(a)).toBeVisible();
+    expect(await storedTasksContain(a, mine), "an Overwrite of a version nobody was shown writes nothing").toBe(false);
+    expect(await storedRevision(a), "a refused Overwrite stamps nothing").toBe(movedAgain);
+
+    // The new pause was raised on the newer version, so its Overwrite may replace that one.
+    await confirmBannerAction(a, "Overwrite", "Overwrite the other version");
+    await expect.poll(() => storedTasksContain(a, mine), { message: "the second Overwrite writes A's version" }).toBe(true);
+    await expect.poll(() => storedRevision(a)).toBe(movedAgain + 1);
+    await expectNoPause(a);
+  });
+
   test("Download my version downloads a conflict file and keeps the pause; the banner passes axe", async ({ page, context }) => {
     const { a } = await openTwo(page, context);
     const mine = "zqtwotabdownload";
