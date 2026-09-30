@@ -4065,6 +4065,8 @@ export const de: Record<TranslationKey, string> = {
   unloadJournalDiscard: "Verwerfen",
   unloadJournalOthers: "Dieser Browser bewahrt noch nicht gespeicherte Entwürfe aus früheren Sitzungen für andere Projekte oder Speicherorte auf. Laden Sie die Seite bei geöffnetem Projekt neu, um einen wiederherzustellen, oder laden Sie ihn hier herunter bzw. verwerfen Sie ihn.",
   unloadJournalOthersEntry: "{0} — vom {1}, {2} KB",
+  unloadJournalKeptEntry: "{0} — nicht gespeichert (Konflikt), vom {1}, {2} KB",
+  unloadJournalKeptHint: "Als \"nicht gespeichert (Konflikt)\" markierte Versionen wurden abgelehnt, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde. Ein Neuladen stellt sie nicht wieder her; laden Sie eine Version herunter, um Ihre Änderungen wiederherzustellen.",
   unloadJournalKeyBrowser: "Browser-Arbeitsbereich (kein Projekt)",
   unloadJournalKeyTurso: "Turso-Arbeitsbereich (kein Projekt)",
   unloadJournalDownload: "Herunterladen",

@@ -12,7 +12,7 @@ import { formatExpiryDate, formatFetchedAt } from "./date-format";
 import type { OtherJournal } from "./use-other-journals";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
-import { journalKeyProject } from "./unload-journal";
+import { isKeptProjectKey, journalKeyProject } from "./unload-journal";
 import { Banner, type BannerSeverity } from "./banner";
 import { Button } from "./button";
 
@@ -204,7 +204,7 @@ function JournalList({
           return (
             <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 break-all">
-                {t(lang, "unloadJournalOthersEntry", shown, date,
+                {t(lang, isKeptProjectKey(entry.journal.projectKey) ? "unloadJournalKeptEntry" : "unloadJournalOthersEntry", shown, date, // §4 — a kept version was refused, and no reload restores it
                   Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
               </span>
               <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${name}`}
@@ -240,6 +240,7 @@ export function OtherJournalsBanner({
     <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
+      {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && <p className="mt-1 text-sm">{t(lang, "unloadJournalKeptHint")}</p>}
       <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} />
     </AlertBanner>
   );
@@ -438,7 +439,7 @@ function ConflictActions({ lang, onReload, onOverwrite, onDownload }: {
         </Button>
       )}
       {onDownload && (
-        <Button variant="secondary" size="xs" onClick={onDownload}>
+        <Button variant="secondary" size="xs" onClick={() => onDownload()}>
           {t(lang, "storageConflictDownload")}
         </Button>
       )}

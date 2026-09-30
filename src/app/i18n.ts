@@ -4315,6 +4315,8 @@ const enUS = {
   // §632 — journals under other keys (use-other-journals.ts) and the ones expired at load.
   unloadJournalOthers: "This browser still keeps unsaved drafts from earlier sessions for other projects or storage locations. Reload the page with that project open to restore one, or download or discard it here.",
   unloadJournalOthersEntry: "{0} — from {1}, {2} KB",
+  unloadJournalKeptEntry: "{0} — not saved (conflict), from {1}, {2} KB",
+  unloadJournalKeptHint: "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them; download one to recover your changes.",
   unloadJournalKeyBrowser: "Browser workspace (no project)",
   unloadJournalKeyTurso: "Turso workspace (no project)",
   unloadJournalDownload: "Download",
