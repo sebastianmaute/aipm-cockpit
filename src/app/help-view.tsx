@@ -19,6 +19,7 @@ import { useSettings } from "./use-settings";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useTablistRoving } from "./use-tablist-roving";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { smoothScrollBehavior } from "./reduced-motion";
 
 type HelpTab = "help" | "tours" | "connects" | "flows";
 
@@ -93,7 +94,7 @@ export function HelpView({
   }
   useEffect(() => {
     if (!scrollTarget) return;
-    document.getElementById(helpSectionId(scrollTarget))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(helpSectionId(scrollTarget))?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
     onHelpConceptConsumed?.();
   }, [scrollSeq, scrollTarget, onHelpConceptConsumed]);
 

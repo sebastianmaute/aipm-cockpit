@@ -434,7 +434,13 @@ img[data-asset-blocked]::before {
    a forced choice. `animate-spin` is available to any future consumer, and the
    next one need not carry a text cue. Stopping it outright at today's five sites
    would be defensible; that is a live question, not a settled one. Do not restore
-   the "sole cue" justification — open-followups §332 carries the adjudication. */
+   the "sole cue" justification — open-followups §332 carries the adjudication.
+
+   ★★ A NEW ANIMATION MUST BE NAMED HERE. `reduced-motion.guard.test.ts` fails on
+   any `animate-*` utility used in src/app that this block does not name, on an
+   arbitrary `animate-[…]`, and on a `@keyframes` or raw `animation:` outside this
+   block. Smooth scrolling started from script is the JS half of the same policy:
+   it goes through `smoothScrollBehavior()` (reduced-motion.ts). */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse {
     animation: none !important;
