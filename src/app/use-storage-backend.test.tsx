@@ -926,14 +926,14 @@ describe("useStorageBackend — save effect", () => {
     );
   });
 
-  // Final review m4 — the local-file save's bounded Web Lock wait (`SaveLockTimeoutError`; the kind in the error is incidental).
-  it("localizes a browser or local-file save's lock-timeout failure too", async () => {
+  // Final review m4 — the local-file save's bounded Web Lock wait (`SaveLockTimeoutError`).
+  it("localizes a local-file save's lock-timeout failure too", async () => {
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
     mockBackend.save.mockClear();
-    mockBackend.save.mockRejectedValueOnce(new SaveLockTimeoutError("browser"));
+    mockBackend.save.mockRejectedValueOnce(new SaveLockTimeoutError("local-json"));
 
     await act(async () => {
       result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);

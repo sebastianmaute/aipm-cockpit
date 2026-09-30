@@ -88,7 +88,7 @@ const KV_ACTIVITY_LOG_KEY = "activityLog";
 const KV_BUDGET_HISTORY_KEY = "budgetHistory";
 const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
 // §4 — the integer save revision this backend stamps on every successful
-// save (see `save()`/`saveLocked()` below); missing on load → 0.
+// save (see `save()` below); missing on load → 0.
 const KV_REVISION_KEY = "revision";
 import {
   type StorageBackend,
@@ -138,7 +138,7 @@ export class BrowserBackend implements StorageBackend {
 
   /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
   private currentRevision: number | null = null;
-  /** §4 — one-shot: set by `forceNextSave()`, consumed by `saveLocked()` only
+  /** §4 — one-shot: set by `forceNextSave()`, consumed by `save()` only
    *  once its write has actually succeeded (R10 change 4). §4 fix round 3 —
    *  ALSO cleared by a successful `load()`, `adoptRevision()` and
    *  `adoptFrom()`, each of which establishes a genuine new baseline that a
@@ -203,7 +203,7 @@ export class BrowserBackend implements StorageBackend {
     let activityLog: Workspace["activityLog"] | undefined;
     let budgetHistory: Workspace["budgetHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
-    // §4 — stamped by `saveLocked()`; missing (never saved yet) → 0.
+    // §4 — stamped by `save()`; missing (never saved yet) → 0.
     let revision = 0;
     // §4 fix round 1 (R10 change 5) — true only once EVERY read/sanitize step
     // in the try below has completed without throwing (set at the very end of
@@ -757,7 +757,7 @@ export class BrowserBackend implements StorageBackend {
   }
 
   /** §4 — make the next `save()` skip the revision compare and force a full
-   *  rewrite (see `saveLocked()`), then clear itself (R10 change 4 — only
+   *  rewrite (see `save()`), then clear itself (R10 change 4 — only
    *  once that save's write actually succeeds). */
   forceNextSave(expected?: string): void {
     if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }

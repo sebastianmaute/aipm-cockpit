@@ -19,17 +19,18 @@ import type { Milestone, Task } from "./types";
 // every call pass straight through, so this mock is inert for every other
 // test in this file. One-shot: arming it holds back only the very NEXT
 // `idbGet("revision")` call (b's stalled load) — a's own save() reads the
-// revision too (to compare/bump it) and must not be blocked by the same gate,
-// or the test deadlocks on itself.
+// revision too, but inside its one `idbTransaction` (not through `idbGet`), so
+// this gate never holds it back.
 const revisionReadCtl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
 // Fix round 2 (R10 change 5) — makes the NEXT `idbGetAll` call (one of
 // load()'s parallel data reads, which all run AFTER the revision read
 // succeeds) throw once, so a test can model "the revision read succeeded but
 // a data read rejected" without touching the revision-read gate above.
 const dataReadFailCtl = vi.hoisted(() => ({ armed: false }));
-// Fix round 2 (R10 change 4) — makes the NEXT `idbBulkUpdate` call (one of
-// saveLocked()'s parallel writes) throw once, so a test can prove a forced
-// save's flag survives a genuine write failure.
+// Fix round 2 (R10 change 4) — makes the NEXT `idbTransaction` call (the save's
+// one readwrite transaction) reject once, before it opens, so a test can prove a
+// forced save's flag survives a genuine write failure. The `idbBulkUpdate`
+// branch now reaches only `load()`'s backfill.
 const writeFailCtl = vi.hoisted(() => ({ armed: false }));
 vi.mock("./idb", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./idb")>();

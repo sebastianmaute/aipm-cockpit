@@ -197,6 +197,12 @@ describe("BrowserBackend parallel IDB save/load", () => {
     ctl.failStore = IDB_RAID_STORE;
     await expect(backend.save(ws)).rejects.toThrow(/forced failure/);
 
+    // The save is ONE transaction: the tasks put was issued before the raid put threw, and the
+    // abort must have rolled it back — a fresh load finds nothing written.
+    const afterFailure = await new BrowserBackend().load();
+    expect(afterFailure.tasks).toEqual([]);
+    expect(afterFailure.raid).toEqual([]);
+
     // Retry without the fault: every dirty record must be re-emitted. If a
     // baseline had (incorrectly) advanced for tasks, the task put would be
     // diffed away here and the record could be lost on a later failure path.

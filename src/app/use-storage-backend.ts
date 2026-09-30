@@ -1036,7 +1036,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           // Localized text — the error's own message is English-only.
           emitToast("error", t(langRef.current, "tursoLockTimeout"));
         } else if (isSaveLockTimeout(err)) {
-          emitToast("error", t(langRef.current, "storageSaveLockTimeout")); // m4 — browser/local-file Web Lock wait; the Turso copy names a database
+          emitToast("error", t(langRef.current, "storageSaveLockTimeout")); // m4 — local-file Web Lock wait; the Turso copy names a database
         } else if (!(err instanceof StorageNotImplementedError)) {
           emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }
