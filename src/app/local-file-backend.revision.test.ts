@@ -23,12 +23,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const kvStore = vi.hoisted(() => new Map<string, unknown>());
+/** Round 4 RI3 — runs after each slot read, so a test can play another tab writing between two reads. */
+const readHook = vi.hoisted(() => ({ current: null as null | ((key: string) => void) }));
+const PROJECT_HANDLES = vi.hoisted(() => new Map<string, unknown>());
+vi.mock("./project-file-handles", () => ({
+  getHandle: vi.fn(async (id: string) => PROJECT_HANDLES.get(id) ?? null),
+  saveHandle: vi.fn(async () => undefined),
+  deleteHandle: vi.fn(async () => undefined),
+}));
 
 vi.mock("./idb", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./idb")>();
   return {
     ...actual,
-    idbGet: async (key: string) => kvStore.get(key),
+    idbGet: async (key: string) => {
+      const value = kvStore.get(key);
+      readHook.current?.(key);
+      return value;
+    },
     idbSet: async (key: string, value: unknown) => {
       kvStore.set(key, value);
     },
@@ -40,6 +52,7 @@ vi.mock("./idb", async (importOriginal) => {
 
 import type { FsHandle } from "./fs-access";
 import { LocalFileBackend } from "./local-file-backend";
+import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { emptyWorkspace, workspaceToJson } from "./workspace";
 import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
 
@@ -621,12 +634,12 @@ describe("LocalFileBackend §645 the slot's binding", () => {
     expect(a.fileBinding()).toBe("picked:u1");
   });
 
-  it("an old slot holding the bare handle reads as no binding (the kind alone), and still opens the file", async () => {
+  it("an old slot holding the bare handle still opens the file, and is upgraded with a binding (RI3)", async () => {
     const handle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
     kvStore.set("file-handle:local-json", handle);
     const be = new LocalFileBackend("local-json");
     await be.load();
-    expect(be.fileBinding()).toBeNull();
+    expect(be.fileBinding()).toMatch(/^picked:/);
     expect(be.revision()).not.toBeNull(); // it really read the file
   });
 
@@ -638,5 +651,50 @@ describe("LocalFileBackend §645 the slot's binding", () => {
     expect(live.fileBinding()).toBe("p2");
     await live.clearFile();
     expect(live.fileBinding()).toBeNull();
+  });
+});
+
+// §645 (final re-review 3 RI3) — a bare-handle slot (written before the binding was stored, or by a tab
+// still on old code) is UPGRADED by the first load that reads it, so later loads of that file share one
+// binding instead of each isolating.
+describe("LocalFileBackend §645 a bare slot is upgraded on first read", () => {
+  const SLOT = "file-handle:local-json";
+  beforeEach(() => { kvStore.clear(); PROJECT_HANDLES.clear(); localStorage.clear(); readHook.current = null; });
+  afterEach(() => { readHook.current = null; localStorage.clear(); });
+
+  it("writes the bare handle back with a fresh picked binding, which the next instance reads", async () => {
+    const handle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    kvStore.set(SLOT, handle);
+    const first = new LocalFileBackend("local-json");
+    await first.load();
+    expect(first.fileBinding()).toMatch(/^picked:/);
+    expect(kvStore.get(SLOT)).toEqual({ handle, binding: first.fileBinding() });
+    const second = new LocalFileBackend("local-json");
+    await second.load();
+    expect(second.fileBinding()).toBe(first.fileBinding());
+  });
+
+  it("adopts the record another tab wrote between its read and its write, instead of overwriting it", async () => {
+    const bare = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    const theirs = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    kvStore.set(SLOT, bare);
+    const theirRecord = { handle: theirs, binding: "picked:theirs" };
+    readHook.current = (key) => { if (key === SLOT) { kvStore.set(SLOT, theirRecord); readHook.current = null; } };
+    const be = new LocalFileBackend("local-json");
+    await be.load();
+    expect(be.fileBinding()).toBe("picked:theirs");
+    expect(kvStore.get(SLOT)).toBe(theirRecord); // untouched
+  });
+
+  it("uses the registered project's id when the bare handle is the same file as that project's stored handle", async () => {
+    const projectHandle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    const bare = { ...revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) }), isSameEntry: async (other: FsHandle) => other === projectHandle };
+    PROJECT_HANDLES.set("p1", projectHandle);
+    saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "P", code: "P", storageConfig: { kind: "local-json" } }, false));
+    kvStore.set(SLOT, bare);
+    const be = new LocalFileBackend("local-json");
+    await be.load();
+    expect(be.fileBinding()).toBe("p1");
+    expect(kvStore.get(SLOT)).toEqual({ handle: bare, binding: "p1" });
   });
 });

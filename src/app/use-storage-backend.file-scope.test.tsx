@@ -91,7 +91,7 @@ function openWindow() {
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast: vi.fn(), showToastAction: vi.fn(),
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome: vi.fn(),
     });
-    return { ops, workspace: useWorkspace() };
+    return { ops, workspace: useWorkspace(), setStorageConfig };
   }, { wrapper: TestProviders });
   return { hook, ops: () => hook.result.current.ops, taskNames: () => hook.result.current.workspace.tasks.map((x) => x.taskName), paused: () => hook.result.current.ops.conflictPause };
 }
@@ -208,26 +208,25 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     expect(w4.taskNames()).toEqual(["B-TASK", "B-AFTER-SWITCH"]);
   });
 
-  // Re-review 2 RI2 — an UNKNOWN binding never means the kind alone for a local file. An old slot (or a tab still
-  // on old code) holds the bare handle: each window booted from it syncs with nobody. Same file, so an edit in
-  // one reaches the other only through storage: the other's own save meets the revision and PAUSES (visible),
-  // and nothing is overwritten.
-  it("(c) windows booted from an old bare-handle slot isolate themselves: no mirroring, and no overwrite", async () => {
+  // Re-review 3 RI3 — an old slot (or one written by a tab still on old code) holds the bare handle. The first
+  // window that reads it upgrades it to a record, so a window booted after it reads the same binding and the
+  // two mirror, rather than each isolating and pausing the other on every alternating save.
+  it("(c) a bare-handle slot is upgraded by the first window that boots on it, and a later window on it mirrors that one", async () => {
     fileA = fakeFile("a.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "A-TASK")] }));
     KV.set(SLOT, fileA);
     const w1 = openWindow();
-    const w2 = openWindow();
     await waitFor(() => expect(w1.ops().loadPending).toBe(false));
+    await settle();
+    expect(KV.get(SLOT)).toEqual({ handle: fileA, binding: expect.stringMatching(/^picked:/) });
+    const w2 = openWindow();
     await waitFor(() => expect(w2.ops().loadPending).toBe(false));
     await settle();
     await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(2, "LEGACY-EDIT")]); });
-    await waitFor(() => expect(fileA.text()).toContain("LEGACY-EDIT"), { timeout: 4000 });
     await settle();
-    expect(w2.taskNames()).toEqual(["A-TASK"]); // not mirrored
-    await act(async () => { w2.hook.result.current.workspace.setRaid([raidItem("r1", "W2-EDIT")]); });
-    await waitFor(() => expect(w2.paused()).toBe(true), { timeout: 4000 }); // its save met W1's revision
-    expect(fileA.text()).toContain("LEGACY-EDIT");
-    expect(fileA.text()).not.toContain("W2-EDIT");
+    expect(w2.taskNames()).toEqual(["A-TASK", "LEGACY-EDIT"]);
+    await settle(900);
+    expect(w1.paused()).toBe(false);
+    expect(w2.paused()).toBe(false);
   });
 });
 

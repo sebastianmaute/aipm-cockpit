@@ -61,6 +61,23 @@ function readSlot(raw: unknown): HandleSlot | null {
   return { handle: raw as FsHandle, binding: null };
 }
 
+/** §645 RI3 — the id of the registered project of this kind whose stored handle is the same file as
+ *  `handle`, or `null`. Imported lazily: the registry modules are not part of the storage graph. */
+async function registeredBindingFor(kind: LocalKind, handle: FsHandle): Promise<string | null> {
+  if (typeof handle.isSameEntry !== "function") return null;
+  try {
+    const [{ loadRegistry }, { getHandle: getProjectHandle }] = await Promise.all([import("./projects-registry"), import("./project-file-handles")]);
+    for (const project of loadRegistry().projects) {
+      if (project.storageConfig.kind !== kind) continue;
+      const stored = await getProjectHandle(project.id);
+      if (stored && (await handle.isSameEntry(stored))) return project.id;
+    }
+  } catch {
+    // A registry or handle-store failure only loses the match: the caller mints a `picked:` id instead.
+  }
+  return null;
+}
+
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
@@ -173,13 +190,35 @@ export class LocalFileBackend implements StorageBackend {
    * (the store itself is broken) is allowed to override the cache.
    */
   private async getHandle(): Promise<FsHandle | null> {
-    const stored = readSlot(await idbGet<unknown>(this.idbKey));
+    const read = readSlot(await idbGet<unknown>(this.idbKey));
     if (this.boundHandle) return this.boundHandle;
+    const stored = read && read.binding === null ? await this.upgradeBareSlot(read.handle) : read;
+    if (this.boundHandle) return this.boundHandle; // bound meanwhile (the upgrade awaited)
     if (stored) {
       this.boundHandle = stored.handle;
       this.boundBinding = stored.binding;
     }
     return stored?.handle ?? null;
+  }
+
+  /**
+   * §645 (final re-review 3 RI3) — a slot holding a BARE handle (written before the binding was stored,
+   * or by a tab still on old code) gives no binding, and a window with none syncs with nobody. Left bare,
+   * every window on that file would isolate for as long as nothing re-binds it, pausing each other on
+   * every alternating save. So the first load that reads it writes it back as a record: the id of the
+   * registered project whose stored handle is the same file (`isSameEntry`), else a fresh `picked:` id.
+   * ★ A read-modify-write without a lock: the slot is read AGAIN just before the write, and a record
+   *   another tab wrote meanwhile is ADOPTED, never overwritten. Two tabs that both find it still bare
+   *   in that last read both write, and the later write wins: the earlier tab is then bound to a token
+   *   no later window shares and stays isolated (a visible pause, no loss) until it reloads.
+   */
+  private async upgradeBareSlot(handle: FsHandle): Promise<HandleSlot> {
+    const binding = (await registeredBindingFor(this.kind, handle)) ?? `picked:${crypto.randomUUID()}`;
+    const again = readSlot(await idbGet<unknown>(this.idbKey));
+    if (again && again.binding !== null) return again; // another tab upgraded or re-bound it first
+    const record: HandleSlot = { handle, binding };
+    await idbSet(this.idbKey, record);
+    return record;
   }
 
   /** §645 C1 — the tab-sync binding of the file this instance is bound to: the one stored with the
