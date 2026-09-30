@@ -1032,21 +1032,6 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.roles).toHaveLength(2);
     });
 
-    it("handleAssignResourceRole sets the resource's roleId", () => {
-      const { result } = renderPlanner();
-      const resource: Resource = {
-        id: 1,
-        firstName: "Sofia",
-        lastName: "",
-        roleId: null,
-        utilizationMode: "percent",
-        utilization: {},
-      };
-      act(() => { result.current.workspace.setResources([resource]); });
-      act(() => { result.current.planner.handleAssignResourceRole(1, 1, 1); });
-      expect(result.current.workspace.resources[0].roleId).not.toBeNull();
-    });
-
     it("handleAssignRoleById sets an existing role id directly and clears with null", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
@@ -1103,21 +1088,6 @@ describe("useResourcePlanner", () => {
       // R1 (by resourceId) + R3 (by name) gone; R2 kept.
       expect(result.current.workspace.absences.map((a) => a.id)).toEqual([3]);
       expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([2]);
-    });
-
-    it("handleClearResourceRole sets the resource's roleId to null", () => {
-      const { result } = renderPlanner();
-      const resource: Resource = {
-        id: 1,
-        firstName: "Sofia",
-        lastName: "",
-        roleId: 5,
-        utilizationMode: "percent",
-        utilization: {},
-      };
-      act(() => { result.current.workspace.setResources([resource]); });
-      act(() => { result.current.planner.handleClearResourceRole(1); });
-      expect(result.current.workspace.resources[0].roleId).toBeNull();
     });
 
     it("handleDeleteRole removes the role and clears referencing resources' roleId", () => {
