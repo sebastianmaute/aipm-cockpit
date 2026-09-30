@@ -495,8 +495,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
 | [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
-| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | open |
-| [§265](#265-stakeholderrecipientinput-has-no-production-caller) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | open |
+| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary--closed-2026-09-30) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | **CLOSED** 2026-09-30 |
+| [§265](#265-stakeholderrecipientinput-has-no-production-caller--closed-2026-09-30) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-09-30 |
 | [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
@@ -8988,8 +8988,8 @@ Everything below is what remains open after it:
   *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
   `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
   (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
-  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
-  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+  ★ `stakeholder-recipient-input.tsx`'s remove button was Class A in every respect **except** that its
+  name was a hardcoded ``` `Remove ${name}` ```. The file was deleted 2026-09-30 (§265), so that row is gone.
 
 ★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
 and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
@@ -22884,12 +22884,9 @@ separate from an ordinary i18n-sweep edit. Deliberately excluded from the Task-1
 reason; record it here so it is not silently "completed" by a future pass that greps for hardcoded
 `aria-label`s without checking what selects on them.
 
-## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary
+## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary — CLOSED 2026-09-30
 
-**Status:** open. Found 2026-08-26 during the Task-15 i18n sweep, re-verified 2026-08-27 for this
-closure round. Never machine-verified by a committed probe.
-
-**Work item:** #212
+**Status:** CLOSED 2026-09-30. The string is gone: `stakeholder-recipient-input.tsx` was deleted under §265, so there is nothing to translate. ★ The METHOD gap below still stands and is kept as the lesson: a regex over attribute syntax cannot see a literal inside a ternary, so a future i18n sweep using these three patterns will miss that shape. The commands below now return nothing because the file no longer exists. Found 2026-08-26 during the Task-15 i18n sweep.
 
 The sweep's greps match `attr="literal"` and `` attr={`template`} ``. Neither can see a literal sitting
 inside a ternary's branches: `stakeholder-recipient-input.tsx` carries
@@ -22918,12 +22915,9 @@ find it with ``git log -S'} — email`' -- src/app/project-form-fields.tsx`` (fi
 shape the second pattern quoted above DOES match — so widening the patterns would not have caught
 it; the method found it and a reader walked past it.
 
-## 265. `StakeholderRecipientInput` has no production caller
+## 265. `StakeholderRecipientInput` has no production caller — CLOSED 2026-09-30
 
-**Status:** open — a decision, not a fix, is owed. Found 2026-08-25 during the row-unique-names slice
-(round 1), re-verified 2026-08-27 for this closure round. Never machine-verified by a committed probe.
-
-**Work item:** #213
+**Status:** CLOSED 2026-09-30 — resolution (a), decided by the owner: dead code, deleted. `stakeholder-recipient-input.tsx` and its test are gone. The grep below returned only those two files before the delete, and its early history was lost in the repository rewrite, so (b) could not be investigated. Doc citations into the file were removed from `tooltip-inventory.md`, `handrolled-ui-inventory.md`, `docs/AGENTS/ui-shell.md` and §109. Found 2026-08-25 during the row-unique-names slice.
 
 ```bash
 grep -rn "StakeholderRecipientInput" src e2e --include=*.ts --include=*.tsx
