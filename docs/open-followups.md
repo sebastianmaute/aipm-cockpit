@@ -292,7 +292,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c-and-d) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d) | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
@@ -495,8 +495,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
 | [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
-| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | open |
-| [§265](#265-stakeholderrecipientinput-has-no-production-caller) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | open |
+| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary--closed-2026-09-30) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | **CLOSED** 2026-09-30 |
+| [§265](#265-stakeholderrecipientinput-has-no-production-caller--closed-2026-09-30) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-09-30 |
 | [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
@@ -522,8 +522,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
-| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
-| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--closed-2026-09-30) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--closed-2026-09-30) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open (narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged) |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either--closed-2026-08-30) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | **CLOSED** 2026-08-30 (`consumeArm` hoisted to the effect's first statement; the prospective property is structurally untestable) |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
@@ -4780,9 +4780,9 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d)
 
-**Status:** open — three small residuals from the resource-planner split, plus one pointer. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #115
 
@@ -8988,8 +8988,8 @@ Everything below is what remains open after it:
   *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
   `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
   (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
-  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
-  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+  ★ `stakeholder-recipient-input.tsx`'s remove button was Class A in every respect **except** that its
+  name was a hardcoded ``` `Remove ${name}` ```. The file was deleted 2026-09-30 (§265), so that row is gone.
 
 ★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
 and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
@@ -22884,12 +22884,9 @@ separate from an ordinary i18n-sweep edit. Deliberately excluded from the Task-1
 reason; record it here so it is not silently "completed" by a future pass that greps for hardcoded
 `aria-label`s without checking what selects on them.
 
-## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary
+## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary — CLOSED 2026-09-30
 
-**Status:** open. Found 2026-08-26 during the Task-15 i18n sweep, re-verified 2026-08-27 for this
-closure round. Never machine-verified by a committed probe.
-
-**Work item:** #212
+**Status:** CLOSED 2026-09-30. The string is gone: `stakeholder-recipient-input.tsx` was deleted under §265, so there is nothing to translate. ★ The METHOD gap below still stands and is kept as the lesson: a regex over attribute syntax cannot see a literal inside a ternary, so a future i18n sweep using these three patterns will miss that shape. The commands below now return nothing because the file no longer exists. Found 2026-08-26 during the Task-15 i18n sweep.
 
 The sweep's greps match `attr="literal"` and `` attr={`template`} ``. Neither can see a literal sitting
 inside a ternary's branches: `stakeholder-recipient-input.tsx` carries
@@ -22918,12 +22915,9 @@ find it with ``git log -S'} — email`' -- src/app/project-form-fields.tsx`` (fi
 shape the second pattern quoted above DOES match — so widening the patterns would not have caught
 it; the method found it and a reader walked past it.
 
-## 265. `StakeholderRecipientInput` has no production caller
+## 265. `StakeholderRecipientInput` has no production caller — CLOSED 2026-09-30
 
-**Status:** open — a decision, not a fix, is owed. Found 2026-08-25 during the row-unique-names slice
-(round 1), re-verified 2026-08-27 for this closure round. Never machine-verified by a committed probe.
-
-**Work item:** #213
+**Status:** CLOSED 2026-09-30 — resolution (a), decided by the owner: dead code, deleted. `stakeholder-recipient-input.tsx` and its test are gone. The grep below returned only those two files before the delete, and its early history was lost in the repository rewrite, so (b) could not be investigated. Doc citations into the file were removed from `tooltip-inventory.md`, `handrolled-ui-inventory.md`, `docs/AGENTS/ui-shell.md` and §109. Found 2026-08-25 during the row-unique-names slice.
 
 ```bash
 grep -rn "StakeholderRecipientInput" src e2e --include=*.ts --include=*.tsx
@@ -25309,11 +25303,9 @@ import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | gre
 a different predicate than it is. One import line and one call site move. Deliberately NOT done in
 the §178 slice: renaming a public export is unrelated to that fix and would have widened its diff.
 
-## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
+## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — CLOSED 2026-09-30
 
-**Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
-
-**Work item:** #224
+**Status:** CLOSED 2026-09-30. `mergeRecord` now builds its output in `target`'s key order, then appends `live`-only keys (concurrent additions) in `live`'s order, so an undo restores a removed key at its original position. The merged CONTENT is unchanged. Pinned by `merge-field-value.test.ts` → "mergeRecord key order (open-followups §291)"; the old body fails it. ★ Consequence for §292: a pure record REORDER no longer separates the no-race short-circuit from the merge body, so the record reorder case stopped killing that mutant; the array case and §292's permutation property do. The history below is kept as written.
 
 `mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
 present only in `target` lands at the END of the key order rather than at its original position.
@@ -25331,11 +25323,9 @@ no-race short-circuit's mutant survive a mutation run: a pure key REORDER is the
 distinguishes the guarded merge from the unguarded one, so the ordering behaviour and the guard's
 detectability are the same fact seen twice. See §292.
 
-## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
+## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — CLOSED 2026-09-30
 
-**Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
-
-**Work item:** #225
+**Status:** CLOSED 2026-09-30 by the second fix shape below. A new property, "returns the target verbatim for any pure reorder when nothing raced", derives `other` as a permutation of `target` (`fc.shuffledSubarray` over a `uniqueArray`), so the killing shape is drawn on purpose; its floor counts only runs where the order really differs. Deleting `if (!differs(live, other)) return target;` now fails it 3 of 3 runs, where the independent-draw property was a coin flip. The original property keeps its generator-diversity floor, which is still true about what it measures. (Measured 2026-08-29 before this fix: across three runs of the mutant, the old property fired on only two.)
 
 The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
 `JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That

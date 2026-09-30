@@ -816,12 +816,12 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   ("Cannot access refs during render"), and a `useMemo` wrapper does NOT satisfy
   it — both lint-verified. Call it unconditionally, pass the result (or
   `undefined`) as `claims`.
-  ★ DELIBERATELY OUT of the stack: the five combobox pickers (`entity-link-picker`,
-  `resource-picker`, `combo-input`, `labels-input`, `stakeholder-recipient-input`),
+  ★ DELIBERATELY OUT of the stack: the combobox pickers (`entity-link-picker`,
+  `resource-picker`, `combo-input`, `labels-input`),
   `global-search-box`, and `chat-panel`'s abort. Focus location is a stronger signal
   than open order for a widget that only exists while its own field has focus, and
   React's boot-registered delegation runs an element-scoped handler before any effect
-  listener. ★ Only the five pickers participate via `preventDefault` — they are the
+  listener. ★ Only the pickers participate via `preventDefault` — they are the
   ones that CLOSE something. `global-search-box`'s Escape is element-scoped and merely
   clears + blurs its own field (it marks nothing), and `chat-panel`'s abort is a
   `document` listener that self-gates on an open `[aria-modal]` and on focus being
