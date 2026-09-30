@@ -271,16 +271,20 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 - **§645, a handle per window.** `LocalFileBackend` keeps the handle it was bound with
   (`boundHandle`: taken from the shared slot `file-handle:<kind>` the first time it needs one,
   replaced only by its own `setHandle` or a pick) and writes to it; the slot only tells a newly
-  created instance which file to open. So another tab's project switch cannot redirect this window's save.
+  created instance which file to open, and with which tab-sync binding (below). So another tab's
+  project switch cannot redirect this window's save.
   `adoptFrom` carries the bound handle across the hand-over.
 - **Sync scope per storage.** A main window mirrors only windows whose `syncScopeKey`
   (`sync-scope.ts`) equals its own. A local file is keyed by the file the WINDOW is bound to
-  (`fileBinding`, final review C1): the registry project id a project op bound it for, set beside
-  its hand-over, or the registry's current project when a load opened the shared slot; a picked or
-  opened file gets a binding unique to that bind; with no registered project it falls back to the
-  kind alone. So local-file windows on different files neither mirror nor adopt each other, and two
-  on the same registered file still do. Residual: a load racing another tab's switch (slot
-  re-pointed, registry not yet committed) can capture the other project's id. Browser storage is
+  (`fileBinding`, final review C1). The binding is stored WITH the handle: the shared slot
+  `file-handle:<kind>` holds `{ handle, binding }`, and every binder names one, through
+  `setBackendFileHandle` or `pickFileForBackend`: a project op (switch, create, open-project) its
+  registry id, and a pick, an open or a conversion a fresh `picked:<uuid>`. The op also sets the
+  window's own binding in the same tick. A load takes the binding of the slot record it opened
+  (`LocalFileBackend.fileBinding`), never the registry's current project. A slot written before
+  this holds the bare handle, and falls back to the kind alone. So local-file windows on different
+  files neither mirror nor adopt each other, and windows on one file do, including a window opened
+  or reloaded after a pick. Browser storage is
   still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
   alone: browser windows showing different registry projects mirror each other's slices, adopt
   each other's revisions and converge on one workspace. The revision check pauses only a writer
