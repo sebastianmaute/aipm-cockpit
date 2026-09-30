@@ -700,7 +700,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       try {
         const workspace = await backend.load();
         if (cancelled) return;
-        captureFileBinding(); // §645 C1 — the binding stored WITH the handle this load opened, never the registry's current project; before the empty-load refusal below too (RI2)
         // ★ DATA-LOSS GUARD (mirrors reloadCurrentProject): never replace a
         // POPULATED in-memory workspace with an EMPTY load. A load returning
         // empty over non-empty state is a transient/edge read (Layer 1 already
@@ -715,12 +714,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: true });
           setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
+          setFileBinding(null); // §645 m-a — the screen keeps the PREVIOUS content, which belongs to neither file: isolate (an unknown binding syncs with nobody)
           setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
           truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
         }
+        captureFileBinding(); // §645 C1 — the binding stored WITH the handle this load opened, never the registry's current project
         // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
         // after a rebuild onto another target, scope holds the previous project, so REPLACE.
         unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — what the backend RETURNED, keyed by the target this render loaded

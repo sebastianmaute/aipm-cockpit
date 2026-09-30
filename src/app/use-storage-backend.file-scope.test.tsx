@@ -368,3 +368,28 @@ describe("useStorageBackend — a window that recovers from a failed load binds 
     expect(w1.taskNames()).toEqual(["X-TASK", "AFTER-GRANT"]);
   });
 });
+// Re-review 3 m-a — a load that comes back EMPTY over a populated screen is refused: the window keeps the
+// PREVIOUS content (gate shut). Its binding must not become the refused file's, or its edits to that
+// previous content would mirror into windows on the refused file and be saved there.
+describe("useStorageBackend — a refused empty load isolates the window (§645)", () => {
+  it("the kept previous content neither mirrors into a window on the refused file nor reaches that file", async () => {
+    const { w1 } = await openTwoOnA();
+    const fileE = fakeFile("e.json", workspaceToJson(emptyWorkspace()));
+    KV.set(SLOT, slot(fileE, "e"));
+    const w2 = openWindow(); // on the empty file
+    await waitFor(() => expect(w2.ops().loadPending).toBe(false));
+    await settle();
+    await act(async () => { w1.hook.result.current.setStorageConfig({ kind: "local-json" }); }); // a rebuild: the new instance opens e.json
+    await waitFor(() => expect(w1.ops().loadPause).toBe("empty-refused"));
+    await settle();
+    expect(w1.taskNames()).toEqual(["A-TASK"]); // the previous content is kept
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(9, "KEPT-EDIT")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual([]); // not mirrored
+    await act(async () => { w2.hook.result.current.workspace.setRaid([raidItem("r1", "E-EDIT")]); });
+    await waitFor(() => expect(fileE.text()).toContain("E-EDIT"), { timeout: 4000 });
+    await settle();
+    expect(fileE.text()).not.toContain("A-TASK");
+    expect(fileE.text()).not.toContain("KEPT-EDIT");
+  });
+});
