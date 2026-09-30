@@ -279,6 +279,25 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
   });
 
+  // B mirrors A's tasks, then edits and saves tasks itself: its write replaced the peer's value, so that
+  // mirror is dead. A's next edit, of another part, is still A's alone to save (review I1 on 9c639dc21).
+  it("a window whose write replaced a mirrored part does not save the peer's next edit of another part", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
+    await run(500 + LATENCY_MS + 100);
+    expect(b.backend.save).not.toHaveBeenCalled();
+    await act(async () => { b.hook.result.current.setTasks([task(1, "B1")]); });
+    await run(500 + LATENCY_MS + 100);
+    expect(b.backend.save).toHaveBeenCalledTimes(1);
+    await act(async () => { a.hook.result.current.setRaid([raidItem("r1", "from A")]); });
+    await run(500 + LATENCY_MS + 500);
+    expect(b.backend.save).toHaveBeenCalledTimes(1);
+    expect(a.conflicts() + b.conflicts()).toBe(0);
+    expect(store.rev).toBe(4);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["B1"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from A"]);
+  });
+
   // The e2e shape (two-tab-conflict.spec.ts, CPU throttled): A's insights reconcile writes a part only A
   // derived, and it reaches B while B's save of B's own edit is in flight. B's autosave re-runs on the
   // mirror with B's edit still unsaved, so a second save is due — which must not write: B's edit is in the

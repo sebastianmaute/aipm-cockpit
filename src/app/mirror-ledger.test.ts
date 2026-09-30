@@ -93,6 +93,21 @@ describe("createMirrorLedger", () => {
     expect(ledger.isMirroredOnly(written)).toBe(false); // nothing changed since the write
   });
 
+  // The peer value was applied BEFORE the snapshot and an own edit then replaced it: the write superseded
+  // it in storage, so the entry is dead and must not make later mirrors of other parts count as own.
+  it("markWritten forgets a peer value its write replaced with an own edit", () => {
+    const { ledger, base } = loaded();
+    const peer = list("peer");
+    const own = list("own");
+    ledger.judge("tasks", base.tasks, peer);
+    const written = { ...base, tasks: own }; // the own edit that replaced the mirrored value
+    ledger.markWritten(written);
+    expect(ledger.peerValueCount("tasks")).toBe(0);
+    const peerRaid = [{ id: "peer" }] as unknown as Workspace["raid"];
+    ledger.judge("raid", base.raid, peerRaid);
+    expect(ledger.isMirroredOnly({ ...written, raid: peerRaid })).toBe(true);
+  });
+
   it("markWritten keeps a contested part contested when its write did not hold the peer value", () => {
     const { ledger, base } = loaded();
     const own = list("own");
