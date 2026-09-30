@@ -272,8 +272,10 @@ describe("useStorageBackend — a switched or created project saves under the re
     showSaveFilePicker.mockResolvedValue(locked);
     const app = renderApp({ kind: "local-json" });
     await booted(app);
+    const slotBefore = KV.get("file-handle:local-json"); // §645 RI3 — the boot upgraded the bare slot to a record for `current`
+    expect(slotBefore).toEqual({ handle: current, binding: expect.stringMatching(/^picked:/) });
     await act(async () => { await app.ops().onPickStorageFile(); });
-    expect(KV.get("file-handle:local-json")).toBe(current); // not bound
+    expect(KV.get("file-handle:local-json")).toBe(slotBefore); // not bound
     expect(locked.writes).toBe(0);
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageLoadFailed", String(new DOMException("The file is locked by another program.", "NotReadableError"))));
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining(t("en-US", "storageSaveFailed", "")));
