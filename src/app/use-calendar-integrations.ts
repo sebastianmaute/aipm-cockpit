@@ -22,7 +22,7 @@ import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { useCalendarAutoPull } from "./use-calendar-auto-pull";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
-import { calendarSyncFor } from "./calendar-sync-config";
+import { calendarSyncFor, withCalendarEnabled } from "./calendar-sync-config";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
@@ -227,13 +227,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   });
   useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid, staggerMs: AUTO_SYNC_STAGGER_STEP_MS });
   const onToggleCalendarRaid = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        raid: { enabled, auto: enabled ? (s.outlookCalendar?.raid?.auto ?? false) : false },
-      },
-    })),
+    (enabled: boolean) => setSettings((s) => withCalendarEnabled(s, "raid", enabled)),
     [setSettings],
   );
   // Manual "Pull from Outlook" for RAID (two-way SP3) — mirrors milestone pull.
@@ -277,13 +271,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   });
   useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 2 });
   const onToggleCalendarChange = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        change: { enabled, auto: enabled ? (s.outlookCalendar?.change?.auto ?? false) : false },
-      },
-    })),
+    (enabled: boolean) => setSettings((s) => withCalendarEnabled(s, "change", enabled)),
     [setSettings],
   );
   // Manual "Pull from Outlook" for Change (two-way SP3) — mirrors RAID pull.
@@ -331,13 +319,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   });
   useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 3 });
   const onToggleCalendarAbsence = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        absence: { enabled, auto: enabled ? (s.outlookCalendar?.absence?.auto ?? false) : false },
-      },
-    })),
+    (enabled: boolean) => setSettings((s) => withCalendarEnabled(s, "absence", enabled)),
     [setSettings],
   );
   // Manual "Pull from Outlook" for Absence (two-way SP4) — the only multi-day entity (start+end range).

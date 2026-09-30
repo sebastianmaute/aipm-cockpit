@@ -288,12 +288,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
 | [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--closed-2026-09-01) | ~~`ToggleButton`'s pressed state is near-invisible in all three DARK schemes~~ | 0.212.0 (Nayler) | S–M | **CLOSED** 2026-09-01 (state borders DERIVED at a 3:1 floor, so an imported theme is covered too) |
-| [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--open) | The four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open |
+| [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--closed-2026-09-30) | The four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | **CLOSED** 2026-09-30 |
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
-| [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
+| [§62](#62-two-reference-data-handlers-have-no-production-consumer--closed-2026-09-30) | Two reference-data handlers have no production consumer | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-09-30 |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
 | [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--closed-2026-09-25) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | closed |
@@ -576,7 +576,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
-| [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
+| [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
@@ -4562,11 +4562,9 @@ zero times and report green.
 
 ---
 
-## 57. The four toolbar Outlook enable-toggles carry an untested `auto` guard — open
+## 57. The four toolbar Outlook enable-toggles carry an untested `auto` guard — CLOSED 2026-09-30
 
-**Status:** open — four toggle guards no fixture exercises. Reproduced 2026-08-28 by `grep -rn "auto: enabled" src/app --include=*.tsx`.
-
-**Work item:** #112
+**Status:** CLOSED 2026-09-30. The four hand-copied writers are now one pure helper, `withCalendarEnabled` (`calendar-sync-config.ts`), called from `tasks-section.tsx` and the three toggles in `use-calendar-integrations.ts`. `calendar-sync-config.test.ts` drives it with a stored `auto: true` for every entity type: switching off must clear it, and switching on must keep it. Deleting the `enabled ? … : false` guard turns four tests red. The history below is kept as written.
 
 `tasks-section.tsx` and the raid/change/absence writers in `use-calendar-integrations.ts` each read
 the RAW stored `auto` when switching a row on (`auto: enabled ? (s.outlookCalendar?.X?.auto ?? false)
@@ -4851,11 +4849,9 @@ grep -c use-resource-planner docs/baselines/file-sizes.json
 
 ---
 
-## 62. Two reference-data handlers have no production consumer — open, pre-existing
+## 62. Two reference-data handlers have no production consumer — CLOSED 2026-09-30
 
-**Status:** open — two reference-data handlers with no production consumer, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
-
-**Work item:** #116
+**Status:** CLOSED 2026-09-30 — both handlers deleted from `use-reference-data.ts`, with their two tests in `use-resource-planner.test.tsx`. Re-verified first: the grep below returned only the definitions, the return keys, comments and those tests. `handleAssignRoleById` (the Directory picker's handler) already assigns a role by id and clears it with `null`, so nothing is lost. The history below is kept as written.
 
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
 are reachable only from `use-resource-planner.test.tsx`. Nothing
@@ -28792,15 +28788,11 @@ one path first; convert the site that has one.
 
 ---
 
-## 345. `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it
+## 345. `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it — CLOSED 2026-09-30
 
-**Status:** OPEN, **never machine-verified** — no probe was run and no guard exists; this records a
-structural hazard, not an observed failure. Filed 2026-09-02 in the
+**Status:** CLOSED 2026-09-30 — the remedy below was taken. `document-block-selection.test.ts` now scans the comment-stripped source and fails on any import that is not `import type`, on a value re-export and on a dynamic `import(`, with an anti-vacuity check that the scan found today's import. Changing the one import to `import { type AddableBlockType }` turns it red. The module header was updated to say so. Filed 2026-09-02 in the
 [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02)
-closure round, from the cold review of that fix. Reproduce the surface with
-`grep -n "^import" src/app/document-block-selection.ts`.
-
-**Work item:** #249
+closure round.
 
 **What happens.** The module header states "NO React, NO DOM, NO i18n — index arithmetic and nothing
 else, so it is unit-testable without a jsdom environment". §199 gave the module its **first-ever
