@@ -136,12 +136,15 @@ function conflictBanner(page: Page): Locator {
   return page.getByRole("alert", { name: "Saving paused", exact: true }).filter({ hasText: CONFLICT_HEADLINE });
 }
 
-const PAUSED_ACTION = "Saving paused - show how to resolve it";
-
-/** The sidebar footer's paused indicator (sidebar-footer.tsx). The pause's toast
- *  carries an action of the same name, so the indicator is found by its aria-label. */
+/** The sidebar footer's paused indicator (sidebar-footer.tsx). A role query, so a second control of
+ *  the same name (the pause toast's action once carried it) is a strict-mode failure. */
 function sidebarPaused(page: Page): Locator {
-  return page.locator(`button[aria-label="${PAUSED_ACTION}"]`);
+  return page.getByRole("button", { name: "Saving paused - show how to resolve it", exact: true });
+}
+
+/** The pause toast's action: i18n.ts `storageSavingPausedToastAction` (EN). */
+function toastAction(page: Page): Locator {
+  return page.getByRole("button", { name: "Show how to resolve it", exact: true });
 }
 
 /** No banner and no sidebar indicator. (Not the toast: it times out on its own
@@ -158,6 +161,7 @@ async function raiseConflict(a: Page, marker: string): Promise<number> {
   await editFirstTaskName(a, marker);
   await expect(conflictBanner(a)).toBeVisible();
   await expect(sidebarPaused(a)).toBeVisible();
+  await expect(toastAction(a), "the pause toast names its action on its own").toBeVisible();
   expect(await storedTasksContain(a, marker), "a refused save writes nothing").toBe(false);
   expect(await storedRevision(a), "a refused save stamps nothing").toBe(bumped);
   return bumped;

@@ -3193,6 +3193,8 @@ const enUS = {
   documentsTruncatedConfirmSaveAnyway: "Discard the unopened data",
   storageSavingPaused: "Saving paused",
   storageSavingPausedAction: "Saving paused - show how to resolve it",
+  // §4 — the pause toast's action. Its own name: the sidebar indicator above is on screen with the toast.
+  storageSavingPausedToastAction: "Show how to resolve it",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

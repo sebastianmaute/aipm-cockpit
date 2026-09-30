@@ -805,7 +805,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
         // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
         emitToastAction("error", t(langRef.current, loadPause === "conflict" ? "storageSavePausedConflict" : loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
-          labelKey: "storageSavingPausedAction",
+          labelKey: "storageSavingPausedToastAction",
           run: () => args.onRevealSavingPaused(),
         });
       }
@@ -912,7 +912,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // an irreversible button.
       if (!refusalWasStanding) {
         emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
-          labelKey: "storageSavingPausedAction",
+          labelKey: "storageSavingPausedToastAction",
           run: () => args.onRevealSavingPaused(),
         });
       }

@@ -215,7 +215,7 @@ const onRevealSavingPaused = vi.fn();
 const refusalToastArgs = () => [
   "info",
   t("en-US", "storageRefusedWipe"),
-  expect.objectContaining({ labelKey: "storageSavingPausedAction" }),
+  expect.objectContaining({ labelKey: "storageSavingPausedToastAction" }),
 ] as const;
 
 const setStorageConfigGlobal = vi.fn();
@@ -3438,7 +3438,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
     expect(kind).toBe("info");
     expect(text).toBe(t("en-US", "storageRefusedWipe"));
-    expect(action.labelKey).toBe("storageSavingPausedAction");
+    expect(action.labelKey).toBe("storageSavingPausedToastAction");
     // ...and it REVEALS the banner rather than performing the deletion. Running
     // it must not arm anything: the refusal has to still stand afterwards.
     // ★★★ THE POSITIVE HALF IS THE ONE THAT PINS THE ACTION, and it did not

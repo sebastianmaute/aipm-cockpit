@@ -345,7 +345,7 @@ describe("§586 — no save before a load for the current backend has succeeded"
     const paused = pausedToasts("storageSavePausedLoadFailed");
     expect(paused).toHaveLength(1);
     expect(paused[0][0]).toBe("error");
-    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedAction" });
+    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedToastAction" });
     // ★ review I1: the toast is gone after 7 s; the pause must stay PUBLISHED for the sticky banner.
     await advance(8000);
     expect(result.current.loadPause).toBe("load-failed");
@@ -469,7 +469,7 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(pausedToasts("storageSavePausedLoadFailed")).toHaveLength(0);
     const paused = pausedToasts("storageSavePausedEmptyLoad");
     expect(paused).toHaveLength(1);
-    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedAction" });
+    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedToastAction" });
     await advance(8000); // the toast has timed out; the pause is still published
     expect(result.current.loadPause).toBe("empty-refused");
     expect(b.save).not.toHaveBeenCalled();
