@@ -76,6 +76,21 @@ async function storedRevision(page: Page): Promise<number> {
   );
 }
 
+/** The stored revision once no window has saved for `quietMs`. ★ Opening the seed is NOT quiet: its
+ *  insights are stale against the frozen clock, so the first window's insights reconcile saves once by
+ *  itself, 4 s after that window's load (`INSIGHTS_RECONCILE_DEBOUNCE_MS`, task-manager.tsx). Read before
+ *  it lands, that revision is counted against the next edit. */
+async function settledRevision(page: Page, quietMs = 2_000): Promise<number> {
+  await expect.poll(() => storedRevision(page), { message: "the seed's insights reconcile saves once", timeout: 30_000 }).toBeGreaterThan(0);
+  let last = await storedRevision(page);
+  for (let since = Date.now(); Date.now() - since < quietMs; ) {
+    await new Promise((resolve) => setTimeout(resolve, 250)); // driver-side: the page's timers are faked
+    const now = await storedRevision(page);
+    if (now !== last) { last = now; since = Date.now(); }
+  }
+  return last;
+}
+
 /** A foreign writer: raise the stored revision by one under the app's own save
  *  lock. Returns the new value. */
 async function bumpStoredRevision(page: Page): Promise<number> {
@@ -193,7 +208,7 @@ test.describe("§4 two tabs on browser storage (IndexedDB, Chromium)", () => {
   test("an edit in B is saved, mirrored to A, and pauses neither", async ({ page, context }) => {
     const { a, b } = await openTwo(page, context);
     const marker = "zqtwotabmirror";
-    const before = await storedRevision(b);
+    const before = await settledRevision(b);
     await editFirstTaskName(b, marker);
     await expect.poll(() => storedTasksContain(b, marker), { message: "B's edit must be saved" }).toBe(true);
     await expect(a.getByText(marker).first(), "B's edit must reach A").toBeVisible();
