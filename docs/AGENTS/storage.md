@@ -290,7 +290,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   each other's revisions and converge on one workspace. The revision check pauses only a writer
   that is not mirroring: its epoch differs, it is already paused, or its own save is queued or running.
 - **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
-  `use-storage-backend.ts`). After an autosave lands, `postRevision` sends the new revision and the
+  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave lands, `postRevision` sends the new revision and the
   one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
   (`useRevisionSync`) adopts it only while nothing is queued for its backend (`whenSaved` is
   `null`) AND its own revision equals the sender's base; otherwise its next save meets the check.

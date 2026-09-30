@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { postRevision, useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
+import { postRevision } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -15,7 +15,6 @@ import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
-import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
@@ -32,6 +31,7 @@ import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
 import { useConflictResolution } from "./use-conflict-resolution";
+import { useWorkspaceSync } from "./use-workspace-sync";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
 import { handOverRevision } from "./storage-handover";
@@ -1131,59 +1131,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
-  // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
-  // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
-  // never the registry's current project, which every tab shares through localStorage. Windows on
-  // different storage never apply, and then autosave, each other's slices. ★ Browser storage is ONE
-  // store for every tab, so its windows exchange slices whatever registry project each shows; a local
-  // file is keyed by the file this window is bound to (`fileBinding`, §645). A pop-out follows its opener.
-  const syncScope = useMemo(
-    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding }),
-    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId, fileBinding],
-  );
-  const syncContext = useMemo<SyncContext>(
-    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
-    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
-  );
-  const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
-    // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
-    if (backend.revision?.() !== baseRevision) return; // also false for a null/absent revision: `baseRevision` is always a string
-    // Idle only: a running/queued save was built without the peer's slices and must meet the newer revision and pause. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
-    if (whenSaved(backend) !== null) return;
-    backend.adoptRevision?.(revision);
-  }, [backend]);
-  useRevisionSync(syncContext, adoptPeerRevision);
-  useBroadcastSync("tasks", tasks, mirrorApply.tasks, syncContext);
-  useBroadcastSync("raid", raid, mirrorApply.raid, syncContext);
-  useBroadcastSync("absences", absences, mirrorApply.absences, syncContext);
-  useBroadcastSync("shifts", shifts, mirrorApply.shifts, syncContext);
-  useBroadcastSync("resources", resources, mirrorApply.resources, syncContext);
-  useBroadcastSync("roles", roles, mirrorApply.roles, syncContext);
-  useBroadcastSync("disciplines", disciplines, mirrorApply.disciplines, syncContext);
-  useBroadcastSync("grades", grades, mirrorApply.grades, syncContext);
-  useBroadcastSync("budgets", budgets, mirrorApply.budgets, syncContext);
-  useBroadcastSync("milestones", milestones, mirrorApply.milestones, syncContext);
-  useBroadcastSync("changes", changes, mirrorApply.changes, syncContext);
-  useBroadcastSync("stakeholders", stakeholders, mirrorApply.stakeholders, syncContext);
-  useBroadcastSync("documents", documents, mirrorApply.documents, syncContext); useBroadcastSync("documentVersions", documentVersions, mirrorApply.documentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, mirrorApply.activityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, mirrorApply.budgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
-  // §4 — the remaining workspace parts: the autosave writes the WHOLE workspace, so a window holding a stale copy of any of them would overwrite the other window's edit.
-  useBroadcastSync("plan", plan, mirrorApply.plan, syncContext);
-  useBroadcastSync("fxRates", fxRates, mirrorApply.fxRates, syncContext);
-  useBroadcastSync("status", status, mirrorApply.status, syncContext);
-  useBroadcastSync("fieldVisibility", fieldVisibility, mirrorApply.fieldVisibility, syncContext);
-  useBroadcastSync("features", features, mirrorApply.features, syncContext);
-  useBroadcastSync("steeringCommittee", steeringCommittee, mirrorApply.steeringCommittee, syncContext);
-  useBroadcastSync("timelogLinks", timelogLinks, mirrorApply.timelogLinks, syncContext);
-  useBroadcastSync("knowledgeItems", knowledgeItems, mirrorApply.knowledgeItems, syncContext);
-  useBroadcastSync("insights", insights, mirrorApply.insights, syncContext);
-  useBroadcastSync("settingsOverrides", settingsOverrides, mirrorApply.settingsOverrides, syncContext);
-  useBroadcastSync("calendarEvents", calendarEvents, mirrorApply.calendarEvents, syncContext);
-  useBroadcastSync("documentAssets", documentAssets, mirrorApply.documentAssets, syncContext);
-  // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
-  // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, mirrorApply.project, syncContext);
+  // §4 §642 §643 §645 — tab sync: the scope, the revision adoption and one `useBroadcastSync` per slice (`use-workspace-sync.ts`).
+  const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply,
+    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory } });
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
