@@ -135,7 +135,7 @@ describe("use-storage-backend autosave wiring — timelogLinks", () => {
   });
 
   it("applyWorkspace restores timelogLinks on load", () => {
-    // §4 — the load wraps each slice in `mark(...)` so tab sync can tell a loaded value from an edit.
-    expect(SRC).toMatch(/setTimelogLinks\(mark\(workspace\.timelogLinks\)\)/);
+    // §4 — the load wraps each slice in `mark(kind, ...)` so tab sync can tell a loaded value from an edit (§658: the kind identifies a non-object one).
+    expect(SRC).toMatch(/setTimelogLinks\(mark\("timelogLinks", workspace\.timelogLinks\)\)/);
   });
 });
