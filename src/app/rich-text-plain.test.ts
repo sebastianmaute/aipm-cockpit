@@ -1273,6 +1273,19 @@ describe("named character references (open-followups §24)", () => {
     expect(htmlPlainProjection("<p>&amp;mdash;</p>")).toBe("&mdash;");
   });
 
+  // ★★ The decode is ONE pass, so nothing it produces is ever re-read. These
+  // are the shapes a chained decode gets wrong if its order slips.
+  it("never decodes a reference twice", () => {
+    expect(htmlPlainProjection("<p>&amp;lt;b&amp;gt;</p>")).toBe("&lt;b&gt;");
+    expect(htmlPlainProjection("<p>&amp;amp; &amp;#8212; &amp;mdash;</p>")).toBe("&amp; &#8212; &mdash;");
+    // &#38; is refused (it is `&`), so the text after it stays literal too.
+    expect(htmlPlainProjection("<p>&#38;lt;</p>")).toBe("&#38;lt;");
+  });
+
+  it("keeps the basics case-insensitive and &nbsp; a plain space", () => {
+    expect(htmlPlainProjection("<p>&LT;a&GT; &Amp; x&NBSP;y &#160;z</p>")).toBe("<a> & x y z");
+  });
+
   it("leaves unknown and wrong-case names literal", () => {
     expect(htmlPlainProjection("<p>&MDASH; &notareal; &mdash</p>")).toBe("&MDASH; &notareal; &mdash");
     expect(htmlPlainProjection("<p>&Auml;&auml;</p>")).toBe("Ää");
