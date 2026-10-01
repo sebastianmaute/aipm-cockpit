@@ -296,9 +296,15 @@ function variedArb(str: fc.Arbitrary<string>): fc.Arbitrary<VariedFields> {
     taskName: str,
     assignee: str,
     // Email-rule batch Task 5: the load normaliser unwraps `Name <addr>`, which
-    // `fc.string` can (rarely) produce — drop `<`/`>` here so this property
+    // `fc.string` can (rarely) produce — replace `<`/`>` here so this property
     // stays about CODEC fidelity; the normaliser has its own tests.
-    assigneeEmail: str.map((s) => s.replace(/[<>]/g, "")),
+    // ★★ REPLACED, NEVER DELETED. Deleting ran AFTER `mdSafeString`'s edge-
+    // whitespace filter, so "! <" passed it and became "! ", whose trailing
+    // space the Markdown codec trims by design — a red property with nothing
+    // wrong in the codec (measured: 16 exposed values per 200,000; it failed
+    // unit-shuffled on one PR). A letter in their place cannot move whitespace
+    // to an edge, so the filter's guarantee survives the map.
+    assigneeEmail: str.map((s) => s.replace(/[<>]/g, "x")),
     blockers: str,
     description: str,
   });
