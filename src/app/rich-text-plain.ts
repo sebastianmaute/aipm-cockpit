@@ -117,8 +117,10 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^<
  *  deleted for shapes where the tail after the `>` was itself tag-like. See
  *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
 const TAG = /<\/?[a-zA-Z][^<>]*>/g;
-/** A non-breaking space in every spelling the editor or a paste can produce. */
-const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
+/** How many times `htmlPlainProjection` re-runs the tag strip. Real markup
+ *  needs ONE pass; each further pass only exists for a tag that removing
+ *  another one rebuilt, and 8 levels of that is already adversarial. */
+const MAX_STRIP_PASSES = 8;
 /** Runs of whitespace — including the ones the boundary spaces above introduce
  *  — collapse to one, so a boundary costs exactly the single space it means. */
 const WS_RUN = /\s+/g;
@@ -135,53 +137,44 @@ const WS_RUN_HORIZONTAL = /[^\S\n]+/g;
 
 /** Code points a numeric reference must NOT decode to.
  *
- *  ★★ `&#38;` IS `&`. Decoding it before the named pass turns `&#38;lt;` into
- *  `&lt;`, which the named pass then decodes to `<` — the exact double-decode
- *  that "&amp; decodes LAST" exists to prevent. `&#60;`/`&#62;` would put a tag
- *  delimiter back into a string the TAG pass has already finished with. All
- *  three stay literal text: over-counted, which is the pre-existing behaviour,
- *  but never corrupting. */
+ *  ★★ `&#38;` IS `&`, and `&#60;`/`&#62;` are tag delimiters. They were refused
+ *  when the decode was a CHAIN of passes, where an early `&` could be
+ *  re-read by a later pass (`&#38;lt;` → `&lt;` → `<`). `decodeEntities` is now
+ *  one pass and cannot re-read, but the refusal stays: dropping it would change
+ *  the projection's output, which feeds the stored value on the overflow path.
+ *  All three stay literal text: over-counted, never corrupting. */
 const UNSAFE_CODE_POINTS = new Set([0x26, 0x3c, 0x3e]);
-/** `&#8212;` / `&#x2014;`, either case. */
-const NUMERIC_ENTITY = /&#(x[0-9a-f]+|\d+);/gi;
 
-/** Decode numeric character references to the characters they denote.
- *
- *  Runs AFTER the tag work (so a decoded character can never be read as markup)
- *  and BEFORE the &nbsp;/whitespace passes (so a decoded space collapses like
- *  any other). Anything it declines is returned verbatim — this must never
- *  throw, because it runs inside the entity sanitizers on every load.
- *
- *  ★ NAMED references beyond the small set below are deliberately still
- *  untouched: `&mdash;` continues to count 7. The numeric forms are what an
- *  Office paste actually produces; the named tail is open-followups.md §24's
- *  remainder. */
-function decodeNumericEntities(s: string): string {
-  return s.replace(NUMERIC_ENTITY, (whole, body: string) => {
-    const hex = body[0] === "x" || body[0] === "X";
-    const cp = hex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
-    if (!Number.isInteger(cp) || cp <= 0 || cp > 0x10ffff) return whole;
-    if (UNSAFE_CODE_POINTS.has(cp)) return whole;
-    // ★★ A control character CONTROL_CHARS would have deleted must not be
-    // reintroduced HERE, downstream of the strip. sanitizeRichText strips
-    // controls from the RAW string and only then projects, so "&#7;" survives
-    // that pass, decodes to a BEL inside the projection, and on the OVERFLOW
-    // path plainToHtml (which escapes only & < >) writes it back into the
-    // stored value on all six backends. \t \n \r \x0b \x0c are deliberately
-    // absent for the same reason they are absent from CONTROL_CHARS.
-    // ★ This range MIRRORS CONTROL_CHARS exactly — it is not "every control
-    // character". DEL (0x7f) is outside both, so `&#127;` decodes, exactly as a
-    // pasted DEL survives the raw strip. Keep the two in lockstep: widening one
-    // without the other makes a reference and a literal behave differently.
-    if (cp <= 0x08 || (cp >= 0x0e && cp <= 0x1f)) return whole;
-    // ★ Lone surrogates are refused because emitting one reproduces exactly the
-    // backend-dependent corruption capHtmlText's own comment documents below: a
-    // lone surrogate becomes U+FFFD on CSV/MD but survives on JSON/IDB. (It is
-    // NOT that fromCodePoint throws on them — it does not; only the range and
-    // integer arms above are throw-guards.)
-    if (cp >= 0xd800 && cp <= 0xdfff) return whole;
-    return String.fromCodePoint(cp);
-  });
+/** Decode ONE numeric character reference (`body` is `8212` or `x2014`, either
+ *  case) for `decodeEntities`. Runs AFTER the tag work (so a decoded character
+ *  can never be read as markup) and BEFORE the whitespace passes (so a decoded
+ *  space collapses like any other). Anything it declines is returned verbatim
+ *  as `whole` — this must never throw, because it runs inside the entity
+ *  sanitizers on every load. */
+function decodeNumericReference(whole: string, body: string): string {
+  const hex = body[0] === "x" || body[0] === "X";
+  const cp = hex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
+  if (!Number.isInteger(cp) || cp <= 0 || cp > 0x10ffff) return whole;
+  if (UNSAFE_CODE_POINTS.has(cp)) return whole;
+  // ★★ A control character CONTROL_CHARS would have deleted must not be
+  // reintroduced HERE, downstream of the strip. sanitizeRichText strips
+  // controls from the RAW string and only then projects, so "&#7;" survives
+  // that pass, decodes to a BEL inside the projection, and on the OVERFLOW
+  // path plainToHtml (which escapes only & < >) writes it back into the
+  // stored value on all six backends. \t \n \r \x0b \x0c are deliberately
+  // absent for the same reason they are absent from CONTROL_CHARS.
+  // ★ This range MIRRORS CONTROL_CHARS exactly — it is not "every control
+  // character". DEL (0x7f) is outside both, so `&#127;` decodes, exactly as a
+  // pasted DEL survives the raw strip. Keep the two in lockstep: widening one
+  // without the other makes a reference and a literal behave differently.
+  if (cp <= 0x08 || (cp >= 0x0e && cp <= 0x1f)) return whole;
+  // ★ Lone surrogates are refused because emitting one reproduces exactly the
+  // backend-dependent corruption capHtmlText's own comment documents below: a
+  // lone surrogate becomes U+FFFD on CSV/MD but survives on JSON/IDB. (It is
+  // NOT that fromCodePoint throws on them — it does not; only the range and
+  // integer arms above are throw-guards.)
+  if (cp >= 0xd800 && cp <= 0xdfff) return whole;
+  return String.fromCodePoint(cp);
 }
 
 /** Turn every block boundary into a space, leaving all other markup alone.
@@ -266,6 +259,69 @@ export function descriptionHtml(stored: string | undefined, sink: RichTextSink):
   return isHtmlStart(s, sink) ? s : plainToHtml(s);
 }
 
+/** Named character references decoded in the projection (open-followups.md §24),
+ *  beyond the five `htmlPlainProjection` handles itself (`&lt; &gt; &quot;
+ *  &apos; &amp;`, plus `&nbsp;`). The typographic set a paste from Word,
+ *  Outlook or the web carries, and the Latin-1 letters German and French text
+ *  uses.
+ *
+ *  ★★ It refuses the same three classes `decodeNumericReference` does, BY
+ *  CONSTRUCTION: no value here is `& < >`, a control character or a surrogate.
+ *  Keep this table to visible, non-markup characters.
+ *  ★ Case-SENSITIVE on purpose: HTML's named references are (`&Auml;` and
+ *  `&auml;` are different letters, and `&MDASH;` is not a reference at all).
+ *  ★ `&amp;mdash;` yields the literal text `&mdash;`: `decodeEntities` is one
+ *  pass, so the `&` it produces is never re-read. */
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", bull: "\u2022", middot: "\u00b7",
+  lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201a", ldquo: "\u201c", rdquo: "\u201d", bdquo: "\u201e",
+  laquo: "\u00ab", raquo: "\u00bb", lsaquo: "\u2039", rsaquo: "\u203a",
+  copy: "\u00a9", reg: "\u00ae", trade: "\u2122", deg: "\u00b0", plusmn: "\u00b1",
+  times: "\u00d7", divide: "\u00f7", minus: "\u2212", micro: "\u00b5", para: "\u00b6", sect: "\u00a7",
+  frac12: "\u00bd", frac14: "\u00bc", frac34: "\u00be", sup2: "\u00b2", sup3: "\u00b3",
+  euro: "\u20ac", pound: "\u00a3", yen: "\u00a5", cent: "\u00a2",
+  larr: "\u2190", rarr: "\u2192", uarr: "\u2191", darr: "\u2193", harr: "\u2194",
+  auml: "\u00e4", ouml: "\u00f6", uuml: "\u00fc", Auml: "\u00c4", Ouml: "\u00d6", Uuml: "\u00dc", szlig: "\u00df",
+  aacute: "\u00e1", eacute: "\u00e9", iacute: "\u00ed", oacute: "\u00f3", uacute: "\u00fa",
+  agrave: "\u00e0", egrave: "\u00e8", igrave: "\u00ec", ograve: "\u00f2", ugrave: "\u00f9",
+  acirc: "\u00e2", ecirc: "\u00ea", icirc: "\u00ee", ocirc: "\u00f4", ucirc: "\u00fb",
+  Eacute: "\u00c9", ccedil: "\u00e7", Ccedil: "\u00c7", ntilde: "\u00f1", Ntilde: "\u00d1",
+  euml: "\u00eb", iuml: "\u00ef", aring: "\u00e5", Aring: "\u00c5", oslash: "\u00f8", Oslash: "\u00d8",
+  aelig: "\u00e6", AElig: "\u00c6",
+};
+
+/** The five references every HTML producer emits, plus `&nbsp;`, matched
+ *  case-INSENSITIVELY as the projection always has (`&LT;` decodes). */
+const BASIC_ENTITIES: Readonly<Record<string, string>> = {
+  lt: "<", gt: ">", quot: '"', apos: "'", amp: "&", nbsp: " ",
+};
+
+/** Every character reference, numeric or named, in ONE alternation. */
+const ANY_ENTITY = /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi;
+
+/** Decode every character reference in ONE left-to-right pass.
+ *
+ *  ★★★ ONE PASS IS THE SAFETY PROPERTY, NOT AN OPTIMISATION. This used to be a
+ *  CHAIN of replaces — numeric, then named, then `&lt; &gt; &quot; &apos;`, then
+ *  `&amp;` last — and the chain was only correct because of its ORDER: decode
+ *  `&amp;` any earlier and `&amp;lt;` becomes `<`. A single `replace` never
+ *  rescans what it produced, so `&amp;lt;` yields the literal `&lt;` whatever
+ *  the table holds; the ordering rule is gone rather than maintained. (CodeQL's
+ *  double-unescaping rule flagged the chained form once the named table landed,
+ *  since it cannot see into the lookup.)
+ *  ★ Every decision is unchanged: numeric references keep their refusals
+ *  (`decodeNumericReference`), the basics stay case-insensitive and `&nbsp;`
+ *  still becomes a plain space, the wider `NAMED_ENTITIES` table stays
+ *  case-sensitive, and anything unknown is returned verbatim. It cannot throw. */
+function decodeEntities(s: string): string {
+  return s.replace(ANY_ENTITY, (whole, body: string) => {
+    if (body[0] === "#") return decodeNumericReference(whole, body.slice(1));
+    const basic = BASIC_ENTITIES[body.toLowerCase()];
+    if (basic !== undefined) return basic;
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, body) ? NAMED_ENTITIES[body] : whole;
+  });
+}
+
 /** Plain-text projection WITHOUT DOMPurify — the only projection legal in a
  *  sanitizer. `&amp;` decodes LAST, or "&amp;lt;" would double-decode to "<".
  *  For display/search/export use rich-text-projection.ts's descriptionText,
@@ -286,19 +342,26 @@ export function descriptionHtml(stored: string | undefined, sink: RichTextSink):
  *  byte-stability suite in the test file is the gate. */
 export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
   const breaks = opts?.preserveBreaks === true;
-  const tagless = decodeNumericEntities(
-    html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, ""),
-  ).replace(NBSP, " ");
+  // ★★ One strip pass can REBUILD a tag: removing "<script>" from
+  // "<scr<script>ipt>" leaves "<script>". So the strip repeats until nothing
+  // more is removed (CodeQL's incomplete multi-character sanitization rule),
+  // capped at MAX_STRIP_PASSES so crafted deep nesting stays linear rather than
+  // quadratic; any "<" still left after the cap is re-encoded as "&lt;", which
+  // the single entity pass turns back into a literal "<". The output is plain
+  // text by contract — every consumer counts it or re-escapes it via
+  // plainToHtml — so this closes the scanner finding, not a reachable injection.
+  let stripped = html.replace(BLOCK_TAG, breaks ? "\n" : " ");
+  for (let pass = 0; pass < MAX_STRIP_PASSES; pass += 1) {
+    const next = stripped.replace(TAG, "");
+    if (next === stripped) break;
+    stripped = next;
+  }
+  stripped = stripped.replace(/</g, "&lt;");
+  const tagless = decodeEntities(stripped);
   const spaced = breaks
     ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")
     : tagless.replace(WS_RUN, " ");
-  return spaced
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0*39;|&apos;/gi, "'")
-    .replace(/&amp;/gi, "&")
-    .trim();
+  return spaced.trim();
 }
 
 /** Length of the VISIBLE text — what the cap and the counter both measure, so

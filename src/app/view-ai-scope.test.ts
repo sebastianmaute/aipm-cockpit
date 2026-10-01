@@ -95,6 +95,21 @@ describe("VIEW_AI_SCOPE", () => {
   // line was retired the replacement said the log records changes made in the
   // app and by its integrations — "not your own tool calls". True until the
   // chat dispatcher started logging its own entity writes; false now.
+  // open-followups §89. The calendar grid shows meetings AND absences, and
+  // each list tool reads only one. The scope once said absences were "NOT
+  // tool-readable" — false once list_absences existed — so the model answered
+  // clash questions from meetings alone. Pin the positive content: both tools
+  // are hinted, and the reading tells the model to use both.
+  it("points the calendar view at BOTH list tools the grid needs", () => {
+    const reading = VIEW_AI_SCOPE.calendar.reading ?? "";
+    expect(reading).not.toMatch(/not tool-readable|not readable/i);
+    expect(reading).toContain("list_absences");
+    expect(reading).toContain("list_calendar_events");
+    expect(VIEW_AI_SCOPE.calendar.toolHints ?? []).toEqual(
+      expect.arrayContaining(["list_calendar_events", "list_absences"]),
+    );
+  });
+
   it("tells the model the activity log includes its OWN writes", () => {
     const reading = VIEW_AI_SCOPE.activity.reading;
     // ★ Assert the field EXISTS before the negation below — `reading` is
