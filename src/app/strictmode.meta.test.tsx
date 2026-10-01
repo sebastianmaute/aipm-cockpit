@@ -31,19 +31,22 @@
 //   until it meets a fiber FLAGGED FOR PLACEMENT, double-invokes there if
 //   StrictMode is at or above that fiber, and never recurses past it either
 //   way. (It also descends only while the ancestor's `subtreeFlags` still
-//   carries `67117056` — that is the dev-placement bit OR the Visibility bit
-//   `8192`, a WIDER mask than the single-bit `67108864` tested on the fiber
-//   itself, so the two are not the same test.)
+//   carries `134225920` — that is the dev-placement bit OR the Visibility bit
+//   `8192`, a WIDER mask than the single-bit `134217728` tested on the fiber
+//   itself, so the two are not the same test. Both values are React 19.3.0's;
+//   19.2.x used `67117056` and `67108864`.)
 //
-// Two things carry that flag (`placeChild` / `placeSingleChild`): a BRAND-NEW
-// fiber (`alternate === null`), and an existing KEYED child that MOVED — and
-// "moved" has a direction. The test is `alternate.index < lastPlacedIndex`,
-// where `lastPlacedIndex` is the highest previous index among siblings
-// already kept in place, scanning the new list left to right. So the flagged
-// child is one that now sits AFTER a sibling it used to sit before. ★★ A
-// child moved to an EARLIER slot is NOT flagged — the siblings it jumped over
-// are. Measured both ways; see the reorder tests. **"Placed" does not mean
-// "new"** — the sentence the third wording was built on.
+// ★★★ SINCE REACT 19.3.0 ONLY A BRAND-NEW FIBER CARRIES THAT FLAG.
+// `placeChild` / `placeSingleChild` set the dev-placement bit only when
+// `alternate === null`. An existing KEYED child that MOVED still gets the
+// ordinary Placement flag (`2`, so the DOM node moves), but not the dev bit,
+// so the walk neither stops at it nor double-invokes there. Up to 19.2.x a
+// moved keyed child carried the dev bit too, when it now sat AFTER a sibling
+// it used to precede (`alternate.index < lastPlacedIndex`), and this file
+// pinned that: a pure reorder of a keyed `<StrictMode>` double-invoked, and a
+// moved keyed wrapper hid a StrictMode below it. Both tests went red on the
+// 19.3.0 bump and now pin the new behaviour. Today "placed" for this walk
+// does mean "new", which is the opposite of what this header said before.
 //
 // COROLLARY 1 — the mount commit. On the commit that FIRST mounts a tree the
 // only placed fibers are the root's direct children, so StrictMode
@@ -57,13 +60,13 @@
 //
 // COROLLARY 2 — later commits. A nested StrictMode is not inert in general:
 // once the wrapper has an alternate it is no longer placed, the walk recurses
-// THROUGH it, and a child mounting in that commit IS double-invoked. Unless
-// that wrapper is itself a moved keyed child — then it carries the flag and
-// the walk stops before reaching StrictMode.
+// THROUGH it, and a child mounting in that commit IS double-invoked. That
+// holds even when the wrapper is a keyed child that moved in the same commit
+// (since 19.3.0; see above).
 //
-// COROLLARY 3 — nothing need mount at all. A `<StrictMode>` that is itself a
-// moved keyed child is placed, so a pure REORDER double-invokes its whole
-// subtree's effects.
+// COROLLARY 3 — a reorder alone does nothing. Nothing new is placed, so a
+// pure REORDER of a keyed `<StrictMode>` re-runs no effects, whichever way it
+// moves. (Up to 19.2.x it double-invoked the moved StrictMode's subtree.)
 //
 // ★ Fragments: the OUTERMOST keyless fragment is unwrapped during
 // reconciliation and never becomes a fiber, so it does not break the rule; a
@@ -78,8 +81,8 @@
 // the Visibility flag (`8192`) under StrictMode is double-invoked AT the
 // Offscreen and not recursed through. THREE arms, not two — the tag-22 branch
 // never consults the fiber's OWN placement flag; its recurse arm does gate on
-// `subtreeFlags & 67108864`, the narrow single-bit mask rather than the
-// `67117056` of the top-level descend guard. Read from source, NOT measured;
+// `subtreeFlags & 134217728`, the narrow single-bit mask rather than the
+// `134225920` of the top-level descend guard. Read from source, NOT measured;
 // nothing here renders StrictMode inside Suspense or `<Activity>`. A lead,
 // not a fact.
 //
@@ -221,6 +224,7 @@ function MovedWrapperNewChild({ order, show }: { order: readonly string[]; show:
       {order.map((k) =>
         k === "w" ? (
           <div key="w">
+            <b>w</b>
             <StrictMode>{show ? <LogProbe log={movedWrapperLog} /> : null}</StrictMode>
           </div>
         ) : (
@@ -387,27 +391,29 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(firstCommitLog).toEqual(["mount"]);
   });
 
-  // COROLLARY 3: no new child is needed at all. `<StrictMode>` is a keyed
-  // child here, moved from index 1 to index 2 — i.e. it now sits AFTER `c`,
-  // which it used to precede (`a` was ahead of it before and after, so `a` is
-  // NOT the sibling that makes this case) — so it is flagged despite having
-  // an alternate, the walk double-invokes AT it, and a pure reorder
-  // disconnects and reconnects its whole subtree's effects. This is the case
-  // that makes "placed means new" false.
-  it("double-invokes on a pure REORDER when StrictMode itself is a keyed child that moves", () => {
+  // COROLLARY 3. `<StrictMode>` is a keyed child here, moved from index 1 to
+  // index 2, so it now sits AFTER `c`, which it used to precede. Up to React
+  // 19.2.x that move set the dev-placement bit, the walk double-invoked AT it,
+  // and this test expected `["mount", "cleanup", "mount"]`. Since 19.3.0 a
+  // moved fiber gets plain Placement only, so the reorder re-runs nothing.
+  // Moving it to an EARLIER slot (the next test) gives the same answer, so
+  // direction no longer matters for this walk.
+  it("does NOT double-invoke on a pure REORDER when StrictMode itself is a keyed child that moves later", () => {
     const { container, rerender } = render(<MovedStrictList order={["a", "sm", "c"]} />);
     expect(container.textContent).toBe("axc");
     expect(movedStrictLog).toEqual(["mount"]);
     rerender(<MovedStrictList order={["c", "a", "sm"]} />);
     // The move is asserted, not assumed — see the note on LogProbe's `marker`.
     expect(container.textContent).toBe("cax");
-    expect(movedStrictLog).toEqual(["mount", "cleanup", "mount"]);
+    expect(movedStrictLog).toEqual(["mount"]);
   });
 
-  // ★★ DIRECTION MATTERS, and the obvious word for it is the wrong one. Same
-  // list, same key, moved the OTHER way — index 1 to index 0. `sm`'s old
-  // index is not below `lastPlacedIndex` (still 0 at its turn), so it is NOT
-  // flagged; `a`, which it jumped over, is. ONE draft of the header called
+  // ★ Up to React 19.2.x DIRECTION MATTERED here, and the obvious word for it
+  // was the wrong one. Same list, same key, moved the OTHER way — index 1 to
+  // index 0. `sm`'s old index is not below `lastPlacedIndex` (still 0 at its
+  // turn), so it was never flagged; `a`, which it jumped over, was. Since
+  // 19.3.0 neither direction double-invokes; the test stays because a move
+  // the other way is the cheapest way to see that change. ONE draft of the header called
   // the flagged case "moved BACKWARDS" — three occurrences, all added by
   // 8b727b20 — and that word names exactly this shape, the one that does
   // nothing. (Reproduce: `git show <sha>:src/app/strictmode.meta.test.tsx |
@@ -438,17 +444,21 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(movedPlainLog).toEqual(["mount"]);
   });
 
-  // The limit of COROLLARY 2, as a PAIR. "A later commit recurses through the
-  // wrapper" holds only while the wrapper is not itself placed. These two
-  // differ in exactly one respect — whether the keyed wrapper moved — and
-  // they give different answers, which is what makes either of them evidence.
-  // ★ Asserting only the first would pin NOTHING: "the walk stopped at the
-  //   placed wrapper" and "nothing was placed at all" both predict a single
-  //   invoke, so the control is not optional here.
-  it("does NOT double-invoke a new child when its keyed wrapper moved in the same commit", () => {
-    const { rerender } = render(<MovedWrapperNewChild order={["a", "w", "c"]} show={false} />);
+  // COROLLARY 2 with a moved wrapper, as a PAIR. The two differ in exactly
+  // one respect, whether the keyed wrapper moved. Up to React 19.2.x they gave
+  // different answers: the moved wrapper carried the dev-placement bit, the
+  // walk stopped there, and the new child single-invoked. Since 19.3.0 they
+  // give the SAME answer, which is the observable for "a move no longer
+  // stops the walk". ★ The first test asserts the move happened too; without
+  // that, "nothing moved" would predict the same double invoke.
+  it("DOES double-invoke a new child even when its keyed wrapper moved in the same commit", () => {
+    const { container, rerender } = render(
+      <MovedWrapperNewChild order={["a", "w", "c"]} show={false} />,
+    );
+    expect(container.textContent).toBe("awc");
     rerender(<MovedWrapperNewChild order={["c", "a", "w"]} show={true} />);
-    expect(movedWrapperLog).toEqual(["mount"]);
+    expect(container.textContent).toBe("caw");
+    expect(movedWrapperLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
   it("DOES double-invoke that same new child when the wrapper did not move", () => {

@@ -6780,6 +6780,8 @@ being written into the tracked register, rather than left resting on the two pri
 
 **Cited from:** `strictmode.meta.test.tsx` — this entry cannot be deleted.
 
+> **Superseded in part (2026-10-01), React 19.3.0:** a moved keyed child no longer carries the dev-placement flag, only a brand-new fiber does. So the "Two things carry that flag" paragraph, the limit in Corollary 2 and Corollary 3 below describe React 19.2.x, and the two moved-keyed rows of the table now read the other way: a pure reorder gives `["mount"]` and a moved wrapper gives `["mount","cleanup","mount"]`. Corollary 1, which governs every guard here, is unchanged. The meta-test is normative and states the 19.3.0 rule.
+
 **The OBSERVATION was real and is reproducible. The CONCLUSION drawn from it was wrong.** `["mount"]`
 — one invocation, no cleanup+remount — is exactly what ONE wrapper shape yields here, and the
 meta-test named below now pins that shape as a negative case. What does not follow is what this entry
