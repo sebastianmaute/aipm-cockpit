@@ -62,10 +62,11 @@ import {
   KV_STAKEHOLDERS_KEY,
   KV_PROJECT_KEY,
   idbBulkUpdate,
-  idbDelete,
   idbGet,
   idbGetAll,
   idbSet,
+  idbTransaction,
+  IDB_KV_STORE_NAME,
 } from "./idb";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
@@ -86,6 +87,9 @@ const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
 const KV_ACTIVITY_LOG_KEY = "activityLog";
 const KV_BUDGET_HISTORY_KEY = "budgetHistory";
 const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
+// §4 — the integer save revision this backend stamps on every successful
+// save (see `save()` below); missing on load → 0.
+const KV_REVISION_KEY = "revision";
 import {
   type StorageBackend,
   type Workspace,
@@ -94,6 +98,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
+import { SaveConflictError } from "./storage-error";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -130,6 +135,20 @@ export class BrowserBackend implements StorageBackend {
   private disciplinesBaseline = new Map<number, Discipline>();
   private gradesBaseline = new Map<number, Grade>();
   private budgetsBaseline = new Map<number, BudgetBucket>();
+
+  /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
+  private currentRevision: number | null = null;
+  /** §4 — one-shot: set by `forceNextSave()`, consumed by `save()` only
+   *  once its write has actually succeeded (R10 change 4). §4 fix round 3 —
+   *  ALSO cleared by a successful `load()`, `adoptRevision()` and
+   *  `adoptFrom()`, each of which establishes a genuine new baseline that a
+   *  leftover forced-write intent from an earlier FAILED forced save must not
+   *  silently carry past. */
+  private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save is the forced FULL rewrite, but only while
+   *  the stored revision is still `expected`. Consumed by that save attempt whatever its outcome (it can
+   *  never write over a version nobody was shown), and dropped with `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
 
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
@@ -184,7 +203,36 @@ export class BrowserBackend implements StorageBackend {
     let activityLog: Workspace["activityLog"] | undefined;
     let budgetHistory: Workspace["budgetHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
+    // §4 — stamped by `save()`; missing (never saved yet) → 0.
+    let revision = 0;
+    // §4 fix round 1 (R10 change 5) — true only once EVERY read/sanitize step
+    // in the try below has completed without throwing (set at the very end of
+    // the try, never inside it). A throw anywhere in the try — including the
+    // revision read itself — means the returned workspace is a FALLBACK
+    // (defaults/partial state, per the outer catch's comment), and adopting
+    // the revision that was read moments before that failure would let this
+    // instance's next save pass the compare while overwriting real data with
+    // that fallback. Guarded by fail-closed (R10 change 1): `false` here
+    // leaves `currentRevision` at `null` (see the end of this method), so the
+    // next save on this instance REFUSES instead of silently winning.
+    let dataLoadSucceeded = false;
     try {
+      // §4 fix round 1 — read BEFORE the parallel data reads below, in its
+      // OWN await/transaction, not alongside them in the same Promise.all.
+      // `idbGet`/`idbGetAll` (idb.ts) each open their own IDB transaction, so
+      // that Promise.all is not one snapshot: reading the revision LAST let a
+      // load that overlapped another tab's locked save adopt the NEWER
+      // revision while the data reads below it had already (or would still)
+      // observe a MIX of old and new rows — a torn load that then adopts a
+      // revision consistent with data it never actually read. This instance's
+      // next save would pass the compare against that adopted revision and
+      // silently rewrite every KV blob (and any row both writers touched).
+      // Reading it first instead means a torn load can only adopt an OLDER
+      // revision than what's really stored — this instance's next save then
+      // fails safe as a spurious (but never silently-clobbering) conflict.
+      const idbRevision = await idbGet<number>(KV_REVISION_KEY);
+      revision = idbRevision ?? 0;
+
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
       const [
@@ -402,6 +450,11 @@ export class BrowserBackend implements StorageBackend {
           .filter((a): a is DocumentAsset => a !== null);
         documentAssets = assets.length ? assets : undefined;
       }
+      // R10 change 5 — reached only when every read/sanitize step above
+      // completed. The per-slice `documents`/`documentVersions` catches above
+      // do NOT prevent this: they swallow their own throw and continue, so a
+      // dropped rich-field slice does not make the CORE data read a failure.
+      dataLoadSucceeded = true;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -483,6 +536,25 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+    // §4 fix round 1 (R10 change 5) — adopt the revision this load actually
+    // saw ONLY when the data read that revision was paired with genuinely
+    // succeeded. On the IDB-unavailable/fallback path `revision` may still
+    // hold a real number (the revision read can succeed before a LATER data
+    // read fails), but the workspace just assembled is a fallback, not what
+    // that revision describes — adopting it would let this instance's next
+    // save pass the compare while silently overwriting real data with that
+    // fallback. Leaving it `null` (UNKNOWN) means the next save on this
+    // instance fails closed (R10 change 1) instead.
+    this.currentRevision = dataLoadSucceeded ? revision : null;
+    // §4 fix round 3 (Important #1) — a genuine successful load is a real new
+    // baseline; any forced-write intent left over from an earlier FAILED
+    // forced save must not silently carry forward past it (e.g. a forced
+    // save that failed, then another tab saves, then THIS instance reloads —
+    // the next save here must compare again, not blindly full-rewrite over
+    // what the other tab just wrote). Only on the genuinely-succeeded path:
+    // a failed/fallback load establishes nothing new, so a pending force
+    // (still exactly as valid or invalid as before) is left untouched.
+    if (dataLoadSucceeded) { this.forceNext = false; this.expectNext = null; }
     this.lastLoadTruncation = {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
@@ -543,109 +615,180 @@ export class BrowserBackend implements StorageBackend {
     }
   }
 
-  async save(ws: Workspace): Promise<void> {
-    if (typeof window === "undefined") return;
+  /**
+   * §4 — the save, as ONE readwrite IndexedDB transaction (`idbTransaction`) over the `kv` store and
+   * every record store. Inside it: read the STORED revision and compare it with this instance's own; a
+   * mismatch means another writer (another tab or window) saved since this instance last loaded or wrote,
+   * so the transaction is aborted and `SaveConflictError` thrown: nothing is written. Otherwise every
+   * slice's writes and the new revision (`stored + 1`) are issued in the same transaction, which commits
+   * all of them or none; the baselines refresh and the revision is adopted only once it has committed.
+   *
+   * ★★★ §4 round 7 — NO WEB LOCK, AND NOTHING AWAITED BEFORE THE CONNECTION IS REQUESTED. This used to
+   *   take the Web Lock `aipm-cockpit:save:browser`, read the revision in a transaction of its own, then
+   *   write through ~30 more connections. Measured in Chromium (e2e/pagehide-draft-persist.spec.ts, "a tab
+   *   close whose own IndexedDB write also landed"): with either the lock wait OR the separate revision
+   *   read in front of the writes, a save started by the pagehide flush of a CLOSING tab never reached
+   *   the store; with neither, it did. One transaction keeps the compare-and-set atomic by itself, since
+   *   readwrite transactions over overlapping stores run one at a time across tabs.
+   *
+   * §4 fix round 1 (R10 change 1, fail closed) — `currentRevision === null` means UNKNOWN (never loaded,
+   * and not adopted or forced), and REFUSES rather than skipping the compare. An intentional blind write
+   * (Save-As, create, demo, a storage conversion) goes through `forceNextSave()`.
+   *
+   * `forceNextSave()` (one-shot) skips the compare and makes this save a full rewrite: every id-keyed
+   * store is CLEARED inside the transaction (its real contents, not this instance's possibly-stale
+   * baseline), so a row only a concurrent writer had does not survive. A conditional Overwrite
+   * (`forceNextSave(expected)`) is the same full rewrite, but only while storage is still at `expected`.
+   * The force flag is cleared only after the transaction committed (R10 change 4), so a forced save
+   * that fails keeps it for the retry.
+   */
+  save(ws: Workspace): Promise<void> {
+    if (typeof window === "undefined") return Promise.resolve();
+    const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null;
+    const rewrite = force || expected !== null;
+    const from = <T>(baseline: Map<number, T>): Map<number, T> => (rewrite ? new Map() : baseline);
+    const recordWrites: Array<[string, { puts: readonly { id: number }[]; deletes: readonly number[] }]> = [
+      [IDB_TASKS_STORE, this.diff(from(this.tasksBaseline), ws.tasks)],
+      [IDB_RAID_STORE, this.diff(from(this.raidBaseline), ws.raid)],
+      [IDB_ABSENCES_STORE, this.diff(from(this.absencesBaseline), ws.absences)],
+      [IDB_SHIFTS_STORE, this.diff(from(this.shiftsBaseline), ws.shifts)],
+      [IDB_RESOURCES_STORE, this.diff(from(this.resourcesBaseline), ws.resources)],
+      [IDB_ROLES_STORE, this.diff(from(this.rolesBaseline), ws.roles)],
+      [IDB_DISCIPLINES_STORE, this.diff(from(this.disciplinesBaseline), ws.disciplines)],
+      [IDB_GRADES_STORE, this.diff(from(this.gradesBaseline), ws.grades)],
+      [IDB_BUDGETS_STORE, this.diff(from(this.budgetsBaseline), ws.budgets ?? [])],
+    ];
+    // Each KV slot: a value to put, or `undefined` to delete (a cleared config must not linger and reload stale).
+    const kvWrites: Array<[string, unknown]> = [
+      [KV_PLAN_KEY, ws.plan],
+      [KV_FXRATES_KEY, ws.fxRates ?? null],
+      [KV_STATUS_KEY, ws.status ?? {}],
+      [KV_MILESTONES_KEY, ws.milestones ?? []],
+      [KV_CHANGES_KEY, ws.changes ?? []],
+      [KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []],
+      [KV_PROJECT_KEY, ws.project ?? undefined],
+      [KV_FIELDVIS_KEY, ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0 ? ws.fieldVisibility : undefined],
+      [KV_FEATURES_KEY, ws.features], // presence gate, NOT length: [] is persisted (Simple mode)
+      [KV_STEERING_KEY, ws.steeringCommittee || undefined],
+      [KV_TIMELOG_LINKS_KEY, ws.timelogLinks || undefined],
+      [KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems && ws.knowledgeItems.length ? ws.knowledgeItems : undefined],
+      [KV_INSIGHTS_KEY, ws.insights && ws.insights.length ? ws.insights : undefined],
+      [KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides) ? ws.settingsOverrides : undefined],
+      [KV_CALENDAR_EVENTS_KEY, ws.calendarEvents && ws.calendarEvents.length ? ws.calendarEvents : undefined],
+      [KV_DOCUMENTS_KEY, ws.documents && ws.documents.length ? ws.documents : undefined],
+      [KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions && ws.documentVersions.length ? ws.documentVersions : undefined],
+      [KV_ACTIVITY_LOG_KEY, ws.activityLog && ws.activityLog.length ? ws.activityLog : undefined],
+      [KV_BUDGET_HISTORY_KEY, ws.budgetHistory && ws.budgetHistory.length ? ws.budgetHistory : undefined],
+      [KV_DOCUMENT_ASSETS_KEY, ws.documentAssets && ws.documentAssets.length ? ws.documentAssets : undefined],
+    ];
+    let newRevision = 0;
+    return idbTransaction([IDB_KV_STORE_NAME, ...recordWrites.map(([store]) => store)], (tx, fail) => {
+      const kv = tx.objectStore(IDB_KV_STORE_NAME);
+      const read = kv.get(KV_REVISION_KEY);
+      read.onsuccess = () => {
+        try {
+          const storedRevision = (read.result as number | undefined) ?? 0;
+          const stale = expected !== null ? String(storedRevision) !== expected : this.currentRevision === null || storedRevision !== this.currentRevision;
+          if (!force && stale) {
+            fail(new SaveConflictError("browser", String(storedRevision)));
+            return;
+          }
+          for (const [storeName, delta] of recordWrites) {
+            const store = tx.objectStore(storeName);
+            if (rewrite) store.clear();
+            for (const item of delta.puts) store.put(item);
+            for (const id of delta.deletes) store.delete(id);
+          }
+          for (const [key, value] of kvWrites) {
+            if (value === undefined) kv.delete(key);
+            else kv.put(value, key);
+          }
+          newRevision = storedRevision + 1;
+          kv.put(newRevision, KV_REVISION_KEY);
+          // ★★★ §4 round 7 — COMMIT EXPLICITLY, the moment the last write is issued. Measured in Chromium: at a
+          //   tab close a transaction left to AUTO-commit did not commit once it wrote more than one store,
+          //   and this one does (e2e/pagehide-draft-persist.spec.ts); `commit()` lands it. Optional: an
+          //   engine without it auto-commits as before.
+          (tx as IDBTransaction & { commit?: () => void }).commit?.();
+        } catch (err) {
+          fail(err);
+        }
+      };
+    }).then(() => {
+      // Refresh baselines so the next save's diff is computed against what's actually in IDB.
+      this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
+      this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
+      this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
+      this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+      this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+      this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+      this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+      this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+      this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+      // §4 — adopt the revision and clear the force only now that the transaction committed (R10 change 4).
+      if (force) this.forceNext = false;
+      this.currentRevision = newRevision;
+    });
+  }
 
-    const taskDelta = this.diff(this.tasksBaseline, ws.tasks);
-    const raidDelta = this.diff(this.raidBaseline, ws.raid);
-    const absenceDelta = this.diff(this.absencesBaseline, ws.absences);
-    const shiftDelta = this.diff(this.shiftsBaseline, ws.shifts);
-    const resourceDelta = this.diff(this.resourcesBaseline, ws.resources);
-    const roleDelta = this.diff(this.rolesBaseline, ws.roles);
-    const discDelta = this.diff(this.disciplinesBaseline, ws.disciplines);
-    const gradeDelta = this.diff(this.gradesBaseline, ws.grades);
-    const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
+  /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
+  revision(): string | null {
+    return this.currentRevision === null ? null : String(this.currentRevision);
+  }
 
-    // Independent object stores / KV keys — issue every write in parallel
-    // instead of ~17 sequential awaits. If ANY write rejects, the joined
-    // Promise.all rejects before the baseline refresh below runs, so no
-    // baseline advances and the next save re-diffs everything still dirty
-    // (all-or-nothing, matching the previous sequential code, which also
-    // only refreshed baselines after the last await). idbBulkUpdate
-    // short-circuits empty deltas, so unchanged stores stay free.
-    await Promise.all([
-      idbBulkUpdate(IDB_TASKS_STORE, taskDelta.puts, taskDelta.deletes),
-      idbBulkUpdate(IDB_RAID_STORE, raidDelta.puts, raidDelta.deletes),
-      idbBulkUpdate(IDB_ABSENCES_STORE, absenceDelta.puts, absenceDelta.deletes),
-      idbBulkUpdate(IDB_SHIFTS_STORE, shiftDelta.puts, shiftDelta.deletes),
-      idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes),
-      idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes),
-      idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes),
-      idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes),
-      idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes),
-      idbSet(KV_PLAN_KEY, ws.plan),
-      idbSet(KV_FXRATES_KEY, ws.fxRates ?? null),
-      idbSet(KV_STATUS_KEY, ws.status ?? {}),
-      idbSet(KV_MILESTONES_KEY, ws.milestones ?? []),
-      idbSet(KV_CHANGES_KEY, ws.changes ?? []),
-      idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []),
-      ws.project ? idbSet(KV_PROJECT_KEY, ws.project) : idbDelete(KV_PROJECT_KEY),
-      // Delete-on-empty so a cleared config doesn't linger and reload as stale.
-      ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0
-        ? idbSet(KV_FIELDVIS_KEY, ws.fieldVisibility)
-        : idbDelete(KV_FIELDVIS_KEY),
-      // Presence gate (NOT length): [] is persisted (Simple mode); absent ⇒ delete.
-      ws.features !== undefined
-        ? idbSet(KV_FEATURES_KEY, ws.features)
-        : idbDelete(KV_FEATURES_KEY),
-      // Delete-on-absent so a cleared committee doesn't linger and reload stale.
-      ws.steeringCommittee
-        ? idbSet(KV_STEERING_KEY, ws.steeringCommittee)
-        : idbDelete(KV_STEERING_KEY),
-      // Delete-on-absent so cleared timelog links don't linger and reload stale.
-      ws.timelogLinks
-        ? idbSet(KV_TIMELOG_LINKS_KEY, ws.timelogLinks)
-        : idbDelete(KV_TIMELOG_LINKS_KEY),
-      // Delete-on-absent so cleared knowledge items don't linger and reload stale.
-      ws.knowledgeItems && ws.knowledgeItems.length
-        ? idbSet(KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems)
-        : idbDelete(KV_KNOWLEDGE_ITEMS_KEY),
-      // Delete-on-absent so cleared insights don't linger and reload stale.
-      ws.insights && ws.insights.length
-        ? idbSet(KV_INSIGHTS_KEY, ws.insights)
-        : idbDelete(KV_INSIGHTS_KEY),
-      // Delete-on-absent so cleared overrides don't linger and reload stale.
-      ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)
-        ? idbSet(KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides)
-        : idbDelete(KV_SETTINGS_OVERRIDES_KEY),
-      // Delete-on-absent so cleared calendar events don't linger and reload stale.
-      ws.calendarEvents && ws.calendarEvents.length
-        ? idbSet(KV_CALENDAR_EVENTS_KEY, ws.calendarEvents)
-        : idbDelete(KV_CALENDAR_EVENTS_KEY),
-      // Delete-on-absent so a cleared document list doesn't linger and reload stale.
-      ws.documents && ws.documents.length
-        ? idbSet(KV_DOCUMENTS_KEY, ws.documents)
-        : idbDelete(KV_DOCUMENTS_KEY),
-      // Delete-on-absent so cleared version history doesn't linger and reload stale.
-      ws.documentVersions && ws.documentVersions.length
-        ? idbSet(KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions)
-        : idbDelete(KV_DOCUMENT_VERSIONS_KEY),
-      // Delete-on-absent so a cleared log doesn't linger and reload stale.
-      ws.activityLog && ws.activityLog.length
-        ? idbSet(KV_ACTIVITY_LOG_KEY, ws.activityLog)
-        : idbDelete(KV_ACTIVITY_LOG_KEY),
-      // Delete-on-absent so a cleared budget history doesn't reload stale.
-      ws.budgetHistory && ws.budgetHistory.length
-        ? idbSet(KV_BUDGET_HISTORY_KEY, ws.budgetHistory)
-        : idbDelete(KV_BUDGET_HISTORY_KEY),
-      // Delete-on-absent so a cleared asset list doesn't linger and reload stale.
-      ws.documentAssets && ws.documentAssets.length
-        ? idbSet(KV_DOCUMENT_ASSETS_KEY, ws.documentAssets)
-        : idbDelete(KV_DOCUMENT_ASSETS_KEY),
-    ]);
+  /** §4 — adopt `rev` as this instance's current revision without a
+   *  load/save. R10 change 7 — revisions are opaque strings to CALLERS, but
+   *  this backend's own encoding is an integer, so anything not made ENTIRELY
+   *  of digits (a stray local-file `"lastModified:size"` string handed to the
+   *  wrong backend, garbage, `""`) is ignored rather than partially parsed —
+   *  `Number.parseInt` would otherwise silently accept a numeric PREFIX
+   *  (`"12abc"` → `12`) and adopt a fabricated baseline. */
+  adoptRevision(rev: string): void {
+    if (!/^\d+$/.test(rev)) return;
+    this.currentRevision = Number.parseInt(rev, 10);
+    // §4 fix round 3 — also clears `forceNext`: adopting a real revision from
+    // elsewhere (e.g. catching up to another tab after a conflict) is a
+    // genuine new baseline, same as a real load, so it must not leave a
+    // stale forced-write intent standing.
+    this.forceNext = false;
+    this.expectNext = null;
+  }
 
-    // Refresh baselines so the next save's diff is computed against what's
-    // actually in IDB. Rebuilding the maps is O(N) but only runs after a
-    // successful write, not on every render.
-    this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
-    this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
-    this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
-    this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
-    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
-    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
-    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
-    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
-    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+  /** §4 — make the next `save()` skip the revision compare and force a full
+   *  rewrite (see `save()`), then clear itself (R10 change 4 — only
+   *  once that save's write actually succeeds). */
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
+    this.forceNext = true;
+    this.expectNext = null;
+  }
+
+  /**
+   * §4 fix round 1 (R10 change 3) — copies another `BrowserBackend`
+   * instance's revision and per-store diff baselines, so a throwaway backend
+   * used to perform an op can hand its resulting state to the LIVE instance
+   * in one step. Same-class only, not part of `StorageBackend`. `other` must
+   * have loaded or written the SAME (single shared) IndexedDB this instance
+   * targets; this does not verify that itself.
+   */
+  adoptFrom(other: BrowserBackend): void {
+    this.currentRevision = other.currentRevision;
+    this.tasksBaseline = other.tasksBaseline;
+    this.raidBaseline = other.raidBaseline;
+    this.absencesBaseline = other.absencesBaseline;
+    this.shiftsBaseline = other.shiftsBaseline;
+    this.resourcesBaseline = other.resourcesBaseline;
+    this.rolesBaseline = other.rolesBaseline;
+    this.disciplinesBaseline = other.disciplinesBaseline;
+    this.gradesBaseline = other.gradesBaseline;
+    this.budgetsBaseline = other.budgetsBaseline;
+    // §4 fix round 3 — adopting another instance's state establishes a fresh,
+    // genuine baseline; a forced-write intent left over from THIS instance's
+    // own past (failed) save no longer applies to it.
+    this.forceNext = false;
+    this.expectNext = null;
   }
 
   /**

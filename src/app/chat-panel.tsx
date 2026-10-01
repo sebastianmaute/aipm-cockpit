@@ -34,6 +34,7 @@ import {
   MAX_CHAT_ATTACHMENTS,
   MAX_STAGED_PAYLOAD_BYTES,
   blocksPayloadBytes,
+  planBatch,
   planStaging,
   type StagingCandidate,
 } from "./chat-attachments";
@@ -1304,10 +1305,15 @@ function ChatPanelInner({
       read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
     }
     const current = attachmentsRef.current;
+    // The whole-batch ceilings first (§359): text and base64 across this pick
+    // plus what is already staged. planStaging's count/30 MB cap then applies
+    // to whatever fits.
+    const batch = planBatch(current.flatMap((a) => a.blocks), read);
+    for (const r of batch.rejected) errors.push(t(lang, "chatAttachmentOverBatchLimit", r.name));
     const { accepted, rejected } = planStaging(
       current.length,
       blocksPayloadBytes(current.flatMap((a) => a.blocks)),
-      read,
+      batch.accepted,
     );
     for (const r of rejected) {
       errors.push(

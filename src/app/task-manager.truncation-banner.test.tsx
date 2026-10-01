@@ -623,3 +623,107 @@ describe("task-manager → load-pause banner mount", () => {
     await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
   }, 45000);
 });
+
+// ── §4: the CONFLICT pause ────────────────────────────────────────────────────
+// A save was refused because another tab or device saved first. The hook publishes it as
+// `loadPause === "conflict"` (and `conflictPause`); the banner says so and offers Reload, Overwrite and
+// Download my version, each wired to the hook's own resolve handler. What each handler DOES is pinned in
+// use-storage-backend.conflict.test.tsx; this pins only what task-manager mounts and wires.
+describe("task-manager → conflict banner mount", () => {
+  let reload: ReturnType<typeof vi.fn>;
+  let resolveReload: ReturnType<typeof vi.fn>;
+  let overwrite: ReturnType<typeof vi.fn>;
+  let downloadVersion: ReturnType<typeof vi.fn>;
+  const HEADLINE = "This project was changed in another tab or on another device. Your changes since then are not saved yet.";
+
+  function conflictBanner() {
+    const el = screen.queryByRole("alert", { name: t("en-US", "storageSavingPaused") });
+    return el !== null && el.textContent?.includes(HEADLINE) ? el : null;
+  }
+
+  beforeEach(() => {
+    reload = vi.fn(async () => {});
+    resolveReload = vi.fn(async () => {});
+    overwrite = vi.fn();
+    downloadVersion = vi.fn();
+    override.value = {
+      storageReady: true,
+      truncation: null,
+      loadWasIncomplete: false,
+      allowIncompleteSave: override.allowIncompleteSave,
+      destructiveRefusal: null,
+      loadPause: "conflict",
+      conflictPause: true,
+      reloadCurrentProject: reload,
+      resolveConflictReload: resolveReload,
+      resolveConflictOverwrite: overwrite,
+      downloadConflictVersion: downloadVersion,
+      canOverwriteConflict: true,
+    };
+  });
+
+  it("mounts the conflict banner with its headline, not the load-pause one", async () => {
+    await mountApp();
+    const el = conflictBanner();
+    expect(el).not.toBeNull();
+    expect(within(el as HTMLElement).queryByText(t("en-US", "storageSavePausedLoadFailed"))).toBeNull();
+    expect(within(el as HTMLElement).queryByRole("button", { name: t("en-US", "reloadProject") })).toBeNull();
+    expect(banner()).toBeNull();
+    expect(destructiveBanner()).toBeNull();
+  }, 45000);
+
+  it("Reload asks first, then resolves the conflict by reloading", async () => {
+    await mountApp();
+    fireEvent.click(within(conflictBanner() as HTMLElement).getByRole("button", { name: t("en-US", "storageConflictReload") }));
+    const dialog = await screen.findByRole("dialog", { name: /please confirm/i });
+    expect(within(dialog).getByText("Reload the saved version and discard your unsaved changes?")).toBeInTheDocument();
+    expect(resolveReload).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "storageConflictReloadConfirmAction") }));
+    await waitFor(() => expect(resolveReload).toHaveBeenCalledTimes(1));
+    expect(resolveReload).toHaveBeenCalledWith();
+    expect(reload).not.toHaveBeenCalled(); // the conflict's own handler, not the plain project reload
+  }, 45000);
+
+  it("Overwrite asks first, then overwrites; Download my version downloads at once and passes no click event", async () => {
+    await mountApp();
+    const el = conflictBanner() as HTMLElement;
+    fireEvent.click(within(el).getByRole("button", { name: t("en-US", "storageConflictDownload") }));
+    expect(downloadVersion).toHaveBeenCalledTimes(1);
+    expect(downloadVersion).toHaveBeenCalledWith();
+    expect(screen.queryByRole("dialog", { name: /please confirm/i })).toBeNull();
+    fireEvent.click(within(el).getByRole("button", { name: t("en-US", "storageConflictOverwrite") }));
+    const dialog = await screen.findByRole("dialog", { name: /please confirm/i });
+    expect(overwrite).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "storageConflictOverwriteConfirmAction") }));
+    await waitFor(() => expect(overwrite).toHaveBeenCalledTimes(1));
+    expect(overwrite).toHaveBeenCalledWith();
+  }, 45000);
+
+  it("offers no Overwrite when the version on storage is unknown; Reload and Download remain", async () => {
+    override.value = { ...override.value, canOverwriteConflict: false };
+    await mountApp();
+    const el = conflictBanner() as HTMLElement;
+    expect(within(el).queryByRole("button", { name: t("en-US", "storageConflictOverwrite") })).toBeNull();
+    expect(within(el).getByRole("button", { name: t("en-US", "storageConflictReload") })).toBeInTheDocument();
+    expect(within(el).getByRole("button", { name: t("en-US", "storageConflictDownload") })).toBeInTheDocument();
+  }, 45000);
+
+  it("dismiss hides the banner without resolving the pause, and the sidebar indicator brings it back", async () => {
+    await mountApp();
+    fireEvent.click(within(conflictBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(conflictBanner()).toBeNull());
+    expect(resolveReload).not.toHaveBeenCalled();
+
+    const control = pausedControl();
+    expect(control).not.toBeNull();
+    fireEvent.click(control as HTMLElement);
+    await waitFor(() => expect(conflictBanner()).not.toBeNull());
+  }, 45000);
+
+  it("shows the sidebar's saving-paused indicator and stops reporting storage as healthy while the conflict pause holds", async () => {
+    await mountApp();
+    expect(pausedControl()).not.toBeNull();
+    await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
+    expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
+  }, 45000);
+});

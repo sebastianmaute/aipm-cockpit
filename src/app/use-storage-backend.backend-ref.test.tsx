@@ -42,7 +42,7 @@ vi.mock("./project-file-handles", () => ({
 }));
 
 vi.mock("./broadcast-sync", () => ({
-  useBroadcastSync: vi.fn(),
+  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(),
 }));
 
 vi.mock("./diagnostics", () => ({

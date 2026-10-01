@@ -11,7 +11,8 @@ import type { DocumentAsset } from "./document-asset";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
+import { useBroadcastSync, useRevisionSync, postRevision, type SyncContext } from "./broadcast-sync";
+import { enqueueSave, whenSaved } from "./save-queue";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -69,7 +70,7 @@ import {
 
 // ── Broadcast-sync mock ───────────────────────────────────────────────────────
 vi.mock("./broadcast-sync", () => ({
-  useBroadcastSync: vi.fn(),
+  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(),
 }));
 
 // ── Diagnostics mock (only the §72 teardown test asserts on it) ───────────────
@@ -131,6 +132,7 @@ vi.mock("./turso-backend", () => ({
       return { tasks: [], raid: [], absences: [], shifts: [] };
     });
     save = vi.fn().mockResolvedValue(undefined);
+    forceNextSave = vi.fn(); // §4 — createTursoProject declares its blind write
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
   },
@@ -142,6 +144,7 @@ vi.mock("./turso-backend", () => ({
   },
 }));
 import { TursoLockTimeoutError } from "./turso-backend";
+import { SaveLockTimeoutError } from "./storage-error";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
@@ -213,7 +216,7 @@ const onRevealSavingPaused = vi.fn();
 const refusalToastArgs = () => [
   "info",
   t("en-US", "storageRefusedWipe"),
-  expect.objectContaining({ labelKey: "storageSavingPausedAction" }),
+  expect.objectContaining({ labelKey: "storageSavingPausedToastAction" }),
 ] as const;
 
 const setStorageConfigGlobal = vi.fn();
@@ -450,6 +453,181 @@ describe("useStorageBackend — save effect", () => {
     expect(mockBackend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
     );
+  });
+
+  // §4 — a confirmed write hands its revision to the windows mirroring this storage; a refused,
+  // failed or skipped one must not, or they would adopt a revision nothing wrote.
+  describe("revision message (§4)", () => {
+    const revisioned = mockBackend as typeof mockBackend & { revision?: () => string | null; adoptRevision?: (rev: string) => void };
+    // ★ The save queue is module-level and keyed by the SHARED mock backend, so a save a test leaves
+    //   unsettled (an assertion failing mid-test) would poison every later test's queue. Settle it here.
+    let finishPending: (() => void) | undefined;
+    afterEach(async () => {
+      delete revisioned.revision;
+      delete revisioned.adoptRevision;
+      const settled = finishPending;
+      finishPending = undefined;
+      await act(async () => {
+        settled?.();
+        await whenSaved(mockBackend);
+      });
+    });
+    const settle = async () => {
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await act(async () => { await Promise.resolve(); });
+    };
+    const editOnce = async () => {
+      const { result } = renderBackend();
+      await settle();
+      (postRevision as ReturnType<typeof vi.fn>).mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle();
+    };
+
+    // The writer's revision follows its saves: `save` moves it from "1" to "2".
+    const trackRevision = () => {
+      let rev = "1";
+      revisioned.revision = vi.fn(() => rev);
+      mockBackend.save.mockImplementation(async () => { rev = "2"; });
+    };
+
+    it("posts the new revision and the revision the save was checked against, under the window's sync context", async () => {
+      trackRevision();
+      await editOnce();
+      const ctx = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3] as SyncContext;
+      expect(postRevision).toHaveBeenCalledWith(ctx, "2", "1");
+    });
+
+    it("posts nothing when the backend has no revision, or its revision is null", async () => {
+      await editOnce();
+      expect(postRevision).not.toHaveBeenCalled();
+      revisioned.revision = vi.fn(() => null);
+      await editOnce();
+      expect(postRevision).not.toHaveBeenCalled();
+    });
+
+    it("posts nothing when the save failed", async () => {
+      revisioned.revision = vi.fn(() => "42");
+      mockBackend.save.mockRejectedValue(new Error("stale"));
+      await editOnce();
+      expect(mockBackend.save).toHaveBeenCalled();
+      expect(postRevision).not.toHaveBeenCalled();
+    });
+
+    // A save replaced under settleReplacedAsOwn (a guardedWrite / pre-switch flush queued behind it) never
+    // runs its thunk yet resolves "saved"; it wrote nothing, so it must not announce a revision.
+    it("posts nothing for an autosave replaced by a guarded write", async () => {
+      // Like `trackRevision`, but the write lands only when the test says so: autosave 1 moves "1" to "2".
+      let rev = "1";
+      revisioned.revision = vi.fn(() => rev);
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = () => { rev = "2"; resolve(); }; }));
+      const { result } = renderBackend();
+      await settle();
+      (postRevision as ReturnType<typeof vi.fn>).mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle(); // autosave 1 is running and unsettled
+      await act(async () => { result.current.setTasks([{ id: 2, taskName: "T2" } as unknown as Task]); });
+      await settle(); // autosave 2 waits behind it
+      await act(async () => { void enqueueSave(mockBackend, async () => undefined, { settleReplacedAsOwn: true }); });
+      await act(async () => { finishPending?.(); await whenSaved(mockBackend); });
+      expect(postRevision).toHaveBeenCalledTimes(1); // autosave 1 alone; the replaced autosave 2 ran nothing
+      expect(postRevision).toHaveBeenCalledWith(expect.anything(), "2", "1");
+    });
+
+    it("adopts an incoming revision through backend.adoptRevision, under the same context", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
+      renderBackend();
+      await settle();
+      const calls = (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls;
+      const [ctx, onRevision] = calls.at(-1) as [SyncContext, (rev: string, base: string) => void];
+      expect(ctx).toBe((useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3]);
+      onRevision("3", "2");
+      expect(adopt).toHaveBeenCalledWith("3");
+    });
+
+    const latestOnRevision = () => (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as (rev: string, base: string) => void;
+
+    // The Critical: a window that does not hold the state a revision was written from (it missed a
+    // `fromLoad` slice, or is paused on a real conflict) must not adopt it, or its next save writes stale data.
+    it("does NOT adopt a revision whose base is not the revision this window holds", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "1";
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      expect(adopt).not.toHaveBeenCalled();
+    });
+
+    it("does NOT adopt when this window has no revision of its own", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => null;
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      expect(adopt).not.toHaveBeenCalled();
+    });
+
+    it("adopts a chain: each message's base is the revision the receiver holds after the previous adopt", async () => {
+      let held = "2";
+      revisioned.revision = () => held;
+      const adopt = vi.fn((rev: string) => { held = rev; });
+      revisioned.adoptRevision = adopt;
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      act(() => { latestOnRevision()("4", "3"); });
+      act(() => { latestOnRevision()("6", "5"); }); // a gap: not held
+      expect(adopt.mock.calls.map((c) => c[0])).toEqual(["3", "4"]);
+    });
+
+    // A save running or queued was built from a workspace that may lack the peer's slices; adopting would
+    // let it pass the revision check and overwrite them. Left alone it meets the newer revision and pauses.
+    it("does NOT adopt while a save of its own is in flight", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = resolve; }));
+      const { result } = renderBackend();
+      await settle();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle(); // the debounced save has started and never settles
+      expect(mockBackend.save).toHaveBeenCalled();
+      act(() => { latestOnRevision()("9", "2"); });
+      expect(adopt).not.toHaveBeenCalled();
+      await act(async () => { finishPending?.(); await Promise.resolve(); });
+      act(() => { latestOnRevision()("10", "2"); });
+      expect(adopt).toHaveBeenCalledWith("10"); // idle again
+    });
+
+    it("saves the peer's mirrored slice, not the pending snapshot, after adopting while idle", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
+      const { result } = renderBackend();
+      await settle();
+      mockBackend.save.mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "mine" } as unknown as Task]); });
+      const applyTasks = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === "tasks").at(-1)![2] as (v: Task[]) => void;
+      await act(async () => { applyTasks([{ id: 2, taskName: "peer" } as unknown as Task]); });
+      act(() => { latestOnRevision()("9", "2"); }); // debounce still pending: queue idle
+      expect(adopt).toHaveBeenCalledWith("9");
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await act(async () => { await Promise.resolve(); });
+      const saved = mockBackend.save.mock.calls.at(-1)![0] as { tasks: Task[] };
+      expect(saved.tasks.map((x) => x.taskName)).toEqual(["peer"]);
+    });
+
+    it("tolerates a backend without adoptRevision", async () => {
+      revisioned.revision = () => "2";
+      renderBackend();
+      await settle();
+      expect(() => latestOnRevision()("3", "2")).not.toThrow();
+    });
   });
 
   it("persists a DOCUMENTS-ONLY change — the autosave deps-array guard", async () => {
@@ -745,6 +923,27 @@ describe("useStorageBackend — save effect", () => {
     expect(showToast).toHaveBeenCalledWith(
       "error",
       "Couldn't save: another tab is writing to this database and the wait timed out. Saving retries automatically.",
+    );
+  });
+
+  // Final review m4 — the local-file save's bounded Web Lock wait (`SaveLockTimeoutError`).
+  it("localizes a local-file save's lock-timeout failure too", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    mockBackend.save.mockRejectedValueOnce(new SaveLockTimeoutError("local-json"));
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      "Couldn't save: another tab is saving to the same storage and the wait timed out. Your changes will be saved with your next edit.",
     );
   });
 
@@ -1146,13 +1345,13 @@ describe("useStorageBackend — broadcast send gating", () => {
   it("gives every useBroadcastSync call of a main window one main context with the hook's own readers", () => {
     const { result } = renderBackend(makeArgs({ isPopout: false }));
     const ctxs = syncContexts();
-    expect(ctxs.length).toBeGreaterThanOrEqual(17);
+    expect(ctxs.length).toBeGreaterThanOrEqual(29);
     const last = ctxs[ctxs.length - 1];
     if (last.role !== "main") throw new Error("expected a main context");
     // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed,
     // so every call must read the hook's OWN scope epoch, not some other counter.
     expect(last.getEpoch).toBe(result.current.getScopeEpoch);
-    for (const ctx of ctxs.slice(-17)) expect(ctx).toBe(last);
+    for (const ctx of ctxs.slice(-29)) expect(ctx).toBe(last);
   });
 
   it("gives every useBroadcastSync call of a pop-out a pop-out context following its opener", () => {
@@ -1160,7 +1359,7 @@ describe("useStorageBackend — broadcast send gating", () => {
     try {
       renderBackend(makeArgs({ isPopout: true }));
       const ctxs = syncContexts();
-      expect(ctxs.length).toBeGreaterThanOrEqual(17);
+      expect(ctxs.length).toBeGreaterThanOrEqual(29);
       for (const ctx of ctxs) expect(ctx).toEqual({ role: "popout", openerId: "w-opener" });
     } finally {
       window.history.replaceState(null, "", "/");
@@ -1209,15 +1408,19 @@ describe("useStorageBackend — broadcast send gating", () => {
   // useBroadcastSync must be one the load recorded (a slice that is not an object, such as an
   // absent project, cannot be recorded and is skipped).
   it("records every synced slice of a load and of a merge-mode reload (§644)", async () => {
-    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    // `plan` is set only when the loaded workspace has one, so the fixture carries one to be recorded.
+    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const } });
     mockBackend.load.mockResolvedValueOnce(ws());
     const { result } = renderBackend(makeArgs({ isPopout: false }));
     await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
     const unrecorded = () => {
-      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-17);
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-29);
       const ctx = calls[0][3] as SyncContext;
       if (ctx.role !== "main") throw new Error("expected a main context");
       expect(calls.map((c) => c[0])).toContain("activityLog");
+      // §4 — the twelve parts added after the first seventeen: a stale window's save must not drop them.
+      for (const kind of ["plan", "fxRates", "status", "fieldVisibility", "features", "steeringCommittee", "timelogLinks", "knowledgeItems", "insights", "settingsOverrides", "calendarEvents", "documentAssets"]) expect(calls.map((c) => c[0])).toContain(kind);
+      expect(calls).toHaveLength(29);
       return calls.filter((c) => typeof c[1] === "object" && c[1] !== null && !ctx.isLoadedValue(c[1])).map((c) => c[0]);
     };
     expect(unrecorded()).toEqual([]);
@@ -1944,7 +2147,7 @@ describe("useStorageBackend — project flows", () => {
     // Outgoing project flushed to the CURRENT (main) backend.
     expect(mockBackend.save).toHaveBeenCalled();
     // Target handle injected BEFORE the target load.
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle, targetId); // §645 C1 — the project id is stored with its handle
     expect(order.indexOf("setHandle")).toBeLessThan(order.indexOf("targetLoad"));
     // Outgoing save happened before storageConfig was repointed.
     expect(order.indexOf("outgoingSave")).toBeLessThan(order.indexOf("setConfig"));
@@ -2353,7 +2556,7 @@ describe("useStorageBackend — project flows", () => {
     // handle was bound to the CSV backend, and the CSV config was applied.
     expect(storageMod.pickOpenFileAny).toHaveBeenCalled();
     expect(storageMod.formatFromFileName).toHaveBeenCalledWith("exported.csv");
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle, expect.any(String)); // §645 C1 — with the binding stored in the slot
     expect(storageMod.openFileForBackend).not.toHaveBeenCalled();
     expect(result.current.tasks[0]?.id).toBe(88);
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-csv" });
@@ -3257,7 +3460,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
     expect(kind).toBe("info");
     expect(text).toBe(t("en-US", "storageRefusedWipe"));
-    expect(action.labelKey).toBe("storageSavingPausedAction");
+    expect(action.labelKey).toBe("storageSavingPausedToastAction");
     // ...and it REVEALS the banner rather than performing the deletion. Running
     // it must not arm anything: the refusal has to still stand afterwards.
     // ★★★ THE POSITIVE HALF IS THE ONE THAT PINS THE ACTION, and it did not
@@ -5028,7 +5231,7 @@ describe("useStorageBackend — onOpenStorageFile binds the picked handle only o
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     expect(storageMod.setBackendFileHandle).toHaveBeenCalledTimes(1);
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked, expect.stringMatching(/^picked:/)); // §645 C1 — a fresh binding for an unregistered file
   });
 
   it("applies the opened workspace when the user accepts", async () => {

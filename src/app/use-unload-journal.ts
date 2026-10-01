@@ -11,6 +11,11 @@
 // - this hook's own `pagehide` listener — writes the latest unconfirmed
 //   workspace, so a save that fired while the page was still visible and has
 //   not confirmed yet is not lost either.
+// - `followLive` — §4: while saving is paused on a conflict, the live workspace
+//   in place of a save that never starts. Dropped when its key's base moves
+//   (`boundToBase`). `followLive(ws, true)` and `noteSaveRefused` write a
+//   version the user left behind to the project's KEPT slot (`keep`), a key
+//   nothing on this list reads, clears or overwrites.
 // - `noteSaveConfirmed` — called from the save's `.then`: clears the journal
 //   this tab wrote for that save (or an older one) and rolls the base forward.
 // - `setBase` — called where a load is applied, with what the backend returned
@@ -38,6 +43,7 @@ import {
   fingerprintWorkspace,
   JOURNAL_FINGERPRINT_UNSTABLE_KINDS,
   journalProjectKey,
+  keptProjectKey,
   readUnloadJournal,
   writeUnloadJournal,
   type UnloadJournal,
@@ -94,7 +100,10 @@ export function resolveJournalProjectKey(storageKind: StorageKind, tursoProjectI
   return journalProjectKey(storageKind, tursoProjectId, loadRegistry().currentProjectId);
 }
 
-type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number };
+/** `boundToBase` (§4): the live workspace of a conflict pause (`followLive`). Its record is
+ *  written against the base the key has NOW, so once that base moves (a load or op of the key brings
+ *  in the other writer's version) the entry is dropped: re-based, it would restore silently over it. */
+type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number; boundToBase?: true };
 
 /** The record a conflict notice describes, kept IN MEMORY as the restore read it: its key, the
  *  record itself (its `tabId` + `savedAt` identify it) and its decoded workspace. Restore anyway
@@ -192,6 +201,26 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     });
   }, [baseFingerprintFor]);
 
+  /** §4 — writes a version the user LEFT (a switch away, or a rebuild, while its saves were refused as
+   *  stale) at once to the project's KEPT slot (`keptProjectKey`). Nothing restores from that slot, so
+   *  its base is "". An unresolved kept record there is never replaced: after a return the live
+   *  workspace is built on the other writer's version, not on the kept one, so replacing it would lose
+   *  edits the user has not seen since. The newer version gets a numbered kept slot of its own — never
+   *  the project's own slot, where this tab's next confirmation or "Reload project" would clear it.
+   *  Returns whether the record was WRITTEN (final review I2): over the cap, on a quota error or a codec
+   *  throw it is not, and a caller about to leave the project must not then leave. */
+  const keep = useCallback((entry: Unconfirmed): boolean => {
+    const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
+    let workspace: string;
+    try {
+      workspace = workspaceToJson(entry.workspace);
+    } catch (err) {
+      logDiag("warn", "workspace.unloadJournalSkipped", { projectKey: entry.projectKey, message: err instanceof Error ? err.message : String(err) });
+      return false;
+    }
+    return writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
+  }, []);
+
   const noteSaveStarted = useCallback((outgoing: Workspace): number => {
     const savedAt = nextSavedAt();
     if (!activeRef.current) return savedAt;
@@ -201,6 +230,45 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);
     return savedAt;
   }, [write]);
+
+  /** §4 — while saving is paused on a conflict no save starts, so `noteSaveStarted` never runs: the
+   *  storage hook hands the LIVE workspace here instead. It becomes the latest unconfirmed one, which
+   *  pagehide writes (`boundToBase`); no in-flight entry, as no save's confirmation could clear it.
+   *  `now` — the pre-switch flush, which leaves the key behind — `keep`s it instead, and consumes the
+   *  pause's entry for the key: re-written at pagehide after a return, it would be re-based.
+   *  Returns `false` only when `now` and the kept record could NOT be written (`keep`). */
+  const followLive = useCallback((live: Workspace, now = false): boolean => {
+    if (!activeRef.current) return true; // a pop-out, or before hydration: there is no journal to keep in
+    const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: live, savedAt: nextSavedAt(), boundToBase: true };
+    if (now) {
+      // Final re-review r1: consume the pause's entry only once the kept record is WRITTEN. A failed keep
+      // refuses the switch, and the user stays paused here: pagehide must still find that entry.
+      const kept = keep(entry);
+      if (kept && latestUnconfirmedRef.current?.projectKey === entry.projectKey) latestUnconfirmedRef.current = null;
+      return kept;
+    }
+    latestUnconfirmedRef.current = entry;
+    if (isPageHiding() || document.visibilityState === "hidden") write(entry);
+    return true;
+  }, [keep, write]);
+
+  /** §4 — the save `savedAt` was refused as stale after its backend was replaced (a settings rebuild or a
+   *  project op): nothing confirms it, and the next load re-bases whatever entry it left, so the entry
+   *  goes. `refused` — its workspace, when no flush kept it already — is `keep`t under the key the save
+   *  was started for. Returns `false` only when `refused` had to be kept and could not be (`keep`). */
+  const noteSaveRefused = useCallback((savedAt: number, refused: Workspace | null): boolean => {
+    if (!activeRef.current) return true;
+    const key = inFlightRef.current.get(savedAt) ?? projectKeyRef.current;
+    inFlightRef.current.delete(savedAt);
+    if (latestUnconfirmedRef.current?.savedAt === savedAt) latestUnconfirmedRef.current = null;
+    return refused === null || keep({ projectKey: key, workspace: refused, savedAt });
+  }, [keep]);
+
+  /** §4 — `key`'s base is about to move: an entry bound to the old one goes (see `boundToBase`). */
+  const dropBoundEntry = useCallback((key: string): void => {
+    const latest = latestUnconfirmedRef.current;
+    if (latest?.boundToBase === true && latest.projectKey === key) latestUnconfirmedRef.current = null;
+  }, []);
 
   const noteSaveConfirmed = useCallback((savedAt: number, confirmed: Workspace): void => {
     const key = inFlightRef.current.get(savedAt);
@@ -225,8 +293,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  is always one target's. Drops any held op base. */
   const setBase = useCallback((ws: Workspace, key: string): void => {
     heldBaseRef.current = null;
+    dropBoundEntry(key);
     replaceBase({ projectKey: key, workspace: ws, savedAt: lastSavedAt, fingerprint: null });
-  }, [replaceBase]);
+  }, [dropBoundEntry, replaceBase]);
 
   /** ★★★ §629 fix round 1 (I1) — A PROJECT OP APPLIES BEFORE IT FLIPS THE TARGET. The
    *  switch / create / open ops apply the new workspace, THEN set the storage config or
@@ -248,8 +317,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     const held = heldBaseRef.current;
     if (held === null) return;
     heldBaseRef.current = null;
+    dropBoundEntry(key);
     replaceBase({ projectKey: key, workspace: held.workspace, savedAt: held.savedAt, fingerprint: null });
-  }, [replaceBase]);
+  }, [dropBoundEntry, replaceBase]);
 
   /** "Reload project" (and the picker's "load the file instead", `applyPickedWorkspace`) DISCARDS
    *  the in-memory state, so this tab's unconfirmed saves for `key` go
@@ -340,7 +410,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   }, [write]);
 
   return {
-    noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
+    noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
     restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys,
   };
 }

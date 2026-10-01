@@ -642,6 +642,117 @@ describe("SavingPausedBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
     expect(onReopen).toHaveBeenCalledTimes(1);
   });
+
+  // ── §4 The CONFLICT cause (a save refused because another writer saved first) ──
+  // Reload and Overwrite each throw one version away, so each asks first; Download discards
+  // nothing and does not. `onOverwrite` / `onDownload` are optional: a button with no handler
+  // is not rendered, so the banner never offers an action that does nothing.
+  const CONFLICT = { kind: "conflict" as const };
+  const renderConflict = (over: Partial<ComponentProps<typeof SavingPausedBanner>> = {}) =>
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={CONFLICT}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={vi.fn()}
+        onOverwrite={vi.fn()}
+        onDownload={vi.fn()}
+        onDismiss={vi.fn()}
+        onReopen={vi.fn()}
+        {...over}
+      />,
+    );
+
+  it("renders the conflict headline, exactly, in an alert", () => {
+    renderConflict();
+    const alert = screen.getByRole("alert", { name: "Saving paused" });
+    expect(alert).toHaveTextContent(
+      "This project was changed in another tab or on another device. Your changes since then are not saved yet.",
+    );
+    // None of the other causes' actions reach this one.
+    expect(screen.queryByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "reloadProject") })).toBeNull();
+  });
+
+  it("offers Reload, Overwrite and Download my version, each named uniquely and starting with its visible text", () => {
+    renderConflict();
+    const names = ["Reload", "Overwrite", "Download my version"];
+    for (const name of names) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveTextContent(name); // WCAG 2.5.3 label-in-name
+    }
+    const all = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it.each([
+    ["Reload", "Reload the saved version and discard your unsaved changes?", "onSaveAnyway"],
+    ["Overwrite", "Save your version over the other one? Its changes since you opened the project will be lost.", "onOverwrite"],
+  ] as const)("%s asks its exact confirm first, and acts only on accept", async (label, message, prop) => {
+    const handler = vi.fn();
+    confirmState.result = false;
+    const { unmount } = renderConflict({ [prop]: handler });
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(confirmState.lastOpts?.message).toBe(message);
+    // The dialog's commit button stays on screen beside the banner: it may not share the trigger's name.
+    expect(confirmState.lastOpts?.confirmLabel).toBeTruthy();
+    expect(confirmState.lastOpts?.confirmLabel).not.toBe(label);
+    expect(handler).not.toHaveBeenCalled(); // declined: nothing happens
+    unmount();
+
+    confirmState.result = true;
+    renderConflict({ [prop]: handler });
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+  });
+
+  it("Download my version fires without a confirm", () => {
+    const onDownload = vi.fn();
+    const onSaveAnyway = vi.fn();
+    const onOverwrite = vi.fn();
+    renderConflict({ onDownload, onSaveAnyway, onOverwrite });
+    fireEvent.click(screen.getByRole("button", { name: "Download my version" }));
+    expect(onDownload).toHaveBeenCalledTimes(1);
+    expect(confirmState.calls).toBe(0);
+    expect(onSaveAnyway).not.toHaveBeenCalled();
+    expect(onOverwrite).not.toHaveBeenCalled();
+  });
+
+  it("does not render Overwrite or Download when no handler is given", () => {
+    renderConflict({ onOverwrite: undefined, onDownload: undefined });
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument(); // control: the banner rendered
+    expect(screen.queryByRole("button", { name: "Overwrite" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Download my version" })).toBeNull();
+  });
+
+  it("comes back after a dismiss: the chip reopens it in the classic layout", () => {
+    const onReopen = vi.fn();
+    const { rerender } = renderConflict({ dismissed: true, hasFooterIndicator: false, onReopen });
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
+    expect(onReopen).toHaveBeenCalledTimes(1);
+    rerender(
+      <SavingPausedBanner lang="en-US" cause={CONFLICT} dismissed={false} hasFooterIndicator={false}
+        onSaveAnyway={vi.fn()} onOverwrite={vi.fn()} onDownload={vi.fn()} onDismiss={vi.fn()} onReopen={onReopen} />,
+    );
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+  });
+
+  it("loads the conflict strings in German", async () => {
+    await loadI18n("de");
+    renderConflict({ lang: "de" });
+    expect(screen.getByRole("alert")).toHaveTextContent(t("de", "storageSavePausedConflict"));
+    for (const key of ["storageConflictReload", "storageConflictOverwrite", "storageConflictDownload"] as const) {
+      const de = t("de", key);
+      expect(de).not.toBe(t("en-US", key));
+      expect(screen.getByRole("button", { name: de })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("de", "storageConflictOverwrite") }));
+    await waitFor(() => expect(confirmState.lastOpts?.message).toBe(t("de", "storageConflictOverwriteConfirm")));
+    expect(t("de", "storageConflictOverwriteConfirm")).not.toBe(t("en-US", "storageConflictOverwriteConfirm"));
+  });
 });
 
 describe("UnloadJournalConflictBanner (§629)", () => {

@@ -21,6 +21,7 @@ import { useTursoProjectOps, type TursoProjectOpsDeps } from "./use-storage-turs
 import { useLoadTruncation } from "./use-load-truncation";
 import { t, type Lang } from "./i18n";
 import { emptyWorkspace } from "./workspace";
+import { SaveConflictError } from "./storage-error";
 
 // `migrateCurrentProjectToTurso` probes the connection before it migrates, so
 // the real one would reach the network here. Spread the actual module rather
@@ -37,6 +38,7 @@ vi.mock("./turso-pipeline", async (importActual) => ({
 
 const loadMock = vi.fn(async () => emptyWorkspace());
 const saveMock = vi.fn(async () => {});
+const forceMock = vi.fn();
 // `lastLoadTruncation` is a plain PROPERTY on the real backends, so the mock
 // carries it as one too and `load()` publishes it — the read order (load, then
 // report) is then the production order.
@@ -49,6 +51,7 @@ vi.mock("./turso-backend", () => ({
       return loadMock();
     };
     save = saveMock;
+    forceNextSave = forceMock;
   },
 }));
 vi.mock("./portfolio-mode", () => ({
@@ -86,6 +89,7 @@ function makeDeps(overrides: Partial<TursoProjectOpsDeps> = {}): TursoProjectOps
     currentWorkspace: () => emptyWorkspace(),
     applyWorkspace: vi.fn(),
     suppressNextLoadRef: { current: false },
+    handOverFromRef: { current: null },
     suppressNextSaveRef: { current: false },
     reportProjectError: vi.fn(),
     ...overrides,
@@ -114,6 +118,7 @@ function renderWithRealGuard(
 beforeEach(() => {
   loadMock.mockClear();
   saveMock.mockClear();
+  forceMock.mockClear();
   tursoTruncation.current = undefined;
   vi.mocked(logDiag).mockClear();
   vi.mocked(testTursoConnection).mockClear();
@@ -328,5 +333,77 @@ describe("useTursoProjectOps — §408 connection gate on migrate", () => {
     expect(testTursoConnection).toHaveBeenCalledTimes(1);
     expect(portfolioCreate).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// §4 §645 — every arm of `suppressNextLoadRef` here also sets `handOverFromRef`, to THIS op's instance.
+// The stale value models a file op's target left in the ref: it must never reach a Turso live backend.
+describe("useTursoProjectOps — §4 hand-over and blind writes", () => {
+  const STALE = { stale: true } as never;
+
+  it("switchToTursoProject hands over the instance that loaded the target, replacing a stale one", async () => {
+    const handOverFromRef = { current: STALE };
+    const suppressNextLoadRef = { current: false };
+    const { result } = renderWithRealGuard(async () => {}, { handOverFromRef, suppressNextLoadRef });
+    await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
+    expect(suppressNextLoadRef.current).toBe(true);
+    expect(handOverFromRef.current).not.toBe(STALE);
+    expect((handOverFromRef.current as unknown as { load: unknown }).load).toBeInstanceOf(Function);
+    expect(forceMock).not.toHaveBeenCalled(); // a switch loads; it writes nothing blind
+  });
+
+  it("createTursoProject writes blind (forceNextSave before its save) and hands that instance over", async () => {
+    const handOverFromRef = { current: STALE };
+    const order: string[] = [];
+    forceMock.mockImplementationOnce(() => { order.push("force"); });
+    saveMock.mockImplementationOnce(async () => { order.push("save"); });
+    const { result } = renderWithRealGuard(async () => {}, { handOverFromRef });
+    await act(async () => {
+      await result.current.ops.createTursoProject({ id: "n-4", name: "New", code: "N" } as never);
+    });
+    expect(order).toEqual(["force", "save"]);
+    expect(forceMock).toHaveBeenCalledWith();
+    expect(handOverFromRef.current).not.toBe(STALE);
+    expect((handOverFromRef.current as unknown as { save: unknown }).save).toBe(saveMock);
+  });
+
+  it("migrateCurrentProjectToTurso writes blind through guardedWrite's force", async () => {
+    const guardedWrite = vi.fn(async () => true);
+    const { result } = renderHook(() => useTursoProjectOps(makeDeps({
+      currentWorkspace: wsWithProject,
+      truncationOps: { ...makeDeps().truncationOps, guardedWrite },
+    })));
+    await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
+    expect(guardedWrite).toHaveBeenCalledWith(expect.anything(), expect.anything(), { force: true });
+  });
+});
+
+// §4 final review I2 / re-review r2 — the pre-switch flush throws a SaveConflictError only when the
+// unsaved edits met a conflict AND could not be kept (`keepNotSavedOnSwitch`, which already toasted):
+// every op must stop there, so the user stays on the paused project.
+describe("a flush whose edits could not be kept stops the op (§4)", () => {
+  const unkept = async () => { throw new SaveConflictError("browser"); };
+
+  it("switchToTursoProject loads nothing and does not switch", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
+    await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
+    expect(loadMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+    expect(result.current.showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageSwitchFlushFailed"));
+  });
+
+  it("createTursoProject writes nothing and does not switch", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
+    await act(async () => { await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+  });
+
+  it("migrateCurrentProjectToTurso creates no portfolio row", async () => {
+    const { result } = renderWithRealGuard(unkept, { currentWorkspace: wsWithProject });
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+    expect(portfolioCreate).not.toHaveBeenCalled();
   });
 });

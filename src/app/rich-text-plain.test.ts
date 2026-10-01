@@ -1253,3 +1253,54 @@ describe("sanitizeRichText — the degrade is reported", () => {
     expect(logDiag).not.toHaveBeenCalled();
   });
 });
+
+// open-followups §24. Named references outside the five the projection always
+// handled used to stay literal: `&mdash;` counted 7 against the cap, and a cap
+// could land mid-reference. They now decode alongside the numeric forms.
+describe("named character references (open-followups §24)", () => {
+  it("counts a named reference as the one character it denotes", () => {
+    expect(htmlTextLength("<p>&mdash;</p>")).toBe(1);
+    expect(htmlPlainProjection("<p>Stra&szlig;e &ndash; M&uuml;nchen&hellip;</p>")).toBe("Straße – München…");
+  });
+
+  it("never truncates in the middle of a named reference", () => {
+    const out = capHtmlText("<p>a&mdash;b&mdash;c</p>", 4);
+    expect(out).not.toMatch(/&m(?!dash;)|&md(?!ash;)/);
+    expect(htmlTextLength(out)).toBeLessThanOrEqual(4);
+  });
+
+  it("keeps &amp; LAST: an escaped reference stays literal text", () => {
+    expect(htmlPlainProjection("<p>&amp;mdash;</p>")).toBe("&mdash;");
+  });
+
+  // ★★ The decode is ONE pass, so nothing it produces is ever re-read. These
+  // are the shapes a chained decode gets wrong if its order slips.
+  it("never decodes a reference twice", () => {
+    expect(htmlPlainProjection("<p>&amp;lt;b&amp;gt;</p>")).toBe("&lt;b&gt;");
+    expect(htmlPlainProjection("<p>&amp;amp; &amp;#8212; &amp;mdash;</p>")).toBe("&amp; &#8212; &mdash;");
+    // &#38; is refused (it is `&`), so the text after it stays literal too.
+    expect(htmlPlainProjection("<p>&#38;lt;</p>")).toBe("&#38;lt;");
+  });
+
+  // The tag strip repeats (capped) so a tag removing another one rebuilds is
+  // stripped too; a stray "<" is re-encoded before the entity pass and decoded
+  // back by it, so it projects to exactly the text it was.
+  it("strips a rebuilt tag and keeps a stray '<' as text", () => {
+    expect(htmlPlainProjection("<p>a < b</p>")).toBe("a < b");
+    expect(htmlPlainProjection("<p>&<amp;</p>")).toBe("&<amp;");
+    // A tag the first strip rebuilds is stripped by the next pass.
+    expect(htmlPlainProjection("<scr<script>ipt>x")).toBe("x");
+    // Past MAX_STRIP_PASSES of rebuilding, what is left stays literal text.
+    const deep = "<a".repeat(12) + ">".repeat(12) + "x";
+    expect(htmlPlainProjection(deep)).toBe("<a".repeat(4) + ">".repeat(4) + "x");
+  });
+
+  it("keeps the basics case-insensitive and &nbsp; a plain space", () => {
+    expect(htmlPlainProjection("<p>&LT;a&GT; &Amp; x&NBSP;y &#160;z</p>")).toBe("<a> & x y z");
+  });
+
+  it("leaves unknown and wrong-case names literal", () => {
+    expect(htmlPlainProjection("<p>&MDASH; &notareal; &mdash</p>")).toBe("&MDASH; &notareal; &mdash");
+    expect(htmlPlainProjection("<p>&Auml;&auml;</p>")).toBe("Ää");
+  });
+});

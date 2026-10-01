@@ -285,3 +285,61 @@ export function planStaging(
   }
   return { accepted, rejected };
 }
+
+/** Whole-batch ceilings for one drop or pick of files (open-followups §359).
+ *  Each file's own extraction budget (`MAX_TREE_EXTRACT_CHARS`, 400,000 chars,
+ *  in attachment-ingest.ts) bounds ONE file; these bound what a batch of files
+ *  carries together, so ten dropped documents cannot add up to ~4M characters.
+ *  Text is extracted characters; binary is the base64 of PDFs and images.
+ *  ★ 24 MB of base64 stays under the API's 32 MB request limit with room for
+ *  the prompt and the extracted text, and sits below chat's own
+ *  `MAX_STAGED_PAYLOAD_BYTES` (30 MB, which also counts earlier staged files
+ *  and both kinds together) — the two checks are independent and both apply.
+ *  ★ The step-0 import wizard had no payload ceiling at all before this; two
+ *  large PDFs would build a request the API refuses outright. */
+export const MAX_BATCH_TEXT_CHARS = 1_000_000;
+export const MAX_BATCH_BASE64_CHARS = 24 * 1024 * 1024;
+
+/** What `blocks` cost against the two batch ceilings. */
+export function batchCost(blocks: readonly AttachmentBlock[]): { text: number; base64: number } {
+  let text = 0;
+  let base64 = 0;
+  for (const b of blocks) {
+    if (b.source.type === "text") text += b.source.data.length;
+    else base64 += b.source.data.length;
+  }
+  return { text, base64 };
+}
+
+/** Decide which newly read files fit the batch ceilings, given `already`
+ *  (blocks staged earlier in the same message, if any). Order is preserved,
+ *  and a file over the ceiling is SKIPPED, never truncated: a PDF's base64
+ *  cannot be cut, and a text file is already cut at its own budget. A skipped
+ *  file does not block later, smaller ones.
+ *  ★★ THE FIRST FILE IS ALWAYS ADMITTED when nothing is staged yet. A single file
+ *  is already bounded by its own caps (20 MB flat file → ~26.7 MB of base64),
+ *  which can exceed `MAX_BATCH_BASE64_CHARS` alone; refusing it would turn a
+ *  ceiling on BATCHES into a new, smaller per-file limit. So a batch carries at
+ *  most one file's own maximum, or the ceiling, whichever is larger. */
+export function planBatch(
+  already: readonly AttachmentBlock[],
+  candidates: readonly StagingCandidate[],
+): { accepted: StagingCandidate[]; rejected: { name: string }[] } {
+  const accepted: StagingCandidate[] = [];
+  const rejected: { name: string }[] = [];
+  const used = batchCost(already);
+  let empty = already.length === 0;
+  for (const cand of candidates) {
+    const cost = batchCost(cand.blocks);
+    const over = used.text + cost.text > MAX_BATCH_TEXT_CHARS || used.base64 + cost.base64 > MAX_BATCH_BASE64_CHARS;
+    if (over && !empty) {
+      rejected.push({ name: cand.name });
+      continue;
+    }
+    accepted.push(cand);
+    empty = false;
+    used.text += cost.text;
+    used.base64 += cost.base64;
+  }
+  return { accepted, rejected };
+}

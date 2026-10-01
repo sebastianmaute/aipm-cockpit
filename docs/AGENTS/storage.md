@@ -243,6 +243,116 @@ template body.
   guard drops the click.
 - **IndexedDB** orders its transactions (§627).
 
+### Conflicts (§4, §645)
+
+Two windows, tabs or devices that write the same storage no longer overwrite each other silently.
+Each backend instance remembers the revision it last loaded or wrote (`revision()` on
+`StorageBackend`, `workspace.ts`). A save whose stored revision has moved throws
+`SaveConflictError` (`storage-error.ts`) and writes nothing.
+
+| Storage | Revision | Checked |
+|---|---|---|
+| Browser storage | an integer in the `kv` store, key `"revision"` | inside ONE readwrite IndexedDB transaction over `kv` and every record store (`idbTransaction`, `idb.ts`): read, compare, write, bump, then an explicit `commit()`. No Web Lock: readwrite transactions over the same stores run one at a time across tabs, which keeps the compare-and-set atomic; and a closing tab's pagehide save must not wait for a lock (below) |
+| Local file (`local-*`) | `${lastModified}:${size}` of the bound file | under the Web Lock `aipm-cockpit:save:<kind>`: re-read the file and compare |
+| SharePoint (`sp-*`) | the driveItem eTag | by Graph: the upload carries `If-Match`, and a create after a 404 load carries `conflictBehavior=fail`; 409 and 412 map to `SaveConflictError` |
+| Turso (single and tenant) | a `meta` row, key `REVISION_KEY` (per `project_id` in tenant) | inside the §637 conditional batch: `withRevision` puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind), which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back |
+
+- **The close-time save (browser storage, §4 round 7).** A save started by a CLOSING tab's pagehide
+  flush must request its IndexedDB work at once and commit it explicitly. Measured in Chromium
+  (`e2e/pagehide-draft-persist.spec.ts`, "a tab close whose own IndexedDB write also landed"): a Web
+  Lock wait, or a revision read in a transaction of its own, in front of the writes lost the save; and
+  a transaction left to auto-commit did not commit at the close once it wrote more than one store,
+  while `tx.commit()` right after the last write lands it. So `BrowserBackend.save` opens one
+  connection in the caller's turn, runs everything in one transaction and commits it. Three known
+  limits, each recovered by the unload journal rather than by IndexedDB:
+  - (a) A local-file save that has to wait on its Web Lock (`withSaveLock`) at tab close is lost, by the
+    browser-storage measurement above that a lock wait loses the close-time save. That is unverified for
+    files: no e2e closes a tab on a local-file project.
+  - (b) A pagehide save queued behind a save that is already running (`save-queue.ts`) starts in a later
+    task and is lost the same way.
+  - (c) The load's `migrateWorkspaceV10` backfill writes (`idbBulkUpdate` in `BrowserBackend.load`) skip
+    the revision, so they are neither checked nor bumped. This predates the branch.
+- **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
+  its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
+  `If-Match` as before. A SharePoint PUT whose response carries no eTag (the `ETag` header is not
+  CORS-exposed) reads the stored one with a metadata GET; if that fails too, the next save refuses. A Turso conflict is recognised by WHICH step failed (`isRevisionGuard`),
+  never by the error text.
+- **Hand-over.** A project op (switch, open, create, demo, conversion) loads or writes through an
+  instance of its own and then points the app at that target, and the live instance skips its load.
+  The op stores its instance in `handOverFromRef` (seven sites: five in `use-storage-file-ops.ts`,
+  two in `use-storage-turso-ops.ts`, `grep -n "handOverFromRef.current = " src/app/use-storage-*-ops.ts`),
+  and the live instance takes it over through `handOverRevision` (`storage-handover.ts`): `adoptFrom`
+  for the same class, else `adoptRevision`. Without this the live instance would refuse its first save.
+- **§645, a handle per window.** `LocalFileBackend` keeps the handle it was bound with
+  (`boundHandle`: taken from the shared slot `file-handle:<kind>` the first time it needs one,
+  replaced only by its own `setHandle` or a pick) and writes to it; the slot only tells a newly
+  created instance which file to open, and with which tab-sync binding (below). So another tab's
+  project switch cannot redirect this window's save.
+  `adoptFrom` carries the bound handle across the hand-over.
+- **Sync scope per storage.** A main window mirrors only windows whose `syncScopeKey`
+  (`sync-scope.ts`) equals its own. A local file is keyed by the file the WINDOW is bound to
+  (`fileBinding`, final review C1). The binding is stored WITH the handle: the shared slot
+  `file-handle:<kind>` holds `{ handle, binding }`, and every binder names one, through
+  `setBackendFileHandle` or `pickFileForBackend`: a project op (switch, create, open-project) its
+  registry id, and a pick, an open or a conversion a fresh `picked:<uuid>`. The op also sets the
+  window's own binding in the same tick. A window reads its instance's binding
+  (`LocalFileBackend.fileBinding`) ONLY where a load of it is APPLIED: the load effect's success
+  path and "Reload project"; never the registry's current project. A window whose screen does not
+  show the file's content must not share the file's key (re-review 4 RI4): a load REFUSED as empty
+  keeps the previous content, and a load that FAILED keeps the boot workspace or the previous
+  project, so both set the binding to unknown; the write-access grant loads nothing, so it binds
+  nothing either, and "Reload project" gives the binding once it has applied the file (not when its empty-load confirm is declined, which keeps the previous content). An old slot holding a BARE handle (written before
+  the binding was stored, or by a tab still on old code) is upgraded by the first load that reads
+  it: written back as a record with the id of the registered project whose stored handle is the
+  same file (`isSameEntry`), else a fresh `picked:<uuid>`; the slot is read again just before the
+  write, and a record another tab wrote meanwhile is adopted. ★★ An UNKNOWN binding is never the
+  kind alone: it keys on a token of the window's own (`isolationToken`, `use-workspace-sync.ts`),
+  so that window syncs with NOBODY, which errs toward a visible pause, never toward mirroring
+  another file. So local-file windows on different files neither mirror nor adopt each other, and
+  windows on one file do once each knows the same binding.
+  ★ Where that isolation, or two bindings for one file, gives a FALSE PAUSE (visible, no loss): a
+  load that failed (until "Reload project" applies one); a refused empty load
+  (above); picking or opening the file a REGISTERED project already uses (the picker gets a
+  `picked:` binding while that project's windows hold its id); two windows that each picked the same
+  file on their own (two `picked:` ids); two tabs booting on one bare slot at the same moment (both
+  still find it bare on the re-read, both write, the later write wins, and the earlier tab stays
+  isolated until it reloads); and tabs still running old code, which write bare handles again (their
+  own windows mirror on the kind alone among themselves; a new window upgrades the slot afresh and
+  so does not share a binding with the windows that upgraded it before). Browser storage is
+  still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
+  alone: browser windows showing different registry projects mirror each other's slices, adopt
+  each other's revisions and converge on one workspace. The revision check pauses only a writer
+  that is not mirroring: its epoch differs, it is already paused, or its own save is queued or running.
+- **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
+  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave lands, `postRevision` sends the new revision and the
+  one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
+  (`useRevisionSync`) adopts it only while nothing is queued for its backend (`whenSaved` is
+  `null`) AND its own revision equals the sender's base; otherwise its next save meets the check.
+  The mirror ledger (`createMirrorLedger`, `mirror-ledger.ts`) stops a window re-saving a slice it
+  only received from a peer.
+- **The pause.** A refused save sets `savesPaused` with `reason: "conflict"`, which shuts the save
+  gate, and the banner `SavingPausedCause` `{ kind: "conflict" }` (`notifications.tsx`, copy
+  `storageSavePausedConflict`) offers three actions (`use-conflict-resolution.ts`):
+  **Reload** (`resolveConflictReload`) reads the stored version and drops the unsaved one;
+  **Overwrite** (`resolveConflictOverwrite`) arms `forceNextSave(expected)` inside the next save job,
+  a full rewrite that is refused if storage has moved on from the version the banner reported;
+  **Download my version** (`downloadConflictVersion`) saves the live workspace as a file and keeps
+  the pause. The blind `forceNextSave()` with no argument is a one-shot write that skips the compare.
+- **A switch away from a conflict.** The pre-switch flush that meets a conflict, or finds a pause
+  standing, keeps the edits (below) and the op switches. When that kept write FAILS (over
+  `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw), `keepNotSavedOnSwitch` raises the pause
+  and rethrows the `SaveConflictError`; every op's flush catch stops on it, so the user stays on the
+  project behind the banner (toast `storageConflictSwitchBlocked`), whose Download works at any size.
+  A settings rebuild cannot be refused; its toast says `storageConflictNotKeptOnRebuild` instead.
+- **Kept versions.** A version left behind while its saves were refused (a switch away, a rebuild)
+  goes to a kept journal slot, `keptProjectKey` (`aipm-cockpit:unload-journal:<key>:kept`, then
+  `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
+  Discard. Nothing restores it in the app.
+
+★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
+`e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a
+live SharePoint tenant (§652) or a live Turso database (§654); those entries list the owed checks.
+
 ## The six write paths
 
 The rule and its warnings live in `AGENTS.md` **New persisted `Workspace` field → SIX write

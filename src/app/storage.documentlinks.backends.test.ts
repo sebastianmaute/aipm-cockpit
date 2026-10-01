@@ -89,7 +89,11 @@ describe("BrowserBackend knowledgeLinks round-trip", () => {
       ],
     };
 
-    await createBackend({ kind: "browser" }).save(ws);
+    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // seed write (R10 change 1, fail closed).
+    const writer = createBackend({ kind: "browser" });
+    writer.forceNextSave?.();
+    await writer.save(ws);
     const loaded = await createBackend({ kind: "browser" }).load();
 
     expect(loaded.tasks).toHaveLength(1);

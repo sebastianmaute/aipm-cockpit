@@ -42,6 +42,37 @@ vi.mock("./idb", async (importOriginal) => {
       }
       return actual.idbBulkUpdate(store, puts, deleteIds);
     },
+    // §4 round 7 — a save is ONE transaction (`idbTransaction`), so the record-store writes are observed,
+    // and a store's failure forced, at its `put`/`delete` requests: a throw there aborts the whole save.
+    idbTransaction: (storeNames: readonly string[], body: (tx: IDBTransaction, fail: (err: unknown) => void) => void) =>
+      actual.idbTransaction(storeNames, (tx, fail) => {
+        const entry = (store: string) => {
+          let call = ctl.calls.find((c) => c.store === store);
+          if (!call) { call = { store, putIds: [], deleteIds: [] }; ctl.calls.push(call); }
+          return call;
+        };
+        const watched = new Proxy(tx, {
+          get(target, prop) {
+            if (prop === "objectStore") {
+              return (name: string) => {
+                const os = target.objectStore(name);
+                if (name === "kv") return os;
+                return new Proxy(os, {
+                  get(o, q) {
+                    if (q === "put") return (item: { id: number }) => { entry(name).putIds.push(item.id); if (ctl.failStore === name) throw new Error(`forced failure: ${name}`); return o.put(item); };
+                    if (q === "delete") return (id: number) => { entry(name).deleteIds.push(id); return o.delete(id); };
+                    const v = Reflect.get(o, q, o);
+                    return typeof v === "function" ? v.bind(o) : v;
+                  },
+                });
+              };
+            }
+            const v = Reflect.get(target, prop, target);
+            return typeof v === "function" ? v.bind(target) : v;
+          },
+        });
+        body(watched, fail);
+      }),
   };
 });
 
@@ -85,8 +116,24 @@ vi.mock("./workspace", async (importOriginal) => {
 import { BrowserBackend } from "./browser-backend";
 import type { FeatureModuleId } from "./feature-modules";
 import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
-import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+
+// Fix round 1 (R10 change 1, fail closed) — a fresh backend has never
+// loaded, so under the new fail-closed rule its first save() would throw
+// SaveConflictError. Most tests in this file are about the save→load ROUND
+// TRIP through IndexedDB, not about conflict semantics, so this forces the
+// one-off writer's first save exactly like a real create/Save-As flow would
+// (`forceNextSave()` is the documented escape hatch for an intentional blind
+// write). Returns the backend so a caller that needs to save again on the
+// SAME instance can (a second save on an instance with a now-KNOWN revision
+// needs no force).
+async function forcedSave(ws: Workspace): Promise<BrowserBackend> {
+  const backend = new BrowserBackend();
+  backend.forceNextSave();
+  await backend.save(ws);
+  return backend;
+}
 
 function budgetHistoryFixture(): readonly BudgetHistoryEntry[] {
   let n = 0;
@@ -137,6 +184,11 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("advances NO baseline when one store write rejects (retry re-emits everything dirty)", async () => {
     const backend = new BrowserBackend();
+    // Fix round 1 — establish a real revision baseline first (load on an
+    // empty store still counts as a load): this test is about a write that
+    // fails PARTWAY through, not about a never-loaded instance's blind
+    // write, so give it a genuine baseline rather than forcing.
+    await backend.load();
     const ws = { ...emptyWorkspace(), tasks: [task], raid: [raidItem] };
 
     // First save: the raid store write is forced to reject. The whole save
@@ -144,6 +196,12 @@ describe("BrowserBackend parallel IDB save/load", () => {
     // own write succeeded.
     ctl.failStore = IDB_RAID_STORE;
     await expect(backend.save(ws)).rejects.toThrow(/forced failure/);
+
+    // The save is ONE transaction: the tasks put was issued before the raid put threw, and the
+    // abort must have rolled it back — a fresh load finds nothing written.
+    const afterFailure = await new BrowserBackend().load();
+    expect(afterFailure.tasks).toEqual([]);
+    expect(afterFailure.raid).toEqual([]);
 
     // Retry without the fault: every dirty record must be re-emitted. If a
     // baseline had (incorrectly) advanced for tasks, the task put would be
@@ -165,7 +223,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       raid: [raidItem],
       milestones: [milestone],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.tasks).toHaveLength(1);
@@ -194,7 +252,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       } as unknown as ChangeItem],
       milestones: [{ ...milestone, description: "gate <b>2</b>" }],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.raid[0].mitigation).toBe("<p>escalate &lt;b&gt;now&lt;/b&gt;</p>");
@@ -217,7 +275,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       stakeholders: [{ id: 5, name: "Stan", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "Stan <stan@x.com>" }] as never,
       resources: [{ id: 6, firstName: "Res", lastName: "One", email: "Res <res@x.com>", emails: ["Two <two@x.com>"], roleId: null, utilizationMode: "percent", utilization: {} }] as never,
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.raid.find((r) => r.id === 7)?.ownerEmail).toBe("ann@x.com");
@@ -240,7 +298,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
         { id: 7, firstName: "Res", lastName: "Two", email: "Bo <b@x.com>", roleId: null, utilizationMode: "percent", utilization: {} },
       ] as never,
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const idb = await new BrowserBackend().load();
     const json = jsonToWorkspace(workspaceToJson(ws));
@@ -260,7 +318,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       raid: [{ ...raidItem, mitigation: "<p>ok</p><script>alert(1)</script>" } as unknown as RaidItem],
       milestones: [{ ...milestone, description: "<p>gate</p><img src=x onerror=alert(1)>" }],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.raid[0].mitigation).toContain("ok");
@@ -276,7 +334,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
         id: 3, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
       }],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.calendarEvents).toHaveLength(1);
@@ -291,7 +349,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
         recurrence: { freq: "weekly" as const, interval: 1, until: "2026-04-31" },
       }],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
     const loaded = await new BrowserBackend().load();
     expect(loaded.calendarEvents).toHaveLength(1);
     expect(loaded.calendarEvents?.[0]).toMatchObject({ id: 4, startDate: "2026-02-30" });
@@ -304,7 +362,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       fieldVisibility: { task: { fields: ["taskName"] } },
       features: ["raid"] as FeatureModuleId[],
     };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.fieldVisibility).toEqual({ task: { fields: ["taskName"] } });
@@ -313,7 +371,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("persists features: [] (Simple mode) rather than expanding to all modules", async () => {
     const ws = { ...emptyWorkspace(), features: [] };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.features).toEqual([]);
@@ -321,7 +379,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("loads absent fieldVisibility / features as undefined (no override)", async () => {
     const ws = { ...emptyWorkspace(), tasks: [task] };
-    await new BrowserBackend().save(ws);
+    await forcedSave(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.fieldVisibility).toBeUndefined();
@@ -330,6 +388,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("clears a previously-saved fieldVisibility when re-saved empty", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save({
       ...emptyWorkspace(),
       fieldVisibility: { task: { fields: ["taskName"] } },
@@ -357,7 +416,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       // test below keeps "rename" because it never asserts the op at all.)
       op: "restored" as const,
     };
-    await new BrowserBackend().save({ ...emptyWorkspace(), documentVersions: [version] });
+    await forcedSave({ ...emptyWorkspace(), documentVersions: [version] });
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.documentVersions).toEqual([version]);
@@ -365,6 +424,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("clears stored documentVersions when re-saved with none", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save({
       ...emptyWorkspace(),
       documentVersions: [{
@@ -388,6 +448,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
     ];
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), activityLog: log });
 
     const loaded = await new BrowserBackend().load();
@@ -399,6 +460,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
     ];
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), activityLog: log });
     await backend.save({ ...emptyWorkspace(), activityLog: [] });
 
@@ -408,7 +470,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("round-trips budgetHistory through IndexedDB", async () => {
     const hist = budgetHistoryFixture();
-    await new BrowserBackend().save({ ...emptyWorkspace(), budgetHistory: hist });
+    await forcedSave({ ...emptyWorkspace(), budgetHistory: hist });
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.budgetHistory).toHaveLength(2);
@@ -417,6 +479,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("deletes the stored budgetHistory when it is cleared, so it cannot reload stale", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), budgetHistory: budgetHistoryFixture() });
     expect((await new BrowserBackend().load()).budgetHistory).toHaveLength(2);
     await backend.save({ ...emptyWorkspace(), budgetHistory: [] });
@@ -427,7 +490,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("sanitizes a stored budgetHistory on read, dropping a malformed entry", async () => {
     const hist = budgetHistoryFixture();
-    await new BrowserBackend().save({ ...emptyWorkspace(), budgetHistory: hist });
+    await forcedSave({ ...emptyWorkspace(), budgetHistory: hist });
     await idbSet("budgetHistory", [{ id: "junk" }, hist[1]]);
 
     const loaded = await new BrowserBackend().load();
@@ -555,6 +618,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     const ws = { ...emptyWorkspace(), tasks: [task], raid: [raidItem] };
     await backend.save(ws);
 
@@ -571,6 +635,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
   describe("calendarOptOut over IndexedDB (§486)", () => {
     it("round-trips calendarOptOut on all five calendar-pushed entities", async () => {
       const backend = new BrowserBackend();
+      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
       await backend.save(calendarOptOutWorkspace());
       expect(readCalendarOptOuts(await backend.load())).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
     });
@@ -580,7 +645,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
     it("drops a non-literal calendarOptOut on load, on all five entities", async () => {
       const ws = calendarOptOutWorkspace();
       const b = (x: unknown) => ({ ...(x as object), calendarOptOut: "false" }) as never;
-      await new BrowserBackend().save({
+      await forcedSave({
         ...ws, tasks: ws.tasks.map(b), raid: ws.raid.map(b), milestones: (ws.milestones ?? []).map(b),
         changes: (ws.changes ?? []).map(b), absences: ws.absences.map(b),
       });
@@ -601,6 +666,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     it("round-trips documentAssets through save and load", async () => {
       const backend = new BrowserBackend();
+      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
       await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
       const back = await backend.load();
       expect(back.documentAssets?.[0]).toEqual(asset);
@@ -608,6 +674,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     it("leaves the key undefined when there are no assets", async () => {
       const backend = new BrowserBackend();
+      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
       await backend.save(emptyWorkspace());
       expect((await backend.load()).documentAssets).toBeUndefined();
     });
@@ -638,6 +705,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
     // directly is the only observable that catches the stale-key bug.
     it("deletes the stored key (not merely re-saves []) so raw storage cannot hold stale data", async () => {
       const backend = new BrowserBackend();
+      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
       await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
       await backend.save({ ...emptyWorkspace(), documentAssets: [] });
 

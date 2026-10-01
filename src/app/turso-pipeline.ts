@@ -79,6 +79,16 @@ async function postPipeline(
 
 const SHAPE_ERROR = "Turso returned an unexpected response shape.";
 
+/** §4 — a transactional statement failed; `stepIndex` is its index in the list the caller passed (the
+ *  batch's own trailing ROLLBACK is never it). Lets a caller tell WHICH statement failed without reading
+ *  the server's error text. The message is the same `Turso error: …` every caller already reads. */
+export class TursoStepError extends Error {
+  constructor(public readonly stepIndex: number, serverMessage: string) {
+    super(`Turso error: ${serverMessage}`);
+    this.name = "TursoStepError";
+  }
+}
+
 type StepResult = NonNullable<PipelineResultLike["response"]>["result"];
 interface BatchAnswer { step_results?: (StepResult | null)[]; step_errors?: ({ message?: string } | null)[] }
 
@@ -92,8 +102,8 @@ function batchResults(results: PipelineResultLike[], count: number): PipelineRes
   const stepResults = answer?.step_results;
   const stepErrors = answer?.step_errors ?? [];
   if (only?.response?.type !== "batch" || !Array.isArray(stepResults)) throw new Error(SHAPE_ERROR);
-  const failed = stepErrors.slice(0, count).find((e) => e);
-  if (failed) throw new Error(`Turso error: ${failed.message ?? "unknown"}`);
+  const failedAt = stepErrors.slice(0, count).findIndex((e) => e);
+  if (failedAt >= 0) throw new TursoStepError(failedAt, stepErrors[failedAt]?.message ?? "unknown");
   return Array.from({ length: count }, (_, i) => {
     const result = stepResults[i];
     if (!result) throw new Error(SHAPE_ERROR);

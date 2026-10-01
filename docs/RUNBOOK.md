@@ -122,7 +122,9 @@ that has been sanitized (`sanitize-html.ts` / DOMPurify) or is an app-authored
 constant, and script execution stays nonce-strict — which is why the
 attribute allowance is treated as low-risk. `connect-src` allows the browser-called
 origins (`api.anthropic.com`, `*.turso.io`, `graph.microsoft.com`,
-`login.microsoftonline.com`, plus `http://localhost:*` and `http://127.0.0.1:*`
+`login.microsoftonline.com`, the SharePoint download hosts `*.sharepoint.com` and
+`*.files.1drv.com` — the backend's load fetches the file bytes from the pre-authenticated
+`@microsoft.graph.downloadUrl` — plus `http://localhost:*` and `http://127.0.0.1:*`
 for a local/self-hosted Turso); `worker-src 'self'` is set for the installable
 PWA's service worker (0.106.0+). The recent feature batch (timezones, guided
 tour, steering committee, Kanban, scheduled jobs, Confluence import) added

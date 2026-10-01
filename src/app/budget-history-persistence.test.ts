@@ -23,7 +23,7 @@ import type { Task } from "./types";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 
 // Cross-tab broadcast is irrelevant here and needs a BroadcastChannel — stub it.
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 
 import { useBroadcastSync } from "./broadcast-sync";
 import { BrowserBackend } from "./browser-backend";
@@ -94,7 +94,11 @@ beforeEach(() => {
 
 describe("budgetHistory survives the storage hook's save path", () => {
   it("control: BrowserBackend round-trips a history it is handed directly", async () => {
-    await new BrowserBackend().save({ ...emptyWorkspace(), tasks: [task], budgetHistory: history() });
+    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // seed write (R10 change 1, fail closed).
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save({ ...emptyWorkspace(), tasks: [task], budgetHistory: history() });
     expect((await readBack()).budgetHistory).toEqual(history());
   });
 
@@ -113,7 +117,10 @@ describe("budgetHistory survives the storage hook's save path", () => {
   });
 
   it("fires a save when budgetHistory is the ONLY thing that changed", async () => {
-    await new BrowserBackend().save({ ...emptyWorkspace(), tasks: [task] });
+    // §4 fix round 2 — force this blind seed write (R10 change 1).
+    const seed = new BrowserBackend();
+    seed.forceNextSave();
+    await seed.save({ ...emptyWorkspace(), tasks: [task] });
     const { result } = renderBackend();
     await settle(result);
     expect((await readBack()).budgetHistory).toBeUndefined();
@@ -128,7 +135,10 @@ describe("budgetHistory survives the storage hook's save path", () => {
   });
 
   it("loads a stored budgetHistory into workspace state", async () => {
-    await new BrowserBackend().save({ ...emptyWorkspace(), tasks: [task], budgetHistory: history() });
+    // §4 fix round 2 — force this blind seed write (R10 change 1).
+    const seed = new BrowserBackend();
+    seed.forceNextSave();
+    await seed.save({ ...emptyWorkspace(), tasks: [task], budgetHistory: history() });
     const { result } = renderBackend();
     await waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
     await waitFor(() => expect(result.current.budgetHistory).toEqual(history()));

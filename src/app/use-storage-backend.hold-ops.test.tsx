@@ -61,7 +61,7 @@ vi.mock("./project-file-handles", () => ({
   saveHandle: vi.fn().mockResolvedValue(undefined),
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 vi.mock("./turso-portfolio", () => ({
   createProject: vi.fn(async () => undefined),
@@ -81,6 +81,7 @@ vi.mock("./turso-backend", () => ({
     constructor(public config: unknown, public projectId: string) {}
     load = vi.fn(() => (seam.tursoLoad ? seam.tursoLoad() : Promise.resolve({ tasks: [], raid: [], absences: [], shifts: [] })));
     save = vi.fn().mockResolvedValue(undefined);
+    forceNextSave = vi.fn(); // §4 — createTursoProject declares its blind write
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
   },

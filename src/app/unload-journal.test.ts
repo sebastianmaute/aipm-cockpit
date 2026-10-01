@@ -447,14 +447,21 @@ describe("fingerprint round-trip: browser (IndexedDB)", () => {
 
   it("small sample workspace", async () => {
     const before = fingerprintWorkspace(smallWs);
-    await new BrowserBackend().save(smallWs);
+    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // seed write (R10 change 1, fail closed).
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save(smallWs);
     const loaded = await new BrowserBackend().load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
   });
 
   it("bigger sample workspace (documents included)", async () => {
     const before = fingerprintWorkspace(bigWs);
-    await new BrowserBackend().save(bigWs);
+    // §4 fix round 2 — see the sibling test above.
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save(bigWs);
     const loaded = await new BrowserBackend().load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
   });
@@ -466,13 +473,18 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
 
   beforeEach(() => {
     stored = null;
-    fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    fetchSpy = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "PUT") {
         stored = init.body as string;
-        return { ok: true, status: 200, text: async () => "" } as unknown as Response;
+        return { ok: true, status: 200, headers: new Headers(), text: async () => "" } as unknown as Response;
       }
-      if (stored === null) return { ok: false, status: 404, text: async () => "" } as unknown as Response;
-      return { ok: true, status: 200, text: async () => stored as string } as unknown as Response;
+      if (stored === null) return { ok: false, status: 404, headers: new Headers(), text: async () => "" } as unknown as Response;
+      // §4 (R13): a load is the item metadata, then the bytes from the pre-authenticated download URL.
+      if (url.startsWith("https://download.example.test/")) {
+        return { ok: true, status: 200, headers: new Headers(), text: async () => stored as string } as unknown as Response;
+      }
+      const meta = JSON.stringify({ eTag: '"e1"', "@microsoft.graph.downloadUrl": "https://download.example.test/dl" });
+      return { ok: true, status: 200, headers: new Headers(), text: async () => meta } as unknown as Response;
     });
     vi.stubGlobal("fetch", fetchSpy);
   });
@@ -491,6 +503,7 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
   it("small sample workspace", async () => {
     const before = fingerprintWorkspace(smallWs);
     const backend = spBackend();
+    backend.forceNextSave(); // §4: a never-loaded SharePoint save refuses unless forced
     await backend.save(smallWs);
     const loaded = await backend.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
@@ -499,6 +512,7 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
   it("bigger sample workspace (documents included)", async () => {
     const before = fingerprintWorkspace(bigWs);
     const backend = spBackend();
+    backend.forceNextSave(); // §4: a never-loaded SharePoint save refuses unless forced
     await backend.save(bigWs);
     const loaded = await backend.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);

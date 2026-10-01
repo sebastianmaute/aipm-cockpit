@@ -141,7 +141,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Resource calendar plus a live multi-timezone world-clock strip (the default zone and any additional zones the user adds).
 - Zones for the strip are configured in Settings.
-- AI: can explain the calendar and timezone strip, and can LIST recurring meetings (`list_calendar_events` returns each series definition plus its skip/move exceptions, never an expanded occurrence list). It cannot add or change events or zones. ABSENCES are not readable by any tool even though the grid shows them beside meetings, so any clash or availability answer covers meetings only — say so rather than implying otherwise.
+- AI: can explain the calendar and timezone strip, and can read both things the grid shows: meetings (`list_calendar_events` returns each series definition plus its skip/move exceptions, never an expanded occurrence list) and absences (`list_absences`). A clash or availability answer needs BOTH lists. It can also create, update and delete meetings and absences (`*_calendar_event`, `*_absence`). It cannot change the timezone zones.
 
 ## Settings
 

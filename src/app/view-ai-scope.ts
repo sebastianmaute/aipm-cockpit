@@ -103,16 +103,17 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   },
   calendar: {
     purpose: "Resource calendar shows meetings and absences on a date grid.",
-    toolHints: ["list_calendar_events", "list_resources"],
-    // ★ The gap disclosure matters MORE here than on a view with no tools at
-    // all: list_calendar_events succeeds, so without this the model answers a
-    // double-booking question confidently over meetings alone while the
-    // absences sitting on the same grid are invisible to it. Same treatment as
-    // activity / timelog / raci.
+    toolHints: ["list_calendar_events", "list_absences", "list_resources"],
+    // ★ The grid holds TWO slices and each list tool reads only one:
+    // list_calendar_events succeeds on its own, so a double-booking or
+    // availability question answered from it alone silently omits every
+    // absence on the same grid (open-followups §89). This used to say absences
+    // were not readable at all — false since list_absences exists, and it
+    // steered the model away from the tool that answers the question.
     reading:
       "Recurring events are stored once as a series; occurrences are derived from the rule. " +
-      "Absences are NOT tool-readable — list_calendar_events returns meetings only, so any " +
-      "clash or availability answer covers meetings alone. Say so rather than implying the grid was read.",
+      "The grid shows two things: meetings (list_calendar_events) and absences (list_absences — " +
+      "assignee, startDate, endDate, type). Read BOTH before answering a clash or availability question.",
   },
   planning: {
     purpose: "Planning is the allocation grid: planned hours per person per period.",

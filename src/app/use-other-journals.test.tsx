@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as diagnostics from "./diagnostics";
 import * as download from "./download-json";
+import { loadI18n, t } from "./i18n";
 import { ExpiredJournalsBanner, OtherJournalsBanner } from "./notifications";
 import { saveRegistry } from "./projects-registry";
 import { UNLOAD_JOURNAL_MAX_AGE_MS, readUnloadJournal, writeUnloadJournal } from "./unload-journal";
@@ -209,6 +210,55 @@ describe("OtherJournalsBanner", () => {
     expect(screen.getByRole("button", { name: "Discard: Browser workspace (no project)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Discard: Turso workspace (no project)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Discard: tp-9" })).toBeTruthy();
+  });
+});
+
+describe("OtherJournalsBanner — §4 kept slots", () => {
+  it("names a kept slot after its project, translating browser, and keeps two versions of one project row-unique", () => {
+    const first = entry("browser:kept", null, 1);
+    const second = { ...entry("browser:kept:1799999000000", null, 1), journal: { ...entry("browser:kept:1799999000000", null, 1).journal, savedAt: NOW - 3_600_000 } };
+    const plain = entry("tp-9:kept", null, 1);
+    render(<OtherJournalsBanner lang="en-US" others={[first, second, plain]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    const discards = screen.getAllByRole("button", { name: /^Discard: / }).map((b) => b.getAttribute("aria-label"));
+    expect(discards.filter((n) => n!.startsWith("Discard: Browser workspace (no project)"))).toHaveLength(2);
+    expect(new Set(discards).size).toBe(discards.length); // row-unique
+    expect(discards).toContain("Discard: tp-9"); // a lone entry keeps its plain name
+    expect(screen.getAllByText(/^Browser workspace \(no project\) — not saved \(conflict\), from /)).toHaveLength(2);
+  });
+
+  it("marks a kept entry as not saved (conflict) and says reloading does not restore it, only while one is listed", () => {
+    const hint = "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them; download one to recover your changes.";
+    const { rerender } = render(<OtherJournalsBanner lang="en-US" others={[entry("p1:kept", "Apollo", 3000), entry("p2", "Zeus", 10)]}
+      onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/^Apollo — not saved \(conflict\), from .*, 3 KB$/)).toBeTruthy();
+    expect(screen.getByText(/^Zeus — from .*, 1 KB$/)).toBeTruthy(); // an ordinary draft keeps its wording
+    expect(screen.getByText(hint)).toBeTruthy();
+    // label-in-name: each button's name starts with its visible text, and stays row-unique
+    expect(screen.getByRole("button", { name: "Download: Apollo" }).textContent).toBe("Download");
+    expect(screen.getByRole("button", { name: "Discard: Apollo" }).textContent).toBe("Discard");
+    rerender(<OtherJournalsBanner lang="en-US" others={[entry("p2", "Zeus", 10)]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.queryByText(hint)).toBeNull();
+  });
+
+  it("renders the kept entry and its hint in German", async () => {
+    await loadI18n("de");
+    render(<OtherJournalsBanner lang="de" others={[entry("p1:kept:1799999000000", "Apollo", 1)]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/^Apollo — nicht gespeichert \(Konflikt\), vom .*, 1 KB$/)).toBeTruthy();
+    expect(screen.getByText(/^Als "nicht gespeichert \(Konflikt\)" markierte Versionen wurden abgelehnt, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde\./)).toBeTruthy();
+    expect(t("de", "unloadJournalKeptHint")).not.toBe(t("en-US", "unloadJournalKeptHint"));
+  });
+
+  it("keeps two versions of one project row-unique when they were written in the same displayed minute", () => {
+    // §4 — the date is shown to the minute, so two keeps 20 s apart still share it: an ordinal separates them.
+    const first = entry("tp-9:kept", null, 1);
+    const second = { ...entry("tp-9:kept:1799999980000", null, 1), journal: { ...entry("tp-9:kept:1799999980000", null, 1).journal, savedAt: NOW + 20_000 } };
+    render(<OtherJournalsBanner lang="en-US" others={[first, second]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    for (const verb of ["Download", "Discard"]) {
+      const labels = screen.getAllByRole("button", { name: new RegExp(`^${verb}: `) }).map((b) => b.getAttribute("aria-label"));
+      expect(labels).toHaveLength(2);
+      expect(new Set(labels).size).toBe(2);
+      expect(labels[1]).toMatch(/\(2\)$/);
+    }
   });
 });
 

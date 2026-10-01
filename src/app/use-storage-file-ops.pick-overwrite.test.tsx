@@ -65,7 +65,7 @@ vi.mock("./idb", async (importOriginal) => ({
 }));
 // Cross-tab plumbing and the per-project handle store: neither is on any path this file exercises,
 // and both reach for browser stores jsdom has no use for.
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 // §641 — the REAL queue, observable: one test below holds `whenSaved` open to see what the pick does meanwhile.
 vi.mock("./save-queue", async (importOriginal) => {
   const real = await importOriginal<typeof import("./save-queue")>();
@@ -232,6 +232,8 @@ interface Scenario {
   cancelPicker?: boolean;
   /** Fail the picker with something that is NOT a cancel. Takes precedence over `cancelPicker`. */
   pickerError?: unknown;
+  /** The handle the picker returns, instead of the plain `PICKED_FILE` view onto `DISK`. */
+  handle?: FsHandle;
 }
 
 /** Held at module scope so `afterEach` can restore exactly this spy and nothing else. Typed by the
@@ -276,7 +278,7 @@ async function setupPick(scenario: Scenario) {
   } else if (scenario.cancelPicker) {
     showSaveFilePicker.mockRejectedValue(new DOMException("The user aborted a request.", "AbortError"));
   } else {
-    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    showSaveFilePicker.mockResolvedValue(scenario.handle ?? handleFor(PICKED_FILE));
   }
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(scenario.confirmAnswer ?? false);
   confirmSpy = confirm;
@@ -387,7 +389,7 @@ describe("§590 — the picked file already holds a project and the app is empty
   //   (binding half); deleting `deps.applyPickedWorkspace(...)` (gate half).
   it("commits the pick and re-opens the save gate when the user accepts", async () => {
     const { result } = await setupPick({ ...POPULATED(), confirmAnswer: true });
-    expect(KV.get(HANDLE_KEY)).toMatchObject({ name: PICKED_FILE });
+    expect(KV.get(HANDLE_KEY)).toMatchObject({ handle: { name: PICKED_FILE }, binding: expect.stringMatching(/^picked:/) }); // §645 C1 — the slot holds the handle with its binding
     await waitFor(() => expect(result.current.loadPause).toBeNull());
   });
 
@@ -462,7 +464,16 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   op's own catch, the write never happens and the file keeps its junk).
   it("writes normally, without asking, when the picked file is unparseable", async () => {
     const junk = "this is not a workspace at all {{{";
-    const { confirmSpy } = await setupPick({ fileBytes: junk });
+    // ★ §4 R12 — the write is a deliberate blind overwrite: the unparseable read recorded no
+    //   revision, so only a forced save can land. KILLED BY: dropping the `force` option at the write.
+    const forceSpy = vi.spyOn(LocalFileBackend.prototype, "forceNextSave");
+    let confirmSpy: Awaited<ReturnType<typeof setupPick>>["confirmSpy"];
+    try {
+      ({ confirmSpy } = await setupPick({ fileBytes: junk }));
+      expect(forceSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      forceSpy.mockRestore();
+    }
     expect(confirmSpy).not.toHaveBeenCalled();
     // ★★ ON THE BYTES, not on `tasksInFile()`. Mutation-measured: with `readPickedProject`'s
     //   `catch` deleted the write never happens and the junk stays on disk — yet a task-count
@@ -870,5 +881,26 @@ describe("§450 — the offer's plural", () => {
     const { confirmSpy } = await setupPick({ fileBytes: oneRecord, confirmAnswer: false });
     expect(confirmSpy).toHaveBeenCalledWith(tPlural("en-US", "storagePickFileHasProject", 1, PICKED_FILE, 1));
     expect(String(confirmSpy.mock.calls[0][0])).toContain("a project with 1 record.");
+  });
+});
+
+// Final review 5a M3 and m10 — the two exits of the pick that spoke the wrong way or left no trail.
+describe("§4 — a pick that cannot be read, or whose write meets a conflict", () => {
+  // KILLED BY: deleting the `logDiag` on the unreadable abort.
+  it("an unreadable pick is aborted with a diagnostics entry, and binds nothing", async () => {
+    const locked: FsHandle = { ...handleFor(PICKED_FILE), getFile: async () => { throw new DOMException("locked by another program", "NotReadableError"); } };
+    await setupPick({ ...POPULATED(), handle: locked });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.pickUnreadableAborted", expect.objectContaining({ name: "NotReadableError" }));
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
+  });
+
+  // KILLED BY: dropping the conflict arm from the pick's outer catch (the toast is then `storageSaveFailed` with the raw English message).
+  it("a write that meets a newer revision of the picked file is announced as a conflict", async () => {
+    let reads = 0;
+    const moving: FsHandle = { ...handleFor(PICKED_FILE), getFile: async () => { reads += 1; const text = DISK.get(PICKED_FILE) ?? ""; return { text: async () => text, lastModified: reads, size: text.length } as unknown as File; } };
+    await setupPick({ fileBytes: "", handle: moving }); // brand new and empty: the ordinary bind-then-write branch
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnRebuild"));
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("Save conflict"));
   });
 });

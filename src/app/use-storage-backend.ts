@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { postRevision } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -15,11 +15,10 @@ import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
-import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
-import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
 import { storageTargetKey } from "./storage-target-key";
@@ -31,7 +30,11 @@ import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation"
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
+import { useConflictResolution } from "./use-conflict-resolution";
+import { useWorkspaceSync } from "./use-workspace-sync";
 import { enqueueSave, whenSaved } from "./save-queue";
+import { createMirrorLedger } from "./mirror-ledger";
+import { handOverRevision } from "./storage-handover";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -326,6 +329,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
   const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
   const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
+  // §4 — which changes this window only MIRRORED from a peer, so the autosave skips them (mirror-ledger.ts).
+  // Tab sync applies a peer value through `mirrorApply`, whose updater hands the ledger its `prev`.
+  const [mirrorLedger] = useState(createMirrorLedger);
+  const mirrorApply = useMemo(() => {
+    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { mirrorLedger.judge(kind, live, value); return value; }); };
+    return {
+      tasks: into("tasks", setTasks), raid: into("raid", setRaid), absences: into("absences", setAbsences), shifts: into("shifts", setShifts),
+      resources: into("resources", setResources), roles: into("roles", setRoles), disciplines: into("disciplines", setDisciplines), grades: into("grades", setGrades),
+      plan: into("plan", setPlan), budgets: into("budgets", setBudgets), fxRates: into("fxRates", setFxRates), status: into("status", setStatus),
+      project: into("project", setProject), fieldVisibility: into("fieldVisibility", setFieldVisibility), features: into("features", setFeatures),
+      milestones: into("milestones", setMilestones), changes: into("changes", setChanges), stakeholders: into("stakeholders", setStakeholders),
+      steeringCommittee: into("steeringCommittee", setSteeringCommittee), timelogLinks: into("timelogLinks", setTimelogLinks), knowledgeItems: into("knowledgeItems", setKnowledgeItems),
+      insights: into("insights", setInsights), documents: into("documents", setDocuments), documentVersions: into("documentVersions", setDocumentVersions),
+      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
+      calendarEvents: into("calendarEvents", setCalendarEvents), documentAssets: into("documentAssets", setDocumentAssets),
+    };
+  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
+  // ★ Once per COMMIT, in a layout effect: it runs before any later render can process a queued updater, so
+  //   the next `judge` finds every value it can see as `live` (mirror-ledger.ts `prune`). No deps on purpose.
+  useLayoutEffect(() => { mirrorLedger.prune(currentWorkspace()); });
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -377,16 +400,23 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
+  // ★★ NEVER CALL DURING RENDER (final review, Task 9 M3): it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
     savesAllowedForRef.current = target;
+    conflictPausedForRef.current = null;
+    conflictResolution.cancelOverwrite(); // §4 — a load (or the Overwrite itself, which re-requests after) sets the baseline
     setSavesAllowedFor(target);
   };
   // Why saving to an instance is paused: its load FAILED, or it came back EMPTY over a populated
   // project and was refused. STATE, not a ref, because the banner must stay up for as long as the
   // pause holds — a toast alone disappears after seven seconds (review I1). Published only while the
   // gate for the CURRENT instance is shut, so any opener above clears it by construction.
-  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" } | null>(null);
+  // §4 — or a save was refused as stale (`"conflict"`, `emitConflictPause`): another writer saved first.
+  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" | "conflict"; seen?: string | null } | null>(null); // `seen`: the revision a conflict's refusal reported
   const loadPause = savesPaused !== null && savesPaused.backend === backend && !savesAllowed ? savesPaused.reason : null;
+  const conflictPausedForRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 — for the pre-switch flush, which runs after this render; cleared by `allowSavesTo`
+  const conflictResolution = useConflictResolution({ backend, seenRevision: loadPause === "conflict" ? savesPaused?.seen ?? null : null, currentWorkspace, reload: () => reloadHeld(), openGate: () => { if (conflictPausedForRef.current !== backend) return false; allowSavesTo(backend); return true; }, onDownloadFailed: (name) => emitToast("error", t(langRef.current, "unloadJournalDownloadFailed", name)) }); // §4 — the conflict banner's three actions; `runSaveJob` wraps the autosave job below
+  const keptOnSwitchForRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 — the instance whose edits the pre-switch flush kept; `doSave`'s catch does not keep them twice
   // The instance the save-paused toast was already shown for — once per backend, not per refused edit.
   const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
 
@@ -398,6 +428,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextSaveRef = useRef(false);
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
+  const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
+  // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
+  const [fileBinding, setFileBinding] = useState<string | null>(null);
+  // ★ RI4 — read ONLY where a load of this instance is APPLIED (the load effect's success path, `reloadCurrentProject`): a failed, refused or grant-only window shows content that is not the file's, so it stays isolated. A `const`, not a declaration (see `allowSavesTo`).
+  const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
@@ -414,7 +449,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); try { await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below).
+  // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. ★ Final review I2: when that kept write FAILS (over the cap, quota, codec), the `SaveConflictError` is thrown instead, and every op's flush catch stops on it (no generic flush-failed toast): the user stays on this project behind the pause, whose Download works at any size.
+  function keepNotSavedOnSwitch(ws: Workspace, refused?: SaveConflictError): void {
+    if (unloadJournal.followLive(ws, true)) { keptOnSwitchForRef.current = backend; emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); return; }
+    if (refused) emitConflictPause(backend, refused.currentRevision); // met here: raise the pause; a standing one shows already
+    emitToast("error", t(langRef.current, "storageConflictSwitchBlocked"));
+    throw refused ?? new SaveConflictError(args.settings.storageConfig.kind);
+  }
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -465,6 +507,20 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!mountedRef.current) return;
     args.showToastAction(kind, text, action);
   }
+  // §4 — a save refused as stale: SHUT `target`'s gate and publish the pause; the save effect's re-run then
+  // toasts once and journals the live workspace. Only while the gate is still open for `target`, so a second
+  // refused save (one queued behind the first) changes nothing. The announcement ref is reset so THIS pause
+  // is toasted even when an earlier pause on the same instance already was.
+  // The pause keeps the LATEST refusal's revision (`seen`): the one a conditional Overwrite may replace.
+  function emitConflictPause(target: ReturnType<typeof createBackend>, seen: string | null): void {
+    if (mountedRef.current && conflictPausedForRef.current === target && savesAllowedForRef.current !== target) { setSavesPaused({ backend: target, reason: "conflict", seen }); return; }
+    if (!mountedRef.current || savesAllowedForRef.current !== target) return;
+    savesAllowedForRef.current = null;
+    conflictPausedForRef.current = target;
+    savePausedAnnouncedForRef.current = null;
+    setSavesAllowedFor(null);
+    setSavesPaused({ backend: target, reason: "conflict", seen });
+  }
   function emitRegistryChange(registry: ProjectsRegistry): void {
     if (!mountedRef.current) return;
     args.onRegistryChange?.(registry);
@@ -510,14 +566,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTasks(mark(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
     setRaid(mark(workspace.raid ?? [])); setAbsences(mark(workspace.absences ?? [])); setShifts(mark(workspace.shifts ?? []));
     setResources(mark(workspace.resources ?? [])); setRoles(mark(workspace.roles ?? [])); setDisciplines(mark(workspace.disciplines ?? [])); setGrades(mark(workspace.grades ?? []));
-    if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(mark(workspace.budgets ?? [])); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
-    setProject(mark(workspace.project)); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    if (workspace.plan) setPlan(mark(workspace.plan));
+    setBudgets(mark(workspace.budgets ?? [])); setFxRates(mark(workspace.fxRates ?? null)); setStatus(mark(workspace.status ?? {}));
+    setProject(mark(workspace.project)); setFieldVisibility(mark(workspace.fieldVisibility)); setFeatures(mark(workspace.features));
     setMilestones(mark(workspace.milestones ?? [])); setChanges(mark(workspace.changes ?? [])); setStakeholders(mark(workspace.stakeholders ?? []));
-    setSteeringCommittee(workspace.steeringCommittee);
-    setTimelogLinks(workspace.timelogLinks);
-    setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
+    setSteeringCommittee(mark(workspace.steeringCommittee));
+    setTimelogLinks(mark(workspace.timelogLinks));
+    setKnowledgeItems(mark(workspace.knowledgeItems));
+    setInsights(mark(workspace.insights)); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
     // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
     // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
     // log is append-only, so replacing drops entries appended locally while the load was in flight;
@@ -527,8 +583,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setActivityLog((prev) => mark(logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
     setBudgetHistory((prev) => mark(logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
-    setSettingsOverrides(workspace.settingsOverrides);
-    setCalendarEvents(workspace.calendarEvents); setDocumentAssets(workspace.documentAssets);
+    setSettingsOverrides(mark(workspace.settingsOverrides));
+    setCalendarEvents(mark(workspace.calendarEvents)); setDocumentAssets(mark(workspace.documentAssets));
     // Seed the session id-minter's high-water from the loaded set so the next
     // mint after a delete can never reuse a just-freed id. RESET (default) for a
     // possibly-DIFFERENT loaded workspace — initial load / project switch /
@@ -620,6 +676,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     (async () => {
       if (suppressNextLoadRef.current) {
         suppressNextLoadRef.current = false;
+        // §4 §645 — THE hand-over: the op loaded or wrote through its own instance, and this one skipped its load, so it knows no revision (and, for a local file, no bound handle) and would refuse its first save. BEFORE `allowSavesTo`.
+        const handOverFrom = handOverFromRef.current; handOverFromRef.current = null; if (handOverFrom) handOverRevision(backend, handOverFrom);
         // ★★★ REQUIRED re-stamp (open-followups §77 — seven arm sites, the
         // reproduce grep and the full argument live there). Every op that arms
         // this ref already put the right workspace in render scope, but does so
@@ -656,12 +714,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: true });
           setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
+          setFileBinding(null); // §645 m-a — the screen keeps the PREVIOUS content, which belongs to neither file: isolate (an unknown binding syncs with nobody)
           setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
           truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
         }
+        captureFileBinding(); // §645 C1 — the binding stored WITH the handle this load opened, never the registry's current project
         // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
         // after a rebuild onto another target, scope holds the previous project, so REPLACE.
         unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — what the backend RETURNED, keyed by the target this render loaded
@@ -676,6 +736,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
+        setFileBinding(null); // RI4 — a failed load leaves content on screen that is not the file's (the boot workspace, or the previous project): isolate until an APPLIED load gives the binding
         setSettledBackend(backend); // §548 — a FAILED load leaves nothing in flight to overwrite an edit. (`cancelled` above covers teardown.)
         setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
@@ -742,19 +803,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   its baselines start at 0/0. ★★ ABOVE the suppress branch, so an op's one-shot survives until
     //   the gate opens and is spent THEN — below it, the op's suppress would be spent on this closed
     //   run and the re-run the gate's opening triggers (`savesAllowed` is a dep) would re-write the
-    //   workspace the op had just loaded.
-    if (!savesAllowed) {
-      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
-        savePausedAnnouncedForRef.current = backend;
-        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
-        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
-        emitToastAction("error", t(langRef.current, loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
-          labelKey: "storageSavingPausedAction",
-          run: () => args.onRevealSavingPaused(),
-        });
-      }
-      return;
-    }
+    //   workspace the op had just loaded. (Placed below `outgoing`, which the conflict pause journals.)
     // ★ ONE object: counted by the guard below AND handed to backend.save. The save used to
     //   re-spell this 28-field literal, so a new Workspace field could be counted here and
     //   never written. ★★ The `: Workspace` annotation (not `as`) only catches a missing
@@ -762,6 +811,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
     const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
+    if (!savesAllowed) {
+      if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
+      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
+        savePausedAnnouncedForRef.current = backend;
+        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
+        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
+        emitToastAction("error", t(langRef.current, loadPause === "conflict" ? "storageSavePausedConflict" : loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
+          labelKey: "storageSavingPausedToastAction",
+          run: () => args.onRevealSavingPaused(),
+        });
+      }
+      return;
+    }
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -830,8 +892,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★ The spend that used to sit here is now at the TOP of this effect, so
       // this branch spends by construction like every other. The resync
       // rationale above is unchanged and still the reason it is SAFE to spend.
+      mirrorLedger.markSaved(outgoing); // §4 — what scope holds after the load/op is what storage holds
       return;
     }
+    // §4 — only mirrored changes since the last load or landed write: the peer that made them saves them.
+    // Nothing is written, so nothing moves — no baseline, no journal entry, no outcome — and the pending
+    // timer of an earlier run is gone only if that run's own change has since been replaced by a mirror.
+    // ★ Any arm was spent at the top; an arm comes with a local mutation in the same commit, and a run
+    //   carrying one is not mirrored-only.
+    if (mirrorLedger.isMirroredOnly(outgoing)) return;
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
@@ -856,7 +925,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // an irreversible button.
       if (!refusalWasStanding) {
         emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
-          labelKey: "storageSavingPausedAction",
+          labelKey: "storageSavingPausedToastAction",
           run: () => args.onRevealSavingPaused(),
         });
       }
@@ -911,11 +980,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   ★ §603 — and a write that CHOSE not to write (a picked-file write whose backend was replaced while
       //   it queued) settles "superseded", which a save it replaced inherits: the early return below then
       //   keeps the baselines, the unload-journal entry and the outcome for edits nothing wrote.
-      enqueueSave(backend, () => backend.save(outgoing)).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+      // §4 — the revision this save is checked against, read INSIDE the job right before the write: the job may wait behind others, and one replaced by a guarded write never runs it (`undefined`).
+      let baseRevision: string | null | undefined;
+      // ★★ §4 — the ledger is asked again when the job STARTS: a mirror that arrived while an earlier save was in flight re-ran this effect with that save's edits still unsaved, and once it landed this snapshot's only news is the peer's part, which its writer saves (mirror-ledger.ts `markWritten`). Nothing is written, so nothing moves; its unconfirmed journal entry goes (in memory only: one already written while the page was hiding stays, and its peer part may come back on a load — untested, review M1 on 9c639dc21). The landing is recorded INSIDE the job for that reason: the queue starts the next job before this `.then` runs.
+      const job = (): Promise<void | "superseded"> => {
+        if (mirrorLedger.isMirroredOnly(outgoing)) { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); }
+        return conflictResolution.runSaveJob(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
+      };
+      enqueueSave(backend, job).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
+        // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.
+        const revision = backend.revision?.();
+        if (baseRevision != null && revision != null) postRevision(syncContext, revision, baseRevision); // `undefined`: this job never ran (replaced, settled as saved) and wrote nothing
       }).catch((err) => {
         // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
         //   believe the destroyed counts are stored. Left adopted they disarm the
@@ -935,8 +1014,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (live.collections === curCollections && live.records === curRecords) {
           destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
         }
-        emitOutcome(err);
+        if (!isSaveConflict(err)) emitOutcome(err); // §4 — a refusal is reported by the pause (or the kept-journal toast) alone: the generic outcome raised a sticky storage banner no save could clear while paused
         logDiag("error", "storage.saveFailed", { message: String(err) });
+        if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend, err.currentRevision); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
+        if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
+          const keptByFlush = keptOnSwitchForRef.current === backend;
+          const kept = unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
+          if (!keptByFlush) emitToast("error", t(langRef.current, kept ? "storageConflictNotSavedOnRebuild" : "storageConflictNotKeptOnRebuild")); // no switch here: an op's flush keeps (and toasts) its own. I2: a rebuild cannot be refused, so a failed keep is named
+          return;
+        }
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
         if (tursoErrorKind(err)) return;
         if (err instanceof StorageNotReadyError) {
@@ -949,6 +1035,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         } else if (isTursoLockTimeout(err)) {
           // Localized text — the error's own message is English-only.
           emitToast("error", t(langRef.current, "tursoLockTimeout"));
+        } else if (isSaveLockTimeout(err)) {
+          emitToast("error", t(langRef.current, "storageSaveLockTimeout")); // m4 — local-file Web Lock wait; the Turso copy names a database
         } else if (!(err instanceof StorageNotImplementedError)) {
           emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }
@@ -1047,38 +1135,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
-  // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
-  // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
-  // never the registry's current project, which every tab shares through localStorage. Windows on
-  // different storage never apply, and then autosave, each other's slices. ★ Browser storage and
-  // each local-file kind are ONE store or handle slot for every tab, so windows sharing one exchange
-  // slices whatever registry project each shows (§645). A pop-out follows its opener instead.
-  const syncScope = useMemo(
-    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId }),
-    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
-  );
-  const syncContext = useMemo<SyncContext>(
-    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
-    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
-  );
-  useBroadcastSync("tasks", tasks, setTasks, syncContext);
-  useBroadcastSync("raid", raid, setRaid, syncContext);
-  useBroadcastSync("absences", absences, setAbsences, syncContext);
-  useBroadcastSync("shifts", shifts, setShifts, syncContext);
-  useBroadcastSync("resources", resources, setResources, syncContext);
-  useBroadcastSync("roles", roles, setRoles, syncContext);
-  useBroadcastSync("disciplines", disciplines, setDisciplines, syncContext);
-  useBroadcastSync("grades", grades, setGrades, syncContext);
-  useBroadcastSync("budgets", budgets, setBudgets, syncContext);
-  useBroadcastSync("milestones", milestones, setMilestones, syncContext);
-  useBroadcastSync("changes", changes, setChanges, syncContext);
-  useBroadcastSync("stakeholders", stakeholders, setStakeholders, syncContext);
-  useBroadcastSync("documents", documents, setDocuments, syncContext); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, setActivityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
-  // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
-  // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, setProject, syncContext);
+  // §4 §642 §643 §645 — tab sync: the scope, the revision adoption and one `useBroadcastSync` per slice (`use-workspace-sync.ts`).
+  const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply,
+    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory } });
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
@@ -1165,6 +1224,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     currentWorkspace,
     applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     suppressNextLoadRef,
+    handOverFromRef,
     suppressNextSaveRef,
     reportProjectError,
   });
@@ -1188,6 +1248,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reportProjectError,
     suppressNextLoadRef,
     suppressNextSaveRef,
+    handOverFromRef,
+    setFileBinding,
     announcedUnsafeEmailsRef,
   });
 
@@ -1207,6 +1269,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     settingsRef,
     suppressNextSaveRef,
     suppressNextLoadRef,
+    handOverFromRef,
+    setFileBinding,
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
@@ -1285,6 +1349,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
       // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
       // `reloadEmptyConfirm` promises the user a REPLACE.
+      captureFileBinding(); // §645 — only a reload that APPLIES takes the file's binding: below the empty-load confirm, since a declined confirm keeps content that is not the file's (the binding stays as it was, `null` after a refusal)
       unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — as the load effect
       unloadJournal.dropUnconfirmed(journalProjectKey); // §629 — the reload DISCARDS the in-memory state, so a failed save's journal must not bring it back on the next page load
       applyWorkspaceFromLoad(workspace, "raise", resolveLogModeAndStamp());
@@ -1414,8 +1479,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★ Do not quote the length here either; measure both sides instead
   // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+  const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
+  // ★ `conflictPause` below is a TEST SEAM (final review m13): only tests read it; the app reads `loadPause`.
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch, isSwapInFlight,
+    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its
@@ -1459,7 +1526,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   epoch — `scope-epoch.ts` says so). If you add a row, add its ground here or the next reader
     //   cannot check your classification.
     onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
-    reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject: reloadHeld, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —
     //   the B1 regression re-opened for four paths by the very fix that closed it. It has abort
     //   paths AFTER the hold is raised: an unknown id (toast + return), the target already being
@@ -1480,5 +1547,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
     unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
     otherJournals, // §632
+    resolveConflictReload: conflictResolution.resolveConflictReload, resolveConflictOverwrite: conflictResolution.resolveConflictOverwrite, downloadConflictVersion: conflictResolution.downloadConflictVersion, // §4
   };
 }

@@ -1187,7 +1187,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the model rather than merely under-informing it. ★ File pickers take
   `ATTACHMENT_ACCEPT`, derived from `chat-attachments.ts`'s own classifier tables — never a
   hand-written `accept` string. ★ TWO size caps, so `checkAttachmentSize` needs the KIND:
-  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file, `MAX_MAIL_BYTES` (64 MB) for mail. ★★ The six MAIL
+  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file, `MAX_MAIL_BYTES` (64 MB) for mail. ★ A BATCH of files is
+  bounded separately: both callers run `planBatch` (`chat-attachments.ts`) over the flattened blocks, which skips —
+  never truncates — a file that would push the batch past `MAX_BATCH_TEXT_CHARS` or `MAX_BATCH_BASE64_CHARS`; the
+  first file is always admitted, so the ceiling never becomes a smaller per-file limit. ★★ The six MAIL
   parsers (`cfbf` · `lzfu` · `mime-parse` · `msg-extract` · `eml-extract` · `html-extract`) eat
   untrusted bytes off the network and return PARTIAL results rather than throwing. ★★★ THAT IS THE
   SIX NAMED, NOT "every parser beneath ingest" — `unzip.ts`, on the office path, throws five

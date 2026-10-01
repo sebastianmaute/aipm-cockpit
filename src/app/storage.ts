@@ -79,8 +79,10 @@ export function createBackend(
  */
 export function pickFileForBackend(
   backend: StorageBackend,
+  /** §645 C1 — the tab-sync binding stored with the picked handle (`LocalFileBackend.fileBinding`). Required: every binder names one. */
+  binding: string,
 ): Promise<void> | null {
-  if (backend instanceof LocalFileBackend) return backend.pickFile();
+  if (backend instanceof LocalFileBackend) return backend.pickFile(binding);
   return null;
 }
 
@@ -142,8 +144,10 @@ export function requestWriteAccessForBackend(
 export function setBackendFileHandle(
   backend: StorageBackend,
   handle: FsHandle,
+  /** §645 C1 — the tab-sync binding stored with the handle (`LocalFileBackend.fileBinding`). Required: every binder names one. */
+  binding: string,
 ): Promise<void> | null {
-  if (backend instanceof LocalFileBackend) return backend.setHandle(handle);
+  if (backend instanceof LocalFileBackend) return backend.setHandle(handle, binding);
   return null;
 }
 

@@ -43,7 +43,7 @@
 | STRIDE | Threat | Existing mitigation | Residual | Action |
 |---|---|---|---|---|
 | S/E | Token theft / over-broad scope | MSAL owns token cache (app stores no M365 secret); incremental consent — background probes silent, new scope pops interactive dialog | — | none |
-| I | Exfil to a spoofed Graph host | CSP `connect-src graph.microsoft.com` + `frame-src login.microsoftonline.com` only (the `connect-src` and `frame-src` entries in `proxy.ts`) | — | none |
+| I | Exfil to a spoofed Graph host | CSP `connect-src graph.microsoft.com` + `frame-src login.microsoftonline.com` (the `connect-src` and `frame-src` entries in `proxy.ts`) | `connect-src` also allows `*.sharepoint.com` and `*.files.1drv.com` for the SharePoint backend's pre-authenticated download URL (no Graph token is sent there) | acceptable; both are Microsoft-operated |
 
 ### B3 — Browser ↔ Turso (libSQL HTTP `/v2/pipeline`)
 

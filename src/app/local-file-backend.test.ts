@@ -503,6 +503,11 @@ describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () 
     const before = fingerprintWorkspace(smallWs);
     const be = new LocalFileBackend("local-json");
     await be.setHandle(writableFakeHandle());
+    // Fix round 1 — this instance never loaded the freshly-bound handle, so
+    // under the new fail-closed rule save() would refuse. This test is about
+    // the save→load round trip, not blind-write semantics, so force this
+    // first write exactly like a real create/Save-As flow would.
+    be.forceNextSave();
     await be.save(smallWs);
     const loaded = await be.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
@@ -512,6 +517,8 @@ describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () 
     const before = fingerprintWorkspace(bigWs);
     const be = new LocalFileBackend("local-json");
     await be.setHandle(writableFakeHandle());
+    // Fix round 1 — see the sibling test above.
+    be.forceNextSave();
     await be.save(bigWs);
     const loaded = await be.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);

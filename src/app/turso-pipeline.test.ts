@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_PIPELINE_TIMEOUT_MS,
   TEST_CONNECTION_TIMEOUT_MS,
+  TursoStepError,
   runTursoPipeline,
   testTursoConnection,
 } from "./turso-pipeline";
@@ -230,6 +231,13 @@ describe("§637 — a BEGIN…COMMIT pipeline commits all of it or none of it", 
     vi.stubGlobal("fetch", fetchMock);
     await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow("Turso error: datatype mismatch");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("§4 — the thrown error names the failing statement's index, whatever its text", async () => {
+    stubFetch(() => jsonRes(batchRes([okStep, null, null, okStep], [null, { message: "anything at all" }, null, null])));
+    const err = await runTursoPipeline(cfg, beginBatch).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TursoStepError);
+    expect(err).toMatchObject({ stepIndex: 1, message: "Turso error: anything at all" });
   });
 
   it("reports the statement's error, not the ROLLBACK step's, when both failed", async () => {
