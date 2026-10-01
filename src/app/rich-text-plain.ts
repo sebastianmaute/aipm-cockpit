@@ -117,6 +117,10 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^<
  *  deleted for shapes where the tail after the `>` was itself tag-like. See
  *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
 const TAG = /<\/?[a-zA-Z][^<>]*>/g;
+/** How many times `htmlPlainProjection` re-runs the tag strip. Real markup
+ *  needs ONE pass; each further pass only exists for a tag that removing
+ *  another one rebuilt, and 8 levels of that is already adversarial. */
+const MAX_STRIP_PASSES = 8;
 /** Runs of whitespace — including the ones the boundary spaces above introduce
  *  — collapse to one, so a boundary costs exactly the single space it means. */
 const WS_RUN = /\s+/g;
@@ -339,14 +343,20 @@ function decodeEntities(s: string): string {
 export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
   const breaks = opts?.preserveBreaks === true;
   // ★★ One strip pass can REBUILD a tag: removing "<script>" from
-  // "<scr<script>ipt>" leaves "<script>". Any "<" that survives the strip is
-  // therefore re-encoded as "&lt;" BEFORE the entity pass, so the stripped
-  // string provably holds no tag opener (CodeQL's incomplete multi-character
-  // sanitization rule). The single entity pass then turns it back into the
-  // same "<" it was, so the output is byte-identical — this is plain text by
-  // contract (every consumer counts it or re-escapes it via plainToHtml), and a
-  // looped strip would be quadratic on crafted nesting.
-  const stripped = html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, "").replace(/</g, "&lt;");
+  // "<scr<script>ipt>" leaves "<script>". So the strip repeats until nothing
+  // more is removed (CodeQL's incomplete multi-character sanitization rule),
+  // capped at MAX_STRIP_PASSES so crafted deep nesting stays linear rather than
+  // quadratic; any "<" still left after the cap is re-encoded as "&lt;", which
+  // the single entity pass turns back into a literal "<". The output is plain
+  // text by contract — every consumer counts it or re-escapes it via
+  // plainToHtml — so this closes the scanner finding, not a reachable injection.
+  let stripped = html.replace(BLOCK_TAG, breaks ? "\n" : " ");
+  for (let pass = 0; pass < MAX_STRIP_PASSES; pass += 1) {
+    const next = stripped.replace(TAG, "");
+    if (next === stripped) break;
+    stripped = next;
+  }
+  stripped = stripped.replace(/</g, "&lt;");
   const tagless = decodeEntities(stripped);
   const spaced = breaks
     ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")
