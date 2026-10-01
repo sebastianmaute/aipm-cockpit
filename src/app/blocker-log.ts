@@ -23,8 +23,15 @@ function isOpen(entry: BlockerEntry): boolean {
   return entry.resolvedAt === undefined;
 }
 
+/** The ONE text normaliser, used by every write and load path: CRLF/CR → LF,
+ *  control characters stripped, trimmed, capped. A shared helper keeps a legacy
+ *  CSV cell holding "A\r\nB" and a later "A\nB" save comparing equal. */
 function cleanText(text: string): string {
-  return text.trim().slice(0, TEXTAREA_MAX);
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(CONTROL_CHARS, "")
+    .trim()
+    .slice(0, TEXTAREA_MAX);
 }
 
 /** Open entries' text, oldest `createdAt` first (ties by id), joined by "\n". */
@@ -147,12 +154,12 @@ export function migrateBlockers(task: Task): Task {
       ? task
       : withBlockerLog(task, task.blockerLog);
   }
-  const legacy = typeof task.blockers === "string" ? task.blockers.trim() : "";
+  const legacy = typeof task.blockers === "string" ? cleanText(task.blockers) : "";
   if (legacy === "") return task;
   const createdAt = ISO_DATE.test(task.lastUpdateDate ?? "")
     ? `${task.lastUpdateDate}T00:00:00.000Z`
     : new Date().toISOString();
-  return withBlockerLog(task, [{ id: 1, text: legacy.slice(0, TEXTAREA_MAX), createdAt }]);
+  return withBlockerLog(task, [{ id: 1, text: legacy, createdAt }]);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -167,7 +174,7 @@ function sanitizeEntry(raw: unknown): BlockerEntry | null {
   if (!isRecord(raw)) return null;
   if (typeof raw.id !== "number" || !Number.isFinite(raw.id)) return null;
   if (typeof raw.text !== "string") return null;
-  const text = cleanText(raw.text.replace(/\r\n?/g, "\n").replace(CONTROL_CHARS, ""));
+  const text = cleanText(raw.text);
   if (text === "" || !isValidTimestamp(raw.createdAt)) return null;
   const authorName =
     typeof raw.authorName === "string"
@@ -200,4 +207,37 @@ export function sanitizeBlockerLog(raw: unknown): BlockerEntry[] | undefined {
     out.push(entry);
   }
   return out.length > 0 ? out : undefined;
+}
+
+/** CSV / Markdown / Turso cell: the log as JSON, "" when there is none. */
+export function encodeBlockerLog(log: readonly BlockerEntry[] | undefined): string {
+  return log && log.length > 0 ? JSON.stringify(log) : "";
+}
+
+/** Inverse of `encodeBlockerLog`: an empty, malformed or all-invalid cell is
+ *  `undefined`, never a throw. */
+export function decodeBlockerLog(cell: string | null | undefined): BlockerEntry[] | undefined {
+  if (!cell || cell.trim() === "") return undefined;
+  try {
+    return sanitizeBlockerLog(JSON.parse(cell));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Load-time blocker repair for a task from ANY backend: sanitise whatever
+ *  `blockerLog` arrived (the JSON and IndexedDB loads cast whole objects, so it
+ *  is untrusted there), then `migrateBlockers`. Returns the SAME reference when
+ *  the log was already clean and the text already derived from it. */
+export function migrateLoadedBlockers(task: Task): Task {
+  const raw: unknown = task.blockerLog;
+  if (raw === undefined) return migrateBlockers(task);
+  const clean = sanitizeBlockerLog(raw);
+  if (clean === undefined) {
+    const withoutLog: Task = { ...task };
+    delete withoutLog.blockerLog;
+    return migrateBlockers(withoutLog);
+  }
+  const unchanged = JSON.stringify(clean) === JSON.stringify(raw);
+  return migrateBlockers(unchanged ? task : { ...task, blockerLog: clean });
 }

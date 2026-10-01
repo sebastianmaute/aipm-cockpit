@@ -41,13 +41,17 @@ function mkMilestone(id: number, over: Partial<Milestone> = {}): Milestone {
 }
 
 describe("CSV section splitting is quote-aware", () => {
+  // ★ The hostile cell rides `taskName`, an IDENTITY-decoded column. It used to
+  // ride `blockers`, which the blocker log now normalises on load (CRLF → LF,
+  // trimmed, `migrateBlockers`), so it can no longer show what the CSV cell
+  // codec itself did to the bytes.
   // ★★★ THE FIXTURE IS FOUR TASKS ON PURPOSE. open-followups §105 carried a
   // ONE-task fixture, which showed only `blockers` truncating and hid the real
   // damage: every row after the hostile cell dies too. A single-task fixture
   // passes against a fix that still misroutes the remaining rows.
   it("keeps every later row when a cell contains a line starting with a marker", () => {
     const tasks = [
-      mkTask(1, { blockers: "step one\n# RAID\nstep two" }),
+      mkTask(1, { taskName: "step one\n# RAID\nstep two" }),
       mkTask(2),
       mkTask(3),
       mkTask(4),
@@ -57,7 +61,7 @@ describe("CSV section splitting is quote-aware", () => {
 
     expect(back.tasks.map((t) => t.id)).toEqual([1, 2, 3, 4]);
     // LF→CRLF inside a quoted cell is accepted, pinned codec behaviour.
-    expect(back.tasks[0].blockers).toBe("step one\r\n# RAID\r\nstep two");
+    expect(back.tasks[0].taskName).toBe("step one\r\n# RAID\r\nstep two");
   });
 
   // ★★★ THIS CASE IS THE ONE WHERE IDS PROVE NOTHING, AND ASSERTING THEM ALONE
@@ -75,11 +79,11 @@ describe("CSV section splitting is quote-aware", () => {
   // tests. The genuinely-last-section shape — a marker naming an EARLIER section
   // from inside the tail one — is covered by the sibling below.
   it("keeps the cell intact when the embedded marker names the ACTIVE section", () => {
-    const tasks = [mkTask(1, { blockers: "a\n# TASKS\nb" }), mkTask(2)];
+    const tasks = [mkTask(1, { taskName: "a\n# TASKS\nb" }), mkTask(2)];
     const ws = { ...emptyWorkspace(), tasks };
     const back = csvToWorkspace(workspaceToCsv(ws));
     expect(back.tasks.map((t) => t.id)).toEqual([1, 2]);
-    expect(back.tasks[0].blockers).toBe("a\r\n# TASKS\r\nb");
+    expect(back.tasks[0].taskName).toBe("a\r\n# TASKS\r\nb");
   });
 
   // ★★★ A GENUINE LAST-SECTION CASE — the marker sits in a cell of the section
@@ -142,13 +146,13 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
   function brokenCsv(): string {
     const ws = {
       ...emptyWorkspace(),
-      tasks: [mkTask(1, { blockers: "SENTINELCELL" }), mkTask(2)],
+      tasks: [mkTask(1, { taskName: "SENTINELCELL" }), mkTask(2)],
       raid: [mkRaid(5), mkRaid(6, { title: "Second risk" })],
       milestones: [mkMilestone(9, { name: "Kickoff" })],
     };
     const good = workspaceToCsv(ws);
     const bad = good.replace("SENTINELCELL", '"never closed');
-    // Guard the fixture itself: a renamed/re-encoded blockers cell would make
+    // Guard the fixture itself: a renamed/re-encoded taskName cell would make
     // the replacement a no-op and every assertion below pass for free.
     expect(bad).not.toBe(good);
     return bad;
@@ -174,10 +178,10 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
     // there — the cell never reaches the `# RAID` marker line, because the
     // physical split still recognises it as a marker and switches section.
     expect(back.tasks.map((t) => t.id)).toEqual([1]);
-    expect(back.tasks[0].blockers).toContain("never closed");
-    expect(back.tasks[0].blockers).toContain("2,T2");
-    expect(back.tasks[0].blockers).not.toContain("# RAID");
-    expect(back.tasks[0].blockers).not.toContain("# MILESTONES");
+    expect(back.tasks[0].taskName).toContain("never closed");
+    expect(back.tasks[0].taskName).toContain("2,T2");
+    expect(back.tasks[0].taskName).not.toContain("# RAID");
+    expect(back.tasks[0].taskName).not.toContain("# MILESTONES");
   });
 
   /**
@@ -200,8 +204,8 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
    */
   it("the fallback split consumes CRLF, not LF alone", () => {
     const back = csvToWorkspace(brokenCsv());
-    expect(back.tasks[0].blockers).not.toContain("\r\r");
-    expect(back.tasks[0].blockers).toContain("\r\n2,T2");
+    expect(back.tasks[0].taskName).not.toContain("\r\r");
+    expect(back.tasks[0].taskName).toContain("\r\n2,T2");
   });
 
   it("still reports unterminatedQuote — the fallback changes routing, not the diagnostic", () => {
@@ -227,7 +231,7 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
   it("leaves a well-formed marker-shaped cell alone across several sections (§105 stays fixed)", () => {
     const ws = {
       ...emptyWorkspace(),
-      tasks: [mkTask(1, { blockers: "before\n# MILESTONES\nafter" }), mkTask(2)],
+      tasks: [mkTask(1, { taskName: "before\n# MILESTONES\nafter" }), mkTask(2)],
       raid: [mkRaid(5)],
       milestones: [mkMilestone(9, { name: "Kickoff" })],
     };
@@ -237,7 +241,7 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
     expect(diag.unterminatedQuote).toBe(false);
     expect(back.tasks.map((t) => t.id)).toEqual([1, 2]);
     // LF→CRLF inside a quoted cell is accepted, pinned codec behaviour.
-    expect(back.tasks[0].blockers).toBe("before\r\n# MILESTONES\r\nafter");
+    expect(back.tasks[0].taskName).toBe("before\r\n# MILESTONES\r\nafter");
     expect(back.raid.map((r) => r.id)).toEqual([5]);
     expect((back.milestones ?? []).map((m) => m.id)).toEqual([9]);
     expect((back.milestones ?? []).map((m) => m.name)).toEqual(["Kickoff"]);

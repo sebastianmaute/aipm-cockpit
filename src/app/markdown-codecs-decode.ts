@@ -9,6 +9,7 @@
 import { decodeKnowledgeLinks } from "./document-link";
 import { decodeNoteLog } from "./note-log";
 import { migrateTask } from "./task-status";
+import { decodeBlockerLog } from "./blocker-log";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -508,6 +509,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
     else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
     else if (norm === "calendaroptout") colMap[idx] = "calendarOptOut";
     else if (norm === "notelog") colMap[idx] = "noteLog";
+    else if (norm === "blockerlog") colMap[idx] = "blockerLog";
   });
 
   const tasks: Task[] = [];
@@ -560,6 +562,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
         const nl = decodeNoteLog(obj.noteLog);
         return nl.length ? nl : undefined;
       })(),
+      blockerLog: decodeBlockerLog(obj.blockerLog),
     }));
   }
   return dropDanglingDependencies(tasks);

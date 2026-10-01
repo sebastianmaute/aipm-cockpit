@@ -55,6 +55,7 @@ export const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "calendarOptOut", label: "CalendarOptOut" },
   { key: "noteLog", label: "NoteLog" },
+  { key: "blockerLog", label: "BlockerLog" },
 ];
 
 export const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [

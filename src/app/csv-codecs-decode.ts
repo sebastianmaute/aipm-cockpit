@@ -49,6 +49,7 @@ import type { CalendarEvent } from "./calendar-event";
 import type { DocumentAsset } from "./document-asset";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import { migrateTask } from "./task-status";
+import { decodeBlockerLog } from "./blocker-log";
 import {
   CSV_SECTION_ABSENCES,
   CSV_SECTION_BUDGETS,
@@ -755,6 +756,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
       const nl = decodeNoteLog(obj.noteLog);
       return nl.length ? nl : undefined;
     })(),
+    blockerLog: decodeBlockerLog(obj.blockerLog),
   });
 }
 

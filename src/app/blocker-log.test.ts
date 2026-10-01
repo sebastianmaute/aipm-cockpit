@@ -206,4 +206,15 @@ describe("blocker-log", () => {
     ]);
     expect(one?.[0]).toMatchObject({ authorResourceId: 3, authorName: "Bo" });
   });
+
+  it("CRLF legacy text migrates to LF and an unchanged LF save is a no-op", () => {
+    const migrated = migrateBlockers(makeTask({ blockers: "A\r\nB\u0007" }));
+    expect(migrated.blockerLog?.[0]?.text).toBe("A\nB");
+    expect(migrated.blockers).toBe("A\nB");
+    expect(setBlockersText(migrated, "A\nB", ACTOR, NOW)).toBe(migrated);
+    // The add/edit paths normalise the same way.
+    const added = addBlocker(makeTask(), "X\r\nY", ACTOR, NOW);
+    expect(added.blockerLog?.[0]?.text).toBe("X\nY");
+    expect(editBlocker(added, 1, "P\rQ", NOW).blockerLog?.[0]?.text).toBe("P\nQ");
+  });
 });
