@@ -878,6 +878,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--open) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | open |
 | [§652](#652-sharepoint-storage-has-never-been-verified-on-a-live-tenant-and-browser-loads-are-likely-blocked-by-the-csp--open) | SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP | — | — | open |
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
+| [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--open) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | open |
+| [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43596,3 +43598,23 @@ The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MS
 When a rename and a body edit of the same template are saved concurrently, each save carries the other field's OLD value, so whichever lands last writes that old value back to the server. §626 limits the damage: landings are ordered per template, so the confirmed base and the on-screen list never move backwards and a stale row is never reused as the base of the next write, and the pending-edits outbox keeps the losing field's draft tracked, so a page close writes it and the next start replays it. Until that replay, or the next edit of that field, the server row is wrong. A fix serializes template writes per template id (a later save waits for, and rebuilds from, the earlier one), or writes per-field `UPDATE`s instead of full-row upserts.
 
 **Source:** the §626 fix-round review, 2026-09-29; residual (3) of §626.
+
+## 660. The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load — open
+
+**Status:** open 2026-10-01, seen twice, never measured as a rate. CI's `unit-shuffled` job on PR #504, a dependency-only change, failed one `it.each` row of the "ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)" describe: "persists it flattened exactly once on tab close (hidden, then pagehide), save listeners first: false". It failed after about 15 s with `Unable to find an element with the text: Not saved — this paragraph exceeds the 20,000-character limit by 1…`. A rerun of the same job passed. It had also failed under local load on the two-tab branch earlier.
+
+**Work item:** #511
+
+The failing wait is the `findByText(refusalText)` in the shared setup, `refuseInHarness`, which renders the editor with a 19,999-character bold paragraph, types "bc" into it and blurs it, before the row's own assertions run. The row's §185 assertions about what a page close writes never ran, so this is a test-timing defect, not evidence against §185. Named check: run `document-block-editors.test.tsx` a few hundred times under parallel load (for example, alongside a full `test:run`) and record the failure rate. A fix must make the refusal wait independent of machine load, for example by awaiting the refusal with an explicit, longer timeout or by reaching the over-cap state with fewer rendering steps, and must keep the row's assertions unchanged.
+
+**Source:** CI on PR #504, 2026-10-01; the earlier local failure on `feat/two-tab-conflict`.
+
+## 661. A local-file save that waits on its Web Lock at tab close has never been checked to land — open
+
+**Status:** open 2026-10-01, found by the review of the §4 round-7 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
+
+**Work item:** #512
+
+On browser storage, the §4 round-7 probes measured that waiting for a Web Lock at tab close loses the close-time save. Browser storage therefore dropped the lock for one readwrite transaction with an explicit commit. A local-file save still waits for its lock, and no e2e closes a tab on a local-file project, so whether that save reaches the file at close is unknown. The unload journal recovers the draft either way, so the worst case is a durability gap, not a loss. `docs/AGENTS/storage.md` names it in the Conflicts section's close-time limits. Named check: an e2e that closes a tab on a local-file project mid-edit and asserts whether the file received the save. If it did not, decide whether the journal alone is acceptable, or whether the file save must avoid the lock wait at close.
+
+**Source:** the §4 round-7 review (m6), 2026-10-01.
