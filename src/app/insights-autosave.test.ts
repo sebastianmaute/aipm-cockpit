@@ -79,7 +79,7 @@ describe("insights autosave wiring (use-storage-backend.ts)", () => {
   });
 
   it("applyWorkspace restores insights on load", () => {
-    // §4 — the load wraps each slice in `mark(...)` so tab sync can tell a loaded value from an edit.
-    expect(SRC).toMatch(/setInsights\(mark\(workspace\.insights\)\)/);
+    // §4 — the load wraps each slice in `mark(kind, ...)` so tab sync can tell a loaded value from an edit (§658: the kind identifies a non-object one).
+    expect(SRC).toMatch(/setInsights\(mark\("insights", workspace\.insights\)\)/);
   });
 });

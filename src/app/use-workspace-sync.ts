@@ -24,7 +24,7 @@ export interface WorkspaceSyncDeps<S extends Slices> {
   /** The binding of the local file this window is bound to (`LocalFileBackend.fileBinding`); `null` when unknown. */
   fileBinding: string | null;
   getScopeEpoch: () => number;
-  isLoadedValue: (value: unknown) => boolean;
+  isLoadedValue: (value: unknown, kind?: string) => boolean;
   backend: StorageBackend;
   /** Every slice's live value in this render. */
   slices: S;

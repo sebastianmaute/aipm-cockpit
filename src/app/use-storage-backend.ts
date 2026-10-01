@@ -328,7 +328,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // limit recorded in §644. A new set per load, so only the latest
   // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
   const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
-  const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
+  // §658 — a load can also set an OPTIONAL slice to `undefined` (or `null`). That is not an object, so the
+  // WeakSet cannot hold it, and it used to go out as an EDIT: every same-scope window applied it, replacing
+  // an unsaved first item in that slice. So non-object loaded values are recorded PER KIND, and a kind's
+  // entry is dropped the first time its slice is seen holding anything else — after that, the same
+  // `undefined` is a user edit (clearing the slice), not what storage holds.
+  const loadedScalarsRef = useRef<Map<string, unknown>>(new Map());
+  const isLoadedValue = useCallback((value: unknown, kind?: string) => {
+    if (typeof value === "object" && value !== null) {
+      const loaded = loadedValuesRef.current.has(value);
+      if (kind !== undefined) loadedScalarsRef.current.delete(kind);
+      return loaded;
+    }
+    if (kind === undefined) return false;
+    const scalars = loadedScalarsRef.current;
+    if (scalars.has(kind) && Object.is(scalars.get(kind), value)) return true;
+    scalars.delete(kind);
+    return false;
+  }, []);
   // §4 — which changes this window only MIRRORED from a peer, so the autosave skips them (mirror-ledger.ts).
   // Tab sync applies a peer value through `mirrorApply`, whose updater hands the ledger its `prev`.
   const [mirrorLedger] = useState(createMirrorLedger);
@@ -546,8 +563,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace", source: "load" | "restore" = "load") => {
     // §644 — see `isLoadedValue`: record what a LOAD applies; a restored journal goes out as an edit.
     const loadedValues = source === "load" ? new WeakSet<object>() : null;
+    const loadedScalars = source === "load" ? new Map<string, unknown>() : null;
     if (loadedValues) loadedValuesRef.current = loadedValues;
-    const mark = <V,>(value: V): V => { if (loadedValues && typeof value === "object" && value !== null) loadedValues.add(value); return value; };
+    if (loadedScalars) loadedScalarsRef.current = loadedScalars;
+    // `kind` is the tab-sync kind (the `Workspace` key) — needed only for a non-object value (§658).
+    const mark = <V,>(kind: keyof Workspace, value: V): V => {
+      if (typeof value === "object" && value !== null) loadedValues?.add(value);
+      else loadedScalars?.set(kind, value);
+      return value;
+    };
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -563,28 +587,28 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // belongs at the one function every backend converges on rather than in the
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
-    setTasks(mark(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
-    setRaid(mark(workspace.raid ?? [])); setAbsences(mark(workspace.absences ?? [])); setShifts(mark(workspace.shifts ?? []));
-    setResources(mark(workspace.resources ?? [])); setRoles(mark(workspace.roles ?? [])); setDisciplines(mark(workspace.disciplines ?? [])); setGrades(mark(workspace.grades ?? []));
-    if (workspace.plan) setPlan(mark(workspace.plan));
-    setBudgets(mark(workspace.budgets ?? [])); setFxRates(mark(workspace.fxRates ?? null)); setStatus(mark(workspace.status ?? {}));
-    setProject(mark(workspace.project)); setFieldVisibility(mark(workspace.fieldVisibility)); setFeatures(mark(workspace.features));
-    setMilestones(mark(workspace.milestones ?? [])); setChanges(mark(workspace.changes ?? [])); setStakeholders(mark(workspace.stakeholders ?? []));
-    setSteeringCommittee(mark(workspace.steeringCommittee));
-    setTimelogLinks(mark(workspace.timelogLinks));
-    setKnowledgeItems(mark(workspace.knowledgeItems));
-    setInsights(mark(workspace.insights)); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
+    setTasks(mark("tasks", backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
+    setRaid(mark("raid", workspace.raid ?? [])); setAbsences(mark("absences", workspace.absences ?? [])); setShifts(mark("shifts", workspace.shifts ?? []));
+    setResources(mark("resources", workspace.resources ?? [])); setRoles(mark("roles", workspace.roles ?? [])); setDisciplines(mark("disciplines", workspace.disciplines ?? [])); setGrades(mark("grades", workspace.grades ?? []));
+    if (workspace.plan) setPlan(mark("plan", workspace.plan));
+    setBudgets(mark("budgets", workspace.budgets ?? [])); setFxRates(mark("fxRates", workspace.fxRates ?? null)); setStatus(mark("status", workspace.status ?? {}));
+    setProject(mark("project", workspace.project)); setFieldVisibility(mark("fieldVisibility", workspace.fieldVisibility)); setFeatures(mark("features", workspace.features));
+    setMilestones(mark("milestones", workspace.milestones ?? [])); setChanges(mark("changes", workspace.changes ?? [])); setStakeholders(mark("stakeholders", workspace.stakeholders ?? []));
+    setSteeringCommittee(mark("steeringCommittee", workspace.steeringCommittee));
+    setTimelogLinks(mark("timelogLinks", workspace.timelogLinks));
+    setKnowledgeItems(mark("knowledgeItems", workspace.knowledgeItems));
+    setInsights(mark("insights", workspace.insights)); setDocuments(mark("documents", workspace.documents ?? [])); setDocumentVersions(mark("documentVersions", workspace.documentVersions ?? []));
     // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
     // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
     // log is append-only, so replacing drops entries appended locally while the load was in flight;
     // `mergeActivityLogs` unions by id, sorts by timestamp, caps to the newest. REPLACE (switch/create/
     // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
     // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
-    setActivityLog((prev) => mark(logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
+    setActivityLog((prev) => mark("activityLog", logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
-    setBudgetHistory((prev) => mark(logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
-    setSettingsOverrides(mark(workspace.settingsOverrides));
-    setCalendarEvents(mark(workspace.calendarEvents)); setDocumentAssets(mark(workspace.documentAssets));
+    setBudgetHistory((prev) => mark("budgetHistory", logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
+    setSettingsOverrides(mark("settingsOverrides", workspace.settingsOverrides));
+    setCalendarEvents(mark("calendarEvents", workspace.calendarEvents)); setDocumentAssets(mark("documentAssets", workspace.documentAssets));
     // Seed the session id-minter's high-water from the loaded set so the next
     // mint after a delete can never reuse a just-freed id. RESET (default) for a
     // possibly-DIFFERENT loaded workspace — initial load / project switch /
