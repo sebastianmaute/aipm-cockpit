@@ -18,7 +18,7 @@ import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import { checkAttachmentSize, classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { checkAttachmentSize, classifyAttachment, ATTACHMENT_ACCEPT, planBatch, type AttachmentBlock, type StagingCandidate } from "./chat-attachments";
 import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
 import { officeKindOf } from "./office-extract";
 import { isJsonFile, parseNativeWorkspace } from "./native-workspace-import";
@@ -84,7 +84,7 @@ export function Step0ImportPanel({
   // Files dropped from a multi-upload (invalid type / too large / over the cap)
   // — surfaced as a muted "skipped" notice while the valid ones still import.
   const [skipped, setSkipped] = useState<
-    { name: string; reason: "too-large" | "unsupported" | "too-many" }[]
+    { name: string; reason: "too-large" | "unsupported" | "too-many" | "over-limit" }[]
   >([]);
   // Aborts the in-flight proposal call when the loading modal's Cancel is hit.
   const abortRef = useRef<AbortController | null>(null);
@@ -142,8 +142,8 @@ export function Step0ImportPanel({
     }
     // `not-workspace` JSON falls through to the ingest loop below, where it is
     // treated as a text attachment for the model like any other document.
-    const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" }[] = [];
-    const blocks: AttachmentBlock[] = [];
+    const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" | "over-limit" }[] = [];
+    const read: StagingCandidate[] = [];
     setReading(true);
     try {
       for (let i = 0; i < files.length; i++) {
@@ -188,7 +188,7 @@ export function Step0ImportPanel({
         }
         // The whole walked tree, not just the mail envelope — see
         // flattenIngestBlocks. One dropped .eml can contribute several blocks.
-        blocks.push(...flattenIngestBlocks(result.node));
+        read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
       }
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
@@ -200,6 +200,12 @@ export function Step0ImportPanel({
       return;
     }
     setReading(false);
+    // The whole-batch ceilings (§359): files that would push the batch past
+    // them are skipped and listed, not truncated. Before this the wizard had
+    // no payload ceiling, so two large PDFs built a request the API refuses.
+    const batch = planBatch([], read);
+    for (const r of batch.rejected) dropped.push({ name: r.name, reason: "over-limit" });
+    const blocks: AttachmentBlock[] = batch.accepted.flatMap((c) => [...c.blocks]);
     if (dropped.length > 0) setSkipped(dropped);
     if (blocks.length === 0) {
       setImportError(t(lang, "wizardImportErrorUnsupported"));

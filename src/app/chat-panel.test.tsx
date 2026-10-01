@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
 import { ATTACHMENT_ACCEPT } from "./chat-attachments";
+import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { loadThreads, saveThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
@@ -366,6 +367,19 @@ describe("Attachment guidance", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("b1.txt");
     expect(screen.getByRole("button", { name: "Remove b0.txt" })).toBeInTheDocument();
+  });
+
+  // open-followups §359 — the whole-batch text ceiling. Each text file's block
+  // is capped at MAX_NODE_EXTRACT_CHARS by ingest, so seven large files cannot
+  // all fit under MAX_BATCH_TEXT_CHARS; the last one is named and not staged.
+  it("skips and names a file that would push the batch past the text ceiling", async () => {
+    const { container } = renderComposer();
+    const big = "x".repeat(MAX_NODE_EXTRACT_CHARS + 1000);
+    pick(container, Array.from({ length: 7 }, (_, i) => txt(`big${i}.txt`, big)));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(t("en-US", "chatAttachmentOverBatchLimit", "big6.txt"));
+    expect(screen.queryByRole("button", { name: "Remove big6.txt" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove big0.txt" })).toBeInTheDocument();
   });
 
   it("stages dropped files exactly like picked ones", async () => {

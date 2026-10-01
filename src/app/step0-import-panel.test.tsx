@@ -7,6 +7,7 @@ import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
+import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
 
 const sampleText = readFileSync(
   join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
@@ -145,6 +146,24 @@ describe("Step0ImportPanel multi-file", () => {
     expect(screen.getByRole("alert").textContent)
       .not.toContain(t("en-US", "wizardImportErrorSource"));
     expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  // open-followups §359 — before this the wizard had no payload ceiling. Each
+  // text block is capped at MAX_NODE_EXTRACT_CHARS by ingest, so seven large
+  // files cannot all fit under MAX_BATCH_TEXT_CHARS: the rest import, the last
+  // is listed as skipped.
+  it("skips a file that would push the batch past the text ceiling and imports the rest", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    const big = "x".repeat(MAX_NODE_EXTRACT_CHARS + 1000);
+    const files = Array.from({ length: 7 }, (_, i) => new File([big], `big${i}.txt`, { type: "text/plain" }));
+    fireEvent.change(fileInput(), { target: { files } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    const blocks = onIngest.mock.calls[0][0].length - 1; // minus the prompt
+    expect(blocks).toBeGreaterThanOrEqual(5);
+    expect(blocks).toBeLessThan(7);
+    expect(screen.getByText(/skipped/i)).toHaveTextContent("big6.txt");
   });
 
   it("errors and does not ingest when all files are invalid", async () => {

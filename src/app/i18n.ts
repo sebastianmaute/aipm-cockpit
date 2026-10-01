@@ -952,6 +952,7 @@ const enUS = {
   chatAttachmentTooLarge: "{0} is too large",
   chatAttachmentTooMany: "{0} was not attached — at most {1} attachments per message",
   chatAttachmentOverBudget: "{0} was not attached — attachments are limited to {1} MB per message",
+  chatAttachmentOverBatchLimit: "{0} was not attached — the files added together would exceed the size limit for one message",
   chatAttachmentUnsupported: "{0} is not a supported file type",
   chatAttachmentReadFailed: "Could not read {0}",
   chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",
