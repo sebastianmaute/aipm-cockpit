@@ -884,6 +884,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--open) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | open |
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
+| [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--open) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | open |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 <!-- INDEX:END -->
 
@@ -43658,6 +43659,16 @@ The false pauses that remain by design (visible, no loss), recorded here because
 A second residual was filed here first and is closed by the re-review RC1 fix (2026-09-30): a load racing another tab's switch (slot re-pointed, registry not yet committed) captured the other project's id. The binding now travels in the same slot record as the handle, so a load reads a consistent pair; `use-storage-backend.file-scope.test.tsx` ("… even while the registry still names the first") boots a window in exactly that gap.
 
 **Source:** the §4 final-fix round's report, concerns 4 and 5, 2026-09-30.
+
+## 660. The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load — open
+
+**Status:** open 2026-10-01, seen twice and never machine-verified as a rate: read off two CI and local failure logs. CI's `unit-shuffled` job on PR #504, a dependency-only change, failed one `it.each` row of the "ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)" describe: "persists it flattened exactly once on tab close (hidden, then pagehide), save listeners first: false". It failed after about 15 s with `Unable to find an element with the text: Not saved — this paragraph exceeds the 20,000-character limit by 1…`. A rerun of the same job passed. It had also failed under local load on the two-tab branch earlier.
+
+**Work item:** #511
+
+The failing wait is the `findByText(refusalText)` in the shared setup, `refuseInHarness`, which renders the editor with a 19,999-character bold paragraph, types "bc" into it and blurs it, before the row's own assertions run. The row's §185 assertions about what a page close writes never ran, so this is a test-timing defect, not evidence against §185. Named check: run `document-block-editors.test.tsx` a few hundred times under parallel load (for example, alongside a full `test:run`) and record the failure rate. A fix must make the refusal wait independent of machine load, for example by awaiting the refusal with an explicit, longer timeout or by reaching the over-cap state with fewer rendering steps, and must keep the row's assertions unchanged.
+
+**Source:** CI on PR #504, 2026-10-01; the earlier local failure on `feat/two-tab-conflict`.
 
 ## 661. A local-file save that waits on its Web Lock at tab close has never been checked to land — open
 
