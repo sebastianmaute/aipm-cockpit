@@ -217,4 +217,16 @@ describe("blocker-log", () => {
     expect(added.blockerLog?.[0]?.text).toBe("X\nY");
     expect(editBlocker(added, 1, "P\rQ", NOW).blockerLog?.[0]?.text).toBe("P\nQ");
   });
+
+  it("a text whose cap lands just after a space settles in one migrate", () => {
+    // The cap falls on the space at index TEXTAREA_MAX - 1, so a cleaner that
+    // only trimmed BEFORE slicing would keep a trailing space for the next pass.
+    const legacy = `${"a".repeat(TEXTAREA_MAX - 1)} tail`;
+    const once = migrateBlockers(makeTask({ blockers: legacy }));
+    const text = once.blockerLog?.[0]?.text ?? "";
+    expect(text).toBe("a".repeat(TEXTAREA_MAX - 1));
+    expect(sanitizeBlockerLog(once.blockerLog)).toEqual(once.blockerLog);
+    expect(setBlockersText(once, text, ACTOR, NOW)).toBe(once);
+    expect(setBlockersText(once, legacy, ACTOR, NOW)).toBe(once);
+  });
 });

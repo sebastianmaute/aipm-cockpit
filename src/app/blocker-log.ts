@@ -31,7 +31,10 @@ function cleanText(text: string): string {
     .replace(/\r\n?/g, "\n")
     .replace(CONTROL_CHARS, "")
     .trim()
-    .slice(0, TEXTAREA_MAX);
+    .slice(0, TEXTAREA_MAX)
+    // Trim AGAIN after the cap: a cap landing just after a space would leave
+    // trailing whitespace that the NEXT pass trims, so one pass would not settle.
+    .trimEnd();
 }
 
 /** Open entries' text, oldest `createdAt` first (ties by id), joined by "\n". */

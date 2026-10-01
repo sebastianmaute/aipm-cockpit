@@ -808,8 +808,12 @@ describe("entity persistence registry — a non-literal calendarOptOut loads as 
 // and the cell codec are what is under test); IndexedDB through BrowserBackend
 // on fake-indexeddb. Every load must hand back `blockers === blockersText(log)`.
 describe("entity persistence registry — Task.blockerLog across all six write paths", () => {
+  // Awkward on purpose: the log rides as JSON inside a CSV / Markdown cell, so
+  // its text carries every delimiter of both (quote, comma, pipe), a newline,
+  // and a backslash that the JSON escaping itself doubles.
+  const AWKWARD = 'Waiting on "vendor", ACME | EU\nsecond line \\ done';
   const LOG: BlockerEntry[] = [
-    { id: 1, text: "Waiting on vendor", createdAt: "2026-07-01T09:00:00.000Z", authorName: "Ann" },
+    { id: 1, text: AWKWARD, createdAt: "2026-07-01T09:00:00.000Z", authorName: "Ann" },
     {
       id: 2, text: "Legal sign-off", createdAt: "2026-06-20T09:00:00.000Z", authorResourceId: 3,
       editedAt: "2026-06-21T09:00:00.000Z", resolvedAt: "2026-06-25T09:00:00.000Z",
@@ -865,9 +869,9 @@ describe("entity persistence registry — Task.blockerLog across all six write p
   it("blockerLog round-trips through CSV, Markdown, JSON, Turso single, Turso tenant and IndexedDB", async () => {
     const seen: string[] = [];
     for (const [name, roundTrip] of PATHS) {
-      const back = (await roundTrip(seed({ blockerLog: LOG, blockers: "Waiting on vendor" }))).tasks[0];
+      const back = (await roundTrip(seed({ blockerLog: LOG, blockers: AWKWARD }))).tasks[0];
       expect(back?.blockerLog, name).toEqual(LOG);
-      expect(back?.blockers, name).toBe("Waiting on vendor");
+      expect(back?.blockers, name).toBe(AWKWARD);
       seen.push(name);
     }
     expect(seen).toHaveLength(6);

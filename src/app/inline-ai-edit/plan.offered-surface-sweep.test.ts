@@ -745,10 +745,19 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     // resources, so `migrateWorkspaceV5` backfills one from the assignee and
     // restamps `resourceId` to its minted id (sent 4, held 1).
     { subject: "task.resourceId", kind: "unmeasured" },
+    // Blocker log — not seeded: a seeded log would also fix the seed's derived
+    // `blockers` text, which Relation B probes as a DECLARED field, so the two
+    // would fight. The column is unreachable from the model by construction
+    // (`create_task` and `buildPatch` are allowlists that do not name it); that
+    // is measured directly by "the model cannot write Task.blockerLog" in
+    // `ai-entity-token.test.ts`, not left to this `dead`.
+    { subject: "task.blockerLog", kind: "dead" },
   ],
   "task:update": [
     // §467 — not seeded, for the create arm's reason above.
     { subject: "task.jiraKey", kind: "dead" },
+    // Not seeded, for the create arm's blocker-log reason above.
+    { subject: "task.blockerLog", kind: "dead" },
     // §467 — the create arm's oracle-envelope restamp (sent 5, held 1).
     { subject: "task.resourceId", kind: "unmeasured" },
     // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
