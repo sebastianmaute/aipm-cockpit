@@ -559,14 +559,14 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
 | [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom--closed-2026-09-03) | ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-03 |
-| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
+| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | **CLOSED** 2026-10-01 |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
-| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
+| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes--closed-2026-10-01) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | **CLOSED** 2026-10-01 |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-27) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-27 |
@@ -575,7 +575,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
-| [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
+| [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds--closed-2026-10-01) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | **CLOSED** 2026-10-01 |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
@@ -27459,7 +27459,7 @@ closure** — the overflow menu ITEMS, the three confirm buttons, the assign and
 `ResourcePicker`s, the escalate email `Input`, and each panel's own `role="dialog"` label. Their premise
 — that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous — is REASONED, NOT
 MEASURED. Filed as
-[§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise),
+[§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01),
 which names the owed measurement. Do not read this entry as covering them.
 
 **The defect as filed.** `action-row.tsx` and `action-hero-card.tsx` each mounted
@@ -27731,16 +27731,10 @@ owed before anyone attempts it.
 
 ---
 
-## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise
+## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise — CLOSED 2026-10-01
 
-**Status:** OPEN, **never machine-verified**. Filed 2026-09-01 while fixing
-[§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01),
-which widened into every control the Next-actions row and hero render. The controls named below were
-deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
-rather than measured. Nothing drives two of these panels open at once in any test, so the premise
-has never been exercised. Re-verified 2026-09-13 on `00f2a273`: `grep -rn "§328" src --include=*.tsx` → the one `ActionOverflowMenu` comment, and `action-cta-controls.test.tsx` still does not exist, so the two-menus measurement is still owed.
+**Status:** CLOSED 2026-10-01 — the premise is now MEASURED and holds, so the controls below stay unqualified. `action-cta-controls.test.tsx` renders two Next-actions rows and drives them with `user-event`, which sends the real mousedown and Tab events. Opening row B's `⋮` closes row A's: one menu in the DOM, A collapsed. While a menu is open, Tab stays inside it, so row B's trigger is unreachable by keyboard. Disabling `PopoverPanel`'s outside-mousedown listener fails the first test; disabling its Tab trap fails the second. The escalate / rebaseline / reschedule / assign panels render through the same `PopoverPanel`, so the same two mechanisms keep any two of them, of any kind, from coexisting. `fireEvent.click` alone skips the mousedown and CAN open two, but no user input can. The `ActionOverflowMenu` comment now says so. The history below is kept as written.
 
-**Work item:** #239
 
 §324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
 row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,
@@ -28234,16 +28228,9 @@ measurement is repeated in the test's own comment so the next mutator does not m
 
 ---
 
-## 335. The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes
+## 335. The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes — CLOSED 2026-10-01
 
-**Status:** OPEN, filed 2026-09-01 in the §55 fix round, from a cold docs review that caught
-`AGENTS.md` claiming the SC 1.4.11 floor was structural for every `ToggleButton`. The contrast
-figures below were recomputed 2026-09-01 straight from `builtin-schemes.ts` and match the ones
-`task-form-fields.tsx` already carries; the DEFECT is **never machine-verified** and cannot be —
-jsdom applies no stylesheet, so nothing in the unit suite can observe which border wins the cascade.
-Enumerate the call sites with `grep -n "border-\[var(--rag" src/app/task-health-chip-style.ts`.
-
-**Work item:** #242
+**Status:** CLOSED 2026-10-01 as a DECISION, the second of this entry's own two closure paths: the owner chose to keep the raw RAG hues on the health chips and record the residual permanently rather than derive a `--control-state-border-rag-*` family. Its permanent home is the state-border bullet in `docs/AGENTS/theming.md`. AGENTS.md no longer claims the 3:1 floor for every `ToggleButton`: that over-claim was corrected when this entry was filed. The measurements below stay as the record. ★ The decision holds only while `ToggleButton` renders its `data-pressed-marker` UNCONDITIONALLY. If that ever changes, the chips' state rests on colour alone and this entry must be re-opened. The history below is kept as written.
 
 **What happens.** `ToggleButton`'s own three accents ride derived `--control-state-border*` tokens,
 each nudged to clear 3:1 against `--line` (§56). `className` is APPENDED to the primitive's classes,
@@ -28720,19 +28707,24 @@ list-shrink, where the id genuinely changes, and the shrink case IS pinned by a 
 
 ---
 
-## 344. Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds
+## 344. Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds — CLOSED 2026-10-01
 
-**Status:** OPEN, filed 2026-09-02 while closing
-[§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02).
-**Partially machine-verified.** MEASURED: a popout is a separate top-level document, so it can never
-be the cause of a duplicate-id collision — `openPopoutWindow` calls `window.open` on
-`?popout=<tab>`, which the code shows outright. **NEVER machine-verified:** whether any of the
-remaining literal-id sites can be mounted twice in ONE document; nobody has traced those paths.
-Enumerate the mechanism with `grep -n "openPopoutWindow" src/app/broadcast-sync.ts` and the
-surviving literal ids with
-`grep -rn "id=\"[a-z-]*\"" src/app --include=*.tsx | grep -v test`.
-
-**Work item:** #248
+**Status:** CLOSED 2026-10-01 — traced, and no reachable collision exists, so nothing is converted (per this entry's own
+"trace one path first; convert the site that has one"). The trace, by host count: every exported component in a file
+carrying a literal `id="…"` was counted against its JSX call sites. Most have ONE host, and that host renders once: panels,
+modals and `main-content`. The six with more than one were each traced to a guard that allows only one at a time:
+`WorkspaceSection`, `AppearanceSection` and `GeneralSection` sit on the classic and modern trees, which are the two arms of
+one ternary in `task-manager.tsx`. The header `SettingsMenu` exists only in classic, and `SettingsView` only in modern.
+`NextActionsSection` is in `SettingsView` and `ProjectOverridesSection`, and the view renders one `active` section. Its
+`learning-enable-label` block also needs `learningConfig`, which the overrides host never passes. `RaidEditModal`
+(`raid-panel.tsx`, `raid-create-host.tsx`) is an `EditModalShell`, a viewport `Modal` with a backdrop and focus trap, so
+the second host cannot be reached while the first is open. `NodeGraph`'s two hosts are separate views, and its ids are
+identical SVG `<marker>` definitions anyway. `ProjectForm` (edit modal and create wizard) is switched by one `modal.mode`
+value, and the empty-state wizard is another arm of the same top-level ternary. Reproduce the host count with:
+`for f in $(grep -rlnE "\sid=\"[a-zA-Z][a-zA-Z-]*\"" src/app --include=*.tsx | grep -v test); do for n in $(grep -oE "^export (default )?function [A-Z][A-Za-z0-9]*" $f | awk '{print $NF}'); do c=$(grep -rnE "<$n(\s|/|>|$)" src/app --include=*.tsx | grep -v test | wc -l); [ "$c" -gt 1 ] && echo "$c $n"; done; done`
+(`Field`/`FormSection` in `project-form-fields.tsx` carry no id of their own). The module-constant ids the grep cannot see were checked by hand: `documents-toolbar.tsx`'s two `*_HINT_ID`s have one host, `documents-panel.tsx`, rendered once inside `panel-documents`. ★ The trace counts hosts, not `.map()`
+call sites: a NEW literal id inside a mapped component would collide with ONE host. Use `useId()` there by default.
+The history below is kept as written.
 
 **What this entry is for.** §326 fixed the two ids that had a REACHABLE collision. The class it
 belongs to is larger and is entirely undocumented: `project-form-fields.tsx` (`name-error`,

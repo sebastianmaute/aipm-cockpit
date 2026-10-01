@@ -270,11 +270,14 @@
   chip the hue IS which health was picked and three chips sit in a row, so a uniform derived border would
   delete the only thing telling them apart, trading a 1.4.11 problem for a worse 1.4.1 one. Where a
   consumer overrides like this, the non-colour `data-pressed-marker` carries the state instead, which is
-  what makes it a RESIDUAL rather than a conformance gap. `docs/open-followups.md` §335 owns the decision
-  and the per-accent measurements; they are deliberately NOT restated here, so read them there.
+  what makes it a RESIDUAL rather than a conformance gap. ★ It is a PERMANENT residual: on 2026-10-01 the owner
+  chose to keep the raw hues rather than derive a `--control-state-border-rag-*` family, and
+  `docs/open-followups.md` §335 (closed on that decision) holds the per-accent measurements, deliberately NOT
+  restated here. The decision rests on the marker staying unconditional — re-open §335 if `ToggleButton`
+  ever renders it only when pressed (`grep -n -B 2 "data-pressed-marker" src/app/toggle-button.tsx`).
   ★★ NOTHING MACHINE-CHECKS ANY OF THIS. jsdom applies no stylesheet, so no unit test can observe which
   border wins the cascade — a NEW hue override shipped with no marker behind it would show nothing red in
-  any gate. Adding one is an eye-verify plus a §335 update, not a test.
+  any gate. Adding one is an eye-verify plus a line in this bullet, not a test.
   ★★ All three are in `DERIVED_TOKENS`, so an IMPORTED theme is covered for free — deriving reaches every
   scheme, where editing the built-in maps would have reached only the built-ins. ★ The corollary is the
   base-wins rule above, not an exception to it: a theme that explicitly PINS one keeps its pin and is
