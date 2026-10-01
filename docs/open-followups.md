@@ -566,7 +566,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
-| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
+| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes--closed-2026-10-01) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | **CLOSED** 2026-10-01 |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-27) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-27 |
@@ -28228,16 +28228,9 @@ measurement is repeated in the test's own comment so the next mutator does not m
 
 ---
 
-## 335. The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes
+## 335. The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes — CLOSED 2026-10-01
 
-**Status:** OPEN, filed 2026-09-01 in the §55 fix round, from a cold docs review that caught
-`AGENTS.md` claiming the SC 1.4.11 floor was structural for every `ToggleButton`. The contrast
-figures below were recomputed 2026-09-01 straight from `builtin-schemes.ts` and match the ones
-`task-form-fields.tsx` already carries; the DEFECT is **never machine-verified** and cannot be —
-jsdom applies no stylesheet, so nothing in the unit suite can observe which border wins the cascade.
-Enumerate the call sites with `grep -n "border-\[var(--rag" src/app/task-health-chip-style.ts`.
-
-**Work item:** #242
+**Status:** CLOSED 2026-10-01 as a DECISION, the second of this entry's own two closure paths: the owner chose to keep the raw RAG hues on the health chips and record the residual permanently rather than derive a `--control-state-border-rag-*` family. Its permanent home is the state-border bullet in `docs/AGENTS/theming.md`. AGENTS.md no longer claims the 3:1 floor for every `ToggleButton`: that over-claim was corrected when this entry was filed. The measurements below stay as the record. ★ The decision holds only while `ToggleButton` renders its `data-pressed-marker` UNCONDITIONALLY. If that ever changes, the chips' state rests on colour alone and this entry must be re-opened. The history below is kept as written.
 
 **What happens.** `ToggleButton`'s own three accents ride derived `--control-state-border*` tokens,
 each nudged to clear 3:1 against `--line` (§56). `className` is APPENDED to the primitive's classes,
