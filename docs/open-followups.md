@@ -884,6 +884,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--open) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | open |
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
+| [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43674,3 +43675,13 @@ The false pauses that remain by design (visible, no loss), recorded here because
 A second residual was filed here first and is closed by the re-review RC1 fix (2026-09-30): a load racing another tab's switch (slot re-pointed, registry not yet committed) captured the other project's id. The binding now travels in the same slot record as the handle, so a load reads a consistent pair; `use-storage-backend.file-scope.test.tsx` ("… even while the registry still names the first") boots a window in exactly that gap.
 
 **Source:** the §4 final-fix round's report, concerns 4 and 5, 2026-09-30.
+
+## 661. A local-file save that waits on its Web Lock at tab close has never been checked to land — open
+
+**Status:** open 2026-10-01, found by the review of the §4 round-7 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
+
+**Work item:** #512
+
+On browser storage, the §4 round-7 probes measured that waiting for a Web Lock at tab close loses the close-time save. Browser storage therefore dropped the lock for one readwrite transaction with an explicit commit. A local-file save still waits for its lock, and no e2e closes a tab on a local-file project, so whether that save reaches the file at close is unknown. The unload journal is the fallback, but it is not a complete one: it skips a record over `UNLOAD_JOURNAL_MAX_CHARS`, and §629 has not verified it on the file backends. So until the named check runs, this may be a loss rather than only a durability gap. `docs/AGENTS/storage.md` names it in the Conflicts section's close-time limits. Named check: an e2e that closes a tab on a local-file project mid-edit and asserts whether the file received the save. If it did not, decide whether the journal alone is acceptable, or whether the file save must avoid the lock wait at close.
+
+**Source:** the §4 round-7 review (m6), 2026-10-01.
