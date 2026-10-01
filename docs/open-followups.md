@@ -575,7 +575,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
-| [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
+| [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds--closed-2026-10-01) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | **CLOSED** 2026-10-01 |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
@@ -28714,19 +28714,24 @@ list-shrink, where the id genuinely changes, and the shrink case IS pinned by a 
 
 ---
 
-## 344. Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds
+## 344. Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds — CLOSED 2026-10-01
 
-**Status:** OPEN, filed 2026-09-02 while closing
-[§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02).
-**Partially machine-verified.** MEASURED: a popout is a separate top-level document, so it can never
-be the cause of a duplicate-id collision — `openPopoutWindow` calls `window.open` on
-`?popout=<tab>`, which the code shows outright. **NEVER machine-verified:** whether any of the
-remaining literal-id sites can be mounted twice in ONE document; nobody has traced those paths.
-Enumerate the mechanism with `grep -n "openPopoutWindow" src/app/broadcast-sync.ts` and the
-surviving literal ids with
-`grep -rn "id=\"[a-z-]*\"" src/app --include=*.tsx | grep -v test`.
-
-**Work item:** #248
+**Status:** CLOSED 2026-10-01 — traced, and no reachable collision exists, so nothing is converted (per this entry's own
+"trace one path first; convert the site that has one"). The trace, by host count: every exported component in a file
+carrying a literal `id="…"` was counted against its JSX call sites. Most have ONE host, and that host renders once: panels,
+modals and `main-content`. The six with more than one were each traced to a guard that allows only one at a time:
+`WorkspaceSection`, `AppearanceSection` and `GeneralSection` sit on the classic and modern trees, which are the two arms of
+one ternary in `task-manager.tsx`. The header `SettingsMenu` exists only in classic, and `SettingsView` only in modern.
+`NextActionsSection` is in `SettingsView` and `ProjectOverridesSection`, and the view renders one `active` section. Its
+`learning-enable-label` block also needs `learningConfig`, which the overrides host never passes. `RaidEditModal`
+(`raid-panel.tsx`, `raid-create-host.tsx`) is an `EditModalShell`, a viewport `Modal` with a backdrop and focus trap, so
+the second host cannot be reached while the first is open. `NodeGraph`'s two hosts are separate views, and its ids are
+identical SVG `<marker>` definitions anyway. `ProjectForm` (edit modal and create wizard) is switched by one `modal.mode`
+value, and the empty-state wizard is another arm of the same top-level ternary. Reproduce the host count with:
+`for f in $(grep -rlnE "\sid=\"[a-zA-Z][a-zA-Z-]*\"" src/app --include=*.tsx | grep -v test); do for n in $(grep -oE "^export (default )?function [A-Z][A-Za-z0-9]*" $f | awk '{print $NF}'); do c=$(grep -rnE "<$n(\s|/|>|$)" src/app --include=*.tsx | grep -v test | wc -l); [ "$c" -gt 1 ] && echo "$c $n"; done; done`
+(`Field`/`FormSection` in `project-form-fields.tsx` carry no id of their own). The module-constant ids the grep cannot see were checked by hand: `documents-toolbar.tsx`'s two `*_HINT_ID`s have one host, `documents-panel.tsx`, rendered once inside `panel-documents`. ★ The trace counts hosts, not `.map()`
+call sites: a NEW literal id inside a mapped component would collide with ONE host. Use `useId()` there by default.
+The history below is kept as written.
 
 **What this entry is for.** §326 fixed the two ids that had a REACHABLE collision. The class it
 belongs to is larger and is entirely undocumented: `project-form-fields.tsx` (`name-error`,
