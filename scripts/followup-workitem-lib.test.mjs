@@ -149,7 +149,9 @@ describe("workItemViolations", () => {
     const withIssue = entries
       .filter((e) => !isClosed(e.title))
       .filter((e) => workItemLines(e).some((l) => parseWorkItem(l)?.kind === "issue"));
-    expect(withIssue.length).toBeGreaterThan(200);
+    // Anti-vacuity floor (it read the issue lines at all), not a count of the register, which
+    //  shrinks as entries close.
+    expect(withIssue.length).toBeGreaterThan(100);
   });
 });
 
