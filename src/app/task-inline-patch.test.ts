@@ -103,7 +103,7 @@ describe("assigneeEmail follows the changed-only write rule (spec Part 1, decisi
     expect(sanitizeInlinePatch(patch, c).assigneeEmail).toBe("ann@x.com");
   });
 
-  it("M-C4: a shape-only edit yields the stored address, so the pane's valuesDiffer sees no change", () => {
+  it("M-C4: a shape-only edit yields the stored address, so the pane's differs sees no change", () => {
     const c = ctx({ storedAssigneeEmail: "ada@x.com" });
     expect(sanitizeInlinePatch({ assigneeEmail: "Ada <ada@x.com>" }, c).assigneeEmail).toBe("ada@x.com");
   });

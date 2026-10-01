@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
 
 const NO_FOOTER_ENV: ExportFooterEnv = { footer: undefined };
 
@@ -66,6 +66,27 @@ describe("sanitizeBranding", () => {
   it("rejects an oversized startLogo", () => {
     const huge = "data:image/png;base64," + "A".repeat(BRANDING_LOGO_MAX_LEN);
     expect(sanitizeBranding({ startLogo: huge })).toBeUndefined();
+  });
+});
+
+describe("hasAnyBrandingField (§69 — the one presence check)", () => {
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  it("is false for an empty blob and for whitespace-only slogans", () => {
+    expect(hasAnyBrandingField({})).toBe(false);
+    expect(hasAnyBrandingField({ slogan: "   ", footerSlogan: " " })).toBe(false);
+  });
+  it.each([
+    ["logo", { logo: png }],
+    ["slogan", { slogan: "x" }],
+    ["footerSlogan", { footerSlogan: "x" }],
+    ["favicon", { favicon: png }],
+    ["startLogo", { startLogo: png }],
+    ["exportFooter (cleared, empty string)", { exportFooter: "" }],
+  ] as const)("counts %s ALONE as present", (_name, cfg) => {
+    expect(hasAnyBrandingField(cfg)).toBe(true);
+  });
+  it("agrees with sanitizeBranding: a lone start logo survives sanitising", () => {
+    expect(sanitizeBranding({ startLogo: png })).toEqual({ startLogo: png });
   });
 });
 

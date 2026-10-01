@@ -406,9 +406,10 @@
   `object-contain` keeps that case undistorted. `shrink-0` lets the `truncate` heading absorb a narrow
   window instead of the logo. `project-empty-state.test.tsx` pins the definite height as the proxy.
   ★★ Adding a branding field means
-  TWO presence checks in lockstep — `sanitizeBranding`'s final `out.x || …` AND `appearance-section.tsx`'s
-  `setBranding` `cleaned` gate; miss the second and setting that field ALONE writes `branding: undefined`, so
-  the upload silently no-ops and any sibling field is destroyed along with it. ★ Schemes do NOT own it:
+  adding its presence rule to `BRANDING_FIELD_PRESENT` (`settings-types.ts`), and `tsc` demands it (a total
+  record). `sanitizeBranding` and `appearance-section.tsx`'s `setBranding` both ask `hasAnyBrandingField`, so
+  there is one list. Before §69 there were two, and missing the second meant setting that field ALONE wrote
+  `branding: undefined`: the upload silently did nothing and any sibling field was destroyed with it. ★ Schemes do NOT own it:
   `mergeAppliedBranding` spreads `current` and overwrites only the other four, so a scheme apply can neither
   set nor clear it (pinned in `color-schemes.test.ts` — the four-field version passed happily without a pin).
   ★★ Because no scheme can own it, the Settings → Appearance branding block edits it UNGATED — unlike the

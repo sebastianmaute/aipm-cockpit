@@ -6,7 +6,7 @@ import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
 import type { HelpReadingLevel } from "../help-content";
 import {
-  type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN,
+  type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN, hasAnyBrandingField,
   BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterEnv,
 } from "../settings-types";
 import type { Theme } from "../theme";
@@ -64,14 +64,9 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const [faviconError, setFaviconError] = useState<string | null>(null);
   const [startLogoError, setStartLogoError] = useState<string | null>(null);
   function setBranding(next: BrandingConfig) {
-    // Mirrors sanitizeBranding's presence check — every branding field belongs
-    // here. Omitting one drops the WHOLE blob when that field is the only thing
-    // set, so the upload appears to do nothing and any sibling field goes with it.
-    const cleaned =
-      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon || next.startLogo ||
-      next.exportFooter !== undefined // "" is a real value here: the cleared (neutral) export footer
-        ? next
-        : undefined;
+    // Same presence check as sanitizeBranding (one shared helper, §69): a blob
+    // with nothing set is stored as undefined so the defaults apply.
+    const cleaned = hasAnyBrandingField(next) ? next : undefined;
     onChange({ ...settings, branding: cleaned });
   }
   return (

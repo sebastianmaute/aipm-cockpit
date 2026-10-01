@@ -23,19 +23,14 @@ export function pick<T extends object>(row: T, keys: readonly (keyof T & string)
 }
 
 /** Structural inequality for our plain-JSON entity values (primitives + arrays
- *  of primitives + small objects). Object.is fast-path; JSON for the rest. */
+ *  of primitives + small objects). Object.is fast-path; JSON for the rest.
+ *  Also the gate callers outside this module use to skip a no-op undo entry. */
 export function differs(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return false;
   const aObj = typeof a === "object" && a !== null;
   const bObj = typeof b === "object" && b !== null;
   if (aObj || bObj) return JSON.stringify(a) !== JSON.stringify(b);
   return true;
-}
-
-/** Public alias of `differs` for callers outside this module that need to
- *  gate a capture on a real value change (e.g. skip a no-op undo entry). */
-export function valuesDiffer(a: unknown, b: unknown): boolean {
-  return differs(a, b);
 }
 
 /**
