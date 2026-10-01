@@ -26,7 +26,28 @@ default Browser backend or configure Turso.
 
 ## Multi-tab editing
 
-When two full browser tabs (not read-only pop-outs) point at the same Turso database, their saves are serialized through the [Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API) — one exclusive lock per database URL and project — so one tab's write never interleaves with another's. The model remains last-write-wins per table: the slower tab still overwrites the faster one, so simultaneously editing the same project in two tabs is not a supported workflow. A tab that cannot acquire the lock within 20 seconds fails that save with an error toast instead of waiting indefinitely.
+Since 1.14.3, two tabs or windows that save the same project no longer overwrite each other. Each one remembers the version of the project it last loaded or saved. When it saves and the stored project has changed since then, the save is refused, nothing is written, and the tab shows "Saving paused" with three choices:
+
+- **Reload** loads the stored version and drops your unsaved changes.
+- **Overwrite** saves your version over the stored one. It is refused if the stored version changed again in the meantime.
+- **Download my version** saves your version to a file and keeps saving paused.
+
+This works on every backend: browser storage, local files, SharePoint and Turso. It is tested in the browser with browser storage; SharePoint and Turso are not yet verified against a live tenant or database.
+
+- **Browser storage** is one store for the whole browser profile, so all its tabs keep in step: an edit in one tab appears in the others.
+- **Local files:** a window keeps saving to the file it opened, even if another tab switches project. Windows on the same file keep in step; windows on different files do not.
+- **Pop-out windows** follow the window that opened them and never save on their own.
+- If the window closes while saving is paused, your unsaved version is kept in the browser and listed as "not saved (conflict)" with Download and Discard. It cannot yet be restored inside the app.
+- Switching project is refused while there are unsaved changes that cannot be kept, so you stay on the project behind the banner.
+
+A few cases pause when nothing actually conflicts. Nothing is lost, but you have to choose Reload or Overwrite:
+
+- after a load that failed or was refused, until you use Reload project;
+- when you open a file that a registered project already uses;
+- when two windows each pick the same file;
+- when two tabs start at the same moment.
+
+Turso saves are also all or nothing: a save that fails partway writes nothing. A Turso save that cannot get its lock within 20 seconds fails with an error toast instead of waiting indefinitely.
 
 ## Emergency recovery
 
