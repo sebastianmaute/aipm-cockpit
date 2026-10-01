@@ -48,6 +48,45 @@ The cockpit is in active friendly-user testing, used by project leads on real pr
 3. Open the Dashboard for health, ranked top actions, and trends, then ask the copilot "What's next?".
 4. Wire up Jira / Microsoft 365 / Timelog in Settings when you want it plugged into your stack.
 
+### Screenshots
+
+All taken in the desktop app on the demo project. Click any image for the full size.
+
+<table>
+<tr>
+<td width="50%"><a href="docs/assets/open-points.png"><img src="docs/assets/open-points.png" alt="Open Points table: tasks with assignee, dates, priority, status, blockers, linked RAID and dependencies"></a><br><sub><b>Open Points.</b> The task table, with RAID links, blockers and dependencies on each row.</sub></td>
+<td width="50%"><a href="docs/assets/swimlanes.png"><img src="docs/assets/swimlanes.png" alt="Open Points as swimlanes: one lane per person, one column per status"></a><br><sub><b>Swimlanes.</b> The same tasks as a board, one lane per person.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/gantt.png"><img src="docs/assets/gantt.png" alt="Gantt chart with milestones, dependency arrows and the chart-layer menu open"></a><br><sub><b>Gantt.</b> Tasks and milestones on a timeline; the View menu switches dependencies, holidays, absences, critical path and baseline on and off.</sub></td>
+<td><a href="docs/assets/raid.png"><img src="docs/assets/raid.png" alt="Editing a RAID risk: category, status, owner, target date, mitigation plan and linked tasks"></a><br><sub><b>RAID.</b> A risk with its mitigation plan, owner and linked task.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/budget.png"><img src="docs/assets/budget.png" alt="Budget view: contribution margin, cost burn, internal cost index and consumption per bucket and per role"></a><br><sub><b>Budget.</b> Budget buckets planned by role and month, with margin, cost burn and consumption.</sub></td>
+<td><a href="docs/assets/budget-report-efficiency.png"><img src="docs/assets/budget-report-efficiency.png" alt="Budget report: earned value figures and an at-current-efficiency forecast beside an hours burn-down chart"></a><br><sub><b>Budget report.</b> Earned value and a forecast at current efficiency, beside the burn-down.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/budget-report-pace.png"><img src="docs/assets/budget-report-pace.png" alt="Budget report with the at-current-pace forecast selected: estimate at completion, burn rate and run-out date"></a><br><sub><b>Forecast at current pace.</b> The same report projected from the last 20 working days' spend, with the run-out date.</sub></td>
+<td><a href="docs/assets/changes.png"><img src="docs/assets/changes.png" alt="Editing a change request: type, status, impact, schedule and cost impact, with its notes log open beside it"></a><br><sub><b>Changes.</b> A change request with schedule and cost impact, and its notes log.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/stakeholders.png"><img src="docs/assets/stakeholders.png" alt="Stakeholder register with the edit dialog open on an influence/interest grid"></a><br><sub><b>Stakeholders.</b> The register, with influence and interest set on a grid.</sub></td>
+<td><a href="docs/assets/raci.png"><img src="docs/assets/raci.png" alt="RACI matrix of milestones against people, flagging milestones with no or multiple accountable people"></a><br><sub><b>RACI matrix.</b> Who is responsible, accountable, consulted and informed per milestone; gaps and clashes are flagged.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/knowledge.png"><img src="docs/assets/knowledge.png" alt="Knowledge library: links and SharePoint documents, each attached to a task, milestone or RAID item"></a><br><sub><b>Knowledge.</b> Every link and SharePoint document in the project, each tied to the item it belongs to.</sub></td>
+<td><a href="docs/assets/version-history.png"><img src="docs/assets/version-history.png" alt="Version history: saved versions with per-item changes and restore buttons"></a><br><sub><b>Version history.</b> Compare saved versions and restore a whole state or single items (Turso projects).</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/operating-guides.png"><img src="docs/assets/operating-guides.png" alt="Settings, Operating guides: the built-in guides that ground Claude, each with an enable switch and Edit"></a><br><sub><b>Operating guides.</b> The documents that ground Claude's advice; switch them on or off, edit them, or add your own.</sub></td>
+<td><a href="docs/assets/information-flows.png"><img src="docs/assets/information-flows.png" alt="Information flows diagram: local, file and Turso storage on one side, Jira, Timelog, SharePoint, Outlook and Anthropic on the other"></a><br><sub><b>Information flows.</b> Where your data lives and which services the app talks to.</sub></td>
+</tr>
+<tr>
+<td><a href="docs/assets/new-project.png"><img src="docs/assets/new-project.png" alt="New project wizard, step 1 of 3: project identity, customer and regulatory frameworks"></a><br><sub><b>New project.</b> A three-step wizard: details, template, then which functions to switch on.</sub></td>
+<td><a href="docs/assets/help.png"><img src="docs/assets/help.png" alt="Help: concepts, workflows and features, each explained in plain words with what it is, why it matters and where it lives in the app"></a><br><sub><b>Help.</b> Built-in explanations of every concept and workflow, at a Guided, Standard or Expert level.</sub></td>
+</tr>
+</table>
+
 ---
 
 ## Get started
