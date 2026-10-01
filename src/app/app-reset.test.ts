@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearAppConfig, resetAppToCleanSlate } from "./app-reset";
 import { beginSealedWrite, SECRETS_KEY } from "./secrets-store";
 import { sealDevice } from "./secrets";
+import { keptProjectKey, UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
 
 afterEach(() => {
   localStorage.clear();
@@ -27,6 +28,16 @@ describe("clearAppConfig", () => {
     expect(localStorage.getItem("aipm-cockpit:digest-state")).toBeNull();
     // A non-namespaced key from another origin/app is left alone.
     expect(localStorage.getItem("some-other-app:keep")).toBe("x");
+  });
+
+  it("§4 removes both unload-journal slots of a project: the ordinary one and the kept one", () => {
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}p1`, "{}");
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`, "{}");
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1", 123)}`, "{}");
+    clearAppConfig();
+    expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}p1`)).toBeNull();
+    expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`)).toBeNull();
+    expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1", 123)}`)).toBeNull();
   });
 
   it("deletes the config IndexedDB databases (secrets device key + file handles)", () => {

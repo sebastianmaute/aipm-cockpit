@@ -14,6 +14,7 @@ import {
   type Workspace,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
+import { SaveConflictError } from "./storage-error";
 import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
 
 export interface SpFileLocation {
@@ -30,9 +31,20 @@ export interface SpFileLocation {
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
-function graphUrlFor(loc: SpFileLocation): string {
-  return `${GRAPH}/sites/${loc.hostname}:${loc.sitePath}:/drive/root:/${loc.itemPath}:/content`;
+function graphItemUrlFor(loc: SpFileLocation): string {
+  return `${GRAPH}/sites/${loc.hostname}:${loc.sitePath}:/drive/root:/${loc.itemPath}`;
 }
+
+function graphUrlFor(loc: SpFileLocation): string {
+  return `${graphItemUrlFor(loc)}:/content`;
+}
+
+/** §4 (R13) — the load asks the ITEM for its eTag and a pre-authenticated download URL. `GET …/content`
+ *  answers with a 302 to another host, and a browser exposes neither that hop's headers nor (ETag is not
+ *  CORS-safelisted) the ETag at all — so the eTag has to come from the JSON body. */
+const ITEM_METADATA_QUERY = "?$select=eTag,@microsoft.graph.downloadUrl";
+/** §4 — the documented create-only form: the annotation belongs in the URL, not the body. */
+const CREATE_ONLY_QUERY = "?@microsoft.graph.conflictBehavior=fail";
 
 export type SpStorageConfig =
   | ({ kind: "sp-json" } & SpFileLocation)
@@ -56,6 +68,25 @@ export class SharePointBackend implements StorageBackend {
    *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
   lastDecodeFailures: readonly string[] = [];
   private location: SpFileLocation;
+  /** §4 — THREE states, not two (controller ruling R8), and `revision()` alone cannot tell them apart:
+   *  never loaded (`baselineKnown` false — save REFUSES), loaded with an ETag (`currentRevision` set —
+   *  save sends `If-Match`), loaded WITHOUT one (`baselineKnown` true, `currentRevision` null — save
+   *  goes without `If-Match`, i.e. today's behaviour, and does not refuse). */
+  private baselineKnown = false;
+  /** §4 — loaded, and the file did NOT exist (404): a fourth state. The first save creates it with
+   *  `conflictBehavior=fail` (and no `If-Match`), so two windows that both saw "no file" cannot both
+   *  win; a 409/412 is a `SaveConflictError`. Cleared once a write succeeds. */
+  private baselineAbsent = false;
+  /** §4 — the driveItem eTag this instance last loaded or wrote; null = none known. */
+  private currentRevision: string | null = null;
+  /** §4 — one-shot from `forceNextSave()`: the next save omits `If-Match`. Cleared only after that
+   *  write SUCCEEDS (a failed forced save keeps it for the retry), and by a successful load, `adoptRevision`
+   *  and `adoptFrom` — each establishes a genuine baseline a leftover force must not carry past. */
+  private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save is a PUT with `If-Match: expected` (never
+   *  create-only, never blind). Consumed by that save attempt whatever its outcome, and dropped with
+   *  `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
   private acquireToken: (
     scopes: readonly string[],
     options?: { interactive?: boolean },
@@ -100,6 +131,58 @@ export class SharePointBackend implements StorageBackend {
     return token;
   }
 
+  /** §4 — record a successful read as this instance's baseline (called only once the body has decoded,
+   *  so a corrupt file never becomes the baseline the next save would overwrite). */
+  private adoptLoaded(etag: string | null, absent = false): void {
+    this.baselineKnown = true;
+    this.currentRevision = etag;
+    this.baselineAbsent = absent;
+    this.forceNext = false;
+    this.expectNext = null;
+  }
+
+  /** A bounded GET. ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this
+   *  load settles, so a read that never answers must FAIL the load. A plain Error, the same shape as the
+   *  status errors, so it reaches the storageLoadFailed toast and the generic storage banner — NOT
+   *  Turso's "storage-unreachable" kind, whose banner text names the Turso database. */
+  private async boundedGet(url: string, headers?: Record<string, string>): Promise<FetchTextResult> {
+    try {
+      return await fetchTextWithTimeout(url, { method: "GET", ...(headers ? { headers } : {}) }, LOAD_TIMEOUT_MS);
+    } catch (err) {
+      if (err instanceof FetchTimeoutError) {
+        throw new Error(`SharePoint did not respond within ${LOAD_TIMEOUT_MS / 1000} s. Try again later.`);
+      }
+      throw err;
+    }
+  }
+
+  /** Step 1 of a load: the item's eTag and download URL. Returns null when the file does not exist. */
+  private async readItemMetadata(token: string): Promise<{ etag: string | null; downloadUrl: string } | null> {
+    const res = await this.boundedGet(graphItemUrlFor(this.location) + ITEM_METADATA_QUERY, { Authorization: `Bearer ${token}` });
+    if (res.status === 404) return null;
+    if (res.status === 401) {
+      throw new StorageNotReadyError("Sign-in expired. Re-authenticate from Settings.");
+    }
+    if (res.status === 403) {
+      throw new StorageNotReadyError("Permission denied. The signed-in user lacks read access to this file.");
+    }
+    if (!res.ok) {
+      throw new Error(`SharePoint returned ${res.status}. Try again later.`);
+    }
+    let meta: unknown;
+    try {
+      meta = JSON.parse(res.text);
+    } catch {
+      throw new Error("SharePoint returned unreadable file metadata. Try again later.");
+    }
+    const record = (meta ?? {}) as { eTag?: unknown; "@microsoft.graph.downloadUrl"?: unknown };
+    const downloadUrl = record["@microsoft.graph.downloadUrl"];
+    if (typeof downloadUrl !== "string" || downloadUrl === "") {
+      throw new Error("SharePoint did not provide a download URL for this file. Try again later.");
+    }
+    return { etag: typeof record.eTag === "string" && record.eTag !== "" ? record.eTag : null, downloadUrl };
+  }
+
   async load(): Promise<Workspace> {
     // ★★ ONE accumulator, and every diagnostic field written on every exit.
     // load() has six exits — the 404 empty short-circuit, three HTTP error
@@ -130,35 +213,15 @@ export class SharePointBackend implements StorageBackend {
     this.lastDecodeFailures = [];
     try {
       const token = await this.getToken();
-      // ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this load settles,
-      //   so a Graph read that never answers must FAIL the load. A plain Error, the same shape as the
-      //   status errors below, so it reaches the storageLoadFailed toast and the generic storage banner —
-      //   NOT Turso's "storage-unreachable" kind, whose banner text names the Turso database. The token
-      //   step above is deliberately unbounded: an interactive MSAL popup waits on the user, and closing
-      //   it rejects.
-      let res: FetchTextResult;
-      try {
-        res = await fetchTextWithTimeout(graphUrlFor(this.location), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        }, LOAD_TIMEOUT_MS);
-      } catch (err) {
-        if (err instanceof FetchTimeoutError) {
-          throw new Error(`SharePoint did not respond within ${LOAD_TIMEOUT_MS / 1000} s. Try again later.`);
-        }
-        throw err;
+      const meta = await this.readItemMetadata(token);
+      if (meta === null) {
+        // No file yet: a genuine read of "nothing there"; the first save may CREATE it (create-only).
+        this.adoptLoaded(null, true);
+        return emptyWorkspace();
       }
-      if (res.status === 404) return emptyWorkspace();
-      if (res.status === 401) {
-        throw new StorageNotReadyError(
-          "Sign-in expired. Re-authenticate from Settings.",
-        );
-      }
-      if (res.status === 403) {
-        throw new StorageNotReadyError(
-          "Permission denied. The signed-in user lacks read access to this file.",
-        );
-      }
+      // ★★ NO Authorization header: the download URL is pre-authenticated, on another host, and must
+      //   never receive the Graph token. (Sending one would also force a CORS preflight it cannot pass.)
+      const res = await this.boundedGet(meta.downloadUrl);
       if (!res.ok) {
         throw new Error(`SharePoint returned ${res.status}. Try again later.`);
       }
@@ -169,11 +232,14 @@ export class SharePointBackend implements StorageBackend {
         this.lastImportDroppedBySection = diag.droppedBySection;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
         this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
+        this.adoptLoaded(meta.etag);
         return ws;
       }
       // Validate + migrate like every other JSON backend (was a raw cast that
       // risked a downstream TypeError on a malformed-but-valid-JSON file).
-      return jsonToWorkspace(res.text, { strict: true, diag });
+      const ws = jsonToWorkspace(res.text, { strict: true, diag });
+      this.adoptLoaded(meta.etag);
+      return ws;
     } finally {
       this.lastLoadTruncation = {
         entries: diag.truncatedEntries ?? 0,
@@ -184,6 +250,12 @@ export class SharePointBackend implements StorageBackend {
   }
 
   async save(workspace: Workspace): Promise<void> {
+    // §4 — fail closed: an instance that never loaded has no baseline and must not win against
+    // whatever another window already put there. Blind writes go through `forceNextSave()`.
+    const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null;
+    if (!force && expected === null && !this.baselineKnown) throw new SaveConflictError(this.kind);
     const token = await this.getToken();
     const body =
       this.kind === "sp-csv"
@@ -193,14 +265,21 @@ export class SharePointBackend implements StorageBackend {
         : workspaceToJson(workspace);
     const contentType =
       this.kind === "sp-csv" ? "text/csv;charset=utf-8" : "application/json";
-    const res = await fetch(graphUrlFor(this.location), {
+    // A forced save is a deliberate blind write: neither `If-Match` nor create-only.
+    const createOnly = !force && expected === null && this.baselineAbsent;
+    const res = await fetch(graphUrlFor(this.location) + (createOnly ? CREATE_ONLY_QUERY : ""), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": contentType,
+        // Only a loaded instance WITH an ETag is guarded; forced and degraded saves omit it.
+        // §4 — a conditional Overwrite matches the version the user was shown, not this instance's own.
+        ...(expected !== null ? { "If-Match": expected } : !force && this.currentRevision !== null ? { "If-Match": this.currentRevision } : {}),
       },
       body,
     });
+    // 412: stale If-Match. 409: create-only lost the race (the file now exists).
+    if (res.status === 412 || (createOnly && res.status === 409)) throw new SaveConflictError(this.kind, await this.storedEtag(token));
     if (res.status === 401) {
       throw new StorageNotReadyError(
         "Sign-in expired. Re-authenticate from Settings.",
@@ -214,6 +293,75 @@ export class SharePointBackend implements StorageBackend {
     if (!res.ok) {
       throw new Error(`SharePoint returned ${res.status}. Try again later.`);
     }
+    // Written: adopt the new eTag (body first, header as fallback) and consume the force.
+    // ★ Final review m3: the ETag header is not CORS-exposed, so a body without `eTag` may leave both
+    //   empty. Then read what storage holds; if that fails too, the baseline is UNKNOWN and the next save
+    //   refuses (R8) rather than going out without `If-Match` for the rest of the session (fail open).
+    //   Residual: a peer write landing between the PUT and that read is adopted as this instance's own.
+    //   An instance that was ALREADY degraded (loaded without an eTag) stays so: the documented exception.
+    const wasDegraded = !force && expected === null && this.baselineKnown && !this.baselineAbsent && this.currentRevision === null;
+    const written = (await this.writtenEtag(res)) ?? (await this.storedEtag(token));
+    this.baselineKnown = written !== null || wasDegraded;
+    this.baselineAbsent = false;
+    this.currentRevision = written;
+    if (force) this.forceNext = false;
+  }
+
+  /** §4 — the eTag storage holds right now, for a refusal to report (one metadata GET, no content).
+   *  `null` when that read fails or carries none: the conflict banner then offers no Overwrite. */
+  private async storedEtag(token: string): Promise<string | null> {
+    try {
+      const res = await this.boundedGet(graphItemUrlFor(this.location) + "?$select=eTag", { Authorization: `Bearer ${token}` });
+      if (!res.ok) return null;
+      const tag = (JSON.parse(res.text) as { eTag?: unknown } | null)?.eTag;
+      return typeof tag === "string" && tag !== "" ? tag : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** The driveItem eTag a successful PUT returned — the body's `eTag`, else the `ETag` header, else null. */
+  private async writtenEtag(res: Response): Promise<string | null> {
+    try {
+      const parsed: unknown = JSON.parse(await res.text());
+      const tag = (parsed as { eTag?: unknown } | null)?.eTag;
+      if (typeof tag === "string" && tag !== "") return tag;
+    } catch {
+      // An empty or non-JSON body carries no eTag; fall through to the header.
+    }
+    return res.headers.get("ETag");
+  }
+
+  /** §4: the eTag this instance last loaded or wrote; null when none is known (never loaded, OR loaded
+   *  from a response that carried no ETag — the two are told apart internally, not here). */
+  revision(): string | null {
+    return this.currentRevision;
+  }
+
+  /** §4: adopt `rev` as the baseline without a load/save; also drops a pending force. */
+  adoptRevision(rev: string): void {
+    this.baselineKnown = true;
+    this.baselineAbsent = false;
+    this.currentRevision = rev;
+    this.forceNext = false;
+    this.expectNext = null;
+  }
+
+  /** §4: make the next save omit `If-Match`; consumed only once that write succeeds. */
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
+    this.forceNext = true;
+    this.expectNext = null;
+  }
+
+  /** §4: copy another instance's revision state (a throwaway backend's result handed to the live one).
+   *  `other` must have read or written the SAME file; this does not verify that. */
+  adoptFrom(other: SharePointBackend): void {
+    this.baselineKnown = other.baselineKnown;
+    this.baselineAbsent = other.baselineAbsent;
+    this.currentRevision = other.currentRevision;
+    this.forceNext = false;
+    this.expectNext = null;
   }
 }
 

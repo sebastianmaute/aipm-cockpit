@@ -2,8 +2,9 @@
 //
 // Turso (libSQL) storage backend. Stores the workspace relationally via
 // Turso's HTTP pipeline API. Token is delegated via the resolved TursoConfig
-// (env-or-settings). Last-write-wins; save() wraps the overwrite in a
-// BEGIN/COMMIT transaction.
+// (env-or-settings). save() wraps the overwrite in a BEGIN/COMMIT transaction
+// that §4 guards with a revision row (turso-schema.ts `withRevision`): a save
+// over a version this instance never saw is refused, not last-write-wins.
 //
 // The backend is parameterized by an optional `projectId`:
 //   - projectId === undefined → single-tenant mode: the whole DB is one
@@ -24,10 +25,13 @@ import {
   type StorageBackend,
   type Workspace,
 } from "./workspace";
-import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
+import { LOAD_TIMEOUT_MS, TursoStepError, runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { DocTruncationDiag } from "./document-model";
 import type { TursoConfig } from "./turso-config";
+import { SaveConflictError } from "./storage-error";
+
+interface LoadResult { ws: Workspace; revision: string }
 
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
 const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
@@ -112,6 +116,14 @@ export class TursoBackend implements StorageBackend {
    */
   private columnsEnsured: Promise<void> | null = null;
 
+  /** §4 — the revision this instance last loaded or wrote; `null` = UNKNOWN (never loaded, or the
+   *  load failed), and a save then REFUSES (fail closed) unless forced. */
+  private currentRevision: string | null = null;
+  /** §4 — one-shot blind write from `forceNextSave()`, cleared only once a write lands (or by a new baseline). */
+  private forceNext = false;
+  /** §4 — one-shot conditional overwrite from `forceNextSave(expected)`, consumed by the next save attempt. */
+  private expectNext: string | null = null;
+
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
 
@@ -148,9 +160,15 @@ export class TursoBackend implements StorageBackend {
     // has decoded anything.
     const diag: DocTruncationDiag = {};
     try {
-      return this.projectId === undefined
+      const { ws, revision } = this.projectId === undefined
         ? await this.loadSingleTenant(diag)
         : await this.loadTenant(this.projectId, diag);
+      // §4 — the revision read in the SAME pipeline as the data it describes.
+      this.adoptRevision(revision);
+      return ws;
+    } catch (err) {
+      this.currentRevision = null; // §4 — a failed load leaves the revision unknown: the next save refuses.
+      throw err;
     } finally {
       this.lastLoadTruncation = {
         entries: diag.truncatedEntries ?? 0,
@@ -161,8 +179,12 @@ export class TursoBackend implements StorageBackend {
   }
 
   async save(workspace: Workspace): Promise<void> {
+    const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null; // §4 — a conditional overwrite is consumed by this attempt, whatever its outcome.
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
-    const { workspaceToStatements, dirtyWorkspaceTables } = await import("./turso-schema");
+    const { workspaceToStatements, dirtyWorkspaceTables, nextRevision, isRevisionGuard, isRevisionReadback, rowObjects } =
+      await import("./turso-schema");
     // Table-level dirty detection by reference equality (React state follows
     // the immutable-update convention). undefined = no baseline → full rewrite.
     const dirty = this.baseline ? dirtyWorkspaceTables(this.baseline, workspace) : undefined;
@@ -171,25 +193,89 @@ export class TursoBackend implements StorageBackend {
       this.baseline = workspace;
       return;
     }
-    let stmts: SqlStmt[];
-    if (this.projectId === undefined) {
-      stmts = workspaceToStatements(workspace, dirty);
-    } else {
-      const { tenantWorkspaceToStatements } = await import("./turso-tenant-schema");
-      stmts = tenantWorkspaceToStatements(workspace, this.projectId, dirty);
-    }
+    // §4 FAIL CLOSED — an instance that never loaded (or whose load failed) knows no revision, so it
+    // cannot say which version it would overwrite. A blind write says so with `forceNextSave()`.
+    const against = force ? null : (expected ?? this.currentRevision);
+    if (!force && against === null) throw new SaveConflictError("turso", await this.storedRevisionOrNull());
     // Cross-tab single-writer: two full tabs on the same DB + project would
     // otherwise interleave per-table dirty writes into a state neither tab
     // ever had. See withWriteLock. The column-ensure migration runs INSIDE the
     // lock too: it is itself a write (ALTER TABLE), so it must self-heal an
     // existing DB BEFORE the named-column INSERTs and be serialized with them.
-    await this.withWriteLock(async () => {
+    const next = await this.withWriteLock(async () => {
       await this.ensureColumns();
-      return runTursoPipeline(this.config, stmts);
+      // §4 — the guard (inside the batch, see `withRevision`) makes compare-and-write one atomic step.
+      // The database bumps the stored value, so a blind write (no guard) still stamps past a write another
+      // device made after this window last read, and reads back what it stamped.
+      const stamp = { expected: against };
+      const stmts: SqlStmt[] = this.projectId === undefined
+        ? workspaceToStatements(workspace, dirty, stamp)
+        : (await import("./turso-tenant-schema")).tenantWorkspaceToStatements(workspace, this.projectId, dirty, stamp);
+      let results: PipelineResultLike[];
+      try {
+        results = await runTursoPipeline(this.config, stmts);
+      } catch (err) {
+        // Recognised by WHICH step failed, never by the server's wording; §637's batch skipped everything after it.
+        if (err instanceof TursoStepError && isRevisionGuard(stmts[err.stepIndex])) {
+          throw new SaveConflictError("turso", await this.storedRevisionOrNull());
+        }
+        throw err;
+      }
+      if (against !== null) return nextRevision(against);
+      // A blind write adopts what it read back; if that read came back empty the revision stays UNKNOWN
+      // (the next save refuses) rather than guessed.
+      return rowObjects(results[stmts.findIndex(isRevisionReadback)])[0]?.value || null;
     });
     // Reached only when the pipeline succeeded: a failed (or lock-aborted)
     // save keeps the old baseline so the next save retries the dirty tables.
     this.baseline = workspace;
+    this.currentRevision = next;
+    if (force) this.forceNext = false; // §4 — only once the forced write has landed.
+  }
+
+  /** §4 — the revision stored for this DB (tenant: this project); "0" when there is no row yet. The
+   *  DDL runs first so a fresh database answers "0" rather than "no such table". Throws on failure. */
+  private async readStoredRevision(): Promise<string> {
+    const { SCHEMA_DDL, selectRevisionStatement, revisionFromMetaRows } = await import("./turso-schema");
+    const ddl = this.projectId === undefined
+      ? SCHEMA_DDL
+      : (await import("./turso-tenant-schema")).tenantSchemaDdl();
+    const results = await runTursoPipeline(this.config, [
+      ...ddl.map((sql) => ({ sql })),
+      selectRevisionStatement(this.projectId),
+    ]);
+    return revisionFromMetaRows(results[results.length - 1]);
+  }
+
+  /** The stored revision for a `SaveConflictError`, or `null` when it cannot be read. */
+  private async storedRevisionOrNull(): Promise<string | null> {
+    try {
+      return await this.readStoredRevision();
+    } catch {
+      return null;
+    }
+  }
+
+  /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
+  revision(): string | null {
+    return this.currentRevision;
+  }
+
+  /** §4 — a genuine new baseline (a load, or a hand-over from the op's own instance): it drops a pending force. */
+  adoptRevision(rev: string): void {
+    this.currentRevision = rev;
+    this.forceNext = false;
+    this.expectNext = null;
+  }
+
+  /** §4 — the next save is a FULL rewrite (`baseline = null`). With no argument it is blind: no guard,
+   *  kept until a forced write lands. With `expected` it is guarded on `expected` instead of this
+   *  instance's own revision, and consumed by that save attempt whatever its outcome. */
+  forceNextSave(expected?: string): void {
+    this.baseline = null;
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
+    this.forceNext = true;
+    this.expectNext = null;
   }
 
   /** Run `fn` while holding the exclusive cross-tab Web Lock for this DB +
@@ -262,9 +348,9 @@ export class TursoBackend implements StorageBackend {
     await runTursoPipeline(this.config, [{ sql: "BEGIN" }, ...alters, { sql: "COMMIT" }]);
   }
 
-  private async loadSingleTenant(diag: DocTruncationDiag): Promise<Workspace> {
+  private async loadSingleTenant(diag: DocTruncationDiag): Promise<LoadResult> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
-    const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace } =
+    const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace, revisionFromMetaRows } =
       await import("./turso-schema");
 
     const stmts: SqlStmt[] = [
@@ -279,20 +365,21 @@ export class TursoBackend implements StorageBackend {
     const relational = results.slice(ddlCount, ddlCount + selectCount);
     const blobResult = results[ddlCount + selectCount];
     const isEmpty = relationalReadIsEmpty(relational, selectCount);
+    const revision = revisionFromMetaRows(relational[TABLE_NAMES.indexOf("meta")]);
     if (isEmpty) {
       const blob = firstRowText([blobResult], 0);
-      if (typeof blob === "string" && blob.length > 0) return jsonToWorkspace(blob, { diag });
-      return emptyWorkspace();
+      if (typeof blob === "string" && blob.length > 0) return { ws: jsonToWorkspace(blob, { diag }), revision };
+      return { ws: emptyWorkspace(), revision };
     }
-    return rowsToWorkspace(relational, diag);
+    return { ws: rowsToWorkspace(relational, diag), revision };
   }
 
   // NOTE: rowsToWorkspace reads `project_meta` for single-tenant DBs only
   // (§538) — the tenant builder never writes that meta row — so tenant load()
   // additionally fetches the projects-table row for this id and overwrites
   // ws.project from it below.
-  private async loadTenant(projectId: string, diag: DocTruncationDiag): Promise<Workspace> {
-    const { TABLE_NAMES, rowsToWorkspace } = await import("./turso-schema");
+  private async loadTenant(projectId: string, diag: DocTruncationDiag): Promise<LoadResult> {
+    const { TABLE_NAMES, rowsToWorkspace, revisionFromMetaRows } = await import("./turso-schema");
     const { tenantSchemaDdl, tenantSelectStatements, selectProjectStatement, rowsToProjectList } =
       await import("./turso-tenant-schema");
     const ddl = tenantSchemaDdl();
@@ -307,6 +394,7 @@ export class TursoBackend implements StorageBackend {
     const isEmpty = relationalReadIsEmpty(relational, TABLE_NAMES.length);
     const ws = isEmpty ? emptyWorkspace() : rowsToWorkspace(relational, diag);
     const meta = rowsToProjectList(projectsResult)[0]?.meta;
-    return meta ? { ...ws, project: meta } : ws;
+    const revision = revisionFromMetaRows(relational[TABLE_NAMES.indexOf("meta")]);
+    return { ws: meta ? { ...ws, project: meta } : ws, revision };
   }
 }

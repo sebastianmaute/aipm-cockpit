@@ -15,6 +15,7 @@ import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { ProjectMeta } from "./types";
+import type { StorageBackend } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-session";
@@ -30,6 +31,7 @@ import {
 import { writeSettings } from "./use-settings";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
+import { isSaveConflict } from "./storage-error";
 import type { TruncationOps } from "./use-load-truncation";
 
 /** Live closure values the Turso project flows read each render. */
@@ -47,6 +49,10 @@ export interface TursoProjectOpsDeps {
   currentWorkspace: () => Workspace;
   applyWorkspace: (ws: Workspace) => void;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
+  /** §4 §645 — set to the op's own backend beside every `suppressNextLoadRef` arm, as the file ops do:
+   *  the live backend skips its load and adopts that instance's revision instead. Setting it at EVERY arm
+   *  is also what keeps a file op's leftover target from being handed to a Turso backend. */
+  handOverFromRef: React.MutableRefObject<StorageBackend | null>;
   suppressNextSaveRef: React.MutableRefObject<boolean>;
   reportProjectError: (err: unknown) => void;
 }
@@ -60,13 +66,17 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // while a truncated load is unresolved (see `TruncationOps`). A SKIP is not a
   // failure and must not raise the toast below — the source still holds the
   // documents, which is the whole point of pausing the write.
-  async function flushOutgoing(): Promise<void> {
+  // §4 I2 — `false` when the flush's edits could not be kept (`keepNotSavedOnSwitch`, which toasted):
+  // the op must stop, leaving the user behind the pause.
+  async function flushOutgoing(): Promise<boolean> {
     try {
       await deps.truncationOps.flushCurrent();
     } catch (err) {
+      if (isSaveConflict(err)) return false;
       logDiag("warn", "storage.switchFlushFailed", { message: err instanceof Error ? err.message : String(err) });
       deps.showToast("error", t(deps.langRef.current, "storageSwitchFlushFailed"));
     }
+    return true;
   }
 
   // Shared Turso-guard preamble for every project op: popouts never mutate, and
@@ -88,7 +98,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (deps.tursoProjectId === id) return;
     try {
       // Flush the outgoing project to the active backend before switching.
-      await flushOutgoing();
+      if (!(await flushOutgoing())) return;
       const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       deps.applyWorkspace(loaded);
@@ -96,6 +106,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", loaded.project?.name ?? id));
       deps.truncationOps.reportFor(target);
       deps.suppressNextLoadRef.current = true;
+      deps.handOverFromRef.current = target; // §4 §645 — the revision this load established
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
       saveCurrentTursoProjectId(id);
@@ -109,7 +120,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (!cfg) return;
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
-    await flushOutgoing();
+    if (!(await flushOutgoing())) return;
     const id = crypto.randomUUID();
     // Fresh id space for a new project — clear the session minter so seed ids
     // start at #1, not continuing the previously open project's high-water.
@@ -126,10 +137,13 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // cancels the autosave the applyWorkspace setState would otherwise trigger,
       // so without this explicit save those rows would not land until the next
       // user edit. The file path saves explicitly too (targetBackend.save).
-      await new TursoBackend(cfg, id).save(ws);
+      const created = new TursoBackend(cfg, id);
+      created.forceNextSave(); // §4 — a blind write by intent: a brand-new project, never loaded
+      await created.save(ws);
       deps.applyWorkspace(ws);
       deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
+      deps.handOverFromRef.current = created; // §4 §645 — the revision the forced write produced
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
       saveCurrentTursoProjectId(id);
@@ -193,7 +207,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       return;
     }
     // Flush the current file project before copying it.
-    await flushOutgoing();
+    if (!(await flushOutgoing())) return;
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);
@@ -204,7 +218,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // it, and reload; after which the Turso project loads cleanly (it is under
       // the cap now), the flag never re-raises, and the missing documents survive
       // only in a file whose project has left the visible list.
-      if (!(await deps.truncationOps.guardedWrite(new TursoBackend(cfg, id), ws))) return;
+      // §4 — `force`: a blind write by intent into a project created a moment ago and never loaded.
+      if (!(await deps.truncationOps.guardedWrite(new TursoBackend(cfg, id), ws, { force: true }))) return;
       // Make the migrated project the active Turso project and switch the
       // portfolio to Turso. The reload re-initialises the app in Turso mode.
       saveCurrentTursoProjectId(id);

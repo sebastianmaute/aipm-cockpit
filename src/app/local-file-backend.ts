@@ -12,11 +12,11 @@ import {
   hasGrantedPermission,
   pickOpenFile,
   pickSaveFile,
-  readHandle,
   tryGrantPermission,
   writeHandle,
 } from "./fs-access";
 import { idbDelete, idbGet, idbSet } from "./idb";
+import { logDiag } from "./diagnostics";
 import {
   type LocalKind,
   type StorageBackend,
@@ -27,6 +27,57 @@ import {
   workspaceToJson,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
+import { SaveConflictError, withSaveLock } from "./storage-error";
+
+/** §4 fix round 1 (R10 change 7) — the local-file revision encoding:
+ *  `lastModified` ALONE is not fine-grained enough on filesystems/OSes with a
+ *  coarse mtime resolution (some report whole seconds), so two different
+ *  writes landing in the same tick would be indistinguishable and a real
+ *  conflict could go undetected. Pairing it with `size` catches any write
+ *  that also changed the byte length, which is true of almost every real
+ *  edit. Revisions are opaque strings to callers — nothing outside this file
+ *  parses the encoding. */
+function fileRevision(file: File): string {
+  return `${file.lastModified}:${file.size}`;
+}
+
+/** Upper bound on waiting for the per-kind save Web Lock, on the pattern of
+ *  `turso-backend.ts`'s `LOCK_WAIT_TIMEOUT_MS`. Local file I/O has no network
+ *  round-trip, so a much shorter bound than Turso's 20s is still generous for
+ *  a healthy lock holder (open a writable, write, close) to finish first. */
+const LOCAL_LOCK_WAIT_TIMEOUT_MS = 10_000;
+
+/** §645 (final re-review RC1) — what the shared slot `file-handle:<kind>` holds: the handle AND the
+ *  tab-sync binding it was bound for (`fileBinding`, `sync-scope.ts`), written in ONE value so a load
+ *  reads the binding of the file it actually opens, never the registry's current project (which a
+ *  pick does not change, and another tab's switch commits only after re-pointing the slot). A slot
+ *  written before this holds the bare handle; its binding is unknown (`null`: the kind alone). */
+type HandleSlot = { handle: FsHandle; binding: string | null };
+function readSlot(raw: unknown): HandleSlot | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "object" && "handle" in raw) {
+    const rec = raw as { handle: FsHandle; binding?: unknown };
+    return { handle: rec.handle, binding: typeof rec.binding === "string" ? rec.binding : null };
+  }
+  return { handle: raw as FsHandle, binding: null };
+}
+
+/** §645 RI3 — the id of the registered project of this kind whose stored handle is the same file as
+ *  `handle`, or `null`. Imported lazily: the registry modules are not part of the storage graph. */
+async function registeredBindingFor(kind: LocalKind, handle: FsHandle): Promise<string | null> {
+  if (typeof handle.isSameEntry !== "function") return null;
+  try {
+    const [{ loadRegistry }, { getHandle: getProjectHandle }] = await Promise.all([import("./projects-registry"), import("./project-file-handles")]);
+    for (const project of loadRegistry().projects) {
+      if (project.storageConfig.kind !== kind) continue;
+      const stored = await getProjectHandle(project.id);
+      if (stored && (await handle.isSameEntry(stored))) return project.id;
+    }
+  } catch {
+    // A registry or handle-store failure only loses the match: the caller mints a `picked:` id instead.
+  }
+  return null;
+}
 
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
@@ -62,17 +113,127 @@ export class LocalFileBackend implements StorageBackend {
   lastDecodeFailures: readonly string[] = [];
   private readonly idbKey: string;
   private readonly format: FilePickType;
+  /** §645 — the cross-tab/cross-window Web Lock name `save()` acquires (when
+   *  available) around the compare-then-write critical section, per KIND so
+   *  two windows on the SAME format can't both read the same file's
+   *  `lastModified` before either has written. */
+  private readonly lockName: string;
+  /** §645 — the handle THIS instance (this window) treats as active, once
+   *  bound by `setHandle`/`pickFile` or by a `getHandle()` fallback read of
+   *  the shared IDB slot. `getHandle()` returns this instead of re-reading
+   *  the slot on every call, so a SECOND instance's later `setHandle()` —
+   *  which rewrites the shared slot — cannot silently redirect THIS
+   *  instance's next `save()` at a different file (the §645 bug: previously
+   *  every call re-read the slot, so any window's re-point/project-switch
+   *  retargeted every other window's next save too). */
+  private boundHandle: FsHandle | null = null;
+  /** §645 C1 — the binding `boundHandle` was bound with (see `HandleSlot`); `null` when unknown. */
+  private boundBinding: string | null = null;
+  /** §645 fix round 1 (R10 change 1) — the revision this instance last loaded
+   *  or wrote from `boundHandle`; `null` means UNKNOWN (never loaded/written
+   *  that handle, and not adopted or forced) — `save()` now FAILS CLOSED on
+   *  `null` rather than skipping the compare, so `setHandle`/`pickFile`
+   *  resetting this to `null` on every NEW bind means the very next save on a
+   *  freshly bound/switched handle refuses until a real load (or
+   *  `adoptFrom`/`adoptRevision`/`forceNextSave`) establishes a baseline. */
+  private currentRevision: string | null = null;
+  /** §645 — one-shot: set by `forceNextSave()`, consumed by `saveLocked()`
+   *  only once its write has actually succeeded (R10 change 4) — a forced
+   *  save that fails (e.g. the write throws) keeps the flag set for the
+   *  retry, rather than silently falling back to a compare it was never
+   *  meant to face. §645 fix round 3 — ALSO cleared by `setHandle()`,
+   *  `pickFile()`, a successful `loadFrom()` of the BOUND target,
+   *  `adoptRevision()` and `adoptFrom()`, each of which establishes a genuine
+   *  new (or different) target/baseline that a leftover forced-write intent
+   *  must not silently carry past. */
+  private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save writes only while the file is still at
+   *  `expected`. Consumed by that save attempt whatever its outcome (it can never write over a version
+   *  nobody was shown), and dropped with `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
+  /**
+   * §645 fix round 1 (R10 change 2, "R6 one-shot pre-read") — the
+   * `{handle, revision}` pair from the MOST RECENT `loadFrom()` read of ANY
+   * handle, bound or not. This is what lets the §287/§590 preview-before-
+   * commit flow (`openFile()`/`pickFileHandle()` → `loadFromHandleForBackend`
+   * → accept → `setHandle()`) establish a real baseline instead of forcing
+   * the caller to reload the very file it just previewed: `setHandle(h)`
+   * adopts `revision` when `h === handle`, and always CONSUMES (clears) this
+   * regardless of whether it matched. Any LATER `loadFrom()` call — for a
+   * different candidate, or the bound handle's own regular `load()` — simply
+   * overwrites it; only the single most recent read is ever remembered.
+   */
+  private pendingRead: { handle: FsHandle; revision: string } | null = null;
 
   constructor(kind: LocalKind) {
     this.kind = kind;
     this.format =
       kind === "local-json" ? "json" : kind === "local-csv" ? "csv" : "md";
     this.idbKey = `file-handle:${kind}`;
+    this.lockName = `aipm-cockpit:save:${kind}`;
   }
 
+  /**
+   * §645 — returns the handle THIS instance is bound to, binding it from the
+   * shared IDB slot on first use (so a fresh instance still restores the last
+   * file on startup). Once bound, `boundHandle` — never whatever the slot
+   * currently holds — is what gets returned: a second instance's
+   * `setHandle()`, which rewrites the ONE shared slot, must not retarget this
+   * instance's next `load()`/`save()` at the other instance's file.
+   *
+   * ★ Still calls `idbGet` on EVERY call, even when already bound — the read
+   * is deliberately not skipped. `local-file-backend.test.ts`'s "resets
+   * diagnostics when the handle store rejects" suite models IndexedDB itself
+   * becoming unavailable mid-session and expects THAT rejection to propagate
+   * out of `load()` even for an already-bound backend; skipping the read once
+   * bound would silently swallow that failure behind a stale cached handle.
+   * The resolved value is simply discarded once bound — only a REJECTION
+   * (the store itself is broken) is allowed to override the cache.
+   */
   private async getHandle(): Promise<FsHandle | null> {
-    const handle = await idbGet<FsHandle>(this.idbKey);
-    return handle ?? null;
+    const read = readSlot(await idbGet<unknown>(this.idbKey));
+    if (this.boundHandle) return this.boundHandle;
+    const stored = read && read.binding === null ? await this.upgradeBareSlot(read.handle) : read;
+    if (this.boundHandle) return this.boundHandle; // bound meanwhile (the upgrade awaited)
+    if (stored) {
+      this.boundHandle = stored.handle;
+      this.boundBinding = stored.binding;
+    }
+    return stored?.handle ?? null;
+  }
+
+  /**
+   * §645 (final re-review 3 RI3) — a slot holding a BARE handle (written before the binding was stored,
+   * or by a tab still on old code) gives no binding, and a window with none syncs with nobody. Left bare,
+   * every window on that file would isolate for as long as nothing re-binds it, pausing each other on
+   * every alternating save. So the first load that reads it writes it back as a record: the id of the
+   * registered project whose stored handle is the same file (`isSameEntry`), else a fresh `picked:` id.
+   * ★ A read-modify-write without a lock: the slot is read AGAIN just before the write, and a record
+   *   another tab wrote meanwhile is ADOPTED, never overwritten. Two tabs that both find it still bare
+   *   in that last read both write, and the later write wins: the earlier tab is then bound to a token
+   *   no later window shares and stays isolated (a visible pause, no loss) until it reloads.
+   */
+  private async upgradeBareSlot(handle: FsHandle): Promise<HandleSlot> {
+    const binding = (await registeredBindingFor(this.kind, handle)) ?? `picked:${crypto.randomUUID()}`;
+    const again = readSlot(await idbGet<unknown>(this.idbKey));
+    if (again && again.binding !== null) return again; // another tab upgraded or re-bound it first
+    const record: HandleSlot = { handle, binding };
+    try {
+      await idbSet(this.idbKey, record);
+    } catch (err) {
+      // ★ Final re-review 4, minor: the upgrade serves LATER windows; a failed write (quota) must not fail a
+      //   load a bare slot used to serve. The slot stays bare, and this window keeps the binding it computed:
+      //   safe, because it was computed for the handle this window actually opened, so it can never name
+      //   another file (a registered id is shared only by that file's windows; a picked id by nobody yet).
+      logDiag("warn", "storage.slotUpgradeFailed", { kind: this.kind, message: err instanceof Error ? err.message : String(err) });
+    }
+    return record;
+  }
+
+  /** §645 C1 — the tab-sync binding of the file this instance is bound to: the one stored with the
+   *  handle it bound or read. `null` when unbound or bound from an old slot (the kind alone). */
+  fileBinding(): string | null {
+    return this.boundHandle ? this.boundBinding : null;
   }
 
   /**
@@ -86,8 +247,33 @@ export class LocalFileBackend implements StorageBackend {
    * after a page reload; callers should re-grant via requestWriteAccess() from
    * a user gesture if needed.
    */
-  async setHandle(handle: FsHandle): Promise<void> {
-    await idbSet(this.idbKey, handle);
+  async setHandle(handle: FsHandle, binding: string | null = null): Promise<void> {
+    const record: HandleSlot = { handle, binding };
+    await idbSet(this.idbKey, record);
+    // §645 — bind THIS instance to the handle it just committed, and (C1) the binding stored with it.
+    this.boundHandle = handle;
+    this.boundBinding = binding;
+    // R10 change 2 (R6 one-shot pre-read) — adopt the revision from a PRIOR
+    // `loadFrom(handle)` read of this EXACT handle (the §287/§590 preview
+    // flow), so committing a file the caller just previewed does not
+    // immediately fail-closed on the very next save. Any other case — no
+    // prior read, or a read of a DIFFERENT handle — leaves the revision
+    // UNKNOWN (`null`): comparing a new file's real revision against an old
+    // file's would either falsely conflict (near-certain — the two are
+    // unrelated) or, by sheer coincidence, falsely pass, and fabricating a
+    // baseline for a handle never actually read would defeat the whole
+    // fail-closed rule (R10 change 1). Consumed either way — cleared so a
+    // stale pre-read can never be adopted by a LATER, unrelated setHandle.
+    this.currentRevision =
+      this.pendingRead && this.pendingRead.handle === handle ? this.pendingRead.revision : null;
+    this.pendingRead = null;
+    // §645 fix round 3 (Important #1) — a re-bind to a (possibly different)
+    // target must drop any FAILED forced save's leftover intent: without
+    // this, a forced save to A that failed, followed by re-binding to B,
+    // would let the next save on B skip BOTH the null check and the compare
+    // — a silent overwrite of whatever B actually holds.
+    this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** Reads back the handle currently bound to this backend (after a pick/open),
@@ -126,10 +312,20 @@ export class LocalFileBackend implements StorageBackend {
    * itself — an earlier revision here claimed "exactly those two call sites" beside a grep that did
    * not produce them.
    */
-  async pickFile(): Promise<void> {
+  async pickFile(binding: string | null = null): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
     const handle = await pickSaveFile(this.format);
-    await idbSet(this.idbKey, handle);
+    const record: HandleSlot = { handle, binding };
+    await idbSet(this.idbKey, record);
+    // §645 — same bind-and-reset as setHandle() above; this is the other path
+    // that commits a NEW handle to the active slot.
+    this.boundHandle = handle;
+    this.boundBinding = binding;
+    this.currentRevision = null;
+    // §645 fix round 3 — same reasoning as setHandle(): a re-bind must drop a
+    // leftover forced-save intent from whatever the PREVIOUS target was.
+    this.forceNext = false;
+    this.expectNext = null;
   }
 
   /**
@@ -143,6 +339,10 @@ export class LocalFileBackend implements StorageBackend {
    * that may already have held the user's project.
    * ★ Commit with {@link setHandle} once the user has accepted; a decline leaves
    * the backend on the previous file with nothing to undo.
+   * ★ §645: deliberately does NOT touch `boundHandle`/`currentRevision` — only
+   * `setHandle`/`pickFile` do that. A caller previewing a candidate file must
+   * not have this instance's save-revision baseline silently swapped to a file
+   * it has not committed to.
    * ★★ No `tryGrantPermission` here, unlike `openFile`: `showSaveFilePicker`
    * grants readwrite implicitly when the user picks a file, which is why
    * `pickFile` never asked either.
@@ -167,6 +367,10 @@ export class LocalFileBackend implements StorageBackend {
    * If the user dismisses or the browser denies, the handle is returned anyway
    * and `save()` surfaces a clearer "grant access" toast later.
    * ★ Commit with `setHandle(handle)` once the user has accepted.
+   * ★ §645: same non-binding contract as `pickFileHandle` — this must NOT set
+   * `boundHandle`/`currentRevision`, or the §287 "does not commit the handle"
+   * guarantee (and its test) would break the moment `getHandle()` started
+   * caching a bound handle.
    */
   async openFile(): Promise<FsHandle> {
     const handle = await pickOpenFile(this.format);
@@ -186,6 +390,15 @@ export class LocalFileBackend implements StorageBackend {
 
   async clearFile(): Promise<void> {
     await idbDelete(this.idbKey);
+    // §645 — must also drop this instance's own cache, or `getHandle()` would
+    // keep returning the now-cleared `boundHandle` instead of `null` (it only
+    // falls back to re-reading the slot when NOT already bound).
+    this.boundHandle = null;
+    this.boundBinding = null;
+    this.currentRevision = null;
+    this.forceNext = false; // final review m9: all five, as `setHandle` resets them
+    this.expectNext = null;
+    this.pendingRead = null;
   }
 
   async describe(): Promise<string | null> {
@@ -259,11 +472,56 @@ export class LocalFileBackend implements StorageBackend {
       if (!(await hasGrantedPermission(handle, "read"))) {
         throw new StorageNotReadyError("local-file-permission-needed");
       }
-      const text = await readHandle(handle);
-      if (!text.trim()) return emptyWorkspace();
-      if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
+      // §645 — read getFile() ONCE and take both the content and revision
+      // (lastModified + size) from that SAME File object (not two separate
+      // getFile() calls), so a concurrent writer between them can never make
+      // this instance adopt a revision that is newer than the content it
+      // actually read. Inlined rather than calling the shared `readHandle`
+      // helper for exactly this reason — that helper only returns the text.
+      const file = await handle.getFile();
+      const text = await file.text();
+      const revision = fileRevision(file);
+      // §645 fix round 3 (controller ruling R11) — recording the pre-read and
+      // adopting the revision happens ONLY after the content has actually
+      // parsed successfully (called right before each successful return
+      // below, never before a throw). A half-written or corrupt file that
+      // fails to parse (e.g. `jsonToWorkspace(strict)` throwing) must NOT
+      // become the save baseline: adopting it here, before the parse even
+      // ran, let the very next save overwrite that same corrupt file without
+      // a conflict, because `currentRevision` already matched it.
+      const recordSuccessfulRead = (): void => {
+        // R10 change 2 — remember this exact read for `setHandle()`'s
+        // one-shot pre-read adoption, for ANY handle (bound or not):
+        // overwrites whatever the previous `loadFrom()` call remembered, so
+        // only the most recent SUCCESSFUL read is ever available to adopt.
+        this.pendingRead = { handle, revision };
+        // Only when `handle` is the ACTIVE bound handle: `loadFrom` is also
+        // the read half of the commit-on-accept split (§287/§590), called
+        // directly with a candidate handle nobody has committed to yet.
+        // Adopting THAT file's revision here would silently swap this
+        // instance's save baseline to a file it may never bind.
+        if (handle === this.boundHandle) {
+          this.currentRevision = revision;
+          // §645 fix round 3 (Important #1) — a genuine load of the bound
+          // target is a real new baseline; any forced-write intent left over
+          // from an earlier FAILED forced save must not silently carry
+          // forward past it.
+          this.forceNext = false;
+          this.expectNext = null;
+        }
+      };
+      if (!text.trim()) {
+        recordSuccessfulRead();
+        return emptyWorkspace();
+      }
+      if (this.format === "json") {
+        const ws = jsonToWorkspace(text, { strict: true, diag });
+        recordSuccessfulRead();
+        return ws;
+      }
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
+      recordSuccessfulRead();
       this.lastImportDroppedRows = diag.droppedRows;
       this.lastImportDroppedBySection = diag.droppedBySection;
       this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
@@ -318,6 +576,38 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   async save(ws: Workspace): Promise<void> {
+    // §645 — the compare-then-write critical section runs under the cross-window Web Lock, so two
+    // windows racing a save can't both read the same file's revision before either has written; a lock
+    // not granted within `LOCAL_LOCK_WAIT_TIMEOUT_MS` throws `SaveLockTimeoutError` (`withSaveLock`).
+    await withSaveLock(this.lockName, this.kind, LOCAL_LOCK_WAIT_TIMEOUT_MS, () => this.saveLocked(ws));
+  }
+
+  /**
+   * §645 — the actual save. Reads this instance's bound handle's CURRENT
+   * revision (`fileRevision()`, `lastModified:size`) and compares it with the
+   * revision this instance last loaded or wrote, BEFORE any write: a mismatch
+   * means another writer (another window, or another program) has changed
+   * the file since, and throws `SaveConflictError` — nothing here is written.
+   *
+   * R10 change 1 (fail closed) — `currentRevision === null` means UNKNOWN
+   * (never loaded that handle, and not adopted or forced), and now REFUSES
+   * with the same `SaveConflictError` rather than skipping the compare: a
+   * save on an instance that has never established a real baseline must not
+   * silently win against whatever another window already put there. An
+   * intentional blind write — Save-As, a brand-new file, create, demo,
+   * conversion — goes through `forceNextSave()`.
+   *
+   * `forceNextSave()` (one-shot) skips the compare and writes regardless. The
+   * force flag is cleared, and the revision adopted, only AFTER the write has
+   * actually succeeded (R10 change 4) — a forced save that fails keeps the
+   * flag set for the retry instead of silently reverting to a compare it was
+   * never meant to face.
+   */
+  private async saveLocked(ws: Workspace): Promise<void> {
+    const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null;
+
     const handle = await this.getHandle();
     if (!handle) throw new StorageNotReadyError("local-file-not-picked");
     // Query only — never call requestPermission here. This path runs from a
@@ -327,10 +617,76 @@ export class LocalFileBackend implements StorageBackend {
     if (!(await hasGrantedPermission(handle, "readwrite"))) {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
+
+    if (!force) {
+      // §4 — read even when this instance's own revision is unknown, so the refusal names the version
+      // storage holds (the conflict banner's Overwrite is conditional on exactly that one).
+      // ★ A DELETED file makes `getFile()` throw `NotFoundError`, which propagates as a plain save failure,
+      //   deliberately NOT a conflict (final review, Task 9 M1): a missing file is not a newer revision, the
+      //   generic save-failed toast is honest, and Overwrite could not target a file that is gone.
+      const current = fileRevision(await handle.getFile());
+      const against = expected ?? this.currentRevision;
+      if (against === null || current !== against) throw new SaveConflictError(this.kind, current);
+    }
+
     let content: string;
     if (this.format === "json") content = workspaceToJson(ws);
     else if (this.format === "csv") content = workspaceToCsv(ws);
     else content = workspaceToMarkdown(ws);
     await writeHandle(handle, content);
+
+    // §645 — clear the force flag + adopt the new revision only now that the
+    // write has succeeded (R10 change 4).
+    if (force) this.forceNext = false;
+    // ★ If this read fails, the write landed but its revision is not adopted: the next save then meets
+    //   its OWN write as a foreign change (a spurious self-conflict), which the conflict pause surfaces.
+    const written = await handle.getFile();
+    this.currentRevision = fileRevision(written);
+  }
+
+  /** §645: the revision this instance last loaded or wrote from its bound
+   *  handle; `null` before any load/write of that handle. */
+  revision(): string | null {
+    return this.currentRevision;
+  }
+
+  /** §645: adopt `rev` as this instance's current revision without a
+   *  load/save. §645 fix round 3 — also clears `forceNext`: adopting a real
+   *  revision from elsewhere is a genuine new baseline, same as a real load,
+   *  so it must not leave a stale forced-write intent standing (symmetry
+   *  with `BrowserBackend.adoptRevision`, which does the same). */
+  adoptRevision(rev: string): void {
+    this.currentRevision = rev;
+    this.forceNext = false;
+    this.expectNext = null;
+  }
+
+  /** §645: make the next `save()` skip the revision compare and write
+   *  regardless, then clear itself (R10 change 4 — only once that save's
+   *  write actually succeeds; see `saveLocked()`). */
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
+    this.forceNext = true;
+    this.expectNext = null;
+  }
+
+  /**
+   * §645 fix round 1 (R10 change 3) — copies another `LocalFileBackend`
+   * instance's bound handle and revision, so a throwaway backend used to
+   * perform an op (e.g. a preview read, or a create/convert helper) can hand
+   * its resulting state to the LIVE instance in one step. Same-class only,
+   * not part of `StorageBackend` — a later task calls this at the one site
+   * that needs it. `other` must have loaded or written the SAME target this
+   * instance should now treat as current; this does not verify that itself.
+   */
+  adoptFrom(other: LocalFileBackend): void {
+    this.boundHandle = other.boundHandle;
+    this.boundBinding = other.boundBinding;
+    this.currentRevision = other.currentRevision;
+    // §645 fix round 3 — adopting another instance's state establishes a
+    // fresh, genuine baseline; a forced-write intent left over from THIS
+    // instance's own past (failed) save no longer applies to it.
+    this.forceNext = false;
+    this.expectNext = null;
   }
 }

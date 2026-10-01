@@ -64,6 +64,8 @@ export interface FsHandle {
     close(): Promise<void>;
   }>;
   name?: string;
+  /** FileSystemHandle.isSameEntry — absent on some fakes and older engines (§645 RI3 then mints a fresh binding). */
+  isSameEntry?(other: FsHandle): Promise<boolean>;
 }
 
 export async function pickSaveFile(type: FilePickType): Promise<FsHandle> {

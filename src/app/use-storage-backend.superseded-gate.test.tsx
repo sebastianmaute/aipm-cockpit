@@ -47,7 +47,7 @@ vi.mock("./project-file-handles", () => ({
   saveHandle: vi.fn().mockResolvedValue(undefined),
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 // ★★ CALL-THROUGH, for the same reason as its sibling in
 // use-storage-file-ops.pick-overwrite.test.tsx: this suite asserts on the ARGUMENTS handed to
 // `logDiag` (the `stage: "write"` label, and the reload leg's `outcome`), and a bare stub pins the

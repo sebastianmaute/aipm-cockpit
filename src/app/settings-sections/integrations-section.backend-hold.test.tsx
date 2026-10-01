@@ -39,7 +39,7 @@ vi.mock("../storage", async (importActual) => ({
   ...(await importActual<typeof import("../storage")>()),
   createBackend: vi.fn(),
 }));
-vi.mock("../broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("../broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("../diagnostics", () => ({ logDiag: vi.fn() }));
 vi.mock("../turso-pipeline", async (importActual) => ({
   ...(await importActual<typeof import("../turso-pipeline")>()),

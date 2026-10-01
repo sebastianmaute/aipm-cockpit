@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../test/msw-server";
 import { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
 import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
+import { SaveConflictError } from "./storage-error";
 
 describe("parseSharePointFileUrl", () => {
   it("parses a standard SharePoint Sites URL", () => {
@@ -196,6 +197,28 @@ const CONTENT_URL =
   "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/lop/workspace.json:/content";
 // Bare colons in the path break msw's path-param matcher, so match by RegExp.
 const CONTENT_RE = /graph\.microsoft\.com\/v1\.0\/sites\/.+\/content$/;
+// §4 (R13) — the load is TWO requests: item metadata (eTag + pre-authenticated download URL), then the
+// bytes from that URL on another host. The metadata URL is the content URL minus its `:/content` tail.
+const META_RE = /graph\.microsoft\.com\/v1\.0\/sites\/[^?]*workspace\.json$/;
+const META_URL_PREFIX =
+  "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/lop/workspace.json";
+const DOWNLOAD_URL = "https://download.example.test/dl/abc?tempauth=xyz";
+/** Serves a whole load. `getResp` answers the FILE: a non-ok response fails the METADATA step (that is
+ *  where 404/401/403/5xx now arrive), an ok one is the bytes served from the download URL. `etag` goes in
+ *  the metadata BODY only (null omits it), never as a header. `downloadUrl: null` omits the URL. */
+function serveLoad(getResp: () => Response, etag: string | null = '"e1"', downloadUrl: string | null = DOWNLOAD_URL) {
+  return [
+    http.get(META_RE, () => {
+      const r = getResp();
+      if (!r.ok) return r;
+      return HttpResponse.json({
+        ...(etag !== null ? { eTag: etag } : {}),
+        ...(downloadUrl !== null ? { "@microsoft.graph.downloadUrl": downloadUrl } : {}),
+      });
+    }),
+    http.get(DOWNLOAD_URL.split("?")[0], () => getResp()),
+  ];
+}
 
 const EMPTY_WORKSPACE: Workspace = {
   tasks: [],
@@ -262,25 +285,26 @@ describe("SharePointBackend", () => {
 
   it("load constructs the correct Graph URL", async () => {
     const requests: Request[] = [];
-    server.use(http.get(CONTENT_RE, ({ request }) => {
+    server.use(http.get(META_RE, ({ request }) => {
       requests.push(request);
-      return HttpResponse.json(EMPTY_WORKSPACE);
-    }));
+      return HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL });
+    }), http.get(DOWNLOAD_URL.split("?")[0], () => HttpResponse.json(EMPTY_WORKSPACE)));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe(CONTENT_URL);
+    expect(decodeURIComponent(requests[0].url)).toBe(`${decodeURIComponent(META_URL_PREFIX)}?$select=eTag,@microsoft.graph.downloadUrl`);
+    expect(requests[0].headers.get("Authorization")).toBe("Bearer fake-token");
   });
 
   it("load 200 returns parsed Workspace for sp-json", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE)));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
   });
 
   it("load 404 returns default empty Workspace", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
@@ -305,13 +329,13 @@ describe("SharePointBackend", () => {
     '# TASKS\r\nid,taskName,blockers\r\n,No id at all,\r\n7,T7,"never closed';
 
   it("load 404 clears the import flags a previous CSV load set", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    server.use(...serveLoad(() => HttpResponse.text(DIRTY_CSV)));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastImportUnterminatedQuote).toBe(true);
     expect(be.lastImportDroppedRows).toBeGreaterThan(0);
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     await be.load();
     expect(be.lastImportUnterminatedQuote).toBe(false);
     expect(be.lastImportDroppedRows).toBe(0);
@@ -325,7 +349,7 @@ describe("SharePointBackend", () => {
   // import-flag reset and re-published a previous load's diagnostics for a file
   // that no longer exists.
   it("publishes the per-section breakdown and clears it on a 404", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    server.use(...serveLoad(() => HttpResponse.text(DIRTY_CSV)));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     // The positive observable: DIRTY_CSV's id-less row is a dropped TASK, so the
@@ -334,7 +358,7 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedBySection).toEqual({ tasks: 1 });
     expect(be.lastImportDroppedRows).toBe(1);
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     await be.load();
     // ★ Absent, not zero-filled — same rule as the codec layer.
     expect(be.lastImportDroppedBySection).toBeUndefined();
@@ -345,7 +369,7 @@ describe("SharePointBackend", () => {
   // recorded (and saving pauses on the load paths that call `reportFor`)
   // instead of the whole load failing.
   it("records a documents rich-field throw instead of failing the load (§635)", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     richThrow.on = true;
     try {
@@ -363,7 +387,7 @@ describe("SharePointBackend", () => {
   // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
   // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
   it("publishes a slice the JSON load could not decode", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
@@ -373,19 +397,19 @@ describe("SharePointBackend", () => {
   // into the same accumulator (csv-codecs.meta-slices.test.ts pins the codec);
   // this pins that an `sp-csv` load publishes it.
   it("publishes a slice the CSV load could not decode", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text("# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n")));
+    server.use(...serveLoad(() => HttpResponse.text("# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n")));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["insights"]);
   });
 
   it("clears the flag on the next clean load", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
 
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE)));
     await be.load();
     expect(be.lastDecodeFailures).toEqual([]);
   });
@@ -394,30 +418,30 @@ describe("SharePointBackend", () => {
   // standing — same `finally` publishes both `lastLoadTruncation` and
   // `lastDecodeFailures` on every exit, throwing ones included.
   it("clears decode failures too when a later load throws (500)", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
     expect(be.lastDecodeFailures).toEqual([]);
   });
 
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sign-in expired/i);
   });
 
   it("load 403 throws StorageNotReadyError with permission hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 403 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 403 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/permission denied/i);
   });
 
   it("load 500 throws with friendly hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
   });
@@ -437,6 +461,7 @@ describe("SharePointBackend", () => {
       return new HttpResponse("", { status: 201 });
     }));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    be.forceNextSave();
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.url).toBe(CONTENT_URL);
     expect(captured?.method).toBe("PUT");
@@ -454,6 +479,7 @@ describe("SharePointBackend", () => {
       return new HttpResponse("", { status: 200 });
     }));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    be.forceNextSave();
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.headers.get("Content-Type")).toBe("text/csv;charset=utf-8");
   });
@@ -468,5 +494,408 @@ describe("SharePointBackend", () => {
     const be = new SharePointBackend({ kind: "sp-json", hostname: "c.sharepoint.com", sitePath: "/sites/p", itemPath: "f.json" }, acquire);
     await be.isReady();
     expect(acquire).toHaveBeenCalledWith(["Files.ReadWrite.All"]);
+  });
+});
+
+// §4 — SharePoint revision = the driveItem eTag. THREE states (R8): never loaded (refuse), loaded
+// with an ETag (If-Match; 412 = conflict), loaded WITHOUT one (degrade: save without If-Match).
+describe("SharePointBackend revision guard (§4)", () => {
+  let acquireToken: Mock;
+  beforeEach(() => { acquireToken = vi.fn().mockResolvedValue("fake-token"); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const make = () => new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+  const putUrls: string[] = [];
+  const CREATE_ONLY = "@microsoft.graph.conflictBehavior=fail";
+  const loadOk = (etag?: string) => server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), etag ?? null));
+  /** Captures each PUT's If-Match (null when absent) and answers with `respond`. */
+  function capturePuts(respond: () => Response = () => HttpResponse.json({ eTag: '"new,2"' }, { status: 200 })) {
+    const seen: (string | null)[] = [];
+    putUrls.length = 0;
+    server.use(http.put(CONTENT_RE, ({ request }) => { seen.push(request.headers.get("If-Match")); putUrls.push(request.url); return respond(); }));
+    return seen;
+  }
+
+  it("starts with an unknown revision", () => {
+    expect(make().revision()).toBeNull();
+  });
+
+  it("load captures the response ETag as revision()", async () => {
+    loadOk('"v1,1"');
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBe('"v1,1"');
+  });
+
+  it("save sends If-Match with the loaded revision", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("a 412 rejects with SaveConflictError and keeps the old revision", async () => {
+    loadOk('"v1,1"');
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(be.revision()).toBe('"v1,1"');
+  });
+
+  it("a 200 adopts the body's eTag, and the next save sends it", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"', '"new,2"']);
+  });
+
+  it("a 201 whose body has no eTag falls back to the ETag header", async () => {
+    loadOk('"v1,1"');
+    capturePuts(() => HttpResponse.json({}, { status: 201, headers: { ETag: '"hdr,3"' } }));
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"hdr,3"');
+  });
+
+  // Final review m3 — the ETag header is not CORS-exposed, so a 2xx body without `eTag` left the
+  // instance "loaded" with no revision, and every later save went out without `If-Match` (fail OPEN).
+  it("a 2xx with no eTag in body or header reads the stored eTag, and the next save sends it", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts(() => HttpResponse.json({}, { status: 200 }));
+    const be = make();
+    await be.load();
+    server.use(http.get(META_RE, () => HttpResponse.json({ eTag: '"meta,2"' })));
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"meta,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"', '"meta,2"']);
+  });
+
+  it("a 2xx with no eTag anywhere, whose stored eTag cannot be read either, makes the next save refuse", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts(() => HttpResponse.json({}, { status: 200 }));
+    const be = make();
+    await be.load();
+    server.use(http.get(META_RE, () => new HttpResponse("", { status: 500 })));
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual(['"v1,1"']); // the refused save sent nothing
+  });
+
+  it("a never-loaded save refuses with SaveConflictError and sends nothing", async () => {
+    const seen = capturePuts();
+    await expect(make().save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a forced never-loaded save writes without If-Match, then adopts the response eTag", async () => {
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE); // one-shot: now guarded by the adopted revision
+    expect(seen).toEqual([null, '"new,2"']);
+  });
+
+  it("forceNextSave omits If-Match once on a loaded instance", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"new,2"']);
+  });
+
+  it("a failed forced save keeps the force for the retry", async () => {
+    let calls = 0;
+    const seen = capturePuts(() => (++calls === 1 ? new HttpResponse("", { status: 500 }) : HttpResponse.json({ eTag: '"ok,4"' })));
+    const be = make();
+    be.forceNextSave();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toThrow(/sharepoint returned 500/i);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, null]);
+    expect(be.revision()).toBe('"ok,4"');
+  });
+
+  it("a load without an ETag degrades: revision() is null and the save omits If-Match without refusing", async () => {
+    loadOk();
+    const seen = capturePuts(() => new HttpResponse("", { status: 200 }));
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBeNull();
+    await be.save(EMPTY_WORKSPACE);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, null]);
+    expect(be.revision()).toBeNull();
+  });
+
+  it("a load that 404s (no file yet) is a loaded baseline that may CREATE, create-only, without If-Match", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBeNull();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+    expect(putUrls[0]).toContain(CREATE_ONLY);
+  });
+
+  it("after a successful create the instance is 'loaded with an ETag': the next save sends If-Match and no conflictBehavior", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"new,2"']);
+    expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  it("a 409 on the create becomes SaveConflictError, and the state stays absent (a retry is still create-only)", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 409 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(putUrls).toHaveLength(2);
+    expect(putUrls.every((u) => u.includes(CREATE_ONLY))).toBe(true);
+  });
+
+  it("a 412 on the create is also a SaveConflictError", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+
+  it("a forced save on an absent baseline sends neither If-Match nor conflictBehavior", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+    expect(putUrls[0]).not.toContain("conflictBehavior");
+  });
+
+  it("adoptFrom copies the absent state; adoptRevision leaves it", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const source = make();
+    await source.load();
+    const live = make();
+    live.adoptFrom(source);
+    await live.save(EMPTY_WORKSPACE);
+    expect(putUrls[0]).toContain(CREATE_ONLY);
+    const other = make();
+    other.adoptRevision('"r"');
+    await other.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"r"']);
+    expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  it("the ETag comes from the metadata BODY even though no response carries an ETag header", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"body-only,7"'));
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBe('"body-only,7"');
+  });
+
+  it("the download request carries NO Authorization header, and the metadata request does", async () => {
+    const auth: Record<string, string | null> = {};
+    server.use(
+      http.get(META_RE, ({ request }) => {
+        auth.meta = request.headers.get("Authorization");
+        return HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL });
+      }),
+      http.get(DOWNLOAD_URL.split("?")[0], ({ request }) => {
+        auth.download = request.headers.get("Authorization");
+        return HttpResponse.json(EMPTY_WORKSPACE);
+      }),
+    );
+    await make().load();
+    expect(auth).toEqual({ meta: "Bearer fake-token", download: null });
+  });
+
+  it("a missing downloadUrl fails the load and leaves the instance never-loaded", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"e1"', null));
+    const seen = capturePuts();
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/download/i);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a failing download (non-ok) fails the load and leaves the instance never-loaded", async () => {
+    server.use(
+      http.get(META_RE, () => HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL })),
+      http.get(DOWNLOAD_URL.split("?")[0], () => new HttpResponse("", { status: 503 })),
+    );
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/503/);
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+
+  it("a failed load leaves a fresh instance never-loaded (save refuses)", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
+    const seen = capturePuts();
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a load whose body fails to parse does not become the baseline", async () => {
+    server.use(...serveLoad(() => new HttpResponse("{not json", { status: 200 }), '"bad"'));
+    const be = make();
+    await expect(be.load()).rejects.toThrow();
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+
+  it("a successful load clears a pending force (the load is the new baseline)", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("adoptRevision sets a baseline (so a never-loaded instance may save) and clears a pending force", async () => {
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    be.adoptRevision('"adopted"');
+    expect(be.revision()).toBe('"adopted"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"adopted"']);
+  });
+
+  it("adoptFrom copies the loaded revision state and clears this instance's force", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const source = make();
+    await source.load();
+    const live = make();
+    live.forceNextSave();
+    live.adoptFrom(source);
+    expect(live.revision()).toBe('"v1,1"');
+    await live.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("adoptFrom a degraded (loaded, no ETag) source lets the target save without If-Match", async () => {
+    loadOk();
+    const seen = capturePuts(() => new HttpResponse("", { status: 200 }));
+    const source = make();
+    await source.load();
+    const live = make();
+    live.adoptFrom(source);
+    await live.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+  });
+
+  it("adoptFrom a never-loaded source leaves the target refusing", async () => {
+    const live = make();
+    live.adoptFrom(make());
+    await expect(live.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+});
+
+// §4 fix round 1 of Task 9 — a refusal reports the stored eTag (one metadata GET), and
+// `forceNextSave(expected)` writes with `If-Match: expected` only, never blind and never create-only.
+describe("SharePointBackend conditional overwrite (§4)", () => {
+  let acquireToken: Mock;
+  beforeEach(() => { acquireToken = vi.fn().mockResolvedValue("fake-token"); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const make = () => new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+  const refusal = (p: Promise<unknown>) => p.then(() => null, (err: unknown) => err as SaveConflictError);
+  const puts: Array<{ ifMatch: string | null; url: string }> = [];
+  function capturePuts(respond: () => Response) {
+    puts.length = 0;
+    server.use(http.put(CONTENT_RE, ({ request }) => { puts.push({ ifMatch: request.headers.get("If-Match"), url: request.url }); return respond(); }));
+  }
+  /** What the item's metadata answers AFTER the load (the refusal's eTag read). */
+  function storedEtag(etag: string | null, status = 200) {
+    server.use(http.get(META_RE, () => (status !== 200 ? new HttpResponse("", { status }) : HttpResponse.json(etag === null ? {} : { eTag: etag }))));
+  }
+
+  it("a 412 reports the stored eTag", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,2"');
+    const err = await refusal(be.save(EMPTY_WORKSPACE));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe('"peer,2"');
+  });
+
+  it("a create-only 409 reports the stored eTag too", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 409 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,1"');
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBe('"peer,1"');
+  });
+
+  it("a failed or eTag-less metadata read reports null", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag(null, 500);
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBeNull();
+    storedEtag(null);
+    const err = await refusal(be.save(EMPTY_WORKSPACE));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBeNull();
+  });
+
+  it("forceNextSave(expected) sends If-Match: expected, never create-only, and adopts the written eTag", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => HttpResponse.json({ eTag: '"new,2"' }));
+    const be = make();
+    await be.load(); // absent: an ordinary save would be create-only
+    be.forceNextSave('"peer,1"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(puts.map((p) => p.ifMatch)).toEqual(['"peer,1"']);
+    expect(puts[0].url).not.toContain("conflictBehavior");
+    expect(be.revision()).toBe('"new,2"');
+  });
+
+  it("a conditional save that meets a 412 conflicts, and the one-shot is consumed", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,3"');
+    be.forceNextSave('"peer,2"');
+    expect(be.revision()).toBe('"v1,1"'); // arming does not move the instance's own revision
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBe('"peer,3"');
+    await refusal(be.save(EMPTY_WORKSPACE));
+    expect(puts.map((p) => p.ifMatch)).toEqual(['"peer,2"', '"v1,1"']);
   });
 });

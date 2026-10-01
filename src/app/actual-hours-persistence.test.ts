@@ -97,7 +97,13 @@ describe("allocation actualHours day keys survive every backend", () => {
   });
 
   it("IndexedDB", async () => {
-    await new BrowserBackend().save(wsWithDayKeys());
+    // §4 fix round 2 — a fresh backend has never loaded, so its first save()
+    // would throw SaveConflictError under the fail-closed rule (R10 change
+    // 1). This test is about the save→load round trip, not conflict
+    // semantics, so force this blind seed write.
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save(wsWithDayKeys());
     expectDayKeysKept((await new BrowserBackend().load()).budgets);
   });
 });

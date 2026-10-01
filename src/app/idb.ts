@@ -149,6 +149,42 @@ export async function idbDelete(key: string): Promise<void> {
   });
 }
 
+/** The kv store's name, for a caller that runs its own transaction over it (`idbTransaction`). */
+export const IDB_KV_STORE_NAME = IDB_KV_STORE;
+
+/**
+ * §4 round 7 — ONE readwrite transaction over `storeNames`, on a connection requested in the CALLER'S
+ * OWN TURN: nothing is awaited before `indexedDB.open`, and every request the save needs is issued inside
+ * this one transaction (`body` may issue more from a request's `onsuccess`, while it is still active).
+ * ★★ Why: measured in Chromium, a page that is closing lets the IndexedDB work it requested in its
+ *   pagehide flush finish, but work requested in a LATER task — after a Web Lock grant, or a second
+ *   connection opened from an earlier read's callback — never lands. One connection, one transaction.
+ * ★ Readwrite transactions over overlapping stores run one at a time across tabs, so a compare-and-set
+ *   done here is atomic without a lock. `fail(err)` aborts the transaction (nothing it did is kept) and
+ *   rejects with `err`; a throw inside `body` does the same. Resolves on `complete`.
+ */
+export function idbTransaction(
+  storeNames: readonly string[],
+  body: (tx: IDBTransaction, fail: (err: unknown) => void) => void,
+): Promise<void> {
+  return openIdb().then((db) => new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([...storeNames], "readwrite");
+    let failure: { err: unknown } | null = null;
+    const fail = (err: unknown): void => {
+      if (failure) return;
+      failure = { err };
+      try { tx.abort(); } catch { /* already finishing: `onabort` or `oncomplete` settles it */ }
+    };
+    tx.oncomplete = () => (failure ? reject(failure.err) : resolve());
+    tx.onabort = () => reject(failure ? failure.err : (tx.error ?? new Error("IndexedDB transaction aborted")));
+    try {
+      body(tx, fail);
+    } catch (err) {
+      fail(err);
+    }
+  }));
+}
+
 /** Reads every record from a record store. Used by BrowserBackend to load
  *  tasks/raid as arrays. Empty store → empty array. */
 export async function idbGetAll<T>(storeName: string): Promise<T[]> {

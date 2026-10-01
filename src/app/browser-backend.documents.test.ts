@@ -51,7 +51,12 @@ describe("BrowserBackend — documents", () => {
   });
 
   it("saves and reloads documents", async () => {
-    await new BrowserBackend().save(wsWith([DOC]));
+    // Fix round 1 (R10 change 1, fail closed) — a fresh backend has never
+    // loaded, so its first save() would throw SaveConflictError under the
+    // new fail-closed rule. Force it, like a real create flow would.
+    const writer = new BrowserBackend();
+    writer.forceNextSave();
+    await writer.save(wsWith([DOC]));
 
     const back = await new BrowserBackend().load();
 
@@ -66,6 +71,7 @@ describe("BrowserBackend — documents", () => {
 
   it("deletes the KV key when the document list is cleared, rather than writing []", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save(wsWith([DOC]));
     expect(await idbGet(KV_DOCUMENTS_KEY)).toBeDefined();
 
@@ -79,6 +85,7 @@ describe("BrowserBackend — documents", () => {
 
   it("deletes the KV key when documents is absent entirely", async () => {
     const backend = new BrowserBackend();
+    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
     await backend.save(wsWith([DOC]));
 
     await backend.save(wsWith());
@@ -89,7 +96,9 @@ describe("BrowserBackend — documents", () => {
   it("never writes the KV key for a workspace that never had documents", async () => {
     // Distinct from the case above: that one proves a WRITTEN key is removed,
     // this one proves a save on a virgin DB does not create the slot at all.
-    await new BrowserBackend().save(wsWith());
+    const writer = new BrowserBackend();
+    writer.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    await writer.save(wsWith());
 
     expect(await idbGet(KV_DOCUMENTS_KEY)).toBeUndefined();
   });

@@ -6,10 +6,80 @@
 // Turso-specific failures map to a kind; anything else (local-file permission
 // hints, unrelated errors) returns null so no false storage banner appears.
 
-import { StorageNotReadyError } from "./storage";
+import { StorageNotReadyError, type StorageKind } from "./storage";
 import { TursoLockTimeoutError } from "./turso-backend";
 
 export type StorageErrorKind = "unreachable" | "auth" | "auth-env" | "generic";
+
+/** §4 — thrown by a `StorageBackend.save()` when its revision guard finds the
+ *  backend holds a NEWER revision than the one this instance last loaded or
+ *  wrote (another tab/window won a concurrent save). Callers pause instead of
+ *  overwriting: reload the latest revision, or call `forceNextSave(currentRevision)`
+ *  and retry to replace exactly the version that refused it.
+ *  `currentRevision` — the revision storage held at the refusal (the version the
+ *  user is told about); `null` when the backend could not read it. */
+export class SaveConflictError extends Error {
+  constructor(public readonly kind: StorageKind, public readonly currentRevision: string | null = null) {
+    super(`Save conflict: another writer changed this ${kind} backend`);
+    this.name = "SaveConflictError";
+  }
+}
+
+export function isSaveConflict(err: unknown): err is SaveConflictError {
+  return err instanceof SaveConflictError;
+}
+
+/** §4 fix round 1 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
+ *  timed out before the lock was ever granted (another window is mid-save).
+ *  Generalized by `StorageKind` (the local-file backends; browser storage took it too until §4 round 7
+ *  made its save one IndexedDB transaction with no lock), on the
+ *  pattern of `TursoLockTimeoutError` (`turso-backend.ts`'s `withWriteLock`):
+ *  same "bounded wait, typed timeout error" shape, but added here rather than
+ *  widening `TursoLockTimeoutError` itself — that class is Turso-specific in
+ *  both name and message, and already has its own `isTursoLockTimeout` plus
+ *  dedicated coverage in `storage-error.test.ts`/`turso-backend.test.ts`;
+ *  repurposing it for a different backend would either break that message or
+ *  require a Turso-only rename ripple this round does not need. Deliberately
+ *  NOT classified by `classifyStorageError`, exactly like
+ *  `TursoLockTimeoutError`: a lock timeout is transient (another window is
+ *  writing), so it surfaces as a toast (`isSaveLockTimeout` → the localized
+ *  `storageSaveLockTimeout`, final review m4) rather than a persistent
+ *  connectivity/auth banner. */
+export class SaveLockTimeoutError extends Error {
+  constructor(public readonly kind: StorageKind, options?: ErrorOptions) {
+    super(`Save lock timed out for ${kind}: another window may be saving.`, options);
+    this.name = "SaveLockTimeoutError";
+  }
+}
+
+export function isSaveLockTimeout(err: unknown): err is SaveLockTimeoutError {
+  return err instanceof SaveLockTimeoutError;
+}
+
+/** Runs `fn` under the exclusive Web Lock `name`, waiting at most `timeoutMs` for it to be GRANTED
+ *  (the bounded wait of `turso-backend.ts`'s `withWriteLock`; final review m5 extracted it for the
+ *  browser and local-file saves, and since §4 round 7 only the local-file save uses it). Not granted in time: the wait is aborted and `SaveLockTimeoutError` thrown,
+ *  and `fn` never ran, so nothing was written. `granted` tells that apart from a failure INSIDE `fn`
+ *  once the lock was held (a real `SaveConflictError` or write failure), which passes through
+ *  unchanged. Without `navigator.locks` (jsdom, older browsers) `fn` runs directly: its compare still
+ *  runs, just without cross-window mutual exclusion. */
+export async function withSaveLock(name: string, kind: StorageKind, timeoutMs: number, fn: () => Promise<void>): Promise<void> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks) {
+    await fn();
+    return;
+  }
+  let granted = false;
+  try {
+    await locks.request(name, { mode: "exclusive", signal: AbortSignal.timeout(timeoutMs) }, () => {
+      granted = true;
+      return fn();
+    });
+  } catch (err) {
+    if (!granted) throw new SaveLockTimeoutError(kind, { cause: err });
+    throw err;
+  }
+}
 
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's

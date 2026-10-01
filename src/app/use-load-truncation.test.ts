@@ -980,7 +980,8 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     // ★ `migrateCurrentProjectToTurso` looks identical and is NOT here: it copies
     // the LIVE workspace, so it goes through `guardedWrite` and its `.save(` lives
     // in use-load-truncation.ts. That difference is the whole defect this catches.
-    "use-storage-turso-ops.ts createTursoProject — new TursoBackend(cfg, id)",
+    // (§4: bound to `created` first, so its blind write can be declared with `forceNextSave()`.)
+    "use-storage-turso-ops.ts createTursoProject — created",
   ];
 
   // ★★★ THE CALLEE ALONE IS NOT AN IDENTITY, and an earlier header here claimed
