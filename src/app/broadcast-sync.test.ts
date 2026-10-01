@@ -334,6 +334,24 @@ describe("useBroadcastSync load changes (§644)", () => {
     ]);
   });
 
+  // §658 — an optional slice a load left `undefined` is not an object, so only its KIND can identify it.
+  // The hook must pass its kind, or that `undefined` goes out as an edit and other windows apply it.
+  it("passes its kind, so a loaded undefined slice is marked fromLoad (§658)", () => {
+    posted.length = 0;
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
+    const ctx = main("p", { isLoadedValue: (v, kind) => v === undefined && kind === "knowledgeItems" });
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] | undefined }) => useBroadcastSync("knowledgeItems", v, () => {}, ctx),
+      { initialProps: { v: [0] as number[] | undefined } },
+    );
+    rerender({ v: undefined }); // the load
+    rerender({ v: [1] }); // the user's first item
+    expect(posted).toEqual([
+      expect.objectContaining({ kind: "knowledgeItems", value: undefined, fromLoad: true }),
+      expect.objectContaining({ kind: "knowledgeItems", value: [1], fromLoad: false }),
+    ]);
+  });
+
   // Review I4 on §644 — the first cut judged by "the first commit after the load", so a commit that
   // landed between a load and its render took the load's flag. The flag must follow the VALUE, not
   // the commit order. ★ This pins the hook's contract only. In React a keystroke queued before the

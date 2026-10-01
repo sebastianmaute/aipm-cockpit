@@ -53,7 +53,7 @@ export type SyncContext =
       /** The §548 scope epoch reader (`getScopeEpoch`). */
       getEpoch: () => number;
       /** True for a value the latest load applied from storage; sent as `fromLoad`. */
-      isLoadedValue: (value: unknown) => boolean;
+      isLoadedValue: (value: unknown, kind?: string) => boolean;
     }
   | {
       role: "popout";
@@ -181,7 +181,7 @@ export function useBroadcastSync<T>(
       windowId: getWindowId(),
       kind,
       scope,
-      fromLoad: ctx.isLoadedValue(value),
+      fromLoad: ctx.isLoadedValue(value, kind),
       value,
     };
     channel.postMessage(msg);

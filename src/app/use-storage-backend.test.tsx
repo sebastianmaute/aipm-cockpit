@@ -1403,6 +1403,26 @@ describe("useStorageBackend — broadcast send gating", () => {
     expect(ctx.isLoadedValue(result.current.tasks)).toBe(false);
   });
 
+  // §658 — a load that leaves an OPTIONAL slice `undefined` used to record nothing (the WeakSet holds
+  // objects only), so that `undefined` went out as an EDIT and replaced another window's unsaved first
+  // item. It is now recorded per kind. The sequence below is the one the broadcast effect drives: the
+  // loaded value, then a user's first item, then the user clearing the slice again.
+  it("records a slice a load left undefined as loaded for its kind, and its later clearing as an edit (§658)", async () => {
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    const ctx = syncContexts()[0];
+    if (ctx.role !== "main") throw new Error("expected a main context");
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    // The fixture has no knowledgeItems, so the load applied `undefined` to that slice.
+    expect(ctx.isLoadedValue(undefined, "knowledgeItems")).toBe(true);
+    // Per KIND: a kind the load never wrote is not "loaded", and no kind means the object-only rule.
+    expect(ctx.isLoadedValue(undefined, "noSuchKind")).toBe(false);
+    expect(ctx.isLoadedValue(undefined)).toBe(false);
+    // The user adds a first item: an edit, broadcast as one…
+    expect(ctx.isLoadedValue([{ id: 1 }], "knowledgeItems")).toBe(false);
+    // …and once the slice has moved, clearing it back to `undefined` is an edit too, not what storage holds.
+    expect(ctx.isLoadedValue(undefined, "knowledgeItems")).toBe(false);
+  });
+
   // Review 2 on §644 — every synced slice, not tasks alone, and the merge-mode reload whose
   // activityLog / budgetHistory go through UPDATERS: each value the last render passes to
   // useBroadcastSync must be one the load recorded (a slice that is not an object, such as an
@@ -1421,7 +1441,8 @@ describe("useStorageBackend — broadcast send gating", () => {
       // §4 — the twelve parts added after the first seventeen: a stale window's save must not drop them.
       for (const kind of ["plan", "fxRates", "status", "fieldVisibility", "features", "steeringCommittee", "timelogLinks", "knowledgeItems", "insights", "settingsOverrides", "calendarEvents", "documentAssets"]) expect(calls.map((c) => c[0])).toContain(kind);
       expect(calls).toHaveLength(29);
-      return calls.filter((c) => typeof c[1] === "object" && c[1] !== null && !ctx.isLoadedValue(c[1])).map((c) => c[0]);
+      // §658 — non-object values (an absent optional slice) are checked too, by kind.
+      return calls.filter((c) => !ctx.isLoadedValue(c[1], c[0] as string)).map((c) => c[0]);
     };
     expect(unrecorded()).toEqual([]);
     mockBackend.load.mockResolvedValueOnce(ws());
