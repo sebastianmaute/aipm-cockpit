@@ -1011,20 +1011,44 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     return "(top level)";
   };
 
-  it("every whole-workspace write is enumerated — no new one slips in unnoticed", () => {
-    const found = WRITE_FILES.flatMap((f) => {
-      const lines = readFileSync(f, "utf8").split("\n");
-      return lines.flatMap((raw, i) => {
-        const line = raw.trim();
-        // ★ Skips `//` AND block-comment continuation lines (`*`). Without the
-        // second, a `.save(` named inside a doc comment counts as a write, and
-        // the tempting repair is to add it to the expected list — which then
-        // permanently allows a REAL write at that spot.
-        if (line.startsWith("//") || line.startsWith("*") || !/\.save\(/.test(line)) return [];
-        const callee = /([A-Za-z0-9_$]+(?:\([^)]*\))?|new\s+[A-Za-z0-9_$]+\([^)]*\))\.save\(/.exec(line);
-        return [`${f.split("/").pop()} ${enclosingFn(lines, i)} — ${callee?.[1] ?? "UNPARSED"}`];
-      });
+  /** Every `.save(` in CODE, as `enclosingFn — callee`. ★★ Read from COMMENT-STRIPPED source (§602),
+   *  the same `stripComments` the report census above uses. This scan used to skip lines by prefix
+   *  (`//`, `*`), which still counted a `.save(` in a TRAILING comment or on a block-comment line not
+   *  starting with `*` — and the tempting repair for a phantom write is to add it to the expected list,
+   *  which then permanently allows a REAL write at that spot. The strip is length-preserving and keeps
+   *  newlines, so line indexes, and with them `enclosingFn`, are unchanged. */
+  const writeSites = (raw: string, fileName: string): string[] => {
+    const lines = stripComments(raw, fileName).split("\n");
+    return lines.flatMap((line, i) => {
+      if (!/\.save\(/.test(line)) return [];
+      const callee = /([A-Za-z0-9_$]+(?:\([^)]*\))?|new\s+[A-Za-z0-9_$]+\([^)]*\))\.save\(/.exec(line);
+      return [`${enclosingFn(lines, i)} — ${callee?.[1] ?? "UNPARSED"}`];
     });
+  };
+
+  it("the write census counts code, not prose — a .save( named in a comment is not a write (§602)", () => {
+    // Every comment shape the old line-prefix filter let through, beside one real write.
+    const fixture = [
+      "function persist(backend: B, ws: W) {",
+      "  return backend.save(ws);",
+      "}",
+      "function describeIt(b: B) {",
+      "  log(b); // never call other.save(ws) from here",
+      "  /* nor stray.save(ws)",
+      "     plain.save(ws) on a block line with no leading star */",
+      "}",
+    ].join("\n");
+    // Control: the real write IS seen, so the absence of the three phantoms is not vacuity.
+    expect(writeSites(fixture, "fixture.ts")).toEqual(["persist — backend"]);
+    // …and the old prefix filter, applied to the same source, counted ALL THREE phantoms beside the real one.
+    const prefixFiltered = fixture.split("\n").map((l) => l.trim())
+      .filter((l) => !l.startsWith("//") && !l.startsWith("*") && /\.save\(/.test(l));
+    expect(prefixFiltered).toHaveLength(4);
+  });
+
+  it("every whole-workspace write is enumerated — no new one slips in unnoticed", () => {
+    const found = WRITE_FILES.flatMap((f) =>
+      writeSites(readFileSync(f, "utf8"), f).map((site) => `${f.split("/").pop()} ${site}`));
     expect(found).toHaveLength(EXPECTED_WRITES.length); // control: the scan sees real writes
     // ★ `toContainEqual`, NOT `toContain`: only the former runs asymmetric
     // matchers. With `toContain` this compared a matcher OBJECT by strict
