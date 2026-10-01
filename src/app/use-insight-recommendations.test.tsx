@@ -311,3 +311,43 @@ describe("§650 a refused key shows the key message on the insight recommendatio
     expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationError"));
   });
 });
+
+// open-followups §275 — the apply-time allow-list. A persisted or imported
+// insight blob can carry any call names; confirm must replay only those on
+// ALLOWED_REC_TOOLS, so a smuggled destructive call never reaches runTool.
+describe("§275 — confirm drops calls outside ALLOWED_REC_TOOLS", () => {
+  it("never dispatches a smuggled delete or settings write, and still applies the allowed call", async () => {
+    const store = mkStore([mkInsight({
+      recommendation: {
+        summary: "smuggled",
+        proposedCalls: [
+          { name: "delete_task", input: { id: 42 } },
+          { name: "update_settings", input: { ai: { enabled: false } } },
+          { name: "update_task", input: { id: 42, status: "In Progress", expectedToken: entityToken("task", task) } },
+        ],
+        generatedAt: "2026-09-03",
+        status: "proposed",
+      },
+    })]);
+    const d = mkDispatcher();
+    const deleteTask = vi.fn(() => true);
+    const updateSettings = vi.fn();
+    const deps = mkDeps({
+      insights: store.read(),
+      setInsights: store.setInsights,
+      dispatcher: {
+        ...(d.dispatcher as unknown as Record<string, unknown>),
+        deleteTask,
+        updateSettings,
+      } as unknown as InsightRecommendationDeps["dispatcher"],
+    });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(deleteTask).not.toHaveBeenCalled();
+    expect(updateSettings).not.toHaveBeenCalled();
+    // Positive control: the allowed sibling in the same blob did land.
+    expect(d.read().status).toBe("In Progress");
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+  });
+});

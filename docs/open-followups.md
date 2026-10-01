@@ -506,7 +506,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
-| [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
+| [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | **CLOSED** 2026-10-01 |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
@@ -23432,7 +23432,7 @@ extraction from this file should run `npx eslint --max-warnings=0 src` for the i
 
 ★★ **The coverage question this extraction raised is NOT closed with it** — the new file was added to
 `vitest.config.ts` `coverage.exclude` under a rationale that does not fit all of what moved. See
-[§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary).
+[§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01).
 
 `file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`.
 **No line count is quoted in this entry on
@@ -23600,17 +23600,14 @@ a new file's worth of argument.
 ★ Not urgent: the file is under the cap with real headroom today. This is filed so the next person
 adding to it extracts rather than trims — the same disposition §272 asked for and got.
 
-## 275. `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary
+## 275. `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary — CLOSED 2026-10-01
 
-**Status:** open. Filed 2026-08-28. `2fb25ae7`'s commit message says a follow-up "is filed
-separately"; this entry is what makes that sentence true. Never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-01. `use-insight-recommendations.test.tsx` now feeds `confirmInsightRecommendation` an insight whose proposed calls include `delete_task` and `update_settings` beside one valid `update_task`, and asserts that neither out-of-set dispatcher method is called while the allowed call still applies. Deleting the `ALLOWED_REC_TOOLS` `.filter(...)` fails that test (mutation-checked). The file is also OUT of `vitest.config.ts` `coverage.exclude` now, so its lines count toward the global floors; with it measured, the full suite stays far above every floor. Filed 2026-08-28; the history below is kept as written.
 
 ★ Narrowed 2026-09-28 (register sweep): `src/app/use-insight-recommendations.test.tsx` now exists and
 drives the hook through `renderHook`, which refutes "not unit-testable in isolation". None of its cases
 feeds a tool outside `ALLOWED_REC_TOOLS`, so the apply-time filter is still unpinned, and the file is
 still in `coverage.exclude`.
-
-**Work item:** #216
 
 `2fb25ae7` extracted the insight-recommendation handlers out of `task-manager.tsx` (closing §272) and
 added the new file to `vitest.config.ts` `coverage.exclude`, inside a block whose comment says its
