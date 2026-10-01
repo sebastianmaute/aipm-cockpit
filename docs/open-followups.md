@@ -875,7 +875,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§645](#645-a-project-switch-in-one-tab-redirects-every-other-tabs-saves-for-browser-storage-and-local-files--closed-2026-09-30) | A project switch in one tab redirects every other tab's saves for browser storage and local files | — | — | **CLOSED** 2026-09-30 |
 | [§646](#646-gitlab-rejected-cigitlab-syncyml-as-invalid-yaml-so-the-gitlab-copy-stopped-syncing--closed-2026-09-29) | GitLab rejected ci/gitlab-sync.yml as invalid YAML, so the GitLab copy stopped syncing | — | — | **CLOSED** 2026-09-29 |
 | [§650](#650-a-rejected-or-unreadable-anthropic-api-key-was-never-named-as-the-cause-of-ai-failures--closed-2026-09-29) | A rejected or unreadable Anthropic API key was never named as the cause of AI failures | — | — | **CLOSED** 2026-09-29 |
-| [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--open) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | open |
+| [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--closed-2026-10-01) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | **CLOSED** 2026-10-01 |
 | [§652](#652-sharepoint-storage-has-never-been-verified-on-a-live-tenant-and-browser-loads-are-likely-blocked-by-the-csp--open) | SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP | — | — | open |
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
 | [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
@@ -43546,11 +43546,9 @@ Registry projects on browser storage or on a local-file kind do not have storage
 
 **Source:** the owner, 2026-09-29.
 
-## 651. A SharePoint file whose name contains # or % gets a broken Graph URL — open
+## 651. A SharePoint file whose name contains # or % gets a broken Graph URL — CLOSED 2026-10-01
 
-**Status:** open 2026-09-29, found by the review of §4 Task 4. Never machine-verified: read off `src/app/sharepoint-backend.ts`, where `parseSharePointFileUrl` decodes each path segment with `decodeURIComponent` and `graphUrlFor` puts the decoded `itemPath` into the Graph URL without encoding it again.
-
-**Work item:** #490
+**Status:** CLOSED 2026-10-01. `graphItemUrlFor` (`sharepoint-backend.ts`) now re-encodes `sitePath` and `itemPath` per segment through `encodeGraphPath`, the helper `sharepoint-graph.ts` already used for its own site-path URLs. It was renamed from `encodeSitePath` and exported. That covers the metadata GET, the content PUT and the post-conflict eTag read, which all build on `graphItemUrlFor`. Pinned by `sharepoint-backend.test.ts` "re-encodes a decoded # and % in the metadata GET and the create-only PUT". It starts from a pasted URL with `%26`, `%23` and `%25` in the names, checks the parser really decodes them, then asserts that both requests have an empty fragment, the expected encoded path, and that the create-only `conflictBehavior=fail` is a real query parameter. Reverting to the raw interpolation fails it. The original report follows.
 
 SharePoint Online allows `#` and `%` in file and folder names. For such a name, a `#` in the decoded path starts a URL fragment, so the Graph request is cut off there and reaches the wrong item or none. A `%` that decodes into a reserved character changes what the URL means. Loads and saves of such a file go to the wrong place. On the §4 branch the item-metadata load appends `?$select=…` and a create appends `?@microsoft.graph.conflictBehavior=fail`; after a `#` both land in the fragment, so the create-only guard is lost too. Fix direction: apply `encodeURIComponent` to each segment when building the Graph URL, and pin it with a test using a `#` and a `%` in a filename.
 

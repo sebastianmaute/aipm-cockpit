@@ -16,6 +16,7 @@ import {
 import type { ImportSectionKey } from "./csv-codecs-sections";
 import { SaveConflictError } from "./storage-error";
 import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
+import { encodeGraphPath } from "./sharepoint-graph";
 
 export interface SpFileLocation {
   hostname: string;
@@ -31,8 +32,12 @@ export interface SpFileLocation {
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
+// ★★ `sitePath` and `itemPath` hold DECODED names (`parseSharePointFileUrl` decodes each segment), so they
+//   are re-encoded per segment here. Interpolating them raw let a `#` in a SharePoint file or folder name
+//   start a URL fragment — the request then addressed the wrong item, and the `?$select=` and create-only
+//   `?@microsoft.graph.conflictBehavior=fail` queries appended after it landed in the fragment too (§651).
 function graphItemUrlFor(loc: SpFileLocation): string {
-  return `${GRAPH}/sites/${loc.hostname}:${loc.sitePath}:/drive/root:/${loc.itemPath}`;
+  return `${GRAPH}/sites/${loc.hostname}:${encodeGraphPath(loc.sitePath)}:/drive/root:/${encodeGraphPath(loc.itemPath)}`;
 }
 
 function graphUrlFor(loc: SpFileLocation): string {
