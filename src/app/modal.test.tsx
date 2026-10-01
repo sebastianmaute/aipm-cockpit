@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
-import { Modal } from "./modal";
+import { FLOATING_LAYER_ATTR, Modal } from "./modal";
 
 // jsdom doesn't implement requestAnimationFrame on the global; install a
 // synchronous shim so focus-management effects don't sit on a queued frame.
@@ -198,6 +198,32 @@ describe("Modal", () => {
     act(() => first.focus());
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(last).toHaveFocus();
+  });
+
+  // The note log floats ABOVE an open editor and is used beside it. A Tab from
+  // inside it must stay there — the trap used to read it as "focus escaped" and
+  // pull it back into the editor. The unmarked twin is the control: the same
+  // outside field WITHOUT the marker is still pulled in, so the exemption is
+  // the attribute and not some accident of where the field sits.
+  test.each([
+    { marked: true, expectStays: true },
+    { marked: false, expectStays: false },
+  ])("Tab from an outside field (floating-layer marker: $marked) — stays outside: $expectStays", ({ marked, expectStays }) => {
+    render(
+      <>
+        <Modal open onClose={() => {}} ariaLabel="Test">
+          <button type="button" data-testid="b1">first</button>
+        </Modal>
+        <div {...(marked ? { [FLOATING_LAYER_ATTR]: "" } : {})}>
+          <input aria-label="note" data-testid="outside" />
+        </div>
+      </>,
+    );
+    const outside = screen.getByTestId("outside");
+    act(() => outside.focus());
+    fireEvent.keyDown(document, { key: "Tab" });
+    if (expectStays) expect(outside).toHaveFocus();
+    else expect(screen.getByTestId("b1")).toHaveFocus();
   });
 
   // §548 — a field that commits its draft on blur got no blur when Escape unmounted the dialog
