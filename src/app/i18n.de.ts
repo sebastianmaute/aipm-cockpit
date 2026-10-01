@@ -2617,6 +2617,8 @@ export const de: Record<TranslationKey, string> = {
   milestoneDescription: "Beschreibung",
   milestoneAchieved: "Erreicht",
   milestoneLinkedTasks: "Verknüpfte Aufgaben",
+  milestoneLinkedTasksFilter: "Aufgaben durchsuchen",
+  milestoneLinkedTasksNoMatch: "Keine passenden Aufgaben",
   milestoneSave: "Meilenstein speichern",
   milestoneErrorRequired: "Name und Datum sind erforderlich.",
   milestoneDeleteConfirm: "Diesen Meilenstein löschen?",
