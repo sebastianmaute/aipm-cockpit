@@ -379,10 +379,7 @@ describe("check-followup-github.mjs against a fake Issues API", () => {
     expect(r.out).not.toContain("canar");
   });
 
-  // Floor, not a count: the register shrinks whenever entries close (it fell from 201 to 198 on
-  // 2026-10-01 and failed every PR). More than one page is what the paging rows need; the exact
-  // number of pages is derived from REAL above.
-  it("the register yields enough linked issues to span more than one page", () => {
-    expect(REAL.length).toBeGreaterThan(100);
+  it("the register yields enough linked issues to span three pages", () => {
+    expect(REAL.length).toBeGreaterThan(200);
   });
 });
