@@ -212,7 +212,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # was never recovered) and was measured vacuous for `use-storage-backend`; the
                             # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
                             # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
-                            # which fiber carries the PLACEMENT flag, which a keyed reorder also sets. Three
+                            # which fiber carries the PLACEMENT flag (since React 19.3.0, a NEW fiber only). Three
                             # successive wordings of it shipped over-general, each measured at one shape and
                             # written as if it held everywhere, so do NOT extend this summary by reasoning:
                             # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
