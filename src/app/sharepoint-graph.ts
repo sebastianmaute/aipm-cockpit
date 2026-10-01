@@ -62,20 +62,23 @@ export function folderChildrenUrl(driveId: string, itemId: string): string {
   return `${GRAPH_BASE}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/children`;
 }
 
-/** Encode each segment of a server-relative site path. Constraint: the `/`
- *  separators must stay literal — Graph's `:/path:` site addressing needs a
- *  slash-separated path — so only the segments between them are encoded.
- *  The leading empty segment produced by split("/") on a path like "/sites/x"
- *  is intentional: it encodes to "" and rejoins as the leading "/" — do not
- *  skip it. */
-function encodeSitePath(sitePath: string): string {
-  return sitePath.split("/").map(encodeURIComponent).join("/");
+/** Encode each segment of a Graph `:/path:` address — a server-relative site
+ *  path or a drive item path. Constraint: the `/` separators must stay literal —
+ *  Graph's path addressing needs a slash-separated path — so only the segments
+ *  between them are encoded. The leading empty segment produced by split("/") on
+ *  a path like "/sites/x" is intentional: it encodes to "" and rejoins as the
+ *  leading "/" — do not skip it.
+ *  ★ The input is DECODED text (a segment may legitimately hold `#`, `%` or `?`,
+ *  all allowed in SharePoint names); encoding it is what keeps a `#` from starting
+ *  a URL fragment and a `%` from being read as an escape (§651). */
+export function encodeGraphPath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 /** Default document library (drive) root children of a site addressed by path.
  *  Works with Files.ReadWrite.All — no Sites.Read.All needed (unlike /sites/{id}/drives). */
 export function siteDefaultDriveRootChildrenUrl(hostname: string, sitePath: string): string {
-  return `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:${encodeSitePath(sitePath)}:/drive/root/children`;
+  return `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:${encodeGraphPath(sitePath)}:/drive/root/children`;
 }
 
 export function isFolder(item: GraphDriveItem): boolean {

@@ -174,6 +174,11 @@ describe("sample-workspace budgets", () => {
     }, "2026-09-18").find((d) => d.type === "budgetVariance");
     const curated = (ws.insights ?? []).find((i) => i.type === "budgetVariance");
     expect(live).toBeDefined();
-    expect(curated?.data).toEqual(live?.data);
+    // §599 — compare exactly the fields `reconcile`'s upsert refreshes from a fresh detection: `severity` and
+    // `data`. NOT the whole object: the curated row carries history fields (`id`, `status`, `firstSeenAt`,
+    // `lastSeenAt`, `occurrences`) the detector never produces, so a whole-object match is red by design.
+    // `severity` is a literal "medium" in `budgetVarianceInsight` today; this catches the curated value going
+    // stale the day it becomes derived, as `variancePct` once did (§597).
+    expect({ severity: curated?.severity, data: curated?.data }).toEqual({ severity: live?.severity, data: live?.data });
   });
 });

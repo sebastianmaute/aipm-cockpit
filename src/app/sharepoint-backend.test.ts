@@ -899,3 +899,50 @@ describe("SharePointBackend conditional overwrite (§4)", () => {
     expect(puts.map((p) => p.ifMatch)).toEqual(['"peer,2"', '"v1,1"']);
   });
 });
+
+describe("SharePointBackend Graph URL encoding (§651)", () => {
+  const acquireToken = vi.fn().mockResolvedValue("fake-token");
+
+  // SharePoint allows `#` and `%` in file and folder names. The pasted URL carries them escaped;
+  // the parser decodes each segment, so the backend must re-encode them when it builds the Graph URL,
+  // or a `#` starts a fragment and everything after it, the create-only query included, is lost.
+  const PASTED =
+    "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/R%26D%20%231/100%25%20plan.json";
+  const ENCODED_ITEM =
+    "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/R%26D%20%231/100%25%20plan.json";
+
+  it("re-encodes a decoded # and % in the metadata GET and the create-only PUT", async () => {
+    const loc = parseSharePointFileUrl(PASTED)!;
+    // Witness: the parser really hands the backend DECODED names, which is what makes encoding necessary.
+    expect(loc.itemPath).toBe("Shared Documents/R&D #1/100% plan.json");
+
+    const gets: string[] = [];
+    const puts: string[] = [];
+    server.use(
+      http.get(/graph\.microsoft\.com\//, ({ request }) => {
+        gets.push(request.url);
+        return new HttpResponse("", { status: 404 });
+      }),
+      http.put(/graph\.microsoft\.com\//, ({ request }) => {
+        puts.push(request.url);
+        return HttpResponse.json({ eTag: '"new,1"' }, { status: 201 });
+      }),
+    );
+    const be = new SharePointBackend({ kind: "sp-json", ...loc }, acquireToken);
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+
+    expect(gets).toHaveLength(1);
+    const get = new URL(gets[0]);
+    expect(get.hash).toBe("");
+    expect(`${get.origin}${get.pathname}`).toBe(ENCODED_ITEM);
+    expect(get.searchParams.get("$select")).toBe("eTag,@microsoft.graph.downloadUrl");
+
+    expect(puts).toHaveLength(1);
+    const put = new URL(puts[0]);
+    expect(put.hash).toBe("");
+    expect(`${put.origin}${put.pathname}`).toBe(`${ENCODED_ITEM}:/content`);
+    // The create-only guard survives: it is a real query parameter, not text inside a fragment.
+    expect(put.searchParams.get("@microsoft.graph.conflictBehavior")).toBe("fail");
+  });
+});
