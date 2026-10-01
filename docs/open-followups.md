@@ -590,7 +590,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--closed-2026-09-04) | ~~Three cfbf guard assertions do not discriminate the guard they name~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (two now discriminate; the 64 MB ceiling is unpinnable by arithmetic and the `chain()` offset bound is dominated by the length bound one line above it — both recorded, neither an open action) |
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
-| [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--closed-2026-10-01) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-10-01 |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
@@ -29554,13 +29554,9 @@ worked example is half the real number).
 shipped code plus its tests are now the better record. **Anyone resuming this track should read the
 code first and the plan only for intent.**
 
-## 359. No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model — OPEN
+## 359. No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model — CLOSED 2026-10-01
 
-**Status:** OPEN. Filed 2026-09-03, raised by the agent that wired the tree into the payload.
-**Never machine-verified:** no probe has driven a multi-file import to the ceiling. The disclosure
-is in the module: `grep -n "A whole-batch ceiling" src/app/attachment-ingest.ts`.
-
-**Work item:** #256
+**Status:** CLOSED 2026-10-01 — limits chosen by the owner. `planBatch` (`chat-attachments.ts`) bounds one drop or pick of files on two axes: `MAX_BATCH_TEXT_CHARS` (1,000,000 extracted characters) and `MAX_BATCH_BASE64_CHARS` (24 MB of base64, under the API's 32 MB request limit). A file that would push the batch past either is SKIPPED and named, never truncated: a PDF's base64 cannot be cut, and a text file is already cut at its own budget. The first file of an empty batch is always admitted, because a single 20 MB PDF is ~26.7 MB of base64 and refusing it would turn a batch ceiling into a smaller per-file limit. Both callers run it. `chat-panel.tsx` counts already-staged blocks, so a second pick cannot reset the budget, and keeps its own 30 MB `MAX_STAGED_PAYLOAD_BYTES` cap. That cap had landed after this entry was filed and already bounded chat's binary total, but not its text. `step0-import-panel.tsx` had NO payload ceiling; two large PDFs built a request the API refuses outright. Skipped files there join the existing "skipped" notice. Pinned by `chat-attachments.test.ts` ("planBatch") and one test per panel; bypassing `planBatch` in either panel fails its test. ★ The second bullet below, N x 20 MB of base64 with no ceiling at any level, is closed by the same base64 axis. The history below is kept as written.
 
 `newBudget()` is per-`ingestBytes` call, so `MAX_TREE_EXTRACT_CHARS` (400,000) bounds one dropped
 file's tree and nothing bounds a batch. `attachment-ingest.ts` says so deliberately — a whole-batch

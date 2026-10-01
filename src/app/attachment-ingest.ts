@@ -171,9 +171,10 @@ type Budget = {
 
 /** Scoped to ONE `ingestBytes` call, not shared across a multi-file drop —
  *  ten files dropped together each get their own full budget, not a tenth
- *  each. A whole-batch ceiling, if one is ever wanted, belongs in the
- *  caller (chat-panel.tsx / step0-import-panel.tsx), which already loops
- *  over the file list one `ingestFile`/`ingestBytes` call at a time. */
+ *  each. The whole-batch ceiling lives in the callers, which loop over the
+ *  file list one `ingestFile` call at a time: both chat-panel.tsx and
+ *  step0-import-panel.tsx run `planBatch` (chat-attachments.ts) over the
+ *  flattened blocks (open-followups §359). */
 function newBudget(): Budget {
   return {
     charsRemaining: MAX_TREE_EXTRACT_CHARS,

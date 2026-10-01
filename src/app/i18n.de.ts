@@ -859,6 +859,7 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentTooLarge: "{0} ist zu groß",
   chatAttachmentTooMany: "{0} wurde nicht angehängt — höchstens {1} Anhänge pro Nachricht",
   chatAttachmentOverBudget: "{0} wurde nicht angehängt — Anhänge sind auf {1} MB pro Nachricht begrenzt",
+  chatAttachmentOverBatchLimit: "{0} wurde nicht angehängt — die zusammen hinzugefügten Dateien würden die Größengrenze für eine Nachricht überschreiten",
   chatAttachmentUnsupported: "{0} ist kein unterstützter Dateityp",
   chatAttachmentReadFailed: "{0} konnte nicht gelesen werden",
   chatAttachmentEncrypted: "{0} ist kennwortgeschützt — speichere die Datei ohne Schutz und versuche es erneut",

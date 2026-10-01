@@ -160,9 +160,16 @@ function runCli(apiUrl, overrides = {}, { args = [], cwd = REPO } = {}) {
   });
 }
 
-const pageReq = (page) =>
-  page === 1 ? `GET ${ISSUES_PATH}?state=open&per_page=100` : `GET ${ISSUES_PATH}?state=open&per_page=100&page=${page}`;
-const pages = Math.ceil(REAL.length / 100);
+const pageReq = (page, per = 100) =>
+  page === 1 ? `GET ${ISSUES_PATH}?state=open&per_page=100` : `GET ${ISSUES_PATH}?state=open&per_page=${per}&page=${page}`;
+// ★★ PAGE SIZES ARE DERIVED FROM THE REGISTER, NEVER ASSUMED. These rows used
+// to serve 100 per page and needed more than 200 linked issues to reach a third
+// page, so every closed register entry moved CI toward red (201 → 198 failed it).
+// The CLI follows the `Link` header as an opaque URL, so the fake API may serve
+// smaller pages than the `per_page=100` the CLI asks for: a third of the register
+// per page always spans exactly three pages, at any register size.
+const THIRD = Math.ceil(REAL.length / 3);
+const HALF = Math.floor(REAL.length / 2);
 
 const ROWS = [
   {
@@ -191,9 +198,9 @@ const ROWS = [
   },
   {
     name: "in sync across several pages exits 0, following the Link header",
-    respond: paged(REAL),
+    respond: paged(REAL, { per: THIRD }),
     code: 0,
-    requests: Array.from({ length: pages }, (_, i) => pageReq(i + 1)),
+    requests: [pageReq(1), pageReq(2, THIRD), pageReq(3, THIRD)],
     outHas: ["Register and GitHub agree.", `${REAL.length} open issues`],
   },
   {
@@ -258,14 +265,14 @@ const ROWS = [
         next.searchParams.set("state", "open");
         next.searchParams.set("per_page", "100");
         next.searchParams.set("page", "2");
-        send(res, 200, REAL.slice(0, 100), { link: `<${next.toString()}>; rel="next"` });
+        send(res, 200, REAL.slice(0, HALF), { link: `<${next.toString()}>; rel="next"` });
       } else {
-        send(res, 200, REAL.slice(99), {});
+        send(res, 200, REAL.slice(HALF - 1), {});
       }
     },
     code: 2,
     requests: [pageReq(1), pageReq(2)],
-    outHas: [`issue #${REAL[99].number} was served twice — issues changed while paging; re-run`],
+    outHas: [`issue #${REAL[HALF - 1].number} was served twice — issues changed while paging; re-run`],
   },
   {
     name: "a body that is not an array exits 2",
@@ -379,7 +386,12 @@ describe("check-followup-github.mjs against a fake Issues API", () => {
     expect(r.out).not.toContain("canar");
   });
 
-  it("the register yields enough linked issues to span three pages", () => {
-    expect(REAL.length).toBeGreaterThan(200);
+  // Anti-vacuity for the two derived page sizes above, with no fixed register
+  // count: the in-sync row really spans three non-empty pages, and the
+  // duplicate row has an issue before its split to serve twice.
+  it("the derived page sizes span three pages and leave an issue to repeat", () => {
+    expect(Math.ceil(REAL.length / THIRD)).toBe(3);
+    expect(REAL.length - 2 * THIRD).toBeGreaterThan(0);
+    expect(HALF).toBeGreaterThan(1);
   });
 });

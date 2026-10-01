@@ -17,6 +17,10 @@ import {
   MAX_STAGED_PAYLOAD_BYTES,
   blocksPayloadBytes,
   planStaging,
+  planBatch,
+  batchCost,
+  MAX_BATCH_TEXT_CHARS,
+  MAX_BATCH_BASE64_CHARS,
   type AttachmentKind,
   type AttachmentBlock,
   type ImageBlock,
@@ -588,3 +592,43 @@ describe("planStaging", () => {
     expect(r.rejected).toEqual([{ name: "big", reason: "over-budget" }]);
   });
 });
+
+// open-followups §359 — the whole-batch ceilings, shared by the chat panel and
+// the step-0 import wizard. Each file is bounded by its own caps; these bound a
+// batch of files together.
+describe("planBatch (open-followups §359)", () => {
+  const txt = (name: string, n: number): StagingCandidate => ({ name, blocks: [textBlock(n)] });
+  const bin = (name: string, n: number): StagingCandidate => ({ name, blocks: [imgBlock(n)] });
+
+  it("counts text and base64 separately", () => {
+    expect(batchCost([textBlock(3), imgBlock(5), textBlock(2)])).toEqual({ text: 5, base64: 5 });
+  });
+
+  it("skips a file that would push the batch's TEXT past the ceiling, and keeps later ones that fit", () => {
+    const half = MAX_BATCH_TEXT_CHARS / 2;
+    const r = planBatch([], [txt("a", half), txt("b", half), txt("c", 1), bin("d", 10)]);
+    expect(r.accepted.map((c) => c.name)).toEqual(["a", "b", "d"]);
+    expect(r.rejected).toEqual([{ name: "c" }]);
+  });
+
+  it("skips a file that would push the batch's BASE64 past the ceiling", () => {
+    const r = planBatch([], [bin("a", MAX_BATCH_BASE64_CHARS - 5), bin("b", 6), bin("c", 5)]);
+    expect(r.accepted.map((c) => c.name)).toEqual(["a", "c"]);
+    expect(r.rejected).toEqual([{ name: "b" }]);
+  });
+
+  it("always admits the first file of an empty batch, even one larger than a ceiling alone", () => {
+    // A 20 MB PDF is ~26.7 MB of base64, above MAX_BATCH_BASE64_CHARS. Refusing it
+    // would turn a batch ceiling into a smaller per-file limit.
+    const r = planBatch([], [bin("big", MAX_BATCH_BASE64_CHARS + 1), bin("next", 1)]);
+    expect(r.accepted.map((c) => c.name)).toEqual(["big"]);
+    expect(r.rejected).toEqual([{ name: "next" }]);
+  });
+
+  it("counts blocks already staged, so a second pick cannot reset the budget", () => {
+    const r = planBatch([textBlock(MAX_BATCH_TEXT_CHARS)], [txt("one-more", 1)]);
+    expect(r.accepted).toEqual([]);
+    expect(r.rejected).toEqual([{ name: "one-more" }]);
+  });
+});
+
