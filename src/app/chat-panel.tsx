@@ -610,7 +610,11 @@ function ChatPanelInner({
   async function submitPrompt(textArg?: string) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     const atts = attachments;
-    if ((!text && atts.length === 0) || busy || guidesPending) return;
+    // ★ `abortRef` is the STRUCTURAL single-flight bail (§321). `busy` is a
+    //   render-closure read, so two dispatches in one tick both see it false;
+    //   the ref is set synchronously below and cleared only by the owning
+    //   send's `finally`, so it reads true for the whole life of a send.
+    if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;

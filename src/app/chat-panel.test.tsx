@@ -2497,66 +2497,59 @@ describe("historySearch reaches the request body", () => {
 });
 
 // ---------------------------------------------------------------------------
-// abortRef ownership under a same-tick double dispatch (open-followups §312)
+// Structural single-flight under a same-tick double dispatch (§321, was §312)
 // ---------------------------------------------------------------------------
-describe("abortRef ownership across concurrent sends", () => {
+// ★ This block used to stage TWO concurrent sends and pin that the first send's
+//   `finally` left the second one's controller in `abortRef` (§312). Since §321
+//   submitPrompt bails on a non-null `abortRef`, so that state is unreachable;
+//   the identity clear stays in the `finally` as defence in depth.
+describe("single-flight submitPrompt", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("still holds the second send's controller after the first send settles", async () => {
+  it("a same-tick double dispatch sends exactly once", async () => {
     const signals: AbortSignal[] = [];
     let rejectFirst!: (reason: unknown) => void;
     const first = new Promise<Response>((_res, rej) => { rejectFirst = rej; });
-    const second = new Promise<Response>(() => {});
+    const later = new Promise<Response>(() => {});
     vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
       signals.push((init as RequestInit).signal as AbortSignal);
-      return signals.length === 1 ? first : second;
+      return signals.length === 1 ? first : later;
     });
 
-    const base = {
-      lang: "en-US" as const,
-      ai: AI_WITH_KEY,
-      dispatcher: makeDispatcher(),
-      onAcceptConsent: vi.fn(),
-    };
-    const { rerender } = render(<ChatPanel {...SCOPE_PROPS} {...base} projectId="p1" />);
-    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
-      target: { value: "list tasks" },
-    });
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        projectId="p1"
+      />,
+    );
+    const input = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(input, { target: { value: "list tasks" } });
 
     // Two native clicks with NO render between them, so both submitPrompt calls
-    // read `busy === false` off the same render closure. That is the same-tick
-    // double dispatch submitPrompt's own `busy` bail cannot stop, and it is the
-    // only way to give abortRef a second owner.
+    // read `busy === false` off the same render closure. Only the ref bail can
+    // stop the second.
     const send = screen.getByRole("button", { name: "Send" });
     await act(async () => {
       send.click();
       send.click();
     });
-    await waitFor(() => expect(signals).toHaveLength(2));
+    // ★ WITNESS that the first dispatch really sent, so "one" below is not "zero".
+    await waitFor(() => expect(signals).toHaveLength(1));
+    // Give a second dispatch, had it passed the bail, every chance to fetch.
+    await act(async () => { await Promise.resolve(); });
+    expect(signals).toHaveLength(1);
 
-    // Settle send 1. Its `finally` runs while send 2 is still in flight.
-    await act(async () => {
-      rejectFirst(new Error("boom"));
-    });
-    // ★ WITNESS that the finally actually ran, without which this block has no
-    // discriminating power at all: if the rejection ever stops reaching it,
-    // signals[1] is unaborted-then-aborted under the fixed AND the unconditional
-    // clear alike, and the assertion below passes for the wrong reason. `setBusy
-    // (false)` sits in that same finally, one line under the clear being tested,
-    // so the Send control returning proves the finally ran.
+    // Control: the bail must RELEASE when the send settles, or the ref would
+    // wedge the composer for good. Settle send 1, then send again.
+    await act(async () => { rejectFirst(new Error("boom")); });
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
-
-    // A project switch aborts whatever abortRef holds. It must still be send 2's
-    // controller: an unconditional clear in send 1's `finally` empties the slot,
-    // and retryLoad then reads that same ref as "no send in flight".
-    await act(async () => {
-      rerender(<ChatPanel {...SCOPE_PROPS} {...base} projectId="p2" />);
-    });
-
-    expect(signals[1].aborted).toBe(true);
-    // Control: send 1 already settled and was never the target, so a passing
-    // assertion above cannot come from a blanket abort of every controller.
-    expect(signals[0].aborted).toBe(false);
+    fireEvent.change(input, { target: { value: "again" } });
+    await act(async () => { screen.getByRole("button", { name: "Send" }).click(); });
+    await waitFor(() => expect(signals).toHaveLength(2));
   });
 });
 
