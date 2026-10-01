@@ -33,7 +33,7 @@ import {
 
 import {
   ActionChips,
-  chipsForView,
+  chipsActionableOnView,
 } from "./action-chips";
 import {
   TzClockStrip,
@@ -359,7 +359,14 @@ export function WorkspaceSection({
           // open-points renders in TasksSection (which carries its own strip);
           // in classic both surfaces mount, so exclude it here to avoid a
           // duplicate/orphan strip in the workspace card.
-          actions={activeTab === "open-points" ? [] : chipsForView(nextActions, activeTab)}
+          // ★ The Dashboard gets no strip: its hero and Top actions tile already
+          // list these actions, each with a working Open, so a strip only repeated
+          // them. Every other view gets only chips that open an item there.
+          actions={
+            activeTab === "open-points" || activeTab === "dashboard"
+              ? []
+              : chipsActionableOnView(nextActions, activeTab)
+          }
           onOpen={onOpenAction}
           onShowMore={() => setActiveTab("actions")}
           className="mb-2 shrink-0"

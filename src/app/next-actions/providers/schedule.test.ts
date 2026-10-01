@@ -19,7 +19,7 @@ describe("scheduleProvider", () => {
     expect(a).toHaveLength(1);
     expect(a[0].id).toBe("schedule:project:spi");
     expect(a[0].source).toBe("schedule");
-    expect(a[0].cta).toEqual({ kind: "open", view: "dashboard", id: 0 });
+    expect(a[0].cta).toEqual({ kind: "open", view: "gantt", id: 0 });
     // urgencyOverdue + riskCritical - staticPenalty
     expect(a[0].score).toBe(ACTION_WEIGHTS.urgencyOverdue + ACTION_WEIGHTS.riskCritical - ACTION_WEIGHTS.staticPenalty);
   });

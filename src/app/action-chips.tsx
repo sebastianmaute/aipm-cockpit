@@ -18,6 +18,22 @@ export function chipsForView(actions: readonly SuggestedAction[], view: AppView)
   );
 }
 
+/** `chipsForView` for a strip rendered ON `view` itself (the workspace strip).
+ *
+ *  ★★ Only chips that DO something there. An `open` that names no item — `id: 0`
+ *  (budget, the change-pending summary, schedule) or a string id (project-meta,
+ *  which `executeActionCta` turns into a bare tab switch) — navigates to where
+ *  the user already is: a button that does nothing. Panels read `id 0` as "no
+ *  item" (`change-panel.tsx` returns on it). Those actions still reach the user
+ *  through Next actions and the Dashboard.
+ *  ★ NOT for the report cards: there the strip sits on Reports and the CTA opens
+ *  the SOURCE view, so an item-less chip is a real navigation and must stay. */
+export function chipsActionableOnView(actions: readonly SuggestedAction[], view: AppView): SuggestedAction[] {
+  return chipsForView(actions, view).filter((a) =>
+    a.cta.kind !== "open" || (typeof a.cta.id === "number" && a.cta.id > 0),
+  );
+}
+
 interface ActionChipsProps {
   lang: Lang;
   actions: readonly SuggestedAction[];
@@ -35,7 +51,10 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
     <div
       role="group"
       aria-label={t(lang, "actionChipsLabel")}
-      className={`flex flex-wrap items-center gap-1.5 ${className ?? ""}`}
+      // ★ p-0.5 is room for the chips' 2px FOCUS_RING: the strip sits at the top
+      // edge of an overflow-hidden card, which otherwise shaved the ring off the
+      // top and left of a focused chip.
+      className={`flex flex-wrap items-center gap-1.5 p-0.5 ${className ?? ""}`}
     >
       {shown.map((action) => (
         <button
