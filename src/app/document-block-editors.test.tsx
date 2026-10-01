@@ -63,6 +63,20 @@ const findParagraphEditable = (index: number): Promise<HTMLElement> =>
     { name: t(LANG, "documentsParagraphLabel", String(index + 1)) },
   );
 
+/** §660 — resolves once the paragraph EDITOR, not merely its DOM, holds `chars` visible characters.
+ *  ★★ Blur only after this. Under CPU load the last typed character can already be in the DOM while
+ *  ProseMirror has not yet read it into the editor's state; a blur in that window commits the stale
+ *  draft (measured: DOM at 20,001 characters, `commits` holding the 20,000-character draft, and the
+ *  refusal never rendered — 9 failures in 18 loaded runs). The paragraph's counter renders from the
+ *  editor's value, so it is the readiness signal. It renders only from 90% of the cap, so this helper
+ *  is for near-cap paragraphs. */
+const paragraphSettledAt = (editable: HTMLElement, chars: number) =>
+  waitFor(() => {
+    const fmtEn = (n: number) => new Intl.NumberFormat("en-US").format(n);
+    const counter = document.getElementById(editable.getAttribute("aria-describedby") ?? "");
+    expect(counter?.textContent).toBe(t(LANG, "documentsParagraphCharCount", fmtEn(chars), fmtEn(MAX_HTML_TEXT_CHARS)));
+  });
+
 /** Pin the caret to end-of-content before typing into a paragraph editable.
  *  `.focus()` alone does not set a caret position, and a prior ProseMirror
  *  mount/unmount elsewhere in the suite can leave async selection residue in
@@ -387,6 +401,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
     const editable = await findParagraphEditable(22);
     editable.focus();
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, MAX_HTML_TEXT_CHARS + 1);
     editable.blur();
     expect(onCommit).not.toHaveBeenCalled();
     const notice = await screen.findByText(t(LANG, "documentsBlockTooLongNotSaved", "1", fmt(MAX_HTML_TEXT_CHARS)));
@@ -405,6 +420,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
     const editable = await findParagraphEditable(23);
     editable.focus();
     await userEvent.type(editable, "b");
+    await paragraphSettledAt(editable, MAX_HTML_TEXT_CHARS);
     editable.blur();
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit.mock.calls[0][1].html).toContain("<strong>");
@@ -419,6 +435,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
     const editable = await findParagraphEditable(24);
     editable.focus();
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, MAX_HTML_TEXT_CHARS + 1);
     editable.blur();
     expect(onCommit).not.toHaveBeenCalled();
     unmount();
@@ -449,6 +466,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
     const editable = await findParagraphEditable(28);
     editable.focus();
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, MAX_HTML_TEXT_CHARS + 1);
     editable.blur();
     const refusalText = t(LANG, "documentsBlockTooLongNotSaved", "1", fmt(MAX_HTML_TEXT_CHARS));
     expect(await screen.findByText(refusalText)).toBeInTheDocument();
@@ -516,6 +534,7 @@ describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (�
     const editable = await findParagraphEditable(44);
     editable.focus();
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, MAX_HTML_TEXT_CHARS + 1);
     editable.blur();
     expect(await screen.findByText(refusalText)).toBeInTheDocument();
     expect(commits).toEqual([]);
@@ -581,11 +600,14 @@ describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (�
   it("persists an UNDER-cap unblurred draft exactly once on pagehide (§622)", async () => {
     const saved: string[] = [];
     const commits: string[] = [];
-    render(<SaveHarness tick={0} saved={saved} commits={commits} start="<p>a</p>" />);
+    // ★ §660 — started at the counter threshold (still far under the cap) so `paragraphSettledAt` can
+    //  gate the pagehide on the editor having read the typed text; from `<p>a</p>` the counter is hidden.
+    render(<SaveHarness tick={0} saved={saved} commits={commits} start={`<p>${"a".repeat(PARAGRAPH_COUNT_FROM)}</p>`} />);
     const editable = await findParagraphEditable(44);
     editable.focus();
     pinCaretToEnd(editable); // see the ★ comment above on the caret-residue flake
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, PARAGRAPH_COUNT_FROM + 2);
     let savedDuringUnload: string[] = [];
     act(() => { firePageHide(); savedDuringUnload = [...saved]; });
     expect(commits).toHaveLength(1);
@@ -608,11 +630,13 @@ describe("useBlockDraft — an unblurred draft on pagehide (§622)", () => {
 
   it("paragraph: commits the typed text on pagehide, without a blur", async () => {
     const onCommit = vi.fn();
-    render(<ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html: "<p>a</p>" }} onCommit={onCommit} />);
+    // ★ §660 — started at the counter threshold so the pagehide waits for the editor to read the typing.
+    render(<ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html: `<p>${"a".repeat(PARAGRAPH_COUNT_FROM)}</p>` }} onCommit={onCommit} />);
     const editable = await findParagraphEditable(0);
     editable.focus();
     pinCaretToEnd(editable); // see the ★ comment above on the caret-residue flake
     await userEvent.type(editable, "bc");
+    await paragraphSettledAt(editable, PARAGRAPH_COUNT_FROM + 2);
     expect(onCommit).not.toHaveBeenCalled();
     act(() => firePageHide());
     expect(onCommit).toHaveBeenCalledTimes(1);
