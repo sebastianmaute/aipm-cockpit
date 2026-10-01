@@ -116,6 +116,11 @@ export function buildTaskCleanPatch(
   }
   if (patch.priority !== undefined)
     cleanPatch.priority = sanitizePriorityOr(patch.priority, existing.priority);
+  // ★★ `blockers` is carried as TEXT only, and the caller must NOT spread it
+  // over the stored task: `updateTask` applies the patch with `applyTaskPatch`
+  // (blocker-log.ts), which writes it through the stored row's blocker log
+  // (open entries resolved, one new entry added). A bare spread would leave
+  // the log behind and the next load would re-derive the old text from it.
   if (patch.blockers !== undefined)
     cleanPatch.blockers = sanitizeBlockers(patch.blockers);
   // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as

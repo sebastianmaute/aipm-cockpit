@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { taskAttentionProvider } from "./task-attention";
 import type { ActionInput } from "../types";
 import type { Task } from "../../types";
+import { withBlockerLog } from "../../blocker-log";
 
 function mkTask(over: Partial<Task>): Task {
   return {
@@ -50,6 +51,16 @@ describe("taskAttentionProvider", () => {
   });
   it("flags a blocked task", () => {
     expect(ids([mkTask({ blockers: "waiting on legal" })])).toContain("task-attention:1:blocked");
+  });
+  it("a resolved-only log is not blocked", () => {
+    const task = withBlockerLog(mkTask({}), [
+      { id: 1, text: "waiting on legal", createdAt: "2026-06-01T00:00:00.000Z", resolvedAt: "2026-06-02T00:00:00.000Z" },
+    ]);
+    expect(task.blockerLog).toHaveLength(1);
+    expect(ids([task])).not.toContain("task-attention:1:blocked");
+    // Control: the same entry left open does flag.
+    expect(ids([withBlockerLog(mkTask({}), [{ id: 1, text: "waiting on legal", createdAt: "2026-06-01T00:00:00.000Z" }])]))
+      .toContain("task-attention:1:blocked");
   });
   it("flags dependency-blocked when predecessor not Done", () => {
     const pred = mkTask({ id: 2, taskName: "Predecessor", status: "In Progress" });

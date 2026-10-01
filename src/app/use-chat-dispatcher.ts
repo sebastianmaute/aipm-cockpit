@@ -24,7 +24,8 @@ import { mintId } from "./id-mint-session";
 import { effectivePersonEmail, splitName } from "./resource-foundation";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
-import { t } from "./i18n";
+import { t, type Lang } from "./i18n";
+import { applyTaskPatch, setBlockersText, type BlockerActor } from "./blocker-log";
 import {
   sanitizeAssignee,
   sanitizeBlockers,
@@ -57,6 +58,14 @@ export type { ChatDispatcherArgs };
 function emailsRefusalText(address: string): string {
   const reason = emailWriteRefusal(address, undefined) === "invalid" ? "emails is invalid" : 'emails must not contain "," or ";"';
   return `${reason} (${JSON.stringify(address)})`;
+}
+
+/** The author of a blocker entry the AI writes: the same "AI created" label the
+ *  Escalate note echo uses (`aiEscalationNoteAuthor`), translated once at write
+ *  time, and NO resource id — crediting `settings.selfResourceId` would
+ *  attribute the model's line to the user. */
+function aiBlockerActor(lang: Lang): BlockerActor {
+  return { name: t(lang, "raidNoteAuthorAi") };
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -315,7 +324,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             sanitizeIsoDate(input.lastUpdateDate) || clockRef.current.today,
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
-          blockers: sanitizeBlockers(input.blockers),
+          // Text goes in through the blocker log below, never as a bare string.
+          blockers: "",
           // ★★★ Upgrade-aware, NOT plainToHtml — see the update boundary.
           description: sanitizeAiRichText(input.description ?? input.notes),
           inquiriesSent: 0,
@@ -325,9 +335,16 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // A model-supplied status routes through applyStatusChange (it keeps
         // the Done/completedDate invariant) so e.g. Done stamps completedDate.
         // An invalid value falls back to the default.
+        // Blocker text opens the log with one entry attributed to the AI.
+        const withBlockers = setBlockersText(
+          baseTask,
+          sanitizeBlockers(input.blockers),
+          aiBlockerActor(settingsRef.current.language),
+          new Date().toISOString(),
+        );
         const newTask = isTaskStatus(input.status)
-          ? applyStatusChange(baseTask, input.status, clockRef.current.today)
-          : baseTask;
+          ? applyStatusChange(withBlockers, input.status, clockRef.current.today)
+          : withBlockers;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         // ★★★ NO UNDO CAPTURE HERE, AND THAT IS THE DESIGN. `UndoOp` is
@@ -351,11 +368,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         assertJiraManagedUnchanged(existing, patch);
         const cleanPatch = buildTaskCleanPatch(patch, existing);
+        const stamp = new Date().toISOString();
+        // `blockers` replaces the STORED row's open blockers through its log
+        // (they are resolved, not dropped); every other key is a plain spread.
         const mergedBase: Task = {
-          ...existing,
-          ...cleanPatch,
+          ...applyTaskPatch(existing, cleanPatch, aiBlockerActor(settingsRef.current.language), stamp),
           id: existing.id,
-          localModifiedAt: new Date().toISOString(),
+          localModifiedAt: stamp,
         };
         // A valid status change routes through applyStatusChange, which keeps
         // the Done/completedDate invariant. Invalid values are ignored

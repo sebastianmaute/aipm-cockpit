@@ -58,6 +58,7 @@ import {
 } from "../sanitize-records";
 import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-allowlist-guards";
 import { roleLabel } from "../resource-foundation";
+import { normalizeBlockerText } from "../blocker-log";
 import { str } from "./str";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
@@ -471,14 +472,16 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     arrayFields: new Set(["labels"]),
     numberFields: new Set(),
     // Mirrors `buildTaskCleanPatch` (chat-task-patch.ts) field for field.
-    // ★ `blockers` is the ONE multiline member here — `sanitizeBlockers` is
-    //   `sanitizeMultiline(_, TEXTAREA_MAX)`, which does NOT trim.
+    // ★ `blockers` is the ONE multiline member here. `sanitizeBlockers` is
+    //   `sanitizeMultiline(_, TEXTAREA_MAX)`, which does NOT trim — but the
+    //   writer stores it through the blocker log (`setBlockersText`), which
+    //   DOES, so the card applies the log's own normaliser on top.
     fieldSanitizers: {
       taskName: sanitizeTaskName,
       assignee: sanitizeAssignee,
       // ★ M1: every AI email write stores the `Name <addr>`-unwrapped value, so the card shows it.
       assigneeEmail: sanitizeLoadedEmail,
-      blockers: sanitizeBlockers,
+      blockers: (v: unknown) => normalizeBlockerText(sanitizeBlockers(v)),
       group: sanitizeGroup,
     },
     // ★ `taskFields` declares no id-list input — a task's relationships
@@ -639,7 +642,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numberFields: new Set(),
     // Mirrors `sanitizeStakeholder` (sanitize-records.ts). ★★ `notes` is
     // `sanitizeText(_, TEXTAREA_MAX)` — TRIMMED, despite being a textarea and
-    // despite `Task.blockers` (the same shape) using `sanitizeMultiline`. Read
+    // despite `Absence.note` (the same shape) using `sanitizeMultiline`. Read
     // the field's own sanitizer; the name does not tell you which family it is
     // in. ★ `email` is BUDGET_NAME_MAX (200), NOT EMAIL_MAX.
     fieldSanitizers: {

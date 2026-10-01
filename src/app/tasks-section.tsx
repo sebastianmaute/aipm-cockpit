@@ -33,6 +33,7 @@ import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
 import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-patch";
+import { applyTaskPatch, selfBlockerActor } from "./blocker-log";
 import { useToastContext } from "./toast-context";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import type { UndoStackApi } from "./undo/use-undo-stack";
@@ -295,6 +296,7 @@ export function TasksSection({
   const showToast = useToastContext();
 
   const { settings, setSettings } = useSettings();
+  const selfResourceId = settings.selfResourceId;
   // ONE holidaySet, threaded from task-manager, which feeds the SAME value to
   // useBulkOperations. Deriving a second one here made the pane and the hook
   // agree only by convention — both happened to read the same device setting.
@@ -505,31 +507,42 @@ export function TasksSection({
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
       const clean = sanitizeInlinePatch(patch, patchCtx);
+      // ★ Interim until the blockers cell becomes the badge: a `blockers` text
+      // edit goes through the STORED row's blocker log (`applyTaskPatch`), so
+      // it is not re-derived away from the log on the next load.
+      const stamp = new Date().toISOString();
+      const actor = selfBlockerActor(selfResourceId, resources ?? EMPTY_RESOURCES);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === taskId && !row.jiraKey
-            ? { ...row, ...clean, localModifiedAt: new Date().toISOString() }
+            ? { ...applyTaskPatch(row, clean, actor, stamp), localModifiedAt: stamp }
             : row,
         ),
       );
+      // The undo entry carries the log beside the text: restoring the text
+      // alone would leave the log holding the edit.
+      const afterRow = applyTaskPatch(beforeRow, clean, actor, stamp);
       const cleanKeys = Object.keys(clean) as (keyof Task)[];
-      const anyChanged = cleanKeys.some((k) => differs(beforeRow[k], clean[k]));
-      if (cleanKeys.length > 0 && anyChanged) {
+      const keys: (keyof Task)[] = "blockers" in clean ? [...cleanKeys, "blockerLog"] : cleanKeys;
+      const anyChanged = keys.some((k) => differs(beforeRow[k], afterRow[k]));
+      if (keys.length > 0 && anyChanged) {
         const before: Partial<Task> = {};
-        for (const k of cleanKeys) {
+        const after: Partial<Task> = {};
+        for (const k of keys) {
           (before as Record<string, unknown>)[k] = beforeRow[k];
+          (after as Record<string, unknown>)[k] = afterRow[k];
         }
         captureFieldEdit?.({
           setter: setTasks,
           kind: "task.updated",
           id: taskId,
           before,
-          after: clean,
+          after,
           stampField: "localModifiedAt",
         });
       }
     },
-    [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang],
+    [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang, selfResourceId, resources],
   );
 
   const rowContextValue = useMemo<RowContextValue>(

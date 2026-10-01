@@ -332,6 +332,67 @@ describe("useTaskSubmit — calendarOptOut (§486)", () => {
   });
 });
 
+describe("useTaskSubmit — the blocker log is carried from the STORED row", () => {
+  const RESOLVED = { id: 1, text: "Old", createdAt: "2030-01-01T00:00:00.000Z", resolvedAt: "2030-01-02T00:00:00.000Z" };
+  const A = { id: 2, text: "Waiting A", createdAt: "2030-01-03T00:00:00.000Z" };
+  const B = { id: 3, text: "Waiting B", createdAt: "2030-01-04T00:00:00.000Z" };
+
+  it("editor save keeps a log written by the window after the editor opened", () => {
+    const atOpen = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    // The blockers window adds B to the stored row while the editor is open.
+    const storedNow = makeTask({ blockerLog: [RESOLVED, A, B], blockers: "Waiting A\nWaiting B" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [storedNow], tasksRef: { current: [storedNow] },
+        form: { ...validForm(), taskName: "Renamed", blockers: "Waiting A" },
+      })),
+    );
+    act(() => result.current.openEditModal(atOpen));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [saved] = updater([storedNow]);
+    expect(saved.taskName).toBe("Renamed");
+    expect(saved.blockerLog).toEqual([RESOLVED, A, B]);
+    expect(saved.blockers).toBe("Waiting A\nWaiting B");
+  });
+
+  it("a changed blockers text resolves the stored open entries and adds one", () => {
+    const stored = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [stored], tasksRef: { current: [stored] },
+        form: { ...validForm(), blockers: "Vendor delay" },
+      })),
+    );
+    act(() => result.current.openEditModal(stored));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [saved] = updater([stored]);
+    expect(saved.blockers).toBe("Vendor delay");
+    expect(saved.blockerLog).toHaveLength(3);
+    expect(saved.blockerLog?.[0]).toEqual(RESOLVED);
+    expect(saved.blockerLog?.[1]).toMatchObject({ id: 2, text: "Waiting A" });
+    expect(saved.blockerLog?.[1].resolvedAt).toEqual(expect.any(String));
+    expect(saved.blockerLog?.[2]).toMatchObject({ id: 3, text: "Vendor delay" });
+    expect(saved.blockerLog?.[2].resolvedAt).toBeUndefined();
+  });
+
+  it("a new task with blockers text starts a log with one open entry", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ setTasks, form: { ...validForm(), blockers: "Needs sign-off" } })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const next = setTasks.mock.calls[0][0] as Task[];
+    const created = next[next.length - 1];
+    expect(created.blockers).toBe("Needs sign-off");
+    expect(created.blockerLog).toHaveLength(1);
+    expect(created.blockerLog?.[0]).toMatchObject({ id: 1, text: "Needs sign-off" });
+  });
+});
+
 describe("useTaskSubmit — edit branch", () => {
   it("patches the edited row, stamps localModifiedAt, clears editing, logs task.updated", () => {
     const setTasks = vi.fn();

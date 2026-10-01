@@ -5,8 +5,9 @@
 // is unchanged; it is written ONLY through `withBlockerLog`, so the pair
 // cannot drift.
 import { MAX_AUTHOR_NAME, MAX_NOTE_ENTRIES } from "./note-log-policy";
+import { resourceDisplayName } from "./resource-foundation";
 import { TEXTAREA_MAX } from "./sanitize-core";
-import type { BlockerEntry, Task } from "./types";
+import type { BlockerEntry, Resource, Task } from "./types";
 
 export type BlockerActor = { resourceId?: number; name?: string };
 
@@ -35,6 +36,13 @@ function cleanText(text: string): string {
     // Trim AGAIN after the cap: a cap landing just after a space would leave
     // trailing whitespace that the NEXT pass trims, so one pass would not settle.
     .trimEnd();
+}
+
+/** The text a blocker write STORES for `text` (CRLF → LF, control characters
+ *  stripped, trimmed, capped) — exported so a preview of a write (the inline
+ *  AI card) shows exactly what `setBlockersText` will keep. */
+export function normalizeBlockerText(text: string): string {
+  return cleanText(text);
 }
 
 /** Open entries' text, oldest `createdAt` first (ties by id), joined by "\n". */
@@ -147,6 +155,40 @@ export function setBlockersText(
     base,
     clean === "" ? resolved : [...resolved, newEntry(log, clean, actor, now)],
   );
+}
+
+/** Spread a task `patch` over the STORED `row`, routing `blockers` through
+ *  `setBlockersText` against the row's own log. Every writer that applies a
+ *  patch carrying blocker TEXT goes through here, so the log is never dropped
+ *  and the text never drifts from it. A `blockerLog` key in the patch is
+ *  IGNORED: the log is owned by the mutators above, and a patch's copy of it is
+ *  stale by construction. */
+export function applyTaskPatch(
+  row: Task,
+  patch: Partial<Task>,
+  actor: BlockerActor,
+  now: string,
+): Task {
+  const rest: Partial<Task> = { ...patch };
+  delete rest.blockers;
+  delete rest.blockerLog;
+  const merged: Task = { ...row, ...rest };
+  return patch.blockers === undefined
+    ? merged
+    : setBlockersText(merged, patch.blockers, actor, now);
+}
+
+/** The user's own attribution for a new entry — the same the notes window
+ *  uses: the self resource id whenever one is set, its display name when that
+ *  id names a live resource. */
+export function selfBlockerActor(
+  selfResourceId: number | null | undefined,
+  resources: readonly Pick<Resource, "id" | "firstName" | "lastName">[],
+): BlockerActor {
+  if (selfResourceId === null || selfResourceId === undefined) return {};
+  const self = resources.find((r) => r.id === selfResourceId);
+  const name = self ? resourceDisplayName(self) : "";
+  return name !== "" ? { resourceId: selfResourceId, name } : { resourceId: selfResourceId };
 }
 
 /** Load migration: the log wins; legacy text becomes one open entry. Returns the

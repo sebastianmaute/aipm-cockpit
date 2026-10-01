@@ -257,7 +257,11 @@ const taskFields = {
     description:
       "Task status: To Do, In Progress, On Hold, In Review, Cancelled, or Done. Defaults to To Do on create. Cannot be changed for Jira-synced tasks.",
   },
-  blockers: { type: "string" as const, description: "What's blocking progress" },
+  blockers: {
+    type: "string" as const,
+    description:
+      "Replaces the task's open blockers with this text (the previous open ones are marked resolved). An empty string resolves them all.",
+  },
   description: {
     type: "string" as const,
     description: "Free-form task description (plain text; formatting applied automatically)",

@@ -279,6 +279,38 @@ describe("useBulkOperations", () => {
       ]);
     });
 
+    it("bulk blockers edit resolves the open entries on every selected task", () => {
+      const resolved = { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" };
+      const row = (id: number, open: string): Task => ({
+        id, taskName: `Task ${id}`, status: "To Do", priority: "Medium",
+        assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
+        description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+        blockerLog: [resolved, { id: 2, text: open, createdAt: "2026-05-03T00:00:00.000Z" }],
+        blockers: open,
+      });
+      const { result } = renderBulk();
+      act(() => { result.current.workspace.setTasks([row(1, "Waiting A"), row(2, "Waiting B")]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => { result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev,
+          enabled: { ...prev.enabled, blockers: true },
+          blockers: "Shared vendor delay",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      for (const task of result.current.workspace.tasks) {
+        expect(task.blockers).toBe("Shared vendor delay");
+        const log = task.blockerLog ?? [];
+        expect(log).toHaveLength(3);
+        expect(log[0]).toEqual(resolved);
+        expect(log[1].resolvedAt).toEqual(expect.any(String));
+        expect(log[2]).toMatchObject({ id: 3, text: "Shared vendor delay" });
+        expect(log[2].resolvedAt).toBeUndefined();
+      }
+    });
+
     /** PER-SITE COVER for the bulk-edit transition (`statusActivityKind` in
      *  `use-bulk-operations.ts`). The file-granular census cannot see this
      *  site: it matches on the PRESENCE of `applyStatusChange(` and

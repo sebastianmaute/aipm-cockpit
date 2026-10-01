@@ -135,6 +135,34 @@ describe("useActionCenterHandlers — mark-done reaches the activity log", () =>
   });
 });
 
+describe("useActionCenterHandlers — Clear-blocker writes through the blocker log", () => {
+  it("Clear-blocker resolves every open entry and keeps them as history", () => {
+    const resolved = { id: 1, text: "Old", createdAt: "2026-08-01T00:00:00.000Z", resolvedAt: "2026-08-02T00:00:00.000Z" };
+    const stored = makeTask({
+      blockerLog: [
+        resolved,
+        { id: 2, text: "Waiting A", createdAt: "2026-08-03T00:00:00.000Z" },
+        { id: 3, text: "Waiting B", createdAt: "2026-08-04T00:00:00.000Z" },
+      ],
+      blockers: "Waiting A\nWaiting B",
+    });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(makeDeps({ setTasks, tasks: [stored] })),
+    );
+    act(() => result.current.handleClearBlockerFromAction(markDoneAction(1)));
+    expect(setTasks).toHaveBeenCalledTimes(1);
+    const updater = setTasks.mock.calls[0][0] as (prev: readonly Task[]) => Task[];
+    const [after] = updater([stored]);
+    expect(after.blockers).toBe("");
+    expect(after.blockerLog).toHaveLength(3);
+    expect(after.blockerLog?.[0]).toEqual(resolved);
+    expect(after.blockerLog?.[1]).toMatchObject({ id: 2, text: "Waiting A" });
+    expect(after.blockerLog?.[2]).toMatchObject({ id: 3, text: "Waiting B" });
+    expect(after.blockerLog?.every((e) => e.resolvedAt !== undefined)).toBe(true);
+  });
+});
+
 /** A stakeholder-comms "Draft" CTA — the only branch of
  *  `handleDraftMessageFromAction` that renders a comm template itself (the
  *  `task-due` branch delegates to `onSendInquiry`). */

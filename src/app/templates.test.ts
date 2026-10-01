@@ -261,6 +261,28 @@ describe("template description fallback precedence", () => {
   });
 });
 
+describe("a template seed task's blockers go through the blocker log", () => {
+  const seedOf = (task: Record<string, unknown>) => sanitizeTemplate({
+    id: "t1", name: "T1", features: [], fieldVisibility: {}, seed: { tasks: [task] },
+  })?.seed?.tasks?.[0];
+
+  it("legacy blocker text becomes one open entry", () => {
+    const out = seedOf({ id: 1, taskName: "K", lastUpdateDate: "2026-06-01", blockers: "Waiting on legal" });
+    expect(out?.blockers).toBe("Waiting on legal");
+    expect(out?.blockerLog).toEqual([{ id: 1, text: "Waiting on legal", createdAt: "2026-06-01T00:00:00.000Z" }]);
+  });
+
+  it("a captured log is carried and wins over the text, history included", () => {
+    const log = [
+      { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" },
+      { id: 2, text: "Open", createdAt: "2026-05-03T00:00:00.000Z" },
+    ];
+    const out = seedOf({ id: 1, taskName: "K", blockers: "stale text", blockerLog: log });
+    expect(out?.blockerLog).toEqual(log);
+    expect(out?.blockers).toBe("Open");
+  });
+});
+
 // Email-rule batch Task 5, fix round 2: the seed task's assigneeEmail is
 // normalised BEFORE the cap. Capping first cut the `>` off an over-cap
 // `Name <addr>`, so migrateTask's later unwrap never matched.

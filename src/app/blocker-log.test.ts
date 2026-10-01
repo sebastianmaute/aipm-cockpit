@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addBlocker,
+  applyTaskPatch,
   blockersText,
   deleteBlocker,
   editBlocker,
@@ -10,6 +11,7 @@ import {
   reopenBlocker,
   resolveBlocker,
   sanitizeBlockerLog,
+  selfBlockerActor,
   setBlockersText,
   withBlockerLog,
 } from "./blocker-log";
@@ -216,6 +218,41 @@ describe("blocker-log", () => {
     const added = addBlocker(makeTask(), "X\r\nY", ACTOR, NOW);
     expect(added.blockerLog?.[0]?.text).toBe("X\nY");
     expect(editBlocker(added, 1, "P\rQ", NOW).blockerLog?.[0]?.text).toBe("P\nQ");
+  });
+
+  it("applyTaskPatch routes blockers through the STORED row's log and keeps the history", () => {
+    const stored = withBlockerLog(makeTask(), [
+      { id: 1, text: "Old", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-02T00:00:00Z" },
+      { id: 2, text: "Open", createdAt: "2026-01-03T00:00:00Z" },
+    ]);
+    const out = applyTaskPatch(stored, { blockers: "New", priority: "High" }, ACTOR, NOW);
+    expect(out.priority).toBe("High");
+    expect(out.blockers).toBe("New");
+    expect(out.blockerLog).toEqual([
+      { id: 1, text: "Old", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-02T00:00:00Z" },
+      { id: 2, text: "Open", createdAt: "2026-01-03T00:00:00Z", resolvedAt: NOW },
+      { id: 3, text: "New", createdAt: NOW, authorResourceId: 7, authorName: "Ada" },
+    ]);
+  });
+
+  it("applyTaskPatch without blockers leaves the log untouched, and ignores a patch's stale log", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "Old", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-02T00:00:00Z" },
+      { id: 2, text: "Open", createdAt: "2026-01-03T00:00:00Z" },
+    ];
+    const stored = withBlockerLog(makeTask(), log);
+    const out = applyTaskPatch(stored, { priority: "Low", blockerLog: [] }, ACTOR, NOW);
+    expect(out.priority).toBe("Low");
+    expect(out.blockerLog).toBe(stored.blockerLog);
+    expect(out.blockers).toBe("Open");
+  });
+
+  it("selfBlockerActor names the user's own resource, the attribution the notes window uses", () => {
+    const resources = [{ id: 7, firstName: "Ada", lastName: "Lovelace" }];
+    expect(selfBlockerActor(7, resources)).toEqual({ resourceId: 7, name: "Ada Lovelace" });
+    expect(selfBlockerActor(9, resources)).toEqual({ resourceId: 9 });
+    expect(selfBlockerActor(undefined, resources)).toEqual({});
+    expect(selfBlockerActor(null, resources)).toEqual({});
   });
 
   it("a text whose cap lands just after a space settles in one migrate", () => {

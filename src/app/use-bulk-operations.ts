@@ -19,6 +19,7 @@ import {
 } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
+import { applyTaskPatch, selfBlockerActor } from "./blocker-log";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -198,6 +199,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   }, []);
 
   const tz = resolveTimezone(args.settings.timezone, project?.operatingTimezone);
+  const selfResourceId = args.settings.selfResourceId;
   const applyBulkEdit = useCallback(() => {
     const lang = langRef.current;
     // Named apart from the hook-scope `today` (args.today, the pane's day
@@ -253,21 +255,25 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const untouchedSynced = managedEnabled && noLocalForSynced ? skippedSynced : 0;
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => targetSet.has(r.id));
+    // `blockers` replaces EACH row's own open blockers through its log (they
+    // are resolved, never dropped), so every patch below goes through
+    // `applyTaskPatch` rather than a bare spread.
+    const actor = selfBlockerActor(selfResourceId, resources);
     // ONE definition of the row patch, used to derive the undo patches AND to
     // write the rows. Two copies would let the undo revert something other than
     // what was applied.
     const patchRow = (row: Task): Task => {
       if (row.jiraKey) {
-        if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
+        if (!managedEnabled) return { ...applyTaskPatch(row, updates, actor, stamp), localModifiedAt: stamp };
         // Only managed fields (incl. status) were enabled → nothing local to
         // change; leave the row untouched (no spurious localModifiedAt that a
         // pull would revert).
         if (noLocalForSynced) return row;
-        return { ...row, ...jiraSafeUpdates, localModifiedAt: stamp };
+        return { ...applyTaskPatch(row, jiraSafeUpdates, actor, stamp), localModifiedAt: stamp };
       }
       // Non-synced: apply the flat field patch, then the status transition (via
       // applyStatusChange so status + completedDate stay in sync).
-      const next = { ...row, ...updates };
+      const next = applyTaskPatch(row, updates, actor, stamp);
       const withStatus = statusEnabled ? applyStatusChange(next, newStatus, editToday) : next;
       return { ...withStatus, localModifiedAt: stamp };
     };
@@ -388,7 +394,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
     setSelectedIds(new Set());
-  }, [bulkEdit, selectedIds, visibleIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
+  }, [bulkEdit, selectedIds, visibleIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets, selfResourceId, resources]);
 
   // Unconditional clear — callers own the confirmation, and BOTH paths gate it
   // with TypeToConfirmDialog: the tasks view's toolbar button directly, and the

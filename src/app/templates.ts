@@ -27,6 +27,7 @@ import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 import { optionalIsoDateOnTemplateLoad } from "./sanitize-load-date";
 import { RICH_SINK } from "./html-start";
 import { sanitizeNoteLogWith } from "./note-log-policy";
+import { sanitizeBlockerLog } from "./blocker-log";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -253,6 +254,12 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
   if (deps.length) task.dependencies = deps;
   const noteLog = sanitizeSeedNoteLog(raw.noteLog);
   if (noteLog) task.noteLog = noteLog;
+  // The blocker log is CARRIED like the note log, and wins over `blockers`:
+  // `migrateTask` below re-derives the text from it (or, with no log, turns
+  // legacy text into one open entry), so a captured template keeps its blocker
+  // history instead of collapsing the open entries into one.
+  const blockerLog = sanitizeBlockerLog(raw.blockerLog);
+  if (blockerLog) task.blockerLog = blockerLog;
   // `migrateTask` derives a valid workflow status for legacy/sparse seed
   // content; a present-and-valid status is left alone, EVEN when it
   // contradicts `completedDate` — its only status write is guarded on

@@ -1255,14 +1255,63 @@ describe("TasksSection", () => {
       ctx.onInlinePatch(1, { blockers: "new note" });
     });
 
+    // ★ The blocker log rides the same entry: the text is derived from it, so
+    // an undo that restored the text alone would be re-derived away on load.
     expect(captureFieldEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "task.updated",
         id: 1,
-        before: { blockers: "old note" },
-        after: { blockers: "new note" },
+        before: { blockers: "old note", blockerLog: undefined },
+        after: {
+          blockers: "new note",
+          blockerLog: [
+            { id: 1, text: "old note", createdAt: expect.any(String), resolvedAt: expect.any(String) },
+            { id: 2, text: "new note", createdAt: expect.any(String) },
+          ],
+        },
       }),
     );
+  });
+
+  it("an inline blockers edit writes through the STORED row's log and keeps its history", () => {
+    const resolved = { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" };
+    const open = { id: 2, text: "Open", createdAt: "2026-05-03T00:00:00.000Z" };
+    const task = { id: 1, taskName: "T1", blockers: "Open", blockerLog: [resolved, open] };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    render(<TasksSection {...makeProps()} captureFieldEdit={vi.fn()} />);
+
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { blockers: "New" });
+    });
+
+    const [saved] = currentTasks as { blockers: string; blockerLog: { id: number; text: string; resolvedAt?: string }[] }[];
+    expect(saved.blockers).toBe("New");
+    expect(saved.blockerLog).toHaveLength(3);
+    expect(saved.blockerLog[0]).toEqual(resolved);
+    expect(saved.blockerLog[1]).toMatchObject({ id: 2, text: "Open", resolvedAt: expect.any(String) });
+    expect(saved.blockerLog[2]).toMatchObject({ id: 3, text: "New" });
+    expect(saved.blockerLog[2].resolvedAt).toBeUndefined();
   });
 
   it("does not capture an undo entry for a Jira-synced task's inline edit (no-op)", () => {
