@@ -15,7 +15,7 @@ It said **nine** for six releases after five Tiptap extensions and `lucide-react
 | Package | Version | Used for |
 |---|---|---|
 | `next` | 16.3.4 (exact — see CONTRIBUTING.md "Dependencies") | framework (a public npm package, NOT a fork — the lock resolves it from registry.npmjs.org; read `node_modules/next/dist/docs` — APIs differ from training data) |
-| `react` / `react-dom` | 19.2.4 | UI. React 19 delegates events on `document`, which is why `stopPropagation` cannot contain a key from a document-level listener |
+| `react` / `react-dom` | 19.3.0 | UI. React 19 delegates events on `document`, which is why `stopPropagation` cannot contain a key from a document-level listener |
 | `@azure/msal-browser` | ^5.23.0 | M365 sign-in; owns its own token cache (app stores no M365 secret) |
 | `@tiptap/react` + `@tiptap/starter-kit` | ^3.31.3 | rich-text editor (lazy `ssr:false` — needs `Range.getClientRects` stubs in jsdom) |
 | `@tiptap/extension-``list` `text-align` `highlight` `superscript` `subscript` | ^3.31.3 | the toolbar beyond starter-kit: task lists, alignment, highlight, super/subscript. ★★ Each declares its own commands via `declare module '@tiptap/core'` INSIDE its package, so `toggleHighlight`/`toggleSuperscript`/`toggleSubscript` do not exist on the chained-commands type until some file in the TS program imports that module — a toolbar calling them while only the EDITOR imports the extensions is green in vitest and red in tsc |

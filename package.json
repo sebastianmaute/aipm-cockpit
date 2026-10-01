@@ -116,8 +116,8 @@
     "dompurify": "^3.4.16",
     "lucide-react": "^1.48.0",
     "next": "16.3.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "overrides": {
     "postcss": "^8.5.14",
