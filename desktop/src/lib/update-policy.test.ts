@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
+  NOTES_MAX, STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
   notesToPlainText, parseSkipped, serializeSkipped, summarizeError,
 } from "./update-policy";
 
@@ -91,8 +91,8 @@ describe("update policy", () => {
     expect(notesToPlainText("")).toBe("No release notes.");
     expect(notesToPlainText([{ version: "1.14.1", note: "<ul><li>A</li><li>B &amp; C</li></ul>" }])).toBe("A\nB & C");
     expect(notesToPlainText("<h2>T</h2>\n\n\n\n<p>x</p>")).toBe("T\n\nx");
-    const long = notesToPlainText("y".repeat(5000));
-    expect(long.length).toBe(1500);
+    const long = notesToPlainText("y".repeat(NOTES_MAX * 2));
+    expect(long.length).toBe(NOTES_MAX);
     expect(long.endsWith("…")).toBe(true);
   });
 
@@ -116,10 +116,10 @@ describe("update policy", () => {
   });
 
   it("never leaves a lone surrogate half dangling at the clip boundary", () => {
-    // U+1F600 (😀) is a surrogate PAIR in UTF-16 -- two code units. Repeating it past the 1500-char
+    // U+1F600 (😀) is a surrogate PAIR in UTF-16 -- two code units. Repeating it past the NOTES_MAX
     // limit puts a pair boundary near the cut on roughly half of all lengths; this fixture lands
-    // exactly on one.
-    const long = notesToPlainText("😀".repeat(800));
+    // exactly on one (NOTES_MAX is even, so the cut before the ellipsis falls mid-pair).
+    const long = notesToPlainText("😀".repeat(NOTES_MAX / 2 + 400));
     expect(long.endsWith("…")).toBe(true);
     const withoutEllipsis = long.slice(0, -1);
     // A string built entirely from 2-code-unit pairs has no lone surrogate iff its length is even.
