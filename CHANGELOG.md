@@ -8,6 +8,106 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.14.3] - 2026-10-01 "Deaver"
+
+A maintenance release. Two tabs or windows saving the same project no longer overwrite each
+other: a save over a newer version now pauses and asks what to do. This is tested in the
+browser with browser storage; SharePoint and Turso projects are not yet verified on a live tenant
+or database, and the new banner's dark theme is not yet eye-checked. Also fixes to tab sync, the
+AI key, chat attachments, Turso saves and SharePoint file names, and a security update to Next.js.
+
+### Fixed
+
+- **Two tabs saving the same project.** When the stored project has changed since this tab loaded
+  or last saved it, the save is now refused instead of overwriting the newer version, and the tab
+  shows "Saving paused" with three choices:
+  - **Reload** loads the stored version and drops your unsaved one;
+  - **Overwrite** saves your version over it, and is refused if the other version changed again;
+  - **Download my version** saves your version to a file and keeps the pause.
+
+  This covers browser storage, local files, SharePoint and Turso. If the window closes while saving
+  is paused, your unsaved version is kept in the browser and listed as "not saved (conflict)" with
+  Download and Discard; it cannot yet be restored in the app. Switching project is refused when
+  those edits cannot be kept, so you stay on the project behind the banner. Some cases still pause
+  when nothing conflicts, though nothing is lost: after a failed or refused load (until Reload
+  project), when you open a file that a registered project already uses, when two windows each
+  pick the same file, and when two tabs start at the same moment.
+- **One window per file.** A window on a local project file keeps saving to the file it opened.
+  Before, switching project in another tab could redirect this window's saves to a different file.
+  Windows on the same file keep in step; windows on different files no longer do. Browser storage
+  is still one store for the whole browser, so all its windows keep in step with each other.
+- **Tabs on different projects.** With one project open in one tab and another project in a second
+  tab, an edit in the first could replace a list in the second, whose next save then wrote it into
+  the wrong project. Tabs now take edits only from tabs that save to the same place. Pop-out
+  windows follow the window that opened them, also after it switches project. Opening or reloading
+  a project in one tab no longer replaces unsaved edits in another tab on the same project,
+  including a load that empties a list. An edit typed while a load is still showing, or a load
+  that clears the project header, can still reach other tabs as an edit. These fixes are covered
+  by automated tests only and not yet tried with two tabs in a real browser.
+- **A rejected AI key.** When the saved Anthropic API key is refused or cannot be decrypted, a
+  banner now says so and its "Open AI settings" button opens Settings → AI, which shows a notice
+  beside the key field. Each AI feature's error names the refused key instead of a generic failure;
+  weight suggestions no longer blame the network. The key is checked once at start-up and when you
+  save it, only while AI is switched on. In the classic layout, the storage banner's "Open
+  settings" button now works too.
+- **Turso saves.** A save to Turso is now all or nothing. Before, a save that failed partway could
+  still write everything except the rejected rows while reporting a failure. Not yet verified
+  against a live Turso database. On Turso projects, a chat thread rename or a template name or body
+  typed just before the window closes is now kept and saved after the next load, chat saves stay
+  in the database they started in after you switch databases, and two quick edits to one template
+  no longer lose one of them.
+- **SharePoint file names with `#` or `%`.** A project file or folder on SharePoint whose name
+  contains `#` or `%` is now opened and saved at the right address. Not yet verified on a live
+  SharePoint tenant.
+- **Chat attachments.**
+  - Several files dropped or picked at once are now limited as a batch, in the AI chat and in the
+    import wizard. A file that would take the batch over the limit is skipped and named, never cut;
+    the first file is always taken. Before, two large PDFs in the import wizard built a request the
+    AI service refuses.
+  - A very large spreadsheet sheet is cut off with a "sheet truncated" note instead of being read
+    in full.
+- **AI chat.** Sending twice at the same moment, before the screen updates, now sends one message.
+  On the calendar view, the assistant is now told it can read both calendar events and absences,
+  and that it can add and change events.
+- **Character counts.** In rich text, named characters such as `&mdash;` now count as one
+  character, so a length limit can no longer cut one in half.
+- **Reduced motion.** With "reduce motion" set in the operating system, the scrolls after saving
+  a task and in Help now jump instead of animating. Not yet eye-checked with that setting on.
+
+### Changed
+
+- **Dashboard.** The Trends tile now starts two columns wide and two rows high on a new board,
+  after Reset layout and when restored from the hidden tray. Boards you have arranged keep their
+  sizes. In row 1, "Since you last looked" is as wide as the Next actions card below it, and the
+  weekly digest fills the rest.
+- **React 19.3.0.** `react` and `react-dom` move to 19.3.0 together.
+
+### Security
+
+- **Next.js 16.3.6.** The version in use fell inside a critical advisory (GHSA-vcvr-r3jv-pc5j,
+  remote code execution in the `next/og` image response); `next` and `eslint-config-next` move
+  to 16.3.6.
+- **moment 2.31.0**, which fixes CVE-2026-17495.
+- **Electron 44.4.5** for the desktop app, which carries upstream Chromium, V8 and PDFium security
+  fixes.
+
+### Development
+
+- **Dependencies.** Development-only updates to `undici` and `brace-expansion`; the StrictMode test
+  is updated for React 19.3.0.
+- **New guards and tests.** Tests now fail when a label carries a focus ring, when an animation
+  bypasses the reduced-motion rule, when a replayed insight recommendation calls a tool outside its
+  allow-list, and when two rows' Next actions popovers could be open at once. Branding fields and
+  the Outlook enable toggles each follow one shared rule instead of several copies. Unused code is
+  removed.
+- **Flaky tests fixed.** A document-editor race under load and a test-data generator that
+  produced whitespace the Markdown format trims by design.
+- **Docs.** The README plays the product tour inline on GitHub and drops most em dashes in its
+  prose. The follow-up list gains entries for the open SharePoint and Turso checks. The decision
+  that the light-theme amber and green health-chip borders stay below 3:1 contrast is recorded,
+  since the check mark still shows the state.
+- **GitLab copy.** The daily sync file is fixed so GitLab parses it again; the sync had stopped.
+
 ## [1.14.2] - 2026-09-28 "Deaver"
 
 A maintenance release. Typed text you had not yet clicked out of is kept when you close or reload
