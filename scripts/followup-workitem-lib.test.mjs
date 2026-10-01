@@ -149,7 +149,18 @@ describe("workItemViolations", () => {
     const withIssue = entries
       .filter((e) => !isClosed(e.title))
       .filter((e) => workItemLines(e).some((l) => parseWorkItem(l)?.kind === "issue"));
-    expect(withIssue.length).toBeGreaterThan(200);
+    // ★★ A CROSS-CHECK, NOT A FIXED COUNT. This used to assert `> 200`, which
+    // every closed entry moves toward failure — closing defects is what the
+    // register is for, so the floor broke CI the day three batches closed nine
+    // of them (201 → 198). The question the floor answered is "did the parser
+    // actually read the issue lines?", and a raw line count answers it without
+    // drifting: every `**Work item:** #N` line in the file belongs to an open
+    // entry (the ON_CLOSED rule above), so the two counts must agree. The 50
+    // floor is the one the sibling followup gates use for a scan that read
+    // nothing (`check-followup-index.mjs`, `check-followup-claims.mjs`).
+    const rawIssueLines = register().match(/^\*\*Work item:\*\* #\d+/gm) ?? [];
+    expect(withIssue.length).toBe(rawIssueLines.length);
+    expect(withIssue.length).toBeGreaterThan(50);
   });
 });
 
