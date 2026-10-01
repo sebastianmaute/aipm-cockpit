@@ -559,7 +559,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
 | [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom--closed-2026-09-03) | ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-03 |
-| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
+| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | **CLOSED** 2026-10-01 |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
@@ -27459,7 +27459,7 @@ closure** — the overflow menu ITEMS, the three confirm buttons, the assign and
 `ResourcePicker`s, the escalate email `Input`, and each panel's own `role="dialog"` label. Their premise
 — that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous — is REASONED, NOT
 MEASURED. Filed as
-[§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise),
+[§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01),
 which names the owed measurement. Do not read this entry as covering them.
 
 **The defect as filed.** `action-row.tsx` and `action-hero-card.tsx` each mounted
@@ -27731,16 +27731,10 @@ owed before anyone attempts it.
 
 ---
 
-## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise
+## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise — CLOSED 2026-10-01
 
-**Status:** OPEN, **never machine-verified**. Filed 2026-09-01 while fixing
-[§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01),
-which widened into every control the Next-actions row and hero render. The controls named below were
-deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
-rather than measured. Nothing drives two of these panels open at once in any test, so the premise
-has never been exercised. Re-verified 2026-09-13 on `00f2a273`: `grep -rn "§328" src --include=*.tsx` → the one `ActionOverflowMenu` comment, and `action-cta-controls.test.tsx` still does not exist, so the two-menus measurement is still owed.
+**Status:** CLOSED 2026-10-01 — the premise is now MEASURED and holds, so the controls below stay unqualified. `action-cta-controls.test.tsx` renders two Next-actions rows and drives them with `user-event`, which sends the real mousedown and Tab events. Opening row B's `⋮` closes row A's: one menu in the DOM, A collapsed. While a menu is open, Tab stays inside it, so row B's trigger is unreachable by keyboard. Disabling `PopoverPanel`'s outside-mousedown listener fails the first test; disabling its Tab trap fails the second. The escalate / rebaseline / reschedule / assign panels render through the same `PopoverPanel`, so the same two mechanisms keep any two of them, of any kind, from coexisting. `fireEvent.click` alone skips the mousedown and CAN open two, but no user input can. The `ActionOverflowMenu` comment now says so. The history below is kept as written.
 
-**Work item:** #239
 
 §324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
 row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,

@@ -199,9 +199,11 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, ext
   //    outside click — so two menus are never in the tree at once and an item's
   //    name cannot repeat in one rendered list, the discriminator this whole
   //    slice turns on.
-  // ★★★ THAT PREMISE IS REASONED FROM THE DISMISSAL CONTRACT, NOT MEASURED — no
-  //    test drives two of these menus open. `docs/open-followups.md` §328 holds
-  //    it, and names the one measurement owed. Do not restate it as a fact.
+  // ★★ MEASURED (§328, `action-cta-controls.test.tsx`): opening row B's menu by
+  //    pointer closes row A's (PopoverPanel's outside-mousedown dismissal), and
+  //    an open menu traps Tab, so row B's trigger is unreachable by keyboard.
+  //    Both tests fail when the mechanism they rest on is disabled. If either
+  //    mechanism is ever removed from PopoverPanel, these items need `rowToken`.
   const item = (label: string, onClick: () => void) => (
     <button key={label} type="button"
       onClick={(e) => { stop(e); setMenuOpen(false); onClick(); }}
