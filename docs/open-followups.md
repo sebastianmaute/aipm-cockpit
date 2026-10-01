@@ -43600,7 +43600,7 @@ When a rename and a body edit of the same template are saved concurrently, each 
 
 ## 660. The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load — open
 
-**Status:** open 2026-10-01, seen twice, never measured as a rate. CI's `unit-shuffled` job on PR #504, a dependency-only change, failed one `it.each` row of the "ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)" describe: "persists it flattened exactly once on tab close (hidden, then pagehide), save listeners first: false". It failed after about 15 s with `Unable to find an element with the text: Not saved — this paragraph exceeds the 20,000-character limit by 1…`. A rerun of the same job passed. It had also failed under local load on the two-tab branch earlier.
+**Status:** open 2026-10-01, seen twice and never machine-verified as a rate: read off two CI and local failure logs. CI's `unit-shuffled` job on PR #504, a dependency-only change, failed one `it.each` row of the "ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)" describe: "persists it flattened exactly once on tab close (hidden, then pagehide), save listeners first: false". It failed after about 15 s with `Unable to find an element with the text: Not saved — this paragraph exceeds the 20,000-character limit by 1…`. A rerun of the same job passed. It had also failed under local load on the two-tab branch earlier.
 
 **Work item:** #511
 
