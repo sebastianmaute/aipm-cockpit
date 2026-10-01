@@ -1282,6 +1282,16 @@ describe("named character references (open-followups §24)", () => {
     expect(htmlPlainProjection("<p>&#38;lt;</p>")).toBe("&#38;lt;");
   });
 
+  // A stray "<" that survives the tag strip — including one a nested shape
+  // rebuilds — is re-encoded before the entity pass and decoded back by it, so
+  // it projects to exactly the text it was, never to markup the strip missed.
+  it("projects a stray or rebuilt '<' as the same text, whatever follows it", () => {
+    expect(htmlPlainProjection("<p>a < b</p>")).toBe("a < b");
+    expect(htmlPlainProjection("<p>&<amp;</p>")).toBe("&<amp;");
+    // The rebuilt tag stays TEXT, exactly as before the re-encode existed.
+    expect(htmlPlainProjection("<scr<script>ipt>x")).toBe("<script>x");
+  });
+
   it("keeps the basics case-insensitive and &nbsp; a plain space", () => {
     expect(htmlPlainProjection("<p>&LT;a&GT; &Amp; x&NBSP;y &#160;z</p>")).toBe("<a> & x y z");
   });

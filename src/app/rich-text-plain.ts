@@ -338,7 +338,16 @@ function decodeEntities(s: string): string {
  *  byte-stability suite in the test file is the gate. */
 export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
   const breaks = opts?.preserveBreaks === true;
-  const tagless = decodeEntities(html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, ""));
+  // ★★ One strip pass can REBUILD a tag: removing "<script>" from
+  // "<scr<script>ipt>" leaves "<script>". Any "<" that survives the strip is
+  // therefore re-encoded as "&lt;" BEFORE the entity pass, so the stripped
+  // string provably holds no tag opener (CodeQL's incomplete multi-character
+  // sanitization rule). The single entity pass then turns it back into the
+  // same "<" it was, so the output is byte-identical — this is plain text by
+  // contract (every consumer counts it or re-escapes it via plainToHtml), and a
+  // looped strip would be quadratic on crafted nesting.
+  const stripped = html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, "").replace(/</g, "&lt;");
+  const tagless = decodeEntities(stripped);
   const spaced = breaks
     ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")
     : tagless.replace(WS_RUN, " ");
