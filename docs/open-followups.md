@@ -506,7 +506,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
-| [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
+| [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | **CLOSED** 2026-10-01 |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
@@ -552,7 +552,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--closed-2026-09-26) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent | found 2026-08-31 while filing §318 | S | **CLOSED** 2026-09-26 |
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone--closed-2026-09-26) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | **CLOSED** 2026-09-26 |
-| [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
+| [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural--closed-2026-10-01) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | **CLOSED** 2026-10-01 |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass--closed-2026-09-14) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-14 |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
@@ -23432,7 +23432,7 @@ extraction from this file should run `npx eslint --max-warnings=0 src` for the i
 
 ★★ **The coverage question this extraction raised is NOT closed with it** — the new file was added to
 `vitest.config.ts` `coverage.exclude` under a rationale that does not fit all of what moved. See
-[§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary).
+[§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01).
 
 `file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`.
 **No line count is quoted in this entry on
@@ -23600,17 +23600,14 @@ a new file's worth of argument.
 ★ Not urgent: the file is under the cap with real headroom today. This is filed so the next person
 adding to it extracts rather than trims — the same disposition §272 asked for and got.
 
-## 275. `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary
+## 275. `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary — CLOSED 2026-10-01
 
-**Status:** open. Filed 2026-08-28. `2fb25ae7`'s commit message says a follow-up "is filed
-separately"; this entry is what makes that sentence true. Never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-01. `use-insight-recommendations.test.tsx` now feeds `confirmInsightRecommendation` an insight whose proposed calls include `delete_task` and `update_settings` beside one valid `update_task`, and asserts that neither out-of-set dispatcher method is called while the allowed call still applies. Deleting the `ALLOWED_REC_TOOLS` `.filter(...)` fails that test (mutation-checked). The file is also OUT of `vitest.config.ts` `coverage.exclude` now, so its lines count toward the global floors; with it measured, the full suite stays far above every floor. Filed 2026-08-28; the history below is kept as written.
 
 ★ Narrowed 2026-09-28 (register sweep): `src/app/use-insight-recommendations.test.tsx` now exists and
 drives the hook through `renderHook`, which refutes "not unit-testable in isolation". None of its cases
 feeds a tool outside `ALLOWED_REC_TOOLS`, so the apply-time filter is still unpinned, and the file is
 still in `coverage.exclude`.
-
-**Work item:** #216
 
 `2fb25ae7` extracted the insight-recommendation handlers out of `task-manager.tsx` (closing §272) and
 added the new file to `vitest.config.ts` `coverage.exclude`, inside a block whose comment says its
@@ -26700,7 +26697,7 @@ entry against the review's TIP, not against the commit it was filed on.
 longer rests on the assumption at all. Verified by `npx vitest run src/app/chat-panel.test.tsx`
 (60 passed) and by mutation: reverting the clear to the unconditional form kills exactly the one test
 that stages a second controller (measured 2026-08-31). The single-flight PROPERTY is still unpinned and
-is now [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural).
+is now [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural--closed-2026-10-01).
 
 `retryLoad`'s second guard reads `abortRef.current !== null` as "a send is in flight". That is only
 equivalent while `submitPrompt` is single-flight, and it is **effectively** so rather than
@@ -26736,10 +26733,12 @@ node -e "console.log(require('./docs/baselines/file-sizes.json')['src/app/chat-p
 ```
 
 ★★ **The CLEAR is pinned by a test; the SINGLE-FLIGHT property still is not, and that residual is
-[§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural).** `chat-panel.test.tsx` stages two controllers and asserts the first send's
+[§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural--closed-2026-10-01).** `chat-panel.test.tsx` stages two controllers and asserts the first send's
 `finally` cannot empty the slot the second still owns, so the guard now holds whether or not
 `submitPrompt` is single-flight. Nothing asserts that it CANNOT double-dispatch — the fix removed the
 CONSEQUENCE this entry was about, not the property.
+
+★ Superseded 2026-10-01 by §321's close: `submitPrompt` now bails on a non-null `abortRef`, so the two-controller state above cannot be reached, and its test was replaced by "a same-tick double dispatch sends exactly once". The identity clear stays as defence in depth.
 
 ## 313. `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen — CLOSED 2026-08-31, 0.272.0
 
@@ -27270,16 +27269,9 @@ data is gone — plus the standalone stylesheet's own sink. ★ Note the cheaper
 sufficient: recording the mime alongside the bytes (the §225 closure) would stop mimes going stale,
 but a genuinely disallowed format would still be refused and would still be labelled missing.
 
-## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
+## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural — CLOSED 2026-10-01
 
-**Status:** filed 2026-08-31, never machine-verified — split out of
-[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
-when that closed. The read is reproducible:
-`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
-closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
-made the CONSEQUENCE go away.
-
-**Work item:** #236
+**Status:** CLOSED 2026-10-01 — made structural, as this entry asked. `submitPrompt`'s bail now also reads `abortRef.current !== null`. The ref is set synchronously before the first await and cleared only by the owning send's `finally`, so it reads true for a send's whole life, and two dispatches in one tick start one send. chat-panel.test.tsx's "a same-tick double dispatch sends exactly once" pins it: two native clicks in one `act` must produce one request, and a later send must still go out once the first settles. Removing the ref read fails the test. That test replaces §312's two-sends test, because the state §312 staged can no longer be reached. §312's identity clear stays, as defence in depth. The history below is kept as written.
 
 §312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
 `finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the

@@ -112,17 +112,11 @@ export interface UseChatThreadsDeps {
    *  user is mid-send in. It is non-null between submitPrompt's start and its
    *  `finally` — and that `finally` (in chat-panel.tsx) clears it only when
    *  the settling send still OWNS the slot
-   *  (`if (abortRef.current === controller)`, §312), so a second dispatch's
-   *  controller survives the first send's finally. Pinned by
-   *  chat-panel.test.tsx's "still holds the second send's controller after the
-   *  first send settles".
-   *  ★★ THAT NARROWS THE SINGLE-FLIGHT DEPENDENCY, IT DOES NOT REMOVE IT, and
-   *  the residual runs the other way round: if the LATER of two concurrent
-   *  sends settles FIRST it owns the slot and clears it while the earlier send
-   *  is still live. retryLoad would read idle over that live send, and the
-   *  occurrence test cannot help — both `sendSeqRef` bumps predate the click.
-   *  Not known to be reachable — the call sites are enumerated at retryLoad's
-   *  second guard. See it and docs/open-followups.md §312. */
+   *  (`if (abortRef.current === controller)`, §312).
+   *  ★ Since §321 submitPrompt also BAILS on a non-null `abortRef`, so a
+   *  second send cannot start while one is live and the slot never has two
+   *  owners. The §312 identity clear is now defence in depth. Pinned by
+   *  chat-panel.test.tsx's "a same-tick double dispatch sends exactly once". */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
@@ -590,19 +584,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // `.then` closes over the `busy` local of whichever render produced the
     // clicked instance — a stale read at settle time. A ref reads fresh.
     //
-    // ★★ THIS DEPENDS ON submitPrompt BEING SINGLE-FLIGHT, and it is only
-    // EFFECTIVELY so: its `busy` bail is itself a render-closure read, so two
-    // dispatches in ONE tick would both pass it. Nothing reaches it that way
-    // today — every call site is a separate DOM event (React has flushed
-    // setBusy and disabled the control by then) or the one-shot `chatSeed`
-    // effect. ★★ THAT IS NO LONGER THE ONLY THING HOLDING IT UP (§312):
-    // chat-panel.tsx's `finally` reads
-    // `if (abortRef.current === controller) abortRef.current = null;`, so a
-    // second dispatch's slot survives the first send's finally. Pinned by
-    // chat-panel.test.tsx's "still holds the second send's controller after
-    // the first send settles", which stages the same-tick double dispatch with
-    // two native `.click()`s inside one `act` and observes the ref through the
-    // projectId-switch abort — the one abort site that is not `busy`-gated.
+    // ★★ THIS DEPENDS ON submitPrompt BEING SINGLE-FLIGHT, and since §321 it
+    // is so STRUCTURALLY: it bails on a non-null `abortRef`, a ref read rather
+    // than its render-closure `busy`, so even two dispatches in ONE tick start
+    // one send. Pinned by chat-panel.test.tsx's "a same-tick double dispatch
+    // sends exactly once", which stages it with two native `.click()`s inside
+    // one `act`. chat-panel.tsx's `finally` still clears the slot only when it
+    // owns it (§312), now as defence in depth.
     //
     // ★★★ THREE ORDERINGS, THREE DISJUNCTS — and the enumeration is the point.
     // This comment used to list only the first two and call them exhaustive,

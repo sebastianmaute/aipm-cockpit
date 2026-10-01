@@ -71,10 +71,14 @@ export default defineConfig({
         // calendar-reconcile, etc.) live in separate .ts files that REMAIN gated.
         // Excluding here keeps the gate on the pure logic/data layer, matching how this
         // code was treated (unmeasured, inside task-manager.tsx) before extraction.
+        // ★ `use-insight-recommendations.ts` USED to sit in this list and was taken
+        //   OUT (open-followups §275): its confirm path filters replayed calls through
+        //   ALLOWED_REC_TOOLS, a security boundary, and an excluded file hides even an
+        //   uncovered guard. It is driven through renderHook in its own test file, so
+        //   "not unit-testable in isolation" never applied to it.
         "src/app/use-calendar-integrations.ts",
         "src/app/use-action-center-handlers.ts",
         "src/app/use-ai-orchestration.ts",
-        "src/app/use-insight-recommendations.ts",
         "src/app/use-notes-window.ts",
         "src/app/use-document-editor.ts",
         "src/app/use-digest.ts",
