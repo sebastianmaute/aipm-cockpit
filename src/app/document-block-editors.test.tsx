@@ -1635,6 +1635,25 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     expect(screen.queryByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeNull();
   });
 
+  // §188 — the notice outlives the adoption (it explains the replaced text) and clears when the
+  //  user starts a NEW edit, so it cannot describe an attempt they no longer remember.
+  it("keeps the conflict notice through the adoption and clears it when the user edits again (§188)", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+    act(() => { text.blur(); });
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+    expect(text).toHaveValue(restored.text); // the reconcile adopted the external write
+    expect(screen.getByRole("status")).toHaveTextContent(t(LANG, "documentsBlockConflictNotSaved"));
+    await userEvent.type(text, "?");
+    expect(screen.getByRole("status")).toHaveTextContent(/^$/); // the region stays mounted, empty (§190)
+    expect(screen.queryByText(t(LANG, "documentsBlockConflictNotSaved"))).toBeNull();
+  });
+
   // ★ Tiptap binds `content` ONCE at mount, so the paragraph editor cannot
   //  adopt a new value by prop alone — the hook's seed nonce keys a remount.
   //  Asserting on the rendered TEXT (not a prop) is what makes this able to
@@ -2050,6 +2069,20 @@ describe("block size limits (§191)", () => {
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toBe(t(LANG, "documentsBlockOverTextLimitNotSaved", fmt(MAX_TEXT_CHARS)));
     expect(input.value).toHaveLength(MAX_TEXT_CHARS + 1);
+  });
+
+  // §188 — the over-limit draft stays dirty, so typing to trim it does not count as a NEW edit and
+  //  the notice that says how much to cut stays up.
+  it("keeps the over-limit notice while the user trims the refused heading (§188)", () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "H" }} onCommit={onCommit} />);
+    const input = screen.getByRole("textbox", { name: headingTextName(0) });
+    input.focus();
+    fireEvent.change(input, { target: { value: "x".repeat(MAX_TEXT_CHARS + 2) } });
+    act(() => input.blur());
+    input.focus();
+    fireEvent.change(input, { target: { value: "x".repeat(MAX_TEXT_CHARS + 1) } });
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, "documentsBlockOverTextLimitNotSaved", fmt(MAX_TEXT_CHARS)));
   });
 
   it("keeps a refused heading dirty, so an unload still saves it truncated", () => {

@@ -363,7 +363,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§129](#129-six-of-the-eight-richtexteditor-call-sites-import-it-statically-so-tiptap-ssrs-and-ships-in-the-initial-bundle--closed-2026-08-19) | Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle | — | — | **CLOSED** 2026-08-19 |
 | [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--open-accepted-measured) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured | — | — | open |
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
-| [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--open-cosmetic-measured) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured | — | — | open |
+| [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--closed-2026-10-02) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word | — | — | **CLOSED** 2026-10-02 |
 | [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
 | [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--open-latent-measured) | ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured | — | — | open |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
@@ -419,7 +419,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
-| [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
+| [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes--closed-2026-10-02) | A block refusal notice outlives the attempt it describes | — | — | **CLOSED** 2026-10-02 |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
 | [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
@@ -11267,11 +11267,17 @@ symbol-only citation · correcting an existing citation's line number in place).
 regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.
 
 
-## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured
+## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — CLOSED 2026-10-02
 
-**Status:** open — a multi-target undo label that falls through to the generic string. Reproduced 2026-08-28 by `grep -n "entityKey" src/app/undo/use-undo-stack.ts`.
+**Status:** CLOSED 2026-10-02, by owner decision ("app-wide entity label"). The entry's "real fix", the edit-side twin of `undoLabelDeleteCount`, is built:
+- `undoLabelEditCount` ("Edit {0} {1}" / "{0} {1} bearbeiten") is now `buildUndoLabel`'s last line. Every unnamed edit of a known entity names it ("Edit 3 tasks"). Only an unresolvable entity still gets the generic "Edited N items".
+- ★ That made a count reachable for six entities that had no plural noun: absence, shift, role, discipline, grade and meeting. The comment said they are "only ever named, count 1". They gained plurals in EN and DE, and `ENTITY_PLURAL` is now a total `Record`, so tsc demands a plural for the next entity.
+- Pinned by `use-undo-stack.test.tsx` "buildUndoLabel — an unnamed multi-row edit names its entity (§132)" (EN, DE, singular, the six new plurals, the explicit-`entityKey` path and the unresolvable fallback). Reverting the last line to the generic string turns four of its tests red.
+- The successor fan-out itself is unchanged: it still passes no `name` above one target, which `use-task-submit.test.ts` pins.
 
-**Work item:** #149
+The original report follows.
+
+**Previously:** open — a multi-target undo label that falls through to the generic string. Reproduced 2026-08-28 by `grep -n "entityKey" src/app/undo/use-undo-stack.ts`.
 
 `recordSuccessorEdits` (`use-task-submit.ts`) passes `name` only when it wrote exactly ONE target, so a
 fan-out onto several tasks reaches `buildUndoLabel` with no name, resolves entity `task`, and falls to the
@@ -16081,12 +16087,16 @@ spy, and assert (a) an op carrying `expect` reaches the engine without it, and
 (b) the hand editor's own guarded `replace` still carries its `expect` — the
 second half is what stops a future "just drop expect everywhere" simplification.
 
-## 188. A block refusal notice outlives the attempt it describes
+## 188. A block refusal notice outlives the attempt it describes — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-02 along the entry's own direction, by owner decision ("when the user edits again"). `useBlockDraft`'s `setValue` now clears the refusal when the draft goes from CLEAN to dirty, i.e. when the user starts a new edit. The notice still survives the adoption of an external write, where it is the only explanation for the replaced text. ★ An over-cap refusal (§185, §191) keeps the draft dirty, so typing to trim it is not a new edit and its "N too long" notice stays up. Pinned by two tests in `document-block-editors.test.tsx`, both mutation-checked:
+- "keeps the conflict notice through the adoption and clears it when the user edits again (§188)". It goes red when the clear is removed.
+- "keeps the over-limit notice while the user trims the refused heading (§188)". It goes red when the clear ignores the clean-to-dirty condition.
+
+The original report follows.
+
+**Previously:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. **Deliberately not fixed.** Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #177
 
 `useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
 pink "Not saved" line clears on the next COMMIT attempt and not before.

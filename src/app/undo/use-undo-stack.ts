@@ -56,15 +56,22 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   calendarEvent: "undoEntityCalendarEvent",
   budget: "undoEntityBudget",
 };
-// Plurals only for entities that appear with a count (bulk/multi-delete); the
-// rest fall back to the singular (they're only ever named, count 1).
-const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
+// §132 — a plural for EVERY entity, and a total record so tsc demands the next one: an unnamed
+// multi-row edit now names its entity with a count ("Edit 3 absences"), so the old "only named,
+// count 1" rule that let six entities fall back to the singular no longer holds.
+const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
   task: "undoEntityTasks",
   milestone: "undoEntityMilestones",
   raid: "undoEntityRaids",
   change: "undoEntityChanges",
   stakeholder: "undoEntityStakeholders",
   resource: "undoEntityResources",
+  absence: "undoEntityAbsences",
+  shift: "undoEntityShifts",
+  role: "undoEntityRoles",
+  discipline: "undoEntityDisciplines",
+  grade: "undoEntityGrades",
+  calendarEvent: "undoEntityCalendarEvents",
   budget: "undoEntityBudgets",
 };
 
@@ -95,7 +102,7 @@ function truncateName(name: string): string {
 /**
  * Compose the already-translated human label for one undoable op from its
  * operation + entity + name/count. Built at capture time (in the user's current
- * language). Falls back to a generic "Edited/Deleted N item(s)" when the entity
+ * language). Falls back to a generic "Edited/Deleted N items" only when the entity
  * can't be resolved (unknown kind, no entityKey). Pure aside from i18n lookups.
  */
 export function buildUndoLabel(
@@ -113,7 +120,7 @@ export function buildUndoLabel(
   const name = opts?.name && opts.name.trim() ? truncateName(opts.name) : "";
   if (!key) return tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count, count);
   const singular = t(lang, ENTITY_SINGULAR[key]);
-  const plural = t(lang, ENTITY_PLURAL[key] ?? ENTITY_SINGULAR[key]);
+  const plural = t(lang, ENTITY_PLURAL[key]);
   // ★★★ THE NOUN AGREES WITH `count`, AND THIS LINE SHIPPED WITHOUT IT — a
   // one-row bulk edit read "Bulk edit 1 tasks" / "Sammelbearbeitung von 1
   // Aufgaben". Found by cold review 2026-09-07; the delete branch three lines
@@ -133,7 +140,9 @@ export function buildUndoLabel(
     return t(lang, "undoLabelDeleteCount", count, count === 1 ? singular : plural);
   }
   if (name) return t(lang, "undoLabelEditNamed", singular, name);
-  return tPlural(lang, "undoToastEdit", count, count);
+  // §132 — an unnamed edit of a known entity names it ("Edit 3 tasks"), the edit-side twin of
+  //  `undoLabelDeleteCount`; it used to fall through to the entity-less "Edited 3 items".
+  return t(lang, "undoLabelEditCount", count, count === 1 ? singular : plural);
 }
 
 export interface CaptureOpts<T extends { id: number }> {

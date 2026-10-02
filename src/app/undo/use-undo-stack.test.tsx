@@ -3,7 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
-import { tPlural } from "../i18n";
+import { loadI18n, t, tPlural } from "../i18n";
 
 type Row = { id: number; name: string };
 type Ref = { id: number; roleId: number | null };
@@ -646,6 +646,33 @@ describe("useUndoStack", () => {
     expect(arr).toEqual([{ id: 1, name: "after" }, { id: 2, name: "after" }]);  // control: the redo really applied
     expect(arr).toHaveLength(2);                                                 // the premise: a map cannot shorten
     expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+});
+
+// §132 — an UNNAMED edit of a known entity (the task successor fan-out writes several targets and names
+// none) used to fall through to the entity-less "Edited 3 items". It now names the entity, as the
+// delete side always did with `undoLabelDeleteCount`.
+describe("buildUndoLabel — an unnamed multi-row edit names its entity (§132)", () => {
+  it("labels an unnamed task edit by count and entity, singular and plural", () => {
+    expect(buildUndoLabel("en-US", "task.updated", 3)).toBe(t("en-US", "undoLabelEditCount", 3, t("en-US", "undoEntityTasks")));
+    expect(buildUndoLabel("en-US", "task.updated", 3)).toBe("Edit 3 tasks");
+    expect(buildUndoLabel("en-US", "task.updated", 1)).toBe("Edit 1 task");
+  });
+
+  // ★ Six entities had no plural noun ("only ever named, count 1") and would have read "Edit 3 absence".
+  it("has a real plural noun for every entity, so a count never reads with the singular", () => {
+    expect(buildUndoLabel("en-US", "absence.updated", 3)).toBe("Edit 3 absences");
+    expect(buildUndoLabel("en-US", "calendarEvent.updated", 2)).toBe("Edit 2 meetings");
+  });
+
+  it("does the same in German", async () => {
+    await loadI18n("de");
+    expect(buildUndoLabel("de", "task.updated", 3)).toBe("3 Aufgaben bearbeiten");
+  });
+
+  it("an explicit entityKey reaches it too, and an unresolvable entity keeps the generic label", () => {
+    expect(buildUndoLabel("en-US", "jira.sync" as ActivityKind, 2, { entityKey: "raid" })).toBe(t("en-US", "undoLabelEditCount", 2, t("en-US", "undoEntityRaids")));
+    expect(buildUndoLabel("en-US", "jira.sync" as ActivityKind, 2)).toBe(tPlural("en-US", "undoToastEdit", 2, 2));
   });
 });
 
