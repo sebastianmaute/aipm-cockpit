@@ -421,12 +421,14 @@ register's fix to another is how two of them broke. Read the note that names you
   never consumed the flat projection at ALL; it emits the STORED HTML, which is exactly what
   `golden-workspace.test.ts` pins. Reproduce:
   `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
-  ★ PPTX's REMAINING gap is a STATED one with a layout cause, not an oversight — `buildPptxRowSlide`
-  renders one slide per ROW and caps the meta lines, so three of the seven rich fields (including
-  `Task.description`) never reach a slide at any markup fidelity. `docs/open-followups.md` §153.
-  ★★ The lead clause read "PPTX being flat is a STATED gap" until 2026-09-01: `buildPptxRowSlide`
-  is precisely the function that stopped being flat (§330). The layout cap is unaffected — a field
-  that never reaches a slide is not helped by the slide gaining runs.
+  ★ PPTX's layout gap is CLOSED (§153, 2026-10-02): a multi-row section is listed on summary
+  slides (`buildPptxSummarySlides`, which deliberately leave rich fields off), and every row with
+  rich content gets detail slides (`buildPptxRowSlides`) carrying EVERY field, continued onto
+  "(n/total)" slides rather than cut. Before that, a `slice(2, 8)` cap kept three of the seven rich
+  fields — `Task.description` among them — off every slide. What remains is native bullets: list
+  markers are literal text, as in DOCX (§154).
+  ★★ The row-slide builder is also the function that stopped being flat (§330), so its fields
+  carry runs and live links.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:
   `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
   `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —

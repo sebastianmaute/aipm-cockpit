@@ -384,7 +384,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--closed-2026-09-27) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | **CLOSED** 2026-09-27 |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
-| [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
+| [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--closed-2026-10-02) | PPTX export is one slide per row and drops most rich fields before they can be rendered | — | — | **CLOSED** 2026-10-02 |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
 | [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--open-deliberate) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate | — | — | open |
@@ -13638,11 +13638,11 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 ---
 
-## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured
+## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — CLOSED 2026-10-02
 
-**Status:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Product decision: compact rows + details. `buildPptx` now gives a one-row section its detail slide and a longer section `buildPptxSummarySlides` (up to `SUMMARY_ROWS_PER_SLIDE` rows per slide, one line each: the first two columns plus up to three short non-rich fields), followed by a detail slide only for rows whose rich fields carry content (`hasRichContent`). A detail slide (`buildPptxRowSlides`) now lists EVERY non-empty field past the title rather than `columns.slice(2, 8)`, and a row too long for one slide continues on another marked "(n/total)" (`pageFieldParagraphs`) instead of being cut at "…" — so `Task.description`, RAID `mitigation` and Change `resolutionNotes` all reach a slide. Each page re-mints its link ids in its own slide-scoped sink (`localizeLinks`), byte-identical to before for a row that fits one slide. ★ Summary lines are paragraphs, not a native `a:tbl`, because nothing here can open a deck to check DrawingML table row heights. ★ Native bullets (scope item 1) are NOT done: list markers stay literal text, as in DOCX (§154). ★ A row with no rich content in a multi-row section gets no detail slide, so its non-rich fields past the first three are only in the other formats — the agreed trade. Pinned in `export-ooxml.test.ts` ("PPTX summary slides", "continues a 14-paragraph description…", "moves a link on a continuation page…"). The history below is kept as written.
 
-**Work item:** #162
+**Previously:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
@@ -27940,8 +27940,8 @@ PPTX renderer could do better. A different XLSX renderer could not.
 other way on 2026-09-01 and this entry must not be read as covering it.** The sentence above ("a
 different PPTX renderer could do better") was prophetic rather than hypothetical:
 `export-pptx.ts`, the WORKSPACE exporter, now mints real `<a:hlinkClick>` relationships on its row
-slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlide` emits ONE
-SLIDE PER ROW with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
+slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlides` emits a
+row's DETAIL slides with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
 title, `RowTitle` carries it alone, each `RowFields` line prefixes it with a column label), so the
 run structure a relationship hangs on survives and `flattenCell` never enters the picture. The rule
 this entry states is unchanged and was simply applied to the second layout: **a link becomes a

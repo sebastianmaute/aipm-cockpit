@@ -3,8 +3,8 @@
 // assembly) live in ooxml-pptx-primitives.ts; this file is only about turning
 // ExportSections into slides.
 import type { ExportCell, ExportSection } from "./export-sections";
-import { cellLinkedLines, cellText } from "./export-sections";
-import { createLinkSink, type LinkSink } from "./ooxml-links";
+import { cellLinkedLines, cellText, isRichCell } from "./export-sections";
+import { createLinkSink, type LinkRel, type LinkSink } from "./ooxml-links";
 // ★ The SHARED TextRun -> PptxRun converter, minting each relationship id
 // through the sink. Reused rather than re-derived so this exporter and the
 // document renderer cannot disagree about what a run's marks mean.
@@ -37,8 +37,10 @@ import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 /**
  * Build a `.pptx` Blob with a title slide + one divider+item slide block per
- * ExportSection. Each section is capped at PPTX_MAX_ROWS_PER_SECTION item
- * slides; if truncated, a notice slide is inserted after the section items.
+ * ExportSection. A one-row section gets a detail slide; a longer one gets
+ * summary slides plus a detail slide per row with rich content (§153). Each
+ * section is capped at PPTX_MAX_ROWS_PER_SECTION rows; if truncated, a notice
+ * slide is inserted after the section items.
  *
  * Slide dimensions are 16:9 widescreen (9144000 × 5143500 EMUs = standard).
  */
@@ -64,9 +66,19 @@ export function buildPptx(
     // Section divider slide.
     slides.push(chromeSlide(buildPptxDividerSlide(section.title, section.rows.length, lang, footer)));
 
-    // One item slide per row.
-    for (const row of usedRows) {
-      slides.push(buildPptxRowSlide(section.title, section.columns, row, lang, footer));
+    // §153 — a single row keeps its detail slide. Two or more rows read as
+    // compact summary slides (several rows per slide), followed by a detail
+    // slide ONLY for the rows whose rich fields carry content: those fields are
+    // the ones a one-line summary cannot show, and a row without any would
+    // only repeat its summary line at a larger size.
+    if (usedRows.length === 1) {
+      slides.push(...buildPptxRowSlides(section.title, section.columns, usedRows[0]!, lang, footer));
+    } else {
+      slides.push(...buildPptxSummarySlides(section.title, section.columns, usedRows, lang, footer).map(chromeSlide));
+      for (const row of usedRows) {
+        if (!hasRichContent(row)) continue;
+        slides.push(...buildPptxRowSlides(section.title, section.columns, row, lang, footer));
+      }
     }
 
     // Truncation notice when section exceeds the cap.
@@ -131,15 +143,14 @@ const TITLE_SLOT: SlotStyle = {
 };
 const FIELD_SLOT: SlotStyle = { sizeHundredths: 1600 };
 
-/** Most `<a:p>` the RowFields box may carry, the "…" line included (§33).
+/** Most `<a:p>` one detail slide's RowFields box carries before the row
+ *  continues on another slide (§153; §33 introduced the bound as a cap).
  *  The box is 2,800,000 EMU tall and a 16pt line at ~1.2 spacing is ~243,840
  *  EMU, so about 11 unwrapped lines fit; 10 leaves one line of room for
  *  wrapping. Counted in EMITTED paragraphs, not `PptxParagraph`s: a flat
  *  `{text}` paragraph becomes one `<a:p>` per "\n" in `pptxTextBox`, so one
- *  multi-paragraph description is many lines. The full text still reaches
- *  every other export format. */
+ *  multi-paragraph description is many lines. */
 export const MAX_FIELD_PARAGRAPHS = 10;
-const FIELD_ELLIPSIS: PptxParagraph = { text: "…", ...FIELD_SLOT };
 
 /** How many `<a:p>` `pptxTextBox` emits for one paragraph. */
 function emittedLineCount(p: PptxParagraph): number {
@@ -147,42 +158,65 @@ function emittedLineCount(p: PptxParagraph): number {
 }
 
 /**
- * Bounds the RowFields paragraphs at {@link MAX_FIELD_PARAGRAPHS}: the first
- * `MAX - 1` lines, then one "…" line.
+ * Splits the RowFields paragraphs into pages of at most
+ * {@link MAX_FIELD_PARAGRAPHS} emitted lines — every line is kept (§153; this
+ * was a cap ending in "…" under §33, which dropped the rest of the row).
  *
- * ★ Under the bound it returns the input UNCHANGED, so every row that fitted
- * before is byte-identical. Over it, a flat `{text}` paragraph is split into
- * one paragraph per line before cutting — which emits exactly the `<a:p>` the
- * unsplit paragraph would have, since `pptxTextBox` splits on "\n" the same way.
+ * ★ Under the bound it returns the input UNCHANGED as one page, so every row
+ * that fitted before is byte-identical. Over it, a flat `{text}` paragraph is
+ * split into one paragraph per line first — which emits exactly the `<a:p>`
+ * the unsplit paragraph would have, since `pptxTextBox` splits on "\n" the
+ * same way.
  */
-function capFieldParagraphs(paragraphs: readonly PptxParagraph[]): {
-  paragraphs: readonly PptxParagraph[];
-  truncated: boolean;
-} {
+function pageFieldParagraphs(paragraphs: readonly PptxParagraph[]): readonly (readonly PptxParagraph[])[] {
   const total = paragraphs.reduce((n, p) => n + emittedLineCount(p), 0);
-  if (total <= MAX_FIELD_PARAGRAPHS) return { paragraphs, truncated: false };
-  const budget = MAX_FIELD_PARAGRAPHS - 1;
-  const kept: PptxParagraph[] = [];
-  for (const p of paragraphs) {
-    const room = budget - kept.length;
-    if (room <= 0) break;
-    if ("runs" in p) {
-      kept.push(p);
-      continue;
-    }
-    for (const line of p.text.split("\n").slice(0, room)) kept.push({ ...p, text: line });
+  if (total <= MAX_FIELD_PARAGRAPHS) return [paragraphs];
+  const lines = paragraphs.flatMap((p): PptxParagraph[] =>
+    "runs" in p ? [p] : p.text.split("\n").map((line) => ({ ...p, text: line })),
+  );
+  const pages: PptxParagraph[][] = [];
+  for (let i = 0; i < lines.length; i += MAX_FIELD_PARAGRAPHS) {
+    pages.push(lines.slice(i, i + MAX_FIELD_PARAGRAPHS));
   }
-  return { paragraphs: [...kept, FIELD_ELLIPSIS], truncated: true };
+  return pages;
 }
 
-/** Relationship ids the given paragraphs actually reference. */
-function referencedRelIds(paragraphs: readonly PptxParagraph[]): Set<string> {
-  const ids = new Set<string>();
-  for (const p of paragraphs) {
-    if (!("runs" in p)) continue;
-    for (const r of p.runs) if (r.hyperlinkRelId !== undefined) ids.add(r.hyperlinkRelId);
-  }
-  return ids;
+/**
+ * Re-mints the relationship ids of ONE slide's paragraphs in a fresh
+ * slide-scoped sink, and returns the relationships that slide references.
+ *
+ * ★★ Why: the row's paragraphs are built once, through one sink, and then
+ * split across pages — but a relationship id is scoped to ONE slide's rels
+ * part, so each page needs its own ids starting at rId2, and a page must not
+ * declare a link that only sits on another page. Walking in reading order
+ * through a sink that dedups by target reproduces EXACTLY the ids the build
+ * sink minted when the row fits one slide, so that slide is byte-identical.
+ */
+function localizeLinks(
+  groups: readonly (readonly PptxParagraph[])[],
+  minted: readonly LinkRel[],
+): { groups: PptxParagraph[][]; rels: readonly LinkRel[] } {
+  const targetOf = new Map(minted.map((r) => [r.relId, r.target] as const));
+  const sink = createLinkSink(2);
+  const out = groups.map((paragraphs) =>
+    paragraphs.map((p): PptxParagraph => {
+      if (!("runs" in p)) return p;
+      return {
+        ...p,
+        runs: p.runs.map((r) => {
+          const target = r.hyperlinkRelId === undefined ? undefined : targetOf.get(r.hyperlinkRelId);
+          return target === undefined ? r : { ...r, hyperlinkRelId: sink.relIdFor(target) };
+        }),
+      };
+    }),
+  );
+  return { groups: out, rels: sink.rels() };
+}
+
+/** True when any field past the title carries rich text with content — the
+ *  fields a summary line leaves out, so the row earns a detail slide (§153). */
+function hasRichContent(row: readonly ExportCell[]): boolean {
+  return row.slice(2).some((cell) => isRichCell(cell) && cell.text.trim() !== "");
 }
 
 /** ★ The `?? ""` stays OUTSIDE `cellText`: its parameter excludes `undefined`
@@ -274,26 +308,27 @@ function slotParagraphs(
 }
 
 /**
- * One content slide per row. The first two columns go into a prominent title
- * area; the remaining columns are listed as key: value lines in a meta block.
- * This layout works well for both wide (many-column) and narrow sections.
+ * The detail slides for one row: the first two columns go into a prominent
+ * title area; every remaining non-empty column is listed as a key: value line,
+ * continuing onto further slides marked "(2/3)" when they do not fit one
+ * (§153 — this used to show six fields and cut the rest with "…").
  *
  * ★★ NOTHING HERE IS FLATTENED, which is why the row slide carries REAL links
  * while `doc-render-pptx.ts`'s table path keeps the inline `text (url)` form
  * (§330): every cell value lands in a paragraph of its own, so the run
  * structure a relationship hangs on survives.
  */
-function buildPptxRowSlide(
+function buildPptxRowSlides(
   sectionTitle: string,
   columns: string[],
   row: ExportCell[],
   lang: Lang,
   footer: string,
-): PptxSlide {
-  // ★★★ ONE SINK PER SLIDE, NEVER ONE PER DECK. A PPTX relationship id is
+): PptxSlide[] {
+  // ★★★ IDS ARE SLIDE-SCOPED, NEVER DECK-SCOPED. A PPTX relationship id is
   // scoped to ONE `ppt/slides/_rels/slideN.xml.rels`, so ids restart at rId2 on
-  // every slide; a deck-wide sink would mint rId3 on a second slide that has no
-  // rId2, naming a relationship that part does not contain.
+  // every slide. This build sink only collects targets; `localizeLinks` re-mints
+  // each page's ids in a sink of that page's own.
   // ★★ `2` is the whole arithmetic: rId1 is this slide's LAYOUT and this
   // exporter authors no media, so nothing else is reserved. `doc-render-pptx.ts`
   // cannot say that — it mints media ids during the render and offsets by a
@@ -307,77 +342,166 @@ function buildPptxRowSlide(
   // CELL, so a link inside the one that wins survives.
   const titleCell: ExportCell = secondText ? row[1] : firstText ? row[0] : "(empty)";
 
-  // ★ Built in the order the slide READS, because the sink mints ids in call
+  // ★ Built in the order the slide READS, because ids are minted in call
   // order: a debugger opening the rels part beside the slide finds rId2 on the
-  // first link a reader meets. Nothing depends on it — a rels part is a lookup
-  // table — but the alternative is ids that ascend backwards for no reason.
+  // first link a reader meets.
   const metaParagraphs = slotParagraphs(`${sectionTitle} · `, row[0], META_SLOT, links);
   const titleParagraphs = slotParagraphs("", titleCell, TITLE_SLOT, links);
-  // Remaining fields shown as "Label: value" lines. `slice(2, 8)` caps the
-  // number of FIELDS at 6; it bounds nothing about LINES, since one
-  // multi-paragraph description is many lines on its own. The line bound is
-  // `capFieldParagraphs` (§33).
-  const fieldLines = capFieldParagraphs(
-    columns
-      .slice(2, 8)
-      .flatMap((col, i) =>
-        slotText(row[i + 2])
-          ? slotParagraphs(`${col}: `, row[i + 2], FIELD_SLOT, links)
-          : [],
-      ),
-  );
-  const metaLines = fieldLines.paragraphs;
-  // ★ The sink minted ids for links in lines the cap then dropped. Keep only
-  // the relationships the slide still references, so a truncated slide carries
-  // no orphan rels. Gaps in the rId sequence are legal; a rels part is a lookup
-  // table. Untruncated slides keep the sink's list untouched.
-  const used = fieldLines.truncated
-    ? referencedRelIds([...metaParagraphs, ...titleParagraphs, ...metaLines])
-    : null;
-  const rels = used === null ? links.rels() : links.rels().filter((r) => used.has(r.relId));
+  // Remaining fields shown as "Label: value" lines — ALL of them (§153).
+  const fieldParagraphs = columns
+    .slice(2)
+    .flatMap((col, i) =>
+      slotText(row[i + 2]) ? slotParagraphs(`${col}: `, row[i + 2], FIELD_SLOT, links) : [],
+    );
+  const pages = pageFieldParagraphs(fieldParagraphs);
 
-  const shapes =
-    pptxAccentBar(COLOR_GREEN) +
-    pptxTextBox({
-      id: 2,
-      name: "RowMeta",
-      lang,
-      xEmu: 457200,
-      yEmu: 380000,
-      cxEmu: 8229600,
-      cyEmu: 350000,
-      paragraphs: metaParagraphs,
-    }) +
-    pptxTextBox({
-      id: 3,
-      name: "RowTitle",
-      lang,
-      xEmu: 457200,
-      yEmu: 750000,
-      cxEmu: 8229600,
-      cyEmu: 900000,
-      paragraphs: titleParagraphs,
-    }) +
-    (metaLines.length > 0
-      ? pptxTextBox({
-          id: 4,
-          name: "RowFields",
-          lang,
-          xEmu: 457200,
-          yEmu: 1850000,
-          cxEmu: 8229600,
-          cyEmu: 2800000,
-          paragraphs: metaLines,
-          // Shrink-on-overflow for long WRAPPED lines, which the paragraph
-          // cap cannot see. Renderer-dependent, hence the cap as well.
-          autofit: "shrink",
-        })
-      : "");
+  return pages.map((page, n) => {
+    const meta = pages.length === 1 ? metaParagraphs : withPageMarker(metaParagraphs, n + 1, pages.length);
+    const local = localizeLinks([meta, titleParagraphs, page], links.rels());
+    const [metaLines, titleLines, fieldLines] = local.groups as [PptxParagraph[], PptxParagraph[], PptxParagraph[]];
+    const shapes =
+      pptxAccentBar(COLOR_GREEN) +
+      pptxTextBox({
+        id: 2,
+        name: "RowMeta",
+        lang,
+        xEmu: 457200,
+        yEmu: 380000,
+        cxEmu: 8229600,
+        cyEmu: 350000,
+        paragraphs: metaLines,
+      }) +
+      pptxTextBox({
+        id: 3,
+        name: "RowTitle",
+        lang,
+        xEmu: 457200,
+        yEmu: 750000,
+        cxEmu: 8229600,
+        cyEmu: 900000,
+        paragraphs: titleLines,
+      }) +
+      (fieldLines.length > 0
+        ? pptxTextBox({
+            id: 4,
+            name: "RowFields",
+            lang,
+            xEmu: 457200,
+            yEmu: 1850000,
+            cxEmu: 8229600,
+            cyEmu: 2800000,
+            paragraphs: fieldLines,
+            // Shrink-on-overflow for long WRAPPED lines, which the page
+            // bound cannot see. Renderer-dependent, hence the bound as well.
+            autofit: "shrink",
+          })
+        : "");
 
-  // ★ `rels()` is `[]` for a row with no link, and `buildPptxPackage`'s
-  // contract is that an empty (or omitted) list adds no relationship and no
-  // part — so a link-free deck is byte-for-byte what it was.
-  return { xml: wrapPptxSlide(shapes, { text: footer, lang, onDark: false }), media: [], links: rels };
+    // ★ `rels` is `[]` for a page with no link, and `buildPptxPackage`'s
+    // contract is that an empty (or omitted) list adds no relationship and no
+    // part — so a link-free deck is byte-for-byte what it was.
+    return { xml: wrapPptxSlide(shapes, { text: footer, lang, onDark: false }), media: [], links: local.rels };
+  });
+}
+
+/** The RowMeta paragraphs with a " (n/total)" marker on the last one. */
+function withPageMarker(paragraphs: readonly PptxParagraph[], n: number, total: number): PptxParagraph[] {
+  const marker = ` (${n}/${total})`;
+  return paragraphs.map((p, i) => {
+    if (i !== paragraphs.length - 1) return p;
+    return "runs" in p
+      ? { ...p, runs: [...p.runs, styledRun({ text: marker }, META_SLOT)] }
+      : { ...p, text: p.text + marker };
+  });
+}
+
+/** Rows per summary slide, and the fields each summary line may show. A 14pt
+ *  line at ~1.2 spacing is ~213,000 EMU; the 3,300,000 EMU list box holds
+ *  about 15, so 8 rows leave each one room to wrap once. */
+export const SUMMARY_ROWS_PER_SLIDE = 8;
+const SUMMARY_FIELDS = 3;
+const SUMMARY_VALUE_MAX = 60;
+const SUMMARY_TITLE_SLOT: SlotStyle = { bold: true, sizeHundredths: 2400, colorRgb: COLOR_DARK_BLUE };
+const SUMMARY_LINE_SLOT: SlotStyle = { sizeHundredths: 1400 };
+
+/** One field value for a summary line: newlines folded to spaces and long
+ *  values shortened — the full value is on the row's detail slide (when it is
+ *  rich) and in every other export format. */
+function summaryValue(cell: ExportCell): string {
+  const flat = slotText(cell).replace(/\s+/g, " ").trim();
+  return flat.length > SUMMARY_VALUE_MAX ? `${flat.slice(0, SUMMARY_VALUE_MAX - 1)}…` : flat;
+}
+
+/**
+ * Compact summary slides for a section of two or more rows (§153): up to
+ * {@link SUMMARY_ROWS_PER_SLIDE} rows per slide, one paragraph each — the
+ * first two columns in bold, then up to three short NON-rich fields. Rich
+ * fields are left to the row's detail slide.
+ *
+ * ★ Text paragraphs, not a native `a:tbl`: a DrawingML table is a graphic
+ * frame whose row heights PowerPoint does not grow to fit wrapped text in
+ * every viewer, and nothing in this repo can open a deck to check one. A
+ * paragraph list wraps and shrinks (`autofit`) everywhere.
+ * ★ No cell here carries a link: only a RICH cell can (`cellLinkedLines`), and
+ * rich cells are not on a summary line — so these slides declare no
+ * relationships, like the other chrome slides.
+ */
+function buildPptxSummarySlides(
+  sectionTitle: string,
+  columns: string[],
+  rows: readonly ExportCell[][],
+  lang: Lang,
+  footer: string,
+): string[] {
+  const pages = Math.ceil(rows.length / SUMMARY_ROWS_PER_SLIDE);
+  const out: string[] = [];
+  for (let n = 0; n < pages; n++) {
+    const chunk = rows.slice(n * SUMMARY_ROWS_PER_SLIDE, (n + 1) * SUMMARY_ROWS_PER_SLIDE);
+    const lines: PptxParagraph[] = chunk.map((row) => {
+      const head = [summaryValue(row[0]), columns.length > 1 ? summaryValue(row[1]) : ""]
+        .filter((v) => v !== "")
+        .join(" · ");
+      const fields = columns
+        .slice(2)
+        .map((col, i) => ({ col, cell: row[i + 2] }))
+        .filter(({ cell }) => !isRichCell(cell) && summaryValue(cell) !== "")
+        .slice(0, SUMMARY_FIELDS)
+        .map(({ col, cell }) => `${col}: ${summaryValue(cell)}`);
+      return {
+        sizeHundredths: SUMMARY_LINE_SLOT.sizeHundredths,
+        runs: [
+          { text: head || "(empty)", bold: true },
+          ...(fields.length > 0 ? [{ text: ` — ${fields.join("; ")}`, colorRgb: COLOR_MEDIUM_GREY }] : []),
+        ],
+      };
+    });
+    const title = pages === 1 ? sectionTitle : `${sectionTitle} (${n + 1}/${pages})`;
+    const shapes =
+      pptxAccentBar(COLOR_GREEN) +
+      pptxTextBox({
+        id: 2,
+        name: "SummaryTitle",
+        lang,
+        xEmu: 457200,
+        yEmu: 380000,
+        cxEmu: 8229600,
+        cyEmu: 600000,
+        paragraphs: [{ text: title, ...SUMMARY_TITLE_SLOT }],
+      }) +
+      pptxTextBox({
+        id: 3,
+        name: "SummaryRows",
+        lang,
+        xEmu: 457200,
+        yEmu: 1100000,
+        cxEmu: 8229600,
+        cyEmu: 3300000,
+        paragraphs: lines,
+        autofit: "shrink",
+      });
+    out.push(wrapPptxSlide(shapes, { text: footer, lang, onDark: false }));
+  }
+  return out;
 }
 
 function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang, footer: string): string {
