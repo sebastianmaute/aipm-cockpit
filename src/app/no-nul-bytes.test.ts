@@ -57,6 +57,15 @@ function filesUnder(dir: string, skip: ReadonlySet<string>): string[] {
   return out;
 }
 
+/** First raw C0 control byte other than TAB, LF and CR (or DEL), or null. */
+function firstControlByte(bytes: Uint8Array): { at: number; byte: number } | null {
+  for (let i = 0; i < bytes.length; i++) {
+    const c = bytes[i];
+    if (c < 9 || c === 11 || c === 12 || (c > 13 && c < 32) || c === 127) return { at: i, byte: c };
+  }
+  return null;
+}
+
 function scannedFiles(): string[] {
   const skip = ignoredDirs();
   return ["src", "docs"].flatMap((d) => filesUnder(join(ROOT, d), skip));
@@ -103,16 +112,17 @@ describe("committed source files are text", () => {
     expect(files.length).toBeGreaterThan(500);
     const offenders: string[] = [];
     for (const file of files) {
-      const bytes = readFileSync(file);
-      for (let i = 0; i < bytes.length; i++) {
-        const c = bytes[i];
-        if (c < 9 || c === 11 || c === 12 || (c > 13 && c < 32) || c === 127) {
-          offenders.push(`${relative(ROOT, file)} @ byte ${i} (0x${c.toString(16).padStart(2, "0")})`);
-          break;
-        }
-      }
+      const hit = firstControlByte(readFileSync(file));
+      if (hit) offenders.push(`${relative(ROOT, file)} @ byte ${hit.at} (0x${hit.byte.toString(16).padStart(2, "0")})`);
     }
     expect(offenders).toEqual([]);
+  });
+
+  // ★ In-test positive control for the DETECTOR itself (the file-count control
+  // above proves the sweep is broad, not that the predicate can fire).
+  it("the control-byte detector flags a raw 0x01 and passes TAB, LF and CR", () => {
+    expect(firstControlByte(Buffer.from([0x61, 0x01, 0x62]))).toEqual({ at: 1, byte: 1 });
+    expect(firstControlByte(Buffer.from([0x61, 0x09, 0x0a, 0x0d, 0x62]))).toBeNull();
   });
 
   // The skip set must come from `.gitignore`, never a hardcoded list.
