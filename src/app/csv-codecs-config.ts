@@ -6,7 +6,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
-import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee, type ContactPersonInput } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeOverridesOrNone, hasAnyOverride } from "./settings-overrides";
@@ -477,12 +477,16 @@ export function encodeContactPersons(people: readonly ContactPerson[]): string {
   return people
     .map((p) => {
       const base = `${esc(p.name)};${esc(p.email)};${p.synced ? "1" : "0"}`;
+      // §537 — the id is a FIFTH positional field, so `resourceId` keeps the
+      // fourth slot (written empty when absent). A pre-§537 cell has 3 or 4
+      // fields and decodes with no id, which the load funnel then mints.
+      if (typeof p.id === "number") return `${base};${typeof p.resourceId === "number" ? p.resourceId : ""};${p.id}`;
       return typeof p.resourceId === "number" ? `${base};${p.resourceId}` : base;
     })
     .join(PROJECT_LIST_DELIM);
 }
 
-export function decodeContactPersons(text: string): ContactPerson[] {
+export function decodeContactPersons(text: string): ContactPersonInput[] {
   if (text === "") return [];
   // Split into entries on the un-escaped list delimiter.
   const entries: string[] = [];
@@ -521,10 +525,11 @@ export function decodeContactPersons(text: string): ContactPerson[] {
     return fields;
   };
 
-  const people: ContactPerson[] = [];
+  const people: ContactPersonInput[] = [];
   for (const entry of entries) {
-    const [name = "", email = "", synced = "0", rid = ""] = splitFields(entry);
+    const [name = "", email = "", synced = "0", rid = "", id = ""] = splitFields(entry);
     people.push({
+      ...(id !== "" ? { id: Number(id) } : {}),
       name: unescape(name),
       email: unescape(email),
       synced: synced === "1",

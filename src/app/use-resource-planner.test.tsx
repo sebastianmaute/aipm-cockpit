@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 // src/app/use-resource-planner.test.tsx
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -527,6 +528,48 @@ describe("useResourcePlanner", () => {
       act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.roles.map((r) => r.id)).toEqual([7]);
       expect(result.current.workspace.resources.map((r) => r.roleId)).toEqual([7, 7]);
+    });
+
+    it("§177b — undoing a role delete restores roleId alone, keeping a concurrent edit to the resource", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setRoles([{ id: 7, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 0 }]);
+        result.current.workspace.setResources([withRole(1, 7)]);
+      });
+      act(() => { result.current.planner.handleDeleteRole(7); });
+      // A background writer renames the resource between the delete and its undo.
+      act(() => { result.current.workspace.setResources((prev) => prev.map((r) => ({ ...r, firstName: "Renamed" }))); });
+      const opts = captureComposite.mock.calls[0][0] as { parts: (CompositeFragment | null)[] };
+      act(() => replayCompositeUndo(opts.parts));
+      // The whole-row capture this replaced put "R1" back.
+      expect(result.current.workspace.resources[0]).toMatchObject({ roleId: 7, firstName: "Renamed" });
+    });
+
+    it("§177b — the field-patch cascade follows a re-minted role id", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setRoles([{ id: 7, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 0 }]);
+        result.current.workspace.setResources([withRole(1, 7)]);
+      });
+      act(() => { result.current.planner.handleDeleteRole(7); });
+      // A NEW role takes the freed id before the undo, so the restore re-mints.
+      act(() => { result.current.workspace.setRoles([{ id: 7, disciplineId: 9, gradeId: 9, internalRate: 0, externalRate: 0 }]); });
+      const opts = captureComposite.mock.calls[0][0] as { parts: (CompositeFragment | null)[] };
+      // ★ As `compositeUndoRunner` does it: the PRIMARY flushes synchronously
+      //   first, so its published remap exists before the cascade's updater
+      //   runs. The shared `replayCompositeUndo` helper skips that, which is fine
+      //   for the tests above (no re-mint) and wrong here.
+      act(() => {
+        const remap = { current: new Map<number, number>() as ReadonlyMap<number, number> };
+        flushSync(() => { opts.parts[0]!.restore(remap, true); });
+        opts.parts.slice(1).forEach((f) => f?.restore(remap, false));
+      });
+      const restored = result.current.workspace.roles.find((r) => r.disciplineId === 1)!;
+      expect(restored.id).not.toBe(7);
+      // The resource points at the RESTORED role, not the unrelated new id-7 role.
+      expect(result.current.workspace.resources[0].roleId).toBe(restored.id);
     });
 
     it("discipline delete captures a composite that restores the discipline AND roles' FK/rates", () => {
@@ -1059,6 +1102,17 @@ describe("useResourcePlanner", () => {
       for (const r of result.current.workspace.resources) {
         expect(r).toMatchObject({ department: "Ops", isExternal: true });
       }
+    });
+
+    it("§177b — handleBulkEditResources captures the written rows, so its undo is a field patch", () => {
+      const capture = vi.fn();
+      const { result } = renderPlanner({ capture });
+      const mk = (id: number): Resource => ({ id, firstName: `R${id}`, lastName: "", roleId: null, utilizationMode: "percent", utilization: {} });
+      act(() => { result.current.workspace.setResources([mk(1), mk(2)]); });
+      act(() => { result.current.planner.handleBulkEditResources([1, 2], { department: "Ops" }); });
+      const opts = capture.mock.calls[0][0] as { edited: Resource[]; editedAfter: Resource[] };
+      expect(opts.edited.map((r) => r.department)).toEqual([undefined, undefined]);
+      expect(opts.editedAfter.map((r) => r.department)).toEqual(["Ops", "Ops"]);
     });
 
     it("handleBulkDeleteResources removes all selected in one tick", () => {

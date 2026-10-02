@@ -37,7 +37,12 @@ export interface DocumentBlockGutterProps {
   /** Insert a seeded block of `type` AT `index` — so "add above" passes the
    *  row's own index and "add below" passes `index + 1`. */
   onInsert: (index: number, type: AddableBlockType) => void;
-  onDelete: (index: number) => void;
+  /** ★★ `opened` is the block this row held when its menu OPENED (§198), not
+   *  the one it holds at click time — the editor's delete hands it to the
+   *  engine as the `expect` baseline, so a concurrent write that slides a
+   *  different block under this row while the menu is open makes the delete
+   *  REFUSE instead of removing the block that slid in. */
+  onDelete: (index: number, opened: DocBlock) => void;
   /** Supplies the drag wiring AND the ArrowUp/ArrowDown reorder — this
    *  component adds no keyboard path of its own. */
   handleProps: BlockHandleProps;
@@ -58,6 +63,9 @@ export function DocumentBlockGutter({
   const anchorRef = useRef<HTMLButtonElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  // §198: frozen in the OPEN click, read in the delete click. A ref, not state:
+  // it is written and read only by handlers and drives no render.
+  const openedOnRef = useRef<DocBlock>(block);
   // null = the first view (add above / add below / delete). A number = the
   // kind list, and the index the chosen kind will be inserted AT.
   const [addAt, setAddAt] = useState<number | null>(null);
@@ -104,7 +112,7 @@ export function DocumentBlockGutter({
         <DragHandle
           ariaLabel={rowName("documentsBlockReorder")}
           ariaDescribedBy={handleDescribedBy}
-          className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue"
+          className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           {...handleProps}
         />
         {/* ★★ EllipsisHORIZONTAL, against DragHandle's EllipsisVERTICAL. Two
@@ -121,7 +129,11 @@ export function DocumentBlockGutter({
           //  the omission nor a value that contradicts the panel.
           aria-haspopup="dialog"
           aria-expanded={open}
-          onClick={() => (open ? close() : setOpen(true))}
+          onClick={() => {
+            if (open) return close();
+            openedOnRef.current = block;
+            setOpen(true);
+          }}
         >
           <EllipsisHorizontalIcon aria-hidden="true" className="h-4 w-4" />
         </Button>
@@ -150,7 +162,7 @@ export function DocumentBlockGutter({
                 variant="ghost"
                 size="xs"
                 className="justify-start text-ui-pink-strong hover:bg-ui-pink/10 dark:hover:bg-ui-pink/5"
-                onClick={() => { close(); onDelete(index); }}
+                onClick={() => { close(); onDelete(index, openedOnRef.current); }}
               >
                 {t(lang, "documentsBlockDelete")}
               </Button>

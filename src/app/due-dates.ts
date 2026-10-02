@@ -29,6 +29,10 @@ export type AlertableTask = {
   task: Task;
   category: AlertCategory;
   workDaysLeft: number; // 0 for overdue/today
+  /** Working days since the due date, for an OVERDUE task (0 otherwise). §450
+   *  found the overdue reason line reading `workDaysLeft`, which is always 0
+   *  there, so every overdue task said "Overdue by 0 working days". */
+  workDaysOverdue: number;
 };
 
 /**
@@ -50,12 +54,12 @@ export function getAlertableTasks(
     // completedDate excludes Done; isTaskFinished also excludes Cancelled
     // (terminal, no completedDate) — Cancelled tasks must not raise due alerts.
     if (!task.dueDate || task.completedDate || isTaskFinished(task)) continue;
-    if (task.dueDate < today) { out.push({ task, category: "overdue", workDaysLeft: 0 }); continue; }
-    if (task.dueDate === today) { out.push({ task, category: "today", workDaysLeft: 0 }); continue; }
+    if (task.dueDate < today) { out.push({ task, category: "overdue", workDaysLeft: 0, workDaysOverdue: workdaysUntil(today, task.dueDate, holidays) }); continue; }
+    if (task.dueDate === today) { out.push({ task, category: "today", workDaysLeft: 0, workDaysOverdue: 0 }); continue; }
     const absenceDays = absMap.get(task.assignee.trim().toLowerCase()) ?? EMPTY;
     const trigger = shiftToWorkingDay(isoAddDays(task.dueDate, -reminderLeadDays), holidays, absenceDays);
     if (today >= trigger) {
-      out.push({ task, category: "soon", workDaysLeft: workdaysUntil(task.dueDate, today, holidays) });
+      out.push({ task, category: "soon", workDaysLeft: workdaysUntil(task.dueDate, today, holidays), workDaysOverdue: 0 });
     }
   }
   out.sort((a, b) => a.task.dueDate.localeCompare(b.task.dueDate));

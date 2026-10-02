@@ -173,6 +173,23 @@ describe("BulkEditModal", () => {
     expect(captured.enabledPriority).toBe(true);
   });
 
+  test("§450 — the Jira note states the synced count instead of a literal {0}", () => {
+    // It was called with no argument at all, so it rendered "{0} synced task(s)".
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ selectedJiraCount: 2 })} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    const notes = screen.getAllByText(/managed by Jira/);
+    expect(notes.length).toBeGreaterThan(0);
+    for (const n of notes) {
+      expect(n.textContent).toContain("the 2 synced tasks");
+      expect(n.textContent).not.toContain("{0}");
+    }
+  });
+
   test("the status select keeps an accessible name even with the Jira note sibling present", () => {
     // selectedJiraCount>0 renders a sibling <p> note, making the row's children
     // an array — BulkEditFieldRow's aria-label clone is skipped, so the select

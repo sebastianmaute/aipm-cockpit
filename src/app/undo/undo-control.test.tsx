@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { t } from "../i18n";
+import { t, tPlural } from "../i18n";
 import { UndoControl, RedoControl } from "./undo-control";
 
 // ★ `kind` must be a real ActivityKind member and must NOT widen to string.
@@ -142,7 +142,7 @@ describe("UndoControl history listbox", () => {
     const options = screen.getAllByRole("option");
     await userEvent.hover(options[2]);
     expect(options.filter((o) => o.getAttribute("data-banded") === "true")).toHaveLength(3);
-    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 3, 3))).toBeInTheDocument();
   });
 
   it("marks ONLY the active option aria-selected, not the whole band", async () => {
@@ -245,12 +245,12 @@ describe("UndoControl history listbox — keyboard position survives a pointerle
   it("ignores a mouseenter that arrives with no pointer movement after a key move", async () => {
     const options = await openList();
     await userEvent.keyboard("{End}");
-    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 3, 3))).toBeInTheDocument();
 
     // No mousemove first: this is what a scroll-induced enter looks like.
     fireEvent.mouseEnter(options[0]);
 
-    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 3, 3))).toBeInTheDocument();
     expect(options[2]).toHaveAttribute("aria-selected", "true");
   });
 
@@ -261,7 +261,7 @@ describe("UndoControl history listbox — keyboard position survives a pointerle
     fireEvent.mouseMove(window);
     fireEvent.mouseEnter(options[0]);
 
-    expect(screen.getByText(t("en-US", "undoNActions", 1))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 1, 1))).toBeInTheDocument();
     expect(options[0]).toHaveAttribute("aria-selected", "true");
   });
 
@@ -287,7 +287,7 @@ describe("UndoControl history listbox — a shrinking stack", () => {
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     await userEvent.keyboard("{End}");
     // Setup proof: the index really is at the last row before the stack shrinks.
-    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 3, 3))).toBeInTheDocument();
 
     rerender(
       <UndoControl
@@ -302,7 +302,7 @@ describe("UndoControl history listbox — a shrinking stack", () => {
     expect(options).toHaveLength(2);
     // The footer is the half `options[activeIndex]?.id` would NOT fix: without
     // the clamp it still reads "Undo 3 action(s)" over two rows.
-    expect(screen.getByText(t("en-US", "undoNActions", 2))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 2, 2))).toBeInTheDocument();
     expect(screen.getByRole("listbox")).toHaveAttribute(
       "aria-activedescendant",
       options[1].getAttribute("id"),
@@ -350,7 +350,7 @@ describe("UndoControl history listbox — a shrinking stack", () => {
     await userEvent.keyboard("{ArrowUp}");
     // From the stored 2 a bare `i - 1` lands on 1 (no visible move); from the
     // clamped 1 it lands on 0.
-    expect(screen.getByText(t("en-US", "undoNActions", 1))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "undoNActions", 1, 1))).toBeInTheDocument();
     expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
   });
 });

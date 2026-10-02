@@ -34,7 +34,7 @@
 // give them purpose ship (0.203.0).
 
 import { useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { clampRangeEnd } from "./date-range";
 import { parseUtc } from "./calendar-window";
 import { weekdayIndex } from "./recurrence";
@@ -258,7 +258,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
               DRAFT because the repeat controls live in a separate recurrence
               state, so draft.exceptions survives until submit. */}
           {!repeating && exceptionCount > 0 && (
-            <FieldHint>{t(lang, "calendarEventExceptionsDiscarded", exceptionCount)}</FieldHint>
+            <FieldHint>{tPlural(lang, "calendarEventExceptionsDiscarded", exceptionCount, exceptionCount)}</FieldHint>
           )}
 
           {repeating && (
@@ -276,7 +276,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
                   }
                 />
                 <span className="text-muted-foreground">
-                  {t(lang, INTERVAL_UNIT_KEY[recurrence.freq as "daily" | "weekly" | "monthly"])}
+                  {tPlural(lang, INTERVAL_UNIT_KEY[recurrence.freq as "daily" | "weekly" | "monthly"], recurrence.interval)}
                 </span>
               </label>
 

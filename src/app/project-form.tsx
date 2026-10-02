@@ -25,7 +25,7 @@ import {
   validateProjectMeta,
   type ProjectErrorField,
 } from "./project-validation";
-import { sanitizeProjectMeta } from "./sanitize";
+import { sanitizeProjectMeta, withContactPersonIds } from "./sanitize";
 import { Button } from "./button";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -80,7 +80,9 @@ export function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
     sharepointUrl: meta.sharepointUrl ?? "",
     confluenceUrl: meta.confluenceUrl ?? "",
     jiraUrl: meta.jiraUrl ?? "",
-    contactPersons: meta.contactPersons.map((c) => ({ ...c })),
+    // §537 — ids guaranteed here too: a meta handed in unsanitised (a test, a
+    // future caller) must not reach the editor with id-less rows it keys by id.
+    contactPersons: withContactPersonIds(meta.contactPersons.map((c) => ({ ...c }))),
     docRepoLocation: meta.docRepoLocation ?? "",
     regulatory: [...meta.regulatory],
     notes: meta.notes ?? "",

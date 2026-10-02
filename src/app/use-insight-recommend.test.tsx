@@ -32,11 +32,24 @@ describe("useInsightRecommend", () => {
     const args = makeArgs();
     const { result } = renderHook(() => useInsightRecommend(args));
     await act(async () => { await result.current.generate(1); });
-    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation);
+    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation, undefined);
     expect(runInsightRecommendation.mock.calls[0][0].signal).toBeInstanceOf(AbortSignal);
     expect(args.onError).not.toHaveBeenCalled();
     expect(result.current.generatingId).toBeNull();
     expect(result.current.busy).toBe(false);
+  });
+
+  // §350: the snapshot is read when the PROMPT is built — before the billed
+  // call — and handed to the store beside the result.
+  it("reads the entity snapshot before the call and passes it to applyRecommendation", async () => {
+    const order: string[] = [];
+    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [] };
+    runInsightRecommendation.mockImplementation(async () => { order.push("call"); return recommendation; });
+    const args = makeArgs({ snapshotEntities: () => { order.push("snapshot"); return snap; } });
+    const { result } = renderHook(() => useInsightRecommend(args));
+    await act(async () => { await result.current.generate(1); });
+    expect(order).toEqual(["snapshot", "call"]);
+    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation, snap);
   });
 
   it("is busy for the duration of a generate and names the generating insight", async () => {
@@ -162,6 +175,6 @@ describe("useInsightRecommend — the scope epoch (§548)", () => {
     act(() => { gen = result.current.generate(1); });
     await act(async () => { release(recommendation); await gen; });
 
-    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation);
+    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation, undefined);
   });
 });

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi, test } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
@@ -1108,8 +1108,8 @@ describe("RaidPanel linked-documents badge", () => {
     renderWithProbe(makeProps({ raid, documentsByEntity }));
     const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 document(s) – Alpha",
-      "Referenced by 1 document(s) – Beta",
+      "Referenced by 2 documents – Alpha",
+      "Referenced by 1 document – Beta",
     ]);
     // ★ NO `requireCollisionSeed`: Alpha/Beta/Gamma are DISTINCT titles, so no
     // two rows share a display name. This is a distinct-name regression pin over
@@ -1120,7 +1120,7 @@ describe("RaidPanel linked-documents badge", () => {
   it("clicking the badge switches the app to the Documents view", () => {
     renderWithProbe(makeProps({ raid, documentsByEntity }));
     expect(screen.getByTestId("active-tab").textContent).toBe("dashboard");
-    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 documents – Alpha" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
     expect(screen.getByTestId("pending-doc-filter").textContent).toBe("raid:1");
   });
@@ -1178,8 +1178,8 @@ describe("RaidPanel row-unique accessible names (WCAG 2.4.6)", () => {
     expect(
       screen.getAllByRole("button", { name: /^Referenced by/ }).map((b) => b.getAttribute("aria-label")),
     ).toEqual([
-      `${t("en-US", "documentsLinkedBadge", 1)} – Vendor risk (1)`,
-      `${t("en-US", "documentsLinkedBadge", 1)} – Vendor risk (2)`,
+      `${tPlural("en-US", "documentsLinkedBadge", 1, 1)} – Vendor risk (1)`,
+      `${tPlural("en-US", "documentsLinkedBadge", 1, 1)} – Vendor risk (2)`,
     ]);
   });
 

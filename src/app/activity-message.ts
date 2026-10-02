@@ -64,6 +64,19 @@ import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
 const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot: number }>> = {
   "ai.allocationPlan": { base: "activityAiAllocationPlan", slot: 0 },
   "ai.raciSuggest": { base: "activityAiRaciSuggest", slot: 0 },
+  // §450 tier 1 — the eight that wrote `task(s)` / `Aufgabe(n)`; the count is
+  // `{0}` in every one.
+  "bulk.edit": { base: "activityBulkEdit", slot: 0 },
+  "bulk.delete": { base: "activityBulkDelete", slot: 0 },
+  "bulk.inquiries": { base: "activityBulkInquiries", slot: 0 },
+  "history.restore": { base: "activityHistoryRestore", slot: 0 },
+  "calendar.autoPulled": { base: "activityCalendarAutoPulled", slot: 0 },
+  "ai.taskDedup": { base: "activityAiTaskDedup", slot: 0 },
+  "undo": { base: "activityUndo", slot: 0 },
+  "redo": { base: "activityRedo", slot: 0 },
+  // §450 — the third argument (`{2}`) is the conflict count; the first two
+  // are bare numbers ("3 pulled") with no noun to agree.
+  "jira.sync": { base: "activityJiraSync", slot: 2 },
 };
 
 /** Exposed for the drift test only — not part of the rendering contract. */

@@ -25,6 +25,17 @@ describe("taskDueProvider", () => {
     expect(a.cta).toEqual({ kind: "open", view: "open-points", id: 7 });
     expect(a.score).toBeGreaterThanOrEqual(ACTION_WEIGHTS.urgencyOverdue);
   });
+  it("§450 — says how many working days a task is overdue, with the singular at one", () => {
+    // 2026-06-15 is a Monday. Due the previous Friday → 1 working day overdue;
+    // due the Wednesday before → 3. The line used to read `workDaysLeft`,
+    // which is always 0 for an overdue task: "Overdue by 0 working days".
+    const base = { assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", description: "" } as const;
+    const [one] = taskDueProvider.provide(input([{ ...base, id: 1, taskName: "A", dueDate: "2026-06-12" } as Task]));
+    expect(one.why).toEqual({ key: "actionTaskWhyOverdueOne", params: [1] });
+    const [three] = taskDueProvider.provide(input([{ ...base, id: 2, taskName: "B", dueDate: "2026-06-10" } as Task]));
+    expect(three.why).toEqual({ key: "actionTaskWhyOverdue", params: [3] });
+  });
+
   it("returns nothing when no tasks are due", () => {
     expect(taskDueProvider.provide(input([]))).toEqual([]);
   });

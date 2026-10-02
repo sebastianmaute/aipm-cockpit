@@ -13,6 +13,7 @@ import { AiHttpError, classifyAiError, type AiErrorClass } from "./ai-errors";
 import type { Insight, InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import type { RecommendPlanWorkspace } from "./insights/recommend-plan";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
@@ -20,7 +21,13 @@ export interface UseInsightRecommendArgs {
   today: string;
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
-  applyRecommendation: (id: number, rec: InsightRecommendation) => void;
+  /** `snapshot` is what `snapshotEntities` returned when the prompt was BUILT
+   *  (§350), so the store can stamp concurrency tokens from the rows the model
+   *  actually read rather than from rows as they stand when it answers. */
+  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendPlanWorkspace) => void;
+  /** §350 — the five entity lists a recommendation may update, read at the
+   *  moment the prompt is built. Omitted by callers that do not stamp tokens (tests). */
+  snapshotEntities?: () => RecommendPlanWorkspace;
   isPopout?: boolean;
   /** Caller surfaces the toast for a failed generate. */
   /** `error` is the thrown value, so a caller can name a refused key (§650, `aiKeyMessageKeyForError`). */
@@ -65,6 +72,10 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
     setGeneratingId(insightId);
     // §548 — the project this insight (and its grounding context) was read from.
     const startEpoch = current.getScopeEpoch?.();
+    // §350 — the rows the prompt is built from, frozen beside it. An edit that
+    // lands while the model is answering then makes the stamped token stale, and
+    // the confirm REFUSES instead of overwriting it.
+    const snapshot = current.snapshotEntities?.();
     try {
       const rec = await run(async (signal) => {
         try {
@@ -93,7 +104,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
       // the PREVIOUS project. `applyInsightRecommendation`'s own `loadPending` gate cannot see this,
       // because the swap may already have FINISHED. Dropped, not queued.
       if (dropStaleScopeWrite(current.getScopeEpoch, startEpoch, "useInsightRecommend", { insightId })) return;
-      current.applyRecommendation(insightId, rec);
+      current.applyRecommendation(insightId, rec, snapshot);
     } finally {
       // Functional, and guarded on OUR id: a superseded generate settles AFTER
       // its successor set the spinner, so an unconditional clear would blank

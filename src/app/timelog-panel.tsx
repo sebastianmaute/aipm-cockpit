@@ -5,7 +5,7 @@
 // no direct API calls in render; all network happens inside event handlers.
 import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "./icons";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { GUARDRAIL_INSIGHT_TYPES } from "./insights/insight";
 import { useSettings } from "./use-settings";
@@ -454,7 +454,7 @@ export function TimelogPanel({
     // refresh that silently dropped some projects looks like a complete result.
     if (result && result.failedProjects > 0) {
       logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
-      showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
+      showToast("error", tPlural(lang, "guardTimelogPartialProjectFetch", result.failedProjects, result.failedProjects));
     }
     return result;
   }
@@ -516,7 +516,7 @@ export function TimelogPanel({
       });
       if (result.failedProjects > 0) {
         logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
-        showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
+        showToast("error", tPlural(lang, "guardTimelogPartialProjectFetch", result.failedProjects, result.failedProjects));
       }
     }
   }

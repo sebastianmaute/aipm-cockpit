@@ -263,6 +263,27 @@ describe("applyTemplate", () => {
     expect(ws.tasks[0].completedDate).toBe("2026-01-01");
   });
 
+  it("§228 — runs the load path's sanitiser on EVERY slice, not only tasks", () => {
+    // A RAID row the load path would reject (an unknown category) used to be
+    // appended verbatim by an in-session apply; it is now dropped, exactly as a
+    // reload would drop it.
+    const bad = { id: 1, title: "Bad", category: "Bogus", status: "Open", linkedTaskIds: [] } as unknown as RaidItem;
+    const good = { id: 2, title: "Good", category: "R", status: "Open", linkedTaskIds: [] } as unknown as RaidItem;
+    const ws = applyTemplate(emptyWorkspace(), tpl({ raid: [bad, good] }), { includeSeed: true });
+    expect(ws.raid.map((r) => r.title)).toEqual(["Good"]);
+  });
+
+  it("§298 — keeps a long rich RAID note rich on an in-session apply (canonical cleaner)", () => {
+    // Past TEXTAREA_MAX (5 000) visible characters the DOM-free seed cleaner
+    // flattens a note to plain text; the canonical one the browser injects keeps
+    // the markup, as every other path does.
+    const html = `<p><strong>head</strong> ${"x".repeat(6000)}</p>`;
+    const note = { id: 1, timestamp: "2026-01-01T00:00:00.000Z", html, text: "" };
+    const raid = { id: 2, title: "Good", category: "R", status: "Open", linkedTaskIds: [], noteLog: [note] } as unknown as RaidItem;
+    const ws = applyTemplate(emptyWorkspace(), tpl({ raid: [raid] }), { includeSeed: true });
+    expect(ws.raid[0].noteLog?.[0]?.html).toContain("<strong>head</strong>");
+  });
+
   it("drops per-row external links so an in-session apply matches the load path", () => {
     // sanitizeSeedTask REBUILDS a task from a fixed field list rather than
     // patching it, so routing apply through it drops NINE Task fields that the

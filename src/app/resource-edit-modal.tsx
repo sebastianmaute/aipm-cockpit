@@ -8,7 +8,7 @@
 // owned by the Roles modal).
 
 import { useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
 import { HintedLabel, Input, Textarea } from "./form-controls";
@@ -132,7 +132,7 @@ export function ResourceEditModal({
       email,
       notes: draft.notes?.trim() || undefined,
     };
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave(clean);
   }
 

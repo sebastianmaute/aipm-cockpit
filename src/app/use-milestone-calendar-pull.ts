@@ -2,7 +2,7 @@
 import { useCallback, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { CALENDAR_READWRITE_SCOPE, updateEvent, milestoneToGraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
@@ -55,7 +55,7 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     } catch {
       // Do NOT write baseline on failure — leave it non-matching so it re-conflicts
       // next pull (never falsely "in sync").
-      showToast("error", t(lang, "calendarPushPartial", 1));
+      showToast("error", tPlural(lang, "calendarPushPartial", 1, 1));
     }
   }, [milestones, acquireToken, showToast, lang, projectId]);
 

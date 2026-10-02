@@ -349,9 +349,9 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     // `types: ["heading", "paragraph"]` (rich-text-editor.tsx), so `data-align`
     // never lands on a `<pre>` either. What the four DO cover is that each
     // block arm hands its own align down to a line re-opened by a break —
-    // on inputs chosen to make that observable. The editor-real blockquote
-    // shape does NOT hold the property; it is characterized in the test below
-    // (open-followups §158).
+    // on inputs chosen to make that observable. A quote's align reaching a
+    // WRAPPED paragraph is the separate case pinned below (open-followups
+    // §158, closed).
     expect(htmlToRichLines('<p data-align="center">a<br>b</p>').map(alignOfLine)).toEqual([
       "center",
       "center",
@@ -372,24 +372,23 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     ]);
   });
 
-  it("DROPS a blockquote's OWN align when its content is wrapped in a paragraph", () => {
-    // ★★★ A CHARACTERIZATION OF A GAP, NOT A GUARANTEE — it asserts the defect
-    // is still there and is meant to go RED when open-followups §158 is fixed.
-    //
-    // ★★★ THIS FIXTURE IS IMPORTED/AI HTML, NOT EDITOR OUTPUT, and an earlier
-    // name for this test ("in the shape the editor actually stores") claimed the
-    // opposite — the same hand-authored-fixture-as-real-input class the comment
-    // above warns about, reintroduced by the round that wrote that warning.
-    // `TextAlign` is configured `types: ["heading", "paragraph"]`
-    // (rich-text-editor.tsx), so `data-align` never lands on a `<blockquote>`
-    // any more than it lands on a `<pre>`. The align the user sets inside a
-    // quote lands on the inner `<p>`, and THAT shape is fine — pinned below.
-    // The inner `<p>` takes the LINE_TAGS arm with `item === null`, so it opens
-    // a line with its OWN align; here that is absent and the blockquote's is
-    // gone, which is why only imported markup can reach this.
+  it("keeps a blockquote's OWN align when its content is wrapped in a paragraph (§158)", () => {
+    // ★★★ IMPORTED/AI HTML, NOT EDITOR OUTPUT. `TextAlign` is configured
+    // `types: ["heading", "paragraph"]` (rich-text-editor.tsx), so the editor
+    // never puts `data-align` on a `<blockquote>`. This went RED-to-GREEN with
+    // §158: the inner `<p>` used to take the LINE_TAGS arm with `item === null`
+    // and open a line with its own ABSENT align, dropping the quote's.
     expect(
       htmlToRichLines('<blockquote data-align="right"><p>q</p></blockquote>').map(alignOfLine),
-    ).toEqual([undefined]);
+    ).toEqual(["right"]);
+    // The paragraph's own declaration still wins over the quote's.
+    expect(
+      htmlToRichLines('<blockquote data-align="right"><p data-align="center">q</p></blockquote>').map(alignOfLine),
+    ).toEqual(["center"]);
+  });
+
+  it("does NOT widen the fallback to a paragraph inside a top-level div (§158 scope)", () => {
+    expect(htmlToRichLines('<div data-align="right"><p>q</p></div>').map(alignOfLine)).toEqual([undefined]);
   });
 
   it("keeps the align the EDITOR stores on a quote — on the inner paragraph", () => {
@@ -567,14 +566,17 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
     // so folding one into the item loses nothing. A blockquote carries a kind
     // that merging would destroy — and it can only reach here from markup the
     // editor cannot produce (`paragraph block*` puts a <p> first).
+    // §157: the item keeps its marker on a marker-only head line of its own.
     expect(htmlToRichLines("<ul><li><blockquote>q</blockquote></li></ul>")).toEqual([
-      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "q", marks: [] }] },
     ]);
   });
 
   it("keeps a heading inside an item as a heading, level intact", () => {
     expect(htmlToRichLines("<ul><li><h2>h</h2></li></ul>")).toEqual([
-      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
+      { kind: "heading", level: 2, listDepth: 0, runs: [{ text: "h", marks: [] }] },
     ]);
   });
 
@@ -838,16 +840,27 @@ describe("continuation lines inside a list item", () => {
     ]);
   });
 
+  it("stamps a nested item's OWN depth on its blocks, not the outer item's (§156)", () => {
+    // The inner item's walk finishes first and stamps 1; the outer item's
+    // pass must not overwrite it with 0.
+    const lines = htmlToRichLines("<ul><li><p>a</p><ul><li><p>b</p><blockquote>q</blockquote></li></ul></li></ul>");
+    const quote = lines.find((l) => l.kind === "blockquote");
+    expect(quote).toMatchObject({ kind: "blockquote", listDepth: 1 });
+    // And a block outside any list carries none at all.
+    expect(htmlToRichLines("<blockquote>q</blockquote>")[0]).not.toHaveProperty("listDepth");
+  });
+
   it("keeps a <pre> inside an item preformatted rather than continuing the item", () => {
     // ★ THE DELIBERATE NON-CONTINUATION. A <pre> carries a kind whose whole
     // point is that whitespace and the monospace face survive; turning it into
     // an `li` line to win the indent would trade that away. Same for
     // <blockquote> and <hN> above. The cost is that those lines lose the item's
-    // indent — open-followups §156.
+    // indent — or did until §156 (closed 2026-10-02): `listDepth` now carries
+    // the item's depth beside the kind, so renderers indent it under the item.
     expect(htmlToRichLines("<ul><li><p>a</p><pre>x\ny</pre></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "pre", runs: [{ text: "x", marks: [] }] },
-      { kind: "pre", runs: [{ text: "y", marks: [] }] },
+      { kind: "pre", listDepth: 0, runs: [{ text: "x", marks: [] }] },
+      { kind: "pre", listDepth: 0, runs: [{ text: "y", marks: [] }] },
     ]);
   });
 
@@ -859,22 +872,22 @@ describe("continuation lines inside a list item", () => {
     // this file green — measured, not assumed.
     expect(htmlToRichLines("<ul><li><p>a</p><blockquote>q<br>r</blockquote></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
-      { kind: "blockquote", runs: [{ text: "r", marks: [] }] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "q", marks: [] }] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "r", marks: [] }] },
     ]);
     // A heading's own arm runs with the INHERITED kind, so the line after the
     // break is a `p` — what matters is that it is not an `li`.
     expect(htmlToRichLines("<ul><li><p>a</p><h2>h<br>h2</h2></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
-      { kind: "p", runs: [{ text: "h2", marks: [] }] },
+      { kind: "heading", level: 2, listDepth: 0, runs: [{ text: "h", marks: [] }] },
+      { kind: "p", listDepth: 0, runs: [{ text: "h2", marks: [] }] },
     ]);
     // Text directly inside a <ul> is a parse error no editor makes, but this
     // parser is handed AI-authored and imported markup, and it is the only
     // input that can see the UL/OL arm's own clear.
     expect(htmlToRichLines("<ul><li><p>a</p><ul>stray<li><p>n</p></li></ul></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "stray", marks: [] }] },
+      { kind: "p", listDepth: 0, runs: [{ text: "stray", marks: [] }] },
       { kind: "li", ordered: false, depth: 1, index: 0, runs: [{ text: "n", marks: [] }] },
     ]);
   });
@@ -996,8 +1009,11 @@ describe("a list index is spent only on an item that reaches the output", () => 
     // index 0, and so certified a client-facing DOCX numbering the second item
     // "1.". The question is "did this item put anything into `lines`", NOT "did
     // the item's own li LINE survive".
+    // §157: and it now SHOWS that number, on a marker-only head before the
+    // heading — item 1 used to render no "1." anywhere.
     const lines = htmlToRichLines("<ol><li><h2>h</h2></li><li>a</li></ol>");
-    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual(["heading", 1]);
+    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual([0, "heading", 1]);
+    expect(lines[0].runs).toEqual([]);
   });
 
   it("SPENDS a number on an item whose only content is a nested list", () => {
@@ -1006,9 +1022,13 @@ describe("a list index is spent only on an item that reaches the output", () => 
     // numbered slot exactly as every browser and Word renders it.
     const lines = htmlToRichLines("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
     expect(lines.map((l) => (l.kind === "li" ? [l.depth, l.index] : l.kind))).toEqual([
+      [0, 0], // §157: item 1's marker-only head, so its "1." is shown
       [1, 0], // n
       [0, 1], // b <- item 2, because item 1 rendered a sub-list
     ]);
+    // The outer marker is NOT moved onto the nested item: that one keeps its runs.
+    expect(lines[0].runs).toEqual([]);
+    expect(lines[1].runs).toEqual([{ text: "n", marks: [] }]);
   });
 
   it("numbers a run of mixed bare and paragraph-wrapped items consecutively", () => {

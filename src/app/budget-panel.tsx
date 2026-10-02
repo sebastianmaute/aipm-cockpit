@@ -20,6 +20,8 @@ import { eurToCurrency, resolveRate, resolveRateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
+import { isContractPriced } from "./types";
+import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
 import { mintId } from "./id-mint-session";
@@ -514,7 +516,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucketCurrencyLabel(lang, bucket.currency, rate, rateSource)}
+                  {t(lang, BUDGET_TYPE_LABEL[br.type])} · {bucketCurrencyLabel(lang, bucket.currency, rate, rateSource)}
                   {" · "}{t(lang, isBlended ? "budgetModeBlended" : "budgetModeDetailed")}
                   <ManualPercentCell
                     lang={lang}
@@ -538,7 +540,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     unknowable without an internal rate. A T&M bucket's is
                     budgetValue − consumedValue on EXTERNAL rates and stays
                     valid — gating it there would hide a real figure. */}
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} label={rowLabel(t(lang, "budgetWinLossHint"), bucketToken)} /></div><span className="inline-flex items-center gap-1.5">{!costIsKnowable(br) && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} label={rowLabel(t(lang, "budgetWinLossHint"), bucketToken)} /></div><span className="inline-flex items-center gap-1.5">{!costIsKnowable(br) && isContractPriced(br.type) ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
               </div>
               {br.spilloverInHours !== 0 && (
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">

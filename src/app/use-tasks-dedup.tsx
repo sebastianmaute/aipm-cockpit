@@ -15,7 +15,7 @@
 
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
@@ -182,11 +182,13 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       kind: "task.deleted",
       removed: result.removed,
       edited: result.editedBefore,
+      // §177b — the keep rows as merged, so undo reverts only what the merge wrote.
+      editedAfter: result.nextTasks,
       fromArray: before,
       entityKey: "task",
     });
     logActivityAs?.("ai", "ai.taskDedup", result.removedCount);
-    showToast("info", t(lang, "taskDedupApplied", result.removedCount));
+    showToast("info", tPlural(lang, "taskDedupApplied", result.removedCount, result.removedCount));
     reset();
   }, [phase, groups, selected, tasks, setTasks, capture, logActivityAs, showToast, lang, reset]);
 

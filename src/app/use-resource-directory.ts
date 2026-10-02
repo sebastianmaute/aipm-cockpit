@@ -318,7 +318,14 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
       const idSet = new Set(ids);
       const stamp = new Date().toISOString();
       const affected = resources.filter((r) => idSet.has(r.id));
-      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, fromArray: resources, entityKey: "resource" });
+      // §177b — the rows as this edit writes them (the same merge + validator
+      // the setter below applies), so the undo is a field patch of the keys the
+      // edit changed, not a whole-row revert.
+      const written = affected.map((r) => {
+        const merged: Resource = { ...r, ...patch, localModifiedAt: stamp };
+        return sanitizeResource(merged) ?? merged;
+      });
+      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, editedAfter: written, fromArray: resources, entityKey: "resource" });
       setResources((prev) =>
         prev.map((r) => {
           if (!idSet.has(r.id)) return r;

@@ -79,7 +79,9 @@ interface Props {
    *  and a live region has to be an element the grid's row/cell structure does
    *  not have to accommodate — resource-calendar.tsx already owns one for the
    *  day grid's identical gesture, so this folds into it. */
-  onMoveModeChange?: (mode: "armed" | "cancelled" | null) => void;
+  /** `target` (with "armed") is the date Enter would move the occurrence to,
+   *  reported on arming and on every step (§10). */
+  onMoveModeChange?: (mode: "armed" | "cancelled" | null, target?: string) => void;
   /** True when the orchestrator's expansion hit its own iteration cap before
    *  covering the window (recurrence.ts's `ExpansionResult.truncated`,
    *  propagated by the caller) — reachable for a series whose `startDate` is
@@ -109,7 +111,7 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
    *  Committing only on Enter is deliberate, mirroring the day grid: ONE undo
    *  entry per intent, not one per arrow press. */
   const [pendingMove, setPendingMove] = useState<
-    { eventId: number; originalDate: string; originDate: string; dayDelta: number } | null
+    { eventId: number; originalDate: string; originDate: string; dayDelta: number; lane: number } | null
   >(null);
 
   // Chips in RENDER order (lane-major, then ascending date, because `days` is
@@ -327,7 +329,9 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
       }
       if (e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
         e.preventDefault();
-        setPendingMove((p) => p && { ...p, dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : 1) });
+        const dayDelta = pendingMove.dayDelta + (e.key === "ArrowLeft" ? -1 : 1);
+        setPendingMove({ ...pendingMove, dayDelta });
+        onMoveModeChange?.("armed", addIsoDays(pendingMove.originDate, dayDelta));
       }
       // ★ Space is CLAIMED while armed, unlike every other unhandled key. It is
       // the chip's other native activation key, so leaving it alone would open
@@ -354,13 +358,16 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
       const occ = occurrenceAt(key);
       if (occ) {
         e.preventDefault();
+        const dayDelta = e.key === "ArrowLeft" ? -1 : 1;
         setPendingMove({
           eventId: occ.eventId,
           originalDate: occ.originalDate,
           originDate: occ.date,
-          dayDelta: e.key === "ArrowLeft" ? -1 : 1,
+          dayDelta,
+          // The chip's lane, so the preview outline sits in the row it left.
+          lane: Number(key.split("-")[0]),
         });
-        onMoveModeChange?.("armed");
+        onMoveModeChange?.("armed", addIsoDays(occ.date, dayDelta));
         return;
       }
     }
@@ -456,11 +463,20 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
               // sees every rendered chip at once and can therefore tell a
               // colliding name from a unique one.
               const label = labelByKey.get(`${laneIndex}-${d.iso}`) ?? "";
+              // §10 — the cell an armed keyboard move would land on, in the
+              // lane the chip left (the drop re-packs lanes; this is a preview).
+              const isPreview =
+                pendingMove !== null &&
+                pendingMove.lane === laneIndex &&
+                addIsoDays(pendingMove.originDate, pendingMove.dayDelta) === d.iso;
               return (
                 <td
                   key={d.iso}
                   role="gridcell"
-                  className="border-b border-r border-line bg-surface-muted p-0"
+                  data-move-preview={isPreview ? "" : undefined}
+                  className={`border-b border-r border-line bg-surface-muted p-0${
+                    isPreview ? " outline-dashed outline-2 -outline-offset-2 outline-ui-green" : ""
+                  }`}
                   style={{ minWidth: CELL_PX, width: CELL_PX, height: BAND_ROW_PX }}
                   onDragOver={(e) => { if (onMoveOccurrence) e.preventDefault(); }}
                   onDrop={(e) => {

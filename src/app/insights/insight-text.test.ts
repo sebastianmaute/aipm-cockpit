@@ -40,24 +40,24 @@ const EN: readonly Case[] = [
   {
     type: "timelogCapPerEntry",
     title: "Time entry over the cap",
-    detail: "Ada has 2 day(s) with a single entry over the 8 h cap — the largest is 12 h.",
+    detail: "Ada has 2 days with a single entry over the 8 h cap — the largest is 12 h.",
   },
   {
     type: "timelogCapPerDay",
     title: "Day over the booking cap",
     detail:
-      "Ada has 2 day(s) over the 8 h daily cap — the highest is 12 h. Only the fetched projects are counted, so this can under-report but never over-report.",
+      "Ada has 2 days over the 8 h daily cap — the highest is 12 h. Only the fetched projects are counted, so this can under-report but never over-report.",
   },
   {
     type: "timelogNonWorkingDay",
     title: "Time booked on a non-working day",
-    detail: "Ada booked time on 2 non-working day(s) — the largest is 12 h.",
+    detail: "Ada booked time on 2 non-working days — the largest is 12 h.",
   },
   {
     type: "timelogWorkingHours",
     title: "Time over defined working hours",
     detail:
-      "Ada booked more than the defined hours on 2 day(s) — the highest is 12 h. People with no TimeLog link are not checked.",
+      "Ada booked more than the defined hours on 2 days — the highest is 12 h. People with no TimeLog link are not checked.",
   },
 ];
 
@@ -65,24 +65,24 @@ const DE: readonly Case[] = [
   {
     type: "timelogCapPerEntry",
     title: "Zeiteintrag über dem Limit",
-    detail: "Ada hat 2 Tag(e) mit einem Einzeleintrag über dem Limit von 8 h — der größte beträgt 12 h.",
+    detail: "Ada hat 2 Tage mit einem Einzeleintrag über dem Limit von 8 h — der größte beträgt 12 h.",
   },
   {
     type: "timelogCapPerDay",
     title: "Tag über dem Buchungslimit",
     detail:
-      "Ada hat 2 Tag(e) über dem Tageslimit von 8 h — der höchste beträgt 12 h. Nur die abgerufenen Projekte werden gezählt, daher kann dies zu niedrig, nie zu hoch ausfallen.",
+      "Ada hat 2 Tage über dem Tageslimit von 8 h — der höchste beträgt 12 h. Nur die abgerufenen Projekte werden gezählt, daher kann dies zu niedrig, nie zu hoch ausfallen.",
   },
   {
     type: "timelogNonWorkingDay",
     title: "Zeit an einem arbeitsfreien Tag gebucht",
-    detail: "Ada hat an 2 arbeitsfreien Tag(en) Zeit gebucht — der größte Wert beträgt 12 h.",
+    detail: "Ada hat an 2 arbeitsfreien Tagen Zeit gebucht — der größte Wert beträgt 12 h.",
   },
   {
     type: "timelogWorkingHours",
     title: "Zeit über den definierten Arbeitsstunden",
     detail:
-      "Ada hat an 2 Tag(en) mehr als die definierten Stunden gebucht — der höchste Wert beträgt 12 h. Personen ohne TimeLog-Verknüpfung werden nicht geprüft.",
+      "Ada hat an 2 Tagen mehr als die definierten Stunden gebucht — der höchste Wert beträgt 12 h. Personen ohne TimeLog-Verknüpfung werden nicht geprüft.",
   },
 ];
 

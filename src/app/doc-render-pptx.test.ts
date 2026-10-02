@@ -584,6 +584,13 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text.join(" ")).not.toContain("•");
   });
 
+  it("shows the number of an item whose only child is a heading (§157)", async () => {
+    const text = await bodyText(doc([{ type: "paragraph", html: "<ol><li><h2>h</h2></li><li>a</li></ol>" }]));
+    // The marker-only head survives the blank-line strip and draws "1." on a
+    // line of its own, ahead of the heading (one text node per run).
+    expect(text).toEqual(["1. ", "h", "2. ", "a"]);
+  });
+
   it("renders a table's columns and rows", async () => {
     const text = await bodyText(
       doc([{ type: "table", columns: ["Risk", "Owner"], rows: [["Vendor", "Ana"]] }]),
@@ -1172,6 +1179,15 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
     ]);
   });
 
+  it("indents a heading and a quote inside a list item under the item (§156)", async () => {
+    // RICH_INDENT_EMU 228600: the item (depth 0) sits at one step; a heading
+    // inside it at the same step, a quote one step further, as in DOCX.
+    const infos = paraInfos(await onlyContentSlide("<ul><li><p>a</p><h2>H</h2><blockquote>Q</blockquote></li></ul>"));
+    expect(infos).toContainEqual({ text: "• a", marL: "228600", indent: "0" });
+    expect(infos.find((i) => i.text === "H")?.marL).toBe("228600");
+    expect(infos.find((i) => i.text === "Q")?.marL).toBe("457200");
+  });
+
   it("leaves a list item's own runs unstyled by the marker", async () => {
     // The marker is a run, so it must not pick up the item's marks — and the
     // item's text must keep them.
@@ -1300,6 +1316,40 @@ describe("cost-based paginateLines", () => {
     expect(chunks).toHaveLength(2);
     expect(chunks.flat()).toHaveLength(3);
     expect(chunks[1][0]).toEqual(image);
+  });
+
+  /** §94 — characters per rendered body line, spelled out for the same reason
+   *  as ONE_LINE_EMU: (8229600 − 2×91440) EMU / 12700 = 633.6pt of width, at
+   *  14pt × 0.55em = 7.7pt per character → 82. */
+  const CHARS_PER_LINE = 82;
+
+  it("costs a long text line by the lines it wraps to (§94)", () => {
+    expect(lineCost("x".repeat(CHARS_PER_LINE))).toBe(1);
+    expect(lineCost("x".repeat(CHARS_PER_LINE + 1))).toBe(2);
+    expect(lineCost("x".repeat(CHARS_PER_LINE * 3))).toBe(3);
+    // A smuggled newline is two paragraphs, each costing at least one.
+    expect(lineCost("a\nb")).toBe(2);
+  });
+
+  it("breaks a slide earlier when its lines wrap (§94)", () => {
+    // Three 3-line paragraphs against a budget of 6: the third moves on.
+    const long = "x".repeat(CHARS_PER_LINE * 3);
+    expect(paginateLines([long, long, long], 6)).toEqual([[long, long], [long]]);
+  });
+
+  it("shrinks only a slide whose single line costs more than the whole slide (§94)", async () => {
+    // ~20 rendered lines against a 16-line budget: the paginator cannot split
+    // one line, so that slide asks PowerPoint to shrink it.
+    const huge = "word ".repeat(CHARS_PER_LINE * 4);
+    const all = await slides(doc([
+      { type: "paragraph", html: `<p>${huge}</p>` },
+      { type: "heading", level: 1, text: "Next" },
+      { type: "paragraph", html: "<p>short</p>" },
+    ]));
+    const withHuge = all.find((x) => x.includes("word word"))!;
+    const withShort = all.find((x) => x.includes(">short<"))!;
+    expect(withHuge).toContain("<a:normAutofit/>");
+    expect(withShort).not.toContain("<a:normAutofit/>");
   });
 
   it("keeps the existing text-only behaviour exactly", () => {

@@ -3,7 +3,7 @@
 // committee blob, and email it to the committee members via Graph. Non-memoized
 // handlers read live deps each call. Returns undefined in popouts (read-only).
 import { useRef, useState } from "react";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import type { SteeringCommittee, Resource } from "./types";
 import type { Settings } from "./settings-types";
@@ -141,7 +141,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
             }
           : c,
       );
-      deps.showToast("info", t(deps.lang, "reportSentToast", emails.length));
+      deps.showToast("info", tPlural(deps.lang, "reportSentToast", emails.length, emails.length));
     } catch {
       // Never surface the Graph error body — status-only.
       deps.showToast("error", t(deps.lang, "reportSendFailed"));

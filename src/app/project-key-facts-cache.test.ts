@@ -102,7 +102,7 @@ describe("project-key-facts-cache", () => {
       name: "Apollo", code: "", projectManager: "Dana", keyStakeholdersInternal: [], keyStakeholdersExternal: [],
       customer: "ACME Corp", naceSection: "C", identityTypes: [], products: "Widget", deployment: "Cloud",
       startDate: "2026-01-01", endDate: "", profitCenter: "PC-9",
-      contactPersons: [{ name: "Pat", email: "", synced: false }], regulatory: [],
+      contactPersons: [{ id: 1, name: "Pat", email: "", synced: false }], regulatory: [],
     };
     expect(keyFactsSnapshot(meta, "2026-09-13T10:00:00.000Z")).toEqual({
       filled: 9, missing: ["code", "regulatory"], customer: "ACME Corp", at: "2026-09-13T10:00:00.000Z",

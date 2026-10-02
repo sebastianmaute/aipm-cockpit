@@ -7,6 +7,11 @@ import type { Resource } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
+/** The shared aria-live region's text. Since §10 an armed gesture's
+ *  announcement is the mode sentence PLUS where Enter would land it, so a
+ *  whole-string `getByText` on the mode sentence no longer matches. */
+const liveText = () => document.querySelector('[aria-live="polite"]')?.textContent ?? "";
+
 const sofia: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
 const baseProps = {
@@ -887,13 +892,13 @@ it("announces the band's keyboard move through the shared aria-live region", () 
   );
   const chip = container.querySelector<HTMLElement>("[data-band-cell]")!;
   chip.focus();
-  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeNull();
+  expect(liveText()).not.toContain(t("en-US", "calendarMeetingMoveModeOn"));
 
   fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMeetingMoveModeOn"));
   // The band's gesture must not borrow the GRID's wording — they are different
   // objects and an exhaustive-map slip would silently announce the wrong one.
-  expect(screen.queryByText(t("en-US", "calendarMoveModeOn"))).toBeNull();
+  expect(liveText()).not.toContain(t("en-US", "calendarMoveModeOn"));
 
   fireEvent.keyDown(chip, { key: "Escape" });
   expect(screen.getByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeInTheDocument();
@@ -948,7 +953,7 @@ it("does not let one gesture's stale announcement mask or misdescribe the other'
 
   chip.focus();
   fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMeetingMoveModeOn"));
   expect(screen.queryByText(t("en-US", "calendarMoveModeCancelled"))).toBeNull();
 
   // Now the mirror: abandon the band gesture, then run a GRID one to
@@ -958,7 +963,7 @@ it("does not let one gesture's stale announcement mask or misdescribe the other'
 
   dayCell.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMoveModeOn"));
   expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeNull();
   fireEvent.keyDown(grid, { key: "Enter" });
   expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeNull();
@@ -974,7 +979,7 @@ it("does not let one gesture's stale announcement mask or misdescribe the other'
 
   dayCell.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
-  expect(screen.getByText(t("en-US", "calendarResizeModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarResizeModeOn"));
   // ★ Assert AFTER the resize completes, not while it is armed. With a gesture
   // in flight the ternary's first branch masks whatever is stale behind it, so
   // an assertion here passes even with the mirror deleted — the stale string
@@ -1028,7 +1033,7 @@ it("abandons an armed GRID gesture when focus moves to the meetings band", () =>
 
   dayCell.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMoveModeOn"));
 
   // Focus crosses into the band — still inside the same <table>.
   fireEvent.blur(grid, { relatedTarget: chip });
@@ -1076,7 +1081,7 @@ it("abandons an armed grid gesture if the absence moved underneath it", () => {
   const grid = screen.getByRole("grid");
   container.querySelector<HTMLElement>("[data-cell]")!.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMoveModeOn"));
 
   // A drag relocates the same absence while the gesture is still armed.
   rerender(<Harness start="2026-07-29" />);
@@ -1144,7 +1149,7 @@ it("abandons an armed grid RESIZE if the absence's end moved underneath it", () 
   const grid = screen.getByRole("grid");
   container.querySelector<HTMLElement>("[data-cell]")!.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
-  expect(screen.getByText(t("en-US", "calendarResizeModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarResizeModeOn"));
 
   // Only the END moves — startDate is untouched, so a start-only guard passes.
   rerender(<Harness end="2026-07-30" />);
@@ -1184,7 +1189,7 @@ it("abandons an armed grid move if the absence was reassigned underneath it", ()
   const grid = screen.getByRole("grid");
   container.querySelector<HTMLElement>("[data-cell]")!.focus();
   fireEvent.keyDown(grid, { key: "ArrowDown", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMoveModeOn"));
 
   rerender(<Harness who="Bo" />);
   fireEvent.keyDown(grid, { key: "Enter" });
@@ -1235,13 +1240,13 @@ it("clears a leftover band mode when a grid gesture arms, whatever its value", (
   // Band left ARMED (not cancelled), then a grid gesture arms and commits.
   chip.focus();
   fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
-  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMeetingMoveModeOn"));
 
   dayCell.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
   fireEvent.keyDown(grid, { key: "Enter" });
   // After a successful absence move the region must not describe a meeting.
-  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeNull();
+  expect(liveText()).not.toContain(t("en-US", "calendarMeetingMoveModeOn"));
 });
 
 it("keeps an armed grid gesture alive while focus stays on day cells", () => {
@@ -1270,7 +1275,7 @@ it("keeps an armed grid gesture alive while focus stays on day cells", () => {
   cells[0].focus();
   fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
   fireEvent.blur(grid, { relatedTarget: cells[1] });
-  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(liveText()).toContain(t("en-US", "calendarMoveModeOn"));
 });
 
 it("gives each occurrence a row-unique accessible name", () => {
@@ -1478,4 +1483,98 @@ it("scroll-centers today when the window includes it", () => {
   const scroller = container.querySelector("[data-calendar-scroll]") as HTMLElement;
   expect(scroller).toBeTruthy();
   expect(typeof scroller.scrollLeft).toBe("number");
+});
+
+describe("keyboard move preview (§10)", () => {
+  function renderGrid(absence: { startDate: string; endDate: string }) {
+    const onMoveAbsence = vi.fn();
+    const r = render(
+      <ResourceCalendar
+        lang="en-US"
+        rows={[
+          { key: "anna", display: "Anna", email: "" },
+          { key: "ben", display: "Ben", email: "" },
+        ]}
+        absences={[{ id: 7, assignee: "Anna", type: "vacation", ...absence }]}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        onMoveAbsence={onMoveAbsence}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-08-02"
+      />,
+    );
+    const grid = screen.getByRole("grid");
+    r.container.querySelector<HTMLElement>('[data-cell="0-0"]')!.focus();
+    /** "row-col" of every outlined day cell. */
+    const outlined = () =>
+      [...r.container.querySelectorAll<HTMLElement>("td[data-move-preview] [data-cell]")].map((b) =>
+        b.getAttribute("data-cell"),
+      );
+    return { grid, outlined, onMoveAbsence };
+  }
+
+  it("outlines and announces where a move lands, and the outline is what Enter commits", () => {
+    const { grid, outlined, onMoveAbsence } = renderGrid({ startDate: "2026-07-27", endDate: "2026-07-28" });
+    expect(outlined()).toEqual([]);
+    fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+    // Three presses and one press must NOT sound the same any more.
+    expect(liveText()).toContain(t("en-US", "calendarMovePreview", "2026-07-29", "2026-07-30"));
+    expect(outlined()).toEqual(["0-2", "0-3"]);
+    fireEvent.keyDown(grid, { key: "Enter" });
+    expect(onMoveAbsence).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ startDate: "2026-07-29", endDate: "2026-07-30" }),
+      "move",
+    );
+    expect(outlined()).toEqual([]);
+  });
+
+  it("names the new person when the move reassigns", () => {
+    const { grid, outlined } = renderGrid({ startDate: "2026-07-27", endDate: "2026-07-27" });
+    fireEvent.keyDown(grid, { key: "ArrowDown", altKey: true });
+    expect(liveText()).toContain(t("en-US", "calendarMovePreviewPerson", "2026-07-27", "2026-07-27", "Ben"));
+    expect(outlined()).toEqual(["1-0"]);
+  });
+
+  it("previews a resize as the new span", () => {
+    const { grid, outlined } = renderGrid({ startDate: "2026-07-27", endDate: "2026-07-28" });
+    fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+    expect(liveText()).toContain(t("en-US", "calendarResizeModeOn"));
+    expect(liveText()).toContain(t("en-US", "calendarMovePreview", "2026-07-27", "2026-07-29"));
+    expect(outlined()).toEqual(["0-0", "0-1", "0-2"]);
+  });
+
+  it("announces where an armed band move lands", () => {
+    render(
+      <ResourceCalendar
+        lang="en-US"
+        rows={[{ key: "anna", display: "Anna", email: "" }]}
+        absences={[]}
+        calendarEvents={[{ id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 }]}
+        onEditEvent={() => {}}
+        onMoveOccurrence={() => {}}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-07-29"
+      />,
+    );
+    const chip = document.querySelector<HTMLElement>("[data-band-cell]")!;
+    chip.focus();
+    fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+    expect(liveText()).toContain(t("en-US", "calendarMeetingMoveModeOn"));
+    expect(liveText()).toContain(t("en-US", "calendarMeetingMovePreview", "2026-07-29"));
+  });
 });

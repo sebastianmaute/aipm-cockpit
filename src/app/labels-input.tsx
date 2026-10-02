@@ -168,7 +168,7 @@ export function LabelsInput({
           setOpen((o) => !o);
           inputRef.current?.focus();
         }}
-        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey disabled:cursor-not-allowed disabled:opacity-50"
       />
 
       {open && !disabled && totalItems > 0 && (

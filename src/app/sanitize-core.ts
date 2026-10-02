@@ -546,18 +546,23 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
 /**
  * After parsing a full task list from disk, run this once to drop dependency
  * entries pointing at task ids that didn't survive (e.g. file was hand-edited).
- * Returns a NEW array; tasks without dangling references are returned as-is
- * for reference equality.
+ * Tasks without dangling references are returned as-is for reference equality,
+ * and when NO task changed the SAME array comes back — the load funnels (§133)
+ * call this on every load and record what they apply by identity (§644), so a
+ * fresh array for an unchanged list would be a needless new value.
  */
 export function dropDanglingDependencies(tasks: Task[]): Task[] {
   const knownIds = new Set(tasks.map((t) => t.id));
-  return tasks.map((t) => {
+  let changed = false;
+  const out = tasks.map((t) => {
     if (!t.dependencies || t.dependencies.length === 0) return t;
     const clean = t.dependencies.filter(
       (d) => d.taskId !== t.id && knownIds.has(d.taskId),
     );
     if (clean.length === t.dependencies.length) return t;
+    changed = true;
     return { ...t, dependencies: clean };
   });
+  return changed ? out : tasks;
 }
 

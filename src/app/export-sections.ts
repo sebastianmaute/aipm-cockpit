@@ -31,7 +31,7 @@ import {
   statusToCsv,
 } from "./storage";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
-import { htmlToRichLines } from "./rich-text-runs";
+import { htmlToRichLines, isMarkerOnlyLine } from "./rich-text-runs";
 import type { RichLine, RichLineKind, TextRun } from "./rich-text-runs";
 import { TASK_MARK_CHECKED, TASK_MARK_UNCHECKED } from "./rich-text-plain";
 import { contactDisplay } from "./contact-display";
@@ -248,7 +248,9 @@ function collapseFlat(text: string): string {
  *  row, so every caller keeps its own `?? ""` guard. */
 export function cellTextWithLinks(cell: ExportCell): string | number {
   if (!isRichCell(cell)) return cell;
-  const lines = htmlToRichLines(cell.html).map((line) => ({
+  // ★ §157's marker-only heads are skipped: this projection draws no list
+  //   marker, so one would only add an empty line.
+  const lines = htmlToRichLines(cell.html).filter((line) => !isMarkerOnlyLine(line)).map((line) => ({
     marker: taskMarker(line),
     links: coalesceLinks(line.runs),
   }));
@@ -294,7 +296,8 @@ export type CellRunLine = { kind: RichLineKind; runs: readonly TextRun[] };
  *  loss and not one worth copying. */
 export function cellLinkedLines(cell: ExportCell): readonly CellRunLine[] | undefined {
   if (!isRichCell(cell)) return undefined;
-  const lines = htmlToRichLines(cell.html);
+  // ★ §157's marker-only heads are skipped, as in `cellTextWithLinks`.
+  const lines = htmlToRichLines(cell.html).filter((line) => !isMarkerOnlyLine(line));
   if (!lines.some((line) => line.runs.some((run) => run.href !== undefined))) return undefined;
   return lines.map((line) => {
     const marker = taskMarker(line);

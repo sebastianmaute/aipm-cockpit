@@ -39,6 +39,7 @@
 //     out as an edit (§644). A restored journal is sent as an edit: it is unsaved work (I3).
 
 import { useEffect, useLayoutEffect, useRef } from "react";
+import type { TieVerdict } from "./mirror-ledger";
 import type { AppView } from "./nav-config";
 
 const CHANNEL_NAME = "aipm-cockpit:sync";
@@ -101,6 +102,16 @@ export function getWindowId(): string {
   return id;
 }
 
+/** §656 — which of two windows saves a slice value both hold with the same content (`MirrorLedger.judge`):
+ *  the window with the smaller id keeps it, the other yields. Both windows compare the same two ids, so
+ *  they always decide opposite ways. `undefined` (both save, the old behaviour) when the ids are equal,
+ *  which a DUPLICATED tab's copied sessionStorage makes possible. */
+export function tieVerdict(fromWindow: string): TieVerdict | undefined {
+  const own = getWindowId();
+  if (fromWindow === own) return undefined;
+  return own < fromWindow ? "keep" : "yield";
+}
+
 /** The main-window gates a slice and a revision message share, in ONE place so the two cannot drift
  *  (final review m6): the sender's scope equals this window's own non-null scope, and no project op
  *  has bumped the scope epoch since this window's last commit. */
@@ -111,7 +122,8 @@ function acceptsFromMain(ctx: Extract<SyncContext, { role: "main" }>, scope: str
 export function useBroadcastSync<T>(
   kind: string,
   value: T,
-  applyIncoming: (next: T) => void,
+  /** `fromWindow` is the sender's `windowId` (§656: the mirror ledger's tie-break). */
+  applyIncoming: (next: T, fromWindow: string) => void,
   sync: SyncContext,
 ): void {
   const syncRef = useRef(sync);
@@ -154,7 +166,7 @@ export function useBroadcastSync<T>(
         if (!acceptsFromMain(ctx, msg.scope, committedEpochRef.current)) return;
       }
       lastSeenRef.current = msg.value;
-      applyIncoming(msg.value);
+      applyIncoming(msg.value, msg.windowId);
     };
     channel.addEventListener("message", onMessage);
 
@@ -193,9 +205,10 @@ export function useBroadcastSync<T>(
 // tells the others which revision it produced, and they adopt it instead of pausing on their next save.
 // It carries NO token, URL or path — the scope already names the storage — only two revision strings: the
 // one the write produced (`revision`) and the one it was checked against (`baseRevision`). A receiver
-// adopts only while it holds `baseRevision` itself and has no save of its own running or queued
-// (`adoptPeerRevision` in use-storage-backend.ts), so a window that missed a write, or is saving, never
-// skips past it. Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
+// adopts only while it holds `baseRevision` itself (`adoptPeerRevision` in use-workspace-sync.ts), so a
+// window that missed a write never skips past it. §666 — a window with a save of its own queued or running
+// DEFERS it instead (peer-revision-deferral.ts): that save may lack the peer's slices, so only a job whose
+// snapshot was taken after the message adopts it. Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
 // pop-out never saves and so never adopts (and never posts). One id per PAGE (not per hook instance),
 // because the poster and the listener are different objects of one window and a same-window BroadcastChannel
 // still delivers to its siblings.

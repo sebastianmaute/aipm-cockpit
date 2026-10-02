@@ -54,7 +54,7 @@ describe("RaciPanel", () => {
     // Sam's cell holds "A", so expand it then pick the "R" role chip in the popover.
     const trigger = screen.getByRole("button", { name: /Go-Live · Sam.*Accountable/i });
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("button", { name: "R" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "R" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, raci: { "10": "R" } }));
   });
   it("shows an empty state when there are no milestones", () => {

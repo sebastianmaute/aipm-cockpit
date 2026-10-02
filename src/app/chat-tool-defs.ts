@@ -104,7 +104,11 @@ const changeFields = {
   costImpact: { type: "number" as const, description: "Cost impact" },
   requestedBy: { type: "string" as const, description: "Who requested the change" },
   raisedDate: { type: "string" as const, description: "Date raised YYYY-MM-DD (defaults to today)" },
-  decisionBy: { type: "string" as const, description: "Decision maker" },
+  decisionBy: {
+    type: "string" as const,
+    // §446 — a free annotation by decision: valid at ANY status, so it is not coupled to `status`.
+    description: "Decision maker: who decides, or decided, on the change. Valid at any status, including before a decision is made.",
+  },
   // ★★★ `decisionDate` IS ABSENT ON PURPOSE — it is DERIVED, not authored.
   //  `applyChangeStatus` (`change-log.ts`) owns the `status`/`decisionDate` pair
   //  for every transition in the app, and the edit modal renders the date as a

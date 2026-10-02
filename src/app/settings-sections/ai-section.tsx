@@ -380,7 +380,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           </TextButton>
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ui-purple">
+        <p className="mt-2 text-xs text-ui-purple dark:text-ui-purple-strong">
           {t(lang, "aiConsentRequired")}
         </p>
       )}

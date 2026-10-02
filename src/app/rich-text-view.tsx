@@ -10,7 +10,7 @@
 import { sanitizeRichHtml } from "./sanitize-html";
 
 const PROSE_CLASS =
-  "text-sm text-foreground [&_a]:text-ui-dark-blue [&_a]:underline [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc";
+  "text-sm text-foreground [&_a]:text-ui-dark-blue dark:[&_a]:text-ui-light-grey [&_a]:underline [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc";
 
 export function RichTextView({ html, className }: { html: string; className?: string }) {
   return (

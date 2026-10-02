@@ -17,7 +17,7 @@ const FULL: ProjectMeta = {
   startDate: "2026-01-01",
   endDate: "",
   profitCenter: "PC-9",
-  contactPersons: [{ name: "Pat Contact", email: "", synced: false }],
+  contactPersons: [{ id: 1, name: "Pat Contact", email: "", synced: false }],
   regulatory: ["GDPR / data protection regulation"],
 };
 

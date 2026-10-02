@@ -184,6 +184,8 @@ describe("useTasksDedup (plan-then-apply)", () => {
     const arg = captureSpy.mock.calls[0][0];
     expect(arg.removed.map((t: Task) => t.id)).toEqual([2]);
     expect(arg.edited.map((t: Task) => t.id)).toEqual([1]);
+    // §177b — the merged keep row rides along, so the undo is a field patch.
+    expect(arg.editedAfter.map((t: Task) => t.id)).toContain(1);
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 

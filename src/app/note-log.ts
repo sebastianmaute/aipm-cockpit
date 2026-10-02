@@ -9,15 +9,20 @@ import type { NoteLogEntry } from "./types";
 import { sanitizeRichHtml, htmlToText } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
-import { sanitizeNoteLogWith } from "./note-log-policy";
+import { sanitizeNoteLogWith, type NoteLogHtmlOps } from "./note-log-policy";
 
 /** Accept only well-formed note entries from untrusted JSON. Delegates the
  *  whole policy (entry cap, byte html cap, control-char stripping, timestamp
  *  validation, mint-and-dedupe) to the shared core in `note-log-policy.ts`,
  *  supplying this module's DOM-bound html ops. See that file's docstring for
  *  the full contract. */
+/** The CANONICAL note-log html ops (DOMPurify + the DOM projection). Exported
+ *  so a BROWSER caller of the DOM-free template sanitizers can inject them
+ *  (§298) — `templates.ts` itself cannot import this module. */
+export const CANONICAL_NOTE_HTML_OPS: NoteLogHtmlOps = { sanitizeHtml: sanitizeRichHtml, toText: htmlToText };
+
 export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
-  return sanitizeNoteLogWith(raw, { sanitizeHtml: sanitizeRichHtml, toText: htmlToText });
+  return sanitizeNoteLogWith(raw, CANONICAL_NOTE_HTML_OPS);
 }
 
 /** Every rich-HTML field name across the entities the whole-object load paths
@@ -67,7 +72,9 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  ★★ DOM-BOUND: `sanitizeRichHtml` calls DOMPurify, which binds its `window` at
  *  module-eval. THIS FUNCTION and its four per-entity wrappers must not become
  *  reachable from a codec, an entity sanitizer, or anything under `scripts/` —
- *  the two whole-object load paths are the only legal callers.
+ *  the two whole-object load paths and `sanitizeDecodedRichFields`
+ *  (`workspace-rich-sanitize.ts`, run by the browser backends after a codec
+ *  decode — §28) are the only legal callers.
  *  ★★★ SCOPED TO THIS FUNCTION, NOT TO THE FILE, and an earlier revision read as
  *  a file-level contract that the file itself violates. `sanitizeNoteLog` (above)
  *  calls `sanitizeRichHtml` and `htmlToText` too, and IS reached from CSV,

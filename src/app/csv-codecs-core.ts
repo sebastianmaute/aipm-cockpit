@@ -45,6 +45,7 @@ import {
   serializeDependencies,
   fkIdOrUndefined,
   normalizeEmailShape,
+  capRaidStoredText,
 } from "./sanitize";
 import {
   type Absence,
@@ -334,6 +335,12 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
  * in hand-edited files.
  */
 export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | null {
+  const item = buildRaidItemUncapped(obj);
+  // §37 — the storage-side length cap every RAID load path now shares.
+  return item && capRaidStoredText(item);
+}
+
+function buildRaidItemUncapped(obj: Record<string, string>): RaidItem | null {
   const id = Number(obj.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const category = parseRaidCategory(obj.category);

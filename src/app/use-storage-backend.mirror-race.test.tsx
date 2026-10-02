@@ -75,9 +75,15 @@ function makeBackend(latencyMs = LATENCY_MS) {
  *  id, as a second page would; the poster then hears its own too, which it cannot adopt (it no longer
  *  holds the base its save was checked against). Slice messages already carry a per-hook id.
  *  While `bus.hold` is set (`true`, or one kind), those deliveries wait for `bus.release()`, which runs them all in one go.
- *  `heldPosts(kind)` counts the POSTS waiting, not their per-channel deliveries. */
+ *  `heldPosts(kind)` counts the POSTS waiting, not their per-channel deliveries.
+ *  ★ §656 — the windows also share ONE `getWindowId()`, so the tie-break (`tieVerdict`) would always see equal
+ *  ids and never fire. Each channel records the window that opened it (`bus.opening`, set while that window
+ *  mounts), and a slice message's `windowId` is rewritten per delivery to one that sorts BELOW the shared id
+ *  when its sender opened first and ABOVE it otherwise: window A then keeps a tie and window B yields, as
+ *  two pages with distinct ids would decide. */
 type Held = { sent: { kind?: string }; deliver: () => void };
 const bus = {
+  opening: 0,
   hold: false as boolean | string,
   held: [] as Held[],
   release() { const due = this.held.splice(0); for (const h of due) h.deliver(); },
@@ -86,16 +92,18 @@ const bus = {
 function installBus() {
   bus.hold = false;
   bus.held = [];
-  const open = new Set<{ listeners: Set<(ev: MessageEvent) => void> }>();
+  const open = new Set<{ listeners: Set<(ev: MessageEvent) => void>; owner: number }>();
   let revisionSender = 0;
   class BusChannel {
     listeners = new Set<(ev: MessageEvent) => void>();
+    owner = bus.opening;
     constructor(public name: string) { open.add(this); }
-    postMessage(msg: { kind?: string; clientId?: string }) {
+    postMessage(msg: { kind?: string; clientId?: string; windowId?: string }) {
       const sent = msg.kind === "__revision" ? { ...msg, clientId: `page-${++revisionSender}` } : msg;
       for (const channel of open) {
         if (channel === this) continue;
         const data = structuredClone(sent);
+        if (sent.kind !== "__revision" && this.owner !== channel.owner) data.windowId = this.owner < channel.owner ? "" : "\uffff";
         const deliver = () => { for (const l of channel.listeners) l({ data } as MessageEvent); };
         if (bus.hold === true || bus.hold === sent.kind) bus.held.push({ sent, deliver });
         else queueMicrotask(deliver);
@@ -126,6 +134,7 @@ function openWindow(reactStrictMode: boolean, latencyMs?: number) {
   };
   // §4 — a refused save raises the conflict pause and never reaches `onStorageOutcome`: count each time the pause is RAISED.
   const pause = { raised: 0, last: false };
+  bus.opening += 1;
   const hook = renderHook(() => {
     const { conflictPause } = useStorageBackend(args);
     if (conflictPause && !pause.last) pause.raised += 1;
@@ -153,6 +162,7 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     installBus();
+    bus.opening = 0;
     store = { rev: 1, workspace: { tasks: [], raid: [], absences: [], shifts: [] } as unknown as Workspace };
     backendFor.clear();
     vi.mocked(storageMod.createBackend).mockImplementation(((config: StorageConfig) => backendFor.get(config)) as unknown as typeof storageMod.createBackend);
@@ -336,5 +346,98 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     expect(store.rev).toBe(3);
     expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from B"]);
     expect(store.workspace.insights).toEqual(part(aEdits.length - 1));
+  });
+  // §656 — the insights reconcile at load, in both windows: each derives the SAME content from the same
+  // stored value, as a new reference, within one delivery of the other. Each then receives the other's copy
+  // over its own unsaved one. That is a tie, not a contest: exactly one window saves it, and nobody pauses.
+  it("two windows that derive the same value of one part within one delivery save it once (§656)", async () => {
+    const { a, b } = await openBoth();
+    const derived = () => [{ id: 1, key: "overdue" }] as unknown as Insight[];
+    bus.hold = true;
+    await act(async () => {
+      a.hook.result.current.setInsights(derived());
+      b.hook.result.current.setInsights(derived());
+    });
+    bus.hold = false;
+    await act(async () => { bus.release(); }); // they cross: each window now shows the other's copy
+    await run(500 + LATENCY_MS + 500);
+    expect(a.backend.save.mock.calls.length + b.backend.save.mock.calls.length).toBe(1);
+    expect(b.backend.save).not.toHaveBeenCalled(); // B opened second, so B yields
+    expect(a.conflicts() + b.conflicts()).toBe(0);
+    expect(store.rev).toBe(2);
+    expect(store.workspace.insights).toEqual(derived());
+    expect(b.backend.revision()).toBe("2"); // B adopted A's write, so its next own edit saves cleanly
+  });
+
+  // The tie-break is for EQUAL content only. Different values crossing are a real collision, and the
+  // window that would yield on a tie must still save its own (`a crossing edit …` above, from B's side).
+  it("a crossing edit with different content is still saved by the window that would yield a tie (§656)", async () => {
+    const { a, b } = await openBoth();
+    bus.hold = true;
+    await act(async () => {
+      a.hook.result.current.setInsights([{ id: 1, key: "from A" }] as unknown as Insight[]);
+      b.hook.result.current.setInsights([{ id: 1, key: "from B" }] as unknown as Insight[]);
+    });
+    bus.hold = false;
+    await act(async () => { bus.release(); });
+    await run(500 + LATENCY_MS + 500);
+    expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
+  });
+  // §666 — the entry's named check. Each window has its own edit, of a different part, and their saves
+  // overlap on a slow backend: both start from revision 1, so whichever lands second meets the other's.
+  // That window had the other's part long before (it arrived on the other's commit), and the other's
+  // revision reached it while its own save was in flight, so it DEFERRED it. Its refused save is therefore
+  // not a conflict to report: a newer job, whose snapshot holds both parts, adopts the revision and writes.
+  // Before §666 the window that lost the race paused.
+  it("two windows whose own saves overlap on a slow backend both land, and neither pauses (§666)", async () => {
+    const { a, b } = await openBoth(1000);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
+    await run(100);
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); });
+    for (let i = 0; i < 10; i++) await run(500); // ★ in steps: a render a peer message causes commits when `act` ends, so the retry it schedules needs a later `run`
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from A"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from B"]);
+    expect(a.backend.save.mock.calls.length + b.backend.save.mock.calls.length).toBe(3); // both, then one retry
+    expect(store.rev).toBe(3);
+    expect(a.backend.revision()).toBe("3"); // the retry's writer holds it, the other adopted it
+    expect(b.backend.revision()).toBe("3");
+  });
+
+  // ★★ The deferral never covers a CONTESTED part: both windows changed the same part within one delivery,
+  // so each shows the other's copy, and a retry would write the peer's copy over this window's edit with
+  // nothing reported. The overlapping saves must still end in a reported conflict.
+  it("crossing edits to one part whose saves overlap are still reported, not retried away (§666)", async () => {
+    const { a, b } = await openBoth(1000);
+    bus.hold = true;
+    await act(async () => {
+      a.hook.result.current.setTasks([task(1, "from A")]);
+      b.hook.result.current.setTasks([task(2, "from B")]);
+    });
+    bus.hold = false;
+    await act(async () => { bus.release(); });
+    for (let i = 0; i < 10; i++) await run(500);
+    expect(a.conflicts() + b.conflicts()).toBeGreaterThan(0);
+  });
+  // §666, review round — the peer saves TWICE while this window's own save is in flight: {2, from 1}, then
+  // {3, from 2}. The deferral chains them into {3, from 1}, so the refused save is retried, adopting 3,
+  // instead of pausing. A single overwritten slot held {3, from 2}, never matched this window (still at 1).
+  it("a peer that saves twice while this window's slow save is in flight still causes no pause (§666)", async () => {
+    const a = openWindow(strict, LATENCY_MS);
+    const b = openWindow(strict, 4000);
+    await run(0);
+    await run(1000);
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); }); // B's save: 1500 → 5500
+    await run(100);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
+    for (let i = 0; i < 4; i++) await run(500); // A's first save has landed (rev 2), B is still writing
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A2")]); });
+    for (let i = 0; i < 30; i++) await run(500);
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["A2"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from B"]);
+    expect(b.backend.revision()).toBe(String(store.rev));
   });
 });

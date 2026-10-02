@@ -120,6 +120,12 @@ describe("dropDanglingDependencies — reference-equality arms", () => {
     expect(out[0]).toBe(a);
     expect(out[1]).toBe(b);
   });
+  it("returns the SAME array when no task changed (§133 — the load funnels track identity)", () => {
+    const tasks = [mk(1, [{ taskId: 2, type: "FS" }]), mk(2)];
+    expect(dropDanglingDependencies(tasks)).toBe(tasks);
+    const dangling = [mk(1, [{ taskId: 99, type: "FS" }])];
+    expect(dropDanglingDependencies(dangling)).not.toBe(dangling);
+  });
   it("returns a NEW task with dangling + self refs filtered out", () => {
     const a = mk(1, [
       { taskId: 1, type: "FS" }, // self → dropped

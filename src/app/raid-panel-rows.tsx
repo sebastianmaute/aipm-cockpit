@@ -8,7 +8,7 @@
 import type React from "react";
 import { PlusIcon } from "./icons";
 import { Checkbox } from "./form-controls";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { Badge } from "./badge";
 import { TextButton } from "./text-button";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
@@ -348,7 +348,7 @@ export function RaidTable({
                       })}
                       {children.length > 0 && (
                         <span
-                          title={t(lang, "raidCausedThisCount", children.length)}
+                          title={tPlural(lang, "raidCausedThisCount", children.length, children.length)}
                           className="inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white"
                         >
                           → {children.length}
@@ -396,7 +396,7 @@ export function RaidTable({
               // (`openNew(effectiveCategory)`) — so the names must differ,
               // and the category is what actually differs between them.
               aria-label={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
-              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue ${INTERACTIVE}`}
+              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
             >
               <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
               {t(lang, "raidAddItem")}

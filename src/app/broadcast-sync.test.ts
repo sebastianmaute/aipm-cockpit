@@ -6,6 +6,7 @@ import {
   useBroadcastSync,
   useRevisionSync,
   postRevision,
+  tieVerdict,
   isReportPopoutTab,
   REPORT_POPOUT_TABS,
   type SyncContext,
@@ -514,5 +515,13 @@ describe("isReportPopoutTab", () => {
 
   it("REPORT_POPOUT_TABS contains exactly the report tabs", () => {
     expect(REPORT_POPOUT_TABS).toEqual(["resource-report", "reports", "raid-report", "budget-report"]);
+  });
+
+  // §656 — two windows compare the same pair of ids, so they must always decide opposite ways.
+  it("tieVerdict keeps for the smaller window id, yields for the larger, and decides nothing for an equal one", () => {
+    const own = getWindowId();
+    expect(tieVerdict("")).toBe("yield"); // the sender's id sorts below ours: the sender keeps
+    expect(tieVerdict("\uffff")).toBe("keep");
+    expect(tieVerdict(own)).toBeUndefined(); // a duplicated tab shares the id: both save, as before §656
   });
 });

@@ -535,7 +535,7 @@ describe("CreateProjectWizard AI Step 0", () => {
 
     // Switch the import method to "file".
     fireEvent.click(
-      screen.getByRole("button", { name: t("en-US", "wizardImportMethodFile") }),
+      screen.getByRole("radio", { name: t("en-US", "wizardImportMethodFile") }),
     );
 
     // Fire a change on the file input with a small text file.
@@ -590,13 +590,16 @@ describe("CreateProjectWizard AI Step 0", () => {
   it("hides SharePoint without M365 and Confluence without Jira config", () => {
     // defaultSettings: M365 disabled + no jira creds.
     renderWithKey();
+    // §331 — the methods are radios now; the positive control keeps the two
+    //  absence checks from passing because no element of that role exists.
+    expect(screen.getByRole("radio", { name: t("en-US", "wizardImportMethodFile") })).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", {
+      screen.queryByRole("radio", {
         name: t("en-US", "wizardImportMethodSharePoint"),
       }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", {
+      screen.queryByRole("radio", {
         name: t("en-US", "wizardImportMethodConfluence"),
       }),
     ).toBeNull();

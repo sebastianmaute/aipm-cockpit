@@ -924,7 +924,7 @@ describe("useChatDispatcher", () => {
   it("open-points viewDigest reports the FILTERED count, not the workspace-wide one", () => {
     const { result } = renderDispatcher(seedTasks(), false, "open-points");
     // Unfiltered: 3 tasks (Alice/Bob/Carol).
-    expect(result.current.getSnapshot().viewDigest).toContain("3 task(s)");
+    expect(result.current.getSnapshot().viewDigest).toContain("3 tasks visible");
 
     act(() => {
       result.current.setFilters({ assignee: "Alice" });
@@ -932,8 +932,8 @@ describe("useChatDispatcher", () => {
 
     const digest = result.current.getSnapshot().viewDigest;
     // Filtered to Alice's one task: the digest must report 1, not 3.
-    expect(digest).toContain("1 task(s)");
-    expect(digest).not.toContain("3 task(s)");
+    expect(digest).toContain("1 task visible");
+    expect(digest).not.toContain("3 tasks");
     expect(digest).toContain("Alice");
   });
 

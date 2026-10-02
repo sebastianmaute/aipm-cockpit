@@ -5,7 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useResourceDirectory } from "./use-resource-directory";
 import { useUndoStack } from "./undo/use-undo-stack";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -71,7 +71,7 @@ describe("handleSaveResource propagates a corrected email (spec Part 7)", () => 
     const { result, showToastAction } = renderDirectory();
     act(() => { result.current.directory.handleEditResource(ada); });
     act(() => { result.current.directory.handleSaveResource({ ...ada, title: "Lead" }); });
-    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+    expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
     expect(result.current.ws.tasks[0].assigneeEmail).toBe("old@x.com");
   });
 
@@ -83,12 +83,12 @@ describe("handleSaveResource propagates a corrected email (spec Part 7)", () => 
     expect(result.current.ws.tasks.map((r) => r.assigneeEmail)).toEqual(["old@x.com", "own@x.com"]);
     expect(result.current.ws.raid[0].ownerEmail).toBe("old@x.com");
     expect(result.current.ws.project?.contactPersons[0].email).toBe("old@x.com");
-    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+    expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
   });
 
   it("undo and redo of a correction keep a contact person added after it", () => {
     const { result } = renderDirectory();
-    const carol = { name: "Carol", email: "carol@x.com", synced: false };
+    const carol = { id: 99, name: "Carol", email: "carol@x.com", synced: false };
     act(() => { result.current.directory.handleEditResource(ada); });
     act(() => { result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
     act(() => {

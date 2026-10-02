@@ -10,6 +10,7 @@ import { Modal } from "../modal";
 import { Button } from "../button";
 import { isEmptyPlan, type EditPlan } from "../inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "../inline-ai-edit/field-labels";
+import { CreateFieldsList } from "../create-fields-list";
 
 export interface RecommendationReviewModalProps {
   lang: Lang;
@@ -92,7 +93,7 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
                 </li>
               ))}
               {plan.creates.map((c, i) => (
-                <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>
+                <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}<CreateFieldsList lang={lang} item={c} /></li>
               ))}
               {plan.deletes.map((del, i) => (
                 <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>

@@ -836,6 +836,31 @@ describe("DocumentEditor — structural editing", () => {
     expect(structural.remove).toHaveBeenCalledWith(0, structDoc.blocks[0]);
   });
 
+  // §198: the baseline is frozen when the MENU OPENS. The register's own
+  //  scenario — menu opened on the heading, a concurrent insert slides a
+  //  pageBreak under that row, then "Delete block" — used to hand the engine
+  //  the pageBreak as its own baseline (trivial, so not even a confirm), and
+  //  it was deleted while the heading the user pointed at survived. Now the
+  //  confirm is raised for the HEADING, and the engine gets the heading as
+  //  `expect`, which it will refuse against the pageBreak now at index 0.
+  it("hands the engine the block the menu was OPENED on, not the one that slid in", async () => {
+    const user = userEvent.setup();
+    const structural = stubStructural();
+    const ui = (d: ProjectDocument) => (
+      <ConfirmProvider lang={LANG}>
+        <DocumentEditor lang={LANG} doc={d} onCommitBlock={vi.fn()} structural={structural} />
+      </ConfirmProvider>
+    );
+    const { rerender } = render(ui(structDoc));
+    const menu = await openActions(user, 0);
+    const slid: ProjectDocument = { ...structDoc, blocks: [{ type: "pageBreak" }, ...structDoc.blocks] };
+    rerender(ui(slid));
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    const dialog = screen.getByRole("dialog", { name: t(LANG, "documentsBlockDelete") });
+    await user.click(within(dialog).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    expect(structural.remove).toHaveBeenCalledWith(0, structDoc.blocks[0]);
+  });
+
   it("appends a chosen kind from the trailing add control", async () => {
     const user = userEvent.setup();
     const { structural } = setup();

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
@@ -70,7 +70,7 @@ import {
 
 // ── Broadcast-sync mock ───────────────────────────────────────────────────────
 vi.mock("./broadcast-sync", () => ({
-  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(),
+  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(), tieVerdict: vi.fn(() => undefined),
 }));
 
 // ── Diagnostics mock (only the §72 teardown test asserts on it) ───────────────
@@ -1319,7 +1319,7 @@ describe("useStorageBackend — handlers", () => {
     showToast.mockClear();
     await act(async () => { await result.current.onOpenStorageFile(); });
     const texts = showToast.mock.calls.map((c) => c[1]);
-    const opened = texts.indexOf(t("en-US", "storageOpenedToast", 1));
+    const opened = texts.indexOf(tPlural("en-US", "storageOpenedToast", 1, 1));
     const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
     expect(opened).toBeGreaterThanOrEqual(0);
     expect(notice).toBeGreaterThan(opened);
@@ -4199,7 +4199,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
    *  {@link survivingToast}. */
   function importToasts(): string[] {
     return showToast.mock.calls
-      .filter((c) => c[0] === "error" && /invalid row\(s\)|quotation mark/.test(String(c[1])))
+      .filter((c) => c[0] === "error" && /invalid rows?\b|quotation mark/.test(String(c[1])))
       .map((c) => String(c[1]));
   }
 
@@ -4212,7 +4212,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
    *  calls the surface DISCARDED. Four of the five load paths fire their own
    *  "loaded"/"switched"/"reloaded" toast in the same stretch, so the diagnostic
    *  was raised and instantly overwritten — measured on the unfixed tree, this
-   *  path logged `[["error","9 invalid row(s) …"],["info","Loaded project f."]]`
+   *  path logged `[["error","9 invalid rows …"],["info","Loaded project f."]]`
    *  and the user saw the second one. The old assertions passed on both, which
    *  made them worthless for the only property that matters. */
   function survivingToast(): string {
@@ -4257,8 +4257,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
 
-    expect(survivingToast()).toContain("3 invalid row(s)");
-    expect(importToasts()).toEqual([expect.stringContaining("3 invalid row(s)")]);
+    expect(survivingToast()).toContain("3 invalid rows");
+    expect(importToasts()).toEqual([expect.stringContaining("3 invalid rows")]);
   });
 
   it("the MOUNT load effect composes BOTH signals into ONE toast", async () => {
@@ -4271,11 +4271,11 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
     expect(importToasts()).toHaveLength(1);
     const seen = survivingToast();
-    expect(seen).toContain("2 invalid row(s)");
+    expect(seen).toContain("2 invalid rows");
     expect(seen).toContain("unclosed quotation mark");
   });
 
-  it("a CLEAN load says nothing — no '0 invalid row(s)' over a healthy file", async () => {
+  it("a CLEAN load says nothing — no '0 invalid rows' over a healthy file", async () => {
     // ★ The mirror of the blocks-only truncation test above: interpolating a
     //   count unconditionally reports a loss that did not happen, and this is the
     //   only assertion that can catch it (`>= 0` for `> 0` is one keystroke).
@@ -4289,7 +4289,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     await act(async () => { await Promise.resolve(); });
 
     expect(importToasts()).toEqual([]);
-    expect(survivingToast()).not.toMatch(/invalid row\(s\)|quotation mark/);
+    expect(survivingToast()).not.toMatch(/invalid rows?\b|quotation mark/);
     // POSITIVE CONTROL — without it, "no toast" is equally satisfied by a mount
     // whose load never ran at all.
     expect(createBackendMock).toHaveBeenCalled();
@@ -4313,8 +4313,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //    `importToasts`'s filter. Guarding only one leaves the other free to die
     //    silently: measured, a control asserting through `survivingToast` ALONE
     //    still survives the dead-filter mutant that motivated this block.
-    expect(survivingToast()).toContain("1 invalid row(s)");
-    expect(importToasts()).toEqual([expect.stringContaining("1 invalid row(s)")]);
+    expect(survivingToast()).toContain("1 invalid row");
+    expect(importToasts()).toEqual([expect.stringContaining("1 invalid row")]);
   });
 
   it("reloadCurrentProject tells the user rows were dropped on the RE-read", async () => {
@@ -4333,8 +4333,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     await act(async () => { await result.current.reloadCurrentProject(); });
 
     // ★ The survivor, not the log: this path also fires `reloadProjectSuccess`.
-    expect(survivingToast()).toContain("5 invalid row(s)");
-    expect(importToasts()).toEqual([expect.stringContaining("5 invalid row(s)")]);
+    expect(survivingToast()).toContain("5 invalid rows");
+    expect(importToasts()).toEqual([expect.stringContaining("5 invalid rows")]);
   });
 
   // ── the ops files, reached through this hook ───────────────────────────────
@@ -4354,7 +4354,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(importToasts()).toHaveLength(1);
     // ★ The survivor, not the log: this path also fires `projectSwitchedToast`.
     const seen = survivingToast();
-    expect(seen).toContain("4 invalid row(s)");
+    expect(seen).toContain("4 invalid rows");
     expect(seen).toContain("unclosed quotation mark");
   });
 
@@ -4375,11 +4375,11 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     const texts = showToast.mock.calls.map((c) => String(c[1]));
     const switched = texts.indexOf(t("en-US", "projectSwitchedToast", "Target"));
     const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget"));
-    const diagnostic = texts.findIndex((s) => s.includes("4 invalid row(s)"));
+    const diagnostic = texts.findIndex((s) => s.includes("4 invalid rows"));
     expect(switched).toBeGreaterThanOrEqual(0);
     expect(notice).toBeGreaterThan(switched);
     expect(diagnostic).toBeGreaterThan(notice);
-    expect(survivingToast()).toContain("4 invalid row(s)"); // the data-loss diagnostic keeps the slot
+    expect(survivingToast()).toContain("4 invalid rows"); // the data-loss diagnostic keeps the slot
   });
 
   // ★★ M4 (pre-release review): an ordinary switch re-announced the same stored
@@ -4471,8 +4471,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //    `projectLoadedToast` and the count painted; centralising it into
     //    `reportFor` moved it in FRONT and the count stopped painting — a true
     //    regression, invisible to a call-log assertion.
-    expect(survivingToast()).toContain("9 invalid row(s)");
-    expect(importToasts()).toEqual([expect.stringContaining("9 invalid row(s)")]);
+    expect(survivingToast()).toContain("9 invalid rows");
+    expect(importToasts()).toEqual([expect.stringContaining("9 invalid rows")]);
   });
 
   it("loadProjectFromFile: the unsafe-email notice fires BEFORE the import diagnostic, which survives (spec Part 2, pre-flight I5 + I9)", async () => {
@@ -4491,10 +4491,10 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
     const texts = showToast.mock.calls.map((c) => String(c[1]));
     const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
-    const diagnostic = texts.findIndex((s) => s.includes("9 invalid row(s)"));
+    const diagnostic = texts.findIndex((s) => s.includes("9 invalid rows"));
     expect(notice).toBeGreaterThanOrEqual(0); // control: the notice fired at all
     expect(diagnostic).toBeGreaterThan(notice);
-    expect(survivingToast()).toContain("9 invalid row(s)"); // the data-loss diagnostic keeps the slot
+    expect(survivingToast()).toContain("9 invalid rows"); // the data-loss diagnostic keeps the slot
   });
 
   it("onOpenStorageFile: the notice fires AFTER storageOpenedToast and BEFORE the import diagnostic, which survives (pre-flight I9)", async () => {
@@ -4513,13 +4513,13 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     const texts = showToast.mock.calls.map((c) => String(c[1]));
-    const opened = texts.indexOf(t("en-US", "storageOpenedToast", 1));
+    const opened = texts.indexOf(tPlural("en-US", "storageOpenedToast", 1, 1));
     const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
-    const diagnostic = texts.findIndex((s) => s.includes("7 invalid row(s)"));
+    const diagnostic = texts.findIndex((s) => s.includes("7 invalid rows"));
     expect(opened).toBeGreaterThanOrEqual(0);
     expect(notice).toBeGreaterThan(opened);
     expect(diagnostic).toBeGreaterThan(notice);
-    expect(survivingToast()).toContain("7 invalid row(s)");
+    expect(survivingToast()).toContain("7 invalid rows");
   });
 
   // ── the sixth path: `onOpenStorageFile`, via the IMPORT-ONLY op (§152) ─────
@@ -4553,8 +4553,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //   mutant — the test aborts at the first failing expect, so it never ran.
     //   It is a call LOG and is here for the COUNT, which is a different
     //   property from "the user was told".
-    expect(survivingToast()).toContain("7 invalid row(s)");
-    expect(importToasts()).toEqual([expect.stringContaining("7 invalid row(s)")]);
+    expect(survivingToast()).toContain("7 invalid rows");
+    expect(importToasts()).toEqual([expect.stringContaining("7 invalid rows")]);
   });
 
   it("names the affected SECTIONS in the toast the user is left looking at", async () => {
@@ -4578,7 +4578,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     const seen = survivingToast();
-    expect(seen).toContain("4 invalid row(s)");
+    expect(seen).toContain("4 invalid rows");
     // Section ORDER follows `IMPORT_SECTION_KEYS`, not the fixture's insertion
     // order — which is why the fixture above lists raid first.
     expect(seen).toContain("Affected sections: Tasks, RAID.");
@@ -4620,7 +4620,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(window.confirm).toHaveBeenCalled();
     expect(result.current.tasks).toHaveLength(1);
     // Nothing else toasts on this exit, so the diagnostic is the survivor.
-    expect(survivingToast()).toContain("6 invalid row(s)");
+    expect(survivingToast()).toContain("6 invalid rows");
   });
 
   // ── `reportImportFor`'s SECOND ARGUMENT, pinned AT THE CALL SITE ───────────
@@ -4927,6 +4927,23 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
     expect((result.current.tasks[0] as { resourceId?: number }).resourceId).toBe(42);
+  });
+
+  // §133: a dependency on a task that no longer exists (a redo of a successor
+  // fan-out can write one) used to persist on every backend but CSV and
+  // Markdown, whose decoders were the only callers of the dangling pass. The
+  // mocked backend here decodes nothing, so this proves the FUNNEL does it.
+  it("drops dangling dependencies through the load funnel", async () => {
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [
+        { id: 1, taskName: "A", dependencies: [{ taskId: 2, type: "FS" }, { taskId: 5, type: "FS" }] },
+        { id: 2, taskName: "B" },
+      ],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect((result.current.tasks[0] as { dependencies?: unknown }).dependencies).toEqual([{ taskId: 2, type: "FS" }]);
   });
 });
 

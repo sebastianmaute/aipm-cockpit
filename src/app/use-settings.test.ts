@@ -85,6 +85,21 @@ describe("useSettings", () => {
       expect(stored.templates?.[0]?.seed?.milestones).toHaveLength(2);
     });
 
+    it("§298 — loads a stored template's long rich note through the CANONICAL cleaner", async () => {
+      // Past 5 000 visible characters the DOM-free default flattens a note; this
+      // load path injects the canonical ops, so the markup survives hydration.
+      const html = `<p><strong>head</strong> ${"x".repeat(6000)}</p>`;
+      const template = {
+        id: "tpl-2", name: "Notes", features: [], fieldVisibility: {},
+        seed: { raid: [{ id: 2, title: "R", category: "R", status: "Open", noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html, text: "" }] }] },
+      };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, templates: [template] }));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      const [loaded] = result.current.settings.templates ?? [];
+      expect(loaded?.seed?.raid?.[0]?.noteLog?.[0]?.html).toContain("<strong>head</strong>");
+    });
+
     it("sanitizes persisted reports.extra (drops junk + dups) on load", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

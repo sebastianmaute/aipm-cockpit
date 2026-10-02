@@ -100,7 +100,22 @@ describe("DocumentBlockGutter", () => {
     await user.click(screen.getByRole("button", { name: "Block actions – Block 2" }));
     const menu = screen.getByRole("dialog", { name: "Block actions – Block 2" });
     await user.click(within(menu).getByRole("button", { name: "Delete block" }));
-    expect(onDelete).toHaveBeenCalledWith(1);
+    expect(onDelete).toHaveBeenCalledWith(1, P);
+  });
+
+  // §198: the block handed back is the one the row held when the menu OPENED.
+  it("hands onDelete the block captured at menu-open, not the one rendered at click", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const row = (block: DocBlock) => (
+      <DocumentBlockGutter lang="en-US" index={0} block={block} onInsert={vi.fn()} onDelete={onDelete} handleProps={{ draggable: true }} />
+    );
+    const { rerender } = render(row(P));
+    await user.click(screen.getByRole("button", { name: "Block actions – Block 1" }));
+    rerender(row(BREAK));
+    const menu = screen.getByRole("dialog", { name: "Block actions – Block 1" });
+    await user.click(within(menu).getByRole("button", { name: "Delete block" }));
+    expect(onDelete).toHaveBeenCalledWith(0, P);
   });
 
   // ★★ The second view offers exactly the SHARED list plus Back. Counting the

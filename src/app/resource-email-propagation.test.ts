@@ -98,7 +98,7 @@ describe("propagateResourceEmail", () => {
       absences: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" }] as never,
       shifts: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] }] as never,
       stakeholders: [stakeholder({})],
-      contactPersons: [{ name: "Ada", email: "old@x.com", synced: true, resourceId: 7 }, { name: "Bob", email: "old@x.com", synced: false }],
+      contactPersons: [{ id: 1, name: "Ada", email: "old@x.com", synced: true, resourceId: 7 }, { id: 2, name: "Bob", email: "old@x.com", synced: false }],
     }));
     expect(out.raid.next[0].ownerEmail).toBe("new@x.com");
     expect(out.raid.next[0].escalations?.[0].toEmail).toBe("old@x.com");
@@ -123,7 +123,7 @@ describe("propagateResourceEmail", () => {
       absences: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" }] as never,
       shifts: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] }] as never,
       stakeholders: [stakeholder({ localModifiedAt: prior })],
-      contactPersons: [{ name: "Ada", email: "old@x.com", synced: true, resourceId: 7 }],
+      contactPersons: [{ id: 3, name: "Ada", email: "old@x.com", synced: true, resourceId: 7 }],
     }));
     expect(out.tasks.next.map((r) => [r.id, r.localModifiedAt])).toEqual([[1, stamp], [2, prior]]);
     expect(out.raid.next[0].localModifiedAt).toBe(stamp);
@@ -139,7 +139,7 @@ describe("propagateResourceEmail", () => {
 
   it("returns the same references when nothing matches", () => {
     const tasks = [task({ assigneeEmail: "x@x.com" })];
-    const people = [{ name: "Bob", email: "old@x.com", synced: false }];
+    const people = [{ id: 1, name: "Bob", email: "old@x.com", synced: false }];
     expect(retargetTaskEmails(tasks, change).next).toBe(tasks);
     expect(retargetContactPersonEmails(people, change).next).toBe(people);
   });

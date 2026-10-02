@@ -17,7 +17,7 @@ import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
 
@@ -43,6 +43,10 @@ export interface UseTaskRowHandlersArgs {
   capture: UndoStackApi["capture"];
   /** Capture a single field-level undo entry (the inline status dropdown). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** §177b — the delete's undo as a composite: the deleted row whole, the
+   *  dependents as a `dependencies` FIELD patch. Absent → the whole-row
+   *  `capture` it replaced (kept for callers that wire only `capture`). */
+  captureComposite?: UndoStackApi["captureComposite"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
 }
@@ -65,6 +69,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     logActivity,
     capture,
     captureFieldEdit,
+    captureComposite,
     resolveTemplateBody,
     sendCommTemplate,
   } = args;
@@ -373,7 +378,35 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       const dependents = arr.filter((tk) =>
         tk.dependencies?.some((d) => d.taskId === id),
       );
-      if (doomed) {
+      if (doomed && captureComposite) {
+        // §177b — only `dependencies` is written on a dependent, so only it is
+        // reverted: a note, a stamp or any other edit made to a dependent
+        // between the delete and its undo survives. The deleted row itself is
+        // row-shaped and stays a whole-row restore (and the primary, so it
+        // re-mints if its id was reused).
+        captureComposite({
+          kind: "task.deleted",
+          primaryCount: 1,
+          name: deletedName,
+          parts: [
+            capturePart({ setter: setTasks, removed: [doomed], fromArray: arr, isPrimary: true }),
+            captureFieldPart<Task>({
+              setter: setTasks,
+              edits: dependents.map((tk) => ({
+                id: tk.id,
+                before: { dependencies: tk.dependencies },
+                after: { dependencies: tk.dependencies!.filter((d) => d.taskId !== id) },
+              })),
+              // The restored links point at the deleted task. If its id was reused before the undo, the
+              // task comes back under a fresh id, and the links must follow it, not the reused-id task.
+              remapBefore: (before, remap) => ({
+                ...before,
+                dependencies: before.dependencies?.map((d) => (remap.has(d.taskId) ? { ...d, taskId: remap.get(d.taskId)! } : d)),
+              }),
+            }),
+          ],
+        });
+      } else if (doomed) {
         capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr, name: deletedName });
       }
       setTasks((prev) =>
@@ -394,7 +427,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, capture],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, capture, captureComposite],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {

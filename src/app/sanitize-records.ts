@@ -52,6 +52,7 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
+  sanitizeMultiline,
   sanitizeLoadedEmail, normalizeEmailShape,
   sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
@@ -757,6 +758,22 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null { return raidW
 export function rebuildRaidForUpdate(stored: RaidItem, merged: unknown): RaidItem | null {
   return raidWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
 }
+/** §37 — the STORAGE-side length cap for a RAID row's two plain-text fields,
+ *  run on every load path (`jsonToWorkspace`, which JSON and IndexedDB reach,
+ *  and `buildRaidItemFromObj`, which CSV, Markdown and both Turso layouts reach).
+ *  Same limits the edit/AI sanitiser applies (`TASK_NAME_MAX`, `BUDGET_NAME_MAX`).
+ *
+ *  ★★ CAP ONLY — deliberately NOT `sanitizeRaidItem`. That function also
+ *  defaults an off-category status, so running it at load would silently
+ *  rewrite stored statuses; this touches length and nothing else (no trim, no
+ *  status, no category). Reference-preserving: an in-cap row comes back as the
+ *  same object, so a load records nothing as changed. */
+export function capRaidStoredText<T extends { title: string; owner?: string }>(r: T): T {
+  const title = typeof r.title === "string" ? sanitizeMultiline(r.title, TASK_NAME_MAX) : r.title;
+  const owner = typeof r.owner === "string" ? sanitizeMultiline(r.owner, BUDGET_NAME_MAX) : r.owner;
+  return title === r.title && owner === r.owner ? r : { ...r, title, owner };
+}
+
 function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): RaidItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;
@@ -1262,14 +1279,43 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
 
 // --- Project meta sanitizer ------------------------------------------------
 
-function sanitizeContactPerson(input: unknown): ContactPerson | null {
+/** A contact person before §537's id is guaranteed — what a stored cell or an
+ *  old file can hold. `withContactPersonIds` turns a list of these into
+ *  `ContactPerson`s. */
+export type ContactPersonInput = Omit<ContactPerson, "id"> & { id?: number };
+
+function sanitizeContactPerson(input: unknown): ContactPersonInput | null {
   if (!isPlainObject(input)) return null;
   const name = sanitizeText(input.name, BUDGET_NAME_MAX);
   if (!name) return null;
   const email = sanitizeLoadedEmail(input.email);
   const synced = typeof input.synced === "boolean" ? input.synced : false;
   const resourceId = fkIdOrUndefined(input.resourceId);
-  return resourceId === undefined ? { name, email, synced } : { name, email, synced, resourceId };
+  const id = fkIdOrUndefined(input.id);
+  return {
+    ...(id !== undefined ? { id } : {}),
+    name, email, synced,
+    ...(resourceId !== undefined ? { resourceId } : {}),
+  };
+}
+
+/** §537 — give every contact a positive id unique within the list. A valid id
+ *  is KEPT (first occurrence wins); a missing or repeated one gets the next
+ *  free id above the list's current maximum, in list order — so an old file
+ *  loads as 1, 2, 3… and reloading the same data mints the same ids.
+ *  Reference-preserving per row when nothing changes. */
+export function withContactPersonIds(list: readonly ContactPersonInput[]): ContactPerson[] {
+  const seen = new Set<number>();
+  let next = list.reduce((m, c) => (typeof c.id === "number" && c.id > m ? c.id : m), 0);
+  return list.map((c) => {
+    if (typeof c.id === "number" && c.id > 0 && !seen.has(c.id)) {
+      seen.add(c.id);
+      return c as ContactPerson;
+    }
+    next += 1;
+    seen.add(next);
+    return { ...c, id: next };
+  });
 }
 
 /** Coerce an unknown value to a string array, map through text sanitizer,
@@ -1362,9 +1408,9 @@ function projectMetaWithDateReader(input: unknown, readOptional: RequiredDateRea
 
   // contactPersons — keep only valid entries; empty [] is allowed.
   const rawCp: unknown[] = Array.isArray(o.contactPersons) ? o.contactPersons : [];
-  const contactPersons: ContactPerson[] = rawCp
-    .map(sanitizeContactPerson)
-    .filter((cp): cp is ContactPerson => cp !== null);
+  const contactPersons: ContactPerson[] = withContactPersonIds(
+    rawCp.map(sanitizeContactPerson).filter((cp): cp is ContactPersonInput => cp !== null),
+  );
 
   // Build the always-present fields first (sanitizeStakeholder style).
   const meta: ProjectMeta = {

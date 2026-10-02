@@ -5,6 +5,7 @@
 // useMsAuth().acquireToken).
 
 import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
+import { sanitizeDecodedRichFields } from "./workspace-rich-sanitize";
 import {
   StorageNotReadyError,
   emptyWorkspace,
@@ -50,6 +51,8 @@ function graphUrlFor(loc: SpFileLocation): string {
 const ITEM_METADATA_QUERY = "?$select=eTag,@microsoft.graph.downloadUrl";
 /** §4 — the documented create-only form: the annotation belongs in the URL, not the body. */
 const CREATE_ONLY_QUERY = "?@microsoft.graph.conflictBehavior=fail";
+/** §656 m2 — the base a revision message names for a file loaded as absent. Not an eTag shape, so it cannot match a real one. */
+export const ABSENT_REVISION = "sp:absent";
 
 export type SpStorageConfig =
   | ({ kind: "sp-json" } & SpFileLocation)
@@ -232,7 +235,8 @@ export class SharePointBackend implements StorageBackend {
       }
       if (this.kind === "sp-csv") {
         const csv = res.text;
-        const ws = csvToWorkspace(csv, diag);
+        // §28 — the codec is DOM-free, so the rich fields are sanitized here.
+        const ws = sanitizeDecodedRichFields(csvToWorkspace(csv, diag));
         this.lastImportDroppedRows = diag.droppedRows;
         this.lastImportDroppedBySection = diag.droppedBySection;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
@@ -341,6 +345,13 @@ export class SharePointBackend implements StorageBackend {
    *  from a response that carried no ETag — the two are told apart internally, not here). */
   revision(): string | null {
     return this.currentRevision;
+  }
+
+  /** §656 m2 — a file loaded as absent announces `ABSENT_REVISION`, so a window that also saw it absent
+   *  adopts the revision this window's create-only write produced instead of meeting a 409. Never sent
+   *  as `If-Match`: `save()` reads `currentRevision`, not this. */
+  revisionBase(): string | null {
+    return this.currentRevision ?? (this.baselineKnown && this.baselineAbsent ? ABSENT_REVISION : null);
   }
 
   /** §4: adopt `rev` as the baseline without a load/save; also drops a pending force. */

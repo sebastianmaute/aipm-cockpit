@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur, countUnresolvedBuckets } from "./fx";
+import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur, countUnresolvedBuckets, planCurrencyPerEur } from "./fx";
 import type { FxRates, BudgetBucket } from "./types";
 
 const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08, GBP: 0.85 } };
@@ -137,5 +137,22 @@ describe("conversion", () => {
     expect(currencyToEur(100, bucket({ fxRateOverride: 0 }), fx)).toBeCloseTo(100 / 1.08, 5);
     expect(currencyToEur(100, bucket({ fxRateOverride: -5 }), fx)).toBeCloseTo(100 / 1.08, 5);
     expect(Number.isFinite(currencyToEur(100, bucket({ currency: "EUR", fxRateOverride: 0 }), null))).toBe(true);
+  });
+});
+
+// §473 — the divisor that turns plan-currency role rates into EUR.
+describe("planCurrencyPerEur", () => {
+  const rates: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "x", rates: { USD: 1.2, GBP: 0.9 } };
+  test("is 1 for an EUR plan, whatever the bucket carries", () => {
+    expect(planCurrencyPerEur("EUR", { currency: "USD", fxRateOverride: 1.5 }, rates)).toBe(1);
+  });
+  test("reuses the bucket's own resolution, override included, when the bucket shares the plan currency", () => {
+    expect(planCurrencyPerEur("USD", { currency: "USD", fxRateOverride: 1.5 }, rates)).toBe(1.5);
+  });
+  test("uses the cached rate for the plan currency when the bucket's currency differs — never the bucket's override", () => {
+    expect(planCurrencyPerEur("GBP", { currency: "USD", fxRateOverride: 1.5 }, rates)).toBe(0.9);
+  });
+  test("falls back to par when nothing is cached", () => {
+    expect(planCurrencyPerEur("GBP", { currency: "EUR" }, null)).toBe(1);
   });
 });

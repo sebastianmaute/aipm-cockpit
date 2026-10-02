@@ -200,7 +200,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                   type="button"
                   onClick={() => removeTemplate(tpl.id)}
                   aria-label={rowLabel(t(lang, "templatesDelete"), token)}
-                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-ui-purple hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-ui-purple dark:text-ui-purple-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "templatesDelete")}
                 </button>

@@ -290,11 +290,12 @@ an out-of-order input still packs correctly.
   real invariant holds.
 - ★★ **Band chips reschedule from the keyboard**, mirroring the day grid one row below: Alt+Left/Right ARMS a
   move and accumulates a day delta IN STATE, Enter commits it as ONE `onMoveOccurrence` call (one undo entry
-  per intent, not one per keypress), Escape cancels. ★★ There is NO preview: `pendingMove` is read only in the
-  handlers, never during render, and the live region emits a CONSTANT string that does not report the
-  accumulated delta — so three Alt+Rights give no visual and no announced feedback before Enter commits. The
-  day grid has the identical gap. Do not describe either as "previewing"; building a real preview (a ghost
-  chip + a delta in the announcement) is the open follow-up. ★ Gated on `onMoveOccurrence` — with no handler (read-only popout)
+  per intent, not one per keypress), Escape cancels. ★★ Both PREVIEW the landing spot (§10, closed 2026-10-02): the
+  target cell wears a dashed `outline-ui-green` (`data-move-preview` — the dash is the non-colour cue), and the
+  live region appends where Enter would land it (`calendarMeetingMovePreview` for the band, reported up with
+  each step as `onMoveModeChange("armed", target)`; `calendarMovePreview` / `calendarMovePreviewPerson` for the
+  day grid). ★★ The grid's preview and its commit both call `resolvePendingGesture`, so what is outlined is
+  what Enter writes — keep it that way; a preview computed separately would drift from the commit. ★ Gated on `onMoveOccurrence` — with no handler (read-only popout)
   Alt+Left stays browser Back, which is what `band-roving.ts`'s modifier guard preserves. ★ While armed the
   handler returns EARLY, so a plain arrow cannot walk the roving cursor out from under the preview; Alt+Up/Down
   are ignored (occurrences are single-day and lanes are packing artefacts — no row axis, no resize gesture).

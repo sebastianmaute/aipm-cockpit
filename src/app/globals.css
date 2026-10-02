@@ -186,14 +186,28 @@ table:has(> .aipm-cockpit-thead) {
    checkbox, and read-only surfaces get this glyph.
    ★ The item's content sits DIRECTLY in the <li> (the renderHTML override drops
    the stock <div> wrapper), so there is no wrapper element to target.
-   ★★ KNOWN LIMIT, recorded in open-followups: generated content is exposed to
-   the accessibility tree as a character name, not as "checked". This avoided an
-   axe-critical UNLABELED CONTROL; it does not make read-only announcement
-   equivalent to a real checkbox. */
+   ★★ The glyph alone reaches the accessibility tree as a CHARACTER NAME
+   ("ballot box with check"), not as "checked". The `@supports` block gives it
+   CSS alt text (`content: <glyph> / <text>`), which AT reads INSTEAD of the
+   glyph's name (§147) — measured in Chromium's accessibility tree. In
+   `@supports`, not as a second declaration: an engine without the syntax drops
+   the whole declaration, and a minifier may collapse a duplicate fallback.
+   The words follow the page language — `use-settings.ts` writes it to
+   `<html lang>` — so German gets German. Still not a checkbox role: there is
+   no form control here, which is the axe-critical unlabeled control this
+   avoided. The editor's own nodeView `<li>` carries no `data-type`, so none of
+   this reaches the editor, where the real checkbox speaks. Mirrored in
+   doc-render-html.ts for the standalone export. */
 ul[data-type="taskList"] { list-style: none; padding-left: 0; }
 li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
 li[data-type="taskItem"]::before { content: "\2610"; }
 li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
+@supports (content: "x" / "y") {
+  li[data-type="taskItem"]::before { content: "\2610" / "not checked"; }
+  li[data-type="taskItem"][data-checked="true"]::before { content: "\2611" / "checked"; }
+  :lang(de) li[data-type="taskItem"]::before { content: "\2610" / "nicht abgehakt"; }
+  :lang(de) li[data-type="taskItem"][data-checked="true"]::before { content: "\2611" / "abgehakt"; }
+}
 
 /* Icon stroke weight. lucide defaults to strokeWidth 2; heroicons `24/outline`
    — which every icon in this app came from until the icons.ts migration — draws

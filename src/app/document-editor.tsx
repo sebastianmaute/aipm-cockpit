@@ -281,9 +281,14 @@ export function DocumentEditor({
     if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at, type));
   };
 
-  const deleteBlock = async (index: number) => {
-    const block = doc.blocks[index];
-    if (!block) return;
+  const deleteBlock = async (index: number, opened: DocBlock) => {
+    // §198: the baseline is the block the row held when its menu OPENED, which
+    //  the gutter froze and handed back. Reading `doc.blocks[index]` here
+    //  instead made `expect` compare a block that slid in under the menu
+    //  against itself. The row must still exist; WHAT it holds is the
+    //  engine's to check.
+    if (!doc.blocks[index]) return;
+    const block = opened;
     // ★ The seed for THIS block's kind. `blockIsTrivial` is i18n-free by
     //  contract and so takes the seed rather than computing it — a page break,
     //  or a block still holding its untouched placeholder, is nothing to lose.
@@ -306,13 +311,11 @@ export function DocumentEditor({
     //  what it buys HERE is the `await confirm(...)` window above: `block` is
     //  read before the await, so a write that lands while the prompt is open
     //  makes the engine REFUSE rather than delete whatever slid into `index`.
-    //  ★★ It is NOT "the row the user pointed at", which is what this comment
-    //   used to claim. `const block = doc.blocks[index]` runs when the MENU
-    //   ITEM IS CLICKED, from whichever render is current then — not when the
-    //   menu was opened on that row. A concurrent write between those two
-    //   moments re-renders the editor, so this handler closes over the NEW
-    //   `doc` and `expect` compares the new block against itself. Widening the
-    //   capture to menu-OPEN is a design change, deliberately not made here.
+    //  ★★ And since §198 it covers the EARLIER hop too, menu-open → click:
+    //   `block` is the gutter's open-time capture, so it IS the block the user
+    //   pointed at. Before that it was read here at click time, and a write
+    //   landing while the menu was open made `expect` compare the new block
+    //   against itself.
     // ★★ `resolvedSelection` COMES FROM THE RENDER THAT BUILT THIS HANDLER,
     //  i.e. from BEFORE the `await confirm(...)` above — deliberately the same
     //  snapshot `block` is read from, so the delete and the selection it

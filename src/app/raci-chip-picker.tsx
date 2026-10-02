@@ -3,6 +3,7 @@ import { useCallback, useId, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { PopoverPanel } from "./popover-panel";
 import { RACI_ROLES, type RaciRole } from "./types";
+import { handleRovingFocusKeyDown } from "./radio-group-keys";
 import { XMarkIcon } from "./icons";
 
 interface RaciChipPickerProps {
@@ -239,26 +240,45 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         ariaLabel={`${ariaPrefix} — ${t(lang, "raciSetLabel")}`}
         className="flex w-max items-center gap-2 p-1.5 shadow-[var(--shadow-control)]"
       >
-        {RACI_ROLES.map((role) => {
-          const c = CHIP[role];
-          return (
-            <button
-              key={role}
-              type="button"
-              aria-pressed={value === role}
-              aria-label={role}
-              onClick={(e) => {
-                e.stopPropagation();
-                pick(role);
-              }}
-              className={`${CHIP_BASE} ${
-                value === role ? `${c.on} ${SELECTED_RING}` : `bg-surface ${c.off} hover:bg-surface-muted`
-              }`}
-            >
-              {role}
-            </button>
-          );
-        })}
+        {/* ★★ §331 — the four roles are ONE CHOICE, so they carry its semantics:
+            `menu` + `menuitemradio` with `aria-checked`, a single roving Tab
+            stop (the checked role, else "R") and arrow keys between them. NOT a
+            `radiogroup`: picking a role COMMITS and closes this popover, and a
+            radio's arrow keys select, so every arrow press would close it. A
+            menu item activates only on Enter/Space/click, which is this
+            control's behaviour. The clear chip stays OUTSIDE the menu — it is an
+            action, not a fifth role. */}
+        <div
+          role="menu"
+          aria-label={t(lang, "raciSetLabel")}
+          className="flex items-center gap-2"
+          onKeyDown={(e) => handleRovingFocusKeyDown(e, '[role="menuitemradio"]')}
+        >
+          {RACI_ROLES.map((role, i) => {
+            const c = CHIP[role];
+            const checked = value === role;
+            const tabStop = checked || (value === "" && i === 0);
+            return (
+              <button
+                key={role}
+                type="button"
+                role="menuitemradio"
+                aria-checked={checked}
+                aria-label={role}
+                tabIndex={tabStop ? 0 : -1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pick(role);
+                }}
+                className={`${CHIP_BASE} ${
+                  checked ? `${c.on} ${SELECTED_RING}` : `bg-surface ${c.off} hover:bg-surface-muted`
+                }`}
+              >
+                {role}
+              </button>
+            );
+          })}
+        </div>
         <button
           type="button"
           aria-label={t(lang, "raciClear")}

@@ -2,7 +2,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { committeePushKey, planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { logDiag } from "./diagnostics";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
@@ -143,13 +143,16 @@ export function useCommitteeOutlookPush({
         });
       }
 
+      const meetings = plan.meetingCreate.length + plan.meetingUpdate.length;
+      const reminders = plan.infoCreate.length + plan.infoUpdate.length;
       showToast(
         "info",
+        // §450 — two independent counts, so each noun is its own plural pair.
         t(lang, "committeePushResult",
-          plan.meetingCreate.length + plan.meetingUpdate.length,
-          plan.infoCreate.length + plan.infoUpdate.length),
+          tPlural(lang, "committeePushMeetingCount", meetings, meetings),
+          tPlural(lang, "committeePushReminderCount", reminders, reminders)),
       );
-      if (failed > 0) showToast("error", t(lang, "committeePushPartial", failed));
+      if (failed > 0) showToast("error", tPlural(lang, "committeePushPartial", failed, failed));
     } catch {
       showToast("error", t(lang, "committeePushError"));
     } finally {

@@ -33,6 +33,7 @@ import {
   type EntitySpec, type SqlStmt, type PipelineResultLike, type RevisionStamp,
 } from "./turso-schema";
 import { tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements } from "./turso-tenant-schema";
+import { buildColumnEnsureAlters, pragmaStatements, singleTenantTableColumns } from "./turso-migrate";
 import {
   calendarOptOutWorkspace,
   EXPECTED_CALENDAR_OPT_OUTS,
@@ -334,6 +335,79 @@ describe("turso schema id kinds", () => {
       expect(
         (db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").all() as { value: string }[]),
       ).toHaveLength(1);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("§211 — a pre-fix single-tenant database self-heals its id type", () => {
+  /** The real PRAGMA result, pivoted into the shape the migration parses. */
+  function pragmaResults(db: DatabaseSync, tables: readonly string[]): PipelineResultLike[] {
+    return pragmaStatements(tables).map((s) => {
+      const rows = db.prepare(s.sql).all() as Record<string, unknown>[];
+      const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+      return { type: "ok", response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } } };
+    });
+  }
+
+  /** What a build before `idKind` created: every entity table with the
+   *  INTEGER rowid-alias id, text-id ones included. */
+  function preFixDb(): DatabaseSync {
+    const db = new DatabaseSync(":memory:");
+    for (const spec of ENTITY_SPECS) {
+      db.exec(`CREATE TABLE ${spec.table} (${spec.columns.map((c) => (c === "id" ? "id INTEGER PRIMARY KEY" : `"${c}" TEXT`)).join(", ")})`);
+    }
+    for (const ddl of SCHEMA_DDL) db.exec(ddl); // the rest, as a real load would
+    return db;
+  }
+
+  function migrate(db: DatabaseSync): SqlStmt[] {
+    const specs = singleTenantTableColumns();
+    const alters = buildColumnEnsureAlters(specs, pragmaResults(db, specs.map((s) => s.table)));
+    if (alters.length > 0) runStatements(db, [{ sql: "BEGIN" }, ...alters, { sql: "COMMIT" }]);
+    return alters;
+  }
+
+  it("refuses a UUID id before the migration — the defect this repairs", () => {
+    const db = preFixDb();
+    try {
+      const textSpec = ENTITY_SPECS.find((s) => s.idKind === "text")!;
+      expect(() => db.prepare(`INSERT INTO ${textSpec.table} (id) VALUES (?)`).run("a-uuid")).toThrow(/datatype mismatch/);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("rebuilds the table so a full workspace save succeeds, keeping existing rows", () => {
+    const db = preFixDb();
+    try {
+      const textSpec = ENTITY_SPECS.find((s) => s.idKind === "text")!;
+      // A row the old INTEGER table could hold survives the rebuild.
+      db.prepare(`INSERT INTO ${textSpec.table} (id) VALUES (?)`).run(BigInt(7));
+      expect(migrate(db).length).toBeGreaterThan(0);
+      expect(String(selectRow(db, `SELECT id FROM ${textSpec.table} WHERE id = '7'`).id)).toBe("7");
+      // The save that used to fail now commits every table.
+      const ws = emptyWorkspace();
+      const ids = new Map<string, string>();
+      for (const spec of ENTITY_SPECS) {
+        ids.set(spec.table, fixtureId(spec));
+        (ws[spec.wsKey] as unknown) = [buildFixture(spec, ids.get(spec.table)!)];
+      }
+      runStatements(db, workspaceToStatements(ws));
+      expect(String(selectRow(db, `SELECT id FROM ${textSpec.table}`).id)).toBe(ids.get(textSpec.table));
+      // And the rebuild is one-shot: a second run finds nothing to do.
+      expect(migrate(db)).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("leaves a database created by the current DDL alone", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of SCHEMA_DDL) db.exec(ddl);
+      expect(migrate(db)).toEqual([]);
     } finally {
       db.close();
     }

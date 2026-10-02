@@ -840,8 +840,8 @@ describe("MilestonesPanel linked-documents badge", () => {
     renderWithProbe();
     const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 document(s) – Alpha gate",
-      "Referenced by 1 document(s) – Beta gate",
+      "Referenced by 2 documents – Alpha gate",
+      "Referenced by 1 document – Beta gate",
     ]);
     expectRowUniqueNames({ minControls: 17 });
   });
@@ -849,7 +849,7 @@ describe("MilestonesPanel linked-documents badge", () => {
   it("clicking the badge switches the app to the Documents view", () => {
     renderWithProbe();
     expect(screen.getByTestId("active-tab").textContent).toBe("dashboard");
-    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha gate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 documents – Alpha gate" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
     expect(screen.getByTestId("pending-doc-filter").textContent).toBe("milestone:1");
   });

@@ -196,6 +196,23 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     await settle();
     expect(w1.taskNames()).toEqual(["A-TASK", "BACK-ON-A"]);
   });
+  // §659 — the named check. W2's switch leaves the SHARED registry naming `b`; W1, still showing `a`,
+  // used to compare its user's pick against that and return early: no load, no toast, still on a.json.
+  it("a window still on a project switches when another tab already made the target current", async () => {
+    const { w1, w2 } = await openTwoOnA();
+    await switchTo(w2, "b");
+    expect(loadRegistry().currentProjectId).toBe("b"); // the precondition the old guard tripped on
+    expect(w1.taskNames()).toEqual(["A-TASK"]);
+    await switchTo(w1, "b");
+    expect(w1.taskNames()).toEqual(["B-TASK"]);
+    // Bound to b.json: W1's edit lands in b's file and W2 (on b) mirrors it; a.json never sees it.
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "B-TASK"), task(4, "W1-ON-B")]); });
+    await waitFor(() => expect(fileB.text()).toContain("W1-ON-B"), { timeout: 4000 });
+    await settle();
+    expect(w2.taskNames()).toEqual(["B-TASK", "W1-ON-B"]);
+    expect(fileA.text()).not.toContain("W1-ON-B");
+  });
+
   it("a window booted after another window's switch reads that project from the slot and mirrors it", async () => {
     const { w2 } = await openTwoOnA();
     await switchTo(w2, "b");

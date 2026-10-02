@@ -190,6 +190,34 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(journals().some(({ journal }) => journal.workspace.includes("PAUSED-EDIT"))).toBe(true);
   });
 
+  // §656 — the pre-switch flush is a write like the autosave: a window mirroring this storage must hear the
+  // revision it produced, or that window pauses at its next save although it holds this content.
+  // §656 — the pre-switch flush is a write like the autosave: a window mirroring this storage must hear the
+  // revision it produced, or that window pauses at its next save although it holds this content. ★ A switch
+  // inside the debounce writes TWICE (the pre-switch flush, and the §589 cleanup flush of the pending
+  // autosave), so the check is a CHAIN: each write posted, each based on the one before it.
+  it("the pre-switch flush posts the revision its write produced, so every write of a switch is posted", async () => {
+    const file = fakeFile("p.json", workspaceToJson(emptyWorkspace()));
+    KV.set("file-handle:local-json", file);
+    PROJECT_HANDLES.set("p", file);
+    let registry = addProject(emptyRegistry(), { id: "p", name: "Project p", code: "P", storageConfig: { kind: "local-json" } }, true);
+    registry = addProject(registry, { id: "b", name: "Project b", code: "B", storageConfig: { kind: "browser" } }, false);
+    saveRegistry(registry);
+    const app = renderApp({ kind: "local-json" });
+    await waitFor(() => expect(app.ops().loadPending).toBe(false));
+    await settle();
+    const loaded = file.revision();
+    vi.mocked(postRevision).mockClear();
+    await edit(app, [task(1, "FLUSHED")]);
+    await act(async () => { await app.ops().switchToProject("b"); }); // inside the debounce
+    await settle();
+    expect(file.text()).toContain("FLUSHED");
+    const posts = vi.mocked(postRevision).mock.calls.map(([, revision, base]) => ({ revision, base }));
+    expect(posts).toHaveLength(file.writes);
+    expect(posts.map((p) => p.base)).toEqual([loaded, ...posts.slice(0, -1).map((p) => p.revision)]);
+    expect(posts.at(-1)?.revision).toBe(file.revision());
+  });
+
   describe("the record kept on a switch away from a paused project (fix rounds 1 and 2)", () => {
     const KEPT_P = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p")}`;
     const OWN_P = `${UNLOAD_JOURNAL_PREFIX}p`;

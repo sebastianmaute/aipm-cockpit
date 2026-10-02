@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeTemplate, sanitizeTemplates, templateFromWorkspace } from "./templates";
+import { DOM_FREE_SEED_NOTE_OPS, sanitizeSeed, sanitizeTemplate, sanitizeTemplates, templateFromWorkspace } from "./templates";
+import { CANONICAL_NOTE_HTML_OPS } from "./note-log";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { emptyWorkspace } from "./workspace";
 
@@ -311,3 +312,30 @@ describe("a template seed task's over-cap Name <addr> email loads unwrapped", ()
     expect(tpl?.seed?.tasks?.[0]?.assigneeEmail).toBe("ada@x.com");
   });
 });
+
+// §298 — the seed note cleaner is INJECTED. The pin is on the DIFFERENCE, kept
+// on purpose: scripts (no DOM) get the DOM-free ops and their caps; the app
+// injects the canonical ones. A test that only checked "rich survives" would
+// pass with the default silently swapped to DOMPurify, which a script cannot load.
+describe("seed note-log cleaner injection (§298)", () => {
+  const html = `<p><strong>head</strong> ${"x".repeat(6000)}</p>`;
+  const seedWithNote = { raid: [{ id: 2, title: "R", category: "R", status: "Open", noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html, text: "" }] }] };
+
+  it("the DOM-free default flattens a note past TEXTAREA_MAX visible characters", () => {
+    const note = sanitizeSeed(seedWithNote)!.raid![0].noteLog![0];
+    expect(note.html).not.toContain("<strong>");
+    expect(sanitizeSeed(seedWithNote, DOM_FREE_SEED_NOTE_OPS)!.raid![0].noteLog![0].html).toBe(note.html);
+  });
+
+  it("the canonical ops keep it rich, and the settings load path injects them", () => {
+    expect(sanitizeSeed(seedWithNote, CANONICAL_NOTE_HTML_OPS)!.raid![0].noteLog![0].html).toContain("<strong>head</strong>");
+    const tpls = sanitizeTemplates([{ id: "t", name: "T", seed: seedWithNote }], CANONICAL_NOTE_HTML_OPS);
+    expect(tpls[0].seed!.raid![0].noteLog![0].html).toContain("<strong>head</strong>");
+  });
+
+  it("keeps a seed's resources on load (§228 — the arm sanitizeSeed lacked)", () => {
+    const seed = sanitizeSeed({ resources: [{ id: 3, firstName: "Ada", lastName: "L", utilizationMode: "percent", utilization: {} }] });
+    expect(seed?.resources?.map((r) => r.firstName)).toEqual(["Ada"]);
+  });
+});
+

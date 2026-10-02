@@ -442,7 +442,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
                 onClick={() => pickLevel(item.value)}
                 aria-current={active ? "true" : undefined}
                 className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-muted ${
-                  active ? "font-semibold text-ui-dark-blue" : "text-foreground"
+                  active ? "font-semibold text-ui-dark-blue dark:text-ui-light-grey" : "text-foreground"
                 }`}
               >
                 <item.icon aria-hidden="true" className={ICON_CLASS} />

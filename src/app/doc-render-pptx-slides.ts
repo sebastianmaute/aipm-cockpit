@@ -63,11 +63,13 @@ export type SlideLine = string | RichLine | ImageLine;
  * An image on its way to a slide.
  *
  * ★★ The extent is already FITTED AND CAPPED to `BODY_BOX` by `paragraphLines`
- * (doc-render-pptx.ts), so `cyEmu` is at most one body box tall. That
- * bounds `lineCost` at 17 (`ceil(3474720 / 213360)`) — one line-height MORE
- * than `BODY_LINES_PER_SLIDE`, so a full-height picture always takes a slide
- * of its own. "Cost never exceeds the budget" is therefore NOT the invariant,
- * and a reader who assumes it is will write a guard that never fires.
+ * (doc-render-pptx.ts), so `cyEmu` is at most one body box tall — which still
+ * costs 17 lines (`ceil(3474720 / 213360)`), one MORE than
+ * `BODY_LINES_PER_SLIDE`. Since §222 `paginateLines` scales such an image to
+ * the budget before placing it, and scales one down into the space LEFT on a
+ * slide when at least half a slide remains — so an IMAGE in a chunk never
+ * costs more than the budget. ★ A raw `ImageLine` straight from
+ * `paragraphLines` still can; only the paginated one cannot.
  *
  * ★ It carries the extent rather than the `DocumentAsset` so pagination needs
  * no lookups, and so `lineCost` is a pure function of the line.
@@ -86,8 +88,8 @@ function isImageLine(line: SlideLine): line is ImageLine {
 function slideLineText(line: SlideLine): string {
   // ★ An image shows no text. The guard is REQUIRED, not defensive: without it
   //   `line` narrows to `RichLine | ImageLine` and `.runs` does not typecheck.
-  //   It is unreachable today — `isBlankLine`, this function's only caller,
-  //   answers the image case before delegating.
+  //   Its two callers, `isBlankLine` and `lineCost`, both answer the image
+  //   case before delegating, so it is unreachable today.
   if (isImageLine(line)) return "";
   return typeof line === "string" ? line : line.runs.map((r) => r.text).join("");
 }
@@ -107,6 +109,9 @@ export function isBlankLine(line: SlideLine): boolean {
   //    `paginateLines`' leading-blank strip just below.
   if (isImageLine(line)) return false;
   if (typeof line !== "string" && line.kind === "hr") return false;
+  // ★ §157's marker-only list head has no runs either, and its marker is drawn
+  //   at emit time (`bulletMarker`) — content, like a rule.
+  if (typeof line !== "string" && line.kind === "li") return false;
   return slideLineText(line).trim() === "";
 }
 
@@ -148,16 +153,39 @@ const BODY_LINE_EMU = Math.round((BODY_SIZE / 100) * LINE_SPACING * EMU_PER_POIN
  * up only when a human opens the deck — which is exactly the class of defect
  * no test in this repo can catch, so the renderer has to bound it.
  *
- * ★★ HONEST LIMIT: this counts LINES, not RENDERED lines. `wrap="square"`
- * means one long line wraps and consumes more than one line of height, and
- * nothing here can measure text — jsdom has no layout and the box is never
- * rendered. So the budget is sound for short lines and optimistic for long
- * ones. It converts UNBOUNDED overflow into BOUNDED overflow; it is not a
- * promise that every slide fits, and only opening a real deck can confirm
- * that. ★ An IMAGE line is measured, not counted — see `lineCost` — so the
- * optimism is confined to text.
+ * ★★ HONEST LIMIT: a slide's lines are measured by `lineCost`, which ESTIMATES
+ * how many rendered lines a text line wraps to from its length
+ * (`BODY_CHARS_PER_LINE`, §94) — nothing here can measure text, since jsdom
+ * has no layout and the box is never rendered. And a single line costing MORE
+ * than a whole slide (one very long paragraph) cannot be split by the
+ * paginator, so its chunk sets `normAutofit` and PowerPoint shrinks it
+ * (`buildContentSlide`). Only opening a real deck confirms the fit.
  */
 export const BODY_LINES_PER_SLIDE = Math.floor(BODY_BOX.cyEmu / BODY_LINE_EMU);
+
+/** A text box's default left+right inset, 0.1in each side. */
+const BODY_INSET_EMU = 2 * 91440;
+/** Average glyph advance as a fraction of the font size — deliberately on the
+ *  WIDE side of a proportional body font's ~0.5em, so the estimate errs toward
+ *  breaking a slide early rather than overflowing it. */
+const AVG_GLYPH_EM = 0.55;
+
+/**
+ * §94 — how many characters fit on one rendered body line, DERIVED from the
+ * box width and the body size:
+ *
+ *   (8229600 − 182880) EMU / 12700 = 633.6pt of width
+ *   14pt × 0.55em                  = 7.7pt per character
+ *   floor(633.6 / 7.7)             = 82 characters
+ *
+ * ★★ STILL AN ESTIMATE — nothing here can measure text, and a line of wide
+ * glyphs ("WWW…") or a bullet's indent can still wrap sooner. It replaces the
+ * old "one array entry is one line" count, under which a 300-character
+ * paragraph cost 1 and took 4 lines on screen.
+ */
+export const BODY_CHARS_PER_LINE = Math.floor(
+  (BODY_BOX.cxEmu - BODY_INSET_EMU) / EMU_PER_POINT / ((BODY_SIZE / 100) * AVG_GLYPH_EM),
+);
 
 /**
  * What one line costs against a slide's budget.
@@ -170,7 +198,21 @@ export const BODY_LINES_PER_SLIDE = Math.floor(BODY_BOX.cyEmu / BODY_LINE_EMU);
  * slide it sits on.
  */
 export function lineCost(line: SlideLine): number {
-  return isImageLine(line) ? Math.max(1, Math.ceil(line.cyEmu / BODY_LINE_EMU)) : 1;
+  if (isImageLine(line)) return Math.max(1, Math.ceil(line.cyEmu / BODY_LINE_EMU));
+  // §94 — a text line costs the lines it WRAPS to, estimated from its length.
+  // ★ A plain string may carry a smuggled "\n" (a table cell), which the
+  //   uniform-text branch emits as separate <a:p>; each costs at least one.
+  return slideLineText(line)
+    .split("\n")
+    .reduce((n, segment) => n + Math.max(1, Math.ceil(segment.length / BODY_CHARS_PER_LINE)), 0);
+}
+
+/** §222 — scale an image proportionally so it costs at most `maxLines`. */
+function scaleImageToLines(line: ImageLine, maxLines: number): ImageLine {
+  const targetCy = maxLines * BODY_LINE_EMU;
+  if (line.cyEmu <= targetCy) return line;
+  const factor = targetCy / line.cyEmu;
+  return { ...line, cyEmu: targetCy, cxEmu: Math.max(1, Math.round(line.cxEmu * factor)) };
 }
 
 /**
@@ -178,18 +220,35 @@ export function lineCost(line: SlideLine): number {
  *
  * Returns `[[]]` for an empty list so a titled slide with no body still yields
  * exactly one slide (a section divider); the caller drops the untitled case.
+ *
+ * ★★ §222 — IMAGES SCALE TO FIT (decided 2026-10-02). An ordinary screenshot
+ *  fitted to the body box costs 17 lines against a 16-line budget, so every
+ *  image used to land alone on its own slide and long decks got longer. Now:
+ *  an image is first capped to ONE slide (`perSlide` lines — the 17th line was
+ *  an overflow, not a choice), and an image that does not fit the lines LEFT on
+ *  the current slide is scaled down into them, keeping its aspect ratio, when
+ *  at least half a slide remains (`ceil(perSlide / 2)` = 8 lines ≈ 4.7 cm,
+ *  still legible for a screenshot). With less room it starts the next slide as
+ *  before. The picture sits below the slide's text either way
+ *  (`buildContentSlide`), and the budget counts both, so it cannot overlap.
  */
 export function paginateLines(lines: readonly SlideLine[], perSlide: number): SlideLine[][] {
   if (lines.length === 0) return [[]];
   const chunks: SlideLine[][] = [];
   let current: SlideLine[] = [];
   let spent = 0;
+  const minImageLines = Math.ceil(perSlide / 2);
 
   // ★★ A SINGLE FORWARD PASS, one line consumed per iteration. That is what
   //    makes it total: a line costing more than the whole budget lands alone on
   //    its own chunk rather than repeatedly failing to fit. A formulation that
   //    re-tested the same line after breaking would not terminate for one.
-  for (const line of lines) {
+  for (const original of lines) {
+    let line: SlideLine = isImageLine(original) ? scaleImageToLines(original, perSlide) : original;
+    if (isImageLine(line) && current.length > 0) {
+      const left = perSlide - spent;
+      if (lineCost(line) > left && left >= minImageLines) line = scaleImageToLines(line, left);
+    }
     const cost = lineCost(line);
     if (current.length > 0 && spent + cost > perSlide) {
       chunks.push(current);
@@ -390,9 +449,9 @@ function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): Pp
   // ★★ `pptxIndentFor` below is deliberately NOT guarded on `continuation` — a
   // wrapped line keeps the item's indent — but the marker is: one bullet per
   // item that put an `li` line into the output, however many lines it wraps to.
-  // ★ NOT "one bullet per ITEM": an item that emits ONLY lines of another kind
-  // (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to mark, so
-  // it renders no bullet while still spending its ordinal — open-followups §157.
+  // ★ An item with no `li` line at its own depth (`<li><h2>h</h2></li>`,
+  // `<li><ul>…</ul></li>`) gets a marker-only head from `htmlToRichLines`
+  // (§157), so it is marked here like any other.
   const marked =
     line.kind === "li" && !line.continuation
       ? [{ text: `${bulletMarker(line.ordered, line.index, line.task)} ` }, ...runs]
@@ -418,9 +477,13 @@ function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): Pp
  * ★ A list item indents PER DEPTH so nesting is visible; `p` stays flush.
  */
 function pptxIndentFor(line: RichLine): number | undefined {
-  if (line.kind === "p" || line.kind === "heading") return undefined;
   if (line.kind === "li") return RICH_INDENT_EMU * (line.depth + 1);
-  return RICH_INDENT_EMU;
+  if (line.kind === "hr") return RICH_INDENT_EMU;
+  // §156 — a block inside a list item sits under the item, plus its own step
+  // for a quote or code block, exactly as DOCX does.
+  const own = line.kind === "blockquote" || line.kind === "pre" ? RICH_INDENT_EMU : 0;
+  if (line.listDepth !== undefined) return RICH_INDENT_EMU * (line.listDepth + 1) + own;
+  return own === 0 ? undefined : own;
 }
 
 /**
@@ -558,6 +621,8 @@ export function buildContentSlide(
     : "";
 
   const textLines = lines.filter((line): line is string | RichLine => !isImageLine(line));
+  // §94 — the estimated rendered height of the text, in body lines.
+  const textCost = textLines.reduce((n, line) => n + lineCost(line), 0);
 
   // ★ No body shape at all when there are no text lines. An empty text box
   // still emits one empty <a:p>, which is a stray blank paragraph on the slide
@@ -573,6 +638,10 @@ export function buildContentSlide(
         // -text branch, which splits `text` on "\n" itself — so a bullet item
         // or table cell that smuggled a newline in behaves exactly as before.
         paragraphs: textLines.map((line) => bodyParagraph(line, links)),
+        // ★ Only a chunk the paginator could not bring under budget — one line
+        //   alone costing more than a slide — asks PowerPoint to shrink it.
+        //   Every other slide keeps its fixed body size and its bytes.
+        ...(textCost > BODY_LINES_PER_SLIDE ? { autofit: "shrink" as const } : {}),
       })
     : "";
 
@@ -582,10 +651,9 @@ export function buildContentSlide(
   // ★★ A picture is a SIBLING SHAPE of the body text box, not a run inside it,
   //    so it is positioned in slide coordinates and an overlapping y draws the
   //    image straight over the words. It therefore starts below the text box's
-  //    USED height — line count × line height, the same optimistic measure
-  //    BODY_LINES_PER_SLIDE documents: a wrapped line counts one here and takes
-  //    two on screen.
-  let yEmu = BODY_BOX.yEmu + textLines.length * BODY_LINE_EMU;
+  //    USED height — the text's estimated rendered lines (`lineCost`, §94)
+  //    × line height, the same measure the paginator budgets with.
+  let yEmu = BODY_BOX.yEmu + textCost * BODY_LINE_EMU;
   const pictures = lines
     .filter(isImageLine)
     .map((line) => {

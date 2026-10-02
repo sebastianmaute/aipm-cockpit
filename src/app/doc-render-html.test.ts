@@ -738,3 +738,21 @@ describe("renderDocumentHtml — export footer", () => {
     expect(renderDocumentHtml(doc([]), ws, "en-US", "standalone")).toContain(`<footer>${DEFAULT_EXPORT_FOOTER}</footer>`);
   });
 });
+
+// §147: the read-only task-item glyph carries CSS alt text, so AT hears
+// "checked" / "abgehakt" rather than the glyph's character name. jsdom cannot
+// compute generated content, so this pins the RULES; the announcement itself
+// was measured once in Chromium's accessibility tree (see the register entry).
+describe("renderDocumentHtml — task-item alt text", () => {
+  it("ships alt text for both states, in English and German, behind @supports", () => {
+    // STANDALONE: the preview loads no page stylesheet (globals.css styles it).
+    const html = renderDocumentHtml(doc([{ type: "paragraph", html: "<p>x</p>" }]), ws, "en-US", "standalone");
+    const i = html.indexOf('@supports (content: "x" / "y")');
+    expect(i).toBeGreaterThan(-1);
+    const block = html.slice(i, html.indexOf("}\n", html.indexOf(":lang(de) li[data-type=\"taskItem\"][data-checked=\"true\"]")) + 1);
+    expect(block).toContain('li[data-type="taskItem"]::before { content: "\\2610" / "not checked"; }');
+    expect(block).toContain('li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611" / "checked"; }');
+    expect(block).toContain(':lang(de) li[data-type="taskItem"]::before { content: "\\2610" / "nicht abgehakt"; }');
+    expect(block).toContain(':lang(de) li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611" / "abgehakt"; }');
+  });
+});

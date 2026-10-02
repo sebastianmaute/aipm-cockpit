@@ -6,6 +6,7 @@
 
 import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
+import { sanitizeDecodedRichFields } from "./workspace-rich-sanitize";
 import {
   type FilePickType,
   type FsHandle,
@@ -519,8 +520,10 @@ export class LocalFileBackend implements StorageBackend {
         recordSuccessfulRead();
         return ws;
       }
-      const ws =
-        this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
+      // §28 — the codecs are DOM-free, so the rich fields are sanitized here.
+      const ws = sanitizeDecodedRichFields(
+        this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag),
+      );
       recordSuccessfulRead();
       this.lastImportDroppedRows = diag.droppedRows;
       this.lastImportDroppedBySection = diag.droppedBySection;

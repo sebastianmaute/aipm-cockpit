@@ -79,10 +79,12 @@ register's fix to another is how two of them broke. Read the note that names you
   (1) SINK re-sanitize `sanitizeRichHtml(html)` in `RichTextView` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
-  CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
-  if it covered `description` too. It does not: NOTHING sanitizes the six rich DESCRIPTION fields on
-  those three backends (see the rich-text bullet below; `docs/open-followups.md` §28). A NEW
-  whole-object load path MUST call the `sanitize*RichFields` matching its entity, not just this one.
+  CSV/MD/Turso route `noteLog` through `decodeNoteLog` at decode, and since §28 (closed 2026-10-02) each
+  of their BROWSER backends' `load()` (`local-file-backend.ts`, `sharepoint-backend.ts`,
+  `turso-backend.ts`) runs `sanitizeDecodedRichFields` (`workspace-rich-sanitize.ts`) over the decoded
+  workspace — the same four `sanitize*RichFields` passes, so the seven rich fields are sanitized on every
+  backend. ★★ It runs in the BACKEND, never in a codec: the codecs are DOM-free by contract. A NEW load
+  path MUST end in one of the two (`jsonToWorkspace`'s own pass, or `sanitizeDecodedRichFields`).
   ★★ The form must never write `noteLog` back: the log is WRITE-THROUGH and owns itself, so a draft
   that snapshots it at modal-open and spreads it over the live row on save silently destroys any note
   added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
@@ -392,20 +394,16 @@ register's fix to another is how two of them broke. Read the note that names you
   the LI arm already snapshots and promoting that first line back to a head — so a `continuation:
   true` seen MID-WALK is provisional, and a reader tracing the walk alone will conclude the marker is
   lost.
-  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item with no `li` line AT ITS OWN DEPTH has
-  none to promote, so it renders NO marker while still spending its ordinal —
-  `docs/open-followups.md` §157, which is §156 seen from the numbering side and has the same cause.
-  Say "per item that put an `li` line AT ITS OWN DEPTH into the output".
-  ★★★ **"EMITS ONLY LINES OF ANOTHER KIND" IS THE WRONG PREDICATE, AND THIS LINE SAID IT.** It is
-  true of `<li><h2>h</h2></li>`, whose only output is a heading — and FALSE of `<li><ul>…</ul></li>`,
-  whose output IS `li` lines. Those are the SUB-LIST's items, heads of their own one depth DEEPER,
-  and what skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind test. The
-  branch's own test proves it — `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` yields `[1, 0]`
-  then `[0, 1]` as `[depth, index]`, and the mapper that produced them emits an array only for a
-  line of kind `"li"`, so BOTH are `li` lines. Reproduce:
-  `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts`. Cover both shapes
-  when you restate this: only-another-kind AND only-a-sub-list. A reader handed the kind spelling
-  goes looking for a kind bug that is not there.
+  ★★ **AN ITEM WITH NO `li` LINE AT ITS OWN DEPTH GETS A MARKER-ONLY HEAD** (§157, closed
+  2026-10-02): `promoteItemHead` inserts an `li` line with the item's geometry and NO runs before the
+  item's first output line, so `<li><h2>h</h2></li>` and `<li><ul>…</ul></li>` show their "1." on
+  a line of their own instead of spending the ordinal invisibly. Two shapes reach it and the
+  predicate is the DEPTH filter, not a kind one: the `<h2>` shape emits only another kind, the
+  sub-list shape emits `li` lines one depth DEEPER. Widening the filter instead would put the outer
+  number on the first nested item. ★★ A sink that draws no list marker must SKIP that line
+  (`isMarkerOnlyLine`), or it emits an empty paragraph — `export-sections.ts`'s two flat/runs
+  projections do; and `isBlankLine` (`doc-render-pptx-slides.ts`) treats every `li` as content, or
+  the PPTX blank strip would delete the head and its number with it.
   ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
   `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
   **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure
@@ -417,7 +415,9 @@ register's fix to another is how two of them broke. Read the note that names you
   — **five** lines, the fifth being the `export function bulletMarker(` declaration itself.
   ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
   their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
-  for an indent — so they lose the item's indent (`docs/open-followups.md` §156). ★★ A nested
+  for an indent — and since §156 (closed 2026-10-02) they still get it: `nestBlocksUnder` stamps the
+  item's depth on them as `listDepth`, a SECOND axis beside the kind, and `docxRichParagraph` /
+  `pptxIndentFor` indent by it (a quote or code block keeps its own step on top). ★★ A nested
   `<ul>`/`<ol>` clears `item` too, and it belongs in a different list: its items are produced by the
   LI arm at their OWN deeper depth, so nothing is lost. This is pinned — the test named "does not
   let a nested list inherit the outer item's continuation state" asserts depth 0 then depth 1, with
@@ -472,12 +472,14 @@ register's fix to another is how two of them broke. Read the note that names you
   never consumed the flat projection at ALL; it emits the STORED HTML, which is exactly what
   `golden-workspace.test.ts` pins. Reproduce:
   `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
-  ★ PPTX's REMAINING gap is a STATED one with a layout cause, not an oversight — `buildPptxRowSlide`
-  renders one slide per ROW and caps the meta lines, so three of the seven rich fields (including
-  `Task.description`) never reach a slide at any markup fidelity. `docs/open-followups.md` §153.
-  ★★ The lead clause read "PPTX being flat is a STATED gap" until 2026-09-01: `buildPptxRowSlide`
-  is precisely the function that stopped being flat (§330). The layout cap is unaffected — a field
-  that never reaches a slide is not helped by the slide gaining runs.
+  ★ PPTX's layout gap is CLOSED (§153, 2026-10-02): a multi-row section is listed on summary
+  slides (`buildPptxSummarySlides`, which deliberately leave rich fields off), and every row with
+  rich content gets detail slides (`buildPptxRowSlides`) carrying EVERY field, continued onto
+  "(n/total)" slides rather than cut. Before that, a `slice(2, 8)` cap kept three of the seven rich
+  fields — `Task.description` among them — off every slide. What remains is native bullets: list
+  markers are literal text, as in DOCX (§154).
+  ★★ The row-slide builder is also the function that stopped being flat (§330), so its fields
+  carry runs and live links.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:
   `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
   `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —

@@ -1633,8 +1633,8 @@ describe("TaskRow linked-documents badge", () => {
     const { getAllByRole, queryByRole, container } = renderRows();
     const badges = getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 document(s) – Alpha",
-      "Referenced by 1 document(s) – Beta",
+      "Referenced by 2 documents – Alpha",
+      "Referenced by 1 document – Beta",
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
@@ -1643,7 +1643,7 @@ describe("TaskRow linked-documents badge", () => {
 
   test("clicking a badge opens the Documents pane for THAT task", () => {
     const { getByRole, onOpenDocuments } = renderRows();
-    fireEvent.click(getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
+    fireEvent.click(getByRole("button", { name: "Referenced by 1 document – Beta" }));
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
   });
 });
@@ -1832,8 +1832,8 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // spelled-out count and the row token follow. The per-category breakdown
     // is on `title`, which is the DESCRIPTION and not part of the name.
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "2 RAID – Referenced by 2 RAID item(s) – Alpha",
-      "2 RAID – Referenced by 2 RAID item(s) – Beta",
+      "2 RAID – Referenced by 2 RAID items – Alpha",
+      "2 RAID – Referenced by 2 RAID items – Beta",
     ]);
 
     expectRowUniqueNames({

@@ -374,11 +374,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });
     }
     if (skippedSynced > 0) {
-      showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
+      showToastRef.current("info", tPlural(lang, "jiraBulkManagedFieldsSkipped", skippedSynced, skippedSynced));
     }
     // Mirrors the Jira notice above — same shape, different reason for skipping.
     if (skippedHidden > 0) {
-      showToastRef.current("info", t(lang, "bulkEditHiddenSkipped", skippedHidden));
+      showToastRef.current("info", tPlural(lang, "bulkEditHiddenSkipped", skippedHidden, skippedHidden));
     }
     // A bucket-only apply whose move is a no-op (every selected task is already
     // in the target) writes nothing — so it must not claim rows either. The
@@ -508,7 +508,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // below must run inside the original click's user-activation gesture, so an
     // awaited (async) branded dialog would get the mailto popups blocked. This
     // is a non-destructive send confirmation, not a destructive-tier action.
-    if (!window.confirm(t(lang, "confirmBulkSend", groups.size, resolved.length))) {
+    if (!window.confirm(t(lang, "confirmBulkSend", tPlural(lang, "bulkSendEmailCount", groups.size, groups.size), tPlural(lang, "bulkSendTaskCount", resolved.length, resolved.length)))) {
       return;
     }
 
@@ -526,7 +526,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           : row,
       ),
     );
-    showToastRef.current("info", t(lang, "bulkSendDone", groups.size, resolved.length));
+    showToastRef.current("info", t(lang, "bulkSendDone", tPlural(lang, "bulkSendEmailCount", groups.size, groups.size), tPlural(lang, "bulkSendTaskCount", resolved.length, resolved.length)));
     logActivityRef.current("bulk.inquiries", resolved.length);
     setSelectedIds(new Set());
   }, [tasks, selectedIds, setTasks, resourcesById]);

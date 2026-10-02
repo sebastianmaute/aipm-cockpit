@@ -19,12 +19,16 @@ export const taskDueProvider: ActionProvider = {
     return alerts.map((al): SuggestedAction => {
       const urgency =
         al.category === "overdue" ? W.urgencyOverdue : al.category === "today" ? W.urgencyToday : W.urgencySoon;
+      // i18n-free engine: the singular KEY is picked here (`count === 1`, the
+      // same equivalence `tPlural` uses for en/de — see raid.ts) because no
+      // `Lang` is in scope. §450: the overdue count is `workDaysOverdue`;
+      // `workDaysLeft` is always 0 for an overdue task.
       const why =
         al.category === "overdue"
-          ? { key: "actionTaskWhyOverdue" as const, params: [al.workDaysLeft] }
+          ? { key: al.workDaysOverdue === 1 ? "actionTaskWhyOverdueOne" as const : "actionTaskWhyOverdue" as const, params: [al.workDaysOverdue] }
           : al.category === "today"
             ? { key: "actionTaskWhyToday" as const }
-            : { key: "actionTaskWhySoon" as const, params: [al.workDaysLeft] };
+            : { key: al.workDaysLeft === 1 ? "actionTaskWhySoonOne" as const : "actionTaskWhySoon" as const, params: [al.workDaysLeft] };
       const score = scoreAction({ urgency, clarity: input.clarityBonus ?? W.clarityBonus });
       return {
         id: `task-due:${al.task.id}:${al.category}`,

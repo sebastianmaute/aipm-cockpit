@@ -316,9 +316,10 @@
   (1) Inline "Ask Claude" edit takes the token in `submit`, from the SAME object serialized into the prompt,
   so the window it covers is the AI round-trip PLUS the user's read of the preview and their click on Apply
   (`use-inline-entity-edit.ts`). (2) Insight recommendations stamp it when the proposal is STORED
-  (`stampRecommendationTokens`, `insights/recommend-tokens.ts`), covering the window from storage to confirm —
-  a background-generated recommendation can sit unreviewed for days. It does NOT cover the model round-trip
-  itself, because the entities handed in are the caller's live render-scope arrays. ★★★ Deriving in EITHER
+  (`stampRecommendationTokens`, `insights/recommend-tokens.ts`), but from an entity snapshot each generator
+  reads BESIDE THE PROMPT (`snapshotEntities`, §350) — so it covers the model round-trip AND the days a
+  background-generated recommendation can sit unreviewed. Before §350 the background runner stamped from the
+  arrays live at answer time, which already held any mid-flight edit. ★★★ Deriving in EITHER
   case at APPLY time — the obvious-looking simplification — is VACUOUS BY CONSTRUCTION: you would compare a
   token against the very read it came from, so `requireToken` could never refuse. That is not a weaker guard,
   it is no guard, reported as protection.

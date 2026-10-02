@@ -230,7 +230,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
     }
     if (staleCount > 0) {
-      showToast("info", t(lang, "allocPlanSkippedStale", staleCount));
+      showToast("info", tPlural(lang, "allocPlanSkippedStale", staleCount, staleCount));
     }
     if (fresh.length === 0) {
       // Every chosen cell had moved — the stale toast above already told the
@@ -252,6 +252,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       setter: setResources,
       kind: "bulk.edit",
       edited: result.editedBefore,
+      // §177b — undo reverts only the utilization cells the plan wrote (a
+      // per-key merge), so a concurrent edit to another period survives.
+      editedAfter: result.nextResources,
       fromArray: before,
       entityKey: "resource",
     });

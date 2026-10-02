@@ -207,7 +207,7 @@ export function PlanningTable({
                         readOnly={derived}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                        className={`mt-0.5 w-16 rounded border border-ui-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                        className={`mt-0.5 w-16 rounded border border-ui-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple-strong ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
                       </span>
                     </td>
                     );

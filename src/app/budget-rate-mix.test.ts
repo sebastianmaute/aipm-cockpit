@@ -38,7 +38,7 @@ function scenarioBucket(booked: [number, number, number]): BudgetBucket {
 }
 function mix(buckets: BudgetBucket[], hours = hoursForecast(1_450, 220)) {
   return computeRateMix({
-    buckets, roles, disciplines, grades, plan, resources: [], workdayHours: 8, holidaySet: none, absences: [],
+    buckets, roles, disciplines, grades, plan, resources: [], workdayHours: 8, holidaySet: none, absences: [], fxRates: null,
     eur: EUR, hours,
   });
 }
@@ -163,7 +163,7 @@ describe("computeRateMix — rules", () => {
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 500 }, actualHours: { "2026-06": 300 } }],
     } as BudgetBucket;
     const result = computeRateMix({
-      buckets: [bucket], roles: zeroRateRoles, disciplines, grades, plan, resources: [], workdayHours: 8, holidaySet: none, absences: [],
+      buckets: [bucket], roles: zeroRateRoles, disciplines, grades, plan, resources: [], workdayHours: 8, holidaySet: none, absences: [], fxRates: null,
       eur: EUR, hours: hoursForecast(1_450, 220),
     });
     expect(result).toBeNull();
@@ -241,7 +241,7 @@ describe("computeRateMix — rules", () => {
     const base = scenarioBucket([339, 572, 539]);
     const b = [{ ...base, allocations: base.allocations.map((a, i) => (i === 0 ? { ...a, resourceIds: [1] } : a)) }];
     const m = computeRateMix({
-      buckets: b, roles, disciplines, grades, plan: followPlan, resources, workdayHours: 8, holidaySet: none, absences: [],
+      buckets: b, roles, disciplines, grades, plan: followPlan, resources, workdayHours: 8, holidaySet: none, absences: [], fxRates: null,
       eur: EUR, hours: hoursForecast(1_450, 220),
     })!;
     const report = computeBudgetReport(b, followPlan, roles, resources, 8, none, [], [], null);

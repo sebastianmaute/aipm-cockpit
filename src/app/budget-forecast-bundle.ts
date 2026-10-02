@@ -36,7 +36,7 @@ export function computeForecastBundle(input: ForecastBundleInput): ForecastBundl
   const mix = computeRateMix({
     buckets: input.buckets, roles: input.roles, disciplines: input.disciplines, grades: input.grades,
     plan: input.plan, resources: input.resources, workdayHours: input.workdayHours,
-    holidaySet: input.holidaySet, absences: input.absences, eur, hours,
+    holidaySet: input.holidaySet, absences: input.absences, eur, hours, fxRates: input.fxRates,
   });
   const evHistory = computeEvHistory({
     report: input.report, buckets: input.buckets, tasks: input.tasks,

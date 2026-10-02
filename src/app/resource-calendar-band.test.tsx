@@ -549,7 +549,7 @@ describe("band chip roving", () => {
     // keypress), Escape cancels.
     function renderMovable(
       onMoveOccurrence?: (o: Occurrence, to: string) => void,
-      onMoveModeChange?: (m: "armed" | "cancelled" | null) => void,
+      onMoveModeChange?: (m: "armed" | "cancelled" | null, target?: string) => void,
     ) {
       const r = render(
         <table>
@@ -568,6 +568,25 @@ describe("band chip roving", () => {
       chip.focus();
       return { ...r, chip };
     }
+
+    it("previews where an armed move lands: reported target and an outlined cell (§10)", () => {
+      const onMode = vi.fn();
+      const { chip, container } = renderMovable(vi.fn(), onMode);
+      const previewed = () =>
+        [...container.querySelectorAll<HTMLTableCellElement>("td[data-move-preview]")].map(
+          (td) => td.querySelector("[data-band-cell]")?.getAttribute("data-band-cell") ?? td.cellIndex,
+        );
+      expect(previewed()).toEqual([]);
+      fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+      expect(onMode).toHaveBeenLastCalledWith("armed", "2026-06-02");
+      // Day index 1 (06-02) in lane 0; cellIndex counts the rowheader too.
+      expect(previewed()).toEqual([2]);
+      fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+      expect(onMode).toHaveBeenLastCalledWith("armed", "2026-06-03");
+      expect(previewed()).toEqual(["0-2026-06-03"]);
+      fireEvent.keyDown(chip, { key: "Escape" });
+      expect(previewed()).toEqual([]);
+    });
 
     it("commits an armed move once, on Enter", () => {
       const onMove = vi.fn();
@@ -669,7 +688,7 @@ describe("band chip roving", () => {
       document.body.appendChild(outside);
       try {
         fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
-        expect(onMode).toHaveBeenLastCalledWith("armed");
+        expect(onMode).toHaveBeenLastCalledWith("armed", expect.any(String));
 
         fireEvent.blur(chip, { relatedTarget: outside });
         expect(onMode).toHaveBeenLastCalledWith("cancelled");
@@ -764,7 +783,7 @@ describe("band chip roving", () => {
 
       first.focus();
       fireEvent.keyDown(first, { key: "ArrowRight", altKey: true });
-      expect(onMode).toHaveBeenLastCalledWith("armed");
+      expect(onMode).toHaveBeenLastCalledWith("armed", expect.any(String));
 
       second.focus(); // focus moved on while the gesture is still armed
       fireEvent.keyDown(second, { key: "Enter" });
@@ -838,7 +857,7 @@ describe("band chip roving", () => {
       const onMode = vi.fn();
       const { chip } = renderMovable(onMove, onMode);
       fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
-      expect(onMode).toHaveBeenLastCalledWith("armed");
+      expect(onMode).toHaveBeenLastCalledWith("armed", expect.any(String));
       fireEvent.keyDown(chip, { key: "Escape" });
       expect(onMode).toHaveBeenLastCalledWith("cancelled");
       fireEvent.keyDown(chip, { key: "Enter" });

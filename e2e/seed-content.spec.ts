@@ -85,7 +85,7 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // exact mismatch shipped in this file's own seed and was invisible to the
   // count assertions alone.
   for (const [title, count, detail] of [
-    ["Milestone at risk", 2, "day(s) overdue"],
+    ["Milestone at risk", 2, "days overdue"], // §450: real plurals; both seeded rows are many days late
     ["Work is stalling", 1, "5 active tasks are stale"],
     ["Budget off plan", 1, "off plan by 18%"],
   ] as const) {

@@ -50,7 +50,7 @@ const baseProps = {
 
 function selectFileMethod() {
   fireEvent.click(
-    screen.getByRole("button", { name: t("en-US", "wizardImportMethodFile") }),
+    screen.getByRole("radio", { name: t("en-US", "wizardImportMethodFile") }),
   );
 }
 
@@ -365,7 +365,7 @@ describe("Step0ImportPanel SharePoint import", () => {
     const onIngest = vi.fn().mockResolvedValue(undefined);
     render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
     fireEvent.click(
-      screen.getByRole("button", { name: t("en-US", "wizardImportMethodSharePoint") }),
+      screen.getByRole("radio", { name: t("en-US", "wizardImportMethodSharePoint") }),
     );
     fireEvent.click(
       screen.getByRole("button", { name: t("en-US", "wizardImportSharePointBrowse") }),

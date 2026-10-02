@@ -66,7 +66,7 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { t } from "./i18n";
+import { tPlural } from "./i18n";
 
 const { commitSpy } = vi.hoisted(() => ({ commitSpy: vi.fn() }));
 
@@ -231,7 +231,7 @@ describe("popout read-only guard — undo capture (open-followups §91)", () => 
   //  role="status">…}` with the action button, and Task 7's AppModals capture
   //  renders through (pre-flight C2). `task.deleted` is a delete kind, so the
   //  text is `undoToastDelete`.
-  const toastText = () => t("en-US", "undoToastDelete", 1);
+  const toastText = () => tPlural("en-US", "undoToastDelete", 1, 1);
 
   it("main window: a capture shows the Undo toast (positive control)", async () => {
     await mountAt("/");

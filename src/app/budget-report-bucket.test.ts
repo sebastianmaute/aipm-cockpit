@@ -56,6 +56,38 @@ describe("computeBucketReport — fixed-price", () => {
   });
 });
 
+describe("computeBucketReport — end-to-end (§488)", () => {
+  // The demo's shape: 104 h estimated, 390 h booked, at an internal rate of 100.
+  const alloc = { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 104 }, actualHours: { "2026-01": 390 } };
+  const e2e: BudgetBucket = { ...tmBucket(), type: "e2e", fixedPriceAmount: 20000, allocations: [alloc] };
+
+  test("consumes by cost, uncapped, so the overrun shows past 100%", () => {
+    const rep = computeBucketReport(e2e, plan, roles, resources, 8, noHolidays, 0, 0, [], [], null);
+    expect(rep.revenue).toBe(20000);
+    expect(rep.budgetValue).toBe(20000);
+    expect(rep.cost).toBe(39000);
+    expect(rep.consumedValue).toBe(39000);
+    expect(rep.consumption.percent).toBeCloseTo(195, 5);
+    expect(rep.winLossValue).toBe(20000 - 39000);
+  });
+
+  test("differs from fixed price on the same bucket, which caps at the contract", () => {
+    const fixed = computeBucketReport({ ...e2e, type: "fixed" }, plan, roles, resources, 8, noHolidays, 0, 0, [], [], null);
+    expect(fixed.consumedValue).toBe(20000);
+    expect(fixed.consumption.percent).toBeCloseTo(100, 5);
+    // The margin is the same contract-minus-cost either way.
+    expect(fixed.winLossValue).toBe(20000 - 39000);
+  });
+
+  test("needs no budgeted hours for a consumption figure", () => {
+    const rep = computeBucketReport(
+      { ...e2e, allocations: [{ ...alloc, budgetHours: { "2026-01": 0 } }] },
+      plan, roles, resources, 8, noHolidays, 0, 0, [], [], null,
+    );
+    expect(rep.consumption.percent).toBeCloseTo(195, 5);
+  });
+});
+
 describe("computeBucketReport — fixed-price ignores spilled-in value in budget", () => {
   test("budgetValue stays the contract amount; spillover hours still count", () => {
     const b: BudgetBucket = {

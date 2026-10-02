@@ -9,7 +9,7 @@
 
 import { memo } from "react";
 import { DocumentTextIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, tPlural } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 
 interface DocumentBadgeProps {
@@ -25,7 +25,7 @@ interface DocumentBadgeProps {
 function DocumentBadgeImpl({ count, entityTitle, lang, onOpen }: DocumentBadgeProps) {
   // A badge reading 0 is noise on every row of an unlinked project.
   if (count <= 0) return null;
-  const name = `${t(lang, "documentsLinkedBadge", count)} – ${entityTitle}`;
+  const name = `${tPlural(lang, "documentsLinkedBadge", count, count)} – ${entityTitle}`;
   return (
     <button
       type="button"
@@ -34,7 +34,7 @@ function DocumentBadgeImpl({ count, entityTitle, lang, onOpen }: DocumentBadgePr
         e.stopPropagation();
         onOpen();
       }}
-      title={t(lang, "documentsLinkedBadge", count)}
+      title={tPlural(lang, "documentsLinkedBadge", count, count)}
       aria-label={name}
       className={`ml-1 inline-flex items-center gap-0.5 whitespace-nowrap rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground ${INTERACTIVE}`}
     >

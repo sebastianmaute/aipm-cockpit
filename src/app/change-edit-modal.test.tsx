@@ -6,7 +6,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
 import { AMOUNT_MAX, BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
@@ -512,7 +512,7 @@ describe("ChangeEditModal rich-field write-path cap", () => {
     // ★ The under-cap sibling is byte-identical, so the count below can only
     // mean the one field that really was truncated.
     expect(saved.resolutionNotes).toBe("<p>short</p>");
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("saves an under-cap draft untouched and announces nothing", async () => {
@@ -567,7 +567,7 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.title.length).toBe(BUDGET_NAME_MAX);
     // The count and the save now describe the SAME operation.
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("applies the requestedBy cap when the form is submitted with Enter", async () => {
@@ -580,7 +580,7 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
 
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.requestedBy?.length).toBe(BUDGET_NAME_MAX);
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("applies the decisionBy cap when the form is submitted with Enter", async () => {
@@ -590,7 +590,7 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
 
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.decisionBy?.length).toBe(BUDGET_NAME_MAX);
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   // ★★★ THE SAME DEFECT, IN THE TWO FIELDS THE ORIGINAL FIX NEVER INCLUDED.
@@ -632,7 +632,7 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
     expect(saved.costImpact).toBe(AMOUNT_MAX);
     // A BOUND clamp does report an adjustment, so this one is counted — the
     // same rule as above, seen from its other side.
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("leaves a blank number field undefined rather than clamping it to zero", async () => {

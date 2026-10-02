@@ -19,10 +19,12 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { resolveRate, resolveRateSource, type RateSource } from "./fx";
+import { planCurrencyPerEur, resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
+import { isContractPriced } from "./types";
+import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
@@ -95,9 +97,14 @@ export function BudgetReportPanel({
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, [], fxRates),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, fxRates],
   );
+  const planCurrency = plan.currency;
   const evm = useMemo(
-    () => computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(roles) }),
-    [tasks, today, roles],
+    // §473 — the blended rate is in the PLAN currency; the EVM money tiles are
+    // formatted as EUR by `money` below, so convert it the way the engine does.
+    () => computeEvm(tasks, today, {
+      blendedRate: projectBlendedInternalRate(roles) / planCurrencyPerEur(planCurrency, { currency: planCurrency }, fxRates),
+    }),
+    [tasks, today, roles, planCurrency, fxRates],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const planStart = plan.startDate;
@@ -302,7 +309,7 @@ export function BucketDetailTable({
         return {
           ...r,
           modeLabel: t(lang, blended ? "budgetModeBlended" : "budgetModeDetailed"),
-          typeLabel: t(lang, r.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm"),
+          typeLabel: t(lang, BUDGET_TYPE_LABEL[r.type]),
           statusLabel: t(lang, r.status === "closed" ? "budgetReportStatusClosed" : "budgetReportStatusOpen"),
           // `rateSource === null` only when `b` is missing (see
           // `detailRowRateSource`) — the bare currency code is what
@@ -314,7 +321,7 @@ export function BucketDetailTable({
           // contract amount went through `currencyToEur` at par — the same
           // rule `countUnresolvedBuckets` applies to the rollup notice.
           currencyLabel:
-            rateSource === null || (rateSource === "unresolved" && r.type !== "fixed")
+            rateSource === null || (rateSource === "unresolved" && !isContractPriced(r.type))
               ? r.currency
               : bucketCurrencyLabel(lang, r.currency, rate, rateSource),
           // null when cost has no basis, NOT the raw percent. `contributionMargin`
@@ -325,7 +332,7 @@ export function BucketDetailTable({
           marginPct: costIsKnowable(r) ? r.contributionMargin.percent : null,
           // Same for win/loss on a fixed-price bucket, where it IS revenue − cost.
           // A T&M bucket's runs on external rates and stays valid.
-          winLossUnknown: !costIsKnowable(r) && r.type === "fixed",
+          winLossUnknown: !costIsKnowable(r) && isContractPriced(r.type),
         };
       }),
     [rows, bucketById, fxRates, lang],

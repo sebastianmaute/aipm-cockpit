@@ -66,6 +66,12 @@ export function useChatSearchBindings(
         //   riding the volatile prompt suffix either.
         if (!chatSearchEnabled(cs)) return undefined;
         const published = readChatThreads(pid);
+        // ★★ §173: the pointer speaks with the tool's voice. A payload marked
+        //   unavailable (a failed load, or one still in flight) can still carry
+        //   rows — the mid-flight-adoption branch of the load's catch keeps the
+        //   ones this client holds — and pointing the model at them made it
+        //   call `search_chats`, which then answered `coverage: "unavailable"`.
+        if (!published.available) return undefined;
         // ★ `?? undefined` — the engine says "nothing to point at" with null,
         //   and the snapshot field is optional; a null would render as one.
         return (

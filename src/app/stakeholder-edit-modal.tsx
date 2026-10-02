@@ -7,7 +7,7 @@
 // Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
 
 import { useEffect, useRef, useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, type TranslationKey, tPlural } from "./i18n";
 import {
   RACI_ROLES,
   STAKEHOLDER_CATEGORIES,
@@ -190,7 +190,7 @@ export function StakeholderEditModal({
     adj.track(describeTextCap(draft.title ?? "", BUDGET_NAME_MAX));
     adj.track(describeTextCap(normalizeEmailShape(draft.email ?? "").trim(), BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.notes ?? "", TEXTAREA_MAX));
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     // M-C4: store the judged value, not the raw draft. An absent email stays absent.
     onSave({
       ...draft,

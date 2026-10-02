@@ -89,7 +89,7 @@ describe("useViewDigest — open-points counts the rows the TABLE renders", () =
       input({ tasks, settings: withSettings({ hideFinishedTasks: true }) }),
     );
     // 2, not 4 — Done AND Cancelled are both "finished" (isTaskClosed).
-    expect(result.current.digest).toContain("2 task(s) visible");
+    expect(result.current.digest).toContain("2 tasks visible");
     expect(result.current.digest).not.toContain("Shipped");
     expect(result.current.digest).not.toContain("Dropped");
   });
@@ -100,7 +100,7 @@ describe("useViewDigest — open-points counts the rows the TABLE renders", () =
       task(2, "Shipped", { status: "Done", completedDate: "2026-08-02" }),
     ];
     const { result } = render(input({ tasks }));
-    expect(result.current.digest).toContain("2 task(s) visible");
+    expect(result.current.digest).toContain("2 tasks visible");
   });
 
   // ★★★ THE TWO LISTS MUST BE DISTINGUISHABLE. Everywhere else in this file
@@ -112,9 +112,9 @@ describe("useViewDigest — open-points counts the rows the TABLE renders", () =
     const tasks = [task(1, "A"), task(2, "B"), task(3, "C")];
     const filteredSortedTasks = [tasks[0]];
     const open = render(input({ view: "open-points", tasks, filteredSortedTasks }));
-    expect(open.result.current.digest).toContain("1 task(s) visible");
+    expect(open.result.current.digest).toContain("1 task visible");
     const gantt = render(input({ view: "gantt", tasks, filteredSortedTasks }));
-    expect(gantt.result.current.digest).toContain("3 task(s)");
+    expect(gantt.result.current.digest).toContain("3 tasks");
   });
 
   // ★★ The RAG health filter is one of the three pane values this hook exists
@@ -126,7 +126,7 @@ describe("useViewDigest — open-points counts the rows the TABLE renders", () =
       task(2, "Comfortably future", { dueDate: "2027-06-01" }),
     ];
     const { result } = render(input({ tasks }), (f) => f.setHealthFilter("red"));
-    expect(result.current.digest).toContain("1 task(s) visible");
+    expect(result.current.digest).toContain("1 task visible");
     expect(result.current.digest).toContain("health=red");
     expect(result.current.digest).not.toContain("No filters active");
   });
@@ -227,8 +227,8 @@ describe("useViewDigest — Open Points has three view modes", () => {
         settings: withSettings({ hideFinishedTasks: true, tasksViewMode: "board" }),
       }),
     );
-    expect(result.current.digest).toContain("2 task(s)");
-    expect(result.current.digest).toContain("card(s) in the board");
+    expect(result.current.digest).toContain("2 tasks");
+    expect(result.current.digest).toMatch(/\b(a card|cards) in the board/);
     // ★ The SAMPLE line must follow the surface too. It hardcoded "Visible
     // rows:" after the count line had already been made mode-aware, so a board
     // digest named the wrong surface twice per message.
@@ -254,15 +254,15 @@ describe("useViewDigest — Open Points has three view modes", () => {
         settings: withSettings({ tasksViewMode: "table" }),
       }),
     );
-    expect(result.current.digest).toContain("card(s) in the board");
-    expect(result.current.digest).not.toContain("row(s) in the table");
+    expect(result.current.digest).toMatch(/\b(a card|cards) in the board/);
+    expect(result.current.digest).not.toMatch(/\b(a row|rows) in the table/);
   });
 
   it("names swimlanes as swimlanes", () => {
     const { result } = render(
       input({ tasks: finishedFixture(), settings: withSettings({ tasksViewMode: "swimlane" }) }),
     );
-    expect(result.current.digest).toContain("card(s) in the swimlanes");
+    expect(result.current.digest).toContain("cards in the swimlanes");
   });
 
   // CONTROL: the table keeps the old behaviour, so the three assertions above
@@ -274,8 +274,8 @@ describe("useViewDigest — Open Points has three view modes", () => {
         settings: withSettings({ hideFinishedTasks: true, tasksViewMode: "table" }),
       }),
     );
-    expect(result.current.digest).toContain("1 task(s)");
-    expect(result.current.digest).toContain("row(s) in the table");
+    expect(result.current.digest).toContain("1 task");
+    expect(result.current.digest).toMatch(/\b(a row|rows) in the table/);
     expect(result.current.digest).toContain("finished tasks hidden");
   });
 });
@@ -333,7 +333,7 @@ describe("useViewDigest — the other views report project totals honestly", () 
     );
     // Still 2: hide-finished is an OPEN POINTS control and must not silently
     // reshape a Gantt count the chart never applied.
-    expect(result.current.digest).toContain("2 task(s)");
+    expect(result.current.digest).toContain("2 tasks");
     expect(result.current.digest).toContain("NOT the bars drawn");
   });
 
@@ -341,7 +341,7 @@ describe("useViewDigest — the other views report project totals honestly", () 
     const { result } = render(
       input({ view: "workload", resources: [resource(1), resource(2)] }),
     );
-    expect(result.current.digest).toContain("2 resource(s)");
+    expect(result.current.digest).toContain("2 resources");
     expect(result.current.digest).toContain("NOT reflected");
   });
 

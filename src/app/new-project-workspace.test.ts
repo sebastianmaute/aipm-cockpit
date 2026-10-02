@@ -363,7 +363,10 @@ describe("buildNewProjectWorkspace — the template branch's allow-list survived
       name: "T",
       features: [],
       fieldVisibility: {},
-      seed: { raid: [{ id: 1, title: "R", description: HOSTILE }] } as never,
+      // ★ A VALID row (category + status): since §228 the template apply runs
+      //   the load path's `sanitizeSeed`, which drops a RAID row without them,
+      //   exactly as a reload would.
+      seed: { raid: [{ id: 1, title: "R", category: "R", status: "Open", description: HOSTILE }] } as never,
     };
     const ws = buildNewProjectWorkspace(meta, { template: raidTpl, includeSeed: true });
     expect(ws.raid[0].description).not.toContain("<script");

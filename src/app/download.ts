@@ -74,9 +74,9 @@ export function htmlCellWithBreaks(cell: string | number): string {
  *  ★★ The rich branch is the ONE unescaped path here, and it re-sanitizes at
  *  the SINK — idempotent, and the same defense-in-depth `RichTextView` and the
  *  comm-send preview already apply. A stored value is sanitizer-clean in
- *  principle; "in principle" is not what a sink relies on. The six write paths
- *  that produce these fields are not all allow-listed (the codec load paths are
- *  DOM-free and cannot be — §28), so a hostile value CAN reach storage.
+ *  principle; "in principle" is not what a sink relies on. Every load path now
+ *  sanitizes these fields (the codec ones in their backends since §28), but a
+ *  writer that skips the boundary would not be caught here otherwise.
  *
  *  ★★★ `descriptionHtml` FIRST, then `sanitizeRichHtml`. A legacy plain-text
  *  value is not markup, and handing it to the sanitizer raw drops its line

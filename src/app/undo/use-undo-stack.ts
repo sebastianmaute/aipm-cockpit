@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { flushSync } from "react-dom";
-import { t, type Lang } from "../i18n";
+import { t, type Lang, tPlural } from "../i18n";
 import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { mergeFieldPatch } from "./merge-field-value";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "../scope-epoch";
 import {
+  completionFlipsOf,
+  sumCompletionFlips,
+  type CompletionFlips,
   applyUndoRestoreWithRemap,
   applyUndoForward,
   buildBeforeImages,
@@ -53,15 +56,22 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   calendarEvent: "undoEntityCalendarEvent",
   budget: "undoEntityBudget",
 };
-// Plurals only for entities that appear with a count (bulk/multi-delete); the
-// rest fall back to the singular (they're only ever named, count 1).
-const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
+// §132 — a plural for EVERY entity, and a total record so tsc demands the next one: an unnamed
+// multi-row edit now names its entity with a count ("Edit 3 absences"), so the old "only named,
+// count 1" rule that let six entities fall back to the singular no longer holds.
+const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
   task: "undoEntityTasks",
   milestone: "undoEntityMilestones",
   raid: "undoEntityRaids",
   change: "undoEntityChanges",
   stakeholder: "undoEntityStakeholders",
   resource: "undoEntityResources",
+  absence: "undoEntityAbsences",
+  shift: "undoEntityShifts",
+  role: "undoEntityRoles",
+  discipline: "undoEntityDisciplines",
+  grade: "undoEntityGrades",
+  calendarEvent: "undoEntityCalendarEvents",
   budget: "undoEntityBudgets",
 };
 
@@ -92,7 +102,7 @@ function truncateName(name: string): string {
 /**
  * Compose the already-translated human label for one undoable op from its
  * operation + entity + name/count. Built at capture time (in the user's current
- * language). Falls back to a generic "Edited/Deleted N item(s)" when the entity
+ * language). Falls back to a generic "Edited/Deleted N items" only when the entity
  * can't be resolved (unknown kind, no entityKey). Pure aside from i18n lookups.
  */
 export function buildUndoLabel(
@@ -108,9 +118,9 @@ export function buildUndoLabel(
   const isDelete = isDeleteKind(kind);
   const isBulk = kind === "bulk.edit";
   const name = opts?.name && opts.name.trim() ? truncateName(opts.name) : "";
-  if (!key) return t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count);
+  if (!key) return tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count, count);
   const singular = t(lang, ENTITY_SINGULAR[key]);
-  const plural = t(lang, ENTITY_PLURAL[key] ?? ENTITY_SINGULAR[key]);
+  const plural = t(lang, ENTITY_PLURAL[key]);
   // ★★★ THE NOUN AGREES WITH `count`, AND THIS LINE SHIPPED WITHOUT IT — a
   // one-row bulk edit read "Bulk edit 1 tasks" / "Sammelbearbeitung von 1
   // Aufgaben". Found by cold review 2026-09-07; the delete branch three lines
@@ -130,7 +140,9 @@ export function buildUndoLabel(
     return t(lang, "undoLabelDeleteCount", count, count === 1 ? singular : plural);
   }
   if (name) return t(lang, "undoLabelEditNamed", singular, name);
-  return t(lang, "undoToastEdit", count);
+  // §132 — an unnamed edit of a known entity names it ("Edit 3 tasks"), the edit-side twin of
+  //  `undoLabelDeleteCount`; it used to fall through to the entity-less "Edited 3 items".
+  return t(lang, "undoLabelEditCount", count, count === 1 ? singular : plural);
 }
 
 export interface CaptureOpts<T extends { id: number }> {
@@ -148,6 +160,40 @@ export interface CaptureOpts<T extends { id: number }> {
   name?: string;
   /** Explicit entity for the label when the kind is entity-ambiguous (bulk.edit). */
   entityKey?: UndoEntityKey;
+  /** §177b — the `edited` rows AS THE OP WROTE THEM. When given, the edits are
+   *  captured as a FIELD patch of exactly the keys that changed
+   *  (`fieldEditsFromRows`) instead of whole-row before-images, so an undo
+   *  leaves every other field — including one a concurrent writer changed —
+   *  alone. `removed` rows stay whole-row either way. */
+  editedAfter?: readonly T[];
+}
+
+/** §177b — derive a field patch from whole before/after rows: per row, every
+ *  top-level key whose value is not the SAME REFERENCE before and after. Every
+ *  producer here builds a new row by spreading the old one, so an untouched key
+ *  keeps its reference and an edited one does not. Rows with no `after` (or no
+ *  changed key) are skipped. */
+export function fieldEditsFromRows<T extends { id: number }>(
+  before: readonly T[],
+  after: readonly T[],
+): { id: number; before: Partial<T>; after: Partial<T> }[] {
+  const afterById = new Map(after.map((r) => [r.id, r]));
+  const out: { id: number; before: Partial<T>; after: Partial<T> }[] = [];
+  for (const b of before) {
+    const a = afterById.get(b.id);
+    if (!a) continue;
+    const was: Record<string, unknown> = {};
+    const now: Record<string, unknown> = {};
+    for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) {
+      const bv = (b as Record<string, unknown>)[k];
+      const av = (a as Record<string, unknown>)[k];
+      if (bv === av) continue;
+      was[k] = bv;
+      now[k] = av;
+    }
+    if (Object.keys(was).length > 0) out.push({ id: b.id, before: was as Partial<T>, after: now as Partial<T> });
+  }
+  return out;
 }
 
 /** A single-field-group edit: revert by MERGING `before`/`after` onto the live
@@ -407,8 +453,8 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  notes, at the time marked "very likely" but UNVERIFIED. That half was
  *  measured true on 2026-08-18 — `use-bulk-operations.ts` captured whole
  *  `beforeRows` exactly like RAID and changes — and both are now CLOSED: every
- *  `bulk.edit` site was converted to a field patch. Residual whole-row paths
- *  outside `bulk.edit` are tracked as open-followups §177, not here). A patch
+ *  `bulk.edit` site was converted to a field patch, and §177 converted the
+ *  field-shaped non-bulk ones — see `CaptureOpts.editedAfter`). A patch
  *  merge touches only the fields the op actually wrote. Use this whenever the
  *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
@@ -426,6 +472,17 @@ export interface CaptureFieldPart<T extends { id: number }> {
    *  do not add a runtime dedup here on the strength of one site's list. */
   edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
   stampField?: keyof T & string;
+  /** §177b — the field on THESE rows that references the composite's PRIMARY
+   *  deleted entity, exactly as on `CapturePart`: on undo each `before[field]`
+   *  is remapped through the primary's id-remap, so a cascade restored as a
+   *  field patch follows a re-minted primary instead of pointing at whatever
+   *  live row now holds the old id. Only meaningful inside a composite whose
+   *  primary is a `capturePart` delete flagged `isPrimary`. */
+  fkRemapField?: keyof T & string;
+  /** The same follow for a reference `fkRemapField` cannot name: one NESTED in a field, such as a task's
+   *  `dependencies[].taskId`. Called on undo with each `before` and the primary's id-remap (never with an
+   *  empty one); returns the `before` to restore. Only meaningful in a composite with an `isPrimary` delete. */
+  remapBefore?: (before: Partial<T>, remap: ReadonlyMap<number, number>) => Partial<T>;
 }
 
 /**
@@ -480,15 +537,17 @@ export interface CaptureFieldPart<T extends { id: number }> {
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,
 ): CompositeFragment | null {
-  const { setter, edits, stampField } = part;
-  if (edits.length === 0) return null;
-  const byId = new Map(edits.map((e) => [e.id, e]));
+  const { setter, stampField, fkRemapField, remapBefore } = part;
+  if (part.edits.length === 0) return null;
+  type Edit = (typeof part.edits)[number];
   const apply = (
-    target: (e: (typeof edits)[number]) => Partial<T>,
-    other: (e: (typeof edits)[number]) => Partial<T>,
+    byIdOf: () => ReadonlyMap<number, Edit>,
+    target: (e: Edit) => Partial<T>,
+    other: (e: Edit) => Partial<T>,
   ) => {
-    setter((prev) =>
-      prev.map((row) => {
+    setter((prev) => {
+      const byId = byIdOf();
+      return prev.map((row) => {
         const edit = byId.get(row.id);
         if (!edit) return row;
         // Per-key merge, not a wholesale spread: a concurrent writer that changed
@@ -501,12 +560,33 @@ export function captureFieldPart<T extends { id: number }>(
         return stampField
           ? ({ ...merged, [stampField]: new Date().toISOString() } as T)
           : merged;
-      }),
-    );
+      });
+    });
   };
-  const restore = (): (() => void) => {
-    apply((e) => e.before, (e) => e.after);
-    return () => apply((e) => e.after, (e) => e.before);
+  const plain = new Map(part.edits.map((e) => [e.id, e]));
+  const restore = (primaryRemap?: { current: ReadonlyMap<number, number> }): (() => void) => {
+    // §177b — follow the primary's re-mint for the FK this cascade cleared.
+    // ★ Read INSIDE the updater, as `capturePart` does: the primary's own
+    //   updater publishes the remap, and an updater queued after it runs after
+    //   it, however React batches the two calls.
+    let resolved: ReadonlyMap<number, Edit> = plain;
+    const remapped = (): ReadonlyMap<number, Edit> => {
+      const remap = (fkRemapField || remapBefore) && primaryRemap ? primaryRemap.current : EMPTY_REMAP;
+      if (remap.size === 0) return (resolved = plain);
+      resolved = new Map(part.edits.map((e) => {
+        let before = e.before;
+        if (fkRemapField) {
+          const fk = before[fkRemapField as keyof T];
+          const to = typeof fk === "number" ? remap.get(fk) : undefined;
+          if (to !== undefined) before = { ...before, [fkRemapField as string]: to };
+        }
+        if (remapBefore) before = remapBefore(before, remap);
+        return [e.id, before === e.before ? e : { ...e, before }];
+      }));
+      return resolved;
+    };
+    apply(remapped, (e) => e.before, (e) => e.after);
+    return () => apply(() => resolved, (e) => e.after, (e) => e.before);
   };
   return { isPrimary: false, restore };
 }
@@ -550,6 +630,9 @@ export interface CaptureCompositeOpts {
    *  earlier than the push (`useUndoBatch.runBatched` stamps it when the batch
    *  opens). Omitted → the epoch at push time. A stale value refuses the push. */
   readEpoch?: number;
+  /** §299 — delivered-ness the op flipped. A composite's fragments are opaque,
+   *  so the caller says; omitted = none. */
+  completionFlips?: CompletionFlips;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -762,7 +845,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     //   count-shaped "Undid 1 action(s)". Both keys already exist.
     showToast("info", inverses.length === 1
       ? t(lang, "undoneX", inverses[0].meta.label)
-      : t(lang, "undoneNActions", inverses.length));
+      : tPlural(lang, "undoneNActions", inverses.length, inverses.length));
     setStack(taken.rest);
     setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
   }, [liveEntries]);
@@ -782,7 +865,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // Mirror of undoThrough's single-entry fallback above.
     showToast("info", inverses.length === 1
       ? t(lang, "redoneX", inverses[0].meta.label)
-      : t(lang, "redoneNActions", inverses.length));
+      : tPlural(lang, "redoneNActions", inverses.length, inverses.length));
     setRedoStack(taken.rest);
     setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
   }, [liveEntries]);
@@ -827,7 +910,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     kind: ActivityKind,
     primaryCount: number,
     run: Runner,
-    labelOpts?: { name?: string; entityKey?: UndoEntityKey },
+    labelOpts?: { name?: string; entityKey?: UndoEntityKey; completionFlips?: CompletionFlips },
     toastText?: string,
     readEpoch?: number,
   ) => {
@@ -840,6 +923,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
+    // §299 — carried so the undo/redo activity row can name the delivered-ness it reverses.
+    if (labelOpts?.completionFlips) meta.completionFlips = labelOpts.completionFlips;
     // §628 — stamp the scope the images were READ in; a restore entry point drops
     // the entry once the epoch has moved on. For a synchronous capture that is
     // the epoch now. ★★ For one that straddles an await it is NOT: the only such
@@ -855,12 +940,24 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // entry's label describe ONE action, and fixing only the label leaves this
     // saying "Edited" over a mass deletion.
     const isDelete = isDeleteKind(kind);
-    const text = toastText ?? t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
+    const text = toastText ?? tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount, primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 
   const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
-    const { setter, kind, removed = [], edited = [], fromArray, name, entityKey } = opts;
+    const { setter, kind, removed = [], edited = [], fromArray, name, entityKey, editedAfter } = opts;
+    if (editedAfter !== undefined) {
+      // §177b — removed rows whole (the primary, so a reused id re-mints),
+      // edited rows as a field patch. Same count rule as below.
+      const fragments = [
+        capturePart({ setter, removed, fromArray, isPrimary: true }),
+        captureFieldPart({ setter, edits: fieldEditsFromRows(edited, editedAfter) }),
+      ].filter((f): f is CompositeFragment => f !== null);
+      if (fragments.length === 0) return;
+      const count = removed.length > 0 ? removed.length : edited.length;
+      pushEntry(kind, count, compositeUndoRunner(fragments, armDestructive), { name, entityKey });
+      return;
+    }
     const images = buildBeforeImages(removed, edited, fromArray);
     if (images.length === 0) return;
     // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
@@ -886,19 +983,25 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // single-field redo and the next unrelated save would spend it.
     function runUndo(): Runner { merge(before); return runRedo; }
     function runRedo(): Runner { merge(after); return runUndo; }
-    pushEntry(kind, 1, runUndo, { name });
+    // §299 — a task patch carrying `completedDate` may flip delivered-ness (the
+    // inline status select, the swimlane and the task modal all land here).
+    const completionFlips = kind.startsWith("task.") ? completionFlipsOf(before, after) : undefined;
+    pushEntry(kind, 1, runUndo, { name, completionFlips });
   }, [pushEntry]);
 
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText, opts.readEpoch);
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey, completionFlips: opts.completionFlips }, opts.toastText, opts.readEpoch);
   }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {
     const part = captureFieldPart<T>({ setter: opts.setter, edits: opts.edits, stampField: opts.stampField });
     if (part === null) return;
-    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey });
+    // §299 — a bulk status edit flips delivered-ness row by row.
+    const isTask = opts.entityKey === "task" || opts.kind.startsWith("task.");
+    const completionFlips = isTask ? sumCompletionFlips(opts.edits.map((e) => completionFlipsOf(e.before, e.after))) : undefined;
+    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey, completionFlips });
   }, [pushEntry]);
 
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);

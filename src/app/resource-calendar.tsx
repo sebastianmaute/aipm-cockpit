@@ -182,6 +182,8 @@ function ResourceCalendarInner({
   // below — the two gestures are mutually exclusive in practice (focus is
   // either in the day grid or in the band, never both).
   const [bandMoveMode, setBandMoveMode] = useState<"armed" | "cancelled" | null>(null);
+  // §10 — the date an armed band move would land on, reported with each step.
+  const [bandMoveTarget, setBandMoveTarget] = useState<string | null>(null);
 
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
@@ -214,6 +216,51 @@ function ResourceCalendarInner({
     if (next?.matches?.("[data-cell]")) return;
     setJustCancelled(pendingMove.kind);
     setPendingMove(null);
+  }
+
+  /** What an armed gesture would commit if Enter were pressed now: the
+   *  `resolveCalendarDrag` result (null for a no-op) and the row it lands in.
+   *  ONE function for the commit AND the preview (§10), so what the user is
+   *  shown is exactly what Enter writes. Null when there is no row to land in.
+   *  ★ Resize never changes row — `target` is unread by the resize-end branch
+   *  of resolveCalendarDrag, so a same-row placeholder is correct, not a
+   *  stand-in for a real target. */
+  function resolvePendingGesture(
+    gesture: NonNullable<typeof pendingMove>,
+    moving: Absence,
+  ): { result: ReturnType<typeof resolveCalendarDrag>; targetIndex: number } | null {
+    if (gesture.kind === "resize") {
+      return {
+        targetIndex: focusRow,
+        result: resolveCalendarDrag({
+          absence: moving,
+          grabbedDate: moving.endDate,
+          dropDate: addIsoDays(moving.endDate, gesture.dayDelta),
+          mode: "resize-end",
+          target: { kind: "same-row" },
+        }),
+      };
+    }
+    const originRow = visibleRows[focusRow];
+    const targetIndex = Math.min(Math.max(focusRow + gesture.rowDelta, 0), Math.max(rowCount - 1, 0));
+    const targetRow = visibleRows[targetIndex];
+    if (!originRow || !targetRow) return null;
+    return {
+      targetIndex,
+      result: resolveCalendarDrag({
+        absence: moving,
+        grabbedDate: moving.startDate,
+        dropDate: addIsoDays(moving.startDate, gesture.dayDelta),
+        mode: "move",
+        target: targetRow.key === originRow.key
+          ? { kind: "same-row" }
+          : {
+              kind: "other-row",
+              rowKey: targetRow.key,
+              row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
+            },
+      }),
+    };
   }
 
   // APG grid keyboard model. Rows = assignees, columns = dates: Arrow moves one
@@ -279,41 +326,8 @@ function ResourceCalendarInner({
           return;
         }
         e.preventDefault();
-        if (moving && onMoveAbsence) {
-          if (pendingMove.kind === "resize") {
-            // Resize never changes row — `target` is unread by the
-            // resize-end branch of resolveCalendarDrag, so a same-row
-            // placeholder is correct, not a stand-in for a real target.
-            const result = resolveCalendarDrag({
-              absence: moving,
-              grabbedDate: moving.endDate,
-              dropDate: addIsoDays(moving.endDate, pendingMove.dayDelta),
-              mode: "resize-end",
-              target: { kind: "same-row" },
-            });
-            if (result) onMoveAbsence(moving.id, result.patch, result.kind);
-          } else {
-            const originRow = visibleRows[focusRow];
-            const targetIndex = Math.min(Math.max(focusRow + pendingMove.rowDelta, 0), Math.max(rowCount - 1, 0));
-            const targetRow = visibleRows[targetIndex];
-            if (originRow && targetRow) {
-              const result = resolveCalendarDrag({
-                absence: moving,
-                grabbedDate: moving.startDate,
-                dropDate: addIsoDays(moving.startDate, pendingMove.dayDelta),
-                mode: "move",
-                target: targetRow.key === originRow.key
-                  ? { kind: "same-row" }
-                  : {
-                      kind: "other-row",
-                      rowKey: targetRow.key,
-                      row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
-                    },
-              });
-              if (result) onMoveAbsence(moving.id, result.patch, result.kind);
-            }
-          }
-        }
+        const resolved = resolvePendingGesture(pendingMove, moving);
+        if (resolved?.result && onMoveAbsence) onMoveAbsence(moving.id, resolved.result.patch, resolved.result.kind);
         setPendingMove(null);
         return;
       }
@@ -518,6 +532,26 @@ function ResourceCalendarInner({
     return { lanes: packOccurrenceLanes(all), bandTruncated: truncated };
   }, [calendarEvents, startDate, endDate]);
 
+  // §10 — where an armed grid gesture would land, shown as a dashed outline on
+  // the target cells and spoken in the live region. Resolved through the SAME
+  // function Enter commits with, so the preview cannot disagree with the write.
+  // Null while the gesture is a no-op (delta 0) or its absence is gone.
+  const pendingAbsence = pendingMove ? absences.find((a) => a.id === pendingMove.absenceId) : undefined;
+  const pendingResolved = pendingMove && pendingAbsence ? resolvePendingGesture(pendingMove, pendingAbsence) : null;
+  const movePreview = pendingAbsence && pendingResolved?.result
+    ? {
+        row: pendingResolved.targetIndex,
+        from: pendingResolved.result.patch.startDate ?? pendingAbsence.startDate,
+        to: pendingResolved.result.patch.endDate ?? pendingAbsence.endDate,
+        person: pendingResolved.result.kind === "reassign" ? visibleRows[pendingResolved.targetIndex]?.display : undefined,
+      }
+    : null;
+  const movePreviewText = movePreview
+    ? movePreview.person
+      ? t(lang, "calendarMovePreviewPerson", movePreview.from, movePreview.to, movePreview.person)
+      : t(lang, "calendarMovePreview", movePreview.from, movePreview.to)
+    : "";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
@@ -606,9 +640,10 @@ function ResourceCalendarInner({
               // when a mode arrives: the commit path reports `null`, and leaving
               // justCancelled set there makes the region read "Absence move
               // cancelled" immediately after a SUCCESSFUL meeting reschedule.
-              onMoveModeChange={(mode) => {
+              onMoveModeChange={(mode, target) => {
                 setJustCancelled(null);
                 setBandMoveMode(mode);
+                setBandMoveTarget(mode === "armed" ? target ?? null : null);
               }}
               truncated={bandTruncated}
             />
@@ -620,6 +655,7 @@ function ResourceCalendarInner({
             resourceByKey={resourceByKey}
             absences={absences}
             hitFor={hitFor}
+            movePreview={movePreview}
             focusRow={focusRow}
             focusCol={focusCol}
             setFocusCell={setFocusCell}
@@ -633,15 +669,19 @@ function ResourceCalendarInner({
           />
         </table>
       </div>
-      {/* The only feedback a screen-reader user gets that keyboard move mode
-          is active (or was just cancelled) — visually silent by design. */}
+      {/* What a screen-reader user hears about a keyboard move: that it is armed
+          (or was just cancelled) and, since §10, where Enter would land it.
+          Sighted users get the same target as a dashed outline on the grid. */}
       <div aria-live="polite" className="sr-only">
         {pendingMove
-          ? t(lang, DRAG_MODE_KEYS[pendingMove.kind].on)
+          ? [t(lang, DRAG_MODE_KEYS[pendingMove.kind].on), movePreviewText].filter(Boolean).join(". ")
           : justCancelled
             ? t(lang, DRAG_MODE_KEYS[justCancelled].cancelled)
             : bandMoveMode === "armed"
-              ? t(lang, "calendarMeetingMoveModeOn")
+              ? [
+                  t(lang, "calendarMeetingMoveModeOn"),
+                  bandMoveTarget ? t(lang, "calendarMeetingMovePreview", bandMoveTarget) : "",
+                ].filter(Boolean).join(". ")
               : bandMoveMode === "cancelled"
                 ? t(lang, "calendarMeetingMoveModeCancelled")
                 : ""}

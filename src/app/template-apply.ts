@@ -1,11 +1,11 @@
 import type { Workspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
-import { sanitizeSeedTask } from "./templates";
+import { sanitizeSeed } from "./templates";
+import { CANONICAL_NOTE_HTML_OPS } from "./note-log";
 import type {
   ChangeItem,
   NoteLogEntry,
   RaidItem,
-  Task,
   TaskDependency,
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
@@ -390,34 +390,21 @@ export function applyTemplate(
 ): Workspace {
   const base: Workspace = { ...ws, fieldVisibility: tpl.fieldVisibility };
   if (!opts.includeSeed || !tpl.seed) return base;
-  // ★★★ Sanitise the seed's tasks HERE, not in templateFromWorkspace.
-  //   templateFromWorkspace puts live Task objects into the seed by reference,
-  //   so a template saved and applied in one session used to bypass the
-  //   sanitiser that the localStorage load path applies — one template, two
-  //   behaviours, separated by a refresh (open-followups §228). Fixing it at
-  //   SAVE would leave templates written by older builds unrepaired; apply is
-  //   the only ingress into a workspace.
-  // ★★ This does MORE than reconcile the status/completedDate pair.
-  //   `sanitizeSeedTask` rebuilds a task from a fixed field list, so it also
-  //   drops `inquiriesSent`, `jiraKey`, `jiraIssueType`, `lastSyncedAt`,
-  //   `localModifiedAt`, `outlookEventId`, `healthOverride` and
-  //   `knowledgeLinks` outright. The captured `createdDate` is discarded too, but
-  //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
-  //   applied task still carries a `createdDate`, just not the one that was
-  //   captured. ★★ NINE, NOT TEN, AND `noteLog` IS NO LONGER AMONG THEM — it is
-  //   CARRIED as of §168, and allow-listed inside `appendSeed` (§288 moved the
-  //   pass there from this function — see `allowListSeed`'s docstring above).
-  //   Leaving it on this list contradicted the `allowListRich` docstring.
-  //   The load path already dropped all nine; this makes the two
-  //   agree. It also stops a per-row external link being CLONED — two local
-  //   tasks pointing at one Jira issue is not a template.
-  const seed = tpl.seed.tasks
-    ? {
-        ...tpl.seed,
-        tasks: tpl.seed.tasks
-          .map(sanitizeSeedTask)
-          .filter((x): x is Task => x !== null),
-      }
-    : tpl.seed;
+  // ★★★ Sanitise the WHOLE seed HERE, through the SAME `sanitizeSeed` the
+  //   localStorage load path runs (open-followups §228, closed 2026-10-02).
+  //   `templateFromWorkspace` puts live rows into the seed by reference, so a
+  //   template saved and applied in one session used to bypass that sanitiser —
+  //   one template, two behaviours, separated by a refresh. Fixing it at SAVE
+  //   would leave templates written by older builds unrepaired; apply is the
+  //   only ingress into a workspace.
+  // ★★ It needed two changes before it could be this one call, and both are
+  //   why an earlier attempt was reverted: `sanitizeSeed` had no `resources`
+  //   arm (it dropped a proposal's people), and its DOM-free note cleaner
+  //   flattened a long rich note (§298). The arm exists now, and the browser
+  //   injects the CANONICAL cleaner here, so apply loses nothing load keeps.
+  // ★ `sanitizeSeedTask` rebuilds a task from a fixed field list, so it drops
+  //   per-row external links (`jiraKey`, `outlookEventId`, …) — cloning one
+  //   is not a template — and `migrateTask` backfills `createdDate`.
+  const seed = sanitizeSeed(tpl.seed, CANONICAL_NOTE_HTML_OPS) ?? {};
   return appendSeed(base, remapSeed(ws, seed));
 }

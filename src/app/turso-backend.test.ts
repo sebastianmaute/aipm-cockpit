@@ -119,6 +119,16 @@ describe("TursoBackend", () => {
     expect(ws.tasks[0].id).toBe(1);
   });
 
+  it("sanitizes a rich field decoded from the relational rows (§28)", async () => {
+    // `rowsToWorkspace` is DOM-free, so the backend's load runs the pass.
+    const taskCols = ["id", "taskName", "assignee", "assigneeEmail", "dueDate", "lastUpdateDate", "priority", "blockers", "notes", "description"];
+    const taskRow = [{ value: "1" }, { value: "T" }, { value: "" }, { value: "" }, { value: "2026-06-01" }, { value: "2026-06-01" }, { value: "Medium" }, { value: "" }, { value: "" }, { value: '<p>ok</p><img src=x onerror="alert(1)">' }];
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults({ tasks: okExec(taskCols, [taskRow]) }) }));
+    const ws = await new TursoBackend(CONFIG).load();
+    expect(ws.tasks[0].description).toContain("<p>ok</p>");
+    expect(ws.tasks[0].description).not.toContain("onerror");
+  });
+
   it("imports an old single-blob workspace when relational tables are empty", async () => {
     const w = emptyWorkspace();
     w.tasks = [{ ...minimalTask, id: 9, taskName: "Old" } as never];

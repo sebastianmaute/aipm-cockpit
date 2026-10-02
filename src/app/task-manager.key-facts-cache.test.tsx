@@ -85,7 +85,7 @@ const META: ProjectMeta = {
   startDate: "2026-01-01",
   endDate: "2026-06-01",
   profitCenter: "PC-9",
-  contactPersons: [{ name: "Pat Contact", email: "", synced: false }],
+  contactPersons: [{ id: 1, name: "Pat Contact", email: "", synced: false }],
   regulatory: ["GDPR / data protection regulation"],
 };
 

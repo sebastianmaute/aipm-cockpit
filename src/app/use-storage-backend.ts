@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { postRevision } from "./broadcast-sync";
+import { postRevision, tieVerdict } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -8,13 +8,14 @@ import {
   StorageNotImplementedError, StorageNotReadyError, createBackend,
   getBackendFileHandle, requestWriteAccessForBackend,
 } from "./storage";
-import { hasAuthoredRecords, isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
+import { announcedRevision, hasAuthoredRecords, isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
+import { dropDanglingDependencies } from "./sanitize";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
@@ -34,6 +35,7 @@ import { useConflictResolution } from "./use-conflict-resolution";
 import { useWorkspaceSync } from "./use-workspace-sync";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
+import { createPeerRevisionDeferral } from "./peer-revision-deferral";
 import { handOverRevision } from "./storage-handover";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
@@ -349,8 +351,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §4 — which changes this window only MIRRORED from a peer, so the autosave skips them (mirror-ledger.ts).
   // Tab sync applies a peer value through `mirrorApply`, whose updater hands the ledger its `prev`.
   const [mirrorLedger] = useState(createMirrorLedger);
+  const [peerSeq, setPeerSeq] = useState(0); const [peerRevision] = useState(() => createPeerRevisionDeferral(setPeerSeq)); // §666 — a peer's revision that arrived while a save was queued or running (peer-revision-deferral.ts); `peerSeq` is a dep of the save effect
   const mirrorApply = useMemo(() => {
-    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { mirrorLedger.judge(kind, live, value); return value; }); };
+    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T, fromWindow: string): void => { const tie = tieVerdict(fromWindow); set((live) => { mirrorLedger.judge(kind, live, value, tie); return value; }); };
     return {
       tasks: into("tasks", setTasks), raid: into("raid", setRaid), absences: into("absences", setAbsences), shifts: into("shifts", setShifts),
       resources: into("resources", setResources), roles: into("roles", setRoles), disciplines: into("disciplines", setDisciplines), grades: into("grades", setGrades),
@@ -448,6 +451,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
   // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
   const [fileBinding, setFileBinding] = useState<string | null>(null);
+  // §659 — the same value for the project ops' "already open here?" test, which runs in an async
+  // handler and must read the COMMITTED binding, never the registry every tab shares.
+  const fileBindingRef = useRef<string | null>(null);
+  useEffect(() => { fileBindingRef.current = fileBinding; }, [fileBinding]);
   // ★ RI4 — read ONLY where a load of this instance is APPLIED (the load effect's success path, `reloadCurrentProject`): a failed, refused or grant-only window shows content that is not the file's, so it stays isolated. A `const`, not a declaration (see `allowSavesTo`).
   const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
@@ -466,7 +473,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); try { await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below).
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); let base: string | null | undefined; try { const result = await enqueueSave(backend, () => { base = announcedRevision(backend); return backend.save(ws); }, { settleReplacedAsOwn: true }); const revision = backend.revision?.(); if (result !== "superseded" && base != null && revision != null) postRevision(syncContext, revision, base); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below). §656 — a flush that wrote posts its revision like the autosave, or a window mirroring this storage pauses at its next save; `base` stays unset when the job never ran.
   // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. ★ Final review I2: when that kept write FAILS (over the cap, quota, codec), the `SaveConflictError` is thrown instead, and every op's flush catch stops on it (no generic flush-failed toast): the user stays on this project behind the pause, whose Download works at any size.
   function keepNotSavedOnSwitch(ws: Workspace, refused?: SaveConflictError): void {
     if (unloadJournal.followLive(ws, true)) { keptOnSwitchForRef.current = backend; emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); return; }
@@ -587,7 +594,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // belongs at the one function every backend converges on rather than in the
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
-    setTasks(mark("tasks", backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
+    // ★ §133: and the dangling-dependency pass, for the same "one function every
+    // backend converges on" reason. Before it, only the CSV and Markdown decoders
+    // ran it, so a dependency on a deleted task (a redo of a successor fan-out
+    // can write one) persisted forever on JSON, IndexedDB and both Turso layouts.
+    setTasks(mark("tasks", dropDanglingDependencies(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []))));
     setRaid(mark("raid", workspace.raid ?? [])); setAbsences(mark("absences", workspace.absences ?? [])); setShifts(mark("shifts", workspace.shifts ?? []));
     setResources(mark("resources", workspace.resources ?? [])); setRoles(mark("roles", workspace.roles ?? [])); setDisciplines(mark("disciplines", workspace.disciplines ?? [])); setGrades(mark("grades", workspace.grades ?? []));
     if (workspace.plan) setPlan(mark("plan", workspace.plan));
@@ -1009,7 +1020,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★★ §4 — the ledger is asked again when the job STARTS: a mirror that arrived while an earlier save was in flight re-ran this effect with that save's edits still unsaved, and once it landed this snapshot's only news is the peer's part, which its writer saves (mirror-ledger.ts `markWritten`). Nothing is written, so nothing moves; its unconfirmed journal entry goes (in memory only: one already written while the page was hiding stays, and its peer part may come back on a load — untested, review M1 on 9c639dc21). The landing is recorded INSIDE the job for that reason: the queue starts the next job before this `.then` runs.
       const job = (): Promise<void | "superseded"> => {
         if (mirrorLedger.isMirroredOnly(outgoing)) { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); }
-        return conflictResolution.runSaveJob(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
+        if (peerRevision.settle(backend, peerSeq, mirrorLedger.hasContested()) === "skip") return Promise.resolve("superseded"); // §666 — this snapshot predates a deferred peer revision; the effect run its `peerSeq` bump caused writes instead. Its journal entry STAYS until that write confirms (peer-revision-deferral.ts)
+        return conflictResolution.runSaveJob(backend, () => { baseRevision = announcedRevision(backend); return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
       };
       enqueueSave(backend, job).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
@@ -1040,7 +1052,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         if (!isSaveConflict(err)) emitOutcome(err); // §4 — a refusal is reported by the pause (or the kept-journal toast) alone: the generic outcome raised a sticky storage banner no save could clear while paused
         logDiag("error", "storage.saveFailed", { message: String(err) });
-        if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend, err.currentRevision); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
+        if (isSaveConflict(err) && backendRef.current === backend) { if (peerRevision.covers(backend, baseRevision, peerSeq, mirrorLedger.hasContested())) return; emitConflictPause(backend, err.currentRevision); return; } // §666 — refused by a deferred peer revision: the newer job adopts it and retries, no pause; the journal entry stays until that retry confirms // §4 — nothing was written; a lock timeout is NOT this and falls through
         if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
           const keptByFlush = keptOnSwitchForRef.current === backend;
           const kept = unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
@@ -1157,10 +1169,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
     // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed, peerSeq]);
 
   // §4 §642 §643 §645 — tab sync: the scope, the revision adoption and one `useBroadcastSync` per slice (`use-workspace-sync.ts`).
-  const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply,
+  const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply, peerRevision,
     slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory } });
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
@@ -1274,6 +1286,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
     handOverFromRef,
     setFileBinding,
+    // §659 — a LOCAL FILE window knows its own project (its binding, per §645); any other kind has no
+    // per-window binding and keeps the registry comparison it always had.
+    windowProjectId: () =>
+      settingsRef.current.storageConfig.kind.startsWith("local-") ? fileBindingRef.current : loadRegistry().currentProjectId,
     announcedUnsafeEmailsRef,
   });
 

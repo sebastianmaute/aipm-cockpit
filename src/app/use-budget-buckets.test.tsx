@@ -53,15 +53,24 @@ describe("commitBuckets", () => {
     expect(s.logActivity).not.toHaveBeenCalled();
   });
 
-  test("an edit captures the PREVIOUS row image, not the next one", () => {
+  test("an edit captures a FIELD patch of the changed keys, so undo keeps a concurrent edit (§177b)", () => {
     const prev = bucket(1, "Design");
     const s = setup([prev]);
     s.result.current.commitBuckets([{ ...prev, name: "Design phase" }]);
-    expect(s.capture).toHaveBeenCalledTimes(1);
-    const opts = s.capture.mock.calls[0][0];
-    expect(opts.edited).toEqual([prev]);
+    expect(s.capture).not.toHaveBeenCalled();
+    expect(s.captureComposite).toHaveBeenCalledTimes(1);
+    const opts = s.captureComposite.mock.calls[0][0];
     expect(opts.entityKey).toBe("budget");
+    expect(opts.primaryCount).toBe(1);
     expect(s.setBudgets).toHaveBeenCalledTimes(1);
+    // Drive the undo against a live row another writer changed meanwhile.
+    const [deletedPart, editPart] = opts.parts;
+    expect(deletedPart).toBeNull(); // nothing was deleted
+    editPart.restore({ current: new Map() }, true);
+    const updater = s.setBudgets.mock.calls.at(-1)![0] as (rows: readonly BudgetBucket[]) => BudgetBucket[];
+    const [restored] = updater([{ ...prev, name: "Design phase", poNumber: "PO-9" }]);
+    expect(restored.name).toBe("Design");       // the key the commit wrote comes back …
+    expect(restored.poNumber).toBe("PO-9");     // … and nothing else is touched
   });
 
   test("a delete captures the removed row and logs budget.deleted", () => {
@@ -72,7 +81,12 @@ describe("commitBuckets", () => {
     const gone = bucket(2, "Build");
     const s = setup([keep, gone]);
     s.result.current.commitBuckets([keep]);
-    expect(s.capture.mock.calls[0][0].removed).toEqual([gone]);
+    // A deleted bucket stays a WHOLE-ROW restore (the primary fragment).
+    const opts = s.captureComposite.mock.calls[0][0];
+    expect(opts.parts[0]).not.toBeNull();
+    expect(opts.parts[0].isPrimary).toBe(true);
+    expect(opts.parts[1]).toBeNull();
+    expect(opts.primaryCount).toBe(1);
     expect(s.logActivity).toHaveBeenCalledWith("budget.deleted", "Build");
   });
 
@@ -81,6 +95,7 @@ describe("commitBuckets", () => {
     const s = setup([keep]);
     s.result.current.commitBuckets([keep, bucket(2, "New")], { kind: "budget.created", name: "New" });
     expect(s.capture).not.toHaveBeenCalled();
+    expect(s.captureComposite).not.toHaveBeenCalled();
     expect(s.logActivity).toHaveBeenCalledWith("budget.created", "New");
     expect(s.setBudgets).toHaveBeenCalledTimes(1);
   });
@@ -104,7 +119,8 @@ describe("commitBuckets", () => {
     const opts = s.captureComposite.mock.calls[0][0];
     expect(opts.primaryCount).toBe(3);
     expect(opts.parts[0]).toBe(tasksPart);
-    expect(opts.parts[1]).not.toBeNull();
+    expect(opts.parts[1]).toBeNull();      // no bucket deleted
+    expect(opts.parts[2]).not.toBeNull();  // the bucket edit, as a field patch
   });
   // ★★ `budgets` is a COUNTED slice, so a deliberate bucket deletion can trip
   // the save-time data-loss guard. The bypass is ONE-SHOT: these two tests are

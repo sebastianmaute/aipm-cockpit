@@ -13,7 +13,7 @@ import { useDraggable } from "./use-draggable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import {
   defaultStatusForCategory,
   riskSeverityFromMatrix,
@@ -231,15 +231,15 @@ export function RaidEditModal({
     // firing blur: the value went out uncapped while this counted a truncation
     // and the toast announced one. The onBlur handlers stay — they keep the
     // draft and its counter honest while the user is still typing.
-    // ★★★ This is the ONLY cap on `title`/`owner` for a human editor, not a
-    // duplicate of a storage-side one. `sanitizeRaidItem` LOOKS like the storage
-    // boundary and is not on one: `use-resource-planner.ts` stores the item
-    // directly, `workspace.ts`'s JSON load is a bare cast plus
-    // `sanitizeRaidRichFields` (rich fields only), and `buildRaidItemFromObj`
-    // hand-builds `title` with `obj.title?.trim() ?? ""` — no cap on ANY path.
-    // Change is the opposite (its decoder and JSON load both route through
-    // `sanitizeChangeItem`), so do not reason about the two registers together.
-    // open-followups.md §37. ★ Side effect worth keeping: the auto-issue derivation
+    // ★★★ This is the cap the HUMAN SEES, at save. Storage enforces the same two
+    // limits only at the next LOAD: since §37 `capRaidStoredText` runs on both
+    // load funnels (`jsonToWorkspace` and `buildRaidItemFromObj`), but
+    // `use-resource-planner.ts` still stores the item directly, so without this
+    // an over-long title would sit in memory and be written out uncapped until a
+    // reload clipped it — silently, with no notice. `sanitizeRaidItem` is still
+    // on no save or load path; the load cap deliberately is NOT it (it would
+    // rewrite statuses). Both limits match: `TASK_NAME_MAX`, and
+    // `ASSIGNEE_MAX` = `BUDGET_NAME_MAX` = 200. ★ Side effect worth keeping: the auto-issue derivation
     // below copies `title` verbatim, so it now inherits the capped value.
     const cappedTitle = describeTextCap(draft.title, TASK_NAME_MAX);
     const cappedOwner = describeTextCap(draft.owner ?? "", ASSIGNEE_MAX);
@@ -253,7 +253,7 @@ export function RaidEditModal({
       description: capRich(draft.description) || undefined,
       mitigation: capRich(draft.mitigation) || undefined,
     };
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave(saved);
   }
 
@@ -410,13 +410,13 @@ export function RaidEditModal({
               <button
                 type="button"
                 onClick={() => setCategoryUnlocked(true)}
-                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-ui-dark-blue hover:underline ${INTERACTIVE}`}
+                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-ui-dark-blue dark:hover:text-ui-light-grey hover:underline ${INTERACTIVE}`}
               >
                 {t(lang, "raidAdvancedChangeCategory")}
               </button>
             )}
             {!isNew && categoryUnlocked && (
-              <span className="text-[11px] italic text-ui-purple">
+              <span className="text-[11px] italic text-ui-purple dark:text-ui-purple-strong">
                 {t(lang, "raidCategoryChangedWarning")}
               </span>
             )}

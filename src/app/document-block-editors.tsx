@@ -203,6 +203,11 @@ export function useBlockDraft<T, B extends DocBlock>(
     typeof next === "function" ? (next as (prev: T) => T)(liveValueRef.current) : next;
 
   const setValue = (next: T | ((prev: T) => T)) => {
+    // §188 — a refusal notice clears when the user starts a NEW edit (the draft goes from clean to
+    //  dirty), not before: a "conflict" notice is the only explanation for text the reconcile just
+    //  replaced on screen, so it must survive the adoption. ★ An over-cap refusal keeps the draft
+    //  dirty, so its "N too long" notice stays up while the user trims the text.
+    if (!dirtyRef.current) setRefusal(null);
     markDirty(true);
     const resolved = resolveValue(next);
     liveValueRef.current = resolved;
@@ -579,7 +584,7 @@ export function HeadingBlockEditor({
           onChange={(e) => setValue({ ...value, text: e.target.value })}
         />
       </div>
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }
@@ -654,7 +659,7 @@ function ParagraphEditorBody({
         ariaDescribedBy={countId}
       />
       <ParagraphCharCount lang={lang} visible={htmlTextLength(html)} id={countId} />
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }
@@ -728,7 +733,7 @@ export function DataSectionBlockEditor({
           </option>
         ))}
       </Select>
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }

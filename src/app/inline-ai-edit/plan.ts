@@ -47,7 +47,16 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
  *   SAME value. `raw` stays a string so every card and sweep comparing it
  *   against a stored projection is unchanged. */
 export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string; rawInput?: unknown }
-export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
+/** One field a create will write, rendered the way an update row renders its
+ *  `after` (§440). Display only — a create sends its input, never these. */
+export interface CreateField { field: string; value: string }
+export interface NewItem {
+  entity: string; title: string; toolName: string; input: Record<string, unknown>;
+  /** §440 — every descriptor field the create carries a non-blank value for,
+   *  so the card discloses what is being created, not only its title. A field
+   *  the writer refuses is in `plan.rejected` instead, never here. */
+  fields: CreateField[];
+}
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected {
   toolName: string;
@@ -364,6 +373,54 @@ function titleOf(entity: string, input: Record<string, unknown>): string {
 
 interface EntityItem { id: number; [k: string]: unknown }
 
+/** §440 — what a create card discloses: every descriptor field the input
+ *  carries, rendered through the SAME `previewNormalizerFor` → `forPreview`
+ *  chain an update row's `after` goes through, against an empty prior row.
+ *
+ *  ★★★ THE REFUSAL CHANNEL IS DELIBERATELY NARROW. Only `rawTypeGuards` is
+ *   consulted, because it is the WRITER'S OWN table and the create writer runs
+ *   it too (`create_absence` / `create_calendar_event` call
+ *   `dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields` first,
+ *   `use-register-tools.ts`). The update branch's other checks — required
+ *   fields, email changed-only rules, enum membership — are UPDATE-writer
+ *   rules; a create writer defaults or rebuilds instead, and a refusal pushed
+ *   here is STRIPPED by the replaying consumers (§534), so a rule the create
+ *   writer does not share would drop a field the write would have kept.
+ *  ★★ The offered-surface sweep's create arm (§436's detector) judges the real
+ *   create, never this plan, so a disclosed refusal here cannot turn one of
+ *   its `dropped` findings green. */
+function createFields(plan: EditPlan, d: EntityDescriptor, toolName: string, input: Record<string, unknown>): CreateField[] {
+  const out: CreateField[] = [];
+  for (const f of d.diffFields) {
+    if (!(f in input)) continue;
+    const guard = d.rawTypeGuards?.[f];
+    if (guard && !guard(input[f])) {
+      plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}`, field: f });
+      continue;
+    }
+    const normalize = previewNormalizerFor(d, f);
+    let value = forPreview(d.entity, f, normalize ? normalize(input[f], input, {}) : str(input[f]));
+    // ★★ An enum value the entity does not accept is NOT refused by a create
+    //  writer — it falls back to a default (a RAID `category: "Risk"` is stored
+    //  as `"R"`). Show what is STORED: the modelled default where the
+    //  descriptor has one (`enumDefaultFor`, the pair the update branch's
+    //  induced-reset pass uses), and otherwise NOTHING for that field — the
+    //  writers' other fallbacks are not modelled here, and listing the value the
+    //  model sent would name one the row will never hold.
+    if (f in d.enumFields) {
+      const valid = validSetFor(d.entity, f, input);
+      if (valid.size > 0 && !valid.has(value)) {
+        const def = defaultEnumFor(d.entity, f, input);
+        if (def === undefined) continue;
+        value = def;
+      }
+    }
+    if (value === "") continue;
+    out.push({ field: f, value });
+  }
+  return out;
+}
+
 /** Project a tool input's relationship and FK fields onto `plan.links`.
  *
  *  Deliberately a SEPARATE bucket from `updates` — see the `LinkDiff` docstring
@@ -430,9 +487,8 @@ function pushLinkDiffs(
    *   `""` anyway. */
   subject?: string,
   /** The tool this input came from, so a merge-site refusal below can be
-   *  DISCLOSED as a `rejected` row rather than silently omitted. Optional
-   *  because the create branch passes none, so a refused link on a create is
-   *  omitted rather than reported (§440). */
+   *  DISCLOSED as a `rejected` row rather than silently omitted. Both branches
+   *  pass it since §440; a caller that omits it gets the old silent omission. */
   toolName?: string,
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
@@ -459,9 +515,9 @@ function pushLinkDiffs(
     //   `dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields`
     //   first (`use-register-tools.ts`), and the gate let a create card preview
     //   `[4, "4"]` as attendee 4 while the write dropped the whole array — §460,
-    //   closed by lifting it. A create call passes no `toolName`, so a refused
-    //   link on a create is OMITTED from the card, never reported: disclosing
-    //   it is §440's. ★ `absence.resourceId` never diverged — its
+    //   closed by lifting it. Since §440 the create call passes its `toolName`
+    //   too, so a refused link on a create is DISCLOSED as a rejected row rather
+    //   than silently omitted. ★ `absence.resourceId` never diverged — its
     //   `link.sanitize` already carries the row's `typeof` leg.
     const guard = d.rawTypeGuards?.[f];
     if (guard && !guard(input[f])) {
@@ -852,8 +908,10 @@ function describeEntityCallsOnce(
       //  dropped by `pushLinkDiffs`' own spread rather than rendered as a
       //  dangling " – ".
       const title = titleOf(entity, input);
-      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create", title);
-      plan.creates.push({ entity, title, toolName: name, input });
+      // §440 — `name` now rides along, so a link the create writer refuses is
+      //  DISCLOSED as a `plan.rejected` row instead of silently omitted.
+      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create", title, name);
+      plan.creates.push({ entity, title, toolName: name, input, fields: createFields(plan, INLINE_DESCRIPTORS[entity], name, input) });
       continue;
     }
 

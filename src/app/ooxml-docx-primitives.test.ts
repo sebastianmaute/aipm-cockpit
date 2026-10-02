@@ -437,6 +437,27 @@ describe("docxInlineDrawing", () => {
 // change the bytes of EVERY package, including link-free ones, and move
 // docs/baselines/ooxml-parts.json. The media path already solves the identical
 // problem the identical way, on `a:blip`.
+describe("docxRichParagraphs — §156 blocks inside a list item", () => {
+  it("indents a quote under its item, keeping the quote's own step", () => {
+    const xml = docxRichParagraphs("<ul><li><p>a</p><ul><li><p>b</p><blockquote>q</blockquote></li></ul></li></ul>");
+    // Depth 1 item → 720 × 2 = 1440, plus the Quote style's own 360.
+    expect(xml).toContain('<w:pStyle w:val="Quote"/><w:ind w:left="1800"/>');
+  });
+
+  it("indents a heading under its item with no extra step, and leaves a top-level quote to its style", () => {
+    expect(docxRichParagraphs("<ul><li><h2>h</h2></li></ul>")).toContain('<w:pStyle w:val="Heading2"/><w:ind w:left="720"/>');
+    expect(docxRichParagraphs("<blockquote>q</blockquote>")).not.toContain("<w:ind");
+  });
+});
+
+describe("docxRichParagraphs — §157 marker-only list head", () => {
+  it("draws the number of an item whose only content is a nested list", () => {
+    const xml = docxRichParagraphs("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
+    const texts = [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]!.trim());
+    expect(texts.filter((x) => x !== "")).toEqual(["1.", "•", "n", "2.", "b"]);
+  });
+});
+
 describe("docxRichParagraphs — hyperlinks", () => {
   it("wraps a linked run in w:hyperlink carrying the sink's rel id", () => {
     const sink = createLinkSink(2);

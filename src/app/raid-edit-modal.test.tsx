@@ -6,7 +6,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
 import { applyTier } from "./field-visibility";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
 import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
@@ -482,7 +482,7 @@ describe("RaidEditModal rich-field write-path cap", () => {
     // ★ The under-cap sibling is byte-identical, so the count below can only
     // mean the one field that really was truncated.
     expect(saved.mitigation).toBe("<p>short</p>");
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("saves an under-cap draft untouched and announces nothing", async () => {
@@ -538,7 +538,7 @@ describe("RaidEditModal plain-field cap on Enter-submit", () => {
     const saved = onSave.mock.calls[0][0] as RaidItem;
     expect(saved.title.length).toBe(TASK_NAME_MAX);
     // The count and the save now describe the SAME operation.
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("applies the owner cap when the form is submitted with Enter", async () => {
@@ -551,7 +551,7 @@ describe("RaidEditModal plain-field cap on Enter-submit", () => {
 
     const saved = onSave.mock.calls[0][0] as RaidItem;
     expect(saved.owner?.length).toBe(ASSIGNEE_MAX);
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "fieldsAdjusted", 1, 1));
   });
 
   it("trims on Enter, and collapses a whitespace-only owner to undefined", async () => {

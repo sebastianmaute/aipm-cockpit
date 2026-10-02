@@ -27,7 +27,28 @@ describe("describeToolCalls", () => {
 
   it("summarises a related create", () => {
     const plan = describeToolCalls([block("create_raid_item", { category: "Risk", title: "Payment timeout" })], { task, ws });
-    expect(plan.creates).toEqual([{ entity: "raid", title: "Payment timeout", toolName: "create_raid_item", input: { category: "Risk", title: "Payment timeout" } }]);
+    // §440 — `fields` lists what the create writes. `category: "Risk"` is not a
+    //  RAID category; the writer falls back to a default the descriptor does
+    //  not model, so the card omits it rather than naming a value never stored.
+    expect(plan.creates).toEqual([{
+      entity: "raid", title: "Payment timeout", toolName: "create_raid_item",
+      input: { category: "Risk", title: "Payment timeout" },
+      fields: [{ field: "title", value: "Payment timeout" }],
+    }]);
+  });
+
+  it("lists every field a create writes, rendered as an update row renders it (§440)", () => {
+    const plan = describeToolCalls(
+      [block("create_raid_item", { category: "I", title: "Vendor slip", description: "<p>late <strong>again</strong></p>", probability: 4 })],
+      { task, ws },
+    );
+    expect(plan.creates[0].fields).toEqual([
+      { field: "category", value: "I" },
+      { field: "title", value: "Vendor slip" },
+      { field: "description", value: "late again" },
+      { field: "probability", value: "4" },
+    ]);
+    expect(plan.rejected).toEqual([]);
   });
 
   it("discloses the links an inline create would write", () => {
@@ -1557,10 +1578,23 @@ describe("link fields honour the merge-site guard on the row and the create path
   //  is §440's missing channel, not agreement. Restore a `target === "row"`
   //  condition in `pushLinkDiffs` and this goes red while every case above
   //  stays green.
+  // §440 — and since the create card has a refusal channel, the refused list is
+  //  DISCLOSED as a rejected row rather than silently omitted.
   it("applies the guard to a create too, because the create write applies it", () => {
     const plan = planFor("create_calendar_event", { title: "Kickoff", attendeeResourceIds: [7, "9"] }, "calendarEvent");
-    expect(plan.rejected).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { toolName: "create_calendar_event", reason: "bad-input", detail: "attendeeResourceIds=7, 9", field: "attendeeResourceIds" },
+    ]);
     expect(plan.links).toEqual([]);
+  });
+
+  // §440 — a NON-link field the allow-list create writer drops is disclosed too,
+  //  and it is not listed among the fields the create writes.
+  it("discloses a create field the writer's own allow-list drops", () => {
+    const plan = planFor("create_absence", { assignee: "Ada", startDate: "2026-07-01", endDate: "2026-07-02", note: 42 }, "absence");
+    expect(plan.rejected).toEqual([{ toolName: "create_absence", reason: "bad-input", detail: "note=42", field: "note" }]);
+    expect(plan.creates[0].fields.map((f) => f.field)).not.toContain("note");
+    expect(plan.creates[0].fields.map((f) => f.field)).toContain("assignee");
   });
 
   // ANTI-VACUITY for the case above: an all-numeric list still previews on a create.

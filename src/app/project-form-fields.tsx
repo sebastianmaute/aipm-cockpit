@@ -16,6 +16,8 @@ import type React from "react";
 import { FieldError } from "./field-feedback";
 import { FieldGroup, HintedLabel, fieldClass } from "./form-controls";
 import { IconButton } from "./icon-button";
+import { Button } from "./button";
+import { PencilIcon } from "./icons";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { KnowledgeLink } from "./document-link";
@@ -642,11 +644,17 @@ function ContactPersonsControl({
   );
   const [emailError, setEmailError] = useState<string | null>(null);
   const emailErrorId = useId();
+  // §537 — the contact being edited in place, by id, with its working copy.
+  const [editing, setEditing] = useState<{ id: number; name: string; email: string } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const editErrorId = useId();
 
-  const hasName = (name: string) =>
-    contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
+  /** `exceptId` lets an in-place edit keep its own name (§537). */
+  const hasName = (name: string, exceptId?: number) =>
+    contactPersons.some((c) => c.id !== exceptId && c.name.trim().toLowerCase() === name.trim().toLowerCase());
 
-  // ★★★ A CONTACT'S IDENTITY IS ITS POSITION, NEVER ITS NAME. Removal used to
+  // ★★★ A CONTACT'S IDENTITY IS ITS ID (§537) — it was its POSITION until ids
+  // existed, and NEVER its NAME. Removal used to
   // filter on `c.name !== cp.name`, so two contacts sharing a name meant either
   // ✕ deleted BOTH — silent data loss, and a nicer button label would only have
   // hidden it. The same mistake sat in the list `key`. Duplicates are reachable
@@ -689,8 +697,8 @@ function ContactPersonsControl({
     contactNameCounts.set(key, (contactNameCounts.get(key) ?? 0) + 1);
   }
   const contactTokens = buildRowTokens(
-    contactPersons.map((cp, i) => ({
-      id: i,
+    contactPersons.map((cp) => ({
+      id: cp.id,
       name: (contactNameCounts.get(cp.name.trim().toLowerCase()) ?? 0) > 1 ? contactDisplay(cp) : cp.name,
     })),
   );
@@ -716,11 +724,14 @@ function ContactPersonsControl({
     }
     setEmailError(null);
     const synced = draft.resourceId != null || addressBook.some((c) => c.name === name);
+    // §537 — the next id above the list's maximum, the same rule the load
+    // funnel's `withContactPersonIds` mints with.
+    const id = contactPersons.reduce((m, c) => Math.max(m, c.id), 0) + 1;
     onChange([
       ...contactPersons,
       draft.resourceId != null
-        ? { name, email: cappedEmail, synced, resourceId: draft.resourceId }
-        : { name, email: cappedEmail, synced },
+        ? { id, name, email: cappedEmail, synced, resourceId: draft.resourceId }
+        : { id, name, email: cappedEmail, synced },
     ]);
     setDraft({ name: "", email: "", resourceId: null });
   };
@@ -734,9 +745,54 @@ function ContactPersonsControl({
 
       {contactPersons.length > 0 && (
         <ul className="mb-2 flex flex-col gap-1">
-          {contactPersons.map((cp, idx) => (
+          {contactPersons.map((cp) =>
+            editing !== null && editing.id === cp.id ? (
+              // §537 — in-place edit. Correcting a contact used to mean remove +
+              // re-add. Name and email are edited; the resource link and the
+              // synced flag are kept, and the email passes the SAME write rule
+              // the add path uses, with this contact's stored address exempt.
+              <li key={cp.id} className="flex flex-wrap items-start gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
+                <input
+                  type="text"
+                  aria-label={rowLabel(t(lang, "name"), contactTokens.get(cp.id) ?? cp.name)}
+                  value={editing.name}
+                  onChange={(e) => { setEditing({ ...editing, name: e.target.value }); setEditError(null); }}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+                <input
+                  type="email"
+                  aria-label={rowLabel(t(lang, "email"), contactTokens.get(cp.id) ?? cp.name)}
+                  aria-invalid={editError ? true : undefined}
+                  aria-describedby={editError ? editErrorId : undefined}
+                  value={editing.email}
+                  onChange={(e) => { setEditing({ ...editing, email: e.target.value }); setEditError(null); }}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const name = editing.name.trim();
+                    if (!name || hasName(name, cp.id)) return;
+                    const email = sanitizeLoadedEmail(editing.email);
+                    const refusal = editorEmailRefusalMessage(lang, email, cp.email, [linkedResourceEmail(resources, cp.resourceId ?? null)]);
+                    if (refusal) { setEditError(refusal); return; }
+                    onChange(contactPersons.map((c) => (c.id === cp.id ? { ...c, name, email } : c)));
+                    setEditing(null);
+                    setEditError(null);
+                  }}
+                >
+                  {t(lang, "contactEditSave")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditError(null); }}>
+                  {t(lang, "cancel")}
+                </Button>
+                {editError && (
+                  <p id={editErrorId} role="alert" className="w-full text-xs text-ui-pink-strong">{editError}</p>
+                )}
+              </li>
+            ) : (
             <li
-              key={idx}
+              key={cp.id}
               className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground"
             >
               <span className="flex items-center gap-1.5">
@@ -745,21 +801,31 @@ function ContactPersonsControl({
                 )}
                 <span>{contactDisplay(cp)}</span>
               </span>
-              {/* ★ The name is ROW-UNIQUE (rowLabel over contactTokens) and is
-                  threaded through `label` byte-for-byte. Two contacts can share
-                  a display name, and no gate would report a collision here —
-                  axe has no rule that flags two controls sharing an accessible
-                  name, in any view at any seed size. */}
-              <IconButton
-                onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
-                label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
-                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
-                variant="danger"
-              >
-                ×
-              </IconButton>
+              <span className="flex items-center gap-1">
+                <IconButton
+                  onClick={() => { setEditing({ id: cp.id, name: cp.name, email: cp.email }); setEditError(null); }}
+                  label={rowLabel(t(lang, "edit"), contactTokens.get(cp.id) ?? cp.name)}
+                  title={rowLabel(t(lang, "edit"), contactTokens.get(cp.id) ?? cp.name)}
+                >
+                  <PencilIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                </IconButton>
+                {/* ★ The name is ROW-UNIQUE (rowLabel over contactTokens) and is
+                    threaded through `label` byte-for-byte. Two contacts can share
+                    a display name, and no gate would report a collision here —
+                    axe has no rule that flags two controls sharing an accessible
+                    name, in any view at any seed size. */}
+                <IconButton
+                  onClick={() => onChange(contactPersons.filter((c) => c.id !== cp.id))}
+                  label={rowLabel(t(lang, "remove"), contactTokens.get(cp.id) ?? cp.name)}
+                  title={rowLabel(t(lang, "remove"), contactTokens.get(cp.id) ?? cp.name)}
+                  variant="danger"
+                >
+                  ×
+                </IconButton>
+              </span>
             </li>
-          ))}
+            ),
+          )}
         </ul>
       )}
 

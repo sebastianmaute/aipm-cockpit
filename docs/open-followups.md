@@ -249,17 +249,17 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
-| [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--open) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | open |
+| [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
 | [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
 | [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
-| [§16](#16-dictation-flattens-rich-formatting--open-needs-a-design) | Dictation flattens rich formatting — open, needs a design | 0.196.0, widened 0.209.0 | M | open |
+| [§16](#16-dictation-flattens-rich-formatting--closed-2026-10-02) | Dictation flattens rich formatting | 0.196.0, widened 0.209.0 | M | **CLOSED** 2026-10-02 |
 | [§21](#21-eye-verification-owed-on-two-editors-and-four-detail-cases--open-slice-b-02090) | Eye verification owed on two editors and four detail cases — open, slice B (0.209.0) | 0.209.0 (Lafferty) | S | open |
 | [§22](#22-cliptext-truncates-on-utf-16-code-units-and-can-split-a-surrogate-pair--closed) | `clipText` truncates on UTF-16 code units and can split a surrogate pair | 0.209.0 (Lafferty) | M | **CLOSED** |
 | [§24](#24-named-entities-are-neither-decoded-nor-counted--closed-2026-09-30) | NAMED entities are neither decoded nor counted | 0.209.0 (Lafferty) | S | **CLOSED** 2026-09-30 |
-| [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
+| [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--closed-2026-10-02) | CSV / Markdown / Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | **CLOSED** 2026-10-02 |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
@@ -268,10 +268,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--closed-2026-09-30) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-09-30 |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
-| [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
-| [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
+| [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--closed-2026-10-02) | `RaidItem` has NO storage-side length cap on any path | pre-existing, found 0.210.0 | M | **CLOSED** 2026-10-02 |
+| [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
-| [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
+| [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--closed-2026-10-02) | `text-ui-dark-blue` without a mode-appropriate companion | pre-existing, counted 0.211.0 | M–L | **CLOSED** 2026-10-02 |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open |
 | [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
 | [§43](#43-two-suggest-raci-reporting-gaps--closed-2026-09-25) | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | closed |
@@ -325,7 +325,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--closed-2026-09-14) | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | **CLOSED** 2026-09-14 |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
 | [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
-| [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--open-eye-verify-owed) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
+| [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--closed-2026-10-02) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-02 |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
@@ -342,7 +342,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
-| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
+| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--closed-2026-10-02) | Document row controls are named by a title that is NOT unique, and the comment says it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | **CLOSED** 2026-10-02 |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
 | [§113](#113-the-documents-roadmap--block-editor-entity-attachment-images-ooxml-media--all-six-slices-shipped-kept-as-the-decision-record) | The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open |
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
@@ -363,8 +363,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§129](#129-six-of-the-eight-richtexteditor-call-sites-import-it-statically-so-tiptap-ssrs-and-ships-in-the-initial-bundle--closed-2026-08-19) | Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle | — | — | **CLOSED** 2026-08-19 |
 | [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--open-accepted-measured) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured | — | — | open |
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
-| [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--open-cosmetic-measured) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured | — | — | open |
-| [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--open-measured) | A redo-created dangling dependency is repaired on two of six backends — open, measured | — | — | open |
+| [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--closed-2026-10-02) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word | — | — | **CLOSED** 2026-10-02 |
+| [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
 | [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--open-latent-measured) | ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured | — | — | open |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
 | [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--open-dead-code) | The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code | — | — | open |
@@ -372,24 +372,24 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
-| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | open |
+| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open--closed-2026-10-02) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | **CLOSED** 2026-10-02 |
 | [§142](#142-notelogpanels-labelsuffix-is-honour-system-and-unguarded--a-third-mount-site-collides-silently--closed-2026-08-12) | `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently | — | — | **CLOSED** 2026-08-12 |
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
 | [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ | — | — | **CLOSED** 2026-08-30 |
-| [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
+| [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--closed-2026-10-02) | Read-only task-item checked state is a character name to AT, not "checked" | — | — | **CLOSED** 2026-10-02 |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--closed-2026-09-27) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | **CLOSED** 2026-09-27 |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
-| [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
+| [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--closed-2026-10-02) | PPTX export is one slide per row and drops most rich fields before they can be rendered | — | — | **CLOSED** 2026-10-02 |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
-| [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--open-deliberate) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate | — | — | open |
-| [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--open) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | open |
-| [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--open) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | open |
+| [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--closed-2026-10-02) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent | — | — | **CLOSED** 2026-10-02 |
+| [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--closed-2026-10-02) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | **CLOSED** 2026-10-02 |
+| [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
 | [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare--closed-2026-09-14) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | **CLOSED** 2026-09-14 |
@@ -404,11 +404,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
 | [§172](#172-a-partial-timelog-fetch-overwrote-the-cached-aggregate-and-the-manual-apply-path-would-write-it--closed-2026-08-18) | A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it | — | — | **CLOSED** 2026-08-18 |
-| [§173](#173-the-load-catchs-mid-flight-adoption-branch-publishes-a-populated-thread-list-with-available-false--open-narrow) | The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow | — | — | open |
-| [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--open-pre-existing) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing | — | — | open |
+| [§173](#173-the-load-catchs-mid-flight-adoption-branch-publishes-a-populated-thread-list-with-available-false--closed-2026-10-02) | The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` | — | — | **CLOSED** 2026-10-02 |
+| [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--closed-2026-10-02) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight | — | — | **CLOSED** 2026-10-02 |
 | [§175](#175-buildchatpointerblock-is-no-longer-bounded-by-any-test--closed-2026-08-20) | `buildChatPointerBlock` is no longer bounded by any test | — | — | **CLOSED** 2026-08-20 |
 | [§176](#176-the-chat-pointer-title-path-flipped-from-flatten-then-cap-to-cap-then-flatten-and-no-test-pins-either-order--closed-2026-08-20) | The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order | — | — | **CLOSED** 2026-08-20 |
-| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open |
+| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope--closed-2026-10-02) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | **CLOSED** 2026-10-02 |
 | [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | ~~A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field~~ | — | — | **CLOSED** 2026-08-29 |
 | [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | ~~The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row~~ | — | — | **CLOSED** 2026-08-29 |
 | [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | ~~`buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent~~ | — | — | **CLOSED** 2026-08-29 |
@@ -417,11 +417,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
 | [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
-| [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
+| [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
-| [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
+| [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes--closed-2026-10-02) | A block refusal notice outlives the attempt it describes | — | — | **CLOSED** 2026-10-02 |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
-| [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | open |
+| [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
 | [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
@@ -429,7 +429,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | open |
 | [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false--closed-2026-09-27) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | **CLOSED** 2026-09-27 |
-| [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
+| [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
@@ -442,7 +442,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
 | [§209](#209-one-data-asset-id-pattern-four-hand-maintained-spellings-was-five--closed-2026-08-25) | One `data-asset-id` pattern, FOUR hand-maintained spellings (was five) | — | — | **CLOSED** 2026-08-25 |
 | [§210](#210-standalone-html-and-pdf-export-carry-an-image-with-no-source-and-no-placeholder-either--closed-2026-08-22) | Standalone HTML and PDF export carry an image with no source, and no placeholder either | — | — | **CLOSED** 2026-08-22 |
-| [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
+| [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever--closed-2026-10-02) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | **CLOSED** 2026-10-02 |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
 | [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling--closed-02710) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | **CLOSED** 0.271.0 |
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
@@ -452,14 +452,14 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
 | [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
-| [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | open |
-| [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | open |
+| [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing--closed-2026-10-02) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | **CLOSED** 2026-10-02 |
+| [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck--closed-2026-10-02) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | **CLOSED** 2026-10-02 |
 | [§223](#223-the-asset-mime-allowlist-is-hand-restated-at-every-consumer-with-no-shared-predicate--closed-2026-08-23) | The asset mime allowlist is hand-restated at every consumer, with no shared predicate | — | — | **CLOSED** 2026-08-23 |
 | [§224](#224-timelog-bookings-are-fetched-only-on-demand--no-interval-job-and-no-delta-notice) | Timelog bookings are fetched only on demand — no interval job, and no delta notice | — | — | open |
 | [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | open |
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
-| [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | open |
-| [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
+| [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair--closed-2026-10-02) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | **CLOSED** 2026-10-02 |
+| [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load--closed-2026-10-02) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | **CLOSED** 2026-10-02 |
 | [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet--closed-2026-08-29) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | **CLOSED** 2026-08-29 |
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
@@ -529,8 +529,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--closed-2026-08-31) | ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ | carved out of §146 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
-| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
-| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--closed-2026-10-02) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | **CLOSED** 2026-10-02 |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--closed-2026-10-02) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | **CLOSED** 2026-10-02 |
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31) | ~~The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
@@ -562,7 +562,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | **CLOSED** 2026-10-01 |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
-| [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
+| [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes--closed-2026-10-02) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | **CLOSED** 2026-10-02 |
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
@@ -581,7 +581,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
-| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
+| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--closed-2026-10-02) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | **CLOSED** 2026-10-02 |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--closed-2026-09-25) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | closed |
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
@@ -644,7 +644,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
 | [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
 | [§414](#414-the-browser-eye-verify-owed-by-the-control-defects-batch--open) | The browser eye-verify owed by the control-defects batch | deferred 2026-09-06 by the control-defects batch | M — six items; 1–4 now automated by a spec, 5–6 unmeasured | open |
-| [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
+| [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--closed-2026-10-02) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | **CLOSED** 2026-10-02 |
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--closed-2026-09-08) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | **CLOSED** 2026-09-08 |
@@ -669,15 +669,15 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§437](#437-stakeholder-resourceid-was-an-eighth-undisclosed-model-write-the-sweep-could-not-see--closed-2026-09-08) | Stakeholder resourceId was an eighth undisclosed model write the sweep could not see | found 2026-09-08 by a cold review extending the type-minus-axis subtraction past its brief | S — one guard, one seed, plus the ratchet that closes the class | **CLOSED** 2026-09-08 |
 | [§438](#438-every-create-tool-but-create_task-bypassed-its-merge-site-guard--closed-2026-09-08) | Every create tool but create_task bypassed its merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — six call sites, plus a pin; the create-path RELATION is §439 | **CLOSED** 2026-09-08 |
 | [§439](#439-the-parity-sweep-has-no-create-path-relation-so-a-create-card-is-compared-against-nothing--closed-2026-09-11) | The parity sweep has no create-path relation, so a create card is compared against nothing | found 2026-09-08 — the structural reason §438 was invisible | L — needs a relation stated over a row that did not exist before | **CLOSED** 2026-09-11 |
-| [§440](#440-a-create-card-discloses-a-title-and-links-only-and-has-no-channel-to-disclose-a-refusal--open) | A create card discloses a title and links only, and has no channel to disclose a refusal | found 2026-09-08 while building §439's create-path relation | M — a product change: enumerate the create, give the card a refusal channel, and give the sweep a refused-a-valid-probe kind in the same change so §436 keeps a detector | open |
+| [§440](#440-a-create-card-discloses-a-title-and-links-only-and-has-no-channel-to-disclose-a-refusal--closed-2026-10-02) | A create card discloses a title and links only, and has no channel to disclose a refusal | found 2026-09-08 while building §439's create-path relation | M — a product change: enumerate the create, give the card a refusal channel, and give the sweep a refused-a-valid-probe kind in the same change so §436 keeps a detector | **CLOSED** 2026-10-02 |
 | [§441](#441-relation-a-cannot-see-a-trespass-that-destroys-rather-than-stores-and-the-property-that-blinds-it-is-the-one-that-keeps-it-exemption-free--open) | Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free | found 2026-09-08 by acceptance mutant 2 of the offered-surface slice, which SURVIVED | M-L — a design call: movement clause plus exemptions, or leave it to the write-path sweep; typed probes for the listed fields | open |
 | [§442](#442-changedecisiondate-is-offered-on-create-unconditionally-discarded-and-disclosed-nowhere--closed-2026-09-09) | `change.decisionDate` is offered on create, unconditionally discarded, and disclosed nowhere | found 2026-09-08 by the create arm of the offered-surface sweep's Relation B | S — closed by WITHDRAWING the field; the title's "unconditionally" was itself false, and the body says so | **CLOSED** 2026-09-09 |
 | [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--open) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | open |
 | [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `5383186a` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
 | [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach | found 2026-09-09 while closing §442, on a branch that forked before `c5d528e5`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
-| [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--open) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | open |
+| [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--closed-2026-10-02) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | **CLOSED** 2026-10-02 |
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--closed-2026-09-14) | sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **CLOSED** 2026-09-14 |
-| [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
+| [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--closed-2026-10-02) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **CLOSED** 2026-10-02 |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
 | [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--closed-2026-09-28) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | **CLOSED** 2026-09-28 |
@@ -700,7 +700,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
-| [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
+| [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--closed-2026-10-02) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | **CLOSED** 2026-10-02 |
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
@@ -715,7 +715,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
-| [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
+| [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
 | [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
@@ -764,7 +764,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
 | [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--open) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | open |
-| [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
+| [§537](#537-project-contact-persons-have-no-ids--closed-2026-10-02) | Project contact persons have no ids | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | **CLOSED** 2026-10-02 |
 | [§538](#538-single-db-turso-never-persists-project-meta--closed-2026-09-25) | Single-DB Turso never persists project meta | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant `project_meta` meta row, `dirtyWorkspaceTables` taught about project-only edits, and `handleUpdateCurrentProjectByMode`'s no-config no-op fixed | **CLOSED** 2026-09-25 |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
@@ -880,16 +880,17 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
 | [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
 | [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--open) | A conflict version that was kept can be downloaded but not restored in the app | — | — | open |
-| [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--open) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | open |
+| [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--closed-2026-10-02) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | **CLOSED** 2026-10-02 |
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--closed-2026-10-01) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | **CLOSED** 2026-10-01 |
-| [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
+| [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--closed-2026-10-02) | A window's project binding still leans on the shared registry | — | — | **CLOSED** 2026-10-02 |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 | [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--closed-2026-10-02) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | **CLOSED** 2026-10-02 |
 | [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--closed-2026-10-02) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | **CLOSED** 2026-10-02 |
 | [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--closed-2026-10-02) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | **CLOSED** 2026-10-02 |
 | [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
+| [§666](#666-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1141,7 +1142,7 @@ See [[release-4-ai-planning-powers]].
 
 **Status:** CLOSED 2026-09-30 on `feat/two-tab-conflict` (owner decision: detect and pause; design `docs/superpowers/specs/2026-09-29-two-tab-conflict-design.md`, together with §645). Every backend instance now remembers the revision it last loaded or wrote, and a save whose stored revision has moved throws `SaveConflictError` (`storage-error.ts`) and writes nothing. Browser storage keeps an integer in the `kv` store (key `"revision"`), read, compared and bumped inside ONE readwrite IndexedDB transaction with the data writes (`idbTransaction`, `idb.ts`), committed explicitly. **Round 7 (2026-09-30):** this first ran under the Web Lock `aipm-cockpit:save:browser` with the revision read in a transaction of its own, and a closing tab's pagehide save then never reached the store (`e2e/pagehide-draft-persist.spec.ts`, measured: either the lock wait or the separate read in front of the writes lost it, and a transaction left to auto-commit did not commit at the close once it wrote more than one store; `commit()` lands it). Readwrite transactions over the same stores run one at a time across tabs, so the compare-and-set stays atomic without the lock. A local file's revision is `${lastModified}:${size}`, compared under the Web Lock `aipm-cockpit:save:<kind>`. SharePoint sends `If-Match` with the driveItem eTag, and a create after a 404 load sends `conflictBehavior=fail`; 409 and 412 map to the conflict. Turso keeps a `meta` row (key `REVISION_KEY`, per `project_id` in tenant) and checks it INSIDE the §637 conditional Hrana batch: `withRevision` (`turso-schema.ts`) puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind), which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back. That is the path Task 10 chose over a compare under `withWriteLock` beforehand, because, by the Hrana batch semantics, it is atomic against other devices too (not yet observed on a live database, §654). A conflict is recognised by which step failed (`isRevisionGuard`), never by the error text. Backends fail closed: an instance that knows no revision refuses its first save (a SharePoint file loaded without an eTag excepted). `forceNextSave()` is a blind one-shot write; `forceNextSave(expected)` is a conditional full rewrite, refused if storage is no longer at `expected`. A project op hands its own instance over to the live one through `handOverRevision` (`storage-handover.ts`: `adoptFrom` for the same class, else `adoptRevision`); all seven sites that arm it use it, five in `use-storage-file-ops.ts` and two in `use-storage-turso-ops.ts` (`grep -n "handOverFromRef.current = " src/app/use-storage-*-ops.ts`). Tab sync mirrors all 29 workspace slices (`grep -o 'useBroadcastSync("[a-zA-Z]*"' src/app/use-workspace-sync.ts | wc -l`); after an autosave lands, `postRevision` sends the new revision and its base on `aipm-cockpit:sync`, and a main window on the same scope and epoch (`useRevisionSync`) adopts it only while its save queue is idle (`whenSaved` is `null`) AND its own revision equals the sender's base. `createMirrorLedger` (`mirror-ledger.ts`) stops a window re-saving slices it only mirrored. A refused save pauses saving (`savesPaused` with `reason: "conflict"`) behind the banner `SavingPausedCause` `{ kind: "conflict" }`, whose three actions are Reload (`resolveConflictReload`), Overwrite (`resolveConflictOverwrite`, which arms `forceNextSave(expected)` inside the next save job, so it is refused if the other version moved again after the banner showed) and Download my version (`downloadConflictVersion`). A version left behind while its saves were refused goes to a kept journal slot (`keptProjectKey`: `aipm-cockpit:unload-journal:<key>:kept`, then `…:kept:<savedAt>`), which `OtherJournalsBanner` lists as "not saved (conflict)" with Download and Discard. `docs/AGENTS/storage.md` "Conflicts (§4, §645)" describes it. Tests: `browser-backend.revision.test.ts`, `local-file-backend.revision.test.ts`, `sharepoint-backend.test.ts`, `turso-schema.execute.test.ts` (the guard and stamp run on `node:sqlite`), `turso-backend.test.ts`, `turso-backend.tenant.test.ts`, `turso-pipeline.test.ts`, `storage-handover.test.ts`, `mirror-ledger.test.ts`, `broadcast-sync.test.ts`, `use-conflict-resolution.test.ts`, `notifications.test.tsx`, `use-other-journals.test.tsx`, and the `use-storage-backend.*` hook tests (`conflict`, `handover`, `turso-handover`, `mirror-race`, `file-scope` among them). End to end, `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context; 5 tests) passed 25/25 with `--repeat-each=5`.
 
-Known limits. Nothing has run against a live service: the SharePoint `If-Match`/412 and `conflictBehavior=fail`/409 behaviour, a non-null revision on a real load and CORS on the download host were not checked on a tenant (Task 4 Step 6 is owed; §652 holds it), and the Turso guard has never run on a live database (§654). Browser storage is still one store per origin, and tab sync keys it on the kind alone: browser windows showing different registry projects mirror each other's slices, adopt each other's revisions and converge on one workspace, the other window's project included. The revision check pauses only a writer that is not mirroring (its epoch differs, it is already paused, or its own save is queued or running). Local files are scoped by the file each window is bound to (§645). A switch away from a conflict whose edits cannot be kept (over `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw) is refused, and the user stays behind the pause, whose Download works at any size. A foreign write to a local file is caught at this window's next save, never before (there is no file watcher). Kept conflict versions can be downloaded but not restored in the app (§655). Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision (§656). A skipped mirrored-only save job's journal drop has no test (§657).
+Known limits. Nothing has run against a live service: the SharePoint `If-Match`/412 and `conflictBehavior=fail`/409 behaviour, a non-null revision on a real load and CORS on the download host were not checked on a tenant (Task 4 Step 6 is owed; §652 holds it), and the Turso guard has never run on a live database (§654). Browser storage is still one store per origin, and tab sync keys it on the kind alone: browser windows showing different registry projects mirror each other's slices, adopt each other's revisions and converge on one workspace, the other window's project included. The revision check pauses only a writer that is not mirroring (its epoch differs, it is already paused, or its own save is queued or running). Local files are scoped by the file each window is bound to (§645). A switch away from a conflict whose edits cannot be kept (over `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw) is refused, and the user stays behind the pause, whose Download works at any size. A foreign write to a local file is caught at this window's next save, never before (there is no file watcher). Kept conflict versions can be downloaded but not restored in the app (§655). A save refused before the peer's revision message reaches this window still pauses, even when it held the peer's slices (§666's residual). A skipped mirrored-only save job's journal drop has no test (§657).
 
 **Original status:** open — a cross-tab save lock present only on the Turso backend. Reproduced 2026-08-28 by `grep -rn "navigator.locks" src --include=*.ts`.
 
@@ -1404,11 +1405,11 @@ Do not re-litigate it as a pure win.
 
 ---
 
-## 10. Keyboard move has no preview — band and day grid both — open
+## 10. Keyboard move has no preview — band and day grid both — CLOSED 2026-10-02
 
-**Status:** open — an armed keyboard move that renders no preview. Reproduced 2026-08-28 by `grep -rn "onMoveModeChange" src/app/resource-calendar-band.tsx`.
+**Status:** CLOSED 2026-10-02. Both halves fixed. The day grid now outlines the target cells of an armed move or resize with a dashed `outline-ui-green` (`data-move-preview`; the dash is the non-colour cue) and its live region appends where Enter would land it — `calendarMovePreview` ("Lands on {0} to {1}") or `calendarMovePreviewPerson` when the move reassigns. The preview and the commit both go through `resolvePendingGesture` (`resource-calendar.tsx`), so the outline is exactly what Enter writes. The meetings band outlines the target day in the chip's lane and reports the target date up with every step (`onMoveModeChange("armed", target)`), which the parent announces as `calendarMeetingMovePreview`. Three Alt+Rights and one no longer sound the same. Pinned in `resource-calendar.test.tsx` ("keyboard move preview (§10)") and `resource-calendar-band.test.tsx` ("previews where an armed move lands"); the outline span is mutation-checked. `docs/AGENTS/features.md` no longer says there is no preview. The history below is kept as written.
 
-**Work item:** #90
+**Previously:** open — an armed keyboard move that renders no preview. Reproduced 2026-08-28 by `grep -rn "onMoveModeChange" src/app/resource-calendar-band.tsx`.
 
 **Where:** `resource-calendar-band.tsx` (chips) and `resource-calendar.tsx` (the day-cell grid).
 
@@ -1698,11 +1699,11 @@ browser, which is why both sites use `sr-only`.
 
 ---
 
-## 16. Dictation flattens rich formatting — open, needs a design
+## 16. Dictation flattens rich formatting — CLOSED 2026-10-02
 
-**Status:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: keep formatting. Built without dropping the multi-`onFinal` join this entry warns about: `appendDictationToHtml` (`rich-text-projection.ts`) no longer flattens the field to plain text; it parses the stored HTML, finds the block holding the field's last non-blank text, and appends the segment there as a NEW PLAIN TEXT NODE outside any inline mark, using `appendDictation`'s separator rule. The next `onFinal` segment finds that node as the last text and joins the same run — the "tracked run" the fix direction below asked for, tracked by position rather than by a stored node. Existing bold/italic/lists/links are untouched and the dictated words inherit none of them; a field with no text gets a new `<p>`; the result is re-sanitised. All four call sites (task, RAID, change, milestone `description`) take it unchanged. Pinned in `rich-text-projection.test.ts` (formatting kept, no inherited mark or link, three segments joining, the empty-field and blank-segment cases, dictated markup escaped); the three pre-existing expectations pass unchanged. The history below is kept as written.
 
-**Work item:** #93
+**Previously:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `appendDictationToHtml` round-trips the field through plain text before appending, because Web
 Speech fires `onFinal` **multiple times per hold** and each segment must join onto the previous one
@@ -1946,11 +1947,11 @@ produces numeric forms — so this is genuinely small and genuinely optional.
 
 ---
 
-## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary
+## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — CLOSED 2026-10-02
 
-**Status:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The post-decode boundary now exists, in the BACKENDS rather than the codecs: `sanitizeDecodedRichFields` (`workspace-rich-sanitize.ts`) runs the same four `sanitize*RichFields` passes `jsonToWorkspace` and the IndexedDB read use, and `LocalFileBackend.load()` (CSV + Markdown), `SharePointBackend` (CSV) and `TursoBackend.load()` (single-tenant and tenant, relational and legacy-blob) apply it to the decoded workspace. The codecs stay DOM-free, so `scripts/` importing them is unaffected. The pass is idempotent on the app's own output, so a workspace this app wrote loads byte-identical; the golden fixtures (which pin the codecs, not the backends) are untouched. ★ The `decodeNoteLog` no-DOM silent-drop recorded at `sanitizeRichFields` is unchanged — telling "no DOM" from "malformed" is still open there. Pinned in `workspace-rich-sanitize.test.ts`, `local-file-backend.test.ts` and `turso-backend.test.ts` (both backend tests mutation-checked). The history below is kept as written.
 
-**Work item:** #96
+**Previously:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `f4251d84` closed the two **whole-object cast** load paths: `jsonToWorkspace` (file-JSON, SharePoint,
 local-file) and the IndexedDB read now route all six rich fields through the escape-then-sanitize
@@ -2590,11 +2591,11 @@ is untouched — that round trip stays the `encodeNoteLog` JSON blob, which is c
 
 ---
 
-## 37. `RaidItem` has NO storage-side length cap on any path — open, pre-existing
+## 37. `RaidItem` has NO storage-side length cap on any path — CLOSED 2026-10-02
 
-**Status:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. A storage-side cap now exists on every LOAD path, and it is deliberately NOT `sanitizeRaidItem` (which would default off-category statuses, as warned below). `capRaidStoredText` (`sanitize-records.ts`, through the `./sanitize` barrel) clips `title` to `TASK_NAME_MAX` and `owner` to `BUDGET_NAME_MAX` — the limits `sanitizeRaidItem` and the edit modal already use (the modal's `ASSIGNEE_MAX` is also 200) — with no trim and no status or category logic, and returns the same row when nothing is over. It runs in `jsonToWorkspace` (JSON and IndexedDB) and wraps `buildRaidItemFromObj` (CSV, Markdown and both Turso layouts), so all six backends cap on load. ★ The SAVE path is unchanged: `use-resource-planner.ts` still stores the item as the modal built it, and the modal is still the cap a user sees; a non-modal writer's over-long value is now clipped at the next load rather than never. The golden fixtures did not move. Pinned in `sanitize-records.test.ts` → "capRaidStoredText / the RAID load cap (§37)", including one case per load funnel and the no-trim/no-status identity case. The `raid-edit-modal.tsx` comment that said "no cap on ANY path" was rewritten. The history below is kept as written.
 
-**Work item:** #100
+**Previously:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Produced by a round-6 review exchange in 0.210.0: a reviewer asserted the modal cap merely duplicated a
 sanitizer one, I showed the sanitizer is not on the save path, and tracing it properly turned up something
@@ -2646,11 +2647,11 @@ about. Trace the path.
 
 ---
 
-## 38. `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing
+## 38. `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — CLOSED 2026-10-02
 
-**Status:** open — a URI regexp that strips the target and rel it allows. Reproduced 2026-08-28 by `grep -n "SAFE_URI_REGEXP" src/app/sanitize-html.ts`.
+**Status:** CLOSED 2026-10-02. Took the hook route this entry named, using the mechanism the data-* attributes already ride rather than a new one: `target` and `rel` are now `GUARDED_LINK_ATTR` (`sanitize-html.ts`), exempted from `SAFE_URI_REGEXP` by BOTH sanitizers' `ADD_URI_SAFE_ATTR` and therefore guarded only by new `ATTR_VALUES` predicates — `target` admits exactly `_blank`, `rel` admits only `noopener` / `noreferrer` / `nofollow` tokens (so `rel="opener"` cannot re-enable the opener) — and the hook drops either one off any element but `<a>`. The end-anchored regexp is untouched and still guards `href`. So the editor's `setLink` output now survives storage and stored links open in a new tab, as the editor asked. ★ The golden fixtures did NOT move: the sample master carries no `target`/`rel` (deliberately, per the last paragraph below), so the "moves the golden fixtures" cost below did not materialise; the golden suite passes unchanged. Links stored before this keep their stripped form until re-saved. Pinned in `sanitize-html.test.ts`: both sanitizers keep the editor's exact attributes, five hostile/unknown values are dropped, non-`<a>` carriers are dropped, and a `GUARDED_LINK_ATTR` loop mirrors the data-* anti-slip test. The history below is kept as written.
 
-**Work item:** #101
+**Previously:** open — a URI regexp that strips the target and rel it allows. Reproduced 2026-08-28 by `grep -n "SAFE_URI_REGEXP" src/app/sanitize-html.ts`.
 
 Found on 2026-07-30 while adding rich descriptions to the sample master: the link I wrote as
 `<a href="…" target="_blank" rel="noopener noreferrer">` came back out of the golden fixtures as a bare
@@ -2798,11 +2799,11 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
-## 40. `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — CLOSED 2026-10-02
 
-**Status:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Swept and GATED. Every uncompanioned site got a companion at its own variant level, light mode byte-identical: 29 `text-ui-dark-blue` sites (base, `hover:`, `group-hover:`, `active:`, and the `[&_a]:` link colour in `rich-text-view.tsx`) take `dark:…text-ui-light-grey`; `chat-prompt-chips.tsx`'s same-value companion is corrected; the 13 `text-ui-purple` sites (section D) take `dark:text-ui-purple-strong`; and the matrix comms marker's light-mode `hover:text-ui-green` becomes `hover:text-ui-green-strong dark:hover:text-ui-green`. Measured from `builtin-schemes.ts` through `resolveSchemeColors` (not in a browser): `--ui-light-grey` 7.74–10.32, `--ui-purple-strong` 7.06–8.17 and `--ui-green` 6.03–8.80 on the dark `--surface`/`--surface-muted`, `--ui-green-strong` 4.71–7.14 on the light ones. ★★ The class can no longer regrow by hand: `dark-companion.guard.test.ts` scans `src/app` for both tokens at every variant level (same-line companion, value-checked, with the three CHECKED exemptions — checkbox fill, solid `bg-ui-green`, the skip link) and fails naming file:line; it asserts a non-trivial population first and was mutation-checked by reverting one fixed site. ★ Still unswept, as before: `border-ui-dark-blue` and the other non-text utilities (1.4.11 rather than 1.4.3). The history below is kept as written.
 
-**Work item:** #103
+**Previously:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
@@ -7404,11 +7405,11 @@ problem for free. Prefer that trick wherever a marker can carry no prose.
 
 ---
 
-## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
+## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — CLOSED 2026-10-02
 
-**Status:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Fix option (b), plus (a) only where (b) cannot reach. `lineCost` now estimates how many rendered lines a TEXT line wraps to — `ceil(length / BODY_CHARS_PER_LINE)` per "\n" segment, where `BODY_CHARS_PER_LINE` (82) is derived from the body box width minus its insets and a deliberately wide 0.55em average glyph at the 14pt body size — so `paginateLines` breaks a slide before wrapped text overflows it, and a picture is placed below the text's estimated height rather than its line count. One line costing more than a whole slide cannot be split, so `buildContentSlide` sets `normAutofit` on exactly that chunk and PowerPoint shrinks it; every other slide keeps its bytes. ★ Still an estimate (wide glyphs, bullet indents), and the eye-verification in a real PowerPoint is still worth doing once — but the budget is no longer optimistic by construction. Pinned in `doc-render-pptx.test.ts` ("costs a long text line by the lines it wraps to", "breaks a slide earlier when its lines wrap", "shrinks only a slide whose single line costs more than the whole slide"; the last mutation-checked). The history below is kept as written.
 
-**Work item:** #131
+**Previously:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Half of this is already fixed — do not re-open the fixed half.** `BODY_LINES_PER_SLIDE` is derived
 from the body box and font size, and each slide's lines are chunked through `paginateLines`, so
@@ -9095,11 +9096,11 @@ thirteen-file list.
 
 ---
 
-## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — CLOSED 2026-10-02
 
-**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `00f2a273`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
+**Status:** CLOSED 2026-10-02. Both halves now: the `documents-list.tsx` half was fixed 2026-08-25 (below), and the `#docId` sub-section is closed on the terms that sub-section itself set — "the part worth fixing is the RATIONALE". `chat-tool-block.tsx`'s comment no longer claims the id "CANNOT collide": it states that the qualifier is unique per DOCUMENT, not per card, that two cards for one document (write-then-revise) share their names, and why that is accepted — both cards act on `liveDoc`, so the same-named controls are functionally the same control. It also tells a reader not to cite it as row-unique precedent, and distinguishes it from `documents-history-modal.tsx`, whose version id IS row-unique (that modal's comment was re-read and is correct; it does not cite the chat card). The NAMES themselves are unchanged — giving each card a per-call token would need the tool-use id threaded into `ToolBlock`, which has none today; recorded rather than built, since the duplicate is on functionally identical controls. The history below is kept as written.
 
-**Work item:** #143
+**Previously:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `00f2a273`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
 
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
@@ -9165,7 +9166,7 @@ regardless. The comment claiming the title was "row-unique by construction" was 
 position was that the false comment was the defect, not merely the naming. Reproduce:
 `grep -n "rowLabel\|buildRowTokens" src/app/documents-list.tsx`.
 
-### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims — STILL OPEN
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims — CLOSED 2026-10-02 (rationale corrected)
 
 `chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
 reasons: two cards can carry the same title "either because the same document was touched twice in
@@ -11275,11 +11276,17 @@ symbol-only citation · correcting an existing citation's line number in place).
 regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.
 
 
-## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured
+## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — CLOSED 2026-10-02
 
-**Status:** open — a multi-target undo label that falls through to the generic string. Reproduced 2026-08-28 by `grep -n "entityKey" src/app/undo/use-undo-stack.ts`.
+**Status:** CLOSED 2026-10-02, by owner decision ("app-wide entity label"). The entry's "real fix", the edit-side twin of `undoLabelDeleteCount`, is built:
+- `undoLabelEditCount` ("Edit {0} {1}" / "{0} {1} bearbeiten") is now `buildUndoLabel`'s last line. Every unnamed edit of a known entity names it ("Edit 3 tasks"). Only an unresolvable entity still gets the generic "Edited N items".
+- ★ That made a count reachable for six entities that had no plural noun: absence, shift, role, discipline, grade and meeting. The comment said they are "only ever named, count 1". They gained plurals in EN and DE, and `ENTITY_PLURAL` is now a total `Record`, so tsc demands a plural for the next entity.
+- Pinned by `use-undo-stack.test.tsx` "buildUndoLabel — an unnamed multi-row edit names its entity (§132)" (EN, DE, singular, the six new plurals, the explicit-`entityKey` path and the unresolvable fallback). Reverting the last line to the generic string turns four of its tests red.
+- The successor fan-out itself is unchanged: it still passes no `name` above one target, which `use-task-submit.test.ts` pins.
 
-**Work item:** #149
+The original report follows.
+
+**Previously:** open — a multi-target undo label that falls through to the generic string. Reproduced 2026-08-28 by `grep -n "entityKey" src/app/undo/use-undo-stack.ts`.
 
 `recordSuccessorEdits` (`use-task-submit.ts`) passes `name` only when it wrote exactly ONE target, so a
 fan-out onto several tasks reaches `buildUndoLabel` with no name, resolves entity `task`, and falls to the
@@ -11308,11 +11315,11 @@ unnamed multi-row edit capture in the app, which is a far wider blast radius tha
 ★ Scope: the LABEL in undo history only. The TOAST was always count-shaped (`pushEntry` composes it from
 `undoToastEdit`/`undoToastDelete` regardless of kind or name), so nothing regressed there.
 
-## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
+## 133. A redo-created dangling dependency is repaired on two of six backends — CLOSED 2026-10-02
 
-**Status:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Repaired at the two load funnels rather than per backend: `applyWorkspaceFromLoad` (`use-storage-backend.ts`) and `applyRestoredWorkspace` (`task-manager.tsx`) now run `dropDanglingDependencies` over the tasks right after `backfillTaskResourceFks`, for the same "one function every backend converges on" reason that helper gives. So a redo-written dependency on a deleted task is dropped on the next load on all six backends, plus a version-history restore. `dropDanglingDependencies` now returns the SAME array when no task changed, because the first funnel records what it applies by identity (§644). ★ The redo itself still WRITES the dangling entry; it lives in memory until the next load, and the consumers tolerate it as described below. Pinned by `use-storage-backend.test.tsx` → "drops dangling dependencies through the load funnel" (the mocked backend decodes nothing, so it proves the funnel; deleting the call reddens it) and `sanitize-branches.test.ts` → the identity case. The `use-task-submit.ts` and `successor-links.ts` comments that described the two-backend reach were corrected in the same commit. The history below is kept as written.
 
-**Work item:** #150
+**Previously:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
 with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
@@ -11395,7 +11402,7 @@ composite has no cascade to remap.
 
 ## 135. A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI
 
-**Status:** open — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — POSTPONED by the product owner 2026-10-02: asked to choose between one link per task pair, several types per pair, or accepting the display-only gap, they chose to revisit the model later. Do not implement either direction until then. — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #152
 
@@ -12113,11 +12120,11 @@ flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below,
 
 ---
 
-## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open
+## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open — CLOSED 2026-10-02
 
-**Status:** open — PARTLY FIXED, (a) is open and (c) fell with the closure of its premise. Reproduced 2026-08-28 by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02 on (a): leave as is. A stored value escaped by the pre-§137 boundary cannot be told apart from a user who typed a literal tag, so any repair would rewrite legitimate text on a guess; the affected population is bounded (only values that crossed an AI or import boundary between §107 and §137) and shrinks with every re-save. (b) and (d) were fixed 2026-08-16 and (c) fell with §31, so nothing in this entry remains open. The history below is kept as written.
 
-**Work item:** #156
+**Previously:** open — PARTLY FIXED, (a) is open and (c) fell with the closure of its premise. Reproduced 2026-08-28 by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
 
 Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
 values written from now on and repaired nothing already stored.
@@ -12924,11 +12931,11 @@ broken listener as correct behaviour.
 
 ---
 
-## 147. Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit
+## 147. Read-only task-item checked state is a character name to AT, not "checked" — CLOSED 2026-10-02
 
-**Status:** open — an a11y gap, checked state as a bare glyph with no alt text. Reproduced 2026-08-28 by `grep -rn "data-checked" src/app/rich-text-editor.tsx`.
+**Status:** CLOSED 2026-10-02. Took the candidate fix after the compatibility check this entry said was owed: the `content: <glyph> / <text>` alt-text syntax is supported by every engine this app targets now (Chromium, so Electron too; Firefox 128+; Safari 17.4+), and the rules sit inside `@supports (content: "x" / "y")` so an engine without it keeps the plain glyph instead of dropping the declaration. Both stylesheets carry them, `globals.css` (app read-only surfaces) and `doc-render-html.ts` `DOCUMENT_PAGE_STYLES` (standalone HTML/PDF): "checked" / "not checked", and under `:lang(de)` "abgehakt" / "nicht abgehakt", following `<html lang>`, which `use-settings.ts` and the export both set. MEASURED, not reasoned: a real standalone export (en-US and de) loaded in Chromium 1194 exposes `text: checked` / `text: not checked` (German: `abgehakt` / `nicht abgehakt`) in its accessibility tree where the glyph name used to be, and the `@supports` block survives the production `@tailwindcss/postcss` minified build intact. The editor is untouched: its nodeView `<li>` carries no `data-type`, so the real checkbox stays the only voice there. ★ Still a TEXT node, not a checkbox role with `aria-checked` — there is no form control here by design. Pinned by `doc-render-html.test.ts` → "ships alt text for both states, in English and German, behind @supports" (the rules only; jsdom cannot compute generated content). The history below is kept as written.
 
-**Work item:** #158
+**Previously:** open — an a11y gap, checked state as a bare glyph with no alt text. Reproduced 2026-08-28 by `grep -rn "data-checked" src/app/rich-text-editor.tsx`.
 
 Opened 2026-08-13 out of §140's closure. `TaskItem.renderHTML` (`rich-text-editor.tsx`) stores task
 items as `<li data-type="taskItem" data-checked="…">` with no `<input>` — the editor's Tiptap nodeView
@@ -13647,11 +13654,11 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 ---
 
-## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured
+## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — CLOSED 2026-10-02
 
-**Status:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Product decision: compact rows + details. `buildPptx` now gives a one-row section its detail slide and a longer section `buildPptxSummarySlides` (up to `SUMMARY_ROWS_PER_SLIDE` rows per slide, one line each: the first two columns plus up to three short non-rich fields), followed by a detail slide only for rows whose rich fields carry content (`hasRichContent`). A detail slide (`buildPptxRowSlides`) now lists EVERY non-empty field past the title rather than `columns.slice(2, 8)`, and a row too long for one slide continues on another marked "(n/total)" (`pageFieldParagraphs`) instead of being cut at "…" — so `Task.description`, RAID `mitigation` and Change `resolutionNotes` all reach a slide. Each page re-mints its link ids in its own slide-scoped sink (`localizeLinks`), byte-identical to before for a row that fits one slide. ★ Summary lines are paragraphs, not a native `a:tbl`, because nothing here can open a deck to check DrawingML table row heights. ★ Native bullets (scope item 1) are NOT done: list markers stay literal text, as in DOCX (§154). ★ A row with no rich content in a multi-row section gets no detail slide, so its non-rich fields past the first three are only in the other formats — the agreed trade. Pinned in `export-ooxml.test.ts` ("PPTX summary slides", "continues a 14-paragraph description…", "moves a link on a continuation page…"). The history below is kept as written.
 
-**Work item:** #162
+**Previously:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
@@ -13794,11 +13801,11 @@ are load-bearing, because that is the fact no test can express.
 ★ Related but distinct from §154: this one needs no new package part, only a declaration (or a
 deletion) in a part that already exists.
 
-## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
+## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — CLOSED 2026-10-02
 
-**Status:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: fix it. The second axis the entry proposed now exists: `listDepth` on the `p`/`blockquote`/`pre`/`heading` members of `RichLine`, ABSENT outside a list. The LI arm runs `nestBlocksUnder` after the item's walk (like `promoteItemHead`), stamping the item's depth on every non-`li`, non-`hr` line it put out that has none yet — an inner item finishes first, so its deeper depth wins. The kind is kept, so a `<pre>` keeps its whitespace and a heading its level. `docxRichParagraph` indents such a line by `720 × (listDepth + 1)` twips plus the Quote/CodeBlock style's own 360, and `pptxIndentFor` by the same steps in EMU. Pinned in `rich-text-runs.test.ts` ("stamps a nested item's OWN depth…", mutation-checked), `ooxml-docx-primitives.test.ts` ("§156 blocks inside a list item") and `doc-render-pptx.test.ts` ("indents a heading and a quote inside a list item"). ★ The DOCX continuation-under-the-marker cousin at the end of this entry is §154's, unchanged. The history below is kept as written.
 
-**Work item:** #165
+**Previously:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
 wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that
@@ -13833,11 +13840,11 @@ above, not a lost one.
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
 
-## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
+## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — CLOSED 2026-10-02
 
-**Status:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. `promoteItemHead` (`rich-text-runs.ts`) now gives an item with no `li` line at its own depth a MARKER-ONLY head — an `li` line with the item's geometry and no runs, inserted before the item's first output line — so `<ol><li><h2>h</h2></li><li>a</li></ol>` and `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` render "1." on a line of its own (DOCX and both PPTX paths), the way a browser puts the marker beside a block child. The depth filter is unchanged, so the outer number never lands on a nested item. Sinks that draw no list marker skip the head via `isMarkerOnlyLine` (`cellTextWithLinks`, `cellLinkedLines`), and `isBlankLine` now treats every `li` as content so the PPTX blank strip cannot delete it (mutation-checked). Pinned in `rich-text-runs.test.ts` (the two "SPENDS a number" tests, now asserting the head), `ooxml-docx-primitives.test.ts` ("§157 marker-only list head"), `doc-render-pptx.test.ts` ("shows the number of an item whose only child is a heading") and `export-sections.test.ts` ("skips §157's marker-only list head"). The history below is kept as written.
 
-**Work item:** #166
+**Previously:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
 (`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
@@ -13884,11 +13891,11 @@ the editor always puts a `<p>` first. AI-authored and imported HTML can produce 
 -- src` and the same for `listMarker` each return zero commits, ever. Both are proposed vocabulary for
 the unbuilt second axis, not lost names.
 
-## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
+## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — CLOSED 2026-10-02
 
-**Status:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The narrow shape below was built: `walk`'s nested arm already passed its own align down as the alignment in force, and the LINE_TAGS arm now resolves `lineAlign ?? item?.align ?? (kind === "blockquote" ? align : undefined)` (`rich-text-runs.ts`), so `<blockquote data-align="right"><p>q</p></blockquote>` projects to one `right` line and an inner `<p data-align>` still wins. Scoped to `blockquote` on purpose: a `<p>` inside a top-level `<div data-align>` (and inside a `<pre>`) is unchanged, pinned by "does NOT widen the fallback to a paragraph inside a top-level div". The characterization test this entry names went red as promised and was replaced by "keeps a blockquote's OWN align when its content is wrapped in a paragraph (§158)". The history below is kept as written.
 
-**Work item:** #167
+**Previously:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
 (`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
@@ -15132,11 +15139,11 @@ short-returns with no error and no `failedProjects`, so it is the same "short ag
 complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
 recorded because nothing anywhere else says it.
 
-## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow
+## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — CLOSED 2026-10-02
 
-**Status:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
+**Status:** CLOSED 2026-10-02. Took repair (b): `useChatSearchBindings`' pointer now returns nothing when the published payload is `available: false` (`use-chat-search-bindings.ts`), so the pointer and `search_chats` speak with one voice and the rows the adoption branch keeps stay visible in the sidebar. Repair (a) was rejected on reading the code, not just on taste: leaving `loadFailed` unset on that branch would publish `available: true` over a list holding only this client's rows and none of the server's, i.e. the "never discussed" assertion this register keeps closing. Pinned by `use-chat-search-bindings.test.tsx` → "returns no pointer over a payload marked unavailable, however populated (§173)", with the same payload marked available as its positive control. The history below is kept as written.
 
-**Work item:** #171
+**Previously:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
 
 Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
 
@@ -15197,11 +15204,11 @@ adoption branch — a rejected fetch says nothing about the rows this client alr
 (b) gate the ambient pointer on `available` so both surfaces speak with one voice. (b) also closes
 §174.
 
-## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing
+## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — CLOSED 2026-10-02
 
-**Status:** open — an availability flag published true while the load is in flight. Reproduced 2026-08-28 by `grep -n "loadFailed" src/app/use-chat-threads.ts`.
+**Status:** CLOSED 2026-10-02. The in-flight ruling is reversed rather than re-argued: `available` is now `tursoMode && threadsMatchProject && !loadFailed` (`use-chat-threads.ts`), so the slot reads unavailable until the load for the LIVE project settles, either way, and `search_chats` answers `coverage: "unavailable"` — which `chat-tool-defs.ts` already tells the model to report as "cannot look". `ChatCoverage` was NOT widened, so no tool-visible contract changed. The three-way table's in-flight row says why in place. The test that pinned the old ruling ("never publishes the OLD project's threads under the NEW project's id") now asserts `available: false` for the in-flight project. The history below is kept as written.
 
-**Work item:** #172
+**Previously:** open — an availability flag published true while the load is in flight. Reproduced 2026-08-28 by `grep -n "loadFailed" src/app/use-chat-threads.ts`.
 
 Same review, same day. NOT a regression — it predates the `available` work.
 ★★ **THE PREMISE THIS ENTRY WAS FILED ON IS NO LONGER TRUE, AND THAT CHANGES WHAT IT IS.** It read
@@ -15295,11 +15302,11 @@ by reversing the order.
 
 ---
 
-## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
+## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope — CLOSED 2026-10-02
 
-**Status:** open — the 177b whole-row capture sweep only. The 177a duplicated field list is done (2026-08-29) but this entry stays open for 177b, so the heading is deliberately not struck. Verified 2026-08-29 by `grep -rn "WRITE_THROUGH_FIELDS\|WRITE_THROUGH_KEYS" src/app --include=*.ts`, which now shows one authoring site (`src/app/undo/write-through-fields.ts`) and imports everywhere else.
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: convert the field-shaped sites in a slice; row deletes stay whole-row. 177b is done. (1) The reference-data cascades (role → resources.roleId, discipline/grade → roles FK + rates) are `captureFieldPart`s, which gained `fkRemapField` so a field-patch cascade still follows a re-minted primary (read inside the updater, like `capturePart`). (2) Task-delete dependency stripping is a composite: the deleted row whole (primary), the dependents as a `dependencies` field patch. (3) `commitBuckets` restores deleted buckets whole and edited ones as a field patch of the keys that changed. (4) `capture` gained `editedAfter`: given the rows as written, it derives the patch with `fieldEditsFromRows` (keys whose value is not the same reference) — used by the resource bulk edit, task dedup and the alloc plan (where `utilization` then merges per key, §178). The resource-directory DELETES stay whole-row, as do row deletes generally. Pinned with real-undo tests (a concurrent edit to an unrelated field survives; redo re-applies) in `use-undo-stack.test.tsx`, `use-resource-planner.test.tsx` (incl. the re-mint, mutation-checked both ways), `use-task-row-handlers.test.ts` (mutation-checked) and `use-budget-buckets.test.tsx`, plus call-site pins for dedup, alloc plan and resource bulk edit. ★ Residual, outside this entry's enumerated list: the AI tool sites (`use-chat-dispatcher.ts`, `use-register-tools.ts`) and the resource-email propagation still pass `edited:` rows to `capturePart`; each is a single-entity write whose patch keys are known, so `fieldEditsFromRows` is the drop-in when someone takes them. The history below is kept as written.
 
-**Work item:** #173
+**Previously:** open — the 177b whole-row capture sweep only. The 177a duplicated field list is done (2026-08-29) but this entry stays open for 177b, so the heading is deliberately not struck. Verified 2026-08-29 by `grep -rn "WRITE_THROUGH_FIELDS\|WRITE_THROUGH_KEYS" src/app --include=*.ts`, which now shows one authoring site (`src/app/undo/write-through-fields.ts`) and imports everywhere else.
 
 ★ **177a is DONE (2026-08-29, commit `d34967b5`); this entry stays open for 177b alone.**
 The hand-duplicated field list is gone — `WRITE_THROUGH_FIELDS` (what a whole-row undo PRESERVES)
@@ -16020,12 +16027,12 @@ never call DOMPurify.
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry anchors on `capHtmlText`, but §208 moved the truncation branch to `degradeToPlain`, which now APPENDS surviving asset images. "Bold, links, lists and headings are REMOVED" is still exactly true; "loses every mark" is one degree too strong. Reproduced by `grep -n "degradeToPlain" src/app/rich-text-plain.ts`.
 
-## 186. The block-editor conflict reason reaches users untranslated
+## 186. The block-editor conflict reason reaches users untranslated — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-02. All three concurrent-writer refusals (`replace`, `delete`, `move`) now end with the exported `WRITER_CONFLICT_REASON` (`document-ops.ts`), which is the rejection's code; `isWriterConflictReason` recognises it. `documents-panel.tsx`'s refusal banner renders through `displayRejected` (`document-refusal-text.ts`), which collapses every conflict reason into one `documentsBlockConflictNotSaved` sentence and passes any other reason through; the engine text stays on the banner's `title` as the diagnostic detail. The engine stays i18n-free and the model still reads the engine string. Pinned by `document-refusal-text.test.ts`, which drives the real `applyOps` for all three ops, so a reworded engine string reddens it. ★ The OTHER engine reasons in that banner (limits, out-of-range) are still raw English; that was never this entry's scope. The history below is kept as written.
+
+**Previously:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. Reproduced 2026-08-28 by `grep -rn "was changed by another writer" src/app --include=*.ts`.
-
-**Work item:** #175
 
 `applyOps` rejects a guarded `replace` with the engine string
 `op {i}: replace index {n} was changed by another writer`, and
@@ -16089,12 +16096,16 @@ spy, and assert (a) an op carrying `expect` reaches the engine without it, and
 (b) the hand editor's own guarded `replace` still carries its `expect` — the
 second half is what stops a future "just drop expect everywhere" simplification.
 
-## 188. A block refusal notice outlives the attempt it describes
+## 188. A block refusal notice outlives the attempt it describes — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-02 along the entry's own direction, by owner decision ("when the user edits again"). `useBlockDraft`'s `setValue` now clears the refusal when the draft goes from CLEAN to dirty, i.e. when the user starts a new edit. The notice still survives the adoption of an external write, where it is the only explanation for the replaced text. ★ An over-cap refusal (§185, §191) keeps the draft dirty, so typing to trim it is not a new edit and its "N too long" notice stays up. Pinned by two tests in `document-block-editors.test.tsx`, both mutation-checked:
+- "keeps the conflict notice through the adoption and clears it when the user edits again (§188)". It goes red when the clear is removed.
+- "keeps the over-limit notice while the user trims the refused heading (§188)". It goes red when the clear ignores the clean-to-dirty condition.
+
+The original report follows.
+
+**Previously:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. **Deliberately not fixed.** Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #177
 
 `useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
 pink "Not saved" line clears on the next COMMIT attempt and not before.
@@ -16288,9 +16299,11 @@ until rebased. Deliberately left to whoever runs the slice.
 **To close:** run it as its own branch — answer the citation question first,
 then config + reformat + cap + baseline in one reviewable change set.
 
-## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract
+## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low (an announcement that may not fire, on a
+**Status:** CLOSED 2026-10-02. `BlockRefusalNotice` takes `BlockRefusal | null` and is ALWAYS mounted: all five call sites (re-derived with the grep below) pass `refusal` straight through with no `&&`, so the `role="status"` region sits in the tree empty and the refusal changes its text. `empty:sr-only` keeps the empty region in the accessibility tree and out of the layout, which answers the "permanent vertical space" question below without an eye check of spacing. `FieldNotice` was NOT adopted: it returns null on no children (the same insertion), the block notice has no `aria-describedby` wiring for its `id` to serve, and the token difference is gone already. Both over-broad docstring sentences are corrected in the same commit (the blur-only premise now names the `commitValue` paths; the "only detector" claim now separates the role and mount, which a test pins, from the announcement, which nothing can). Pinned by `document-block-editors.test.tsx` → "keeps the refusal live region mounted and writes the reason into it" (same node before and after, empty before); restoring the guard at one call site reddens it. ★ The announcement itself is still unverified by any detector, as below — this closes the shape, not a screen-reader run. The history below is kept as written.
+
+**Previously:** open. **Severity:** low (an announcement that may not fire, on a
 surface that already shows the reason visually). **Found by:** cold code review
 of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 
@@ -16298,8 +16311,6 @@ of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 token as `FieldNotice`, so the palette cost under "Costs" is gone and only the `mt-1` margin differs.
 `BlockRefusal` also has a third, object variant (`tooLong`, §185). All five call sites still mount the
 notice together with its text.
-
-**Work item:** #179
 
 `BlockRefusalNotice` (`document-block-notices.tsx`) renders
 `<p role="status" className="text-xs text-ui-pink">`, and every call site spells it
@@ -16849,13 +16860,13 @@ that branch introduced it.
 but a different thing, and do not merge them: §195 is about the ORDER of a read, this is about the
 MEANING of a return.
 
-## 198. A block delete reads its baseline at CLICK time, not at menu-open time
+## 198. A block delete reads its baseline at CLICK time, not at menu-open time — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low (needs a concurrent write inside a narrow
+**Status:** CLOSED 2026-10-02. Built as the entry describes: `DocumentBlockGutter` freezes the row's block in its menu-OPEN click (`openedOnRef`) and hands it back as `onDelete(index, opened)`, and `document-editor.tsx`'s `deleteBlock` uses that capture both for the `blockIsTrivial` confirm gate and as the `expect` baseline for `structural.remove`. In the concrete failure below the confirm is now raised for the HEADING the user pointed at and the engine refuses against the paragraph that slid in, with the translated conflict reason §186 added. Pinned twice: `document-block-gutter.test.tsx` → "hands onDelete the block captured at menu-open, not the one rendered at click" and `document-editor.test.tsx` → "hands the engine the block the menu was OPENED on, not the one that slid in"; reverting the gutter to the click-time `block` reddens both. The history below is kept as written.
+
+**Previously:** open. **Severity:** low (needs a concurrent write inside a narrow
 window). **Found by:** cold review of the S3c structural-blocks round.
 **Deliberately not fixed — it is a component-contract change, not a one-liner.** Reproduced 2026-08-28 by `grep -n "onDelete" src/app/document-block-gutter.tsx`.
-
-**Work item:** #184
 
 In `document-editor.tsx`'s `deleteBlock`, `const block = doc.blocks[index]` runs
 when the menu ITEM IS CLICKED, from whichever render is current at that moment —
@@ -17548,7 +17559,7 @@ into the history modal's render path.
 
 ## 207. Single-tenant asset metadata is global while the bytes are always partitioned
 
-**Status:** open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
+**Status:** POSTPONED by the owner 2026-10-02 — the re-key needs a migration that cannot be checked without a live single-tenant Turso database; nothing is lost meanwhile. open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
 round. Reproduced 2026-08-28 by `grep -n "loadPortfolioMode" src/app/workspace-panels.tsx`.
 
 **Work item:** #190
@@ -17957,12 +17968,12 @@ falls through to the `data-asset-missing` branch on a miss, and is unit-tested a
 attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
 be downgraded on reachability grounds.
 
-## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
+## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever — CLOSED 2026-10-02
 
-**Status:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
+**Status:** CLOSED 2026-10-02. The migration now repairs it. `idKindRebuild` (`turso-migrate.ts`) runs inside the existing column-ensure pass: on a SINGLE-TENANT table whose spec declares `idKind: "text"` (`TableColumns.textIdDdl`, set by `singleTenantTableColumns` only) and whose PRAGMA reports `id` as `INTEGER` and primary key, it emits the SQLite table rebuild — rename aside, `CREATE` with the corrected DDL, copy every shared column, drop — in the same `BEGIN…COMMIT` as the other alters, replacing the add/rename passes for that table. A rowid alias could only ever hold integer ids, which the TEXT column keeps, so the copy loses nothing; a database created by the current DDL, and every tenant layout, produces no statement. Executed against `node:sqlite` in `turso-schema.execute.test.ts` ("§211 — a pre-fix single-tenant database self-heals its id type": the pre-fix DDL refuses a UUID, the migration rebuilds it keeping an existing row, a full workspace save then commits every table, and a second run is a no-op; mutation-checked) and pinned pure in `turso-migrate.test.ts`. ★ Locally that suite needs `--environment node` (vitest cannot bundle `node:sqlite` under the default environment here); its other jsdom-dependent cases fail under that flag, unrelated. ★ Never machine-verified against a REAL pre-fix Turso database — none exists to test with. The history below is kept as written.
+
+**Previously:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
 than `26282f64`. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #191
 
 ★★★ **SINGLE-TENANT ONLY, and an earlier revision of this entry said "a Turso DB" flatly.** The
 MULTI-TENANT builder never emitted a rowid alias: `tenantColDdl` emits a bare `id INTEGER` and the
@@ -19058,11 +19069,11 @@ that entry was opened to prevent. The near-cap sweep this entry prescribes (walk
 `src` for `.ts`/`.tsx`, take `split("\n").length`, print every file at 780—800 that
 `docs/baselines/file-sizes.json` does not name) is still the right first move.
 
-## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing
+## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing — CLOSED 2026-10-02
 
-**Status:** open — DISCLOSED, deliberately not fixed. Decision recorded below. Reproduced 2026-08-28 by `grep -n "ASSET_MIME_ALLOWED" src/app/document-asset-upload.ts`.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: LEAVE AS IS. Asked to choose between transcoding WebP to PNG at export, the placeholder, converting on upload, or keeping the current behaviour, they chose to keep embedding WebP verbatim and accept that older perpetual Office builds may show an empty frame. This confirms the interim "document it" decision below as final; the §219 item 6 measurement no longer gates anything here. No code change. The history below is kept as written.
 
-**Work item:** #195
+**Previously:** open — DISCLOSED, deliberately not fixed. Decision recorded below. Reproduced 2026-08-28 by `grep -n "ASSET_MIME_ALLOWED" src/app/document-asset-upload.ts`.
 
 `ASSET_MIME_ALLOWED` admits `image/webp` alongside png and jpeg, and every layer downstream
 carries it through to the package unchanged. The chain, verified in code:
@@ -19111,11 +19122,11 @@ order to improve a case that fails on builds we have not yet confirmed fail. Tha
 §219 measurement first. Option 1 is the real fix if the measurement says the perpetual builds
 matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
 
-## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck
+## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck — CLOSED 2026-10-02
 
-**Status:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it. Reproduced 2026-08-28 by `grep -n "BODY_LINES_PER_SLIDE" src/app/doc-render-pptx-slides.ts`.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: SCALE TO FIT. Built in `paginateLines` (`doc-render-pptx-slides.ts`): every image is first capped to ONE slide (`perSlide` lines — the 17th line was an overflow of the 16-line budget, not a layout choice), and an image that does not fit the lines LEFT on the current slide is scaled down into them, aspect ratio kept, when at least half a slide remains (`ceil(perSlide / 2)` = 8 lines ≈ 4.7 cm, still legible for a screenshot); with less room it starts the next slide as before. `buildContentSlide` already places pictures below all of a slide's text and the budget counts both, so a scaled image cannot overlap the words. Consequence: a chunk containing an image now never costs more than the budget — the `ImageLine` docstring that said otherwise was rewritten (it now scopes the 17 to an UNPAGINATED line). The single forward pass is unchanged, so pagination still terminates. Pinned by `doc-render-pptx-slides.test.ts` → "paginateLines scales an image to fit (§222)" (shares a slide after 4 text lines at 12 lines with its aspect kept; moves on after 10; caps a lone image to 16; leaves a small image untouched; no chunk over budget). ★ Still unverified in a real PowerPoint, as the rest of this renderer is (§219). The history below is kept as written.
 
-**Work item:** #196
+**Previously:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it. Reproduced 2026-08-28 by `grep -n "BODY_LINES_PER_SLIDE" src/app/doc-render-pptx-slides.ts`.
 
 `paginateLines` charges an image line `lineCost = ceil(cyEmu / BODY_LINE_EMU)` against a budget of
 `BODY_LINES_PER_SLIDE`. Both numbers are derived, and they cross:
@@ -19600,15 +19611,15 @@ and may well be deliberate; it is also the precondition the category comparison 
 accommodate, since without it a synced task could never carry `On Hold`/`In Review`/`Cancelled` to
 begin with.
 
-## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair
+## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair — CLOSED 2026-10-02
 
-**Status:** open, NARROWED 2026-08-24 — identified while reviewing the §183 fix, and deliberately
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: LEAVE AS IS — the "Against" argument below wins. Picking "keep my local value" changes only the field the user arbitrated; `status` is not a `ConflictFieldKey` and is not silently repaired. Both live consequences were already closed (the two `transitionIssueTo` call sites read `status`), the stored split self-heals on the next pull in which the issue changes, and `countSplitTaskPairs` keeps reporting how many such rows exist in Settings → Diagnostics. The prohibition on routing either Jira path through `reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands. No code change. The history below is kept as written.
+
+**Previously:** open, NARROWED 2026-08-24 — identified while reviewing the §183 fix, and deliberately
 NOT fixed in the same round. **Severity:** low (no NEW split pair is created from consistent input;
 an existing one is propagated into storage. The second-order Jira-write consequence this entry
 originally carried is now fixed at both transition sites — see below — so what remains is a
 stored-data staleness, not a live write against the wrong Jira status). Never machine-verified by a committed probe.
-
-**Work item:** #199
 
 §183 made `handleResolveConflicts` (`use-jira-sync.ts`) write `status` beside `completedDate`, both
 from the side the user picked. That closed the case where the two halves came from DIFFERENT sides.
@@ -19696,14 +19707,14 @@ The For/Against arguments above are still the arguments, and the prohibition on
 `reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands unchanged — only the "nothing has
 counted them" premise they were deferred against has moved.
 
-## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load
+## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load — CLOSED 2026-10-02
 
-**Status:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
+**Status:** CLOSED 2026-10-02. Fixed the way the reverted attempt wanted, once its two blockers were gone. `applyTemplate` now runs the WHOLE seed through `sanitizeSeed` — the function the localStorage load path runs — with the canonical note cleaner injected (§298), so an in-session apply sanitises every slice the load path does, not only tasks: one template, one behaviour, whether or not a reload happened in between. The two reasons the 2026-10-02 attempt was reverted are both addressed: `sanitizeSeed` gained the `resources` arm `TemplateSeed` declares (`sanitizeResource`), so a proposal saved as a template keeps its people on load and on apply; and the canonical cleaner keeps a long rich RAID note rich. Every template suite, including the two that failed that attempt, is green. Pinned in `template-apply.test.ts` ("§228 — runs the load path's sanitiser on EVERY slice": a RAID row with an unknown category is dropped on apply as a reload would drop it) and `templates.test.ts` (the resources arm). The history below is kept as written.
+
+**Previously:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
 five seed slices still bypass the sanitiser on the in-session path. **Severity:** low (the window is
 one session, a reload closes it, and nothing in `src` should be producing an invalid row to launder
 in the first place). Never machine-verified by a committed probe.
-
-**Work item:** #200
 
 ★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
 DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** EVERY number in the block
@@ -19758,6 +19769,20 @@ the same limit), and an occurrence here leaves no trace once the page reloads.
 the newly-exported `sanitizeSeedTask` before it reaches `remapSeed`/`appendSeed`, so the
 status/completedDate pair is repaired on the in-session path too — for task rows, one template, one
 behaviour, whether or not a reload happened in between.
+
+★★★ **TRIED 2026-10-02 AND REVERTED: DO NOT CLOSE THIS BY CALLING `sanitizeSeed` FROM `applyTemplate`.**
+It is the obvious one-line closure — "run the load path's own function, so the two cannot differ" — and
+it fails two existing tests for two different reasons, both of which are the LOAD path being lossier
+than the apply path, so the swap would spread a loss rather than close a gap:
+(1) `sanitizeSeed` has NO `resources` arm although `TemplateSeed` declares one, so the swap drops a
+seed's resources outright and every owner FK `remapSeed` would have linked to them
+(`template-apply.test.ts` → "links seed task/RAID/stakeholder owners to seeded resources by name").
+Today only `ai-project-proposal.ts` writes `seed.resources`, and `templateFromWorkspace` never does,
+so no STORED template loses anything yet — but a proposal saved as a template would.
+(2) `sanitizeSeedRaidItem` flattens a long RICH note-log entry to plain text, which the apply path's
+`allowListSeed` deliberately does not (`template-apply.allowlist.test.ts` → "does NOT flatten a long
+rich note-log entry to plain text"). Closing this entry therefore starts with making the per-slice
+LOAD sanitisers lossless for what the apply path keeps, and only then routing apply through them.
 
 ★★★ **WHAT REMAINS, AND WHY THIS IS NARROWED RATHER THAN CLOSED.** The load path's sanitiser is
 `sanitizeSeed`, and it covers SIX slices — tasks, milestones, raid, changes, stakeholders, budgets.
@@ -25797,16 +25822,16 @@ test the fixer writes is the only detector this will ever have, and it must asse
 somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
 panel never opened.
 
-## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — open
+## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified**. The arithmetic below was derived from the source on
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: give templates the canonical semantics rather than accept the difference. ★ Done by INJECTION, not by a new parser: `sanitizeRichText` is not an HTML cleaner at all (it escapes, upgrades plain text and caps), so a "DOM-free cleaner with canonical caps" would have meant hand-writing an HTML sanitizer at a security boundary. The note-log core already takes its html ops as a parameter, so the seed sanitizers (`sanitizeSeedNoteLog` → the three per-entity seed sanitizers → `sanitizeSeed` → `sanitizeTemplate` → `sanitizeTemplates`) now accept an optional `NoteLogHtmlOps`; the default stays `DOM_FREE_SEED_NOTE_OPS`, so `scripts/` importers never reach DOMPurify, and the app's two browser callers inject `CANONICAL_NOTE_HTML_OPS` (`note-log.ts`) — the settings LOAD path (`use-settings.ts`) and the in-session APPLY path (`template-apply.ts`, via §228). A template now keeps a long rich note rich, exactly as every other route does, and the visually-empty-note divergence goes with it. Pinned: the DOM-free default still flattens and the canonical ops do not (`templates.test.ts`, kept as an intended difference for scripts), the load wiring (`use-settings.test.ts`, mutation-checked) and the apply wiring (`template-apply.test.ts`, mutation-checked). ★ The point-free trap the new parameter creates was caught by tsc at `template-apply.ts`'s old `.map(sanitizeSeedTask)`. The history below is kept as written.
+
+**Previously:** open — **never machine-verified**. The arithmetic below was derived from the source on
 2026-08-30 by reading the constants (`grep -n "RICH_BYTE_K = \|RICH_BYTE_FLOOR = \|richByteCeiling = " src/app/rich-text-plain.ts`
 and `grep -n "export const TEXTAREA_MAX" src/app/sanitize-core.ts`), and the injection asymmetry from
 `grep -n "sanitizeHtml:" src/app/templates.ts src/app/note-log.ts`, which prints one line per route.
 No committed test drives a note past either trigger through `sanitizeSeedNoteLog`, so nothing has
 EXECUTED the divergence — the reading is of the call path, not of a run.
-
-**Work item:** #227
 
 Residue of [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30),
 which closed on the strength of a shared core (`sanitizeNoteLogWith`, `note-log-policy.ts`) that both
@@ -25875,17 +25900,17 @@ feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asse
 and where they do not is the only detector this will ever have — and it should PIN the difference as
 intended, not assert it away.
 
-## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open
+## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: the UNDO ROW owns the day — no separate `task.completed` / `task.reopened` row is written beside it, so nothing double-counts. Built: `UndoMeta.completionFlips` records the forward delivered-ness flips of an undoable op; `reversedKindCounts` appends them as further `(kind, count)` pairs on the undo/redo row; and `completion-trend.ts`'s `reversesCompletion` seeds the row's day from them (dTotal 0 — `reversedForwardDelta` ignores both kinds; the numerator was already read from live `completedDate`). The flips are filled by `captureFieldEdit` (inline status, swimlane, and the task modal via `captureFieldChanges`' status/completedDate group) and `captureFieldRows` (bulk status edits), both detecting a `completedDate` set↔unset change on TASK entities only via `completionFlipsOf`, and by `captureComposite`'s explicit `completionFlips` option, which the AI `update_task` path now passes. A pre-§299 row carries no such pair and seeds nothing, as before. Pinned by `use-undo-stack.test.tsx` → "undo/redo rows name the delivered-ness they reverse (§299)" (undo AND redo, reopen, bulk sum, and the no-flip / non-task controls) and `completion-trend.test.ts` → "an undo/redo that flips delivered-ness seeds its day (§299)". ★ Residual: a bulk edit that ALSO moves buckets captures through `commitBuckets`' composite with no flips, so its undo seeds no day — recorded in `docs/AGENTS/activity-log.md`. The history below is kept as written.
+
+**Previously:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
 of the call path, taken from the source on 2026-08-30 with these three commands:
 `grep -n -A 3 "export const TASK_UNDO_GROUPS" src/app/undo/field-groups.ts` (prints
 `["status", "completedDate"]` as the first group), `grep -rn "statusActivityKind" src/app/undo/` (no
 match, exit 1) and `grep -c 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts`
 (prints 4 — the four log sites, all of which write `undo`/`redo` and nothing else). No committed test
 drives a mark-done through undo and asserts on what was logged.
-
-**Work item:** #228
 
 Carved out of
 [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)
@@ -27935,8 +27960,8 @@ PPTX renderer could do better. A different XLSX renderer could not.
 other way on 2026-09-01 and this entry must not be read as covering it.** The sentence above ("a
 different PPTX renderer could do better") was prophetic rather than hypothetical:
 `export-pptx.ts`, the WORKSPACE exporter, now mints real `<a:hlinkClick>` relationships on its row
-slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlide` emits ONE
-SLIDE PER ROW with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
+slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlides` emits a
+row's DETAIL slides with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
 title, `RowTitle` carries it alone, each `RowFields` line prefixes it with a column label), so the
 run structure a relationship hangs on survives and `flattenCell` never enters the picture. The rule
 this entry states is unchanged and was simply applied to the second layout: **a link becomes a
@@ -27949,17 +27974,17 @@ action. That second asymmetry was the one a manual pass reported, and it is gone
 
 ---
 
-## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes
+## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes — CLOSED 2026-10-02
 
-**Status:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: convert the LINEAR groups only; the project-template cards and the 2-D influence/interest quadrant stay toggle-button-shaped by decision. Converted, four sites: the import method (`step0-import-panel.tsx`) and the knowledge source filter (`knowledge-panel.tsx`) are now the shared `SegmentedControl` (new group labels `wizardImportMethodGroup` / `documentsFilterSourceGroup`). The task health override (`task-form-fields.tsx`) keeps its RAG look but is a real `radiogroup` — `role="radio"`, `aria-checked`, a roving `tabIndex`, and the arrow-key handler `SegmentedControl` itself now uses, extracted as `handleRadioGroupKeyDown` (`radio-group-keys.ts`) so the two cannot drift; every chip, "Auto" included, carries the same always-rendered check marker. ★★ The RACI chip picker is the one that could NOT be a radio group: a pick commits and closes the popover, and a radio's arrows select, so every arrow would commit. It is `menu` + `menuitemradio` (`aria-checked`, roving tab stop, arrows move focus only via `handleRovingFocusKeyDown`), the ARIA pattern for exactly that; the clear chip stays outside the menu as an action, and opening the picker now focuses the checked role rather than "R". Recorded in `docs/AGENTS/accessibility.md`. Pinned by the rewritten marker/width tests and new keyboard tests in `knowledge-panel.test.tsx`, `task-form-fields.test.tsx` and `raci-chip-picker.test.tsx`; the wizard and step-0 tests now query `radio`, with a positive control so the absence checks are not vacuous. ★ Still owed, as below: a real screen-reader pass on each converted surface — nothing automated can hear the announcement. The history below is kept as written.
+
+**Previously:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
 read, but no screen-reader or keyboard pass has been run against any of them, and there is no probe to
 run: the markup is individually valid at every site. Filed 2026-09-01 while closing §55. Enumerate the
 hand-rolled residue with
 `grep -rn "aria-pressed={" src/app --include=*.tsx | grep -v "\.test\." | grep -v "toggle-button.tsx"`
 — the two that migrated to `ToggleButton` do NOT appear there, because the primitive owns the
 attribute; find those with `grep -n "<ToggleButton" src/app/create-project-wizard.tsx src/app/knowledge-panel.tsx`.
-
-**Work item:** #240
 
 **What happens.** SC 4.1.2 is about role, name and STATE being programmatically determinable.
 `aria-pressed` says "this button is a toggle and it is currently on" — a claim about ONE control,
@@ -29006,14 +29031,14 @@ original estimate that held. Designed in
 `docs/superpowers/specs/2026-09-03-document-write-concurrency-design.md`; that file is a DATED design
 record and its own pre-fix present tense is left standing rather than rewritten.
 
-## 350. The insight recommendation token does not cover the model round-trip — open
+## 350. The insight recommendation token does not cover the model round-trip — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
+**Status:** CLOSED 2026-10-02. Built as the entry describes, with the snapshot threaded through the two generate HOOKS rather than through `runInsightRecommendation` (the pure call never needed it): `useInsightRecommend` and `useInsightRecommendRunner` each take a `snapshotEntities` reader, call it beside the prompt (per candidate, for the runner) and hand the result to `applyRecommendation(id, rec, snapshot)`; `use-insight-recommendations.ts` supplies the reader and stamps from the snapshot, falling back to live arrays only for a caller that passed none. Scope stays the five `UPDATE_TARGET` tools, and refusals are still matched on `ConcurrencyTokenError`. ★★ MEASURED, and it corrects this entry: the ON-DEMAND path was already covered, by accident — `useInsightRecommend` captures `argsRef.current` once at generate START, so it called the start-time store closure holding prompt-time arrays. The false permit was real on the BACKGROUND RUNNER, which reads its store callback from a ref at answer time. Pinned by `use-insight-recommendations.test.tsx` → "stamps the token from the rows the PROMPT was built from, not the rows at answer time", driven through the runner with a mid-flight `rerender` (stamping from live arrays reddens it; the same test through the on-demand path did NOT, which is how the accident was found), plus snapshot-before-call ordering tests in both hook suites. The `recommend-tokens.ts` header and `docs/AGENTS/ai-assistant.md` no longer disclose the gap as open. The history below is kept as written.
+
+**Previously:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
 the `recommend-tokens.ts` header rather than an observed failure, and no probe has raced a human edit
 against an in-flight call. Read the disclosure with
 `grep -n "does NOT" src/app/insights/recommend-tokens.ts`.
-
-**Work item:** #253
 
 **What is covered.** `applyInsightRecommendation` is the single choke point for storing a generated
 recommendation — both the on-demand `useInsightRecommend` and the background
@@ -32279,9 +32304,11 @@ eye-verify closes this entry and anything it turns up gets its own.
 
 ---
 
-## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — OPEN
+## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — CLOSED 2026-10-02
 
-**Status:** 2026-09-08 — **exception B is FIXED** (both singulars now render; see B below), and
+**Status:** CLOSED 2026-10-02. Nothing live is left. Exception B was fixed and C withdrawn (2026-09-08); exception A — the four next-actions provider ternaries — is CORRECT for every shipped locale (`count === 1` is exactly `tPlural`'s category selection for en-US, en-GB and de, which each provider's comment states) and becomes a defect only if a locale with different plural rules is added, at which point it is a locale-addition task, not this one. The 45-vs-31 dispute is about a LOST earlier list and cannot be reconciled; what it was a proxy for — "how many keys still dodge plural agreement" — is now MEASURED AND GATED instead: paired keys by `PluralBaseKey` + `i18n-plural.test.ts`, and the escape shape by the value-axis ratchet `i18n-plural-escape.test.ts` (§450, 2026-10-02). The remaining conversion work lives in §450. The history below is kept as written.
+
+**Previously:** 2026-09-08 — **exception B is FIXED** (both singulars now render; see B below), and
 **exception C was withdrawn as a non-defect** rather than fixed (see C). The entry stays OPEN for
 exception A and for the 45-vs-31 dispute, which is NOT closed by the measurement below — a live
 count says what is true today and says nothing about what either earlier pass counted.
@@ -32322,8 +32349,6 @@ claim below; none of them was run with `--update` or otherwise made to agree wit
 `i18n.ts` and `i18n.de.ts` (was 42). The four added are `budgetFxRollupUnresolved`,
 `projectKeyFactsMissing`, `dashboardHiddenTilesBadge` and `raciSuggestSkippedHandover`. Exception A's
 four provider ternaries, the 12-key dead set and the 31-row table are unchanged.
-
-**Work item:** #275
 
 ### What this branch converted — and what "converted" does not cover (2026-09-07)
 
@@ -34885,13 +34910,13 @@ is the entire class the sweep exists for.
 ACCOUNTED FOR, never about which WRITER accepts them, which is exactly how it came to carry an
 exemption (`calendarEvent.exceptions`) that was true of update and false of create.
 
-## 440. A create card discloses a title and links only, and has no channel to disclose a refusal — OPEN
+## 440. A create card discloses a title and links only, and has no channel to disclose a refusal — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-08 — measured while building §439's detector, not by looking for it.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: create cards LIST ALL FIELDS and mark refusals, like update cards. Built, both halves: (1) ENUMERATE — `NewItem.fields` (`plan.ts`, `createFields`) lists every descriptor field the create carries, rendered through the same `previewNormalizerFor` → `forPreview` chain an update row's `after` uses, against an empty prior row; an enum value the entity does not accept shows its modelled default, or is omitted where the writer's fallback is not modelled, so the card never names a value the row will not hold. `CreateFieldsList` (`create-fields-list.tsx`) renders it under the "Create …" line on all three surfaces (chat proposal card, inline popover, insight review). (2) REFUSAL CHANNEL — deliberately narrow: only the allow-list create writers' own `rawTypeGuards` (the tables `dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields` apply on create) push a `plan.rejected` row, for plain fields and — since `pushLinkDiffs` now gets the create's `toolName` — for link fields. Update-writer rules (required fields, email changed-only, enum membership) are NOT applied to creates, because §534's replaying consumers strip every rejected field and a rule the create writer does not share would drop a field it keeps. ★★★ §436's detector SURVIVES: the offered-surface sweep's create arm judges the real create, never the plan, so its `dropped` findings still fire — verified (the sweep passes unchanged), and the warning beside that arm is rewritten to say which future change WOULD need the "refused a valid probe" kind. Pinned in `plan.test.ts` (the enumeration, an unaccepted enum omitted, a disclosed non-link refusal on `create_absence`, the disclosed link refusal on `create_calendar_event`) and `create-fields-list.test.tsx`. The history below is kept as written.
+
+**Previously:** OPEN 2026-09-08 — measured while building §439's detector, not by looking for it.
 Reproduce with `grep -n "plan.rejected.push" src/app/inline-ai-edit/plan.ts` (**5** hits, none of
 them inside the `CREATE_TOOLS` branch) and `grep -n "plan.creates.push" src/app/inline-ai-edit/plan.ts`.
-
-**Work item:** #281
 
 ★ The count alone cannot certify "none inside", and it is one refactor from lying. One of the five
 sits in `pushLinkDiffs`, which the create branch DOES call.
@@ -35344,16 +35369,16 @@ derivation it checks. The register closes an entry on its headline claim, and th
 Closing it is still the decision above — give `propose_project` a relation of its own, or affirm the
 filter as the whole answer and record why — now taken with a working filter already in place.
 
-## 446. `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN
+## 446. `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-09 — established by reading both ends of the path; reported independently by
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: `decisionBy` is a FREE ANNOTATION, valid at any status — option three below ("accepting the field as free annotation and saying so"). Nothing is cleared, refused or coupled to `status`, so neither the modal nor the model needs a guard row. "Saying so" is the change: the modal label is now "Decision maker" / "Entscheidungsträger" (it was "Decided by" / "Entschieden von", which implied a decision had been taken), its hint now reads that the person can be named before the decision is made, and the `changeFields` tool description tells the model the same, so a decider on an undecided change is a documented meaning rather than an inconsistency. The history below is kept as written.
+
+**Previously:** OPEN 2026-09-09 — established by reading both ends of the path; reported independently by
 two agents before it was filed, and fixed by neither. Presence witnesses re-run 2026-09-11:
 `grep -n "decisionBy" src/app/chat-tool-defs.ts` (one schema property, on the bag both change tools
 share), `grep -n "decisionBy" src/app/sanitize-records.ts` (ONE line — the store, with no `status`
 term, and no `CHANGE_FIELD_GUARDS` row) and `grep -c "decisionBy" src/app/change-log.ts` (→ **0**, so
 no status transition owns it).
-
-**Work item:** #285
 
 `changeFields` offers `decisionBy` as a free-text "Decision maker", and because that bag is the entire
 `properties` of BOTH `create_change` and `update_change`, it is offered on each. `sanitizeChangeItem`
@@ -35382,9 +35407,11 @@ guard row plus a modal change, a coupling that clears it on any pending status t
 `applyChangeStatus` clears the date, or accepting the field as free annotation and saying so. Decide
 which before writing anything.
 
-## 450. Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction — OPEN
+## 450. Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction — CLOSED 2026-10-02
 
-**Status:** 2026-09-08 — never probed beyond the dictionary scan below, which counts KEYS and checks
+**Status:** CLOSED 2026-10-02. All four tiers are done and the value-axis detector is a ban. Tier 1 (eight activity-log keys) and the three bare German plurals landed earlier the same day; this round converted the rest: ~45 single-count sentence keys became `…One` pairs (EN plus an authored German singular each, with adjective/verb agreement adjusted, not just the noun) rendered through `tPlural` at every call site — including the three next-actions provider reasons via the engine's existing `count === 1` key ternary, the insight detail texts (count from the detail record), the undo history count line (`countKey` now typed `PluralBaseKey`) and `activityJiraSync` through `ACTIVITY_PLURAL` at slot 2. Tier 3: the three two-count sentences (`bulkSendDone`, `confirmBulkSend`, `committeePushResult`) take one plural FRAGMENT per noun (`bulkSendEmailCount`, `bulkSendTaskCount`, `committeePushMeetingCount`, `committeePushReminderCount`) — safe because neither sentence carries adjective or verb agreement with the counts. Tier 4: the interval unit labels are plural pairs selected by the interval input's own value. The five DEAD keys (§415's list: `guardTimelogPartialFetch`, `jiraSyncConflicts`, `jiraSyncDone`, `undoRestored`, `redoRestored`) were deleted rather than given singulars that never render, and the two count-free prompt bodies were reworded number- and gender-neutrally. `i18n-plural-escape.test.ts` now asserts ZERO escape-shaped values in both dictionaries; the slash shape it cannot count was checked by hand (none left). ★ Two real defects surfaced while converting call sites and are fixed with tests: the bulk-edit Jira note was called with NO argument and rendered a literal `{0}`, and the overdue reason line read `workDaysLeft` — always 0 for an overdue task — so every overdue task said "Overdue by 0 working days" (`due-dates.ts` now carries `workDaysOverdue`). The history below is kept as written.
+
+**Previously:** 2026-09-08 — never probed beyond the dictionary scan below, which counts KEYS and checks
 no rendering. Verified with the wrapped-aware parse in the code block below (**72** EN, **62** DE),
 `grep -cE '^  activity[A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**9**, all single-line), and
 `npm run followups:index:check` (exit 0).
@@ -35401,7 +35428,18 @@ still no check on dictionary values.
 reads "1 verknüpften Eintrag" and "1 Datensatz"; `i18n-plural.test.ts` and each call site's test pin the
 count of one. The class itself stays open, and there is still no detector for it.
 
-**Work item:** #286
+★ Narrowed 2026-10-02: **tier (1) is DONE and the value-axis detector EXISTS.** The eight activity-log
+keys are `…One` pairs (EN + an authored German singular each) selected through `ACTIVITY_PLURAL`
+(`activity-message.ts`), pinned by "§450 tier 1" in `activity-message.test.ts`. And
+`i18n-plural-escape.test.ts` now reads the dictionary VALUES — the axis this entry said no gate covered
+— and pins the escape count EXACTLY as a ratchet: **64** EN / **55** DE after this tier, counting the
+`(s)` `(e)` `(n)` `(en)` `(er)` `(es)` shapes after a letter. A new escape now fails CI; a conversion
+must lower the pin. ★ The slash shape is still uncounted (it also separates real alternatives) and the
+figures are NOT comparable with the `[sne]+` counts above, which used a different shape set. Tiers
+(2)–(4) remain, so the entry stays open. ★ The same day the three BARE German plurals named above
+(`tasksDeleteSelectedDialogMessage`, `birthdayBannerTitle`, `birthdayToast`) became `…One` pairs
+rendered through `tPlural` — German now reads "die ausgewählte Aufgabe" / "1 bevorstehender
+Geburtstag" — and the EN pin fell to **61** with them, which is the ratchet working as designed.
 
 Found 2026-09-08 while measuring §415's disputed count, not by looking for it. The dictionary carries
 a third way of handling a count, alongside the paired `…One` keys and §415's four engine ternaries:
@@ -37075,9 +37113,11 @@ Size S–M: rename the fixture and let the existing assertion run against a real
 contract amount over the bucket window" and "exclude fixed-price buckets from the value series and
 chart hours only" are both defensible, and that decision is the work, not the test.
 
-## 473. Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN
+## 473. Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-12 — established by reading the engine, the type and the display sites, by
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: role rates (and per-bucket rate overrides) are in the PLAN currency — the opposite of the "narrow `plan.currency` to EUR" recommendation below, which is therefore superseded. Built: `planCurrencyPerEur` (`fx.ts`) gives units of plan currency per 1 EUR, reusing the BUCKET's own resolution (override included) when the bucket shares the plan currency and the cached ECB rate otherwise; `bucketRateRows` (`budget-report.ts`) takes it as a divisor, so cost, T&M revenue, budget value and budget cost — and the burndown, rate-mix and forecast figures built from the same rows — are EUR. Face 2 is fixed: a same-currency fixed-price bucket's margin is now the contract-currency margin, converted (the rejected "convert only when currencies differ" design is NOT what this does — both terms always convert). Face 1 resolves by the decision itself: Resources formats rate-derived money in `plan.currency` because that IS its currency, and Budget formats EUR because the engine converted it. The EVM money tiles (`budget-report-panel.tsx`), the one rate consumer outside `bucketRateRows`, divide their blended rate the same way. An EUR plan divides by 1, so every existing test and the golden suite are unchanged. Pinned by `budget-report.test.ts` → "plan-currency role rates convert to EUR (§473)" (the same-currency fixed-price margin, a T&M bucket at a cached rate, the EUR identity; skipping the divisor reddens two) and `fx.test.ts` → "planCurrencyPerEur". ★ Residual, recorded in `docs/AGENTS/budget.md`: a non-EUR plan with NO cached rate converts at par and no notice counts it; no UI control sets a non-EUR plan today (conjunct 1 below). The history below is kept as written.
+
+**Previously:** OPEN 2026-09-12 — established by reading the engine, the type and the display sites, by
 diffing the branch base, and by inspecting the shipped sample; the arithmetic face is REASONED from
 the code, NOT reproduced on a screen, and neither face is pinned by any test. Presence witnesses run
 2026-09-12: `grep -c "role.internalRate\|role.externalRate" src/app/resource-cost.ts` → 2 (the two
@@ -37099,8 +37139,6 @@ figures built from `revenue - cost` — plus a SECOND `const revenue` and a seco
 `contributionMargin: {` for the project rollup, which repeats the bucket arithmetic over summed
 rows. Count six, or the extra pair reads as a broken witness. And
 `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members.
-
-**Work item:** #79
 
 **Nothing in the system decides what currency a role rate is in**, and the two faces below are that
 one gap seen from two directions. They are filed together deliberately: split apart, one could be
@@ -37898,13 +37936,13 @@ it yet; recorded here pending one.
 
 **Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
 
-## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN
+## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-13 — never machine-verified against the demo dataset, which nobody has
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: add an end-to-end type. `BUDGET_TYPES` gains `"e2e"` ("End-to-end (fixed price)" / "End-to-End (Festpreis)"): a contract-priced bucket like `fixed` (revenue and budget are the contract amount, `isContractPriced` gates every contract-amount site), but consuming by COST — actual hours × internal rate, uncapped — instead of a capped share of the contract by hours. That is the case the demo showed: 104 h estimated, 390 h booked at 100/h against a 20,000 contract now reads 39,000 consumed, 195%, −19,000 win/loss, where `fixed` caps at 100% and hides the overrun in the consumption figure. The burndown burns the contract by cost (below zero on an overrun) and the forecast takes the cost as AC. Converting a `fixed` bucket is switching its type in the bucket modal; the amount is kept. Stored as a plain string, so all six write paths carry it with no codec change (golden fixtures unaffected). Pinned in `budget-report-bucket.test.ts`, `budget-burndown.test.ts` (incl. report parity), `sanitize-budget.test.ts`, `budget-types.test.ts` and `budget-bucket-modal.test.tsx`. ★ The 390 h vs 104 h figure itself was never reproduced on the demo data; this closes the modelling half the issue named as its cause. The history below is kept as written.
+
+**Previously:** OPEN 2026-09-13 — never machine-verified against the demo dataset, which nobody has
 reproduced the gap on. `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, so no third
 contract type exists. `glab issue view 42` → state open.
-
-**Work item:** #42
 
 GitLab #42 reports three symptoms: 390 h booked against 104 h planned, a budget value that differs
 between the two sides, and unreliable remaining-effort figures. The root cause given on the call was
@@ -38230,7 +38268,7 @@ Size L — a simulation engine, scenario inputs and P50/P80-style output on the 
 
 ## 503. Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
+**Status:** POSTPONED by the owner 2026-10-02 — waits for a reproduction. OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
 to reproduce.
 
 Something in task effort or over-budget handling misbehaved live at about 37:00 in the demo, and it was
@@ -39108,9 +39146,11 @@ protects before changing it.
 
 Related: §478 (closed on the same branch), §535, §595 (the sibling defect closed by the same fix).
 
-## 537. Project contact persons have no ids — OPEN
+## 537. Project contact persons have no ids — CLOSED 2026-10-02
 
-**Status:** open 2026-09-14 — filed while specifying the email-guard batch (spec
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: add ids AND in-place edit. Built: `ContactPerson.id` (required) is minted on every load by `withContactPersonIds` (`sanitize-records.ts`, run inside the project sanitizer that JSON, IndexedDB, CSV, Markdown and the Turso-tenant decode all reach): a valid id is kept (first occurrence wins), a missing or repeated one gets the next id above the list's maximum, in list order, so an old file loads as 1, 2, 3… deterministically. The cell codec (`csv-codecs-config.ts`) writes the id as a FIFTH positional field, with `resourceId` keeping the fourth slot (empty when absent), so a pre-§537 3- or 4-field cell still decodes and is minted on load; the golden CSV/Markdown fixtures were regenerated and the diff is exactly the two `contactPersons` lines (`…;0;;1|…;1;;2`). `ContactPersonsControl` (`project-form-fields.tsx`) keys, removes and edits by id, mints the next id on add, and gains an in-place Edit (name + email, the same email write rule as add with the contact's stored address exempt, a duplicate name refused); `ProjectForm` runs its prefill through `withContactPersonIds` too. Undo: the resource-email propagation undo now pairs each contact with its own before-image BY ID (`restoreContactPersonEmails`), so the "same-named row inserted ahead shifts the pairing" residual is gone — its test now pins the corrected result. A real bug the tests caught on the way: `editing?.id === cp.id` matched an id-less row while nothing was being edited. Pinned by `contact-persons-codec.test.ts`, `sanitize-records.test.ts` → "withContactPersonIds (§537)", `project-form-fields.test.tsx` → "contact person in-place edit (§537)" and the updated propagation tests. The history below is kept as written.
+
+**Previously:** open 2026-09-14 — filed while specifying the email-guard batch (spec
 `docs/superpowers/specs/2026-09-14-email-rule-and-guard-escapes-design.md`, Part 7); user decision was
 to stay id-less for that batch and file a follow-up. Counted 2026-09-14 with
 `grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | wc -l` (47 files, 18 outside
@@ -39126,8 +39166,6 @@ to stay id-less for that batch and file a follow-up. Counted 2026-09-14 with
 line `grep -n "DELIBERATELY excluded" src/app/turso-schema.ts` now prints nothing. The Turso-tenant
 bullet's `dirtyWorkspaceTables` premise is stale too: `ws.project` now dirties `meta`, which the tenant
 builder ignores, so tenant persistence is unchanged. The core is still open: `ContactPerson` has no `id`, and removal is still by array position.
-
-**Work item:** #327
 
 **The problem.** `ContactPerson` (`src/app/types.ts`) has `name`, `email`, `synced` and an optional
 `resourceId` — no `id`. It lives under `ProjectMeta.contactPersons`, a plain array, not an
@@ -43563,7 +43601,9 @@ SharePoint Online allows `#` and `%` in file and folder names. For such a name, 
 
 ## 652. SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP — open
 
-**Status:** open 2026-09-29, found during §4 Task 4. Never machine-verified against a tenant: read off `src/app/sharepoint-backend.ts` (the load fetches `…/content` from `graph.microsoft.com`, which answers with a 302 to a pre-authenticated download URL on a SharePoint host) and `src/proxy.ts` (`connect-src` allows only `graph.microsoft.com` among Microsoft hosts, and CSP checks redirect targets too).
+**Status:** open — ONLY the live-tenant check remains. ★ Re-checked 2026-10-02: the CSP half this heading names is already done — `src/proxy.ts` `connect-src` allows `https://*.sharepoint.com` and `https://*.files.1drv.com` (added by the §4 work, `git log -S'https://*.sharepoint.com' -- src/proxy.ts`), pinned by `proxy.test.ts`; the owner confirmed on 2026-10-02 that allowing `*.sharepoint.com` is the intended policy. Reproduced 2026-10-02 by `grep -n "sharepoint.com" src/proxy.ts`. The tenant behaviour itself is never machine-verified: what stays owed is checks (1)–(5) below against a real tenant.
+
+**Previously:** open 2026-09-29, found during §4 Task 4. Never machine-verified against a tenant: read off `src/app/sharepoint-backend.ts` (the load fetches `…/content` from `graph.microsoft.com`, which answers with a 302 to a pre-authenticated download URL on a SharePoint host) and `src/proxy.ts` (`connect-src` allows only `graph.microsoft.com` among Microsoft hosts, and CSP checks redirect targets too).
 
 **Work item:** #491
 
@@ -43603,11 +43643,24 @@ A version left behind while its saves were refused as stale (a switch away, a re
 
 **Source:** the §4 plan, follow-up F1, 2026-09-30.
 
-## 656. Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision — open
+## 656. Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision — CLOSED 2026-10-02
 
-**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified: no test makes two windows reconcile the same value. The two-tab e2e (`e2e/two-tab-conflict.spec.ts`) keeps clear of it, because every test waits for the seed's insights reconcile to save before it counts revisions or edits (commits 995b8adf6 and 238ac6ade).
+**Status:** CLOSED 2026-10-02, except m1, which moved to §666 (first filed as §662, renumbered when `main`'s blocker-log entries took §662–§664) because it has no safe fix yet. The three parts that were fixed:
 
-**Work item:** #498
+- **The tie.** `MirrorLedger.judge` takes a `TieVerdict`. When a peer's value has the same content as this window's own unsaved value of that slice (compared by `JSON.stringify`), "yield" mirrors it and "keep" contests it. Different content stays contested in both windows, so a real collision is still reported. `tieVerdict` (`broadcast-sync.ts`) decides by window id: the smaller id keeps and the larger yields, so the two windows always decide opposite ways. The sender's id now reaches the ledger as the second argument of `useBroadcastSync`'s `applyIncoming`. Equal ids give no verdict, so both windows save, as before; a duplicated tab's copied sessionStorage can cause that. Pinned by:
+  - `use-storage-backend.mirror-race.test.tsx` "two windows that derive the same value of one part within one delivery save it once (§656)", with and without StrictMode: one save, no pause, and B adopts A's revision. Its bus now gives each window a distinct id order on slice messages, because the two windows share one `getWindowId()`.
+  - Its sibling for different content.
+  - `mirror-ledger.test.ts` "a tie verdict (§656)" and `broadcast-sync.test.ts` `tieVerdict`.
+  - Mutation-checked: contesting every tie, yielding every tie, and dropping the content check each turn a test red.
+- **Revisions posted.** The pre-switch flush (the `useLoadTruncation` callback in `use-storage-backend.ts`) now posts the revision its write produced, the same way autosave does. Pinned by `use-storage-backend.conflict.test.tsx` "the pre-switch flush posts the revision its write produced, so every write of a switch is posted". A switch inside the debounce writes twice: the flush, and the §589 cleanup flush of the pending autosave. That test asserts the chain of posts, and removing the post turns it red.
+  - ★ `guardedWrite` and the project-creating file ops still do NOT post, on purpose. Their writes either go to a DIFFERENT storage than this window's scope (a conversion, a new Turso project), or to a freshly picked file under a new `picked:` binding that no other window shares. The new-project and demo writes put a NEW workspace on the storage. A peer holding the old content that adopted that revision would then overwrite it without a check.
+- **m2.** `StorageBackend.revisionBase?()` and `announcedRevision` (`workspace.ts`) give a revision message's base. `SharePointBackend` returns `ABSENT_REVISION` for a file loaded as absent, and `null` before any load. It is never sent as `If-Match`. Both the autosave's base and `adoptPeerRevision`'s comparison use `announcedRevision`. So B, which also loaded "absent", adopts A's create and its first save sends `If-Match` instead of meeting a 409. Pinned by `sharepoint-backend.test.ts` (two instances load a 404, A creates, B adopts and saves with `If-Match`) and `use-workspace-sync.test.tsx`. Reverting the comparison to `revision()` turns the latter red.
+
+★ Not done: the e2e named check (`openTwo` asserting no pause during the settle). `e2e/two-tab-conflict.spec.ts` still waits for the insights reconcile to save before it counts. It needs a browser run to remove that wait.
+
+★ Residual: two windows whose debounce ELAPSES before the other's value arrives have both already started saving, and the tie-break cannot reach them. The tie-break covers "within one message delivery".
+
+The original report follows.
 
 Two windows that reconcile the same stale value of an effect-derived slice (insights today, any such slice later) within one message delivery of each other both treat the slice as contested, so both save it. The cost so far is one extra revision. On a slow backend the second save can meet the first's revision and raise a false conflict banner. A related gap: only autosave calls `postRevision` (`grep -n "postRevision(" src/app/use-storage-backend.ts` finds one call). `guardedWrite`, the pre-switch flush and the file ops do not post, so a peer window pauses visibly at its next save, though nothing is lost. Named checks: a hook test where two windows reconcile the same stale value and exactly one save follows; and in the e2e, `openTwo` asserting that neither window paused during the settle. Fix direction: a symmetry break, for example by sender window id, and a revision post after every write that lands.
 
@@ -43633,11 +43686,11 @@ When a queued save's snapshot holds nothing but slices mirrored from a peer (`cr
 
 **Source:** the §4 final review, m11 (Task 5's parked item), 2026-09-30.
 
-## 659. A window's project binding still leans on the shared registry — open
+## 659. A window's project binding still leans on the shared registry — CLOSED 2026-10-02
 
-**Status:** open 2026-09-30, found by the §4 final-fix round (its concern 5). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
+**Status:** CLOSED 2026-10-02. `switchToProject` (`use-storage-file-ops.ts`) no longer reads the shared registry to decide "already open": it asks a new `windowProjectId` dep, which `use-storage-backend.ts` answers with this window's committed `fileBinding` (mirrored into a ref) for a local-file window, so a window still on `a` switches to `b` even after another tab made `b` current. Non-file kinds have no per-window binding and keep the registry comparison they always had — pinned by the existing "switchToProject is a no-op when the target id is the current project" (browser kind), which the first cut of this fix broke and which drove the split. An unknown binding (`null`, e.g. after a failed load) never matches, so the switch proceeds and at worst reloads. Pinned by the entry's own named check in `use-storage-backend.file-scope.test.tsx` → "a window still on a project switches when another tab already made the target current": W2 switches to b, then W1 does; W1 shows b, its edit lands in b.json and W2 mirrors it, and a.json never sees it; restoring the registry guard reddens it. ★ The second paragraph below — the false pauses that remain BY DESIGN (failed or refused loads, the registered-file pick, two independent picks, the boot race on a bare-handle slot, old-code tabs) — is unchanged by this and was never this entry's defect; its optional fix direction for the registered-file pick still stands. The history below is kept as written.
 
-**Work item:** #501
+**Previously:** open 2026-09-30, found by the §4 final-fix round (its concern 5). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
 
 Since §645 each window writes the file it is bound to, and the tab-sync scope of a local file names that binding (`fileBinding`, `sync-scope.ts`), stored with the handle in the shared slot. One place still reads the registry every tab shares through localStorage, so what one tab did decides what another window does: `switchToProject(id)` returns early when the SHARED registry's `currentProjectId` already equals `id`, which it does whenever ANOTHER tab switched there last. A window still showing project A then does nothing when its user picks B: no load, no toast, and it stays on A. Found while writing `use-storage-backend.file-scope.test.tsx`, whose "switched away and back" test is shaped around it. Named check: a two-window hook test in that harness where W2 switches to b and then W1 switches to b; W1 must end up showing b's tasks, bound to `b.json` (its edit reaches b's file and W2 mirrors it). Fix direction: compare against the project this WINDOW has open (its binding or its own last op), never the shared registry.
 
@@ -43704,3 +43757,48 @@ The legacy branch of `migrateBlockers` (a task with blocker text and no log) che
 In cumulative mode the bucket-chain join label (`burndownEvJoins*`, e.g. "… (fixed price), Discovery Phase (closed), Security Review (closed, rate override) join (+€102,6…") grows with the number of joined buckets and is neither truncated nor repositioned, so it runs off the left edge of the plot and overprints the `burndownBacBaseline` label ("Budget at start of recording", drawn at `X0 + 4`) and the € tick beside it. The `reports-budget-history` visual baseline was deliberately left stale because of it. Fix direction: clamp or truncate the join label to the plot width with the full text in the readout or a tooltip, or place it where it cannot cross the baseline label; add a test that the two labels' x-ranges do not overlap for a long bucket list, then refresh that baseline.
 
 **Source:** the visual-baseline check, 2026-10-02.
+
+## 666. A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices — CLOSED 2026-10-02
+
+**Status:** CLOSED 2026-10-02. A peer's revision that arrives while this window's own save is queued or running is now DEFERRED, not ignored (`createPeerRevisionDeferral`, `peer-revision-deferral.ts`; `adoptPeerRevision` calls `defer`).
+
+- `defer` bumps `peerSeq`, which `useStorageBackend` keeps in STATE and lists as a dep of its save effect. React applies updates in the order they were queued, so a render that carries the new `seq` also carries every slice the peer broadcast before its revision. A snapshot taken in such a render holds the peer's write.
+- At the start of every autosave job, `settle` decides:
+  - a job whose snapshot predates the message is skipped (it settles "superseded", like a mirrored-only job), and the effect run the bump caused carries its content;
+  - a later job adopts the peer's revision and writes.
+- A job that was already RUNNING and is refused by the conflict is `covers`ed when it read the deferred base and predates the message: no pause is raised, and the fresh job retries. Its entry is consumed by the adoption, so a second refusal (a third writer) pauses. It never loops.
+- ★★ A CONTESTED part (both windows changed it within one delivery, `MirrorLedger.hasContested`) opts out of both. A fresh snapshot would write the peer's copy over this window's lost edit, so that save keeps its base and meets the check, a reported conflict.
+  - Measured: with BOTH contested checks removed, the crossing-edit test below ends with 0 conflicts and the two windows showing different values, silently.
+  - With either one removed it still passes, because the other catches it: `settle` drops the entry before the retry writes, so the retry meets the check.
+
+Pinned by `use-storage-backend.mirror-race.test.tsx`:
+- "two windows whose own saves overlap on a slow backend both land, and neither pauses (§666)", the entry's named check. Before the fix the losing window paused. With `covers` off, or with `settle` not adopting, it is red.
+- "crossing edits to one part whose saves overlap are still reported, not retried away (§666)".
+
+`peer-revision-deferral.test.ts` covers the module's rules, and `use-workspace-sync.test.tsx` covers the deferring branch.
+
+**Review round (2026-10-02, an independent read of the branch).** Three defects in the first cut were fixed:
+- **One slot.** A peer that saves twice while this window is busy posts {R1, from B} and then {R2, from R1}. Overwriting kept {R2, from R1}, which this window, still at B, never matched, so it wrote from B and paused. `defer` now CHAINS a revision whose base is the pending one's revision into {R2, from B}. A revision that neither continues the entry nor starts from this window's own base is ignored, so it cannot displace a usable one. `adoptPeerRevision` now defers BEFORE its base check, because that check discarded exactly the second revision.
+- **The ordering race.** The save queue starts the successor job before the refused job's rejection handler runs, so the successor's `settle` could consume the entry first and `covers` then raised the pause anyway. `covers` also accepts the entry the last `settle` ADOPTED. The successor's own refusal reads the adopted revision, never the chain's base, so it still pauses: no loop.
+- **The journal.** A skipped or covered job used to drop its unload-journal entry, relying on a successor that a gate can still stop. It now keeps it until a successor's write confirms, which clears every older entry anyway.
+- Pinned by `use-storage-backend.mirror-race.test.tsx` "a peer that saves twice while this window's slow save is in flight still causes no pause (§666)", and by new rows in `peer-revision-deferral.test.ts` and `use-workspace-sync.test.tsx`. The three mutants, each of which turns tests red:
+  - `defer`'s `chained` forced to `false` (4 failing);
+  - `covers` returning `!contested && explains(pending)` without `explains(adopted)` (3 failing);
+  - `adoptPeerRevision`'s base check moved back ahead of the busy check (3 failing).
+- ★ Not pinned by a test: the journal half. A test would need a successor run that a gate stops (`savesAllowed`, the load hold, a destructive refusal) between the refusal and the retry.
+
+★ Residual: two peer revisions delivered OUT OF ORDER still pause. This happens when {R2, from R1} reaches this window before {R1, from B}, for example from two different peer windows. R2 continues no entry and starts from a base this window does not hold, so `defer` ignores it. R1 is then deferred and adopted, and the retry meets R2 and pauses: visible, with no loss.
+★ Residual: a refusal that reaches this window BEFORE the peer's revision message still pauses. On a real backend the two can cross: the server refuses this write as soon as the peer's commits, while the peer's client is still waiting for its response. Then nothing was deferred yet. Closing that would need the pause to wait a short grace period for the message. Not built; the pause is visible and nothing is lost.
+
+The original report follows.
+
+**Previously:** open 2026-10-02, split out of §656 (its m1) when that entry closed. Never machine-verified: read off `adoptPeerRevision` (`use-workspace-sync.ts`), which returns early whenever `whenSaved(backend)` is not `null`.
+
+Under Turso or SharePoint latency, a window can start its save while a peer's write holds the lock or is in flight. That window meets the peer's revision and pauses, even when its snapshot already held the peer's slices. The pause is visible, and nothing is lost. The skip is deliberate: a save that is RUNNING was built without the peer's slices and must meet the newer revision. A save that is only QUEUED is replaced by a newer autosave, which would include them.
+
+Safely adopting for a queued save needs proof that the snapshot it will write was taken AFTER every peer value of that write was applied. The revision handler runs outside React, and a passive effect can run after it while still holding a snapshot from before it, so a counter read in the save effect does not give that proof.
+
+Named check: a hook test with two windows, each with a pending own edit, whose saves overlap on a slow fake backend (the `mirror-race` harness with `LATENCY_MS`), asserting which window pauses.
+
+**Source:** the §4 final review (m1), via §656, 2026-10-02.
+

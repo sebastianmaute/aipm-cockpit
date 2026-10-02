@@ -9,9 +9,9 @@ describe("RaciChipPicker", () => {
   it("collapsed shows only the trigger; clicking expands to all roles + clear", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     // collapsed: a role chip C is not yet shown
-    expect(screen.queryByRole("button", { name: "C" })).toBeNull();
+    expect(screen.queryByRole("menuitemradio", { name: "C" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    expect(screen.getByRole("button", { name: "C" })).toBeTruthy();
+    expect(screen.getByRole("menuitemradio", { name: "C" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /clear/i })).toBeTruthy();
   });
 
@@ -19,9 +19,9 @@ describe("RaciChipPicker", () => {
     const onChange = vi.fn();
     render(<RaciChipPicker value="" onChange={onChange} ariaPrefix="x" lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    fireEvent.click(screen.getByRole("button", { name: "C" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "C" }));
     expect(onChange).toHaveBeenCalledWith("C");
-    expect(screen.queryByRole("button", { name: "R" })).toBeNull(); // collapsed again
+    expect(screen.queryByRole("menuitemradio", { name: "R" })).toBeNull(); // collapsed again
   });
 
   it("clear fires onChange('') and collapses", () => {
@@ -43,7 +43,7 @@ describe("RaciChipPicker", () => {
   it("rings only the selected role chip, and the ring moves with the value", () => {
     const { rerender } = render(<RaciChipPicker value="R" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    const chip = (role: string) => screen.getByRole("button", { name: role });
+    const chip = (role: string) => screen.getByRole("menuitemradio", { name: role });
 
     // ★★ `focus:ring-[var(--foreground)]` is in this list for a reason, not for
     // symmetry: CHIP_BASE carries `focus:ring-ui-green`, which sets the same
@@ -103,7 +103,7 @@ describe("RaciChipPicker", () => {
   it("renders its popover through PopoverPanel, not a hand-rolled portal", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    const panel = screen.getByRole("button", { name: "C" }).closest("span.fixed") as HTMLElement;
+    const panel = screen.getByRole("menuitemradio", { name: "C" }).closest("span.fixed") as HTMLElement;
     expect(panel).toBeTruthy();
     expect(panel.className).toContain("rounded-md");
     expect(panel.className).toContain("border-line");
@@ -130,12 +130,34 @@ describe("RaciChipPicker", () => {
   // `autoFocus={false}` the trigger would sit outside the trapped region while
   // every Tab AND Shift+Tab yanked focus into it, leaving no way back. Starting
   // inside is the coherent state. Focusing a chip does not SELECT it: these are
-  // `aria-pressed` toggles, and the primitive's documented exception to the
-  // default is a destructive first control, which "R" is not.
-  it("moves focus into the popover on open, instead of leaving it on the trigger", () => {
+  // `menuitemradio`s (§331), which activate only on Enter/Space/click.
+  // ★ Focus lands on the CHECKED role, not the first: the roles are a roving
+  //  Tab stop, so the checked one is the only tabbable item and the panel's
+  //  first-focusable autofocus finds it — what APG prescribes for this pattern.
+  it("moves focus into the popover on open, onto the checked role", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "R" }));
+    expect(document.activeElement).toBe(screen.getByRole("menuitemradio", { name: "A" }));
+  });
+
+  // §331 — one Tab stop for the four roles, arrows move FOCUS without picking
+  //  (a pick closes the popover), and the checked state is exposed.
+  it("exposes the roles as one menu of menuitemradios that arrow keys move through without picking", () => {
+    const onChange = vi.fn();
+    render(<RaciChipPicker value="A" onChange={onChange} ariaPrefix="x" lang="en-US" />);
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    const menu = screen.getByRole("menu");
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitemradio"]'));
+    expect(items.map((i) => i.getAttribute("aria-label"))).toEqual(["R", "A", "C", "I"]);
+    expect(items.map((i) => i.getAttribute("aria-checked"))).toEqual(["false", "true", "false", "false"]);
+    expect(items.filter((i) => i.tabIndex === 0)).toEqual([items[1]]);
+    fireEvent.keyDown(items[1], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(items[2]);
+    fireEvent.keyDown(items[2], { key: "End" });
+    expect(document.activeElement).toBe(items[3]);
+    expect(onChange).not.toHaveBeenCalled();
+    // The clear chip is an action, not a fifth role.
+    expect(menu.contains(screen.getByRole("button", { name: /clear/i }))).toBe(false);
   });
 
   // ★★★ §334. RACI is NOT in `A11Y_VIEWS`, so no axe run will ever reach this
@@ -155,7 +177,7 @@ describe("RaciChipPicker", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     const trigger = screen.getByRole("button", { expanded: false });
     fireEvent.click(trigger);
-    const first = screen.getByRole("button", { name: "R" });
+    const first = screen.getByRole("menuitemradio", { name: "R" });
     const last = screen.getByRole("button", { name: /clear/i });
 
     // forward Tab off the LAST chip wraps to the first, rather than escaping
@@ -239,10 +261,10 @@ describe("RaciChipPicker", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     const trigger = screen.getByRole("button", { expanded: false });
     fireEvent.click(trigger);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "R" }));
+    expect(document.activeElement).toBe(screen.getByRole("menuitemradio", { name: "A" }));
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("button", { name: "C" })).toBeNull();
+    expect(screen.queryByRole("menuitemradio", { name: "C" })).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 });

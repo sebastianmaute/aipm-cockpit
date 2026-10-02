@@ -322,14 +322,24 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
   alone: browser windows showing different registry projects mirror each other's slices, adopt
   each other's revisions and converge on one workspace. The revision check pauses only a writer
-  that is not mirroring: its epoch differs, it is already paused, or its own save is queued or running.
+  that is not mirroring: its epoch differs, it is already paused, or it edited a part the peer also
+  changed within one delivery (a contested part, below).
 - **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
-  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave lands, `postRevision` sends the new revision and the
-  one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
-  (`useRevisionSync`) adopts it only while nothing is queued for its backend (`whenSaved` is
-  `null`) AND its own revision equals the sender's base; otherwise its next save meets the check.
+  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave or the pre-switch
+  flush lands, `postRevision` sends the new revision and the one it replaced over `aipm-cockpit:sync`.
+  ★ `guardedWrite` and the project-creating file ops do NOT post, deliberately (§656). A main window on the same scope and epoch
+  (`useRevisionSync`) adopts it when its own base equals the sender's base and nothing is queued for
+  its backend (`whenSaved` is `null`). ★★ With a save of its own queued or running it DEFERS it
+  instead (§666, `peer-revision-deferral.ts`): the deferral bumps `peerSeq`, a STATE dep of the
+  save effect, so a fresh snapshot follows that holds the peer's slices. A queued job whose snapshot
+  predates the message is skipped, a fresh one adopts and writes, and a running one refused by
+  exactly that revision is retried by the fresh one instead of pausing. A contested part opts out of
+  both, so a crossing edit is still a reported conflict, never retried away. Both bases are read through `announcedRevision`, so a SharePoint file loaded as absent has
+  one (`ABSENT_REVISION`), and a second window adopts the first window's create (§656 m2).
   The mirror ledger (`createMirrorLedger`, `mirror-ledger.ts`) stops a window re-saving a slice it
-  only received from a peer.
+  only received from a peer. ★ A peer value with the SAME CONTENT as an own unsaved one (two windows
+  running the insights reconcile on the same load) is a tie, not a contest: `tieVerdict` lets the
+  window with the smaller id save it and the other mirror it (§656).
 - **The pause.** A refused save sets `savesPaused` with `reason: "conflict"`, which shuts the save
   gate, and the banner `SavingPausedCause` `{ kind: "conflict" }` (`notifications.tsx`, copy
   `storageSavePausedConflict`) offers three actions (`use-conflict-resolution.ts`):

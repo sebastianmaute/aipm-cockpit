@@ -234,6 +234,15 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   "axe has NO rule for colour-as-sole-cue"; a contributor grepping the tag list finds one and stops
   trusting the bullet.) A hand-rolled `aria-pressed` button gets neither the cue nor the test — use
   `ToggleButton`, or `SegmentedControl` for a one-of-N choice.
+  ★★ A ONE-OF-N GROUP THAT MUST KEEP ITS OWN LOOK (§331) uses `handleRadioGroupKeyDown`
+  (`radio-group-keys.ts`) — the SAME arrow/Home/End handler `SegmentedControl` runs — on a
+  `role="radiogroup"` wrapper, with `role="radio"` + `aria-checked` + a roving `tabIndex` on each chip
+  and `SegmentedControl`'s always-rendered check marker (`data-selected-marker`, `invisible` when off,
+  so a pick never shifts the row). The task health chips are the reference. ★★★ A choice whose pick
+  COMMITS (closes a popover) is NOT a radio group — a radio's arrows select, so each arrow would
+  commit: use `role="menu"` + `menuitemradio` with `handleRovingFocusKeyDown` (focus only), as the
+  RACI chip picker does. Still toggle-button-shaped by decision: the project-template cards and the
+  2-D influence/interest quadrant.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.

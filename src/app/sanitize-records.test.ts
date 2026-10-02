@@ -19,7 +19,15 @@ import {
   sanitizeIsoDate,
   AMOUNT_MAX,
   toNumber,
+  capRaidStoredText,
+  withContactPersonIds,
+  sanitizeProjectMeta,
+  TASK_NAME_MAX,
+  BUDGET_NAME_MAX,
 } from "./sanitize";
+import { jsonToWorkspace } from "./workspace";
+import { buildRaidItemFromObj } from "./csv-codecs-core";
+import type { RaidItem } from "./types";
 
 /** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
  *  Infinity all to "null", so three probes would otherwise share a name and a
@@ -623,5 +631,53 @@ describe("dropUnacceptedRaidFields — escalations is model-read-only (§515)", 
   it("positive control: a patch without escalations is returned untouched", () => {
     const patch = { title: "Renamed" };
     expect(dropUnacceptedRaidFields(patch, { category: "I" })).toBe(patch);
+  });
+});
+
+// §37 — RAID had NO storage-side length cap on any path: `sanitizeRaidItem` sits
+// on no load path, and the CSV decoder hand-built `title`/`owner`. These pin the
+// cap on BOTH load funnels, and that it touches length and nothing else.
+describe("capRaidStoredText / the RAID load cap (§37)", () => {
+  const base: RaidItem = {
+    id: 1, category: "R", title: "t", status: "Open", raisedDate: "",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+  };
+
+  it("clips an over-long title and owner to the edit-path limits", () => {
+    const out = capRaidStoredText({ ...base, title: "x".repeat(TASK_NAME_MAX + 50), owner: "o".repeat(BUDGET_NAME_MAX + 50) });
+    expect(out.title).toHaveLength(TASK_NAME_MAX);
+    expect(out.owner).toHaveLength(BUDGET_NAME_MAX);
+  });
+
+  it("returns the SAME row when nothing is over, and never trims or touches status", () => {
+    const row = { ...base, title: "  padded  ", owner: " o ", status: "Weird" as RaidItem["status"] };
+    expect(capRaidStoredText(row)).toBe(row);
+  });
+
+  it("caps on the JSON / IndexedDB load path (jsonToWorkspace)", () => {
+    const ws = jsonToWorkspace(JSON.stringify({ tasks: [], raid: [{ ...base, title: "x".repeat(TASK_NAME_MAX + 1) }] }));
+    expect(ws.raid[0].title).toHaveLength(TASK_NAME_MAX);
+  });
+
+  it("caps on the CSV / Markdown / Turso row decoder (buildRaidItemFromObj)", () => {
+    const item = buildRaidItemFromObj({ id: "1", category: "R", status: "Open", title: "x".repeat(TASK_NAME_MAX + 1), owner: "o".repeat(BUDGET_NAME_MAX + 1) });
+    expect(item?.title).toHaveLength(TASK_NAME_MAX);
+    expect(item?.owner).toHaveLength(BUDGET_NAME_MAX);
+  });
+});
+
+// §537 — every contact gets an id on load; a valid one is kept, a missing or
+// repeated one is minted above the list's maximum, deterministically.
+describe("withContactPersonIds (§537)", () => {
+  const c = (name: string, id?: number) => ({ ...(id !== undefined ? { id } : {}), name, email: "", synced: false });
+  it("mints 1, 2, 3 for an id-less list, the same on every load", () => {
+    expect(withContactPersonIds([c("a"), c("b"), c("c")]).map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+  it("keeps valid ids and mints above the maximum for missing or repeated ones", () => {
+    expect(withContactPersonIds([c("a", 7), c("b"), c("c", 7), c("d", 2)]).map((x) => x.id)).toEqual([7, 8, 9, 2]);
+  });
+  it("is reached by the load funnel: an old project loads with ids", () => {
+    const meta = sanitizeProjectMeta({ name: "P", contactPersons: [{ name: "Ann", email: "", synced: false }, { name: "Bob", email: "", synced: true }] });
+    expect(meta?.contactPersons.map((x) => x.id)).toEqual([1, 2]);
   });
 });

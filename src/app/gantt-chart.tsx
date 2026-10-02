@@ -330,7 +330,7 @@ export function GanttChart({
                 aria-label={t(lang, "addTaskButton")}
               >
                 <div
-                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue"
+                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue dark:group-hover:text-ui-light-grey"
                   style={{ width: nameColWidth }}
                 >
                   <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />

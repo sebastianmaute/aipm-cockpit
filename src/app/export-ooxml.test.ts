@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
-import { MAX_FIELD_PARAGRAPHS } from "./export-pptx";
+import { MAX_FIELD_PARAGRAPHS, SUMMARY_ROWS_PER_SLIDE } from "./export-pptx";
 import { buildPdfHtml } from "./export";
 import { loadI18n, t } from "./i18n";
 import { buildExportSections, cellTextWithLinks } from "./export-sections";
@@ -789,7 +789,7 @@ describe("PPTX export text", () => {
     // below. None of the three cells here carries one, which is what keeps this
     // an equality about the flat path.)
     //
-    // ★ ALL THREE cells are rich on purpose: buildPptxRowSlide reads row[0]
+    // ★ ALL THREE cells are rich on purpose: buildPptxRowSlides reads row[0]
     // (RowMeta), row[1] (RowTitle) and row[2..] (meta lines) through three
     // SEPARATE expressions, so a fix applied to only one of them still passes
     // a fixture whose rich column sits in the other.
@@ -854,20 +854,40 @@ describe("PPTX export text", () => {
     return (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
   }
 
-  // §33: "capped at 6 so text fits" capped FIELDS, not lines. A single
-  // multi-paragraph description overflowed the fixed-height RowFields box.
-  it("caps a 14-paragraph description in RowFields and ends it with an ellipsis line", async () => {
+  // §33 bounded the RowFields box by lines; §153 turned the "…" cut into a
+  // continuation slide, so a long description loses nothing.
+  it("continues a 14-paragraph description on a second slide instead of cutting it", async () => {
     const description = Array.from({ length: 14 }, (_, i) => `para ${i + 1}`).join("\n");
-    const fields = shapeNamed(await rowSlideWithDescription(description), "RowFields");
-    const paras = [...fields.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0]);
-    expect(paras.length).toBeLessThanOrEqual(MAX_FIELD_PARAGRAPHS + 1);
-    expect(paras).toHaveLength(MAX_FIELD_PARAGRAPHS);
-    expect(paras[paras.length - 1]).toContain("<a:t>…</a:t>");
-    // The kept lines are the FIRST ones, the first still carrying its label.
-    expect(fields).toContain("<a:t>description: para 1</a:t>");
-    expect(fields).toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS - 1}</a:t>`);
-    expect(fields).not.toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS}</a:t>`);
-    expect(fields).toContain("<a:normAutofit/>");
+    const blob = buildPptx([
+      { key: "tasks", title: "Tasks", columns: ["id", "taskName", "description"], rows: [[1, "Task one", description]] },
+    ], "en-US");
+    const files = await unzipBlob(blob);
+    const first = files.get("ppt/slides/slide3.xml")!;
+    const second = files.get("ppt/slides/slide4.xml")!;
+    const firstFields = shapeNamed(first, "RowFields");
+    expect((firstFields.match(/<a:p>/g) ?? []).length).toBe(MAX_FIELD_PARAGRAPHS);
+    expect(firstFields).toContain("<a:t>description: para 1</a:t>");
+    expect(firstFields).toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS}</a:t>`);
+    expect(firstFields).not.toContain("<a:t>…</a:t>");
+    expect(firstFields).toContain("<a:normAutofit/>");
+    // The rest of the row is on the continuation slide, title repeated and
+    // both pages marked.
+    const secondFields = shapeNamed(second, "RowFields");
+    expect(secondFields).toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS + 1}</a:t>`);
+    expect(secondFields).toContain("<a:t>para 14</a:t>");
+    expect(first).toContain("<a:t>Tasks · 1 (1/2)</a:t>");
+    expect(second).toContain("<a:t>Tasks · 1 (2/2)</a:t>");
+    expect(second).toContain("<a:t>Task one</a:t>");
+    expect(files.has("ppt/slides/slide5.xml")).toBe(false);
+  });
+
+  it("shows every field of a one-row section, not just the first six (§153)", async () => {
+    const columns = ["id", "taskName", ...Array.from({ length: 9 }, (_, i) => `f${i + 1}`)];
+    const row = [1, "Task one", ...Array.from({ length: 9 }, (_, i) => `v${i + 1}`)];
+    const xml = (await unzipBlob(buildPptx([{ key: "tasks", title: "Tasks", columns, rows: [row] }], "en-US")))
+      .get("ppt/slides/slide3.xml")!;
+    expect(xml).toContain("<a:t>f9: v9</a:t>");
+    expect(xml).not.toContain("(1/");
   });
 
   it("leaves a description that fits untouched: no ellipsis, every line kept", async () => {
@@ -1124,18 +1144,24 @@ describe("buildPptx link relationships", () => {
     expect(xml).toContain("<a:t>the spec</a:t>");
   });
 
-  // §33: the RowFields cap drops lines AFTER the sink minted their ids, so a
-  // link that only appears in a dropped line must not survive as an orphan
-  // relationship. The kept link still resolves.
-  it("drops the relationship of a link that only sits in a capped-off line", async () => {
+  // §153: a row too long for one slide continues on another, and a
+  // relationship id is slide-scoped — so the late link must resolve on the
+  // continuation slide (from rId2 again) and be absent from the first.
+  it("moves a link on a continuation page into THAT slide's rels, from rId2", async () => {
     const LATE = "https://late/link";
     const filler = Array.from({ length: 12 }, (_, i) => `<p>filler ${i + 1}</p>`).join("");
     const html = `${LINKED}${filler}<p><a href="${LATE}">late</a></p>`;
-    const { xml, rels } = await slide(buildPptx([sectionWith(1, "Task one", rich(html))], "en-US"), 3);
-    expect(xml).toContain("<a:t>…</a:t>");            // positive control: the cap fired
-    expect(xml).not.toContain("<a:t>late</a:t>");
-    expect(rels).toContain(`Target="${LINK}"`);
-    expect(rels).not.toContain(LATE);
+    const blob = buildPptx([sectionWith(1, "Task one", rich(html))], "en-US");
+    const first = await slide(blob, 3);
+    const second = await slide(blob, 4);
+    expect(first.xml).not.toContain("<a:t>late</a:t>");
+    expect(first.rels).toContain(`Target="${LINK}"`);
+    expect(first.rels).not.toContain(LATE);
+    expect(second.xml).toContain("<a:t>late</a:t>");
+    const id = idForText(second.xml, "late");
+    expect(id).toBe("rId2");
+    expect(second.rels).toContain(`Id="${id}" Type="${HYPERLINK_REL}" Target="${LATE}" TargetMode="External"/>`);
+    expect(second.rels).not.toContain(LINK + '"');
   });
 
   it("drops the inline (url) suffix once the link is live", async () => {
@@ -1160,8 +1186,10 @@ describe("buildPptx link relationships", () => {
       ],
     };
     const blob = buildPptx([two], "en-US");
-    const rowA = await slide(blob, 3);
-    const rowB = await slide(blob, 4);
+    // slide3 = the section's summary slide (§153); 4 and 5 = the two rows'
+    // detail slides, each earned by its rich description.
+    const rowA = await slide(blob, 4);
+    const rowB = await slide(blob, 5);
     expect(linkedIds(rowA.xml)).toEqual(["rId2"]);
     expect(linkedIds(rowB.xml)).toEqual(["rId2"]);
     expect(rowA.rels).toContain('Target="https://intra/one"');
@@ -1316,6 +1344,60 @@ describe("buildPptx link relationships", () => {
 // ---------------------------------------------------------------------------
 // PPTX export footer (branding.exportFooter)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// PPTX summary slides (§153 — several rows per slide, details only where rich)
+// ---------------------------------------------------------------------------
+
+describe("PPTX summary slides", () => {
+  const columns = ["id", "taskName", "status", "description"];
+  const rich = (html: string) => ({ html, text: descriptionTextWithBreaks(html) });
+  const slidesOf = (parts: Map<string, string>) =>
+    [...parts.keys()].filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p)).length;
+
+  it("lists a multi-row section on summary slides and gives a detail slide only to rows with rich content", async () => {
+    const rows = [
+      [1, "Alpha", "Open", rich("<p>alpha detail</p>")],
+      [2, "Beta", "Done", rich("")],
+      [3, "Gamma", "Open", ""],
+    ];
+    const parts = await unzipBlob(buildPptx([{ key: "tasks", title: "Tasks", columns, rows }], "en-US"));
+    // title, divider, ONE summary slide, ONE detail slide (Alpha's).
+    expect(slidesOf(parts)).toBe(4);
+    const summary = parts.get("ppt/slides/slide3.xml")!;
+    expect(summary).toContain('name="SummaryRows"');
+    expect(summary).toContain("<a:t>1 · Alpha</a:t>");
+    expect(summary).toContain("<a:t>3 · Gamma</a:t>");
+    expect(summary).toContain("<a:t> — status: Open</a:t>");
+    // A rich field is never squeezed onto a summary line.
+    expect(summary).not.toContain("alpha detail");
+    const detail = parts.get("ppt/slides/slide4.xml")!;
+    expect(detail).toContain("<a:t>Alpha</a:t>");
+    expect(detail).toContain("<a:t>description: alpha detail</a:t>");
+  });
+
+  it("paginates the summary at SUMMARY_ROWS_PER_SLIDE rows", async () => {
+    const rows = Array.from({ length: SUMMARY_ROWS_PER_SLIDE + 1 }, (_, i) => [i + 1, `Row ${i + 1}`, "Open", ""]);
+    const parts = await unzipBlob(buildPptx([{ key: "tasks", title: "Tasks", columns, rows }], "en-US"));
+    expect(slidesOf(parts)).toBe(4);
+    const first = parts.get("ppt/slides/slide3.xml")!;
+    const second = parts.get("ppt/slides/slide4.xml")!;
+    expect(first).toContain("<a:t>Tasks (1/2)</a:t>");
+    expect(first).toContain(`<a:t>${SUMMARY_ROWS_PER_SLIDE} · Row ${SUMMARY_ROWS_PER_SLIDE}</a:t>`);
+    expect(second).toContain("<a:t>Tasks (2/2)</a:t>");
+    expect(second).toContain(`<a:t>${SUMMARY_ROWS_PER_SLIDE + 1} · Row ${SUMMARY_ROWS_PER_SLIDE + 1}</a:t>`);
+    expect(second).not.toContain("<a:t>1 · Row 1</a:t>");
+  });
+
+  it("shortens a long value and folds its newlines on a summary line", async () => {
+    const long = `${"x".repeat(80)}\nmore`;
+    const rows = [[1, "A", long, ""], [2, "B", "ok", ""]];
+    const summary = (await unzipBlob(buildPptx([{ key: "tasks", title: "Tasks", columns, rows }], "en-US")))
+      .get("ppt/slides/slide3.xml")!;
+    expect(summary).toContain(`status: ${"x".repeat(59)}…`);
+    expect(summary).not.toContain("more");
+  });
+});
 
 describe("PPTX export footer", () => {
   const SECTIONS: ExportSection[] = [

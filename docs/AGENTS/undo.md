@@ -97,8 +97,13 @@ remain: the engine's restore and redo let the LIVE row win on those keys of an e
 (`applyPreserved`), and `buildBulkFieldEdits`
 excludes them from a patch through the derived `WRITE_THROUGH_KEYS`. Membership rule: a field belongs
 there iff a writer other than the entity's own save handler can change it on a row nobody is editing.
-A new such field that is not added there is silently reverted by a whole-row undo. The remaining
-whole-row paths are §177.
+A new such field that is not added there is silently reverted by a whole-row undo.
+★★ §177 (closed 2026-10-02) converted the field-shaped whole-row EDIT captures to field patches: the
+reference-data cascades (`captureFieldPart` with the new `fkRemapField`, so a cascade still follows a
+re-minted primary), task-delete dependency stripping, the budget-bucket commit, and — through
+`capture`'s new `editedAfter` option, which derives the patch with `fieldEditsFromRows` — the resource
+bulk edit, task dedup and the alloc plan. ROW deletes stay whole-row on purpose. Prefer `editedAfter`
+(or a field part) for any new edit capture; a plain `edited:` capture is a whole-row revert.
 ★★ **The task blocker pair (`blockers` + `blockerLog`) is a member AND is never undoable from any
 writer** (spec: no undo for blocker writes, like notes). The single-row capture paths never see the
 pair change: the task editor has no blockers field and its submit carries the pair from the STORED
@@ -205,7 +210,6 @@ undo block the redo, and the next undo then spliced in a second copy.
 - §132 — a multi-target successor fan-out labels as "Edited N item(s)".
 - §133 — a redo-created dangling dependency is repaired on only two of six backends.
 - §134 — `use-task-submit.ts` rides the positional-primary fallback.
-- §177 — the whole-row capture paths still revert unlisted concurrent writes.
 - §299 — an undo/redo that flips a task's delivered-ness writes no completion or reopening entry.
 - §600 — the staged proposal-apply path has no scope guard (the rows a batch refused at push still
   land in the new project; see "Gates on the stack").

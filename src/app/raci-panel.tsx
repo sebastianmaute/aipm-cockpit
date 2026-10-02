@@ -238,7 +238,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
             <button
               type="button"
               onClick={() => setFiltered(new Set())}
-              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${FOCUS_RING} ${TRANSITION}`}
             >
               {t(lang, "raciFilterClear")}
             </button>

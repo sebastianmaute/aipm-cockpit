@@ -437,7 +437,7 @@ describe("proposalRowTitle", () => {
   it("prefers the plan's created title", () => {
     const plan: EditPlan = {
       ...emptyPlan(),
-      creates: [{ entity: "task", title: "Ship it", toolName: "create_task", input: {} }],
+      creates: [{ entity: "task", title: "Ship it", toolName: "create_task", input: {}, fields: [] }],
     };
     expect(proposalRowTitle(call("create_task", { taskName: "other" }), plan)).toBe("Ship it");
   });

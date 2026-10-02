@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import type { ConflictFieldKey, ConflictItem } from "./jira-api";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -198,7 +198,7 @@ export function JiraConflictsModal({
           closeLabel={rowLabel(t(lang, "alertModalClose"), t(lang, "jiraConflictTitle"))}
         />
         <p className="bg-surface px-6 pb-2 text-xs text-foreground dark:text-muted-foreground">
-          {t(lang, "jiraConflictSubtitle", conflicts.length)}
+          {tPlural(lang, "jiraConflictSubtitle", conflicts.length, conflicts.length)}
         </p>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-muted px-6 py-2 text-xs">
@@ -220,7 +220,7 @@ export function JiraConflictsModal({
                 <span className="font-mono text-xs text-muted-foreground">
                   #{c.taskId}
                 </span>
-                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:text-ui-light-grey">
                   {c.jiraKey}
                 </span>
                 {c.jiraIssueType && (

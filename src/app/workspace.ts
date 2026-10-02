@@ -29,6 +29,7 @@ import {
   sanitizeSteeringCommittee,
   withNormalizedEmailField,
   withLiteralCalendarOptOut,
+  capRaidStoredText,
 } from "./sanitize";
 // ★ TYPE-ONLY, and from the zero-import LEAF rather than the codec barrel: the
 // barrel pulls the whole decode layer, which imports THIS file. `csv-codecs-sections.ts`
@@ -488,6 +489,10 @@ export interface StorageBackend {
   lastDecodeFailures?: readonly string[];
   /** §4: the revision this instance last loaded or wrote; `null` before any load. */
   revision?(): string | null;
+  /** §656 m2 — the revision a revision message names as this instance's base, when that differs from
+   *  `revision()`: a SharePoint file loaded as ABSENT has no revision, yet two windows that both saw it
+   *  absent hold the same base. Omitted, `revision()` is the base (see `announcedRevision`). */
+  revisionBase?(): string | null;
   /** §4: adopt `rev` as this instance's current revision without a load/save. */
   adoptRevision?(rev: string): void;
   /** §4: make the next `save()` skip the revision compare and force a rewrite, then clear itself.
@@ -650,7 +655,7 @@ export function jsonToWorkspace(
       // sanitized-HTML fields (noteLog[].html / description) that CSV/MD/Turso
       // scrub on load but the whole-object JSON cast would pass through verbatim.
       tasks: (p.tasks as Task[]).map(migrateTask).map(sanitizeNoteFields).map(withLiteralCalendarOptOut),
-      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields).map((r) => withNormalizedEmailField(r, "ownerEmail")).map(withLiteralCalendarOptOut),
+      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields).map(capRaidStoredText).map((r) => withNormalizedEmailField(r, "ownerEmail")).map(withLiteralCalendarOptOut),
       absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeLoadedAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
       resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),
@@ -866,4 +871,10 @@ export function jsonToWorkspace(
     if (strict) throw new WorkspaceParseError("shape");
     return emptyWorkspace();
   }
+}
+
+/** §656 m2 — the base a revision message carries for `backend`, and the one a receiver compares it with:
+ *  `revisionBase()` where the backend has one, else `revision()`. `null` posts and adopts nothing. */
+export function announcedRevision(backend: StorageBackend): string | null {
+  return backend.revisionBase?.() ?? backend.revision?.() ?? null;
 }

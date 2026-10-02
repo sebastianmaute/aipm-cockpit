@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "../icons";
-import { t, type Lang, type TranslationKey } from "../i18n";
+import { t, type Lang, type TranslationKey, type PluralBaseKey, tPlural } from "../i18n";
 import { FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
 import { FOCUSABLE_SELECTOR } from "../focusables";
@@ -79,7 +79,7 @@ function UndoRedoControl({
    *  entry" (which is what the retired "Show next undo" strings claimed). */
   historyButtonKey: TranslationKey;
   historyLabelKey: TranslationKey;
-  countKey: TranslationKey;
+  countKey: PluralBaseKey;
   lang: Lang;
   icon: ReactNode;
   /** Guided-tour anchor on the root element; absent from the DOM with the control when the stack is empty. */
@@ -340,7 +340,7 @@ function UndoRedoControl({
           })}
         </ul>
         <p className="mt-2 border-t border-line pt-2 text-xs font-medium text-muted-foreground">
-          {t(lang, countKey, active + 1)}
+          {tPlural(lang, countKey, active + 1, active + 1)}
         </p>
       </PopoverPanel>
     </span>

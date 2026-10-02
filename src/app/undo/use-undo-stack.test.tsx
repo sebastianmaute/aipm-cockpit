@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel } from "./use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange, capturePart, captureFieldPart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
-import { t } from "../i18n";
+import { loadI18n, t, tPlural } from "../i18n";
 
 type Row = { id: number; name: string };
 type Ref = { id: number; roleId: number | null };
@@ -311,6 +311,68 @@ describe("useUndoStack", () => {
     // live NEW-ROLE (id 7) is untouched — no silent wrong-FK corruption.
     expect(roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
     expect(refs).toEqual([{ id: 1, roleId: 8 }]);
+  });
+
+  // A reference NESTED in a field (a task's `dependencies[].taskId`) cannot be named by `fkRemapField`.
+  // `remapBefore` gets the primary's id-remap and rewrites it, so a field-patch cascade follows a re-mint.
+  it("a field-patch cascade follows the primary re-mint through remapBefore", () => {
+    type Dep = { taskId: number; type: string };
+    type T = { id: number; name: string; dependencies?: Dep[] };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let tasks: readonly T[] = [{ id: 7, name: "Doomed" }, { id: 1, name: "Dependent", dependencies: [{ taskId: 7, type: "FS" }] }];
+    const before = tasks;
+    const setTasks = (u: SetStateAction<readonly T[]>) => { tasks = typeof u === "function" ? u(tasks) : u; };
+    tasks = [{ id: 1, name: "Dependent", dependencies: [] }]; // the delete strips the link
+    const remapBefore = (b: Partial<T>, remap: ReadonlyMap<number, number>): Partial<T> => ({
+      ...b,
+      dependencies: b.dependencies?.map((d) => (remap.has(d.taskId) ? { ...d, taskId: remap.get(d.taskId)! } : d)),
+    });
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setTasks, removed: [before[0]], fromArray: before, isPrimary: true }),
+          captureFieldPart<T>({
+            setter: setTasks,
+            edits: [{ id: 1, before: { dependencies: [{ taskId: 7, type: "FS" }] }, after: { dependencies: [] } }],
+            remapBefore,
+          }),
+        ],
+      });
+    });
+    tasks = [...tasks, { id: 7, name: "NEW" }]; // a new task reuses the freed id 7 before undo
+    act(() => result.current.undo());
+    const doomed = tasks.find((x) => x.name === "Doomed")!;
+    expect(doomed.id).not.toBe(7); // re-minted
+    expect(tasks.find((x) => x.id === 1)?.dependencies).toEqual([{ taskId: doomed.id, type: "FS" }]);
+    expect(tasks.find((x) => x.name === "NEW")?.id).toBe(7);
+  });
+
+  it("remapBefore leaves the link at the original id when no re-mint happens", () => {
+    type Dep = { taskId: number; type: string };
+    type T = { id: number; name: string; dependencies?: Dep[] };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let tasks: readonly T[] = [{ id: 7, name: "Doomed" }, { id: 1, name: "Dependent", dependencies: [{ taskId: 7, type: "FS" }] }];
+    const before = tasks;
+    const setTasks = (u: SetStateAction<readonly T[]>) => { tasks = typeof u === "function" ? u(tasks) : u; };
+    tasks = [{ id: 1, name: "Dependent", dependencies: [] }];
+    const remapBefore = vi.fn((b: Partial<T>) => b);
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setTasks, removed: [before[0]], fromArray: before, isPrimary: true }),
+          captureFieldPart<T>({ setter: setTasks, edits: [{ id: 1, before: { dependencies: [{ taskId: 7, type: "FS" }] }, after: { dependencies: [] } }], remapBefore }),
+        ],
+      });
+    });
+    act(() => result.current.undo());
+    expect(tasks.find((x) => x.id === 1)?.dependencies).toEqual([{ taskId: 7, type: "FS" }]);
+    expect(remapBefore).not.toHaveBeenCalled(); // never called with an empty remap
   });
 
   it("composite cascade FK restores to the ORIGINAL id when no re-mint happens", () => {
@@ -649,17 +711,44 @@ describe("useUndoStack", () => {
   });
 });
 
+// §132 — an UNNAMED edit of a known entity (the task successor fan-out writes several targets and names
+// none) used to fall through to the entity-less "Edited 3 items". It now names the entity, as the
+// delete side always did with `undoLabelDeleteCount`.
+describe("buildUndoLabel — an unnamed multi-row edit names its entity (§132)", () => {
+  it("labels an unnamed task edit by count and entity, singular and plural", () => {
+    expect(buildUndoLabel("en-US", "task.updated", 3)).toBe(t("en-US", "undoLabelEditCount", 3, t("en-US", "undoEntityTasks")));
+    expect(buildUndoLabel("en-US", "task.updated", 3)).toBe("Edit 3 tasks");
+    expect(buildUndoLabel("en-US", "task.updated", 1)).toBe("Edit 1 task");
+  });
+
+  // ★ Six entities had no plural noun ("only ever named, count 1") and would have read "Edit 3 absence".
+  it("has a real plural noun for every entity, so a count never reads with the singular", () => {
+    expect(buildUndoLabel("en-US", "absence.updated", 3)).toBe("Edit 3 absences");
+    expect(buildUndoLabel("en-US", "calendarEvent.updated", 2)).toBe("Edit 2 meetings");
+  });
+
+  it("does the same in German", async () => {
+    await loadI18n("de");
+    expect(buildUndoLabel("de", "task.updated", 3)).toBe("3 Aufgaben bearbeiten");
+  });
+
+  it("an explicit entityKey reaches it too, and an unresolvable entity keeps the generic label", () => {
+    expect(buildUndoLabel("en-US", "jira.sync" as ActivityKind, 2, { entityKey: "raid" })).toBe(t("en-US", "undoLabelEditCount", 2, t("en-US", "undoEntityRaids")));
+    expect(buildUndoLabel("en-US", "jira.sync" as ActivityKind, 2)).toBe(tPlural("en-US", "undoToastEdit", 2, 2));
+  });
+});
+
 describe("buildUndoLabel — entity registration", () => {
   // ★ Regression guard for a gap that shipped silently. buildUndoLabel resolves
   // the entity from the kind's prefix via ENTITY_KEY_SET; an unregistered prefix
   // yields `null` and the function returns its generic fallback BEFORE reading
   // `opts.name`. So a capture site can correctly pass the entity's title and
-  // still get "Deleted 1 item(s)" — restore works, only the label is wrong,
+  // still get "Deleted 1 item" — restore works, only the label is wrong,
   // which no functional test can see. calendarEvent shipped exactly that way.
   it("names a calendar event on delete instead of falling back to the generic label", () => {
     const label = buildUndoLabel("en-US", "calendarEvent.deleted", 1, { name: "Sprint Planning" });
     expect(label).toBe('Delete meeting "Sprint Planning"');
-    expect(label).not.toBe("Deleted 1 item(s)");
+    expect(label).not.toBe("Deleted 1 item");
   });
 
   it("names a calendar event on edit", () => {
@@ -682,7 +771,7 @@ describe("buildUndoLabel — entity registration", () => {
     // and the sweep would then report zero unnamed entities for EVERY future
     // omission — passing vacuously at exactly the moment it should fail. That
     // is the same silent-fallback class this whole test exists to catch.
-    const generic = [t("en-US", "undoToastDelete", 1), t("en-US", "undoToastEdit", 1)];
+    const generic = [tPlural("en-US", "undoToastDelete", 1, 1), tPlural("en-US", "undoToastEdit", 1, 1)];
     const prefixes = new Set(
       (Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[])
         .filter((k) => k.endsWith(".created") || k.endsWith(".updated") || k.endsWith(".deleted"))
@@ -717,10 +806,10 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     // `"bulk"` is not in ENTITY_KEY_SET, so this takes buildUndoLabel's generic
     // `if (!key)` arm — where the ONLY thing choosing the wording is the
     // predicate under test.
-    expect(buildUndoLabel("en-US", "bulk.delete", 3)).toBe("Deleted 3 item(s)");
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).toBe("Deleted 3 items");
     // The pre-fix output, spelled out: the naive suffix test sent this kind
     // down the same arm's edit side.
-    expect(buildUndoLabel("en-US", "bulk.delete", 3)).not.toBe("Edited 3 item(s)");
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).not.toBe("Edited 3 items");
   });
 
   // ★★★ THE PART EVERY EARLIER READING GOT WRONG. `buildUndoLabel` resolves
@@ -735,7 +824,7 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     // no such string) but the count-only edit fallback at the end of the entity
     // arm — the noun was resolved and then dropped on the floor.
     expect(buildUndoLabel("en-US", "bulk.delete", 3, { entityKey: "task" })).not.toBe(
-      "Edited 3 item(s)",
+      "Edited 3 items",
     );
   });
 
@@ -756,7 +845,7 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     });
     expect(deps.showToastAction).toHaveBeenCalledWith(
       "info",
-      "Deleted 3 item(s)",
+      "Deleted 3 items",
       expect.objectContaining({ labelKey: "undo" }),
     );
     // The control: the entry really was pushed, so a toast that never fired
@@ -1571,3 +1660,130 @@ describe("useUndoStack — project scope (§628)", () => {
     expect(deps.logActivity).toHaveBeenCalledTimes(2);
   });
 });
+
+// §299 — undoing (or redoing) a mark-done flips delivered-ness, and the undo row
+// is the ONE audit row for it: it carries a `task.completed` / `task.reopened`
+// pair (forward counts) so the completion trend seeds that day.
+describe("undo/redo rows name the delivered-ness they reverse (§299)", () => {
+  type TaskRow = { id: number; status: string; completedDate?: string };
+  function setup() {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let rows: readonly TaskRow[] = [{ id: 1, status: "Done", completedDate: "2026-06-20" }];
+    const setter = (u: SetStateAction<readonly TaskRow[]>) => { rows = typeof u === "function" ? u(rows) : u; };
+    return { deps, result, setter, read: () => rows };
+  }
+
+  it("a mark-done captured by captureFieldEdit logs its completion pair on undo AND on redo", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "task.updated", id: 1,
+        before: { status: "To Do", completedDate: "" }, after: { status: "Done", completedDate: "2026-06-20" },
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1, "task.completed", 1);
+    act(() => result.current.redo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 1, "task.updated", 1, "task.completed", 1);
+  });
+
+  it("a reopen logs a task.reopened pair", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "task.updated", id: 1,
+        before: { status: "Done", completedDate: "2026-06-20" }, after: { status: "In Progress", completedDate: "" },
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1, "task.reopened", 1);
+  });
+
+  it("a bulk status edit sums its flips (captureFieldRows)", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldRows({
+        setter, kind: "bulk.edit", entityKey: "task",
+        edits: [
+          { id: 1, before: { completedDate: "" }, after: { completedDate: "2026-06-20" } },
+          { id: 2, before: { completedDate: "" }, after: { completedDate: "2026-06-20" } },
+          { id: 3, before: { status: "To Do" }, after: { status: "Blocked" } },
+        ],
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 3, "bulk.edit", 3, "task.completed", 2);
+  });
+
+  it("an edit that flips nothing, or a non-task entity, adds no pair", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({ setter, kind: "task.updated", id: 1, before: { status: "To Do" }, after: { status: "Blocked" } });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1);
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "milestone.updated", id: 1,
+        before: { completedDate: "" }, after: { completedDate: "2026-06-20" },
+      } as unknown as Parameters<typeof result.current.captureFieldEdit>[0]);
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "milestone.updated", 1);
+  });
+});
+
+describe("§177b — capture with editedAfter is a field patch", () => {
+  type Item = { id: number; name: string; note: string };
+
+  it("fieldEditsFromRows keeps only the keys whose value changed", () => {
+    const shared = { a: 1 };
+    const before = [{ id: 1, name: "a", note: "n", meta: shared }, { id: 2, name: "b", note: "n", meta: shared }];
+    const after = [{ id: 1, name: "A", note: "n", meta: shared }, { id: 2, name: "b", note: "n", meta: shared }];
+    expect(fieldEditsFromRows(before, after)).toEqual([{ id: 1, before: { name: "a" }, after: { name: "A" } }]);
+  });
+
+  function harness(initial: Item[]) {
+    return renderHook(() => {
+      const [rows, setRows] = useState<readonly Item[]>(initial);
+      const undo = useUndoStack(makeDeps());
+      return { rows, setRows: setRows as Dispatch<SetStateAction<readonly Item[]>>, undo };
+    });
+  }
+
+  it("undo reverts the edited key and restores removed rows, keeping a concurrent edit", () => {
+    const start: Item[] = [{ id: 1, name: "keep", note: "" }, { id: 2, name: "gone", note: "" }];
+    const { result } = harness(start);
+    const written = [{ ...start[0], name: "merged" }];
+    act(() => {
+      result.current.setRows(written);
+      result.current.undo.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [start[1]], edited: [start[0]], editedAfter: written, fromArray: start,
+      });
+    });
+    // Another writer touches a DIFFERENT field of the edited row.
+    act(() => result.current.setRows((prev) => prev.map((r) => (r.id === 1 ? { ...r, note: "added" } : r))));
+    act(() => result.current.undo.undo());
+    expect([...result.current.rows].sort((a, b) => a.id - b.id)).toEqual([
+      { id: 1, name: "keep", note: "added" },
+      { id: 2, name: "gone", note: "" },
+    ]);
+    act(() => result.current.undo.redo());
+    expect(result.current.rows).toEqual([{ id: 1, name: "merged", note: "added" }]);
+  });
+
+  it("without editedAfter the whole-row capture still reverts the concurrent edit (the contrast)", () => {
+    const start: Item[] = [{ id: 1, name: "keep", note: "" }];
+    const { result } = harness(start);
+    act(() => {
+      result.current.setRows([{ ...start[0], name: "merged" }]);
+      result.current.undo.capture({ setter: result.current.setRows, kind: "bulk.edit", edited: [start[0]], fromArray: start });
+    });
+    act(() => result.current.setRows((prev) => prev.map((r) => ({ ...r, note: "added" }))));
+    act(() => result.current.undo.undo());
+    expect(result.current.rows[0].note).toBe("");
+  });
+});
+

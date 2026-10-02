@@ -75,7 +75,7 @@ describe("callInlineEdit", () => {
       snapshot: {
         ...snapshot,
         viewDigest:
-          "12 task(s) visible in the table.\nVisible rows: #7 Somebody else's task [To Do]",
+          "12 tasks visible as rows in the table.\nVisible rows: #7 Somebody else's task [To Do]",
       },
       guides: [], groundInGuides: false,
     });

@@ -30,6 +30,7 @@ import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { DocTruncationDiag } from "./document-model";
 import type { TursoConfig } from "./turso-config";
 import { SaveConflictError } from "./storage-error";
+import { sanitizeDecodedRichFields } from "./workspace-rich-sanitize";
 
 interface LoadResult { ws: Workspace; revision: string }
 
@@ -165,7 +166,10 @@ export class TursoBackend implements StorageBackend {
         : await this.loadTenant(this.projectId, diag);
       // §4 — the revision read in the SAME pipeline as the data it describes.
       this.adoptRevision(revision);
-      return ws;
+      // §28 — `rowsToWorkspace` is DOM-free, so the rich fields are sanitized
+      // here. (The legacy-blob branch went through `jsonToWorkspace`, which
+      // already did; the pass is idempotent, so running it again is harmless.)
+      return sanitizeDecodedRichFields(ws);
     } catch (err) {
       this.currentRevision = null; // §4 — a failed load leaves the revision unknown: the next save refuses.
       throw err;

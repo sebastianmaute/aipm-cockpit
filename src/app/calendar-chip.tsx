@@ -64,7 +64,7 @@ export function CalendarChip({
       className={`${BASE_CLASS} ${STRIPE_CLASS} ${INTERACTIVE} ${className}`}
     >
       {moved && (
-        <span data-moved-marker aria-hidden="true" className="shrink-0 text-ui-dark-blue">
+        <span data-moved-marker aria-hidden="true" className="shrink-0 text-ui-dark-blue dark:text-ui-light-grey">
           <ArrowUturnRightIcon className="h-3 w-3" />
         </span>
       )}

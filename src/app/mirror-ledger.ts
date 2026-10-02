@@ -24,10 +24,29 @@
 //   does — kept, that dead entry made every later mirror of any part count as own (review I1 on 9c639dc21).
 //   ★ The one exception: an own edit back to the exact landed-on reference keeps the dead entry. That only
 //   errs toward writing (a later mirror of another part is saved again), never toward skipping a write.
+// - ★★ §656 — A TIE IS NOT A CONTEST. Two windows that derive the same slice from the same stored value
+//   (the insights reconcile at load) each hold an own unsaved copy and each receive the other's, so both
+//   would count it contested and both would save it: an extra revision, and on a slow backend a false
+//   conflict banner for whichever lands second. When the peer's value has the SAME CONTENT as `live`,
+//   `judge` takes a `tie` verdict from the caller, decided by window id so the two windows decide
+//   opposite ways: "yield" mirrors it (the peer saves it), "keep" contests it (this window saves it).
+//   Different content stays contested both ways, so a real collision is still reported, never dropped.
 
 import type { Workspace } from "./storage";
 
 type Kind = keyof Workspace;
+
+/** §656 — for an own unsaved value a peer value equals in content: "yield" leaves it to the peer to save. */
+export type TieVerdict = "keep" | "yield";
+
+/** Same content, as storage would hold it. Slices are plain JSON data; a value that cannot be serialised is never equal. */
+function sameContent(a: unknown, b: unknown): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
 
 export type MirrorLedger = {
   /** The window loaded `ws`: storage holds it, so nothing is mirrored or contested any more. */
@@ -35,12 +54,15 @@ export type MirrorLedger = {
   /** The window's write of `ws` landed. A slice keeps its entry (and its contested mark) only when `ws` holds
    *  the value its peer values landed on: they arrived after the snapshot, so their writer still saves them. */
   markWritten(ws: Workspace): void;
-  /** A peer's `value` is being applied over `live` (the updater's `prev`). */
-  judge(kind: Kind, live: unknown, value: unknown): void;
+  /** A peer's `value` is being applied over `live` (the updater's `prev`). `tie` says which window saves a
+   *  value both hold with the same content (§656); omitted, both do. */
+  judge(kind: Kind, live: unknown, value: unknown, tie?: TieVerdict): void;
   /** Once per commit: forget peer values that can no longer arrive as `live`. */
   prune(ws: Workspace): void;
   /** True when every change since `saved` is a value mirrored from a peer. */
   isMirroredOnly(ws: Workspace): boolean;
+  /** True while any slice is contested: both windows edited it within one delivery (§666 reads it). */
+  hasContested(): boolean;
   /** How many peer values `judge` still remembers for `kind` (read-only; for tests and diagnostics). */
   peerValueCount(kind: Kind): number;
 };
@@ -83,11 +105,14 @@ export function createMirrorLedger(): MirrorLedger {
     //   harmlessly. Judging against the LATEST mirrored entry instead flipped the second run to contested, as
     //   the first had just moved that entry to `value`. No early return on "entry already === value": a
     //   replayed render may carry an own edit in `live` that the first run did not see.
-    judge(kind, live, value) {
+    // ★ A "yield" is judged per call like everything else, so a StrictMode replay repeats it. It only
+    //   ever spares a contest: a slice another call already contested stays contested.
+    judge(kind, live, value, tie) {
       const values = peerValues.get(kind) ?? new Set<unknown>();
       if (!values.has(live)) {
         landedOn.set(kind, live);
-        if (!Object.is(live, saved?.[kind])) contested.add(kind);
+        const ownUnsaved = !Object.is(live, saved?.[kind]);
+        if (ownUnsaved && !(tie === "yield" && sameContent(live, value))) contested.add(kind);
       }
       peerValues.set(kind, values.add(value));
       mirrored.set(kind, value);
@@ -125,6 +150,10 @@ export function createMirrorLedger(): MirrorLedger {
         if (!Object.is(ws[key], saved[key])) return false;
       }
       return changed;
+    },
+
+    hasContested() {
+      return contested.size > 0;
     },
 
     peerValueCount(kind) {

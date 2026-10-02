@@ -283,9 +283,17 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // model that `turso` means past conversations WERE searched — so under that
   // flag an empty result reads as "this was never discussed". The three states
   // do not make the same claim:
-  //   in flight       → available. We CAN look; there is simply nothing to
-  //                     show YET, and the empty list above keeps this render's
-  //                     answer honest on its own.
+  //   in flight       → NOT available (§174). This row used to read
+  //                     "available — we CAN look, there is simply nothing to
+  //                     show YET", and the empty list did keep the RENDER
+  //                     honest — but `available` reaches the model as
+  //                     `coverage: "turso"`, which chat-tool-defs.ts defines as
+  //                     "past conversations WERE searched". Over a list the
+  //                     fetch has not filled, that is an assertion that a topic
+  //                     was never discussed. "Not looked yet" is closer to
+  //                     "cannot look" than to "looked, nothing there", so the
+  //                     flag waits for the load for the LIVE project to settle
+  //                     (`threadsMatchProject`), success or failure.
   //   load FAILED     → NOT available. The load's .catch() settles
   //                     `loadedProjectId` too, so `threadsMatchProject` is true
   //                     and a mode-only flag makes a failed fetch
@@ -300,20 +308,21 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // ADVERTISE-THEN-DENY CONTRADICTION. `threadsError` is ALSO raised by
   // runPersist when a SAVE or DELETE fails, and on a failed WRITE the list is
   // still populated and perfectly readable — while `use-chat-search-bindings.ts`
-  // builds the ambient chat pointer from `published.threads` and never consults
-  // `available` (`grep -n available src/app/use-chat-search-bindings.ts` exits
-  // 1). So the system prompt said "There are N earlier conversations in this
+  // built the ambient chat pointer from `published.threads` and, until §173,
+  // never consulted `available`. So the system prompt said "There are N earlier conversations in this
   // project … Use search_chats to read them", the model obeyed, and
   // `search_chats` answered `coverage: "unavailable"` — over threads sitting in
   // memory. Erring toward "I could not look" is the safe direction only for a
   // failure that actually stopped us looking. `threadsError` is unchanged and
   // still drives the sidebar banner and its Retry affordance.
+  // ★★ The pointer DOES consult `available` now (§173), so a payload whose
+  // flag is false never advertises its rows to the model either way.
   const threadsMatchProject = loadedProjectId === projectId;
   useEffect(() => {
     publishChatThreads(projectId, {
       threads: tursoMode && threadsMatchProject ? threads : [],
       activeThreadId: tursoMode && threadsMatchProject ? activeThreadId : null,
-      available: tursoMode && !loadFailed,
+      available: tursoMode && threadsMatchProject && !loadFailed,
     });
     // ★★ Clearing on unmount is not optional: withdrawing AI consent unmounts
     // the chat panel (it renders a consent screen instead) and nothing else in

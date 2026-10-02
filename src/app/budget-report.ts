@@ -5,7 +5,8 @@ import type {
   Absence, BudgetBucket, FxRates, PlanGranularity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
-import { currencyToEur } from "./fx";
+import { isContractPriced } from "./types";
+import { currencyToEur, planCurrencyPerEur } from "./fx";
 import {
   blendedDisciplineRate,
   disciplineHasUnpricedGrade,
@@ -154,10 +155,9 @@ export type BucketReport = {
   plannedHours: number;
   actualHours: number;
   /** All amounts in EUR. A fixed-price bucket's contract amount is converted
-   *  from the bucket currency by `computeBucketReport`; role-rate figures are
-   *  EUR already. Converted to the bucket currency only at display.
-   *  ★ "EUR" here assumes `plan.currency === "EUR"`, which is what role rates
-   *  are denominated in — see ResourcePlan.currency. */
+   *  from the bucket currency, and every role-rate figure from the PLAN
+   *  currency (§473, `bucketRateRows`), by `computeBucketReport`. Converted to
+   *  the bucket currency only at display. */
   budgetValue: number;
   consumedValue: number;
   revenue: number;
@@ -226,8 +226,18 @@ export type RateRow = {
 };
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
- *  or allocations (detailed). Each row's rate honors the per-bucket override. */
-export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
+ *  or allocations (detailed). Each row's rate honors the per-bucket override.
+ *  ★★ §473 — rates are stored in the PLAN currency; `planPerEur` (from
+ *  `planCurrencyPerEur`) converts them to EUR here, at the one place every
+ *  money consumer reads them, so cost, T&M revenue, burndown, rate mix and
+ *  forecast all agree. It defaults to 1 for callers that read HOURS only. */
+export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[], planPerEur = 1): RateRow[] {
+  const rows = bucketRateRowsInPlanCurrency(bucket, roles);
+  if (planPerEur === 1) return rows;
+  return rows.map((r) => ({ ...r, rates: { internal: r.rates.internal / planPerEur, external: r.rates.external / planPerEur } }));
+}
+
+function bucketRateRowsInPlanCurrency(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
   if (bucket.planningMode === "blended") {
     // An internal override wins over the blend, so it also clears the poison:
     // a bucket that overrides does not care what the rate card holds.
@@ -262,9 +272,9 @@ export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): Ra
 }
 
 /**
- * Compute a single bucket's report. All money is in EUR: role rates are EUR,
- * and a fixed-price bucket's contract amount is converted from the bucket
- * currency via `currencyToEur` at the one read below.
+ * Compute a single bucket's report. All money is in EUR: role rates (plan
+ * currency) are converted by `bucketRateRows`, and a fixed-price bucket's
+ * contract amount from the bucket currency via `currencyToEur` below (§473).
  * `spilloverInHours`/`spilloverInValue` are the remaining budget rolled in
  * from a closed predecessor; the caller supplies them, already in EUR.
  */
@@ -300,7 +310,7 @@ export function computeBucketReport(
   // Built once and threaded into the per-row×period planned/budget helpers so
   // they don't rebuild the id→resource index on every cell.
   const resourcesById = new Map(resources.map((r) => [r.id, r]));
-  const rows = bucketRateRows(bucket, roles);
+  const rows = bucketRateRows(bucket, roles, planCurrencyPerEur(plan.currency, bucket, fxRates));
   // TWO questions, three states, ONE enum (`costUnknownReason`, derived below) —
   // the exported `costIsKnowable`/`ratesMissing` helpers read it, replacing the
   // pair of boolean fields this used to carry. Collapsing the two questions into
@@ -382,11 +392,16 @@ export function computeBucketReport(
     : !hasRatedRow ? "no-rates"
     : "unrated-hours";
 
-  const isFixed = bucket.type === "fixed";
+  const isFixed = isContractPriced(bucket.type);
+  // §488 — an end-to-end contract consumes by COST, uncapped (see BudgetType).
+  const isEndToEnd = bucket.type === "e2e";
   // The contract amount is stored in the BUCKET's currency (see
-  // BudgetBucket.fixedPriceAmount). Every other money term here is EUR by
-  // construction — role rates are EUR — so it is converted once, here, at the
-  // engine's only read of the field. Before this existed the fixed branch put a
+  // BudgetBucket.fixedPriceAmount). Every other money term here is already EUR
+  // — `bucketRateRows` converted the plan-currency rates (§473) — so it is
+  // converted once, here, at the engine's only read of the field. When plan and
+  // bucket share a non-EUR currency both divide by the SAME rate
+  // (`planCurrencyPerEur` reuses the bucket's resolution), so the margin is the
+  // contract-currency margin, converted. Before this existed the fixed branch put a
   // foreign number straight into revenue/budgetValue and the margin subtracted
   // an EUR cost from it (open-followups §465).
   const fixedPrice = currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates);
@@ -399,9 +414,11 @@ export function computeBucketReport(
   // out a second time would let the fixed-price branch drift between them.
   const ownBudgetValue = isFixed ? fixedPrice : budgetValueExternal;
   const budgetValue = isFixed ? ownBudgetValue : ownBudgetValue + spilloverInValue;
-  const consumedValue = isFixed
-    ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
-    : tmRevenue;
+  const consumedValue = isEndToEnd
+    ? cost
+    : isFixed
+      ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
+      : tmRevenue;
 
   // The badge is suppressed only when the two DISPLAYED figures are the same
   // number. Row structure alone is not enough: the reported budget hours carry
@@ -427,7 +444,9 @@ export function computeBucketReport(
   const ownWinLossValue = isFixed ? revenue - cost : ownBudgetValue - consumedValue;
 
   // For fixed-price with no budgeted hours, consumption % is meaningless.
-  const consumptionPercent = isFixed && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
+  // An end-to-end bucket's consumption is cost over the contract, which needs
+  // no budgeted hours at all (`pct` answers null for a zero contract).
+  const consumptionPercent = isFixed && !isEndToEnd && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
 
   // Earned value rides the SAME cost-knowability gate as `cost`/`budgetCost`:
   // a rateless/unrated bucket's `budgetCost` collapses to 0 like `cost` does,

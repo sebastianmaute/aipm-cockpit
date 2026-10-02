@@ -161,6 +161,15 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(/amount must be zero or greater/i)).toBeInTheDocument();
   });
 
+  test("converts a fixed-price bucket to end-to-end, keeping the contract amount (§488)", () => {
+    const { onSave } = setup({ bucket: { ...baseBucket, type: "fixed", fixedPriceAmount: 20000 } });
+    fireEvent.click(screen.getByRole("radio", { name: "End-to-end (fixed price)" }));
+    // Still contract-priced, so the amount stays on screen and in the draft.
+    expect(screen.getByDisplayValue("20000")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ type: "e2e", fixedPriceAmount: 20000 }));
+  });
+
   test("zero/negative FX override blocks save", () => {
     // Currency USD, not the baseBucket default of EUR — the field is gated off on
     // an EUR bucket (§475); this test is about the zero/negative validation, not that gate.

@@ -12,7 +12,8 @@
 // never silently dropped. The budget and its honest limits are documented at
 // BODY_LINES_PER_SLIDE — in `doc-render-pptx-slides.ts`, with `paginateLines`
 // and `lineCost`; the short version is that PowerPoint does not shrink this
-// text to fit, so unbounded content runs off the slide invisibly.
+// text to fit, so the budget estimates wrapped lines (§94) and only a chunk
+// that still cannot fit asks for shrink-to-fit.
 //
 // ★ Both rules are stated here on purpose. They are decisions, not properties
 // of the format, and each is pinned by its own tests — segmentation through

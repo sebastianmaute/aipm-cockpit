@@ -8,7 +8,7 @@
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, type TranslationKey, tPlural } from "./i18n";
 import {
   CHANGE_STATUSES,
   CHANGE_TYPES,
@@ -226,7 +226,7 @@ export function ChangeEditModal({
       impactDescription: capRich(draft.impactDescription) || undefined,
       resolutionNotes: capRich(draft.resolutionNotes) || undefined,
     };
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave(saved);
   }
 

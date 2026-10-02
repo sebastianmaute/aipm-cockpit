@@ -89,7 +89,7 @@ function DigestSection({ heading, rows, lang, onOpenInsight }: DigestSectionProp
                   type="button"
                   aria-label={accessibleName}
                   onClick={() => onOpenInsight?.(insight)}
-                  className={`rounded-sm text-left text-xs text-foreground hover:text-ui-dark-blue ${INTERACTIVE}`}
+                  className={`rounded-sm text-left text-xs text-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
                 >
                   {label}
                 </button>

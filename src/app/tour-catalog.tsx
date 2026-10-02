@@ -33,7 +33,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
             <span
               aria-hidden="true"
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                isDone ? "bg-ui-green/15 text-ui-green-strong" : "bg-surface-muted text-ui-dark-blue"
+                isDone ? "bg-ui-green/15 text-ui-green-strong" : "bg-surface-muted text-ui-dark-blue dark:text-ui-light-grey"
               }`}
             >
               {isDone ? "✓" : <NavIcon view={tour.iconView} className="h-4 w-4" />}

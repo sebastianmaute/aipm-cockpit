@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -11,8 +11,10 @@ import { useResizable } from "./use-resizable";
 import { SegmentedControl } from "./segmented-control";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
+import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import {
   BUDGET_TYPES,
+  isContractPriced,
   SUPPORTED_CURRENCIES,
   type BudgetBucket,
   type BudgetCurrency,
@@ -251,7 +253,7 @@ export function BudgetBucketModal({
       setError(t(lang, "budgetDateRangeInvalid"));
       return;
     }
-    if (draft.type === "fixed" && draft.fixedPriceAmount != null &&
+    if (isContractPriced(draft.type) && draft.fixedPriceAmount != null &&
         (!Number.isFinite(draft.fixedPriceAmount) || draft.fixedPriceAmount < 0)) {
       return setError(t(lang, "budgetAmountInvalid"));
     }
@@ -276,7 +278,7 @@ export function BudgetBucketModal({
     const savedPoNumber = draft.poNumber != null
       ? adj.track(describeTextCap(draft.poNumber, PO_NUMBER_MAX)).trim() || undefined
       : undefined;
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave({ ...draft, fxRateOverride, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
   };
 
@@ -292,7 +294,9 @@ export function BudgetBucketModal({
     }));
   };
 
-  const isFixed = draft.type === "fixed";
+  // §488 — "e2e" is contract-priced too, so switching a fixed bucket to it
+  // keeps the amount field (and the amount) on screen: that IS the conversion.
+  const isFixed = isContractPriced(draft.type);
 
   return (
     <Modal
@@ -372,10 +376,7 @@ export function BudgetBucketModal({
               ariaLabel={t(lang, "budgetType")}
               options={BUDGET_TYPES.map((bt) => ({
                 value: bt,
-                label: t(
-                  lang,
-                  bt === "fixed" ? "budgetTypeFixed" : "budgetTypeTm",
-                ),
+                label: t(lang, BUDGET_TYPE_LABEL[bt]),
               }))}
               onChange={(type) => setDraft((d) => ({ ...d, type }))}
             />

@@ -114,6 +114,18 @@ function opBlocksIsNotAnArray(op: DocOp): boolean {
   return !Array.isArray((op as { blocks?: unknown }).blocks);
 }
 
+/** The tail every concurrent-writer refusal in `applyOps` ends with — the
+ *  `replace`, `delete` and `move` guards alike. It is the rejection's CODE:
+ *  this module is i18n-free by contract, so a surface that shows reasons to a
+ *  user recognises a conflict with `isWriterConflictReason` and maps it to
+ *  its own translated string, keeping the engine text as diagnostic detail
+ *  (§186). The model still reads the engine text as-is. */
+export const WRITER_CONFLICT_REASON = "was changed by another writer";
+
+export function isWriterConflictReason(reason: string): boolean {
+  return reason.endsWith(WRITER_CONFLICT_REASON);
+}
+
 /** Apply ops LEFT TO RIGHT against the evolving array. An index is resolved
  *  against the array as it stands at that step, which is the only reading a
  *  model can act on deterministically — `[delete 0, delete 0]` means "the
@@ -169,13 +181,13 @@ export function applyOps(
         //  refuses is one unblurred keystroke burst the user can retype. The
         //  reason reaches them through the panel's existing refusal banner.
         if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
-          rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
+          rejected.push(`op ${i}: replace index ${op.index} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         // ★ The message deliberately MATCHES the `expect` one above: same
         //  cause, and the model should not have to learn two.
         if (op.expectHash !== undefined && blockToken(next[op.index]) !== op.expectHash) {
-          rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
+          rejected.push(`op ${i}: replace index ${op.index} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         next[op.index] = op.block;
@@ -187,11 +199,11 @@ export function applyOps(
           break;
         }
         if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
-          rejected.push(`op ${i}: delete index ${op.index} was changed by another writer`);
+          rejected.push(`op ${i}: delete index ${op.index} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         if (op.expectHash !== undefined && blockToken(next[op.index]) !== op.expectHash) {
-          rejected.push(`op ${i}: delete index ${op.index} was changed by another writer`);
+          rejected.push(`op ${i}: delete index ${op.index} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         next.splice(op.index, 1);
@@ -218,11 +230,11 @@ export function applyOps(
           break;
         }
         if (op.expect !== undefined && blockChanged(op.expect, next[op.from])) {
-          rejected.push(`op ${i}: move index ${op.from} was changed by another writer`);
+          rejected.push(`op ${i}: move index ${op.from} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         if (op.expectHash !== undefined && blockToken(next[op.from]) !== op.expectHash) {
-          rejected.push(`op ${i}: move index ${op.from} was changed by another writer`);
+          rejected.push(`op ${i}: move index ${op.from} ${WRITER_CONFLICT_REASON}`);
           break;
         }
         const [moved] = next.splice(op.from, 1);
