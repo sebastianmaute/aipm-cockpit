@@ -10,6 +10,9 @@ import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { mergeFieldPatch } from "./merge-field-value";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "../scope-epoch";
 import {
+  completionFlipsOf,
+  sumCompletionFlips,
+  type CompletionFlips,
   applyUndoRestoreWithRemap,
   applyUndoForward,
   buildBeforeImages,
@@ -550,6 +553,9 @@ export interface CaptureCompositeOpts {
    *  earlier than the push (`useUndoBatch.runBatched` stamps it when the batch
    *  opens). Omitted → the epoch at push time. A stale value refuses the push. */
   readEpoch?: number;
+  /** §299 — delivered-ness the op flipped. A composite's fragments are opaque,
+   *  so the caller says; omitted = none. */
+  completionFlips?: CompletionFlips;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -827,7 +833,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     kind: ActivityKind,
     primaryCount: number,
     run: Runner,
-    labelOpts?: { name?: string; entityKey?: UndoEntityKey },
+    labelOpts?: { name?: string; entityKey?: UndoEntityKey; completionFlips?: CompletionFlips },
     toastText?: string,
     readEpoch?: number,
   ) => {
@@ -840,6 +846,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
+    // §299 — carried so the undo/redo activity row can name the delivered-ness it reverses.
+    if (labelOpts?.completionFlips) meta.completionFlips = labelOpts.completionFlips;
     // §628 — stamp the scope the images were READ in; a restore entry point drops
     // the entry once the epoch has moved on. For a synchronous capture that is
     // the epoch now. ★★ For one that straddles an await it is NOT: the only such
@@ -886,19 +894,25 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // single-field redo and the next unrelated save would spend it.
     function runUndo(): Runner { merge(before); return runRedo; }
     function runRedo(): Runner { merge(after); return runUndo; }
-    pushEntry(kind, 1, runUndo, { name });
+    // §299 — a task patch carrying `completedDate` may flip delivered-ness (the
+    // inline status select, the swimlane and the task modal all land here).
+    const completionFlips = kind.startsWith("task.") ? completionFlipsOf(before, after) : undefined;
+    pushEntry(kind, 1, runUndo, { name, completionFlips });
   }, [pushEntry]);
 
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText, opts.readEpoch);
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey, completionFlips: opts.completionFlips }, opts.toastText, opts.readEpoch);
   }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {
     const part = captureFieldPart<T>({ setter: opts.setter, edits: opts.edits, stampField: opts.stampField });
     if (part === null) return;
-    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey });
+    // §299 — a bulk status edit flips delivered-ness row by row.
+    const isTask = opts.entityKey === "task" || opts.kind.startsWith("task.");
+    const completionFlips = isTask ? sumCompletionFlips(opts.edits.map((e) => completionFlipsOf(e.before, e.after))) : undefined;
+    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey, completionFlips });
   }, [pushEntry]);
 
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);

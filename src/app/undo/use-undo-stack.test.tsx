@@ -1571,3 +1571,76 @@ describe("useUndoStack — project scope (§628)", () => {
     expect(deps.logActivity).toHaveBeenCalledTimes(2);
   });
 });
+
+// §299 — undoing (or redoing) a mark-done flips delivered-ness, and the undo row
+// is the ONE audit row for it: it carries a `task.completed` / `task.reopened`
+// pair (forward counts) so the completion trend seeds that day.
+describe("undo/redo rows name the delivered-ness they reverse (§299)", () => {
+  type TaskRow = { id: number; status: string; completedDate?: string };
+  function setup() {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let rows: readonly TaskRow[] = [{ id: 1, status: "Done", completedDate: "2026-06-20" }];
+    const setter = (u: SetStateAction<readonly TaskRow[]>) => { rows = typeof u === "function" ? u(rows) : u; };
+    return { deps, result, setter, read: () => rows };
+  }
+
+  it("a mark-done captured by captureFieldEdit logs its completion pair on undo AND on redo", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "task.updated", id: 1,
+        before: { status: "To Do", completedDate: "" }, after: { status: "Done", completedDate: "2026-06-20" },
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1, "task.completed", 1);
+    act(() => result.current.redo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 1, "task.updated", 1, "task.completed", 1);
+  });
+
+  it("a reopen logs a task.reopened pair", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "task.updated", id: 1,
+        before: { status: "Done", completedDate: "2026-06-20" }, after: { status: "In Progress", completedDate: "" },
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1, "task.reopened", 1);
+  });
+
+  it("a bulk status edit sums its flips (captureFieldRows)", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldRows({
+        setter, kind: "bulk.edit", entityKey: "task",
+        edits: [
+          { id: 1, before: { completedDate: "" }, after: { completedDate: "2026-06-20" } },
+          { id: 2, before: { completedDate: "" }, after: { completedDate: "2026-06-20" } },
+          { id: 3, before: { status: "To Do" }, after: { status: "Blocked" } },
+        ],
+      });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 3, "bulk.edit", 3, "task.completed", 2);
+  });
+
+  it("an edit that flips nothing, or a non-task entity, adds no pair", () => {
+    const { deps, result, setter } = setup();
+    act(() => {
+      result.current.captureFieldEdit({ setter, kind: "task.updated", id: 1, before: { status: "To Do" }, after: { status: "Blocked" } });
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "task.updated", 1);
+    act(() => {
+      result.current.captureFieldEdit({
+        setter, kind: "milestone.updated", id: 1,
+        before: { completedDate: "" }, after: { completedDate: "2026-06-20" },
+      } as unknown as Parameters<typeof result.current.captureFieldEdit>[0]);
+    });
+    act(() => result.current.undo());
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "milestone.updated", 1);
+  });
+});

@@ -530,7 +530,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--closed-2026-08-31) | ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ | carved out of §146 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
-| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--closed-2026-10-02) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | **CLOSED** 2026-10-02 |
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31) | ~~The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
@@ -25880,17 +25880,17 @@ feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asse
 and where they do not is the only detector this will ever have — and it should PIN the difference as
 intended, not assert it away.
 
-## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open
+## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: the UNDO ROW owns the day — no separate `task.completed` / `task.reopened` row is written beside it, so nothing double-counts. Built: `UndoMeta.completionFlips` records the forward delivered-ness flips of an undoable op; `reversedKindCounts` appends them as further `(kind, count)` pairs on the undo/redo row; and `completion-trend.ts`'s `reversesCompletion` seeds the row's day from them (dTotal 0 — `reversedForwardDelta` ignores both kinds; the numerator was already read from live `completedDate`). The flips are filled by `captureFieldEdit` (inline status, swimlane, and the task modal via `captureFieldChanges`' status/completedDate group) and `captureFieldRows` (bulk status edits), both detecting a `completedDate` set↔unset change on TASK entities only via `completionFlipsOf`, and by `captureComposite`'s explicit `completionFlips` option, which the AI `update_task` path now passes. A pre-§299 row carries no such pair and seeds nothing, as before. Pinned by `use-undo-stack.test.tsx` → "undo/redo rows name the delivered-ness they reverse (§299)" (undo AND redo, reopen, bulk sum, and the no-flip / non-task controls) and `completion-trend.test.ts` → "an undo/redo that flips delivered-ness seeds its day (§299)". ★ Residual: a bulk edit that ALSO moves buckets captures through `commitBuckets`' composite with no flips, so its undo seeds no day — recorded in `docs/AGENTS/activity-log.md`. The history below is kept as written.
+
+**Previously:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
 of the call path, taken from the source on 2026-08-30 with these three commands:
 `grep -n -A 3 "export const TASK_UNDO_GROUPS" src/app/undo/field-groups.ts` (prints
 `["status", "completedDate"]` as the first group), `grep -rn "statusActivityKind" src/app/undo/` (no
 match, exit 1) and `grep -c 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts`
 (prints 4 — the four log sites, all of which write `undo`/`redo` and nothing else). No committed test
 drives a mark-done through undo and asserts on what was logged.
-
-**Work item:** #228
 
 Carved out of
 [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)

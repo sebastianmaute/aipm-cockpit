@@ -317,6 +317,15 @@ it has no table of its own, NOT because it sits outside the workspace.
   "delete 50, edit one field, undo through both" discarded the 50-row correction and reproduced §166
   two clicks from its own fix. **A residual's justification must name the path the residual occurs
   on.** Full reasoning in `docs/open-followups.md` §166.
+  ★★ SINCE §299 THE PAIRS ALSO NAME THE DELIVERED-NESS A BATCH REVERSES: after the op-kind pairs,
+  `reversedKindCounts` appends `task.completed` / `task.reopened` with the FORWARD counts from
+  `UndoMeta.completionFlips`. Decided 2026-10-02: the undo row stays the ONE audit row for the op (no
+  separate completion row beside it), and `completion-trend.ts`'s `reversesCompletion` SEEDS that day
+  from those pairs. They move NO denominator — `reversedForwardDelta` reads create/delete kinds only.
+  The flips are filled by `captureFieldEdit` and `captureFieldRows` (task patches carrying
+  `completedDate`) and by `captureComposite`'s explicit `completionFlips` option (the AI `update_task`
+  path). ★ A combined bulk edit that also moves buckets goes through `commitBuckets`' composite with no
+  flips, so its undo seeds no day — a residual, not a wrong number.
   ★★★ READING UNDO ROWS IS ONLY SOUND WHERE THE FORWARD SIDE IS READ TOO, and the first cut of §166
   broke that: `use-tasks-dedup.tsx` captures `kind: "task.deleted"` but logs only `ai.taskDedup N`,
   which was in neither set — so the reversal added +N against a forward side of ZERO and an undone

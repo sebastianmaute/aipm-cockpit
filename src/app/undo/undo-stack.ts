@@ -24,6 +24,35 @@ export interface UndoMeta {
    *  `Delete 3 tasks`). Built at CAPTURE time so the undone/redone toast and the
    *  caret preview can say WHAT will be reverted, not just a depth count. */
   label: string;
+  /** §299 — how many tasks the FORWARD op delivered / un-delivered. Absent when
+   *  it flipped none. See `completionFlipsOf` and `reversedKindCounts`. */
+  completionFlips?: CompletionFlips;
+}
+
+/** §299 — forward delivered-ness transitions an undoable op made. */
+export type CompletionFlips = { completed: number; reopened: number };
+
+/** §299 — the delivered-ness flip between a captured before/after PATCH, or
+ *  undefined when there is none. Reads `completedDate` only, the field
+ *  `isTaskDelivered` reads; a patch that does not carry it flipped nothing. */
+export function completionFlipsOf(before: object, after: object): CompletionFlips | undefined {
+  if (!("completedDate" in before) && !("completedDate" in after)) return undefined;
+  const was = !!(before as { completedDate?: unknown }).completedDate;
+  const now = !!(after as { completedDate?: unknown }).completedDate;
+  if (was === now) return undefined;
+  return now ? { completed: 1, reopened: 0 } : { completed: 0, reopened: 1 };
+}
+
+/** §299 — sum several flips; undefined when the sum is empty. */
+export function sumCompletionFlips(flips: readonly (CompletionFlips | undefined)[]): CompletionFlips | undefined {
+  let completed = 0;
+  let reopened = 0;
+  for (const f of flips) {
+    if (!f) continue;
+    completed += f.completed;
+    reopened += f.reopened;
+  }
+  return completed + reopened > 0 ? { completed, reopened } : undefined;
 }
 
 /**
@@ -51,7 +80,19 @@ export interface UndoMeta {
 export function reversedKindCounts(metas: readonly UndoMeta[]): (ActivityKind | number)[] {
   const byKind = new Map<ActivityKind, number>();
   for (const m of metas) byKind.set(m.kind, (byKind.get(m.kind) ?? 0) + m.count);
-  return [...byKind].flatMap(([kind, count]) => [kind, count]);
+  const pairs: (ActivityKind | number)[] = [...byKind].flatMap(([kind, count]) => [kind, count]);
+  // ★★ §299 — then the DELIVERED-NESS the batch reverses, as further pairs of the
+  //  same shape: `task.completed` / `task.reopened` with the FORWARD counts. The
+  //  undo row stays the ONE audit row for the op (decided 2026-10-02 — no
+  //  separate completion row beside it), and `completion-trend.ts` seeds that day
+  //  from these pairs. They move no denominator: `reversedForwardDelta` reads
+  //  only the create/delete kinds, so a completion pair contributes 0 there.
+  //  Appended AFTER the op-kind pairs, so a reader of the first pair is
+  //  unaffected; a pre-§299 row simply has none.
+  const flips = sumCompletionFlips(metas.map((m) => m.completionFlips));
+  if (flips?.completed) pairs.push("task.completed", flips.completed);
+  if (flips?.reopened) pairs.push("task.reopened", flips.reopened);
+  return pairs;
 }
 
 /** One stack entry: display meta + the impure restore thunk (closes over the setter). */

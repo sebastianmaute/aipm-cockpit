@@ -645,3 +645,41 @@ describe("a completion-only day is what keeps the series above the two-day floor
     expect(out).toEqual([]);
   });
 });
+
+// §299 — an undo/redo of a mark-done flips delivered-ness, and the undo row is
+// the ONE audit row for it (decided 2026-10-02). It now carries a
+// `task.completed` / `task.reopened` pair, and the trend seeds that day from it.
+describe("an undo/redo that flips delivered-ness seeds its day (§299)", () => {
+  const base = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21" } as const;
+  const PREFIX = [ev("2026-06-16T09:00:00.000Z", "task.created"), ev("2026-06-18T09:00:00.000Z", "task.created")];
+
+  test.each([
+    ["undo of a mark-done", "undo", "task.completed"],
+    ["redo of a mark-done", "redo", "task.completed"],
+    ["undo of a reopen", "undo", "task.reopened"],
+  ] as const)("%s seeds the day", (_label, kind, flip) => {
+    const out = computeCompletionTrend({
+      ...base,
+      activity: [...PREFIX, evArgs("2026-06-20T10:00:00.000Z", kind, [1, "task.updated", 1, flip, 1])],
+    });
+    expect(out.map((p) => p.label)).toEqual(["06-16", "06-18", "06-20"]);
+  });
+
+  // The control: a pre-§299 undo row (no completion pair) seeds nothing, and
+  // neither does a reverted plain edit — the zero-delta rule is unchanged.
+  test("an undo row without a completion pair still seeds nothing", () => {
+    const out = computeCompletionTrend({
+      ...base,
+      activity: [...PREFIX, evArgs("2026-06-20T10:00:00.000Z", "undo", [1, "task.updated", 1])],
+    });
+    expect(out.map((p) => p.label)).toEqual(["06-16", "06-18"]);
+  });
+
+  test("a completion pair moves no denominator", () => {
+    const withPair = computeCompletionTrend({
+      ...base,
+      activity: [...PREFIX, evArgs("2026-06-20T10:00:00.000Z", "undo", [1, "task.updated", 1, "task.completed", 1])],
+    });
+    expect(withPair.map((p) => p.percent)).toEqual([100, 100, 100]);
+  });
+});

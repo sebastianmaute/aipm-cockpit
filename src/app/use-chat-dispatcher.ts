@@ -376,6 +376,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   pre- and post-op arrays and `buildBeforeImages` resolves the same
         //   number either way. The pre-op array is used regardless, because
         //   that is the contract `buildBeforeImages` documents.
+        // §299 — decided before the capture so the undo entry can carry it.
+        const transition = statusActivityKind(existing, merged);
         undoRef.current?.captureComposite({
           kind: "task.updated",
           primaryCount: 1,
@@ -387,13 +389,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           })],
           name: existing.taskName,
           entityKey: "task",
+          completionFlips: transition === "task.completed" ? { completed: 1, reopened: 0 }
+            : transition === "task.reopened" ? { completed: 0, reopened: 1 } : undefined,
         });
         tasksRef.current = next;
         setTasks(next);
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
         // ★ The `"ai"` actor is required: this file logs MODEL writes, and
         // threading the user actor here would misattribute them.
-        const transition = statusActivityKind(existing, merged);
         if (transition) args.logActivityAs?.("ai", transition, merged.id, merged.taskName);
         return merged;
       },

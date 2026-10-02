@@ -214,6 +214,22 @@ function reversedForwardDelta(args: readonly (string | number)[]): number {
   return delta;
 }
 
+/** §299 — whether an `undo`/`redo` row reverses a delivered-ness flip, i.e.
+ *  carries a `task.completed` / `task.reopened` pair with a positive count
+ *  (`reversedKindCounts` appends them from `UndoMeta.completionFlips`). Such a
+ *  row SEEDS its day exactly as a completion row does; it moves no denominator
+ *  (`reversedForwardDelta` ignores both kinds). The undo row is the ONE audit
+ *  row for the op by decision (2026-10-02), so the trend reads it rather than a
+ *  separate completion row. A pre-§299 row carries no such pair and seeds
+ *  nothing, as before. */
+function reversesCompletion(args: readonly (string | number)[]): boolean {
+  for (let i = 1; i + 1 < args.length; i += 2) {
+    const kind = args[i];
+    if ((kind === "task.completed" || kind === "task.reopened") && positiveCount(args[i + 1]) > 0) return true;
+  }
+  return false;
+}
+
 type DayDelta = { day: string; dTotal: number };
 
 function reconstructFromActivity(
@@ -282,7 +298,9 @@ function reconstructFromActivity(
     const dir = e.kind === "undo" ? -1 : e.kind === "redo" ? 1 : 0;
     const reversal = dir === 0 ? 0 : dir * reversedForwardDelta(e.args);
     const isBulk = BULK_TOTAL_KINDS.has(e.kind);
-    if (reversal === 0 && !isBulk && !COUNT_KINDS.has(e.kind)) continue;
+    // §299 — an undo/redo of a mark-done (or of a reopen) seeds its day too.
+    const flipsDelivery = dir !== 0 && reversesCompletion(e.args);
+    if (reversal === 0 && !isBulk && !COUNT_KINDS.has(e.kind) && !flipsDelivery) continue;
     const day = e.timestamp.slice(0, 10);
     if (day > today) continue; // clock-skew guard
     // ★ Reversal first, then bulk: both read their delta from the entry rather
