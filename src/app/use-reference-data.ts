@@ -111,10 +111,12 @@ export function useReferenceData(args: UseReferenceDataArgs) {
       const stamp = new Date().toISOString();
       // Rows the cascade will edit (roleId → null) — snapshot BEFORE the setter.
       const affected = resources.filter((r) => r.roleId === id);
+      // ONE spelling of the cascade, shared by the write and the undo patch below, so the two cannot drift.
+      const cleared = { roleId: null } as const;
       setRoles((prev) => prev.filter((r) => r.id !== id));
       setResources((prev) =>
         prev.map((r) =>
-          r.roleId === id ? { ...r, roleId: null, localModifiedAt: stamp } : r,
+          r.roleId === id ? { ...r, ...cleared, localModifiedAt: stamp } : r,
         ),
       );
       if (removed) {
@@ -129,7 +131,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
             // concurrent edit to another field of these resources survives.
             captureFieldPart<Resource>({
               setter: setResources,
-              edits: affected.map((r) => ({ id: r.id, before: { roleId: r.roleId }, after: { roleId: null } })),
+              edits: affected.map((r) => ({ id: r.id, before: { roleId: r.roleId }, after: cleared })),
               stampField: "localModifiedAt",
               fkRemapField: "roleId",
             }),
@@ -212,9 +214,11 @@ export function useReferenceData(args: UseReferenceDataArgs) {
   const onDeleteDiscipline = useCallback((id: number) => {
     const removed = disciplines.find((d) => d.id === id);
     const affected = roles.filter((r) => r.disciplineId === id);
+    // ONE spelling of the cascade, shared by the write and the undo patch below, so the two cannot drift.
+    const cleared = { disciplineId: 0, internalRate: 0, externalRate: 0 } as const;
     setDisciplines((prev) => prev.filter((d) => d.id !== id));
     setRoles((prev) => prev.map((r) =>
-      r.disciplineId === id ? { ...r, disciplineId: 0, internalRate: 0, externalRate: 0 } : r,
+      r.disciplineId === id ? { ...r, ...cleared } : r,
     ));
     if (removed) {
       // One undo reverts the discipline removal AND the roles' cleared FK + rates.
@@ -229,7 +233,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
             edits: affected.map((r) => ({
               id: r.id,
               before: { disciplineId: r.disciplineId, internalRate: r.internalRate, externalRate: r.externalRate },
-              after: { disciplineId: 0, internalRate: 0, externalRate: 0 },
+              after: cleared,
             })),
             fkRemapField: "disciplineId",
           }),
@@ -245,9 +249,11 @@ export function useReferenceData(args: UseReferenceDataArgs) {
   const onDeleteGrade = useCallback((id: number) => {
     const removed = grades.find((g) => g.id === id);
     const affected = roles.filter((r) => r.gradeId === id);
+    // ONE spelling of the cascade, shared by the write and the undo patch below, so the two cannot drift.
+    const cleared = { gradeId: 0, internalRate: 0, externalRate: 0 } as const;
     setGrades((prev) => prev.filter((g) => g.id !== id));
     setRoles((prev) => prev.map((r) =>
-      r.gradeId === id ? { ...r, gradeId: 0, internalRate: 0, externalRate: 0 } : r,
+      r.gradeId === id ? { ...r, ...cleared } : r,
     ));
     if (removed) {
       captureCompositeRef.current?.({
@@ -261,7 +267,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
             edits: affected.map((r) => ({
               id: r.id,
               before: { gradeId: r.gradeId, internalRate: r.internalRate, externalRate: r.externalRate },
-              after: { gradeId: 0, internalRate: 0, externalRate: 0 },
+              after: cleared,
             })),
             fkRemapField: "gradeId",
           }),

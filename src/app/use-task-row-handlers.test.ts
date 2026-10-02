@@ -806,6 +806,25 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     expect(result.current.tasks[0]).toMatchObject({ taskName: "renamed meanwhile", dependencies: [] });
   });
 
+  // The deleted task is the composite's primary, so it re-mints when a new task took its id before the
+  // undo. The dependent's restored link must follow the re-minted task, never the unrelated reused-id one.
+  it("undoing a delete re-points a dependent's link at the re-minted task when its id was reused", () => {
+    const blocker = makeTask({ id: 1, taskName: "blocker" });
+    const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = harness([blocker, dependent]);
+    act(() => result.current.handlers.onDelete(1));
+    rerender();
+    act(() => { result.current.setTasks((prev) => [...prev, makeTask({ id: 1, taskName: "reused id" })]); });
+    rerender();
+    act(() => result.current.undo.undo());
+    rerender();
+    const restored = result.current.tasks.find((tk) => tk.taskName === "blocker")!;
+    expect(restored.id).not.toBe(1);
+    expect(result.current.tasks.find((tk) => tk.id === 2)?.dependencies).toEqual([{ taskId: restored.id, type: "FS" }]);
+    expect(result.current.tasks.find((tk) => tk.id === 1)?.taskName).toBe("reused id");
+  });
+
   it("undoing a delete keeps a note added to a DEPENDENT since the delete", () => {
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({

@@ -479,6 +479,10 @@ export interface CaptureFieldPart<T extends { id: number }> {
    *  live row now holds the old id. Only meaningful inside a composite whose
    *  primary is a `capturePart` delete flagged `isPrimary`. */
   fkRemapField?: keyof T & string;
+  /** The same follow for a reference `fkRemapField` cannot name: one NESTED in a field, such as a task's
+   *  `dependencies[].taskId`. Called on undo with each `before` and the primary's id-remap (never with an
+   *  empty one); returns the `before` to restore. Only meaningful in a composite with an `isPrimary` delete. */
+  remapBefore?: (before: Partial<T>, remap: ReadonlyMap<number, number>) => Partial<T>;
 }
 
 /**
@@ -533,7 +537,7 @@ export interface CaptureFieldPart<T extends { id: number }> {
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,
 ): CompositeFragment | null {
-  const { setter, stampField, fkRemapField } = part;
+  const { setter, stampField, fkRemapField, remapBefore } = part;
   if (part.edits.length === 0) return null;
   type Edit = (typeof part.edits)[number];
   const apply = (
@@ -567,12 +571,17 @@ export function captureFieldPart<T extends { id: number }>(
     //   it, however React batches the two calls.
     let resolved: ReadonlyMap<number, Edit> = plain;
     const remapped = (): ReadonlyMap<number, Edit> => {
-      const remap = fkRemapField && primaryRemap ? primaryRemap.current : EMPTY_REMAP;
+      const remap = (fkRemapField || remapBefore) && primaryRemap ? primaryRemap.current : EMPTY_REMAP;
       if (remap.size === 0) return (resolved = plain);
       resolved = new Map(part.edits.map((e) => {
-        const fk = e.before[fkRemapField as keyof T];
-        const to = typeof fk === "number" ? remap.get(fk) : undefined;
-        return [e.id, to === undefined ? e : { ...e, before: { ...e.before, [fkRemapField as string]: to } }];
+        let before = e.before;
+        if (fkRemapField) {
+          const fk = before[fkRemapField as keyof T];
+          const to = typeof fk === "number" ? remap.get(fk) : undefined;
+          if (to !== undefined) before = { ...before, [fkRemapField as string]: to };
+        }
+        if (remapBefore) before = remapBefore(before, remap);
+        return [e.id, before === e.before ? e : { ...e, before }];
       }));
       return resolved;
     };

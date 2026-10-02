@@ -397,6 +397,12 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
                 before: { dependencies: tk.dependencies },
                 after: { dependencies: tk.dependencies!.filter((d) => d.taskId !== id) },
               })),
+              // The restored links point at the deleted task. If its id was reused before the undo, the
+              // task comes back under a fresh id, and the links must follow it, not the reused-id task.
+              remapBefore: (before, remap) => ({
+                ...before,
+                dependencies: before.dependencies?.map((d) => (remap.has(d.taskId) ? { ...d, taskId: remap.get(d.taskId)! } : d)),
+              }),
             }),
           ],
         });

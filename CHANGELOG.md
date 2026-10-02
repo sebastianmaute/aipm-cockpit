@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [Unreleased]
+
+### Compatibility
+
+- **End-to-end contract type (§488).** A budget bucket can now be "end-to-end": a fixed-price
+  contract under end-to-end responsibility. An older build does not know the type and reads such
+  a bucket as time-and-material, and its next save stores it that way. Open a project that uses
+  it only in this release or later.
+
 ## [1.14.3] - 2026-10-01 "Deaver"
 
 A maintenance release. Two tabs or windows saving the same project no longer overwrite each

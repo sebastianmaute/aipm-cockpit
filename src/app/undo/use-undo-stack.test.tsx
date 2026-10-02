@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange, capturePart, captureFieldPart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
 import { loadI18n, t, tPlural } from "../i18n";
 
@@ -311,6 +311,68 @@ describe("useUndoStack", () => {
     // live NEW-ROLE (id 7) is untouched — no silent wrong-FK corruption.
     expect(roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
     expect(refs).toEqual([{ id: 1, roleId: 8 }]);
+  });
+
+  // A reference NESTED in a field (a task's `dependencies[].taskId`) cannot be named by `fkRemapField`.
+  // `remapBefore` gets the primary's id-remap and rewrites it, so a field-patch cascade follows a re-mint.
+  it("a field-patch cascade follows the primary re-mint through remapBefore", () => {
+    type Dep = { taskId: number; type: string };
+    type T = { id: number; name: string; dependencies?: Dep[] };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let tasks: readonly T[] = [{ id: 7, name: "Doomed" }, { id: 1, name: "Dependent", dependencies: [{ taskId: 7, type: "FS" }] }];
+    const before = tasks;
+    const setTasks = (u: SetStateAction<readonly T[]>) => { tasks = typeof u === "function" ? u(tasks) : u; };
+    tasks = [{ id: 1, name: "Dependent", dependencies: [] }]; // the delete strips the link
+    const remapBefore = (b: Partial<T>, remap: ReadonlyMap<number, number>): Partial<T> => ({
+      ...b,
+      dependencies: b.dependencies?.map((d) => (remap.has(d.taskId) ? { ...d, taskId: remap.get(d.taskId)! } : d)),
+    });
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setTasks, removed: [before[0]], fromArray: before, isPrimary: true }),
+          captureFieldPart<T>({
+            setter: setTasks,
+            edits: [{ id: 1, before: { dependencies: [{ taskId: 7, type: "FS" }] }, after: { dependencies: [] } }],
+            remapBefore,
+          }),
+        ],
+      });
+    });
+    tasks = [...tasks, { id: 7, name: "NEW" }]; // a new task reuses the freed id 7 before undo
+    act(() => result.current.undo());
+    const doomed = tasks.find((x) => x.name === "Doomed")!;
+    expect(doomed.id).not.toBe(7); // re-minted
+    expect(tasks.find((x) => x.id === 1)?.dependencies).toEqual([{ taskId: doomed.id, type: "FS" }]);
+    expect(tasks.find((x) => x.name === "NEW")?.id).toBe(7);
+  });
+
+  it("remapBefore leaves the link at the original id when no re-mint happens", () => {
+    type Dep = { taskId: number; type: string };
+    type T = { id: number; name: string; dependencies?: Dep[] };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let tasks: readonly T[] = [{ id: 7, name: "Doomed" }, { id: 1, name: "Dependent", dependencies: [{ taskId: 7, type: "FS" }] }];
+    const before = tasks;
+    const setTasks = (u: SetStateAction<readonly T[]>) => { tasks = typeof u === "function" ? u(tasks) : u; };
+    tasks = [{ id: 1, name: "Dependent", dependencies: [] }];
+    const remapBefore = vi.fn((b: Partial<T>) => b);
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setTasks, removed: [before[0]], fromArray: before, isPrimary: true }),
+          captureFieldPart<T>({ setter: setTasks, edits: [{ id: 1, before: { dependencies: [{ taskId: 7, type: "FS" }] }, after: { dependencies: [] } }], remapBefore }),
+        ],
+      });
+    });
+    act(() => result.current.undo());
+    expect(tasks.find((x) => x.id === 1)?.dependencies).toEqual([{ taskId: 7, type: "FS" }]);
+    expect(remapBefore).not.toHaveBeenCalled(); // never called with an empty remap
   });
 
   it("composite cascade FK restores to the ORIGINAL id when no re-mint happens", () => {
