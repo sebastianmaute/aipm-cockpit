@@ -11,6 +11,7 @@ import {
 import { hasAuthoredRecords, isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
+import { dropDanglingDependencies } from "./sanitize";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
@@ -587,7 +588,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // belongs at the one function every backend converges on rather than in the
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
-    setTasks(mark("tasks", backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
+    // ★ §133: and the dangling-dependency pass, for the same "one function every
+    // backend converges on" reason. Before it, only the CSV and Markdown decoders
+    // ran it, so a dependency on a deleted task (a redo of a successor fan-out
+    // can write one) persisted forever on JSON, IndexedDB and both Turso layouts.
+    setTasks(mark("tasks", dropDanglingDependencies(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []))));
     setRaid(mark("raid", workspace.raid ?? [])); setAbsences(mark("absences", workspace.absences ?? [])); setShifts(mark("shifts", workspace.shifts ?? []));
     setResources(mark("resources", workspace.resources ?? [])); setRoles(mark("roles", workspace.roles ?? [])); setDisciplines(mark("disciplines", workspace.disciplines ?? [])); setGrades(mark("grades", workspace.grades ?? []));
     if (workspace.plan) setPlan(mark("plan", workspace.plan));

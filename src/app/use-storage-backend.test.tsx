@@ -4928,6 +4928,23 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     await act(async () => { await Promise.resolve(); });
     expect((result.current.tasks[0] as { resourceId?: number }).resourceId).toBe(42);
   });
+
+  // §133: a dependency on a task that no longer exists (a redo of a successor
+  // fan-out can write one) used to persist on every backend but CSV and
+  // Markdown, whose decoders were the only callers of the dangling pass. The
+  // mocked backend here decodes nothing, so this proves the FUNNEL does it.
+  it("drops dangling dependencies through the load funnel", async () => {
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [
+        { id: 1, taskName: "A", dependencies: [{ taskId: 2, type: "FS" }, { taskId: 5, type: "FS" }] },
+        { id: 2, taskName: "B" },
+      ],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect((result.current.tasks[0] as { dependencies?: unknown }).dependencies).toEqual([{ taskId: 2, type: "FS" }]);
+  });
 });
 
 describe("useStorageBackend — StrictMode mount re-set (§72)", () => {

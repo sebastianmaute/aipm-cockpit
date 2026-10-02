@@ -41,7 +41,7 @@ import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { applyStatusChange } from "./task-status";
-import { sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
+import { dropDanglingDependencies, sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
@@ -1408,7 +1408,8 @@ function TaskManagerInner() {
   );
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
-  // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
+  // repeats applyWorkspace's task-FK backfill and dangling-dependency pass (§133)
+  // (but NOT `workspaceLoaded`: see it).
   // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
   // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
   // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
@@ -1417,7 +1418,7 @@ function TaskManagerInner() {
   // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
   // instead, and a restore never blanks the recorded series either.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
-    setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
+    setTasks(dropDanglingDependencies(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? []))); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);

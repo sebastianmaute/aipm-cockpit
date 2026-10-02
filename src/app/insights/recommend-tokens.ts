@@ -13,17 +13,17 @@
 // guard exists to reject, and the stale write would commit while the code read
 // as protected.
 //
-// ★★ WHAT THE STAMPED TOKEN ACTUALLY COVERS, stated as measured rather than as
-// hoped: the window from the moment the proposal is STORED to the moment the
-// user confirms it. That is the long window and the one that matters — a
-// background-generated recommendation can sit unreviewed for days. It does NOT
-// cover the model round-trip itself (context build → response), because the
-// entities handed in here are the caller's live render-scope arrays at the
-// moment the recommendation comes back, not a snapshot frozen when the prompt
-// was built. Closing that remaining gap means threading an entity snapshot
-// through `runInsightRecommendation`; it is deliberately not done here, and
-// under-stating this bound would invite someone to "simplify" the derivation
-// back to apply time.
+// ★★ WHAT THE STAMPED TOKEN ACTUALLY COVERS: the whole span from the moment
+// the PROMPT is built to the moment the user confirms. The long window — a
+// background-generated recommendation sitting unreviewed for days — and, since
+// §350, the model round-trip too: both generators (`useInsightRecommend`,
+// `useInsightRecommendRunner`) read an entity snapshot beside the prompt and
+// hand it to the store, which stamps from THAT. So a human edit landing while
+// the model is answering makes the token stale and the confirm refuses. Before
+// §350 the background runner stamped from the arrays live at ANSWER time, which
+// already included that edit — a false permit. The stamp still happens here, at
+// STORE time; only its input moved earlier. Do not "simplify" the derivation to
+// apply time either: see the paragraph above.
 //
 // ★ A call whose target row is GONE is left unstamped on purpose. It then
 // fails at replay with the dispatcher's own "not found", which is the more

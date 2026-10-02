@@ -97,6 +97,38 @@ it("stores the target row's real token on a generated recommendation", async () 
   expect(stored!.proposedCalls[0].input.status).toBe("In Progress");
 });
 
+// §350 — the token covers the MODEL ROUND-TRIP too. Driven through the
+// BACKGROUND RUNNER on purpose: that is the path that was actually broken — it
+// reads the store callback from a ref at ANSWER time, so it stamped from the
+// post-edit arrays and a recommendation that went stale mid-flight confirmed as
+// current. (The on-demand generate captured its args at START, so it was
+// covered by accident; the explicit snapshot makes both paths deliberate.)
+it("stamps the token from the rows the PROMPT was built from, not the rows at answer time", async () => {
+  let answer!: (r: InsightRecommendation) => void;
+  vi.spyOn(recommendCall, "runInsightRecommendation").mockReturnValue(
+    new Promise<InsightRecommendation>((r) => { answer = r; }),
+  );
+  const store = mkStore([mkInsight()]);
+  const edited = { ...task, taskName: "Fix login bug (edited mid-flight)" };
+  const runnerSettings = {
+    ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
+  } as unknown as InsightRecommendationDeps["settings"];
+  const { rerender } = renderHook(
+    (p: { tasks: unknown[] }) =>
+      useInsightRecommendations(mkDeps({ settings: runnerSettings, insights: store.read(), setInsights: store.setInsights, tasks: p.tasks as InsightRecommendationDeps["tasks"] })),
+    { initialProps: { tasks: [task] as unknown[] } },
+  );
+  await act(async () => { await Promise.resolve(); });
+  expect(recommendCall.runInsightRecommendation).toHaveBeenCalledTimes(1); // the runner's mount tick
+  // The human edit lands while the model is still answering.
+  rerender({ tasks: [edited] });
+  await act(async () => { answer(mkRec({ id: 42, status: "In Progress" })); });
+  const stored = store.read()[0].recommendation;
+  expect(stored, "no recommendation was stored").toBeDefined();
+  expect(entityToken("task", edited)).not.toBe(entityToken("task", task)); // anti-vacuity
+  expect(stored!.proposedCalls[0].input.expectedToken).toBe(entityToken("task", task));
+});
+
 // ★★★ THE DROP THIS TASK EXISTS TO CLOSE. Before the split, a staleness refusal
 // was counted as a plain failure and the insight was advanced to acted/applied
 // anyway — so a recommendation that was correctly refused became a silent,

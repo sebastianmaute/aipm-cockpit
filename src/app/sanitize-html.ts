@@ -32,19 +32,15 @@
 // from a keystroke. They still UNWRAP and keep their words either way.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
 //
-// ★★ The ATTRIBUTE lists below do NOT mirror the editor, and reading them as if
-// they did is the trap: `target` and `rel` are listed but can never survive.
-// A custom ALLOWED_URI_REGEXP is tested against EVERY attribute value, not only
+// ★★ `target` and `rel` SURVIVE now, on `<a>` only, and only with the values the
+// editor writes (§38). Until then they were listed but could never survive: a
+// custom ALLOWED_URI_REGEXP is tested against EVERY attribute value, not only
 // URI-bearing ones, and `_blank` / `noopener noreferrer` do not match an
-// end-anchored scheme pattern — so both are dropped, and `ADD_ATTR` does not
-// bring them back (verified on dompurify 3.4.12). The editor sets them
-// (rich-text-editor.tsx `setLink`), so every STORED link opens in the same tab.
-// Not a vulnerability — with no `target="_blank"` there is no reverse-tabnabbing
-// surface for the missing `rel="noopener"` to expose, so stripping both is safer
-// than stripping one. Tracked as `docs/open-followups.md` §38; fixing it rewrites
-// stored `<a>` markup and moves the golden fixtures, so it is its own slice.
-// Do not "tidy" `target`/`rel` out of the lists: they document the intent, and
-// removing them would erase the only pointer to why links behave this way.
+// end-anchored scheme pattern, so every STORED link opened in the same tab while
+// the editor (`setLink` in rich-text-editor.tsx) asked for a new one. They ride
+// the SAME mechanism as the data-* attributes: exempted from the URI regexp by
+// ADD_URI_SAFE_ATTR, and value-constrained by ATTR_VALUES in the hook — see
+// GUARDED_LINK_ATTR.
 import DOMPurify from "dompurify";
 
 /** THE rich-text allow-list — the ONE array every rich surface is converging on:
@@ -103,11 +99,20 @@ export const RICH_ALLOWED_TAGS = [
  *  FORMAT — it admits uuid, ulid, nanoid, a content hash or an integer, so it
  *  cannot constrain whatever id the images slice mints, while rejecting empty,
  *  whitespace, quotes, angle brackets, path separators and 65+ chars. §117(b). */
+const REL_TOKENS: ReadonlySet<string> = new Set(["noopener", "noreferrer", "nofollow"]);
+
 const ATTR_VALUES: Readonly<Record<string, (value: string) => boolean>> = {
   "data-align": (v) => v === "left" || v === "center" || v === "right" || v === "justify",
   "data-type": (v) => v === "taskList" || v === "taskItem",
   "data-checked": (v) => v === "true" || v === "false",
   "data-asset-id": (v) => /^[A-Za-z0-9_-]{1,64}$/.test(v),
+  // §38. Exactly what the editor writes. `target` admits ONE value, so a named
+  // frame cannot be targeted; `rel` admits only link-hardening tokens.
+  target: (v) => v === "_blank",
+  rel: (v) => {
+    const tokens = v.split(/\s+/).filter(Boolean);
+    return tokens.length > 0 && tokens.every((tok) => REL_TOKENS.has(tok));
+  },
 };
 
 /** The three names task list and alignment need. Kept separate from
@@ -128,6 +133,19 @@ const ATTR_VALUES: Readonly<Record<string, (value: string) => boolean>> = {
  *  sanitizer, so a name with no predicate — or a predicate that accepts
  *  everything — fails. Do not consume it elsewhere. */
 export const GUARDED_DATA_ATTR = ["data-align", "data-type", "data-checked"] as const;
+
+/** §38 — the link's own two attributes, under the SAME discipline as
+ *  GUARDED_DATA_ATTR: on ALLOWED_ATTR, exempted from ALLOWED_URI_REGEXP by both
+ *  ADD_URI_SAFE_ATTR spreads, and therefore guarded ONLY by their ATTR_VALUES
+ *  predicates — so a name here needs one, exactly as above. The hook also drops
+ *  either one off any element but `<a>`.
+ *  ★ Reverse tabnabbing: a kept `target="_blank"` without `rel="noopener"` is
+ *  NOT an opener leak in any engine this app targets — HTML now implies
+ *  `noopener` for `target=_blank` on `<a>` (Chromium 88, Firefox 79, Safari
+ *  12.1) — and the editor writes `noopener noreferrer` anyway.
+ *  ★ EXPORTED for the same behavioural test GUARDED_DATA_ATTR has. */
+export const GUARDED_LINK_ATTR = ["target", "rel"] as const;
+const LINK_ATTR: ReadonlySet<string> = new Set(GUARDED_LINK_ATTR);
 
 let attrHookRegistered = false;
 
@@ -168,7 +186,7 @@ let attrHookRegistered = false;
 function ensureAttrHook(): void {
   if (attrHookRegistered) return;
   attrHookRegistered = true;
-  DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+  DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
     // ★★★ `Object.hasOwn` FIRST — a bare `ATTR_VALUES[name]` truthiness test is
     // a PROTOTYPE-CHAIN LOOKUP, and it shipped that way in the first cut of this
     // slice. `ATTR_VALUES["__proto__"]` is not `undefined`: it resolves to
@@ -196,11 +214,15 @@ function ensureAttrHook(): void {
     // Do not "simplify" this back to a truthiness check. Reproduce the class:
     //   node -e "console.log(typeof ({})['__proto__'])"   // object, not function
     if (!Object.hasOwn(ATTR_VALUES, data.attrName)) return;
+    if (LINK_ATTR.has(data.attrName) && node.nodeName !== "A") {
+      data.keepAttr = false;
+      return;
+    }
     if (!ATTR_VALUES[data.attrName](data.attrValue)) data.keepAttr = false;
   });
 }
 
-const ALLOWED_ATTR = ["href", "target", "rel", ...GUARDED_DATA_ATTR];
+const ALLOWED_ATTR = ["href", ...GUARDED_LINK_ATTR, ...GUARDED_DATA_ATTR];
 
 // SHARED by both sanitizers that pass it — sanitizeRichHtml and
 // sanitizeDocumentHtml — one literal, so the two cannot drift.
@@ -208,7 +230,8 @@ const ALLOWED_ATTR = ["href", "target", "rel", ...GUARDED_DATA_ATTR];
 // the editor's isSafeHttpUrl pre-filter): scheme must lead and no angle-brackets/
 // quotes may sneak into the value.
 // ★ It is tested against EVERY attribute value, not only URI-bearing ones — that is
-// why `target`/`rel` can never survive (see the ★★ note above).
+// why every non-URI attribute kept here needs an ADD_URI_SAFE_ATTR exemption and,
+// with it, an ATTR_VALUES predicate (`target`/`rel` since §38).
 const SAFE_URI_REGEXP = /^(?:https?|mailto):[^<>"]*$/i;
 
 /** THE storage-boundary sanitizer for every rich surface except documents.
@@ -234,12 +257,12 @@ export function sanitizeRichHtml(html: string): string {
     // exemption HERE as well as the entry in ALLOWED_ATTR — measured 2026-08-13
     // on dompurify 3.4.13, not reasoned: with this line deleted and nothing else
     // changed, `<p data-align="center">x</p>` sanitizes to `<p>x</p>`. That is
-    // the same value-shaped stripping `target="_blank"` already suffers.
+    // the same value-shaped stripping `target="_blank"` suffered until §38.
     // ★★★ The exemption is also why the ATTR_VALUES table HAS to exist: it skips
     // the value test outright, so the table is the only remaining guard on these
     // values. Deleting the table does not fall back to a weaker check — it falls
     // back to NO check.
-    ADD_URI_SAFE_ATTR: [...GUARDED_DATA_ATTR],
+    ADD_URI_SAFE_ATTR: [...GUARDED_DATA_ATTR, ...GUARDED_LINK_ATTR],
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }
@@ -289,7 +312,7 @@ export function sanitizeRichHtml(html: string): string {
  *  `data-asset-id`, and the reason is the trap already described at the top of this
  *  file. Losing the short-circuit puts the attribute into the VALUE chain, where
  *  SAFE_URI_REGEXP is tested against EVERY value, not just URI-bearing ones; an
- *  opaque id fails it exactly as `target="_blank"` does. Measured on dompurify
+ *  opaque id fails it exactly as an unexempted `target="_blank"` did (§38). Measured on dompurify
  *  3.4.13: with the flag off and no other change, `data-asset-id="7"` was stripped
  *  while `data-asset-id="https://x/y"` survived — value-shaped, not name-shaped.
  *  ADD_URI_SAFE_ATTR restores it by exempting that ONE name from the value test
@@ -334,7 +357,7 @@ export function sanitizeDocumentHtml(html: string): string {
     ALLOWED_TAGS: DOCUMENT_ALLOWED_TAGS,
     ALLOWED_ATTR: DOCUMENT_ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
-    ADD_URI_SAFE_ATTR: ["data-asset-id", ...GUARDED_DATA_ATTR],
+    ADD_URI_SAFE_ATTR: ["data-asset-id", ...GUARDED_DATA_ATTR, ...GUARDED_LINK_ATTR],
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }

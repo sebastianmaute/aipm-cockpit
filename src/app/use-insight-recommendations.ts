@@ -37,7 +37,7 @@ import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
-import { describeRecommendationPlan } from "./insights/recommend-plan";
+import { describeRecommendationPlan, type RecommendPlanWorkspace } from "./insights/recommend-plan";
 import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
@@ -202,13 +202,22 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // construction at both consumers: `useInsightRecommend` mirrors its args into
   // a ref every render and `useInsightRecommendRunner` mirrors each arg into its
   // own ref, so neither re-subscribes a listener or re-arms an interval on it.
+  // §350 — what a generate reads beside its prompt. Plain arrays, already
+  // immutable state, so the "snapshot" is five references and no copy.
+  const snapshotEntities = useCallback(
+    (): RecommendPlanWorkspace => ({ tasks, raid, changes, milestones, stakeholders }),
+    [tasks, raid, changes, milestones, stakeholders],
+  );
   const applyInsightRecommendation = useCallback(
-    (id: number, rec: InsightRecommendation) => {
+    (id: number, rec: InsightRecommendation, snapshot?: RecommendPlanWorkspace) => {
       // §548 — this is the ONE store both the background runner and the on-demand generate write
       // through, so the hold lives here: a result stored while a load or swap is pending would be
       // replaced when it lands. Dropped, not queued — the runner's next tick regenerates it.
       if (loadPending) return;
-      const stamped = stampRecommendationTokens(rec, { tasks, raid, changes, milestones, stakeholders });
+      // §350 — stamp from the PROMPT-TIME snapshot both generators hand in, so an
+      // edit made while the model was answering reads as a change and the confirm
+      // refuses. The live arrays are the fallback for a caller that passed none.
+      const stamped = stampRecommendationTokens(rec, snapshot ?? { tasks, raid, changes, milestones, stakeholders });
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
     [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending],
@@ -224,6 +233,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    snapshotEntities,
     getScopeEpoch,
     isPopout,
     onError: (kind, error) => {
@@ -244,6 +254,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    snapshotEntities,
     getScopeEpoch,
   });
 

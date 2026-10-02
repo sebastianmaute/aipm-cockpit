@@ -269,7 +269,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--closed-2026-09-30) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-09-30 |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
-| [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
+| [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open |
@@ -342,7 +342,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
-| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
+| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--closed-2026-10-02) | Document row controls are named by a title that is NOT unique, and the comment says it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | **CLOSED** 2026-10-02 |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
 | [§113](#113-the-documents-roadmap--block-editor-entity-attachment-images-ooxml-media--all-six-slices-shipped-kept-as-the-decision-record) | The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open |
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
@@ -364,7 +364,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--open-accepted-measured) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured | — | — | open |
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
 | [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--open-cosmetic-measured) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured | — | — | open |
-| [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--open-measured) | A redo-created dangling dependency is repaired on two of six backends — open, measured | — | — | open |
+| [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
 | [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--open-latent-measured) | ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured | — | — | open |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
 | [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--open-dead-code) | The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code | — | — | open |
@@ -581,7 +581,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
-| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
+| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--closed-2026-10-02) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | **CLOSED** 2026-10-02 |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--closed-2026-09-25) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | closed |
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
@@ -2642,11 +2642,11 @@ about. Trace the path.
 
 ---
 
-## 38. `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing
+## 38. `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — CLOSED 2026-10-02
 
-**Status:** open — a URI regexp that strips the target and rel it allows. Reproduced 2026-08-28 by `grep -n "SAFE_URI_REGEXP" src/app/sanitize-html.ts`.
+**Status:** CLOSED 2026-10-02. Took the hook route this entry named, using the mechanism the data-* attributes already ride rather than a new one: `target` and `rel` are now `GUARDED_LINK_ATTR` (`sanitize-html.ts`), exempted from `SAFE_URI_REGEXP` by BOTH sanitizers' `ADD_URI_SAFE_ATTR` and therefore guarded only by new `ATTR_VALUES` predicates — `target` admits exactly `_blank`, `rel` admits only `noopener` / `noreferrer` / `nofollow` tokens (so `rel="opener"` cannot re-enable the opener) — and the hook drops either one off any element but `<a>`. The end-anchored regexp is untouched and still guards `href`. So the editor's `setLink` output now survives storage and stored links open in a new tab, as the editor asked. ★ The golden fixtures did NOT move: the sample master carries no `target`/`rel` (deliberately, per the last paragraph below), so the "moves the golden fixtures" cost below did not materialise; the golden suite passes unchanged. Links stored before this keep their stripped form until re-saved. Pinned in `sanitize-html.test.ts`: both sanitizers keep the editor's exact attributes, five hostile/unknown values are dropped, non-`<a>` carriers are dropped, and a `GUARDED_LINK_ATTR` loop mirrors the data-* anti-slip test. The history below is kept as written.
 
-**Work item:** #101
+**Previously:** open — a URI regexp that strips the target and rel it allows. Reproduced 2026-08-28 by `grep -n "SAFE_URI_REGEXP" src/app/sanitize-html.ts`.
 
 Found on 2026-07-30 while adding rich descriptions to the sample master: the link I wrote as
 `<a href="…" target="_blank" rel="noopener noreferrer">` came back out of the golden fixtures as a bare
@@ -9086,11 +9086,11 @@ thirteen-file list.
 
 ---
 
-## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — CLOSED 2026-10-02
 
-**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `00f2a273`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
+**Status:** CLOSED 2026-10-02. Both halves now: the `documents-list.tsx` half was fixed 2026-08-25 (below), and the `#docId` sub-section is closed on the terms that sub-section itself set — "the part worth fixing is the RATIONALE". `chat-tool-block.tsx`'s comment no longer claims the id "CANNOT collide": it states that the qualifier is unique per DOCUMENT, not per card, that two cards for one document (write-then-revise) share their names, and why that is accepted — both cards act on `liveDoc`, so the same-named controls are functionally the same control. It also tells a reader not to cite it as row-unique precedent, and distinguishes it from `documents-history-modal.tsx`, whose version id IS row-unique (that modal's comment was re-read and is correct; it does not cite the chat card). The NAMES themselves are unchanged — giving each card a per-call token would need the tool-use id threaded into `ToolBlock`, which has none today; recorded rather than built, since the duplicate is on functionally identical controls. The history below is kept as written.
 
-**Work item:** #143
+**Previously:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `00f2a273`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
 
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
@@ -9156,7 +9156,7 @@ regardless. The comment claiming the title was "row-unique by construction" was 
 position was that the false comment was the defect, not merely the naming. Reproduce:
 `grep -n "rowLabel\|buildRowTokens" src/app/documents-list.tsx`.
 
-### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims — STILL OPEN
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims — CLOSED 2026-10-02 (rationale corrected)
 
 `chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
 reasons: two cards can carry the same title "either because the same document was touched twice in
@@ -11299,11 +11299,11 @@ unnamed multi-row edit capture in the app, which is a far wider blast radius tha
 ★ Scope: the LABEL in undo history only. The TOAST was always count-shaped (`pushEntry` composes it from
 `undoToastEdit`/`undoToastDelete` regardless of kind or name), so nothing regressed there.
 
-## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
+## 133. A redo-created dangling dependency is repaired on two of six backends — CLOSED 2026-10-02
 
-**Status:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Repaired at the two load funnels rather than per backend: `applyWorkspaceFromLoad` (`use-storage-backend.ts`) and `applyRestoredWorkspace` (`task-manager.tsx`) now run `dropDanglingDependencies` over the tasks right after `backfillTaskResourceFks`, for the same "one function every backend converges on" reason that helper gives. So a redo-written dependency on a deleted task is dropped on the next load on all six backends, plus a version-history restore. `dropDanglingDependencies` now returns the SAME array when no task changed, because the first funnel records what it applies by identity (§644). ★ The redo itself still WRITES the dangling entry; it lives in memory until the next load, and the consumers tolerate it as described below. Pinned by `use-storage-backend.test.tsx` → "drops dangling dependencies through the load funnel" (the mocked backend decodes nothing, so it proves the funnel; deleting the call reddens it) and `sanitize-branches.test.ts` → the identity case. The `use-task-submit.ts` and `successor-links.ts` comments that described the two-backend reach were corrected in the same commit. The history below is kept as written.
 
-**Work item:** #150
+**Previously:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
 with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
@@ -19749,6 +19749,20 @@ the same limit), and an occurrence here leaves no trace once the page reloads.
 the newly-exported `sanitizeSeedTask` before it reaches `remapSeed`/`appendSeed`, so the
 status/completedDate pair is repaired on the in-session path too — for task rows, one template, one
 behaviour, whether or not a reload happened in between.
+
+★★★ **TRIED 2026-10-02 AND REVERTED: DO NOT CLOSE THIS BY CALLING `sanitizeSeed` FROM `applyTemplate`.**
+It is the obvious one-line closure — "run the load path's own function, so the two cannot differ" — and
+it fails two existing tests for two different reasons, both of which are the LOAD path being lossier
+than the apply path, so the swap would spread a loss rather than close a gap:
+(1) `sanitizeSeed` has NO `resources` arm although `TemplateSeed` declares one, so the swap drops a
+seed's resources outright and every owner FK `remapSeed` would have linked to them
+(`template-apply.test.ts` → "links seed task/RAID/stakeholder owners to seeded resources by name").
+Today only `ai-project-proposal.ts` writes `seed.resources`, and `templateFromWorkspace` never does,
+so no STORED template loses anything yet — but a proposal saved as a template would.
+(2) `sanitizeSeedRaidItem` flattens a long RICH note-log entry to plain text, which the apply path's
+`allowListSeed` deliberately does not (`template-apply.allowlist.test.ts` → "does NOT flatten a long
+rich note-log entry to plain text"). Closing this entry therefore starts with making the per-slice
+LOAD sanitisers lossless for what the apply path keeps, and only then routing apply through them.
 
 ★★★ **WHAT REMAINS, AND WHY THIS IS NARROWED RATHER THAN CLOSED.** The load path's sanitiser is
 `sanitizeSeed`, and it covers SIX slices — tasks, milestones, raid, changes, stakeholders, budgets.
@@ -28997,14 +29011,14 @@ original estimate that held. Designed in
 `docs/superpowers/specs/2026-09-03-document-write-concurrency-design.md`; that file is a DATED design
 record and its own pre-fix present tense is left standing rather than rewritten.
 
-## 350. The insight recommendation token does not cover the model round-trip — open
+## 350. The insight recommendation token does not cover the model round-trip — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
+**Status:** CLOSED 2026-10-02. Built as the entry describes, with the snapshot threaded through the two generate HOOKS rather than through `runInsightRecommendation` (the pure call never needed it): `useInsightRecommend` and `useInsightRecommendRunner` each take a `snapshotEntities` reader, call it beside the prompt (per candidate, for the runner) and hand the result to `applyRecommendation(id, rec, snapshot)`; `use-insight-recommendations.ts` supplies the reader and stamps from the snapshot, falling back to live arrays only for a caller that passed none. Scope stays the five `UPDATE_TARGET` tools, and refusals are still matched on `ConcurrencyTokenError`. ★★ MEASURED, and it corrects this entry: the ON-DEMAND path was already covered, by accident — `useInsightRecommend` captures `argsRef.current` once at generate START, so it called the start-time store closure holding prompt-time arrays. The false permit was real on the BACKGROUND RUNNER, which reads its store callback from a ref at answer time. Pinned by `use-insight-recommendations.test.tsx` → "stamps the token from the rows the PROMPT was built from, not the rows at answer time", driven through the runner with a mid-flight `rerender` (stamping from live arrays reddens it; the same test through the on-demand path did NOT, which is how the accident was found), plus snapshot-before-call ordering tests in both hook suites. The `recommend-tokens.ts` header and `docs/AGENTS/ai-assistant.md` no longer disclose the gap as open. The history below is kept as written.
+
+**Previously:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
 the `recommend-tokens.ts` header rather than an observed failure, and no probe has raced a human edit
 against an in-flight call. Read the disclosure with
 `grep -n "does NOT" src/app/insights/recommend-tokens.ts`.
-
-**Work item:** #253
 
 **What is covered.** `applyInsightRecommendation` is the single choke point for storing a generated
 recommendation — both the on-demand `useInsightRecommend` and the background

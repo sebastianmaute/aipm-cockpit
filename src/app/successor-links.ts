@@ -8,8 +8,9 @@
 // the 20-link cap and the dangling-ref check ON THIS PATH) and
 // wouldCreateDependencyCycle — instead of reimplementing either. Neither check
 // is app-wide sole ownership: the cap itself lives in `pushUniqueDependency`
-// (sanitize-core.ts), which `parseDependenciesString` shares, and the codec load
-// paths get their dangling-ref check from `dropDanglingDependencies`.
+// (sanitize-core.ts), which `parseDependenciesString` shares, and every load
+// gets its dangling-ref check from `dropDanglingDependencies` (the CSV and
+// Markdown decoders, and since §133 both load funnels).
 // No React, no I/O, no i18n.
 import { sanitizeDependencies, wouldCreateDependencyCycle } from "./sanitize";
 import type { Task, TaskDependency } from "./types";

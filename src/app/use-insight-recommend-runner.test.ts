@@ -72,6 +72,19 @@ afterEach(() => {
 });
 
 describe("useInsightRecommendRunner", () => {
+  // §350: each candidate's snapshot is read BEFORE its billed call and handed
+  // to the store with the result, so the token covers the model round-trip.
+  test("reads each candidate's entity snapshot before its call and hands it to the store", async () => {
+    const order: string[] = [];
+    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [] };
+    const snapshotEntities = vi.fn(() => { order.push("snapshot"); return snap; });
+    mockRun.mockImplementation(async () => { order.push("call"); return fakeRec; });
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1)], snapshotEntities });
+    await act(async () => { await flushMicrotasks(); });
+    expect(order).toEqual(["snapshot", "call"]);
+    expect(applyRecommendation).toHaveBeenCalledWith(1, fakeRec, snap);
+  });
+
   test("enabled:false never calls runInsightRecommendation", async () => {
     renderRunner({ enabled: false, insights: [makeInsight(1)] });
     await act(async () => { await flushMicrotasks(); });
@@ -86,8 +99,8 @@ describe("useInsightRecommendRunner", () => {
     const { applyRecommendation } = renderRunner({ insights });
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(2);
-    expect(applyRecommendation).toHaveBeenCalledWith(1, fakeRec);
-    expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec);
+    expect(applyRecommendation).toHaveBeenCalledWith(1, fakeRec, undefined);
+    expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec, undefined);
   });
 
   test("caps at MAX_BG_RECS_PER_TICK candidates per tick", async () => {
@@ -104,7 +117,7 @@ describe("useInsightRecommendRunner", () => {
     const { applyRecommendation } = renderRunner({ insights });
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
-    expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec);
+    expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec, undefined);
     expect(applyRecommendation).not.toHaveBeenCalledWith(1, expect.anything());
   });
 

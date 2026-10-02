@@ -269,19 +269,12 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // recorded as a follow-up rather than fixed here: redo can write a
       // dangling reference (create task 5 with successor 2 → undo → delete 5 →
       // redo merges `{taskId:5}` back).
-      // ★★ It self-heals on the next load on TWO backends only, not on all six:
-      // `dropDanglingDependencies` has exactly two PRODUCTION call sites,
-      // `csv-codecs-decode` and `markdown-codecs-decode` — reproduce with
-      // `grep -rn "dropDanglingDependencies(" src/app | grep -v "\.test\."`,
-      // which returns 4 lines: those two calls, the definition in
-      // `sanitize-core.ts`, and this comment (which names the symbol, so it
-      // matches its own grep — drop the filter and two test call sites join it).
-      // JSON maps tasks through `migrateTask` + `sanitizeNoteFields`,
-      // neither of which touches `dependencies`, and IndexedDB — the DEFAULT
-      // backend — and both Turso backends have no dangling pass at all, so there
-      // the entry persists indefinitely. An earlier revision of this line said
-      // "it self-heals on the next load" flatly, which is wrong exactly where
-      // most users are.
+      // ★ It self-heals on the next load, on all six backends: both load
+      // funnels (`applyWorkspaceFromLoad` in use-storage-backend.ts and
+      // `applyRestoredWorkspace` in task-manager.tsx) run
+      // `dropDanglingDependencies` (§133). Until then only the CSV and Markdown
+      // decoders did, so the entry persisted on JSON, IndexedDB (the DEFAULT
+      // backend) and both Turso layouts.
       // ★ The fan-out no longer evicts its own save's own-task entries: that
       // needed the staged list (unbounded) to out-number UNDO_CAP (25), and the
       // whole fan-out is ONE entry now regardless of how many targets it has.

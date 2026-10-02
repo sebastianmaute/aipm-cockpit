@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   DOCUMENT_ALLOWED_TAGS,
   GUARDED_DATA_ATTR,
+  GUARDED_LINK_ATTR,
   RICH_ALLOWED_TAGS,
   sanitizeRichHtml,
   sanitizeDocumentHtml,
@@ -59,8 +60,6 @@ describe("sanitizeRichHtml — cases inherited from the retired template sanitiz
     expect(sanitizeRichHtml('<p onclick="x()">hi</p>')).toBe("<p>hi</p>");
   });
   it("keeps a safe http link (href preserved)", () => {
-    // DOMPurify strips the cosmetic target/rel; the security-relevant part is
-    // that the safe href and the anchor survive.
     const out = sanitizeRichHtml('<a href="https://ok.example" target="_blank" rel="noopener noreferrer">x</a>');
     expect(out).toContain('href="https://ok.example"');
     expect(out).toContain(">x</a>");
@@ -495,6 +494,43 @@ describe("attribute value allow-list (§140)", () => {
     expect(GUARDED_DATA_ATTR.length).toBeGreaterThan(0);
     for (const name of GUARDED_DATA_ATTR) {
       expect(sanitizeRichHtml(`<p ${name}="${HOSTILE}">x</p>`)).toBe("<p>x</p>");
+    }
+  });
+
+  // §38: the editor's `setLink` writes target="_blank" rel="noopener noreferrer",
+  // and the custom URI regexp used to strip both, so every stored link opened in
+  // the same tab. Both sanitizers now keep exactly those values, on <a> only.
+  it.each([
+    ["sanitizeRichHtml", sanitizeRichHtml],
+    ["sanitizeDocumentHtml", sanitizeDocumentHtml],
+  ] as const)("%s keeps the editor's target/rel on a link (§38)", (_name, sanitize) => {
+    expect(sanitize('<p><a href="https://ok.example" target="_blank" rel="noopener noreferrer">x</a></p>')).toBe(
+      '<p><a href="https://ok.example" target="_blank" rel="noopener noreferrer">x</a></p>',
+    );
+  });
+
+  it.each([
+    ['target="_self"', "a named or other frame"],
+    ['target="javascript:alert(1)"', "a hostile target"],
+    ['rel="opener"', "a rel token that would RE-ENABLE the opener"],
+    ['rel="noopener evil"', "one unknown token among good ones"],
+    ['rel=""', "an empty rel"],
+  ])("drops %s (%s)", (attr) => {
+    expect(sanitizeRichHtml(`<a href="https://ok.example" ${attr}>x</a>`)).toBe('<a href="https://ok.example">x</a>');
+  });
+
+  it("drops target/rel off any element but <a>", () => {
+    expect(sanitizeRichHtml('<p target="_blank" rel="noopener">x</p>')).toBe("<p>x</p>");
+  });
+
+  // Same anti-slip loop as the data-* names above: every link attr is
+  // value-constrained THROUGH the real sanitizer, on its real carrier tag.
+  it("value-constrains EVERY GUARDED_LINK_ATTR name", () => {
+    expect(GUARDED_LINK_ATTR.length).toBeGreaterThan(0);
+    for (const name of GUARDED_LINK_ATTR) {
+      expect(sanitizeRichHtml(`<a href="https://ok.example" ${name}="javascript:alert(1)">x</a>`)).toBe(
+        '<a href="https://ok.example">x</a>',
+      );
     }
   });
 

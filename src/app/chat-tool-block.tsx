@@ -377,14 +377,21 @@ function DocumentCard({
   const liveDoc = ws.documents.find((d) => d.id === docId);
   const displayTitle = liveDoc?.title ?? title;
   const displayBlockCount = liveDoc?.blocks.length ?? blockCount;
-  // ★★ ROW-UNIQUE ACCESSIBLE NAMES. One transcript can hold many of these
-  // cards, so a bare "Download"/"Open in Documents" repeats verbatim N times
-  // (WCAG 2.4.6). The id is the only qualifier that CANNOT collide — two cards
-  // can carry the same title, either because the same document was touched
-  // twice in one conversation or because two documents are genuinely named
-  // alike. Same shape as documents-history-modal.tsx's per-version Restore
-  // label. Each name still STARTS with the button's visible text, so
-  // Label-in-Name (WCAG 2.5.3) holds for speech input.
+  // ★★ QUALIFIED ACCESSIBLE NAMES, unique PER DOCUMENT — not per card. One
+  // transcript can hold many of these cards, so a bare "Download"/"Open in
+  // Documents" repeats verbatim N times (WCAG 2.4.6). The `#docId` separates two
+  // DOCUMENTS that are genuinely named alike, which the title alone cannot.
+  // ★★★ It does NOT separate two cards for the SAME document — the ordinary
+  // write-then-revise pattern (`create_document` then `update_document`, or two
+  // updates) puts two cards in the transcript with the same id, so their names
+  // are identical. That is accepted, not overlooked (open-followups §111): both
+  // cards act on `liveDoc`, the CURRENT document, so the two controls sharing a
+  // name are functionally the SAME control, and a speech-input user's "click
+  // Download …" does the same thing whichever one resolves. An earlier version
+  // of this comment claimed the id "CANNOT collide"; it can, here, and only
+  // here. Do NOT cite this as row-unique precedent — `documents-history-modal.tsx`'s
+  // version id IS unique per row, which is a different guarantee. Each name still
+  // STARTS with the button's visible text, so Label-in-Name (WCAG 2.5.3) holds.
   const nameQualifier = ` – ${displayTitle} · #${docId}`;
 
   return (

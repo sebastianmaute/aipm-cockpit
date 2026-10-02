@@ -16,6 +16,7 @@ import { clampInsightRecInterval } from "./settings-types";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import type { RecommendPlanWorkspace } from "./insights/recommend-plan";
 
 export interface InsightRecommendRunnerArgs {
   /** Caller passes isAiEnabled && ai.insightRecommendations===true && !isPopout. */
@@ -29,8 +30,12 @@ export interface InsightRecommendRunnerArgs {
   /** Closes over the live workspace. */
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
-  /** Functional setInsights writer (Task 9 provides). */
-  applyRecommendation: (id: number, rec: InsightRecommendation) => void;
+  /** Functional setInsights writer (Task 9 provides). `snapshot` is the
+   *  candidate's prompt-time entity snapshot (§350). */
+  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendPlanWorkspace) => void;
+  /** §350 — read per CANDIDATE, beside its prompt. Omitted outside the stamping
+   *  caller (tests). */
+  snapshotEntities?: () => RecommendPlanWorkspace;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Captured per CANDIDATE, immediately before its
    *  billed call, and re-read before `applyRecommendation`: a tick spans several serial calls, so a
    *  swap part-way through must drop only what it invalidates. Omitted outside the storage hook's
@@ -49,6 +54,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   const buildContextForRef = useRef(args.buildContextFor);
   const applyRecommendationRef = useRef(args.applyRecommendation);
   const getScopeEpochRef = useRef(args.getScopeEpoch);
+  const snapshotEntitiesRef = useRef(args.snapshotEntities);
   useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
   useEffect(() => { insightsRef.current = args.insights; }, [args.insights]);
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
@@ -57,6 +63,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { buildContextForRef.current = args.buildContextFor; }, [args.buildContextFor]);
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
+  useEffect(() => { snapshotEntitiesRef.current = args.snapshotEntities; }, [args.snapshotEntities]);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
@@ -103,6 +110,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them
         // must drop only the one it invalidates.
         const startEpoch = getScopeEpochRef.current?.();
+        // §350 — frozen beside this candidate's prompt; see `useInsightRecommend`.
+        const snapshot = snapshotEntitiesRef.current?.();
         try {
           const rec = await runInsightRecommendation({
             apiKey: aiRef.current.apiKey,
@@ -117,7 +126,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
           // the PREVIOUS project. `break`, not `continue` — every remaining candidate of this tick
           // was read from that same project, and the next tick re-derives them from the new one.
           if (dropStaleScopeWrite(getScopeEpochRef.current, startEpoch, "useInsightRecommendRunner", { insightId: insight.id })) break;
-          applyRecommendationRef.current(insight.id, rec);
+          applyRecommendationRef.current(insight.id, rec, snapshot);
         } catch (e) {
           // NEVER log/echo the api key or response body. An abort (unmount)
           // stops the whole tick — the promise's rejection is expected, not a
