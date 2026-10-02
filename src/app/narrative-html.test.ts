@@ -180,9 +180,16 @@ describe("isNarrativeEmpty — linear tag strip (§578)", () => {
     // at 20k / 40k / 80k), and this runs on every dashboard render. A ratio
     // guard (src/test/scaling.ts): linear ≈ 4, quadratic ≈ 16, limit 8 — a ms
     // ceiling fails a correct build on a loaded runner (§592, §612).
+    // ★ The "&" is for calibration. On a bare "<".repeat(n) the linear code returns
+    // after one indexOf, so it calibrated at 8,192–16,384 loops, above the
+    // ≤4,096 that src/test/scaling.ts asks for. A runner ~4x faster would then hit
+    // MAX_LOOPS and fail a correct build. Each "&" makes the NBSP pass try its
+    // entity alternatives, and the old regex stays quadratic on it (no ">" anywhere).
+    // Measured 2026-10-02: 1,024–2,048 loops and ratio 3.85–4.01 over 5 runs; the
+    // old `/<[^>]*>/g` gave a ratio of 15.81 (3.0 s to fail).
     expectLinearScaling({
       label: "isNarrativeEmpty on unclosed '<'",
-      build: (n) => "<".repeat(n),
+      build: (n) => "<&".repeat(n),
       run: isNarrativeEmpty,
       check: (out) => expect(out).toBe(false),
       n: 10_000,
