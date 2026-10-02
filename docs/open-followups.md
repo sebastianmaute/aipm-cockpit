@@ -432,7 +432,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
-| [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
+| [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce--closed-2026-10-02) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | **CLOSED** 2026-10-02 |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
 | [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | **CLOSED** 2026-09-14 |
@@ -17238,12 +17238,12 @@ order; this entry's close condition — the `verify-rewrite --expect clean` run 
 repository — is its step 4, ahead of the issue import (step 6) and the visibility flip itself
 (step 10). This entry still closes only when that run passes; nothing else here changes.
 
-## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
+## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce — CLOSED 2026-10-02
 
-**Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
+**Status:** CLOSED 2026-10-02 — fixed by `1f8705040`: `normalizeForCompare`'s array-join delimiter is now the six-character `\u0001` escape (`51e985657`), and `no-nul-bytes.test.ts` rejects any raw control byte other than TAB/LF/CR plus DEL over the same `src`+`docs` file set, naming file and offset. Widening it found two raw BEL bytes in a tracked plan doc (lost-backslash corruption of `\u0007`), repaired in `46861aa63`. Mutation-checked by putting the raw byte back into `jira-api.ts`, which turns the guard red naming that file.
+
+**Original status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
 closes the entry. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #186
 
 ★ Correction 2026-08-21: `buildJiraCacheKey` never existed — `git log --oneline --all
 -S'buildJiraCacheKey' -- src` returns zero commits, ever. The array branch described below belongs to
