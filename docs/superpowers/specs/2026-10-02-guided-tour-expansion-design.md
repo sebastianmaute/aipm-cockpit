@@ -70,8 +70,10 @@ Added to `TOUR_ANCHORS` and placed as `data-tour-id`:
 | `navResources`, `navBudget`, `navChanges`, `navDocuments` | sidebar entries, via the existing `NAV_TOUR_ID` map | the module is enabled and the entry is rendered |
 
 A missing anchor (board mode for `selectAll`, a collapsed sidebar parent for a
-child entry) falls back to the centred card. That is the designed behaviour,
-not a defect. Tours are modern-only, so a top-bar anchor is wired in the
+child entry) falls back to the centred card. On the collapsed rail the
+Resources entry is a parent with children, rendered by `CollapsedNavFlyout`, and
+carries no anchor, so `res-directory` falls back to the centred card there. That
+is the designed behaviour, not a defect. Tours are modern-only, so a top-bar anchor is wired in the
 `ModernShell` slot only.
 
 ## Steps

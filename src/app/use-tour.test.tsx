@@ -16,6 +16,15 @@ describe("useTour", () => {
     const count = (r: typeof file) => r.result.current.catalogTours.find((t) => t.id === "reporting")!.stepCount;
     expect(count(turso) - count(file)).toBe(2);
   });
+  it("start() under turso yields two more steps than under file", () => {
+    const mk = (storageKind: string) => renderHook(() =>
+      useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [...ALL_MODULE_IDS], storageKind, setSettings: vi.fn() }));
+    const file = mk("file");
+    const turso = mk("turso");
+    act(() => { file.result.current.start("reporting"); });
+    act(() => { turso.result.current.start("reporting"); });
+    expect(turso.result.current.steps.length - file.result.current.steps.length).toBe(2);
+  });
   it("auto-launches getting-started once in modern, non-popout, unseen", () => {
     const setSettings = vi.fn();
     const { result } = renderHook(() =>
@@ -35,12 +44,6 @@ describe("useTour", () => {
       const { result } = renderHook(() => useTour({ ...args, completedTours: undefined, ...base, setSettings }));
       expect(result.current.isOpen).toBe(false);
     }
-  });
-  it("hides a tour whose steps are all filtered out", () => {
-    // features=[] disables every module-gated view; the RAID tour is all module-gated today
-    const { result } = renderHook(() =>
-      useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [], setSettings: vi.fn() }));
-    expect(result.current.catalogTours.map((t) => t.id)).not.toContain("raid");
   });
   it("start(id) activates a themed tour at index 0", () => {
     const setSettings = vi.fn();

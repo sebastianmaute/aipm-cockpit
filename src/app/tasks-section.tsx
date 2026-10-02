@@ -806,9 +806,12 @@ export function TasksSection({
             })
           }
         />
-        <span data-tour-id={TOUR_ANCHORS.savedViews} className="inline-flex items-center">
-          <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-        </span>
+        <SavedViewsControl
+          lang={lang}
+          hiddenCols={hiddenCols}
+          setHiddenCols={setHiddenCols}
+          dataTourId={TOUR_ANCHORS.savedViews}
+        />
         <CalendarSyncControls
           lang={lang}
           entityLabelKey="calendarSyncEntityTask"
