@@ -38235,7 +38235,7 @@ Size L — a simulation engine, scenario inputs and P50/P80-style output on the 
 
 ## 503. Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
+**Status:** POSTPONED by the owner 2026-10-02 — waits for a reproduction. OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
 to reproduce.
 
 Something in task effort or over-budget handling misbehaved live at about 37:00 in the demo, and it was
@@ -43568,7 +43568,9 @@ SharePoint Online allows `#` and `%` in file and folder names. For such a name, 
 
 ## 652. SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP — open
 
-**Status:** open 2026-09-29, found during §4 Task 4. Never machine-verified against a tenant: read off `src/app/sharepoint-backend.ts` (the load fetches `…/content` from `graph.microsoft.com`, which answers with a 302 to a pre-authenticated download URL on a SharePoint host) and `src/proxy.ts` (`connect-src` allows only `graph.microsoft.com` among Microsoft hosts, and CSP checks redirect targets too).
+**Status:** open — ONLY the live-tenant check remains. ★ Re-checked 2026-10-02: the CSP half this heading names is already done — `src/proxy.ts` `connect-src` allows `https://*.sharepoint.com` and `https://*.files.1drv.com` (added by the §4 work, `git log -S'https://*.sharepoint.com' -- src/proxy.ts`), pinned by `proxy.test.ts`; the owner confirmed on 2026-10-02 that allowing `*.sharepoint.com` is the intended policy. What stays owed is checks (1)–(5) below against a real tenant.
+
+**Previously:** open 2026-09-29, found during §4 Task 4. Never machine-verified against a tenant: read off `src/app/sharepoint-backend.ts` (the load fetches `…/content` from `graph.microsoft.com`, which answers with a 302 to a pre-authenticated download URL on a SharePoint host) and `src/proxy.ts` (`connect-src` allows only `graph.microsoft.com` among Microsoft hosts, and CSP checks redirect targets too).
 
 **Work item:** #491
 
