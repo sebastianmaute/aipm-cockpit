@@ -10,7 +10,7 @@ import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import {
-  layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
+  estimatedLabelWidth, fitJoinLabel, layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
   type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
 } from "./burndown-geometry";
 import { ChartReadout, readoutSentence } from "./chart-readout";
@@ -88,6 +88,8 @@ function BurndownChartBody({
   const joinAmount = (v: number) =>
     signedFigure(unit === "eur" ? fmt(v) : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v), v);
   const x = (date: string) => scaleDate(date, model.xDomain, X0, X1);
+  // §665 — the room a join label may use: the plot, minus the baseline label at its left end when that is drawn.
+  const joinBounds = { left: model.bacSteps && model.bacBaseline !== null ? X0 + 4 + estimatedLabelWidth(t(lang, "burndownBacBaseline")) + 4 : X0, right: X1 };
   const down = orientation === "burndown";
   const caption = t(lang, down
     ? (unit === "eur" ? "burndownBudgetRemaining" : "burndownHoursRemaining")
@@ -250,11 +252,16 @@ function BurndownChartBody({
           {model.evSegments?.map((seg, i) => (
             <polyline key={i} points={pts(seg.points)} fill="none" className="stroke-[var(--rag-amber)]" strokeWidth={2} strokeDasharray={seg.partial ? DASH.evPartial : DASH.evLine} />
           ))}
-          {model.evJoins.map((j) => (
-            <text key={j.date} x={x(j.date)} y={y(j.value) - 6} textAnchor={x(j.date) > (X0 + X1) / 2 ? "end" : "start"} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
-              {t(lang, joinKey(j.count), j.label, joinAmount(j.amount))}
-            </text>
-          ))}
+          {model.evJoins.map((j) => {
+            // §665 — kept inside the plot and clear of the baseline label, which sits at the plot's left edge.
+            const fitted = fitJoinLabel((name) => t(lang, joinKey(j.count), name, joinAmount(j.amount)), j.label, x(j.date), (X0 + X1) / 2, joinBounds);
+            return (
+              <text key={j.date} data-ev-join-label="" x={x(j.date)} y={y(j.value) - 6} textAnchor={fitted.anchor} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
+                {fitted.truncated && <title>{t(lang, joinKey(j.count), j.label, joinAmount(j.amount))}</title>}
+                {fitted.text}
+              </text>
+            );
+          })}
           {model.actual.length > 1 && <polyline points={pts(model.actual)} fill="none" className={actualClass} strokeWidth={2.5} />}
           {model.pace && (
             <>
