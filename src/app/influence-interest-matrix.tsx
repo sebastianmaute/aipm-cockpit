@@ -94,7 +94,7 @@ export function InfluenceInterestMatrix({
                         tabIndex={0}
                         aria-label={t(lang, "stakeholderNeedsComms")}
                         title={t(lang, "stakeholderNeedsComms")}
-                        className="inline-flex cursor-pointer items-center justify-center rounded text-ui-purple hover:text-ui-green focus-visible:outline focus-visible:outline-2 focus-visible:outline-ui-green"
+                        className="inline-flex cursor-pointer items-center justify-center rounded text-ui-purple dark:text-ui-purple-strong hover:text-ui-green-strong dark:hover:text-ui-green focus-visible:outline focus-visible:outline-2 focus-visible:outline-ui-green"
                         onClick={(e) => {
                           e.stopPropagation();
                           onJumpToComms?.(stakeholderId);

@@ -671,7 +671,7 @@ export function TasksSection({
                 ? t(lang, "jiraSync")
                 : t(lang, "jiraSyncNoScope")
             }
-            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`} />
             {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
@@ -1071,7 +1071,7 @@ export function TasksSection({
                     // automatic fix — the answer here is that they are the same
                     // action rendered twice. Do not disambiguate them.
                     aria-label={t(lang, "addTaskButton")}
-                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:bg-white/5 ${INTERACTIVE}`}
+                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:hover:bg-white/5 ${INTERACTIVE}`}
                   >
                     <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
                     {t(lang, "addTaskButton")}

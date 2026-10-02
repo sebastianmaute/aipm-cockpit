@@ -26,7 +26,7 @@ export function CommTemplateDiffView(props: CommTemplateDiffViewProps) {
         }
         if (line.type === "removed") {
           return (
-            <div key={i} role="listitem" aria-label={`${removedLabel}: ${line.text}`} className="text-ui-purple line-through">
+            <div key={i} role="listitem" aria-label={`${removedLabel}: ${line.text}`} className="text-ui-purple dark:text-ui-purple-strong line-through">
               <span aria-hidden>- </span>{line.text || " "}
             </div>
           );

@@ -396,7 +396,7 @@ export function RaidTable({
               // (`openNew(effectiveCategory)`) — so the names must differ,
               // and the category is what actually differs between them.
               aria-label={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
-              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue ${INTERACTIVE}`}
+              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
             >
               <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
               {t(lang, "raidAddItem")}

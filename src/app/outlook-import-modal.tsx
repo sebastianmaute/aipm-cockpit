@@ -69,7 +69,7 @@ export function OutlookImportModal({
               <span className="font-medium text-foreground">{label}</span>
               {c.email && <span className="text-xs text-muted-foreground">{c.email}</span>}
               {exists && (
-                <span className="ml-auto text-xs italic text-ui-purple">
+                <span className="ml-auto text-xs italic text-ui-purple dark:text-ui-purple-strong">
                   {t(lang, "outlookImportExisting")}
                 </span>
               )}

@@ -410,13 +410,13 @@ export function RaidEditModal({
               <button
                 type="button"
                 onClick={() => setCategoryUnlocked(true)}
-                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-ui-dark-blue hover:underline ${INTERACTIVE}`}
+                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-ui-dark-blue dark:hover:text-ui-light-grey hover:underline ${INTERACTIVE}`}
               >
                 {t(lang, "raidAdvancedChangeCategory")}
               </button>
             )}
             {!isNew && categoryUnlocked && (
-              <span className="text-[11px] italic text-ui-purple">
+              <span className="text-[11px] italic text-ui-purple dark:text-ui-purple-strong">
                 {t(lang, "raidCategoryChangedWarning")}
               </span>
             )}

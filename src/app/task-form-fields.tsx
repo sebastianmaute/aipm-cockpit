@@ -376,7 +376,7 @@ export function TaskFormFields({
                 {hits.map((a) => (
                   <p
                     key={a.id}
-                    className="text-xs text-ui-purple"
+                    className="text-xs text-ui-purple dark:text-ui-purple-strong"
                   >
                     {t(
                       lang,

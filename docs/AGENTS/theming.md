@@ -65,9 +65,13 @@
   (0,2,0), which TIES `hover:text-*` and wins on emission order alone. Stable in Tailwind today, but
   the remedy is order-sensitive in a way the bug is not. List today's correct users with
   `grep -rl "dark:hover:text-" src/app | grep -v test` (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
-  presence — `chat-prompt-chips.tsx:37` "has" a companion that re-asserts the identical broken colour.
-  ★★ NO GATE CATCHES ANY OF THIS: axe scans the RESTING state only, so a hover-state contrast failure
-  is structurally invisible to it, and there is no hover pass in `e2e/a11y.spec.ts`.
+  presence — `chat-prompt-chips.tsx` once "had" a companion that re-asserted the identical broken colour.
+  ★★ axe cannot catch any of this (it scans the RESTING state only, so a hover failure is invisible to
+  it), so since §40 closed (2026-10-02) a STATIC guard does: `dark-companion.guard.test.ts` fails on any
+  `text-ui-dark-blue` / `text-ui-purple` without a same-line `dark:` companion AT THE SAME VARIANT
+  LEVEL whose value differs, with the checked exemptions (checkbox fill, solid `bg-ui-green`, the skip
+  link) spelled out in its header. Keep a class pair on ONE line — the guard reads a split pair as a
+  violation. ★ `--ui-purple-strong` is the purple companion; the dark-blue one is `ui-light-grey`.
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton, used by every `SortResizeTh` — now
   the Open Points table too, `SortableTh` was RETIRED into it) use `text-[var(--table-head-accent)]` for
   active/hover — raw `text-ui-green` is sub-AA (2.03:1) on the

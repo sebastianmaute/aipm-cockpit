@@ -507,7 +507,7 @@ function ResourceDirectoryInner({
                             onClick={(e) => { e.stopPropagation(); void copyEmail(addr); }}
                             aria-label={t(lang, "resourceEmailCopyLabel", addr)}
                             title={t(lang, "resourceEmailCopyLabel", addr)}
-                            className={`rounded text-foreground hover:text-ui-dark-blue hover:underline ${FOCUS_RING} ${TRANSITION}`}
+                            className={`rounded text-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey hover:underline ${FOCUS_RING} ${TRANSITION}`}
                           >
                             {addr}
                           </button>

@@ -261,7 +261,7 @@ export function GanttHeader({
             aria-label={t(lang, "ganttResizeNameCol")}
             title={t(lang, "ganttResizeNameCol")}
             onMouseDown={onStartNameColResize}
-            className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue active:text-ui-dark-blue print:hidden"
+            className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue dark:hover:text-ui-light-grey active:text-ui-dark-blue dark:active:text-ui-light-grey print:hidden"
           >
             <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
           </div>

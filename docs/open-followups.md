@@ -271,7 +271,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--closed-2026-10-02) | `RaidItem` has NO storage-side length cap on any path | pre-existing, found 0.210.0 | M | **CLOSED** 2026-10-02 |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
-| [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
+| [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--closed-2026-10-02) | `text-ui-dark-blue` without a mode-appropriate companion | pre-existing, counted 0.211.0 | M–L | **CLOSED** 2026-10-02 |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open |
 | [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
 | [§43](#43-two-suggest-raci-reporting-gaps--closed-2026-09-25) | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | closed |
@@ -2794,11 +2794,11 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
-## 40. `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — CLOSED 2026-10-02
 
-**Status:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Swept and GATED. Every uncompanioned site got a companion at its own variant level, light mode byte-identical: 29 `text-ui-dark-blue` sites (base, `hover:`, `group-hover:`, `active:`, and the `[&_a]:` link colour in `rich-text-view.tsx`) take `dark:…text-ui-light-grey`; `chat-prompt-chips.tsx`'s same-value companion is corrected; the 13 `text-ui-purple` sites (section D) take `dark:text-ui-purple-strong`; and the matrix comms marker's light-mode `hover:text-ui-green` becomes `hover:text-ui-green-strong dark:hover:text-ui-green`. Measured from `builtin-schemes.ts` through `resolveSchemeColors` (not in a browser): `--ui-light-grey` 7.74–10.32, `--ui-purple-strong` 7.06–8.17 and `--ui-green` 6.03–8.80 on the dark `--surface`/`--surface-muted`, `--ui-green-strong` 4.71–7.14 on the light ones. ★★ The class can no longer regrow by hand: `dark-companion.guard.test.ts` scans `src/app` for both tokens at every variant level (same-line companion, value-checked, with the three CHECKED exemptions — checkbox fill, solid `bg-ui-green`, the skip link) and fails naming file:line; it asserts a non-trivial population first and was mutation-checked by reverting one fixed site. ★ Still unswept, as before: `border-ui-dark-blue` and the other non-text utilities (1.4.11 rather than 1.4.3). The history below is kept as written.
 
-**Work item:** #103
+**Previously:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",

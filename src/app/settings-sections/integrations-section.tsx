@@ -988,7 +988,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           href="https://turso.tech/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-ui-dark-blue underline hover:opacity-80"
+          className="text-ui-dark-blue dark:text-ui-light-grey underline hover:opacity-80"
         >
           {t(lang, "integrationsTursoLearnMore")}
         </a>

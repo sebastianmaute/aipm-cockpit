@@ -115,7 +115,7 @@ export function OutlookCalendarImportModal({
               ))}
             </select>
             {exists && (
-              <span className="shrink-0 text-xs italic text-ui-purple">{t(lang, "outlookCalImportExisting")}</span>
+              <span className="shrink-0 text-xs italic text-ui-purple dark:text-ui-purple-strong">{t(lang, "outlookCalImportExisting")}</span>
             )}
           </li>
         );

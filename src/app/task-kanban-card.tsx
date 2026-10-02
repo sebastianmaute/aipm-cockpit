@@ -156,7 +156,7 @@ export function TaskKanbanCard({
             onClick={() => onAiEdit?.(task)}
             aria-label={rowLabel(t(lang, "inlineAiEdit"), rowToken)}
             title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
+            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             <SparklesIcon aria-hidden="true" className="h-4 w-4" />
           </button>

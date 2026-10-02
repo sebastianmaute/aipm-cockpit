@@ -221,7 +221,7 @@ export function JiraSettingsSection({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-ui-dark-blue"
+          className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           aria-expanded={open}
         >
           <span>{t(lang, "jiraIntegration")}</span>
@@ -662,7 +662,7 @@ export function JiraSettingsSection({
                             }
                             className={`block w-full px-3 py-1.5 text-left text-xs ${
                               config.assigneeAccountId === u.accountId
-                                ? "bg-surface-muted text-ui-dark-blue"
+                                ? "bg-surface-muted text-ui-dark-blue dark:text-ui-light-grey"
                                 : "text-foreground hover:bg-surface-muted"
                             }`}
                           >

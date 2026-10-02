@@ -220,7 +220,7 @@ export function JiraConflictsModal({
                 <span className="font-mono text-xs text-muted-foreground">
                   #{c.taskId}
                 </span>
-                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:text-ui-light-grey">
                   {c.jiraKey}
                 </span>
                 {c.jiraIssueType && (

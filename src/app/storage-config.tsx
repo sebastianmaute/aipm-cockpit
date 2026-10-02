@@ -237,7 +237,7 @@ export function StorageConfigSection({
       {isLocal && (
         <div className="mt-2 space-y-2">
           {!fsaSupported ? (
-            <p className="text-xs text-ui-purple">
+            <p className="text-xs text-ui-purple dark:text-ui-purple-strong">
               {t(lang, "storageFsaUnsupported")}
             </p>
           ) : (
@@ -246,13 +246,13 @@ export function StorageConfigSection({
                 <p className="text-xs text-muted-foreground">
                   ✓ {description}
                   {!ready && (
-                    <span className="ml-1 text-ui-purple">
+                    <span className="ml-1 text-ui-purple dark:text-ui-purple-strong">
                       ({t(lang, "storagePermissionNeeded")})
                     </span>
                   )}
                 </p>
               ) : (
-                <p className="text-xs text-ui-purple">
+                <p className="text-xs text-ui-purple dark:text-ui-purple-strong">
                   {t(lang, "storagePickFilePrompt")}
                 </p>
               )}

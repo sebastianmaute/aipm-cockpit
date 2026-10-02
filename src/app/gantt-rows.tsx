@@ -167,7 +167,7 @@ export function GanttTaskRow({
       >
         <span
           aria-hidden
-          className="cursor-grab text-muted-foreground hover:text-ui-dark-blue active:cursor-grabbing"
+          className="cursor-grab text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey active:cursor-grabbing"
           title={t(lang, "ganttDragHint")}
         >
           {/* Grip icon — the common "drag handle" affordance. */}

@@ -179,8 +179,8 @@ export function WorkspaceTabStrip({
           }
           className={
             workspaceCollapsed
-              ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
-              : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
+              ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
+              : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           }
         >
           <ChevronDownIcon

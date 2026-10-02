@@ -54,7 +54,7 @@ export function TabButton({
   // border-b-2 indicator spans both the label and the popout icon.
   const colorClass = active
     ? "border-ui-green text-ui-dark-blue dark:border-ui-green dark:text-ui-light-grey"
-    : "border-transparent text-muted-foreground hover:text-ui-dark-blue";
+    : "border-transparent text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey";
   return (
     <div
       className={`-mb-px inline-flex items-stretch rounded-t-md border-b-2 transition-colors ${colorClass}`}

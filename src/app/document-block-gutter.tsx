@@ -112,7 +112,7 @@ export function DocumentBlockGutter({
         <DragHandle
           ariaLabel={rowName("documentsBlockReorder")}
           ariaDescribedBy={handleDescribedBy}
-          className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue"
+          className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           {...handleProps}
         />
         {/* ★★ EllipsisHORIZONTAL, against DragHandle's EllipsisVERTICAL. Two

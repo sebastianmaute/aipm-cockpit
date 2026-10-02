@@ -147,7 +147,7 @@ export function RaidToolbar({
           type="button"
           onClick={onClearTaskFilter}
           title={t(lang, "ganttResetFilters")}
-          className={`rounded-md border border-ui-purple/40 bg-ui-purple/10 px-2.5 py-1.5 text-xs font-medium text-ui-purple hover:bg-ui-purple/20 dark:border-ui-purple/50 dark:bg-ui-purple/15 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-purple/40 bg-ui-purple/10 px-2.5 py-1.5 text-xs font-medium text-ui-purple dark:text-ui-purple-strong hover:bg-ui-purple/20 dark:border-ui-purple/50 dark:bg-ui-purple/15 ${INTERACTIVE}`}
         >
           #{filterTaskId} ×
         </button>
