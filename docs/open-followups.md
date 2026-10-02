@@ -889,6 +889,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--closed-2026-10-02) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | **CLOSED** 2026-10-02 |
 | [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--closed-2026-10-02) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | **CLOSED** 2026-10-02 |
 | [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--closed-2026-10-02) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | **CLOSED** 2026-10-02 |
+| [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--open) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43693,3 +43694,13 @@ Both hooks keep the target task id in state that survives the task's deletion an
 The legacy branch of `migrateBlockers` (a task with blocker text and no log) checks `lastUpdateDate` only against `ISO_DATE`, not `Date.parse`. An impossible date such as `2026-13-45` produces an invalid `createdAt`, and `sanitizeEntry` drops that entry on the next load, so the entry is minted again on every load. A missing or malformed date falls back to `new Date()`, so the minted `createdAt` differs on each load until the project is saved. No data is lost. `loadStamp` already has the right check; the legacy branch should use it, or a fixed fallback, so load stays pure.
 
 **Source:** the blocker-log scoped review, 2026-10-02.
+
+## 665. The burn-down chart's join label overprints the "Budget at start of recording" label — open
+
+**Status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checks label overlap in `burndown-chart.tsx`.
+
+**Work item:** #540
+
+In cumulative mode the bucket-chain join label (`burndownEvJoins*`, e.g. "… (fixed price), Discovery Phase (closed), Security Review (closed, rate override) join (+€102,6…") grows with the number of joined buckets and is neither truncated nor repositioned, so it runs off the left edge of the plot and overprints the `burndownBacBaseline` label ("Budget at start of recording", drawn at `X0 + 4`) and the € tick beside it. The `reports-budget-history` visual baseline was deliberately left stale because of it. Fix direction: clamp or truncate the join label to the plot width with the full text in the readout or a tooltip, or place it where it cannot cross the baseline label; add a test that the two labels' x-ranges do not overlap for a long bucket list, then refresh that baseline.
+
+**Source:** the visual-baseline check, 2026-10-02.
