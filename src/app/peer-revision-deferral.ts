@@ -1,6 +1,6 @@
 // src/app/peer-revision-deferral.ts
 //
-// §662 — a peer's revision that arrives while this window's own save is queued or running. Adopting it
+// §666 — a peer's revision that arrives while this window's own save is queued or running. Adopting it
 // at once is unsafe: the save in the queue was built before the message, so it may lack the peer's slices
 // and would write over them. Ignoring it (the old rule) made that save meet the peer's revision and pause,
 // even when nothing stood between the two windows but timing. So it is DEFERRED:

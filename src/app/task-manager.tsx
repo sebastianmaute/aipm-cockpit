@@ -40,6 +40,8 @@ import { AppModals } from "./app-modals";
 import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
+import { BlockersWindow } from "./blockers-window";
+import { useBlockersWindow } from "./use-blockers-window";
 import { applyStatusChange } from "./task-status";
 import { dropDanglingDependencies, sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
@@ -1435,7 +1437,8 @@ function TaskManagerInner() {
   // view so it survives the view remount that the modern shell performs.
   const tour = useTour({
     layout: settings.layout, isPopout, hydrated, tourSeen: settings.tourSeen,
-    completedTours: settings.completedTours, features: settings.features, setSettings,
+    completedTours: settings.completedTours, features: settings.features,
+    storageKind: settings.storageConfig.kind, setSettings,
   });
   const startTour = tour.start;
 
@@ -1789,6 +1792,8 @@ function TaskManagerInner() {
 
   // Shared floating note-log window (tasks + RAID + changes), popout-gated at the mount below (see use-notes-window.ts).
   const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser });
+  // Floating blocker window (tasks only), popout-gated at the mount below beside NotesWindow (see use-blockers-window.ts).
+  const { openTaskBlockers, blockersWindowProps } = useBlockersWindow({ tasks, setTasks, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -2748,6 +2753,7 @@ function TaskManagerInner() {
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
       onOpenNotes={openTaskNotes}
+      onOpenBlockers={openTaskBlockers}
       onJumpToRaid={onJumpToRaid}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
@@ -2959,6 +2965,7 @@ function TaskManagerInner() {
   const undoControlEl = isPopout ? null : (
     <>
       <UndoControl
+        dataTourId={TOUR_ANCHORS.undo}
         lang={lang}
         entries={undoApi.stack}
         onUndo={undoApi.undo}
@@ -3126,6 +3133,7 @@ function TaskManagerInner() {
         taskEditorExtras={editorExtrasEl}
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
         taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
+        taskOnOpenBlockers={editingId !== null ? () => openTaskBlockers(editingId) : undefined /* as notes: existing task only; a new draft has no id to target */}
         budgetLink={budgetLink}
         taskCalendarSyncEnabled={calendarTaskEnabled}
         absenceCalendarSyncEnabled={calendarAbsenceEnabled}
@@ -3185,6 +3193,7 @@ function TaskManagerInner() {
         />
       )}
       {!isPopout && <NotesWindow {...notesWindowProps} />}
+      {!isPopout && <BlockersWindow {...blockersWindowProps} />}
       {!isPopout && (
         <RaidCreateHost
           create={raidCreate}
@@ -3304,6 +3313,7 @@ function TaskManagerInner() {
           onSkip={tour.skip}
           onDone={tour.done}
           onShowMe={(step) => tour.showMe(step, setActiveTab)}
+          activeView={activeTab}
         />
       )}
       {modalsBlock}

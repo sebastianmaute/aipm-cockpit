@@ -197,6 +197,19 @@ describe("buildColumnEnsureAlters", () => {
   });
 });
 
+describe("Task.blockerLog column", () => {
+  it("turso-migrate adds the blockerLog column to an existing task table", () => {
+    // The REAL tasks column set, as both Turso layouts derive it from CSV_COLUMNS.
+    for (const tasks of [singleTenantTableColumns(), tenantTableColumns()].map((all) => all.find((c) => c.table === "tasks"))) {
+      expect(tasks?.columns).toContain("blockerLog");
+      const existing = (tasks?.columns ?? []).filter((c) => c !== "blockerLog");
+      expect(buildColumnEnsureAlters(tasks ? [tasks] : [], [pragmaResult(existing)])).toEqual([
+        { sql: 'ALTER TABLE "tasks" ADD COLUMN "blockerLog" TEXT' },
+      ]);
+    }
+  });
+});
+
 describe("column-set sources", () => {
   it("singleTenantTableColumns mirrors ENTITY_SPECS tables + columns, plus the plan table", () => {
     const cols = singleTenantTableColumns();

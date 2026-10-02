@@ -45,6 +45,8 @@ export interface SegmentedControlProps<T extends string> {
   title?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
   className?: string;
+  /** Guided-tour anchor, placed on the radiogroup root. */
+  dataTourId?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -56,6 +58,7 @@ export function SegmentedControl<T extends string>({
   optionAriaLabel,
   title,
   className = "",
+  dataTourId,
 }: SegmentedControlProps<T>) {
   // APG radiogroup roving — the shared implementation, so every radio group in
   // the app moves the same way (§331). Its notes live with it.
@@ -66,6 +69,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       role="radiogroup"
+      data-tour-id={dataTourId}
       aria-label={ariaLabel}
       title={title}
       aria-disabled={disabled || undefined}

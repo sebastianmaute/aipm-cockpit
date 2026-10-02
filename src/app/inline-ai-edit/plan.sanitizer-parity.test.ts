@@ -28,6 +28,8 @@ import {
 } from "../sanitize";
 import { sanitizeCalendarEvent } from "../calendar-event";
 import { buildTaskCleanPatch } from "../chat-task-patch";
+import { buildPatch } from "../chat-tools-updates";
+import { applyTaskPatch } from "../blocker-log";
 import { buildBulkEditUpdates } from "../bulk-operations-helpers";
 import { creatableResourceEmail } from "../resource-create-email";
 import { emptyBulkEdit, emptyForm } from "../task-form-context";
@@ -295,7 +297,7 @@ function readStored(out: Record<string, unknown>, field: string): string {
 // entity's own `dropUnaccepted*Fields`, as all eight now are.
 
 /** The task apply path is NOT a full-record sanitizer — `use-chat-dispatcher.ts`
- *  composes `buildTaskCleanPatch` with `applyStatusChange`, guarded by
+ *  composes `buildTaskCleanPatch`, merged by `applyTaskPatch`, with `applyStatusChange`, guarded by
  *  `isTaskStatus`. `status` is the one field `buildTaskCleanPatch` deliberately
  *  does not handle (its own docstring says why), so it is composed here.
  *
@@ -316,11 +318,15 @@ const taskReader: StoredReader = (field, value) => {
     return merged.status;
   }
   try {
-    const patch = buildTaskCleanPatch({ [field]: value } as Partial<Task>, TASK_BASE);
-    const stored = field in patch
-      ? (patch as Record<string, unknown>)[field]
-      : (TASK_BASE as unknown as Record<string, unknown>)[field];
-    return String(stored ?? "");
+    // ★ `buildPatch` first, as the `update_task` tool does before `updateTask`:
+    // it is where a NON-STRING `blockers` is dropped (the log left untouched),
+    // so skipping it read `blockers: true` as a clear the real write never makes.
+    const patch = buildTaskCleanPatch(buildPatch({ [field]: value }), TASK_BASE);
+    // ★ The patch is merged by `applyTaskPatch`, as `updateTask` does — NOT
+    // read off the patch: `blockers` is stored through the blocker log, whose
+    // normaliser trims, so the patch's own value is not what lands.
+    const merged = applyTaskPatch(TASK_BASE, patch, {}, "2026-01-01T00:00:00.000Z");
+    return String((merged as unknown as Record<string, unknown>)[field] ?? "");
   } catch {
     return null; // the dispatcher surfaces the throw as a failed tool call
   }

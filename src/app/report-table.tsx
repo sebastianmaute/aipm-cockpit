@@ -135,7 +135,7 @@ export function TableFilter({
   lang: Lang;
   value: string;
   onChange: (v: string) => void;
-  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail" | "budgetReportFilterBucket" | "planningFilterResource" | "budgetRoleFilter";
+  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail" | "budgetReportFilterBucket" | "planningFilterResource" | "budgetRoleFilter" | "milestoneLinkedTasksFilter";
   /**
    * Disambiguating suffix for the accessible name, in the SAME ` – ` shape
    * `SortResizeTh` uses. Pass it ONLY where one view renders SEVERAL filters

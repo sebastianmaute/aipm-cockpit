@@ -152,11 +152,12 @@
   ⇒ standalone `help-view.test.tsx` unchanged), wired `workspace-section` → `setActiveTab(v)`. Help is NOT in axe
   `A11Y_VIEWS` (map keyboard-focus/contrast + SVG positioning EYE-verified; jsdom rect=0 so tests assert
   structure/handlers/`data-active`, not pixels). i18n EN+DE; `helpRelationsGoToView` uses positional `{0}`.
-  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of 6 themed
-  tours (`getting-started` · `raid` · `reporting` · `planning` · `stakeholders` · `ai`). Pure engine
+  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of themed
+  tours (the tour list, step filtering and storage rules live in
+  [features.md](features.md) "Guided tour + demo"). Pure engine
   `app-tour.ts` gained `TourDefinition`/`TourCatalogEntry`/`TOURS`/`findTour`; the old flat `TOUR_STEPS`
   is KEPT as an export (= `getting-started`'s steps; `tour-overlay.test` imports it). `visibleSteps`
-  is now `(steps, features)` (was `(features)`) — drops a step whose `view` is a disabled module.
+  takes the step list rather than reading a fixed one (signature and filter rule: features.md).
   `use-tour.ts` tracks `activeTourId` (`start(tourId?)` defaults `getting-started`, preserving
   auto-launch + HelpMenu), exposes `catalogTours` (tours with ≥1 visible step) + `completedTours` +
   `activeTourTitleKey`; `done()` appends the active id to `settings.completedTours` (functional
@@ -811,6 +812,15 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   The gate MUST live in `claims`, not in the handler: a decliner that stayed
   topmost would block every layer beneath (each asks "am I topmost?" and gets
   false) and Escape would become a dead key. The stack walks PAST a decliner.
+  ★★ **A NON-MODAL WINDOW USED BESIDE A `Modal` MUST STACK ABOVE IT AND OPT OUT OF ITS
+  TAB TRAP.** `notes-window` opens from the "Notes" button inside the task/RAID/change
+  editor. Rendered in place at `z-40` it sat under the editor's z-50 backdrop: the
+  scrim dimmed it and a click on it landed on the backdrop and CLOSED THE EDITOR.
+  It now portals to `<body>` at `NOTES_WINDOW_Z` (above the editors' 50, below
+  confirm dialogs' 60) and carries `FLOATING_LAYER_ATTR`, which `modal.tsx`'s Tab
+  branch checks so the trap stops pulling focus back out of it. ★ jsdom has no
+  layout, so no unit test can show the backdrop click — `notes-window.test.tsx`
+  pins the portal, the z bounds and the marker instead; eye-verify the click.
   ★★ `useClaimsWhenFocusWithin` is a HOOK, not a plain factory: `react-hooks/refs`
   rejects passing a ref object into an ordinary function call during render
   ("Cannot access refs during render"), and a `useMemo` wrapper does NOT satisfy

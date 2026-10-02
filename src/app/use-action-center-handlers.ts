@@ -24,6 +24,7 @@ import type { RebaselineBundle } from "./rebaseline-popover";
 import type { RescheduleBundle } from "./reschedule-popover";
 import { applyOwnerAssignment } from "./action-assign-owner";
 import { applyStatusChange, statusActivityKind } from "./task-status";
+import { selfBlockerActor, setBlockersText } from "./blocker-log";
 import type { ActivityKind } from "./activity-log";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
@@ -177,10 +178,14 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
   const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
     if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
     const id = Number(action.cta.id);
-    setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, blockers: "" } : tk)));
+    // Resolves every open entry of the row's log (kept as history) rather than
+    // blanking the text outside the log, which would leave the pair out of step.
+    const now = new Date().toISOString();
+    const actor = selfBlockerActor(selfResourceId, resources);
+    setTasks((prev) => prev.map((tk) => (tk.id === id ? setBlockersText(tk, "", actor, now) : tk)));
     void recordLearning(action, "acted");
     showToast("info", t(lang, "actionBlockerCleared"));
-  }, [setTasks, recordLearning, showToast, lang]);
+  }, [setTasks, recordLearning, showToast, lang, selfResourceId, resources]);
 
   const handleDraftMessageFromAction = useCallback(
     (action: SuggestedAction) => {

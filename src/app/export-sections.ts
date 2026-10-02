@@ -320,7 +320,7 @@ export type ExportSection = {
 
 function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
   const rows = tasks.map((task) =>
-    CSV_COLUMNS.map((c) =>
+    TASK_EXPORT_COLUMNS.map((c) =>
       richCell(
         c === "noteLog" ? projectNoteLog(task.noteLog, lang) : fieldToString(task, c),
         c,
@@ -388,10 +388,15 @@ function projectNoteLog(log: readonly NoteLogEntry[] | undefined, lang: Lang): s
  *   through `projectNoteLog`. */
 export const RAID_EXPORT_COLUMNS = RAID_CSV_COLUMNS.filter((c) => c !== "escalations");
 
+/** Task columns in document exports — every persisted column except the
+ *  structured `blockerLog` (a JSON blob). The open blockers are already exported
+ *  as the derived `blockers` text, which is what every other reader shows. */
+export const TASK_EXPORT_COLUMNS = CSV_COLUMNS.filter((c) => c !== "blockerLog");
+
 /** §304 — the FIELD each header column carries, in order, per section. The
  *  builders map rows by these; `columns` prints their labels. */
 export const EXPORT_SECTION_FIELDS: Readonly<Record<ExportSectionKey, readonly string[]>> = {
-  project: KV_EXPORT_FIELDS, status: KV_EXPORT_FIELDS, tasks: CSV_COLUMNS, raid: RAID_EXPORT_COLUMNS,
+  project: KV_EXPORT_FIELDS, status: KV_EXPORT_FIELDS, tasks: TASK_EXPORT_COLUMNS, raid: RAID_EXPORT_COLUMNS,
   milestones: MILESTONES_CSV_COLUMNS, changes: CHANGES_CSV_COLUMNS, stakeholders: STAKEHOLDERS_CSV_COLUMNS,
   budgets: BUDGETS_CSV_COLUMNS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
   absences: ABSENCES_CSV_COLUMNS, shifts: SHIFTS_CSV_COLUMNS, calendarEvents: CALENDAR_EVENT_EXPORT_FIELDS,

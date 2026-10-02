@@ -24,7 +24,13 @@ beforeAll(() => {
 });
 
 function Harness(
-  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[]; withAddressBook?: boolean } = {},
+  over: {
+    onOpenNotes?: () => void;
+    onOpenBlockers?: () => void;
+    budgetLink?: TaskBudgetLink;
+    tasksForDeps?: Task[];
+    withAddressBook?: boolean;
+  } = {},
 ) {
   return (
     <form aria-label="form">
@@ -49,6 +55,7 @@ function Harness(
         onRemoveContact={vi.fn()}
         onAddAssigneeToAddressBook={over.withAddressBook === false ? undefined : vi.fn()}
         onOpenNotes={over.onOpenNotes}
+        onOpenBlockers={over.onOpenBlockers}
         budgetLink={over.budgetLink}
       />
     </form>
@@ -377,10 +384,11 @@ describe("TaskFormFields", () => {
       expect(bucket.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    // open-followups §387. Relationships holds dependencies + blockers only;
-    // budget bucket lives in Effort. Hiding BOTH relationship fields while
-    // budget bucket stays shown must drop the whole section — an extra
-    // `budgetBucket` disjunct in the guard would leave an empty numbered heading.
+    // open-followups §387. Relationships holds the dependency pickers only:
+    // budget bucket lives in Effort, and the Blockers control moved beside the
+    // Notes control (blocker log). Hiding dependencies while budget bucket and
+    // blockers stay shown must drop the whole section — an extra `budgetBucket`
+    // or `blockers` disjunct in the guard would leave an empty numbered heading.
     // ★ Not a TIER test: all three fields are `advanced`, so a tier switch moves
     //   them together and can never reach this mixed state. It drives the
     //   per-field checklist, the only way a user gets here.
@@ -399,20 +407,22 @@ describe("TaskFormFields", () => {
         expect(screen.queryByRole("dialog", { name: t("en-US", "configureFields") })).toBeNull();
       }
 
-      it("drops the section when dependencies and blockers are hidden but budget bucket is shown", () => {
+      it("drops the section when dependencies are hidden but budget bucket and blockers are shown", () => {
         render(<VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />, { wrapper: TestProviders });
         expect(headings()).toContain(relationships);
-        hideFields(["dependencies", "blockers"]);
-        // Budget bucket is still rendered (the state that made the old guard true)…
+        hideFields(["dependencies"]);
+        // Budget bucket and the Blockers control are still rendered…
         expect(screen.getByRole("combobox", { name: t("en-US", "taskBudgetBucket") })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeInTheDocument();
         // …and the Relationships heading is gone rather than left empty.
         expect(headings()).not.toContain(relationships);
       });
 
-      it("keeps the section while either relationship field is still shown", () => {
+      it("keeps the section while dependencies are shown, with blockers hidden", () => {
         render(<VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />, { wrapper: TestProviders });
-        hideFields(["dependencies"]);
+        hideFields(["blockers"]);
         expect(headings()).toContain(relationships);
+        expect(screen.queryByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeNull();
       });
     });
   });
@@ -462,6 +472,74 @@ describe("TaskFormFields description + notes button", () => {
     });
     await user.click(btn);
     expect(onOpenNotes).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TaskFormFields — Blockers button (blocker log)", () => {
+  const STORED: Task = {
+    id: 7,
+    taskName: "Draft charter",
+    assignee: "",
+    assigneeEmail: "",
+    dueDate: "2026-06-01",
+    lastUpdateDate: "2026-05-29",
+    priority: "Medium",
+    status: "To Do",
+    blockers: "Vendor\nLegal",
+    blockerLog: [
+      { id: 1, text: "Vendor", createdAt: "2026-05-01T09:00:00.000Z" },
+      { id: 2, text: "Legal", createdAt: "2026-05-02T09:00:00.000Z" },
+      { id: 3, text: "Old", createdAt: "2026-04-01T09:00:00.000Z", resolvedAt: "2026-04-02T09:00:00.000Z" },
+    ],
+    description: "",
+  };
+
+  /** Puts the editor on the stored task the way `openEditModal` does (sets
+   *  `editingId`), from a click so no state is set during render or in an effect. */
+  function EditTask() {
+    const { setEditingId } = useTaskForm();
+    return (
+      <button type="button" onClick={() => setEditingId(STORED.id)}>
+        edit-task
+      </button>
+    );
+  }
+
+  it("editor Blockers button opens the window and shows the open count", async () => {
+    const onOpenBlockers = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenBlockers={onOpenBlockers} tasksForDeps={[STORED]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+
+    // The count is the STORED row's OPEN entries (2), read live — the form draft
+    // carries no blockers at all.
+    const btn = screen.getByRole("button", { name: `${t("en-US", "blockerLogTitle")} (2)` });
+    expect(btn).toBeEnabled();
+    await user.click(btn);
+    expect(onOpenBlockers).toHaveBeenCalledTimes(1);
+  });
+
+  it("for a new task the Blockers button is disabled with no count, like Notes", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    const btn = screen.getByRole("button", { name: t("en-US", "blockerLogTitle") });
+    expect(btn).toBeDisabled();
+    const notes = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(notes).toBeDisabled();
+  });
+
+  it("editor no longer renders a blockers textarea", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    // Positive floor: the Blockers control itself renders (field visible)…
+    expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeInTheDocument();
+    // …but no text box is labelled Blockers and the old placeholder is gone.
+    expect(screen.queryByRole("textbox", { name: t("en-US", "blockers") })).toBeNull();
+    expect(screen.queryByPlaceholderText(t("en-US", "placeholderBlockers"))).toBeNull();
   });
 });
 

@@ -11,6 +11,10 @@ import { PopoverPanel } from "./popover-panel";
 const NAV_TOUR_ID: Partial<Record<AppView, string>> = {
   "open-points": TOUR_ANCHORS.navTasks,
   actions: TOUR_ANCHORS.navActions,
+  resources: TOUR_ANCHORS.navResources,
+  budget: TOUR_ANCHORS.navBudget,
+  changes: TOUR_ANCHORS.navChanges,
+  documents: TOUR_ANCHORS.navDocuments,
 };
 
 interface SidebarNavProps {
@@ -115,6 +119,7 @@ function CollapsedNavFlyout({
         aria-expanded={open}
         aria-label={label}
         title={label}
+        data-tour-id={NAV_TOUR_ID[item.view]}
         className={`${navItemClass(active, "root", true)} relative`}
       >
         <NavIcon view={item.view} />

@@ -256,8 +256,18 @@ export function BulkEditModal({
             }
             placeholder={t(lang, "placeholderBlockers")}
             disabled={!bulkEdit.enabled.blockers}
+            // Named here, not by the row: with the hint as a sibling the row's
+            // single-native-child aria-label clone no longer applies.
+            aria-label={t(lang, "blockers")}
+            aria-describedby="bulk-blockers-hint"
             className={`${inputClass} disabled:opacity-50`}
           />
+          {/* Written through `setBlockersText`: an open entry the text still
+              carries stays open, the rest are resolved (kept as history),
+              never erased. */}
+          <p id="bulk-blockers-hint" className="mt-1 text-xs text-muted-foreground">
+            {t(lang, "bulkBlockersHint")}
+          </p>
         </BulkEditFieldRow>
 
         <BulkEditFieldRow

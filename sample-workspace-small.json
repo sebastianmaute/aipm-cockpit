@@ -231,6 +231,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",

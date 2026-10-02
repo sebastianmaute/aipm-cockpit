@@ -351,7 +351,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §4 — which changes this window only MIRRORED from a peer, so the autosave skips them (mirror-ledger.ts).
   // Tab sync applies a peer value through `mirrorApply`, whose updater hands the ledger its `prev`.
   const [mirrorLedger] = useState(createMirrorLedger);
-  const [peerSeq, setPeerSeq] = useState(0); const [peerRevision] = useState(() => createPeerRevisionDeferral(setPeerSeq)); // §662 — a peer's revision that arrived while a save was queued or running (peer-revision-deferral.ts); `peerSeq` is a dep of the save effect
+  const [peerSeq, setPeerSeq] = useState(0); const [peerRevision] = useState(() => createPeerRevisionDeferral(setPeerSeq)); // §666 — a peer's revision that arrived while a save was queued or running (peer-revision-deferral.ts); `peerSeq` is a dep of the save effect
   const mirrorApply = useMemo(() => {
     const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T, fromWindow: string): void => { const tie = tieVerdict(fromWindow); set((live) => { mirrorLedger.judge(kind, live, value, tie); return value; }); };
     return {
@@ -1019,7 +1019,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       let baseRevision: string | null | undefined;
       // ★★ §4 — the ledger is asked again when the job STARTS: a mirror that arrived while an earlier save was in flight re-ran this effect with that save's edits still unsaved, and once it landed this snapshot's only news is the peer's part, which its writer saves (mirror-ledger.ts `markWritten`). Nothing is written, so nothing moves; its unconfirmed journal entry goes (in memory only: one already written while the page was hiding stays, and its peer part may come back on a load — untested, review M1 on 9c639dc21). The landing is recorded INSIDE the job for that reason: the queue starts the next job before this `.then` runs.
       const job = (): Promise<void | "superseded"> => {
-        if (mirrorLedger.isMirroredOnly(outgoing) || peerRevision.settle(backend, peerSeq, mirrorLedger.hasContested()) === "skip") { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); } // §662 — "skip": this snapshot predates a deferred peer revision; the effect run its `peerSeq` bump caused writes instead
+        if (mirrorLedger.isMirroredOnly(outgoing) || peerRevision.settle(backend, peerSeq, mirrorLedger.hasContested()) === "skip") { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); } // §666 — "skip": this snapshot predates a deferred peer revision; the effect run its `peerSeq` bump caused writes instead
         return conflictResolution.runSaveJob(backend, () => { baseRevision = announcedRevision(backend); return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
       };
       enqueueSave(backend, job).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
@@ -1051,7 +1051,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         if (!isSaveConflict(err)) emitOutcome(err); // §4 — a refusal is reported by the pause (or the kept-journal toast) alone: the generic outcome raised a sticky storage banner no save could clear while paused
         logDiag("error", "storage.saveFailed", { message: String(err) });
-        if (isSaveConflict(err) && backendRef.current === backend) { if (peerRevision.covers(backend, baseRevision, peerSeq, mirrorLedger.hasContested())) { unloadJournal.noteSaveRefused(journalSavedAt, null); return; } emitConflictPause(backend, err.currentRevision); return; } // §662 — refused by a deferred peer revision: the newer job adopts it and retries, no pause // §4 — nothing was written; a lock timeout is NOT this and falls through
+        if (isSaveConflict(err) && backendRef.current === backend) { if (peerRevision.covers(backend, baseRevision, peerSeq, mirrorLedger.hasContested())) { unloadJournal.noteSaveRefused(journalSavedAt, null); return; } emitConflictPause(backend, err.currentRevision); return; } // §666 — refused by a deferred peer revision: the newer job adopts it and retries, no pause // §4 — nothing was written; a lock timeout is NOT this and falls through
         if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
           const keptByFlush = keptOnSwitchForRef.current === backend;
           const kept = unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);

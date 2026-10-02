@@ -66,7 +66,15 @@ export function buildPatch(input: Record<string, unknown>): Partial<Task> {
     // Done/completedDate invariant. A non-string is ignored.
     if (s !== undefined) patch.status = s as Task["status"];
   }
-  if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
+  // ★★ A MALFORMED VALUE MUST NOT COLLAPSE INTO A CLEAR (same rule as
+  //  `lastUpdateDate` above): `blockers` is stored through the blocker log, and
+  //  "" there RESOLVES every open entry. A non-string (an array, a number) drops
+  //  the key so the log is left untouched; the card's `blockers` sanitizer
+  //  previews the same outcome (no diff for a non-string).
+  if (input.blockers !== undefined) {
+    const b = asString(input.blockers);
+    if (b !== undefined) patch.blockers = b;
+  }
   // Plain text from the model; wrapped to HTML at the dispatcher (single write
   // boundary — see use-chat-dispatcher updateTask).
   //

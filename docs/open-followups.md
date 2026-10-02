@@ -1,15 +1,3 @@
-
-## 665. Burn-down chart join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
-
-**Status:** CLOSED 2026-10-02. The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
-- The label keeps its half-plot anchor. It is fitted to the room between the plot's right edge and the left limit: the plot's left edge, or, where the "Budget at start of recording" label is drawn, that label's right end.
-- Only the bucket-name part is shortened, with "…", so the amount at the end stays readable. A shortened label carries the full sentence as an SVG `<title>`, its hover text.
-- Widths use the same wide-side estimate as the marker-label band (`estimatedLabelWidth`). The chart never measures text, so this is an estimate that errs towards shortening.
-- Pinned by `burndown-chart.test.tsx` "join labels stay clear of the baseline label (§665)". It uses a long four-bucket chain, as on the seeded sample, and asserts the two labels' estimated x-ranges do not overlap. The pre-fix chart fails it, and so does dropping the baseline label from the left limit.
-- `burndown-geometry.test.ts` "fitJoinLabel (§665)" covers the rule itself.
-- ★ Not re-run here: the Reports → budget history (cumulative) visual baseline that was held back because of this. It needs a browser run and a re-baseline (`npm run e2e:visual:update`), checked by eye.
-
-**Source:** GitHub issue #540, filed 2026-10-02 from that visual run. The issue named §665 before the register had an entry; this entry was written when it closed.
 # Open follow-ups — central register
 
 _Opened 2026-07-27, at the close of 0.203.0 "Czerneda". Self-contained: it absorbed the R5 calendar
@@ -898,8 +886,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--closed-2026-10-02) | A window's project binding still leans on the shared registry | — | — | **CLOSED** 2026-10-02 |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
-| [§662](#662-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
+| [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--open) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | open |
+| [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--open) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | open |
+| [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--open) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | open |
 | [§665](#665-burn-down-chart-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | Burn-down chart join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
+| [§666](#666-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1151,7 +1142,7 @@ See [[release-4-ai-planning-powers]].
 
 **Status:** CLOSED 2026-09-30 on `feat/two-tab-conflict` (owner decision: detect and pause; design `docs/superpowers/specs/2026-09-29-two-tab-conflict-design.md`, together with §645). Every backend instance now remembers the revision it last loaded or wrote, and a save whose stored revision has moved throws `SaveConflictError` (`storage-error.ts`) and writes nothing. Browser storage keeps an integer in the `kv` store (key `"revision"`), read, compared and bumped inside ONE readwrite IndexedDB transaction with the data writes (`idbTransaction`, `idb.ts`), committed explicitly. **Round 7 (2026-09-30):** this first ran under the Web Lock `aipm-cockpit:save:browser` with the revision read in a transaction of its own, and a closing tab's pagehide save then never reached the store (`e2e/pagehide-draft-persist.spec.ts`, measured: either the lock wait or the separate read in front of the writes lost it, and a transaction left to auto-commit did not commit at the close once it wrote more than one store; `commit()` lands it). Readwrite transactions over the same stores run one at a time across tabs, so the compare-and-set stays atomic without the lock. A local file's revision is `${lastModified}:${size}`, compared under the Web Lock `aipm-cockpit:save:<kind>`. SharePoint sends `If-Match` with the driveItem eTag, and a create after a 404 load sends `conflictBehavior=fail`; 409 and 412 map to the conflict. Turso keeps a `meta` row (key `REVISION_KEY`, per `project_id` in tenant) and checks it INSIDE the §637 conditional Hrana batch: `withRevision` (`turso-schema.ts`) puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind), which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back. That is the path Task 10 chose over a compare under `withWriteLock` beforehand, because, by the Hrana batch semantics, it is atomic against other devices too (not yet observed on a live database, §654). A conflict is recognised by which step failed (`isRevisionGuard`), never by the error text. Backends fail closed: an instance that knows no revision refuses its first save (a SharePoint file loaded without an eTag excepted). `forceNextSave()` is a blind one-shot write; `forceNextSave(expected)` is a conditional full rewrite, refused if storage is no longer at `expected`. A project op hands its own instance over to the live one through `handOverRevision` (`storage-handover.ts`: `adoptFrom` for the same class, else `adoptRevision`); all seven sites that arm it use it, five in `use-storage-file-ops.ts` and two in `use-storage-turso-ops.ts` (`grep -n "handOverFromRef.current = " src/app/use-storage-*-ops.ts`). Tab sync mirrors all 29 workspace slices (`grep -o 'useBroadcastSync("[a-zA-Z]*"' src/app/use-workspace-sync.ts | wc -l`); after an autosave lands, `postRevision` sends the new revision and its base on `aipm-cockpit:sync`, and a main window on the same scope and epoch (`useRevisionSync`) adopts it only while its save queue is idle (`whenSaved` is `null`) AND its own revision equals the sender's base. `createMirrorLedger` (`mirror-ledger.ts`) stops a window re-saving slices it only mirrored. A refused save pauses saving (`savesPaused` with `reason: "conflict"`) behind the banner `SavingPausedCause` `{ kind: "conflict" }`, whose three actions are Reload (`resolveConflictReload`), Overwrite (`resolveConflictOverwrite`, which arms `forceNextSave(expected)` inside the next save job, so it is refused if the other version moved again after the banner showed) and Download my version (`downloadConflictVersion`). A version left behind while its saves were refused goes to a kept journal slot (`keptProjectKey`: `aipm-cockpit:unload-journal:<key>:kept`, then `…:kept:<savedAt>`), which `OtherJournalsBanner` lists as "not saved (conflict)" with Download and Discard. `docs/AGENTS/storage.md` "Conflicts (§4, §645)" describes it. Tests: `browser-backend.revision.test.ts`, `local-file-backend.revision.test.ts`, `sharepoint-backend.test.ts`, `turso-schema.execute.test.ts` (the guard and stamp run on `node:sqlite`), `turso-backend.test.ts`, `turso-backend.tenant.test.ts`, `turso-pipeline.test.ts`, `storage-handover.test.ts`, `mirror-ledger.test.ts`, `broadcast-sync.test.ts`, `use-conflict-resolution.test.ts`, `notifications.test.tsx`, `use-other-journals.test.tsx`, and the `use-storage-backend.*` hook tests (`conflict`, `handover`, `turso-handover`, `mirror-race`, `file-scope` among them). End to end, `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context; 5 tests) passed 25/25 with `--repeat-each=5`.
 
-Known limits. Nothing has run against a live service: the SharePoint `If-Match`/412 and `conflictBehavior=fail`/409 behaviour, a non-null revision on a real load and CORS on the download host were not checked on a tenant (Task 4 Step 6 is owed; §652 holds it), and the Turso guard has never run on a live database (§654). Browser storage is still one store per origin, and tab sync keys it on the kind alone: browser windows showing different registry projects mirror each other's slices, adopt each other's revisions and converge on one workspace, the other window's project included. The revision check pauses only a writer that is not mirroring (its epoch differs, it is already paused, or its own save is queued or running). Local files are scoped by the file each window is bound to (§645). A switch away from a conflict whose edits cannot be kept (over `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw) is refused, and the user stays behind the pause, whose Download works at any size. A foreign write to a local file is caught at this window's next save, never before (there is no file watcher). Kept conflict versions can be downloaded but not restored in the app (§655). A save refused before the peer's revision message reaches this window still pauses, even when it held the peer's slices (§662's residual). A skipped mirrored-only save job's journal drop has no test (§657).
+Known limits. Nothing has run against a live service: the SharePoint `If-Match`/412 and `conflictBehavior=fail`/409 behaviour, a non-null revision on a real load and CORS on the download host were not checked on a tenant (Task 4 Step 6 is owed; §652 holds it), and the Turso guard has never run on a live database (§654). Browser storage is still one store per origin, and tab sync keys it on the kind alone: browser windows showing different registry projects mirror each other's slices, adopt each other's revisions and converge on one workspace, the other window's project included. The revision check pauses only a writer that is not mirroring (its epoch differs, it is already paused, or its own save is queued or running). Local files are scoped by the file each window is bound to (§645). A switch away from a conflict whose edits cannot be kept (over `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw) is refused, and the user stays behind the pause, whose Download works at any size. A foreign write to a local file is caught at this window's next save, never before (there is no file watcher). Kept conflict versions can be downloaded but not restored in the app (§655). A save refused before the peer's revision message reaches this window still pauses, even when it held the peer's slices (§666's residual). A skipped mirrored-only save job's journal drop has no test (§657).
 
 **Original status:** open — a cross-tab save lock present only on the Turso backend. Reproduced 2026-08-28 by `grep -rn "navigator.locks" src --include=*.ts`.
 
@@ -8630,6 +8621,11 @@ would collide with §106.
 `blockers` is a `<textarea>` in `task-form-fields.tsx`, an inline textarea in
 `task-row.tsx` (`renderInlineTextarea`), and an AI-writable field via
 `use-chat-dispatcher.ts`. Pressing Enter is sufficient.
+★ **Updated 2026-10-02 (blocker log):** both textareas named above are gone — the editor has a
+Blockers button and the table cell is a badge, each opening the blocker window, and
+`renderInlineTextarea` was removed. `blockers` is still reachable with a newline: it is derived
+from the open log entries joined by newlines, and the window, bulk edit and the AI all write
+multi-line text.
 
 **Pinned:** `codec-roundtrip.property.test.ts` holds the property this satisfies, live and
 unskipped since `0771510e`, alongside a losslessness property and a no-line-ends-mid-quote
@@ -43649,7 +43645,7 @@ A version left behind while its saves were refused as stale (a switch away, a re
 
 ## 656. Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02, except m1, which moved to §662 because it has no safe fix yet. The three parts that were fixed:
+**Status:** CLOSED 2026-10-02, except m1, which moved to §666 (first filed as §662, renumbered when `main`'s blocker-log entries took §662–§664) because it has no safe fix yet. The three parts that were fixed:
 
 - **The tie.** `MirrorLedger.judge` takes a `TieVerdict`. When a peer's value has the same content as this window's own unsaved value of that slice (compared by `JSON.stringify`), "yield" mirrors it and "keep" contests it. Different content stays contested in both windows, so a real collision is still reported. `tieVerdict` (`broadcast-sync.ts`) decides by window id: the smaller id keeps and the larger yields, so the two windows always decide opposite ways. The sender's id now reaches the ledger as the second argument of `useBroadcastSync`'s `applyIncoming`. Equal ids give no verdict, so both windows save, as before; a duplicated tab's copied sessionStorage can cause that. Pinned by:
   - `use-storage-backend.mirror-race.test.tsx` "two windows that derive the same value of one part within one delivery save it once (§656)", with and without StrictMode: one save, no pause, and B adopts A's revision. Its bus now gives each window a distinct id order on slice messages, because the two windows share one `getWindowId()`.
@@ -43722,7 +43718,49 @@ On browser storage, the §4 round-7 probes measured that waiting for a Web Lock 
 
 **Source:** the §4 round-7 review (m6), 2026-10-01.
 
-## 662. A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices — CLOSED 2026-10-02
+## 662. A notes or blocker window keeps its target after the task is deleted or the project switches — open
+
+**Status:** open 2026-10-02, found by the blocker-log whole-branch review. Never machine-verified: inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
+
+**Work item:** #531
+
+Both hooks keep the target task id in state that survives the task's deletion and a project switch, because `TaskManagerInner` stays mounted through the load hold. A deleted target leaves the window open with an empty title, and text typed there is dropped without a message, because the write finds no live row. After a project switch the window reopens on whichever task in the new project has the same id. Its title shows that task's name, so a write is visible, but it lands on a different task than the one the user opened. Fix both hooks together: close the window when the target is missing, and clear the target when the scope epoch changes (`getScopeEpoch`).
+
+**Source:** the blocker-log final review, 2026-10-02.
+
+## 663. An older client drops the blocker log on every backend it saves to, not only Turso — open
+
+**Status:** open 2026-10-02, found by the blocker-log fix-round review. Never machine-verified: inferred from the column lists an older build would carry.
+
+**Work item:** #532
+
+`docs/AGENTS/rich-text.md` names one downgrade exposure: an older client saving to Turso omits the new column, so `blockerLog` becomes NULL and the history collapses to one legacy entry on the next load. An older client's CSV and Markdown writers have no `blockerLog` column either, and its JSON and IndexedDB paths very likely drop the unknown field too, so the same collapse happens on every backend. `noteLog` had the same exposure when it shipped. Decide whether to say so in the release notes of the version that ships the blocker log, or to guard against a downgrade; either way, correct the rich-text note.
+
+**Source:** the blocker-log fix-round re-review, 2026-10-02.
+
+## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — open
+
+**Status:** open 2026-10-02, found by the blocker-log scoped review. Never machine-verified: inferred from `migrateBlockers` in `blocker-log.ts`.
+
+**Work item:** #533
+
+The legacy branch of `migrateBlockers` (a task with blocker text and no log) checks `lastUpdateDate` only against `ISO_DATE`, not `Date.parse`. An impossible date such as `2026-13-45` produces an invalid `createdAt`, and `sanitizeEntry` drops that entry on the next load, so the entry is minted again on every load. A missing or malformed date falls back to `new Date()`, so the minted `createdAt` differs on each load until the project is saved. No data is lost. `loadStamp` already has the right check; the legacy branch should use it, or a fixed fallback, so load stays pure.
+
+**Source:** the blocker-log scoped review, 2026-10-02.
+
+## 665. Burn-down chart join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
+
+**Status:** CLOSED 2026-10-02. The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
+- The label keeps its half-plot anchor. It is fitted to the room between the plot's right edge and the left limit: the plot's left edge, or, where the "Budget at start of recording" label is drawn, that label's right end.
+- Only the bucket-name part is shortened, with "…", so the amount at the end stays readable. A shortened label carries the full sentence as an SVG `<title>`, its hover text.
+- Widths use the same wide-side estimate as the marker-label band (`estimatedLabelWidth`). The chart never measures text, so this is an estimate that errs towards shortening.
+- Pinned by `burndown-chart.test.tsx` "join labels stay clear of the baseline label (§665)". It uses a long four-bucket chain, as on the seeded sample, and asserts the two labels' estimated x-ranges do not overlap. The pre-fix chart fails it, and so does dropping the baseline label from the left limit.
+- `burndown-geometry.test.ts` "fitJoinLabel (§665)" covers the rule itself.
+- ★ Not re-run here: the Reports → budget history (cumulative) visual baseline that was held back because of this. It needs a browser run and a re-baseline (`npm run e2e:visual:update`), checked by eye.
+
+**Source:** GitHub issue #540, filed 2026-10-02 from that visual run. The issue named §665 before the register had an entry; this entry was written when it closed.
+
+## 666. A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices — CLOSED 2026-10-02
 
 **Status:** CLOSED 2026-10-02. A peer's revision that arrives while this window's own save is queued or running is now DEFERRED, not ignored (`createPeerRevisionDeferral`, `peer-revision-deferral.ts`; `adoptPeerRevision` calls `defer`).
 
@@ -43736,8 +43774,8 @@ On browser storage, the §4 round-7 probes measured that waiting for a Web Lock 
   - With either one removed it still passes, because the other catches it: `settle` drops the entry before the retry writes, so the retry meets the check.
 
 Pinned by `use-storage-backend.mirror-race.test.tsx`:
-- "two windows whose own saves overlap on a slow backend both land, and neither pauses (§662)", the entry's named check. Before the fix the losing window paused. With `covers` off, or with `settle` not adopting, it is red.
-- "crossing edits to one part whose saves overlap are still reported, not retried away (§662)".
+- "two windows whose own saves overlap on a slow backend both land, and neither pauses (§666)", the entry's named check. Before the fix the losing window paused. With `covers` off, or with `settle` not adopting, it is red.
+- "crossing edits to one part whose saves overlap are still reported, not retried away (§666)".
 
 `peer-revision-deferral.test.ts` covers the module's rules, and `use-workspace-sync.test.tsx` covers the deferring branch.
 
@@ -43754,3 +43792,4 @@ Safely adopting for a queued save needs proof that the snapshot it will write wa
 Named check: a hook test with two windows, each with a pending own edit, whose saves overlap on a slow fake backend (the `mirror-race` harness with `LATENCY_MS`), asserting which window pauses.
 
 **Source:** the §4 final review (m1), via §656, 2026-10-02.
+

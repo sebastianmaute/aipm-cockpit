@@ -10,6 +10,7 @@ import {
   type TaskHealth,
 } from "./health";
 import type { Task } from "./types";
+import { withBlockerLog } from "./blocker-log";
 
 // Mock the i18n module
 vi.mock("./i18n", () => ({
@@ -217,6 +218,18 @@ describe("computeTaskHealth", () => {
 
       expect(health.color).toBe("R");
       expect(health.drivers).toEqual(["blocked"]);
+    });
+
+    it("a resolved-only log is not blocked", () => {
+      const task = withBlockerLog(createTask({ dueDate: "2026-06-10" }), [
+        { id: 1, text: "waiting for approval", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" },
+      ]);
+
+      const health = computeTaskHealth(task, today, holidays);
+
+      expect(task.blockerLog).toHaveLength(1);
+      expect(health.color).toBe("G");
+      expect(health.drivers).not.toContain("blocked");
     });
 
     it("ignores whitespace-only blockers (treated as empty)", () => {

@@ -383,13 +383,13 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     await run(500 + LATENCY_MS + 500);
     expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
   });
-  // §662 — the entry's named check. Each window has its own edit, of a different part, and their saves
+  // §666 — the entry's named check. Each window has its own edit, of a different part, and their saves
   // overlap on a slow backend: both start from revision 1, so whichever lands second meets the other's.
   // That window had the other's part long before (it arrived on the other's commit), and the other's
   // revision reached it while its own save was in flight, so it DEFERRED it. Its refused save is therefore
   // not a conflict to report: a newer job, whose snapshot holds both parts, adopts the revision and writes.
-  // Before §662 the window that lost the race paused.
-  it("two windows whose own saves overlap on a slow backend both land, and neither pauses (§662)", async () => {
+  // Before §666 the window that lost the race paused.
+  it("two windows whose own saves overlap on a slow backend both land, and neither pauses (§666)", async () => {
     const { a, b } = await openBoth(1000);
     await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
     await run(100);
@@ -408,7 +408,7 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
   // ★★ The deferral never covers a CONTESTED part: both windows changed the same part within one delivery,
   // so each shows the other's copy, and a retry would write the peer's copy over this window's edit with
   // nothing reported. The overlapping saves must still end in a reported conflict.
-  it("crossing edits to one part whose saves overlap are still reported, not retried away (§662)", async () => {
+  it("crossing edits to one part whose saves overlap are still reported, not retried away (§666)", async () => {
     const { a, b } = await openBoth(1000);
     bus.hold = true;
     await act(async () => {

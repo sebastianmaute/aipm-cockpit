@@ -64,6 +64,7 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
+import { TOUR_ANCHORS } from "./app-tour";
 import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
@@ -112,6 +113,8 @@ export interface TasksSectionProps {
   onToggleSelect: (id: number) => void;
   /** Open the floating notes window for a task (running note log). */
   onOpenNotes: (id: number) => void;
+  /** Open the floating blocker window for a task (blocker log). */
+  onOpenBlockers: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
@@ -217,6 +220,7 @@ export function TasksSection({
   jiraExtraProjects,
   onToggleSelect,
   onOpenNotes,
+  onOpenBlockers,
   onJumpToRaid,
   onSendInquiry,
   onPushToJira,
@@ -504,6 +508,9 @@ export function TasksSection({
       };
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      // ★ `clean` never carries `blockers`/`blockerLog` (`sanitizeInlinePatch`
+      // drops them): the blockers cell is a badge opening the blocker window,
+      // which is the only writer of the log, so a plain spread is safe here.
       const clean = sanitizeInlinePatch(patch, patchCtx);
       setTasks((prev) =>
         prev.map((row) =>
@@ -544,6 +551,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -567,6 +575,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -701,6 +710,7 @@ export function TasksSection({
           ]}
           onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}
+          dataTourId={TOUR_ANCHORS.tasksViewMode}
         />
         {tasksViewMode === "swimlane" && (
           <TaskSwimlaneToolbar
@@ -795,7 +805,12 @@ export function TasksSection({
             })
           }
         />
-        <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
+        <SavedViewsControl
+          lang={lang}
+          hiddenCols={hiddenCols}
+          setHiddenCols={setHiddenCols}
+          dataTourId={TOUR_ANCHORS.savedViews}
+        />
         <CalendarSyncControls
           lang={lang}
           entityLabelKey="calendarSyncEntityTask"
@@ -997,6 +1012,7 @@ export function TasksSection({
                     checked={allVisibleSelected}
                     onChange={toggleSelectAllVisible}
                     aria-label={t(lang, "selectAllVisible")}
+                    data-tour-id={TOUR_ANCHORS.selectAll}
                     className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                 </Th>

@@ -3,7 +3,7 @@
 Owns `desktop/src/`: `main.ts` (app lifecycle, windows, menu, PDF route), `server-child.ts` (the Next server child),
 `updater.ts` (electron-updater wiring), and the pure, unit-tested decisions in `desktop/src/lib/`
 (`window-open-policy.ts`, `print-target.ts`, `window-liveness.ts`, `menu-model.ts`, `pdf-export.ts`,
-`update-policy.ts`, `electron-updater-loader.ts`, `port-owner.ts`, `readiness.ts`, `exit-reporting.ts`,
+`update-policy.ts`, `update-window.ts`, `electron-updater-loader.ts`, `port-owner.ts`, `readiness.ts`, `exit-reporting.ts`,
 `log-paths.ts`, `constants.ts`). Also the renderer's half of each boundary: `src/app/desktop-shell.ts`
 (`isDesktopShellUserAgent`, `DESKTOP_VERSION_REQUEST_EVENT`), `PrintButton`'s shell check in
 `task-manager-ui.tsx`, `pdf-export-protocol.ts` and `use-desktop-version-request.ts`.
@@ -163,6 +163,15 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   arrives mid-operation. A startup check stays silent unless it finds an update that was not skipped;
   a DOWNLOAD failure is always shown. `summarizeError` keeps the first line only, because electron-updater's HTTP errors
   embed the response headers, `set-cookie` included.
+- ★★ **"Update available" is a WINDOW, not a message box** (`lib/update-window.ts`). A native box
+  cannot scroll, so a real changelog ran off the screen. The page is a base64 data URL, sandboxed,
+  with `default-src 'none'` and its one inline script allowed by hash. A click comes back through
+  `page-title-updated` (`aipm-update:<choice>`), NOT a link: `main.ts`'s `will-navigate` guard sits
+  on this WebContents too, and an unknown-scheme link is not guaranteed to reach `will-navigate`.
+  Closing the window means Later; a window that fails to load falls back to the native box. The
+  notes cap (`NOTES_MAX`) is a flood guard now, not a fit-the-box limit. ★ Seen only in a packaged
+  build with an update on the feed — CI checks the wiring against a fake `BrowserWindow`, not the
+  rendered window.
 - "Restart now" is `quitAndInstall(true, true)`, which starts the installer BEFORE `before-quit` runs.
 - The feed is the public GitHub Releases `latest.yml`; the installer is unsigned. What stands in for
   signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563.

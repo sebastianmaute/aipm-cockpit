@@ -41,6 +41,8 @@ export interface RowContextValue {
   onToggleSelect: (id: number) => void;
   /** Open the floating notes window for a task (running note log). */
   onOpenNotes: (id: number) => void;
+  /** Open the floating blocker window for a task (blocker log). */
+  onOpenBlockers: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;

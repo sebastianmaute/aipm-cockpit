@@ -8,7 +8,7 @@ function backendAt(held: string | null) {
   return b as unknown as StorageBackend & { adoptRevision: ReturnType<typeof vi.fn> };
 }
 
-describe("createPeerRevisionDeferral (§662)", () => {
+describe("createPeerRevisionDeferral (§666)", () => {
   it("defer bumps the sequence and reports it, once per deferred revision", () => {
     const onDeferred = vi.fn();
     const d = createPeerRevisionDeferral(onDeferred);

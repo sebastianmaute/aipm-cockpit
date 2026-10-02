@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
-import { ActionChips, chipsForView } from "./action-chips";
+import { ActionChips, chipsActionableOnView, chipsForView } from "./action-chips";
 import type { SuggestedAction } from "./next-actions/types";
 
 function mk(id: string, tier: SuggestedAction["tier"]): SuggestedAction {
@@ -29,6 +29,32 @@ describe("chipsForView", () => {
     };
     expect(chipsForView([tasksFor], "open-points")).toEqual([tasksFor]);
     expect(chipsForView([tasksFor], "workload")).toEqual([]);
+  });
+
+  it("keeps an item-less open for a report card, which navigates to another view", () => {
+    const summary: SuggestedAction = { ...mk("s", "now"), cta: { kind: "open", view: "budget", id: 0 } };
+    expect(chipsForView([summary], "budget")).toEqual([summary]);
+  });
+});
+
+describe("chipsActionableOnView", () => {
+  it("drops an open that names no item, since it would only re-open the current view", () => {
+    const item: SuggestedAction = { ...mk("i", "now"), cta: { kind: "open", view: "changes", id: 4 } };
+    const summary: SuggestedAction = { ...mk("s", "now"), cta: { kind: "open", view: "changes", id: 0 } };
+    const project: SuggestedAction = { ...mk("p", "now"), cta: { kind: "open", view: "projects", id: "p1" } };
+    expect(chipsActionableOnView([item, summary], "changes")).toEqual([item]);
+    expect(chipsActionableOnView([project], "projects")).toEqual([]);
+  });
+
+  it("keeps open-tasks-for, which filters Open Points rather than re-opening it", () => {
+    const tasksFor: SuggestedAction = {
+      id: "workload:7:overload", source: "workload",
+      title: { key: "actionWorkloadTitle", params: ["Bo"] },
+      why: { key: "actionWorkloadWhyOverload", params: [4] },
+      score: 10, tier: "now",
+      cta: { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo" },
+    };
+    expect(chipsActionableOnView([tasksFor], "open-points")).toEqual([tasksFor]);
   });
 });
 

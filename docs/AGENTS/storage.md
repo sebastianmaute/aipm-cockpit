@@ -330,7 +330,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   ★ `guardedWrite` and the project-creating file ops do NOT post, deliberately (§656). A main window on the same scope and epoch
   (`useRevisionSync`) adopts it when its own base equals the sender's base and nothing is queued for
   its backend (`whenSaved` is `null`). ★★ With a save of its own queued or running it DEFERS it
-  instead (§662, `peer-revision-deferral.ts`): the deferral bumps `peerSeq`, a STATE dep of the
+  instead (§666, `peer-revision-deferral.ts`): the deferral bumps `peerSeq`, a STATE dep of the
   save effect, so a fresh snapshot follows that holds the peer's slices. A queued job whose snapshot
   predates the message is skipped, a fresh one adopts and writes, and a running one refused by
   exactly that revision is retried by the fresh one instead of pausing. A contested part opts out of

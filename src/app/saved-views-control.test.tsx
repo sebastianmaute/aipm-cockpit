@@ -200,6 +200,25 @@ describe("SavedViewsControl", () => {
     expect(screen.getByRole("combobox", { name: "Apply a saved view" })).toBeTruthy();
   });
 
+  it("puts the tour anchor on the control root and renders none when the setting is off", async () => {
+    const anchored = (hidden: boolean) => {
+      if (hidden) localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
+      return render(
+        <FiltersProvider>
+          <SavedViewsControl lang="en-US" hiddenCols={new Set()} setHiddenCols={vi.fn()} dataTourId="tour-saved-views" />
+        </FiltersProvider>,
+      );
+    };
+    const shown = anchored(false);
+    expect(shown.container.querySelector('[data-tour-id="tour-saved-views"]')).not.toBeNull();
+    shown.unmount();
+    const hidden = anchored(true);
+    await waitFor(() =>
+      expect(screen.queryByRole("combobox", { name: "Apply a saved view" })).toBeNull(),
+    );
+    expect(hidden.container.querySelector('[data-tour-id="tour-saved-views"]')).toBeNull();
+  });
+
   it("renders null when the global Show-saved-views setting is off", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
     renderControl();

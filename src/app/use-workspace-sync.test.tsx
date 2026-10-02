@@ -52,8 +52,8 @@ describe("useWorkspaceSync — adopting a peer's revision (§656 m2)", () => {
     expect(adoptRevision).not.toHaveBeenCalled();
   });
 
-  // §662 — a save of its own queued or running: the revision is deferred, never adopted at once.
-  it("a window with a save in its queue defers the revision instead of adopting it (§662)", async () => {
+  // §666 — a save of its own queued or running: the revision is deferred, never adopted at once.
+  it("a window with a save in its queue defers the revision instead of adopting it (§666)", async () => {
     const adoptRevision = vi.fn();
     const backend = { revision: () => '"v1,1"', adoptRevision } as unknown as StorageBackend;
     const peerRevision = { defer: vi.fn(), settle: vi.fn(), covers: vi.fn() };

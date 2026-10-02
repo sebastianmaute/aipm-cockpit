@@ -1,5 +1,6 @@
 import type { TranslationKey } from "./i18n";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import type { StorageKind } from "./workspace";
 
 // Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points"
 // and "settings" are main-window-only views.
@@ -151,17 +152,37 @@ export function allNavViews(): AppView[] {
  *  file backend. "history" is gated this way (version history lives in Turso). */
 export const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
 
+/** Child view -> the top-level item that owns it, derived from NAV_GROUPS. */
+const PARENT_VIEW = new Map<AppView, AppView>(
+  NAV_GROUPS.flatMap((g) =>
+    g.items.flatMap((item) => (item.children ?? []).map((c): [AppView, AppView] => [c.view, item.view])),
+  ),
+);
+
+/** True when `view` is enabled by the feature modules AND, for a Turso-only view,
+ *  the storage backend is Turso AND, for a child view, its parent item is
+ *  reachable too (the sidebar drops a child whose parent is hidden). The single
+ *  predicate behind the sidebar filter and the guided tour's step filter. */
+export function isViewReachable(
+  view: AppView,
+  features: readonly FeatureModuleId[],
+  storageKind?: StorageKind,
+): boolean {
+  const own = isViewEnabled(view, features) && (storageKind === "turso" || !TURSO_ONLY_VIEWS.includes(view));
+  if (!own) return false;
+  const parent = PARENT_VIEW.get(view);
+  return parent === undefined || isViewReachable(parent, features, storageKind);
+}
+
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
  *  and any group left with no items dropped. Core views always survive.
  *  Turso-only views (see TURSO_ONLY_VIEWS) are additionally pruned unless the
  *  current storage backend is Turso. */
 export function filterNavGroups(
   features: readonly FeatureModuleId[],
-  storageKind?: string,
+  storageKind?: StorageKind,
 ): NavGroup[] {
-  const onTurso = storageKind === "turso";
-  const keepView = (view: AppView): boolean =>
-    isViewEnabled(view, features) && (onTurso || !TURSO_ONLY_VIEWS.includes(view));
+  const keepView = (view: AppView): boolean => isViewReachable(view, features, storageKind);
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items

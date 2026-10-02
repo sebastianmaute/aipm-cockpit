@@ -52,15 +52,25 @@ describe("sanitizeInlinePatch", () => {
     expect(sanitizeInlinePatch({ taskName: "Real name" }, ctx()).taskName).toBe("Real name");
   });
 
-  it("routes assignee/email/notes/blockers through their sanitizers (trim/cap)", () => {
+  it("routes assignee/email/notes through their sanitizers (trim/cap)", () => {
     const out = sanitizeInlinePatch(
-      { assignee: "  Bob  ", assigneeEmail: "  b@x.io  ", description: "note", blockers: "blk" },
+      { assignee: "  Bob  ", assigneeEmail: "  b@x.io  ", description: "note" },
       ctx(),
     );
     expect(out.assignee).toBe("Bob");
     expect(out.assigneeEmail).toBe("b@x.io");
     expect(out.description).toBe("note");
-    expect(out.blockers).toBe("blk");
+  });
+
+  // `Task.blockers` is written only through the blocker log (`withBlockerLog`);
+  // the inline cell is a badge opening the blocker window, so the inline patch
+  // must never carry the derived text, nor the log itself.
+  it("drops blockers and blockerLog: the inline path cannot write the blocker pair", () => {
+    const patch = { assignee: "Bob", blockers: "blk", blockerLog: [] } as Partial<Task>;
+    const out = sanitizeInlinePatch(patch, ctx());
+    expect(out.assignee).toBe("Bob");
+    expect(out).not.toHaveProperty("blockers");
+    expect(out).not.toHaveProperty("blockerLog");
   });
 
   it("coerces non-string free text safely", () => {

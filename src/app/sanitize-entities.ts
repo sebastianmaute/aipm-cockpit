@@ -95,9 +95,11 @@ function sanitizeAbsenceType(s: unknown): AbsenceType {
 }
 
 /** ★ EXPORTED so `INLINE_DESCRIPTORS` can call it rather than re-spell the cap.
- *  `sanitizeMultiline`, so it does NOT trim — the same shape `Task.blockers`
- *  uses and the opposite of `Stakeholder.notes`, which is `sanitizeText` at the
- *  same cap. Three fields a reader would call "a note"; three different rules. */
+ *  `sanitizeMultiline`, so it does NOT trim — the opposite of
+ *  `Stakeholder.notes`, which is `sanitizeText` at the same cap, and of
+ *  `Task.blockers`, whose text is stored through the blocker log's own
+ *  normaliser (trimmed). Three fields a reader would call "a note"; three
+ *  different rules. */
 export function sanitizeAbsenceNote(s: unknown): string {
   return sanitizeMultiline(s, TEXTAREA_MAX);
 }

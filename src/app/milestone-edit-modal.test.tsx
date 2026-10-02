@@ -10,6 +10,7 @@ import { selectFieldTier } from "../test/field-tier";
 import { TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
+import type { Task } from "./types";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
@@ -327,6 +328,65 @@ describe("milestone-edit-modal panel size", () => {
     expect(panel?.className).toContain("min-w-[320px]");
     expect(panel?.className).toContain("min-h-[380px]");
     expect(panel?.className).toContain("max-h-[95vh]");
+  });
+});
+
+describe("MilestoneEditModal — linked-tasks search", () => {
+  const tasks = [
+    { id: 1, taskName: "Design review" },
+    { id: 2, taskName: "Load testing" },
+    { id: 12, taskName: "Cutover plan" },
+  ] as unknown as Task[];
+
+  function renderIt(linkedTaskIds: number[] = []) {
+    const onSave = vi.fn();
+    render(
+      <>
+        <Seed tier="full" />
+        <MilestoneEditModal
+          lang="en-US"
+          milestone={{ id: 1, name: "M", date: "2026-01-01", linkedTaskIds }}
+          isNew={false}
+          tasks={tasks}
+          onSave={onSave}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    return onSave;
+  }
+  const search = () => screen.getByRole("searchbox", { name: t("en-US", "milestoneLinkedTasksFilter") });
+  const taskBoxes = () =>
+    screen.queryAllByRole("checkbox").filter((b) => /^#\d+ /.test(b.closest("label")?.textContent ?? ""));
+
+  it("narrows the list by name, case-insensitively", () => {
+    renderIt();
+    expect(taskBoxes()).toHaveLength(3);
+    fireEvent.change(search(), { target: { value: "LOAD" } });
+    expect(taskBoxes().map((b) => b.closest("label")?.textContent)).toEqual(["#2 Load testing"]);
+  });
+
+  it("matches on the #id as well", () => {
+    renderIt();
+    fireEvent.change(search(), { target: { value: "#12" } });
+    expect(taskBoxes().map((b) => b.closest("label")?.textContent)).toEqual(["#12 Cutover plan"]);
+  });
+
+  it("says so when nothing matches", () => {
+    renderIt();
+    fireEvent.change(search(), { target: { value: "zzz" } });
+    expect(taskBoxes()).toHaveLength(0);
+    expect(screen.getByText(t("en-US", "milestoneLinkedTasksNoMatch"))).toBeInTheDocument();
+  });
+
+  it("keeps a ticked task linked while the search hides it", () => {
+    const onSave = renderIt([1]);
+    fireEvent.change(search(), { target: { value: "load" } });
+    fireEvent.click(taskBoxes()[0]);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    expect(onSave.mock.calls[0][0].linkedTaskIds).toEqual([1, 2]);
   });
 });
 

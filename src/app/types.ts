@@ -117,6 +117,21 @@ export type Task = {
   /** Running note log — dated free-text notes. Optional + sparse; absent on
    *  legacy data. Persisted as a JSON-in-cell array across the text backends. */
   noteLog?: NoteLogEntry[];
+  /** Dated blocker log. `blockers` is DERIVED from it (open entries joined) and
+   *  written only through `withBlockerLog` (blocker-log.ts). Optional: absent on
+   *  legacy data until the load migrator wraps the old text into one entry. */
+  blockerLog?: BlockerEntry[];
+};
+
+/** One blocker on a task. Plain text. `resolvedAt` absent = OPEN. */
+export type BlockerEntry = {
+  id: number;
+  text: string;
+  createdAt: string;
+  authorResourceId?: number;
+  authorName?: string;
+  editedAt?: string;
+  resolvedAt?: string;
 };
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"];

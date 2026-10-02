@@ -4,6 +4,7 @@ import {
   selectActiveGuides, partitionGuidesByViewScope, assembleGuideBlocks, guidesCharCount,
   GUIDE_CHAR_BUDGET, type OperatingGuide, type GuideContext,
 } from "./operating-guide";
+import { builtinSeeds } from "./use-operating-guides";
 
 const base = (over: Partial<OperatingGuide>): OperatingGuide => ({
   id: "g", name: "G", content: "body", enabled: true, priority: 10,
@@ -129,5 +130,14 @@ describe("guidesCharCount", () => {
   });
   it("exposes a positive budget", () => {
     expect(GUIDE_CHAR_BUDGET).toBeGreaterThan(0);
+  });
+  // The budget is the shipped baseline: every built-in guide enabled sits
+  // exactly AT it (no banner on a fresh install), and one character more
+  // crosses it. The settings banner tests `> GUIDE_CHAR_BUDGET`.
+  it("equals the combined size of the guides this build seeds", () => {
+    const seeds = builtinSeeds();
+    expect(guidesCharCount(seeds)).toBe(GUIDE_CHAR_BUDGET);
+    const grown = [...seeds, base({ id: "user-1", content: "x" })];
+    expect(guidesCharCount(grown)).toBeGreaterThan(GUIDE_CHAR_BUDGET);
   });
 });

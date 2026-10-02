@@ -54,6 +54,9 @@ export interface TaskFormModalProps {
   /** Opens the shared note-log window for the edited task; absent → the in-form
    *  "Notes" button is disabled (e.g. an unsaved new task with no id). */
   onOpenNotes?: () => void;
+  /** Opens the blocker window for the edited task; absent → the in-form
+   *  "Blockers" button is disabled, exactly as the Notes button. */
+  onOpenBlockers?: () => void;
   /** Live note-log panel for the edited task, rendered INLINE in a collapsed
    *  disclosure. Writes go STRAIGHT THROUGH to the workspace (not the form
    *  draft), so a note survives Cancel — correct for an append-only journal.
@@ -94,6 +97,7 @@ export function TaskFormModal({
   readOnlyJiraProjectName,
   editorExtras,
   onOpenNotes,
+  onOpenBlockers,
   taskNotePanel,
   budgetLink,
   calendarSyncEnabled,
@@ -182,6 +186,7 @@ export function TaskFormModal({
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
             onOpenNotes={onOpenNotes}
+            onOpenBlockers={onOpenBlockers}
             taskNotePanel={taskNotePanel}
             budgetLink={budgetLink}
           />

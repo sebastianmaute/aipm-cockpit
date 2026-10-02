@@ -37,7 +37,11 @@ export const scheduleProvider: ActionProvider = {
         why,
         score,
         tier: bandTier(score),
-        cta: { kind: "open", view: "dashboard", id: 0 },
+        // ★ The Gantt, not the Dashboard: this action is SHOWN on the Dashboard
+        // (hero + Top actions), so an Open that targeted it went nowhere. Schedule
+        // slippage is read on the timeline. `id: 0` names no entity; nothing on
+        // the Gantt consumes a pending open, so it simply lands on the view.
+        cta: { kind: "open", view: "gantt", id: 0 },
       },
     ];
   },

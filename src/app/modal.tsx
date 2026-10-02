@@ -57,6 +57,10 @@ import { FOCUSABLE_SELECTOR } from "./focusables";
  *  intentionally use a stronger variant and are not folded onto this. */
 export const MODAL_BACKDROP_CLASS = "bg-ui-dark-blue/40";
 
+/** Marks a NON-modal floating window that is used alongside an open `Modal`
+ *  (the note log). A modal's Tab trap stands down while focus is inside one. */
+export const FLOATING_LAYER_ATTR = "data-floating-layer";
+
 /** Blur the focused element when it sits inside `root` (not `root` itself), returning it. */
 function blurFocusInside(root: HTMLElement | null): HTMLElement | null {
   const active = typeof document !== "undefined" ? document.activeElement : null;
@@ -246,6 +250,13 @@ export function Modal({
       // this trap cannot see — and this branch going false is what stops the
       // two competing (`docs/open-followups.md` §100).
       if (!isTopmostOfKind(token, "modal")) return;
+      // ★★ A non-modal floating window (`FLOATING_LAYER_ATTR`, the note log)
+      // stacks ABOVE the editors and is meant to be used beside one. Without this
+      // the first Tab inside it read as "focus escaped the trap" and yanked focus
+      // back into the editor, so the window could be clicked but not typed in by
+      // keyboard. It is not ours to contain: leave its Tab to the browser.
+      const active0 = document.activeElement;
+      if (active0 instanceof Element && active0.closest(`[${FLOATING_LAYER_ATTR}]`)) return;
       const container = dialogRef.current;
       if (!container) return;
       // No visibility filter on purpose. A naive `offsetParent / getClientRects`

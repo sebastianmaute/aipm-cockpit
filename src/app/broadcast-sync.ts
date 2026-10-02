@@ -206,7 +206,7 @@ export function useBroadcastSync<T>(
 // It carries NO token, URL or path — the scope already names the storage — only two revision strings: the
 // one the write produced (`revision`) and the one it was checked against (`baseRevision`). A receiver
 // adopts only while it holds `baseRevision` itself (`adoptPeerRevision` in use-workspace-sync.ts), so a
-// window that missed a write never skips past it. §662 — a window with a save of its own queued or running
+// window that missed a write never skips past it. §666 — a window with a save of its own queued or running
 // DEFERS it instead (peer-revision-deferral.ts): that save may lack the peer's slices, so only a job whose
 // snapshot was taken after the message adopts it. Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
 // pop-out never saves and so never adopts (and never posts). One id per PAGE (not per hook instance),

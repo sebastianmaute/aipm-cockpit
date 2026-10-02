@@ -67,6 +67,7 @@ function UndoRedoControl({
   countKey,
   lang,
   icon,
+  dataTourId,
 }: {
   /** Oldest-first, exactly as `UndoStackApi.stack` provides it. */
   entries: readonly UndoMeta[];
@@ -81,6 +82,8 @@ function UndoRedoControl({
   countKey: PluralBaseKey;
   lang: Lang;
   icon: ReactNode;
+  /** Guided-tour anchor on the root element; absent from the DOM with the control when the stack is empty. */
+  dataTourId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -259,7 +262,7 @@ function UndoRedoControl({
   };
 
   return (
-    <span ref={rootRef} className="inline-flex items-center">
+    <span ref={rootRef} data-tour-id={dataTourId} className="inline-flex items-center">
       <button
         type="button"
         // Armed before the activation, not after: a click that takes the stack
@@ -350,12 +353,15 @@ interface UndoControlProps {
   entries: readonly UndoMeta[];
   onUndo: () => void;
   onUndoThrough: (id: number) => void;
+  /** Guided-tour anchor forwarded to the control's root element. */
+  dataTourId?: string;
 }
 
 /** Top-bar undo button + a caret opening the multi-step history. */
-export function UndoControl({ lang, entries, onUndo, onUndoThrough }: UndoControlProps) {
+export function UndoControl({ lang, entries, onUndo, onUndoThrough, dataTourId }: UndoControlProps) {
   return (
     <UndoRedoControl
+      dataTourId={dataTourId}
       entries={entries}
       onActivate={onUndo}
       onActivateThrough={onUndoThrough}

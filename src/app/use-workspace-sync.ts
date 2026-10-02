@@ -29,7 +29,7 @@ export interface WorkspaceSyncDeps<S extends Slices> {
   backend: StorageBackend;
   /** Every slice's live value in this render. */
   slices: S;
-  /** §662 — where a peer's revision goes when this window's own save is queued or running. */
+  /** §666 — where a peer's revision goes when this window's own save is queued or running. */
   peerRevision: PeerRevisionDeferral;
   /** One applier per slice: applies a peer's value through the mirror ledger (`mirrorApply` in `useStorageBackend`). */
   mirrorApply: { readonly [K in keyof Workspace]-?: (value: S[K], fromWindow: string) => void };
@@ -59,7 +59,7 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
     if (announcedRevision(backend) !== baseRevision) return; // also false for a null revision: `baseRevision` is always a string. §656 m2 — `announcedRevision`, so two windows that loaded a SharePoint file as absent match
-    // §662 — not while a save is queued or running: it may have been built without the peer's slices. The revision is DEFERRED instead (peer-revision-deferral.ts), so that save is skipped or retried from a snapshot that holds them, rather than meeting the revision and pausing. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
+    // §666 — not while a save is queued or running: it may have been built without the peer's slices. The revision is DEFERRED instead (peer-revision-deferral.ts), so that save is skipped or retried from a snapshot that holds them, rather than meeting the revision and pausing. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
     if (whenSaved(backend) !== null) { peerRevision.defer(backend, revision, baseRevision); return; }
     backend.adoptRevision?.(revision);
   }, [backend, peerRevision]);

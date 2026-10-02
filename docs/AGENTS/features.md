@@ -13,8 +13,14 @@
 
 ### Guided tour + demo
 
-MODERN-shell-only onboarding (never classic/popout). Pure i18n-free `app-tour.ts` (`TOUR_STEPS` ~12 keys-only,
-`visibleSteps(features)` drops steps whose `view` is a disabled module via `isViewEnabled`, `clampStep`).
+MODERN-shell-only onboarding (never classic/popout). Pure i18n-free `app-tour.ts` (keys-only step lists collected in `TOURS`;
+count the tours with `grep -c '^  { id: ".*iconView:' src/app/app-tour.ts`, the steps with `grep -c "kind: \"" src/app/app-tour.ts`;
+`visibleSteps(steps, features, storageKind?)` drops steps whose `view` is not reachable, `clampStep`).
+★ REACHABILITY IS ONE RULE: `isViewReachable` (`nav-config.ts`) = module enabled AND, for a Turso-only view, a Turso
+backend AND, for a child view in `NAV_GROUPS`, a reachable parent item (the sidebar drops a child whose parent is hidden,
+so simple mode hides `insights`/`actions` with the dashboard). `filterNavGroups` and `visibleSteps` both call it, so the tour never deep-links to a view the sidebar hides
+(reporting loses its trends/history steps in file mode). `useTour` takes `storageKind` (task-manager passes
+`settings.storageConfig.kind`) and hides a tour whose steps are all filtered out of the catalog.
 `tour-overlay.tsx` = controlled component: centered modal OR anchored "spotlight" over a `[data-tour-id]`
 element — ★ a MISSING anchor (gated/unmounted view) FALLS BACK to a centered modal (never points at nothing);
 role=dialog/aria-modal/Escape-skips/focus. `use-tour.ts` (in task-manager, above the view): open/index +
@@ -23,8 +29,12 @@ new flag persists with NO allowlist edit) + ★ RENDER-TIME auto-launch (`if (el
 setAutoHandled(true); setIsOpen(true) }` during render — NOT a useEffect; set-state-in-effect is banned) gated
 `hydrated && layout==="modern" && !isPopout && !tourSeen`. Overlay mounted ONCE in the modern tree; Help "Take
 the tour" re-launch via `HelpMenu onTakeTour` (threaded through `ActionMenus`, passed only when modern &&
-!popout). 4 `data-tour-id` anchors: sidebar tasks/actions (`NAV_TOUR_ID` map in `sidebar-nav.tsx`), Ask-Claude
-`<span>` wrapper, project-switcher container.
+!popout). Anchors are the `TOUR_ANCHORS` values (list them: `git grep -n "data-tour-id" -- "src/app/*.tsx" ":!*.test.*"`;
+sidebar entries come from the `NAV_TOUR_ID` map in `sidebar-nav.tsx`). ★ An anchor inside CONDITIONAL UI
+(the undo control on an empty stack, a control only in board mode) falls back to the centred card BY DESIGN: the
+overlay treats a missing and a zero-size anchor alike. The undo anchor is NOT a wrapper span — `UndoControl` takes an
+optional `dataTourId` forwarded to its root, which renders nothing on an empty stack, so the anchor is absent then.
+★★ The overlay measures its anchor in an effect keyed on `[step, activeView]`: Help-launched tours start with the target view unmounted, and "Show me" switches the view under an UNCHANGED step, so `activeView` (task-manager passes `activeTab`) is the only trigger that re-measures. Saved views, the view-mode control and undo pass `dataTourId` to their own roots; no wrapper spans.
 ★★★ **DEMO CTA MUST REGISTER A PROJECT, not just apply data.** The empty-state "Explore a demo project" loads
 `sample-workspace-small.json` (lazy `import("../../sample-workspace-small.json")`; `resolveJsonModule` on). It
 MUST go through `createDemoProject(ws)` (a `useStorageBackend` method) which REGISTERS a real project

@@ -3,6 +3,31 @@ import { INLINE_DESCRIPTORS, validSetFor, type InlineEntity } from "./entity-des
 import { emptyWorkspace } from "../workspace";
 import type { RaidItem } from "../types";
 
+describe("task blockers card sanitizer", () => {
+  const sanitize = INLINE_DESCRIPTORS.task.fieldSanitizers.blockers;
+  const stored = { blockers: "waiting on X" };
+
+  it("previews a non-string as the stored text (no diff), never a clear", () => {
+    expect(sanitize(["a", "b"], stored, stored)).toBe("waiting on X");
+    expect(sanitize(123, stored, stored)).toBe("waiting on X");
+  });
+
+  it("still previews a string through the log normaliser", () => {
+    expect(sanitize("  new  ", stored, stored)).toBe("new");
+    expect(sanitize("", stored, stored)).toBe("");
+  });
+
+  it("previews what the replace rule stores, not what was typed", () => {
+    // The stored open entry keeps its place; the new line lands after it.
+    const row = {
+      blockers: "A",
+      blockerLog: [{ id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" }],
+    };
+    expect(sanitize("C\nA", row, row)).toBe("A\nC");
+    expect(sanitize("B\nwaiting on X", stored, stored)).toBe("waiting on X\nB");
+  });
+});
+
 describe("INLINE_DESCRIPTORS", () => {
   // ★★ A HAND-COPY of the `InlineEntity` union, not a derivation — nothing in
   // TypeScript can enumerate a union at runtime, so widening the union does NOT

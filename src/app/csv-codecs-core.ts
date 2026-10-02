@@ -21,6 +21,7 @@ import { quoteStep } from "./csv-line-scan";
 export * from "./csv-codecs-sections";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { encodeNoteLog, decodeNoteLog } from "./note-log";
+import { encodeBlockerLog } from "./blocker-log";
 import { decodeRaidEscalations, encodeRaidEscalations } from "./raid-escalation";
 import {
   type CalendarEvent,
@@ -96,6 +97,7 @@ export const CSV_COLUMNS = [
   "outlookEventId",
   "calendarOptOut",
   "noteLog",
+  "blockerLog",
 ] as const satisfies readonly (keyof Task)[];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -536,6 +538,7 @@ export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "dependencies") return serializeDependencies(t.dependencies);
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(t.knowledgeLinks);
   if (c === "noteLog") return encodeNoteLog(t.noteLog);
+  if (c === "blockerLog") return encodeBlockerLog(t.blockerLog);
   if (c === "calendarOptOut") return encodeCalendarOptOut(t.calendarOptOut);
   return String(t[c] ?? "");
 }

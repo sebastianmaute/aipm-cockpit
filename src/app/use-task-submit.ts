@@ -18,9 +18,7 @@ import {
   EMAIL_MAX,
   GROUP_MAX,
   TASK_NAME_MAX,
-  TEXTAREA_MAX,
   sanitizeAssignee,
-  sanitizeBlockers,
   normalizeEmailShape,
   sanitizeDependencies,
   sanitizeLoadedEmail,
@@ -176,7 +174,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         dueDate,
         lastUpdateDate: sanitizeIsoDate(form.lastUpdateDate) || today,
         priority: sanitizePriority(form.priority),
-        blockers: sanitizeBlockers(adj.track(describeTextCap(form.blockers, TEXTAREA_MAX))),
         description: sanitizeRichHtml(form.description ?? ""),
         group: sanitizeGroup(adj.track(describeTextCap(form.group, GROUP_MAX))),
         labels: sanitizeLabels(form.labels),
@@ -198,6 +195,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // added/edited/deleted, and since `payload` is spread OVER `row` it
         // would overwrite the live log with that stale copy — silent data
         // loss. The write-through path is the sole owner.
+        // ★★ `blockers` and `blockerLog` are absent for the SAME reason: the
+        // text is derived from the blocker log, which only the floating blocker
+        // window writes (the editor's Blockers button opens it). Leaving both
+        // out of this payload carries them from the STORED row on an edit.
       };
 
       if (adj.count() > 0) {
@@ -403,6 +404,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             setter: setTasks,
             kind: "task.updated",
             id: updatedId,
+            // The blocker pair is not in the payload, so prev and next carry the
+            // same pair and it is never captured (blocker writes are not undoable).
             prev: prevTask,
             next: nextTask,
             groups: TASK_UNDO_GROUPS,
@@ -424,10 +427,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
         recordSuccessorEdits(successors, tasksRef.current);
       } else {
+        // A new task starts with no blockers and no log; the Blockers button
+        // is disabled until the task is saved (as Notes), then the window adds.
         const newTask: Task = applyStatusChange(
           {
             id: mintId("task", tasks),
             ...payload,
+            blockers: "",
             status: form.status,
             inquiriesSent: 0,
             createdDate: today,
@@ -568,7 +574,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         lastUpdateDate: task.lastUpdateDate,
         priority: task.priority,
         status: task.status,
-        blockers: task.blockers,
         description: task.description,
         group: task.group ?? "",
         labels: task.labels ?? [],
