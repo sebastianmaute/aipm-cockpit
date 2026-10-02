@@ -188,12 +188,21 @@ register's fix to another is how two of them broke. Read the note that names you
   `blockerLog` ignored as stale), the window mutators, or the load repair `migrateLoadedBlockers` →
   `migrateBlockers` (sanitise the log; a text that disagrees with it was written by something unaware
   of the log, so the replace rule runs against the log, stamped from `lastUpdateDate`, never the
-  clock; legacy text with no log becomes one open entry). ★★ "Agrees" includes the derived text CUT
+  clock; legacy text with no log becomes one open entry, stamped by the SAME deterministic rule —
+  never the clock). ★★ "Agrees" includes the derived text CUT
   at `TEXTAREA_MAX`: open entries can join past the cap and `sanitizeBlockers` stores a prefix, so
-  without that every load would mint an entry. ★★ An OLDER client saving to Turso drops the
-  `blockerLog` column, so the history collapses to one entry on its next save — the same exposure
-  as `noteLog` (a newer build then loads the text as legacy: one open entry, the resolved history
-  gone). Writers today: the window (`use-blockers-window.ts`), AI create/update
+  without that every load would mint an entry. ★★ DOWNGRADE EXPOSURE, per backend — a newer build
+  cannot stop an older client from writing, so there is no guard; the history collapses to one
+  legacy entry (one open entry, the resolved history gone) when the older client's save omits the
+  log. Same exposure as `noteLog`. Verified in today's code, not an older build's (which is not
+  available): Turso (single and tenant), CSV and Markdown are column-list formats, and an older
+  build's column lists predate `blockerLog`, so its save never writes it. JSON and IndexedDB store
+  the whole task object: today's load path (`migrateTask`, `sanitizeNoteFields`) spreads the task
+  and keeps fields it does not know, and `BrowserBackend` writes whole records, so an older build
+  built the same way would likely KEEP the log there; but it would edit `blockers` text without the
+  log, which the load repair above then reconciles. That JSON/IndexedDB half is inference, not
+  measurement. The release notes of the version that ships the blocker log must warn against
+  running an older build on the same data. Writers today: the window (`use-blockers-window.ts`), AI create/update
   (`use-chat-dispatcher.ts`), bulk edit (`use-bulk-operations.ts`), Clear-blocker
   (`use-action-center-handlers.ts`), templates (`templates.ts`, via `sanitizeBlockerLog`), and the
   load funnels. Re-derive the list before relying on it:

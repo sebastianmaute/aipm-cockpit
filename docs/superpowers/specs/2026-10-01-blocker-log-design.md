@@ -81,7 +81,8 @@ tooltip and the AI context keep reading `task.blockers` unchanged.
   `lastUpdateDate` as `YYYY-MM-DDT00:00:00.000Z` when valid, else the newest timestamp already in
   the log, else the epoch — never the clock, so a load stays deterministic.
 - `blockerLog` absent and `blockers.trim() !== ""` → one OPEN entry
-  `{ id: 1, text: blockers.trim(), createdAt: <lastUpdateDate as ISO, else now> }`, no author.
+  `{ id: 1, text: blockers.trim(), createdAt: <a real lastUpdateDate as YYYY-MM-DDT00:00:00.000Z, else the Unix epoch — never the clock> }`, no author.
+  *(Amended 2026-10-02, §664: this said "else now", which made load non-deterministic.)*
 - Neither → unchanged.
 
 Pure and idempotent: migrating the result again returns the same reference (its text is derived,
