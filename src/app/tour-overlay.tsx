@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampStep, type TourStep } from "./app-tour";
 import { Button } from "./button";
+import type { AppView } from "./nav-config";
 import { useFocusTrap } from "./use-focus-trap";
 
 export interface TourOverlayProps {
@@ -23,11 +24,13 @@ export interface TourOverlayProps {
   onSkip: () => void;
   onDone: () => void;
   onShowMe: (step: TourStep) => void;
+  /** The active view. Only a re-measure trigger: "Show me" switches the view under an unchanged step. */
+  activeView?: AppView;
 }
 
 interface Rect { top: number; left: number; width: number; height: number; }
 
-export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, onSkip, onDone, onShowMe }: TourOverlayProps) {
+export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, onSkip, onDone, onShowMe, activeView }: TourOverlayProps) {
   const total = steps.length;
   const i = clampStep(index, total);
   const step = steps[i];
@@ -50,7 +53,7 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
     };
     raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, [step]);
+  }, [step, activeView]);
 
   // Gated on a real step: it renders null without one, and an entry that
   // claims Escape while showing nothing would swallow the key.

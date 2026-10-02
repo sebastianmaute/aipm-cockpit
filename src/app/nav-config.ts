@@ -151,15 +151,26 @@ export function allNavViews(): AppView[] {
  *  file backend. "history" is gated this way (version history lives in Turso). */
 export const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
 
+/** Child view -> the top-level item that owns it, derived from NAV_GROUPS. */
+const PARENT_VIEW = new Map<AppView, AppView>(
+  NAV_GROUPS.flatMap((g) =>
+    g.items.flatMap((item) => (item.children ?? []).map((c): [AppView, AppView] => [c.view, item.view])),
+  ),
+);
+
 /** True when `view` is enabled by the feature modules AND, for a Turso-only view,
- *  the storage backend is Turso. The single predicate behind the sidebar filter
- *  and the guided tour's step filter. */
+ *  the storage backend is Turso AND, for a child view, its parent item is
+ *  reachable too (the sidebar drops a child whose parent is hidden). The single
+ *  predicate behind the sidebar filter and the guided tour's step filter. */
 export function isViewReachable(
   view: AppView,
   features: readonly FeatureModuleId[],
   storageKind?: string,
 ): boolean {
-  return isViewEnabled(view, features) && (storageKind === "turso" || !TURSO_ONLY_VIEWS.includes(view));
+  const own = isViewEnabled(view, features) && (storageKind === "turso" || !TURSO_ONLY_VIEWS.includes(view));
+  if (!own) return false;
+  const parent = PARENT_VIEW.get(view);
+  return parent === undefined || isViewReachable(parent, features, storageKind);
 }
 
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,

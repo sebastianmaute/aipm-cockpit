@@ -46,6 +46,8 @@ export interface SegmentedControlProps<T extends string> {
   title?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
   className?: string;
+  /** Guided-tour anchor, placed on the radiogroup root. */
+  dataTourId?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -57,6 +59,7 @@ export function SegmentedControl<T extends string>({
   optionAriaLabel,
   title,
   className = "",
+  dataTourId,
 }: SegmentedControlProps<T>) {
   // APG radiogroup roving: arrows (and Home/End) move selection + focus to the
   // adjacent radio and wrap; the checked radio is the sole Tab-stop.
@@ -112,6 +115,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       role="radiogroup"
+      data-tour-id={dataTourId}
       aria-label={ariaLabel}
       title={title}
       aria-disabled={disabled || undefined}

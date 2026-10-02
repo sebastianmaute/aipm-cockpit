@@ -701,18 +701,17 @@ export function TasksSection({
         >
           {t(lang, "hideExternalTasks")}
         </ToggleButton>
-        <span data-tour-id={TOUR_ANCHORS.tasksViewMode} className="inline-flex items-center">
-          <SegmentedControl
-            value={tasksViewMode}
-            options={[
-              { value: "table", label: t(lang, "tasksViewTable") },
-              { value: "board", label: t(lang, "tasksViewBoard") },
-              { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
-            ]}
-            onChange={setTasksViewMode}
-            ariaLabel={t(lang, "tasksViewModeLabel")}
-          />
-        </span>
+        <SegmentedControl
+          value={tasksViewMode}
+          options={[
+            { value: "table", label: t(lang, "tasksViewTable") },
+            { value: "board", label: t(lang, "tasksViewBoard") },
+            { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
+          ]}
+          onChange={setTasksViewMode}
+          ariaLabel={t(lang, "tasksViewModeLabel")}
+          dataTourId={TOUR_ANCHORS.tasksViewMode}
+        />
         {tasksViewMode === "swimlane" && (
           <TaskSwimlaneToolbar
             lang={lang}

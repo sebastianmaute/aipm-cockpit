@@ -172,21 +172,18 @@ describe("isViewReachable", () => {
   it("agrees with filterNavGroups for every view, backend and module set", () => {
     const flat = (groups: ReturnType<typeof filterNavGroups>) =>
       groups.flatMap((g) => g.items.flatMap((i) => [i.view, ...(i.children ?? []).map((c) => c.view)]));
-    // A child only shows when its parent does, so the expectation is parent AND child reachable.
-    const entries = NAV_GROUPS.flatMap((g) =>
-      g.items.flatMap((i) => [
-        { view: i.view, parent: undefined as AppView | undefined },
-        ...(i.children ?? []).map((c) => ({ view: c.view, parent: i.view as AppView | undefined })),
-      ]),
-    );
     for (const features of [[...ALL_MODULE_IDS], []] as const)
       for (const kind of ["turso", "file", undefined]) {
         const shown = new Set(flat(filterNavGroups(features, kind)));
-        for (const { view, parent } of entries) {
-          const reachable = isViewReachable(view, features, kind) && (!parent || isViewReachable(parent, features, kind));
-          expect(reachable, `${view}/${kind}`).toBe(shown.has(view));
+        for (const view of allNavViews()) {
+          expect(isViewReachable(view, features, kind), `${view}/${kind}`).toBe(shown.has(view));
         }
       }
+  });
+  it("isViewReachable hides a child whose parent is hidden", () => {
+    expect(isViewReachable("insights", [], "turso")).toBe(false);
+    expect(isViewReachable("insights", [...ALL_MODULE_IDS], "turso")).toBe(true);
+    expect(isViewReachable("open-points", [], "file")).toBe(true);
   });
   it("hides Turso-only views off Turso", () => {
     for (const v of TURSO_ONLY_VIEWS) {

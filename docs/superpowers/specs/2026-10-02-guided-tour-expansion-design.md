@@ -46,7 +46,8 @@ Reproduce the current counts rather than trusting prose:
 - New pure helper in `nav-config.ts`:
   `isViewReachable(view: AppView, features: readonly FeatureModuleId[], storageKind?: string): boolean`
   — true when the view's module is enabled and (`storageKind === "turso"` or the
-  view is not in `TURSO_ONLY_VIEWS`). `filterNavGroups` uses it for its own
+  view is not in `TURSO_ONLY_VIEWS`) and, for a child view in `NAV_GROUPS`, its
+  parent item is reachable too. `filterNavGroups` uses it for its own
   predicate, so the sidebar and the tour cannot disagree.
 - `visibleSteps(steps, features, storageKind?)` keeps a step when it has no
   `view` or `isViewReachable(step.view, features, storageKind)`.
@@ -158,7 +159,7 @@ Each test names the mutant that must turn it red.
 | Test | File | Pins | Mutant |
 |---|---|---|---|
 | storage filter | `app-tour.test.ts` | trends/history steps kept for `"turso"`, dropped for `"file"` and `undefined`; a step with no `view` always kept | drop the storage condition |
-| sidebar parity | `nav-config.test.ts` | for every `AppView` × {turso, file} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` | invert the Turso check in one of the two |
+| sidebar parity | `nav-config.test.ts` | for every `AppView` × {turso, file} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` (children included, so the parent rule is covered) | invert the Turso check in one of the two |
 | anchors resolve | `app-tour.test.ts` | every step `anchorId` is a `TOUR_ANCHORS` value and every value is used by a step | rename an anchor on one side |
 | anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; `undo-control.test.tsx` (anchor present with entries, absent when empty) plus a source check for `dataTourId={TOUR_ANCHORS.undo}` in `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
 | hook threads storage | `use-tour.test.tsx` | the reporting tour's `steps.length` and its catalog `stepCount` differ between turso and file | ignore `storageKind` |

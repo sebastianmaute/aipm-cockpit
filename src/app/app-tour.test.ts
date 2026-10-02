@@ -34,6 +34,11 @@ describe("app-tour engine", () => {
     // a fully module-gated tour collapses to 0 visible steps
     expect(visibleSteps(findTour("raid")!.steps, []).length).toBe(0);
   });
+  it("visibleSteps drops a child-view step whose parent module is off", () => {
+    const steps = visibleSteps(findTour("reporting")!.steps, [], "turso");
+    expect(steps.some((s) => s.view === "insights")).toBe(false);
+    expect(steps.length).toBeGreaterThan(0);
+  });
   it("visibleSteps drops Turso-only views off Turso and keeps view-less steps", () => {
     const trend: TourStep = { id: "t", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "trends" };
     const bare: TourStep = { id: "b", kind: "modal", titleKey: "tourStepWelcomeTitle", bodyKey: "tourStepWelcomeBody" };
@@ -55,7 +60,7 @@ describe("tour anchors", () => {
     for (const a of used) expect(values.has(a as never)).toBe(true);
     for (const v of values) expect(used.has(v)).toBe(true);
   });
-  it("places the undo anchor around the undo controls", () => {
+  it("passes the undo anchor to UndoControl via dataTourId", () => {
     const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
     expect(src).toContain("dataTourId={TOUR_ANCHORS.undo}");
   });

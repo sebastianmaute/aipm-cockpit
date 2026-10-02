@@ -88,8 +88,9 @@ describe("useTour", () => {
     const setSettings = vi.fn();
     const { result } = renderHook(() =>
       useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [], setSettings }));
-    // raid/reporting/planning/stakeholders/ai all deep-link disabled views -> dropped;
-    // getting-started keeps its no-view "welcome" step -> survives.
+    // raid deep-links only a module-gated view -> dropped. reporting and ai keep their
+    // core-view steps (reports, chat, settings) so they survive; getting-started
+    // survives on its no-view "welcome" step plus core views.
     expect(result.current.catalogTours.some((t) => t.id === "raid")).toBe(false);
     expect(result.current.catalogTours.some((t) => t.id === "getting-started")).toBe(true);
   });

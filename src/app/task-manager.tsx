@@ -3311,6 +3311,7 @@ function TaskManagerInner() {
           onSkip={tour.skip}
           onDone={tour.done}
           onShowMe={(step) => tour.showMe(step, setActiveTab)}
+          activeView={activeTab}
         />
       )}
       {modalsBlock}
