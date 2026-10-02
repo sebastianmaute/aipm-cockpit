@@ -27,6 +27,8 @@ export interface NotesWindowDeps {
   resources: readonly Resource[];
   lang: Lang;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** True while a load, backend change or project swap holds the tree (§548). */
+  loadPending: boolean;
 }
 
 export interface UseNotesWindowResult {
@@ -53,10 +55,10 @@ export interface UseNotesWindowResult {
 // added while it was open) — routing a note commit through one of them would
 // therefore read the new note back out and LOSE it.
 export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
-  const { tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId, resources, lang, logActivity } = deps;
+  const { tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId, resources, lang, logActivity, loadPending } = deps;
 
   // which entity's log is open (null = closed).
-  const [notesTarget, setNotesTarget] = useState<{ kind: NotesTargetKind; id: number } | null>(null);
+  const [notesTargetState, setNotesTarget] = useState<{ kind: NotesTargetKind; id: number } | null>(null);
 
   /** The entity's stored log, or [] when the id resolves to nothing. */
   const logOf = (kind: NotesTargetKind, id: number): readonly NoteLogEntry[] =>
@@ -79,6 +81,18 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
         : changes.find((c) => c.id === id)?.title;
 
   const nameOf = (kind: NotesTargetKind, id: number): string => findName(kind, id) ?? "";
+
+  // ★★ §662: the target must not outlive its row. `TaskManagerInner` stays
+  // mounted through the load hold, so without this a deleted target left an open,
+  // untitled window that dropped typed text, and a project swap reopened it on
+  // whichever row of the new project carried the same id. Render-time reconcile
+  // (never an effect): clear the state when the row is gone or a load holds the
+  // tree; it settles because the second render sees `null`. `notesTarget` below
+  // is the reconciled value, so this render already reports the window closed.
+  const notesGone =
+    notesTargetState !== null && (loadPending || findName(notesTargetState.kind, notesTargetState.id) === undefined);
+  if (notesGone) setNotesTarget(null);
+  const notesTarget = notesGone ? null : notesTargetState;
 
   const notesEntries: readonly NoteLogEntry[] = notesTarget ? logOf(notesTarget.kind, notesTarget.id) : [];
 

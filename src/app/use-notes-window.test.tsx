@@ -54,10 +54,81 @@ function setup() {
       resources: RESOURCES,
       lang: "en-US",
       logActivity,
+      loadPending: false,
     }),
   );
   return { result, setTasks, setRaid, setChanges, logActivity };
 }
+
+// §662: the target must not outlive its row or a load hold.
+describe("useNotesWindow — target lifetime (§662)", () => {
+  interface Live {
+    tasks: readonly Task[];
+    raid: readonly RaidItem[];
+    changes: readonly ChangeItem[];
+    loadPending: boolean;
+  }
+  const FULL: Live = { tasks: TASKS, raid: RAID, changes: CHANGES, loadPending: false };
+
+  function setupProps() {
+    return renderHook(
+      (live: Live) =>
+        useNotesWindow({
+          ...live,
+          setTasks: vi.fn(),
+          setRaid: vi.fn(),
+          setChanges: vi.fn(),
+          selfResourceId: 1,
+          resources: RESOURCES,
+          lang: "en-US",
+          logActivity: vi.fn(),
+        }),
+      { initialProps: FULL },
+    );
+  }
+
+  it("closes when a task target is deleted and stays closed when the id returns", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openTaskNotes(7));
+    expect(result.current.notesWindowProps.open).toBe(true);
+    rerender({ ...FULL, tasks: [TASKS[1]] });
+    expect(result.current.notesWindowProps.open).toBe(false);
+    expect(result.current.notesTarget).toBeNull();
+    rerender(FULL);
+    expect(result.current.notesWindowProps.open).toBe(false);
+    expect(result.current.notesTarget).toBeNull();
+  });
+
+  it("closes when a raid target is deleted and stays closed when the id returns", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openRaidNotes(3));
+    expect(result.current.notesWindowProps.open).toBe(true);
+    rerender({ ...FULL, raid: [] });
+    expect(result.current.notesWindowProps.open).toBe(false);
+    rerender(FULL);
+    expect(result.current.notesWindowProps.open).toBe(false);
+  });
+
+  it("closes when a change target is deleted and stays closed when the id returns", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openChangeNotes(5));
+    expect(result.current.notesWindowProps.open).toBe(true);
+    rerender({ ...FULL, changes: [CHANGES[1]] });
+    expect(result.current.notesWindowProps.open).toBe(false);
+    rerender(FULL);
+    expect(result.current.notesWindowProps.open).toBe(false);
+  });
+
+  it("closes while a load holds the tree and stays closed afterwards", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openTaskNotes(7));
+    rerender({ ...FULL, loadPending: true });
+    expect(result.current.notesWindowProps.open).toBe(false);
+    rerender(FULL);
+    expect(result.current.notesWindowProps.open).toBe(false);
+    expect(result.current.notesTarget).toBeNull();
+  });
+});
 
 describe("useNotesWindow — notePanelPropsFor", () => {
   it("resolves entries from the live entity while the floating window is SHUT", () => {

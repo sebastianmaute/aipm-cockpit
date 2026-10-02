@@ -886,10 +886,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--closed-2026-10-02) | A window's project binding still leans on the shared registry | — | — | **CLOSED** 2026-10-02 |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
-| [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--open) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | open |
-| [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--open) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | open |
-| [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--open) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | open |
-| [§665](#665-burn-down-chart-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | Burn-down chart join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
+| [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--closed-2026-10-02) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | **CLOSED** 2026-10-02 |
+| [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--closed-2026-10-02) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | **CLOSED** 2026-10-02 |
+| [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--closed-2026-10-02) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | **CLOSED** 2026-10-02 |
+| [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
 | [§666](#666-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
 <!-- INDEX:END -->
 
@@ -43718,39 +43718,39 @@ On browser storage, the §4 round-7 probes measured that waiting for a Web Lock 
 
 **Source:** the §4 round-7 review (m6), 2026-10-01.
 
-## 662. A notes or blocker window keeps its target after the task is deleted or the project switches — open
+## 662. A notes or blocker window keeps its target after the task is deleted or the project switches — CLOSED 2026-10-02
 
-**Status:** open 2026-10-02, found by the blocker-log whole-branch review. Never machine-verified: inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
+**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `cbb1f673d` (both windows close when their target is gone). The fix clears the target on `loadPending` rather than on a `getScopeEpoch` change, because every scope-epoch bump site runs while `loadPending` is held (`resolveLogModeAndStamp` in the load effect, where `settledBackend !== backend`; `applyWorkspaceForOp` and `applyPickedWorkspace`, inside `holdDuring`; and `onOpenStorageFile`, inside `holdDuring`), so `loadPending` covers every swap the epoch does.
 
-**Work item:** #531
+**Original status:** open 2026-10-02, found by the blocker-log whole-branch review, inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
 
 Both hooks keep the target task id in state that survives the task's deletion and a project switch, because `TaskManagerInner` stays mounted through the load hold. A deleted target leaves the window open with an empty title, and text typed there is dropped without a message, because the write finds no live row. After a project switch the window reopens on whichever task in the new project has the same id. Its title shows that task's name, so a write is visible, but it lands on a different task than the one the user opened. Fix both hooks together: close the window when the target is missing, and clear the target when the scope epoch changes (`getScopeEpoch`).
 
 **Source:** the blocker-log final review, 2026-10-02.
 
-## 663. An older client drops the blocker log on every backend it saves to, not only Turso — open
+## 663. An older client drops the blocker log on every backend it saves to, not only Turso — CLOSED 2026-10-02
 
-**Status:** open 2026-10-02, found by the blocker-log fix-round review. Never machine-verified: inferred from the column lists an older build would carry.
+**Status:** CLOSED 2026-10-02 — decided by the owner: a newer build cannot stop an older client from writing, so there is no guard. Fixed on `fix/blocker-log-followups` by correcting `docs/AGENTS/rich-text.md`, which now names every backend: Turso, CSV and Markdown column lists predate `blockerLog`; JSON and IndexedDB keep unknown task fields in today's pipeline, so an older build would likely keep the log there (inference). The release notes of the version that ships the blocker log must warn against running an older build on the same data.
 
-**Work item:** #532
+**Original status:** open 2026-10-02, found by the blocker-log fix-round review.
 
 `docs/AGENTS/rich-text.md` names one downgrade exposure: an older client saving to Turso omits the new column, so `blockerLog` becomes NULL and the history collapses to one legacy entry on the next load. An older client's CSV and Markdown writers have no `blockerLog` column either, and its JSON and IndexedDB paths very likely drop the unknown field too, so the same collapse happens on every backend. `noteLog` had the same exposure when it shipped. Decide whether to say so in the release notes of the version that ships the blocker log, or to guard against a downgrade; either way, correct the rich-text note.
 
 **Source:** the blocker-log fix-round re-review, 2026-10-02.
 
-## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — open
+## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — CLOSED 2026-10-02
 
-**Status:** open 2026-10-02, found by the blocker-log scoped review. Never machine-verified: inferred from `migrateBlockers` in `blocker-log.ts`.
+**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `8b628ab43` (legacy blocker text gets a deterministic stamp on load).
 
-**Work item:** #533
+**Original status:** open 2026-10-02, found by the blocker-log scoped review, inferred from `migrateBlockers` in `blocker-log.ts`.
 
 The legacy branch of `migrateBlockers` (a task with blocker text and no log) checks `lastUpdateDate` only against `ISO_DATE`, not `Date.parse`. An impossible date such as `2026-13-45` produces an invalid `createdAt`, and `sanitizeEntry` drops that entry on the next load, so the entry is minted again on every load. A missing or malformed date falls back to `new Date()`, so the minted `createdAt` differs on each load until the project is saved. No data is lost. `loadStamp` already has the right check; the legacy branch should use it, or a fixed fallback, so load stays pure.
 
 **Source:** the blocker-log scoped review, 2026-10-02.
 
-## 665. Burn-down chart join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
+## 665. The burn-down chart's join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02. The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
+**Status:** CLOSED 2026-10-02 by the burn-down join-label fix on `claude/happy-archimedes-uaunil` (PR #542). The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
 - The label keeps its half-plot anchor. It is fitted to the room between the plot's right edge and the left limit: the plot's left edge, or, where the "Budget at start of recording" label is drawn, that label's right end.
 - Only the bucket-name part is shortened, with "…", so the amount at the end stays readable. A shortened label carries the full sentence as an SVG `<title>`, its hover text.
 - Widths use the same wide-side estimate as the marker-label band (`estimatedLabelWidth`). The chart never measures text, so this is an estimate that errs towards shortening.
@@ -43758,7 +43758,11 @@ The legacy branch of `migrateBlockers` (a task with blocker text and no log) che
 - `burndown-geometry.test.ts` "fitJoinLabel (§665)" covers the rule itself.
 - ★ Not re-run here: the Reports → budget history (cumulative) visual baseline that was held back because of this. It needs a browser run and a re-baseline (`npm run e2e:visual:update`), checked by eye.
 
-**Source:** GitHub issue #540, filed 2026-10-02 from that visual run. The issue named §665 before the register had an entry; this entry was written when it closed.
+**Original status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checks label overlap in `burndown-chart.tsx`.
+
+In cumulative mode the bucket-chain join label (`burndownEvJoins*`, e.g. "… (fixed price), Discovery Phase (closed), Security Review (closed, rate override) join (+€102,6…") grows with the number of joined buckets and is neither truncated nor repositioned, so it runs off the left edge of the plot and overprints the `burndownBacBaseline` label ("Budget at start of recording", drawn at `X0 + 4`) and the € tick beside it. The `reports-budget-history` visual baseline was deliberately left stale because of it. Fix direction: clamp or truncate the join label to the plot width with the full text in the readout or a tooltip, or place it where it cannot cross the baseline label; add a test that the two labels' x-ranges do not overlap for a long bucket list, then refresh that baseline.
+
+**Source:** the visual-baseline check, 2026-10-02.
 
 ## 666. A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices — CLOSED 2026-10-02
 

@@ -22,7 +22,7 @@ function setup(selfResourceId: number | null = 1) {
   const logActivity = vi.fn();
   const { result } = renderHook(() => {
     const [tasks, setTasks] = useState<readonly Task[]>(TASKS);
-    const win = useBlockersWindow({ tasks, setTasks, selfResourceId, resources: RESOURCES, lang: "en-US", logActivity });
+    const win = useBlockersWindow({ tasks, setTasks, selfResourceId, resources: RESOURCES, lang: "en-US", logActivity, loadPending: false });
     return { tasks, setTasks, win };
   });
   return { result, logActivity };
@@ -174,6 +174,46 @@ describe("useBlockersWindow", () => {
   });
 });
 
+// §662: the target id must not outlive its row or a load hold.
+describe("useBlockersWindow — target lifetime (§662)", () => {
+  function setupProps() {
+    return renderHook(
+      ({ tasks, loadPending }: { tasks: readonly Task[]; loadPending: boolean }) =>
+        useBlockersWindow({
+          tasks,
+          setTasks: vi.fn(),
+          selfResourceId: 1,
+          resources: RESOURCES,
+          lang: "en-US",
+          logActivity: vi.fn(),
+          loadPending,
+        }),
+      { initialProps: { tasks: TASKS as readonly Task[], loadPending: false } },
+    );
+  }
+
+  it("closes when the target row is deleted and stays closed when the id returns", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openTaskBlockers(7));
+    expect(result.current.blockersWindowProps.open).toBe(true);
+    rerender({ tasks: [TASKS[1]], loadPending: false });
+    expect(result.current.blockersWindowProps.open).toBe(false);
+    // Cleared, not hidden: a row with the same id coming back does not reopen it.
+    rerender({ tasks: TASKS, loadPending: false });
+    expect(result.current.blockersWindowProps.open).toBe(false);
+    expect(result.current.blockersWindowProps.taskId).toBeNull();
+  });
+
+  it("closes while a load holds the tree and stays closed afterwards", () => {
+    const { result, rerender } = setupProps();
+    act(() => result.current.openTaskBlockers(7));
+    rerender({ tasks: TASKS, loadPending: true });
+    expect(result.current.blockersWindowProps.open).toBe(false);
+    rerender({ tasks: TASKS, loadPending: false });
+    expect(result.current.blockersWindowProps.open).toBe(false);
+  });
+});
+
 describe("useBlockersWindow — undo", () => {
   // ★ Blocker writes are write-through (WRITE_THROUGH_FIELDS): a whole-row undo
   // of an UNRELATED edit restores the row image but keeps the live blocker pair,
@@ -182,7 +222,7 @@ describe("useBlockersWindow — undo", () => {
     const { result } = renderHook(() => {
       const [tasks, setTasks] = useState<readonly Task[]>(TASKS);
       const undoApi = useUndoStack({ lang: "en-US" as Lang, logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
-      const win = useBlockersWindow({ tasks, setTasks, selfResourceId: 1, resources: RESOURCES, lang: "en-US", logActivity: vi.fn() });
+      const win = useBlockersWindow({ tasks, setTasks, selfResourceId: 1, resources: RESOURCES, lang: "en-US", logActivity: vi.fn(), loadPending: false });
       return { tasks, setTasks, undoApi, win };
     });
     // An unrelated whole-row edit, captured the way a cascade/dedup op does.
