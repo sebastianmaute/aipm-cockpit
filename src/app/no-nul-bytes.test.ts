@@ -57,13 +57,17 @@ function filesUnder(dir: string, skip: ReadonlySet<string>): string[] {
   return out;
 }
 
-/** First raw C0 control byte other than TAB, LF and CR (or DEL), or null. */
-function firstControlByte(bytes: Uint8Array): { at: number; byte: number } | null {
-  for (let i = 0; i < bytes.length; i++) {
+/** Cap on reported offenders, so a corrupted file cannot flood the failure message. */
+const MAX_REPORTED = 50;
+
+/** Every raw C0 control byte other than TAB, LF and CR (or DEL), up to `limit`. */
+function controlBytes(bytes: Uint8Array, limit = MAX_REPORTED): Array<{ at: number; byte: number }> {
+  const hits: Array<{ at: number; byte: number }> = [];
+  for (let i = 0; i < bytes.length && hits.length < limit; i++) {
     const c = bytes[i];
-    if (c < 9 || c === 11 || c === 12 || (c > 13 && c < 32) || c === 127) return { at: i, byte: c };
+    if (c < 9 || c === 11 || c === 12 || (c > 13 && c < 32) || c === 127) hits.push({ at: i, byte: c });
   }
-  return null;
+  return hits;
 }
 
 function scannedFiles(): string[] {
@@ -112,8 +116,10 @@ describe("committed source files are text", () => {
     expect(files.length).toBeGreaterThan(500);
     const offenders: string[] = [];
     for (const file of files) {
-      const hit = firstControlByte(readFileSync(file));
-      if (hit) offenders.push(`${relative(ROOT, file)} @ byte ${hit.at} (0x${hit.byte.toString(16).padStart(2, "0")})`);
+      for (const hit of controlBytes(readFileSync(file), MAX_REPORTED - offenders.length)) {
+        offenders.push(`${relative(ROOT, file)} @ byte ${hit.at} (0x${hit.byte.toString(16).padStart(2, "0")})`);
+      }
+      if (offenders.length >= MAX_REPORTED) break;
     }
     expect(offenders).toEqual([]);
   });
@@ -121,8 +127,14 @@ describe("committed source files are text", () => {
   // ★ In-test positive control for the DETECTOR itself (the file-count control
   // above proves the sweep is broad, not that the predicate can fire).
   it("the control-byte detector flags a raw 0x01 and passes TAB, LF and CR", () => {
-    expect(firstControlByte(Buffer.from([0x61, 0x01, 0x62]))).toEqual({ at: 1, byte: 1 });
-    expect(firstControlByte(Buffer.from([0x61, 0x09, 0x0a, 0x0d, 0x62]))).toBeNull();
+    expect(controlBytes(Buffer.from([0x61, 0x01, 0x62]))).toEqual([{ at: 1, byte: 1 }]);
+    expect(controlBytes(Buffer.from([0x61, 0x09, 0x0a, 0x0d, 0x62]))).toEqual([]);
+  });
+
+  it("the control-byte detector reports EVERY offender in a buffer, up to its limit", () => {
+    const buf = Buffer.from([0x01, 0x61, 0x07, 0x62, 0x00]);
+    expect(controlBytes(buf)).toEqual([{ at: 0, byte: 1 }, { at: 2, byte: 7 }, { at: 4, byte: 0 }]);
+    expect(controlBytes(buf, 2)).toHaveLength(2);
   });
 
   // The skip set must come from `.gitignore`, never a hardcoded list.
