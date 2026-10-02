@@ -886,6 +886,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
+| [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--open) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | open |
+| [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--open) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | open |
+| [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--open) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43660,3 +43663,33 @@ The failing wait is the `findByText(refusalText)` in the shared setup, `refuseIn
 On browser storage, the §4 round-7 probes measured that waiting for a Web Lock at tab close loses the close-time save. Browser storage therefore dropped the lock for one readwrite transaction with an explicit commit. A local-file save still waits for its lock, and no e2e closes a tab on a local-file project, so whether that save reaches the file at close is unknown. The unload journal is the fallback, but it is not a complete one: it skips a record over `UNLOAD_JOURNAL_MAX_CHARS`, and §629 has not verified it on the file backends. So until the named check runs, this may be a loss rather than only a durability gap. `docs/AGENTS/storage.md` names it in the Conflicts section's close-time limits. Named check: an e2e that closes a tab on a local-file project mid-edit and asserts whether the file received the save. If it did not, decide whether the journal alone is acceptable, or whether the file save must avoid the lock wait at close.
 
 **Source:** the §4 round-7 review (m6), 2026-10-01.
+
+## 662. A notes or blocker window keeps its target after the task is deleted or the project switches — open
+
+**Status:** open 2026-10-02, found by the blocker-log whole-branch review. Never machine-verified: inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
+
+**Work item:** #531
+
+Both hooks keep the target task id in state that survives the task's deletion and a project switch, because `TaskManagerInner` stays mounted through the load hold. A deleted target leaves the window open with an empty title, and text typed there is dropped without a message, because the write finds no live row. After a project switch the window reopens on whichever task in the new project has the same id. Its title shows that task's name, so a write is visible, but it lands on a different task than the one the user opened. Fix both hooks together: close the window when the target is missing, and clear the target when the scope epoch changes (`getScopeEpoch`).
+
+**Source:** the blocker-log final review, 2026-10-02.
+
+## 663. An older client drops the blocker log on every backend it saves to, not only Turso — open
+
+**Status:** open 2026-10-02, found by the blocker-log fix-round review. Never machine-verified: inferred from the column lists an older build would carry.
+
+**Work item:** #532
+
+`docs/AGENTS/rich-text.md` names one downgrade exposure: an older client saving to Turso omits the new column, so `blockerLog` becomes NULL and the history collapses to one legacy entry on the next load. An older client's CSV and Markdown writers have no `blockerLog` column either, and its JSON and IndexedDB paths very likely drop the unknown field too, so the same collapse happens on every backend. `noteLog` had the same exposure when it shipped. Decide whether to say so in the release notes of the version that ships the blocker log, or to guard against a downgrade; either way, correct the rich-text note.
+
+**Source:** the blocker-log fix-round re-review, 2026-10-02.
+
+## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — open
+
+**Status:** open 2026-10-02, found by the blocker-log scoped review. Never machine-verified: inferred from `migrateBlockers` in `blocker-log.ts`.
+
+**Work item:** #533
+
+The legacy branch of `migrateBlockers` (a task with blocker text and no log) checks `lastUpdateDate` only against `ISO_DATE`, not `Date.parse`. An impossible date such as `2026-13-45` produces an invalid `createdAt`, and `sanitizeEntry` drops that entry on the next load, so the entry is minted again on every load. A missing or malformed date falls back to `new Date()`, so the minted `createdAt` differs on each load until the project is saved. No data is lost. `loadStamp` already has the right check; the legacy branch should use it, or a fixed fallback, so load stays pure.
+
+**Source:** the blocker-log scoped review, 2026-10-02.
