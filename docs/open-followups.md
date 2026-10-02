@@ -835,7 +835,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
 | [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
-| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
+| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--closed-2026-10-02) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | **CLOSED** 2026-10-02 |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
@@ -41878,14 +41878,14 @@ query-stripped path — never the raw error object — so it was never in scope.
 
 Related: §566.
 
-## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN
+## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
+**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2`: `redactFields` now slices each string to `SCRUB_WINDOW` (`FIELD_MAX + 512`) before `scrubSecretValues`, so the quadratic patterns never see more than 1012 chars; every pattern's minimum match is at most 32 chars and none looks past its run, so a secret starting inside the first `FIELD_MAX` still matches. Pinned by two tests in `diagnostics-redact.test.ts` (a secret straddling the cap is redacted; a 64k mixed-case run finishes under 500 ms); mutation-checked by removing the pre-slice, which turned the timing test red (17.9 s).
+
+**Original status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
 regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
 by `grep -n "SECRET_VALUE_PATTERNS: RegExp\[\]" -A 35 src/app/diagnostics-redact.ts`, which shows the
 §606 pattern before the §564 catch-all in the array.
-
-**Work item:** #389
 
 `redactFields` (`diagnostics-redact.ts`) calls `scrubSecretValues`, which runs every pattern in
 `SECRET_VALUE_PATTERNS` over the FULL field value in array order — and only afterwards does
