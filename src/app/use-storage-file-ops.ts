@@ -92,6 +92,12 @@ export interface FileProjectOpsDeps {
    *  tab-sync scope of a local file (`sync-scope.ts`). Called beside each hand-over, in the same tick as
    *  the config change, so the new scope renders with the new backend. */
   setFileBinding: (id: string | null) => void;
+  /** §659 — the project THIS window has open. For a local file it is the window's committed
+   *  `fileBinding`, which every project op sets beside its bind — never the shared registry's
+   *  `currentProjectId`, which names whatever project ANY tab switched to last. `null` (unknown, e.g.
+   *  a failed load) never matches, so the switch proceeds — at worst a reload. Other storage kinds
+   *  have no per-window binding and answer with the registry, as before. */
+  windowProjectId: () => string | null;
   /** ★★ M4: registry ids whose unsafe-email notice this SESSION already showed.
    *  An ordinary SWITCH announces a project at most once; an explicit import
    *  (file open, a create with a template or AI seed) always announces and
@@ -109,7 +115,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.showToast("error", t(deps.langRef.current, "projectSwitchNotFound"));
       return;
     }
-    if (registry.currentProjectId === id) return;
+    // §659 — "already open" means open in THIS window. The registry is shared through localStorage,
+    // so its `currentProjectId` equals `id` whenever ANOTHER tab switched there last, and this window,
+    // still showing a different project, used to ignore its user's pick: no load, no toast.
+    if (deps.windowProjectId() === id) return;
     try {
       // 1. Persist the outgoing project's data to its own backend (best-effort:
       //    a failing save must not strand the user on the old project).

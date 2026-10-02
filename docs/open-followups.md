@@ -268,7 +268,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--closed-2026-09-30) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-09-30 |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
-| [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
+| [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--closed-2026-10-02) | `RaidItem` has NO storage-side length cap on any path | pre-existing, found 0.210.0 | M | **CLOSED** 2026-10-02 |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
@@ -883,7 +883,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--open) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | open |
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--closed-2026-10-01) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | **CLOSED** 2026-10-01 |
-| [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
+| [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--closed-2026-10-02) | A window's project binding still leans on the shared registry | — | — | **CLOSED** 2026-10-02 |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 <!-- INDEX:END -->
@@ -2586,11 +2586,11 @@ is untouched — that round trip stays the `encodeNoteLog` JSON blob, which is c
 
 ---
 
-## 37. `RaidItem` has NO storage-side length cap on any path — open, pre-existing
+## 37. `RaidItem` has NO storage-side length cap on any path — CLOSED 2026-10-02
 
-**Status:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. A storage-side cap now exists on every LOAD path, and it is deliberately NOT `sanitizeRaidItem` (which would default off-category statuses, as warned below). `capRaidStoredText` (`sanitize-records.ts`, through the `./sanitize` barrel) clips `title` to `TASK_NAME_MAX` and `owner` to `BUDGET_NAME_MAX` — the limits `sanitizeRaidItem` and the edit modal already use (the modal's `ASSIGNEE_MAX` is also 200) — with no trim and no status or category logic, and returns the same row when nothing is over. It runs in `jsonToWorkspace` (JSON and IndexedDB) and wraps `buildRaidItemFromObj` (CSV, Markdown and both Turso layouts), so all six backends cap on load. ★ The SAVE path is unchanged: `use-resource-planner.ts` still stores the item as the modal built it, and the modal is still the cap a user sees; a non-modal writer's over-long value is now clipped at the next load rather than never. The golden fixtures did not move. Pinned in `sanitize-records.test.ts` → "capRaidStoredText / the RAID load cap (§37)", including one case per load funnel and the no-trim/no-status identity case. The `raid-edit-modal.tsx` comment that said "no cap on ANY path" was rewritten. The history below is kept as written.
 
-**Work item:** #100
+**Previously:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Produced by a round-6 review exchange in 0.210.0: a reviewer asserted the modal cap merely duplicated a
 sanitizer one, I showed the sanitizer is not on the save path, and tracing it properly turned up something
@@ -43638,11 +43638,11 @@ When a queued save's snapshot holds nothing but slices mirrored from a peer (`cr
 
 **Source:** the §4 final review, m11 (Task 5's parked item), 2026-09-30.
 
-## 659. A window's project binding still leans on the shared registry — open
+## 659. A window's project binding still leans on the shared registry — CLOSED 2026-10-02
 
-**Status:** open 2026-09-30, found by the §4 final-fix round (its concern 5). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
+**Status:** CLOSED 2026-10-02. `switchToProject` (`use-storage-file-ops.ts`) no longer reads the shared registry to decide "already open": it asks a new `windowProjectId` dep, which `use-storage-backend.ts` answers with this window's committed `fileBinding` (mirrored into a ref) for a local-file window, so a window still on `a` switches to `b` even after another tab made `b` current. Non-file kinds have no per-window binding and keep the registry comparison they always had — pinned by the existing "switchToProject is a no-op when the target id is the current project" (browser kind), which the first cut of this fix broke and which drove the split. An unknown binding (`null`, e.g. after a failed load) never matches, so the switch proceeds and at worst reloads. Pinned by the entry's own named check in `use-storage-backend.file-scope.test.tsx` → "a window still on a project switches when another tab already made the target current": W2 switches to b, then W1 does; W1 shows b, its edit lands in b.json and W2 mirrors it, and a.json never sees it; restoring the registry guard reddens it. ★ The second paragraph below — the false pauses that remain BY DESIGN (failed or refused loads, the registered-file pick, two independent picks, the boot race on a bare-handle slot, old-code tabs) — is unchanged by this and was never this entry's defect; its optional fix direction for the registered-file pick still stands. The history below is kept as written.
 
-**Work item:** #501
+**Previously:** open 2026-09-30, found by the §4 final-fix round (its concern 5). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
 
 Since §645 each window writes the file it is bound to, and the tab-sync scope of a local file names that binding (`fileBinding`, `sync-scope.ts`), stored with the handle in the shared slot. One place still reads the registry every tab shares through localStorage, so what one tab did decides what another window does: `switchToProject(id)` returns early when the SHARED registry's `currentProjectId` already equals `id`, which it does whenever ANOTHER tab switched there last. A window still showing project A then does nothing when its user picks B: no load, no toast, and it stays on A. Found while writing `use-storage-backend.file-scope.test.tsx`, whose "switched away and back" test is shaped around it. Named check: a two-window hook test in that harness where W2 switches to b and then W1 switches to b; W1 must end up showing b's tasks, bound to `b.json` (its edit reaches b's file and W2 mirrors it). Fix direction: compare against the project this WINDOW has open (its binding or its own last op), never the shared registry.
 

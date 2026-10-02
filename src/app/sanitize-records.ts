@@ -52,6 +52,7 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
+  sanitizeMultiline,
   sanitizeLoadedEmail, normalizeEmailShape,
   sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
@@ -757,6 +758,22 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null { return raidW
 export function rebuildRaidForUpdate(stored: RaidItem, merged: unknown): RaidItem | null {
   return raidWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
 }
+/** §37 — the STORAGE-side length cap for a RAID row's two plain-text fields,
+ *  run on every load path (`jsonToWorkspace`, which JSON and IndexedDB reach,
+ *  and `buildRaidItemFromObj`, which CSV, Markdown and both Turso layouts reach).
+ *  Same limits the edit/AI sanitiser applies (`TASK_NAME_MAX`, `BUDGET_NAME_MAX`).
+ *
+ *  ★★ CAP ONLY — deliberately NOT `sanitizeRaidItem`. That function also
+ *  defaults an off-category status, so running it at load would silently
+ *  rewrite stored statuses; this touches length and nothing else (no trim, no
+ *  status, no category). Reference-preserving: an in-cap row comes back as the
+ *  same object, so a load records nothing as changed. */
+export function capRaidStoredText<T extends { title: string; owner?: string }>(r: T): T {
+  const title = typeof r.title === "string" ? sanitizeMultiline(r.title, TASK_NAME_MAX) : r.title;
+  const owner = typeof r.owner === "string" ? sanitizeMultiline(r.owner, BUDGET_NAME_MAX) : r.owner;
+  return title === r.title && owner === r.owner ? r : { ...r, title, owner };
+}
+
 function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): RaidItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;

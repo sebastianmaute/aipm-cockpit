@@ -15,7 +15,7 @@ import { dropDanglingDependencies } from "./sanitize";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
@@ -449,6 +449,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
   // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
   const [fileBinding, setFileBinding] = useState<string | null>(null);
+  // §659 — the same value for the project ops' "already open here?" test, which runs in an async
+  // handler and must read the COMMITTED binding, never the registry every tab shares.
+  const fileBindingRef = useRef<string | null>(null);
+  useEffect(() => { fileBindingRef.current = fileBinding; }, [fileBinding]);
   // ★ RI4 — read ONLY where a load of this instance is APPLIED (the load effect's success path, `reloadCurrentProject`): a failed, refused or grant-only window shows content that is not the file's, so it stays isolated. A `const`, not a declaration (see `allowSavesTo`).
   const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
@@ -1279,6 +1283,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
     handOverFromRef,
     setFileBinding,
+    // §659 — a LOCAL FILE window knows its own project (its binding, per §645); any other kind has no
+    // per-window binding and keeps the registry comparison it always had.
+    windowProjectId: () =>
+      settingsRef.current.storageConfig.kind.startsWith("local-") ? fileBindingRef.current : loadRegistry().currentProjectId,
     announcedUnsafeEmailsRef,
   });
 

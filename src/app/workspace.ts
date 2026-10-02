@@ -29,6 +29,7 @@ import {
   sanitizeSteeringCommittee,
   withNormalizedEmailField,
   withLiteralCalendarOptOut,
+  capRaidStoredText,
 } from "./sanitize";
 // ★ TYPE-ONLY, and from the zero-import LEAF rather than the codec barrel: the
 // barrel pulls the whole decode layer, which imports THIS file. `csv-codecs-sections.ts`
@@ -650,7 +651,7 @@ export function jsonToWorkspace(
       // sanitized-HTML fields (noteLog[].html / description) that CSV/MD/Turso
       // scrub on load but the whole-object JSON cast would pass through verbatim.
       tasks: (p.tasks as Task[]).map(migrateTask).map(sanitizeNoteFields).map(withLiteralCalendarOptOut),
-      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields).map((r) => withNormalizedEmailField(r, "ownerEmail")).map(withLiteralCalendarOptOut),
+      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields).map(capRaidStoredText).map((r) => withNormalizedEmailField(r, "ownerEmail")).map(withLiteralCalendarOptOut),
       absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeLoadedAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
       resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),

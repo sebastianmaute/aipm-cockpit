@@ -19,7 +19,13 @@ import {
   sanitizeIsoDate,
   AMOUNT_MAX,
   toNumber,
+  capRaidStoredText,
+  TASK_NAME_MAX,
+  BUDGET_NAME_MAX,
 } from "./sanitize";
+import { jsonToWorkspace } from "./workspace";
+import { buildRaidItemFromObj } from "./csv-codecs-core";
+import type { RaidItem } from "./types";
 
 /** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
  *  Infinity all to "null", so three probes would otherwise share a name and a
@@ -623,5 +629,37 @@ describe("dropUnacceptedRaidFields — escalations is model-read-only (§515)", 
   it("positive control: a patch without escalations is returned untouched", () => {
     const patch = { title: "Renamed" };
     expect(dropUnacceptedRaidFields(patch, { category: "I" })).toBe(patch);
+  });
+});
+
+// §37 — RAID had NO storage-side length cap on any path: `sanitizeRaidItem` sits
+// on no load path, and the CSV decoder hand-built `title`/`owner`. These pin the
+// cap on BOTH load funnels, and that it touches length and nothing else.
+describe("capRaidStoredText / the RAID load cap (§37)", () => {
+  const base: RaidItem = {
+    id: 1, category: "R", title: "t", status: "Open", raisedDate: "",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+  };
+
+  it("clips an over-long title and owner to the edit-path limits", () => {
+    const out = capRaidStoredText({ ...base, title: "x".repeat(TASK_NAME_MAX + 50), owner: "o".repeat(BUDGET_NAME_MAX + 50) });
+    expect(out.title).toHaveLength(TASK_NAME_MAX);
+    expect(out.owner).toHaveLength(BUDGET_NAME_MAX);
+  });
+
+  it("returns the SAME row when nothing is over, and never trims or touches status", () => {
+    const row = { ...base, title: "  padded  ", owner: " o ", status: "Weird" as RaidItem["status"] };
+    expect(capRaidStoredText(row)).toBe(row);
+  });
+
+  it("caps on the JSON / IndexedDB load path (jsonToWorkspace)", () => {
+    const ws = jsonToWorkspace(JSON.stringify({ tasks: [], raid: [{ ...base, title: "x".repeat(TASK_NAME_MAX + 1) }] }));
+    expect(ws.raid[0].title).toHaveLength(TASK_NAME_MAX);
+  });
+
+  it("caps on the CSV / Markdown / Turso row decoder (buildRaidItemFromObj)", () => {
+    const item = buildRaidItemFromObj({ id: "1", category: "R", status: "Open", title: "x".repeat(TASK_NAME_MAX + 1), owner: "o".repeat(BUDGET_NAME_MAX + 1) });
+    expect(item?.title).toHaveLength(TASK_NAME_MAX);
+    expect(item?.owner).toHaveLength(BUDGET_NAME_MAX);
   });
 });
