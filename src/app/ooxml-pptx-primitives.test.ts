@@ -13,7 +13,7 @@
 // `wrapPptxSlide`, not by this file.
 import { describe, expect, it } from "vitest";
 
-import { unzipBytes, partText } from "../test/unzip-bytes";
+import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 
 import {
   type PptxRun,
@@ -132,6 +132,37 @@ describe("buildPptxPackage media", () => {
     expect(() =>
       buildPptxPackage([{ xml: "<p:sld/>", media: [{ ...png, relId: "rId1" }] }]),
     ).toThrow(/rId1/);
+  });
+
+  // §217 — a part SHARED by two slides is one zip entry, related from each
+  //  slide's own rels. ★ Asserted on the raw entry list: `unzipBytes` returns a
+  //  Map, which collapses a duplicate name and would pass either way.
+  it("writes a part two slides share ONCE, while each slide's rels still target it", async () => {
+    const blob = () => buildPptxPackage([
+      { xml: "<p:sld/>", media: [png] },
+      // A fresh but byte-equal array — sharing is decided by path and bytes,
+      // never by object identity.
+      { xml: "<p:sld/>", media: [{ ...png, data: new Uint8Array(png.data) }] },
+    ]);
+    const names = await zipEntryNames(blob());
+    expect(names.filter((n) => n.startsWith("ppt/media/"))).toEqual(["ppt/media/image1.png"]);
+    expect(new Set(names).size).toBe(names.length);
+    const parts = await unzipBytes(blob());
+    for (const n of [1, 2]) {
+      expect(partText(parts, `ppt/slides/_rels/slide${n}.xml.rels`))
+        .toContain(`Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"`);
+    }
+  });
+
+  it("throws when two slides claim one media path with DIFFERENT bytes", () => {
+    // The scope swap `PptxSlide` warns about: a per-slide part counter would
+    //  hand both slides image1.png, and collapsing them shows the wrong image.
+    expect(() =>
+      buildPptxPackage([
+        { xml: "<p:sld/>", media: [png] },
+        { xml: "<p:sld/>", media: [{ ...png, data: new Uint8Array([1, 2, 3, 4]) }] },
+      ]),
+    ).toThrow(/ppt\/media\/image1\.png" is claimed by two different images/);
   });
 
   it("leaves the media-free package byte-for-byte what it was", async () => {

@@ -16,7 +16,7 @@ import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
-import { unzipBytes, partText } from "../test/unzip-bytes";
+import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
 import type { ExportSection } from "./export-sections";
@@ -1344,6 +1344,37 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     const rels = partText(zip, "word/_rels/document.xml.rels");
     expect(rels).toContain(`Id="${relId}"`);
     expect(rels).toContain(`Target="media/${media[0].slice("word/media/".length)}"`);
+  });
+
+  // §217 — ONE part per asset, ONE shape id per drawing. The two halves are
+  //  separate counters and each assertion below pins one of them: sharing the
+  //  part without a second counter would duplicate `wp:docPr` ids (Pages
+  //  rejects that), and a second counter without the share re-ships the bytes.
+  it("ships an image used twice as ONE media part, with distinct shape ids", async () => {
+    const render = () => renderDocumentDocx(
+      doc([
+        { type: "paragraph", html: `<p><img data-asset-id="a1"></p>` },
+        { type: "paragraph", html: `<p>between<img data-asset-id="a1"></p>` },
+      ], "T"),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    );
+    const zip = await unzipBytes(render());
+    expect(mediaPaths(zip)).toEqual(["word/media/image1.png"]);
+
+    const xml = partText(zip, "word/document.xml");
+    const embeds = [...xml.matchAll(/r:embed="(rId\d+)"/g)].map((m) => m[1]);
+    expect(embeds).toEqual(["rId2", "rId2"]);
+    const docPrIds = [...xml.matchAll(/<wp:docPr id="(\d+)"/g)].map((m) => m[1]);
+    expect(docPrIds).toHaveLength(2);
+    expect(new Set(docPrIds).size).toBe(2);
+
+    const rels = partText(zip, "word/_rels/document.xml.rels");
+    expect(rels.match(/Target="media\//g)).toHaveLength(1);
+    // The package as a whole carries no part twice — read off the raw entry
+    //  list, since `unzipBytes`' Map would collapse a duplicate name.
+    const names = await zipEntryNames(render());
+    expect(names.filter((n) => n.startsWith("word/media/"))).toEqual(["word/media/image1.png"]);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("does not bracket an image-only paragraph with blank paragraphs", async () => {

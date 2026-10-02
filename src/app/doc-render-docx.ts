@@ -190,18 +190,24 @@ export function canEmbedDocxAsset(meta: DocumentAsset | undefined): boolean {
   return docxEmbedFor(meta) !== null;
 }
 
-/** Mints one media part per inlined image, numbering parts and relationship ids
- *  in document order.
+/** Mints one media part per ASSET and one drawing per OCCURRENCE, numbering
+ *  parts and relationship ids in document order of each asset's first use.
  *
  *  ★★ Relationship ids start at rId2 — rId1 is the styles part, and
  *  `buildDocxPackage` throws if a media part claims it.
  *
- *  ★ Deliberately per OCCURRENCE, not per asset: one image referenced twice in
- *  a document mints two parts holding the same bytes. Correct output, slightly
- *  larger file; de-duplicating would need a second counter, because a drawing's
- *  `docPr` id must stay unique even where the relationship is shared. */
+ *  ★★★ TWO COUNTERS, AND THEY MUST STAY TWO (§217). An image referenced twice
+ *  shares ONE `word/media/imageN.*` part through ONE relationship — but each
+ *  drawing still needs its OWN `wp:docPr` id, unique within the document
+ *  (`docxInlineDrawing`: Word tolerates a duplicate, Pages does not). So the
+ *  part number comes from `parts.length` and the shape id from `shapeCount`,
+ *  which moves on every drawing. Reading both off one counter either re-mints
+ *  the bytes per occurrence or hands two drawings the same shape id. */
 function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, DocumentAsset>) {
   const parts: MediaPart[] = [];
+  /** Asset id → the part already minted for it, reused by every repeat. */
+  const partFor = new Map<string, { relId: string; name: string }>();
+  let shapeCount = 0;
 
   /** The drawing run for `id`, or null to fall through to the placeholder. */
   function drawingFor(id: string): string | null {
@@ -222,24 +228,28 @@ function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, Docum
     //   `safeBase64ToBytes` carries the detail.) Declining lands on the SAME
     //   placeholder an undrawable asset already gets, and doing it here rather
     //   than after `parts.push` keeps the part numbering gap-free.
-    const data = safeBase64ToBytes(b64);
-    if (!data) return null;
+    let part = partFor.get(id);
+    if (!part) {
+      const data = safeBase64ToBytes(b64);
+      if (!data) return null;
 
-    const index = parts.length + 1;
-    // ★ The part name derives from the INDEX, never from the asset's
-    //   user-supplied name — a name must never become a zip path.
-    const name = `image${index}.${embed.ext}`;
-    const relId = `rId${index + 1}`;
-    parts.push({
-      path: `word/media/${name}`,
-      data,
-      extension: embed.ext,
-      relId,
-    });
+      const index = parts.length + 1;
+      // ★ The part name derives from the INDEX, never from the asset's
+      //   user-supplied name — a name must never become a zip path.
+      part = { relId: `rId${index + 1}`, name: `image${index}.${embed.ext}` };
+      parts.push({
+        path: `word/media/${part.name}`,
+        data,
+        extension: embed.ext,
+        relId: part.relId,
+      });
+      partFor.set(id, part);
+    }
+    shapeCount += 1;
     return `<w:r>${docxInlineDrawing({
-      relId,
-      id: index,
-      name,
+      relId: part.relId,
+      id: shapeCount,
+      name: part.name,
       descr: meta.name,
       extent: embed.extent,
     })}</w:r>`;

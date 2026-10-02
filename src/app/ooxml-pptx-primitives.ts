@@ -588,7 +588,9 @@ export function buildPptxTheme(name: string = DEFAULT_EXPORT_FOOTER): string {
  *    · `path` must be unique across the WHOLE DECK. Every media part lands in
  *      the single `ppt/media/` directory, so two slides both minting
  *      `ppt/media/image1.png` collapse into one zip entry and one of the two
- *      images is silently replaced by the other.
+ *      images is silently replaced by the other. (The SAME image on two slides
+ *      may share one path — §217 — and is then written once; a shared path
+ *      with different bytes throws in `uniqueDeckParts`.)
  *    · `relId` is scoped to ONE SLIDE. Each slide gets its own
  *      `ppt/slides/_rels/slideN.xml.rels`, `rId1` is that slide's layout, and
  *      image ids therefore restart at `rId2` on every slide. Numbering them
@@ -609,6 +611,29 @@ export type PptxSlide = {
    *  and `[]` must both add no relationship. */
   links?: readonly LinkRel[];
 };
+
+/** Every media part in the deck, ONCE per path (§217).
+ *
+ *  ★★ Two slides may legitimately carry the same `path` — one asset shown on
+ *  both, each slide relating to the shared part under its own rId — and the
+ *  package must then hold ONE zip entry, since a duplicate entry name is a
+ *  corrupt zip. But the same path with DIFFERENT bytes is the scope swap
+ *  `PptxSlide` warns about (a per-slide part counter), where one image would
+ *  silently replace the other; that throws instead of collapsing. */
+function uniqueDeckParts(slides: readonly PptxSlide[]): MediaPart[] {
+  const byPath = new Map<string, MediaPart>();
+  for (const part of slides.flatMap((s) => s.media)) {
+    const prior = byPath.get(part.path);
+    if (!prior) {
+      byPath.set(part.path, part);
+      continue;
+    }
+    if (prior.data.length !== part.data.length || prior.data.some((b, i) => b !== part.data[i])) {
+      throw new Error(`media path "${part.path}" is claimed by two different images`);
+    }
+  }
+  return [...byPath.values()];
+}
 
 /** Assemble a .pptx package around a caller-supplied list of slides.
  *  Everything here — content types, presentation.xml sldIdList, all the rels,
@@ -685,7 +710,7 @@ export function buildPptxPackage(
   // `<Default Extension="png">` entries (a file PowerPoint refuses to open).
   // A media-free deck yields the empty string, which is the byte-identity half
   // of the contract above.
-  const allMedia = slides.flatMap((s) => [...s.media]);
+  const allMedia = uniqueDeckParts(slides);
   const mediaDefaults = [...new Set(allMedia.map((m) => m.extension))]
     .map((ext) => `\n  <Default Extension="${ext}" ContentType="${contentTypeFor(ext)}"/>`)
     .join("");

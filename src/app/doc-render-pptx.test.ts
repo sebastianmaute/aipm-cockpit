@@ -37,7 +37,7 @@ import type { Workspace } from "./workspace";
 import type { RunMark } from "./rich-text-runs";
 import type { DocumentAsset } from "./document-asset";
 import { t, loadI18n, type Lang } from "./i18n";
-import { unzipBytes, partText } from "../test/unzip-bytes";
+import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { base64ToBytes } from "./document-asset-upload";
 import type { ExportAssets } from "./document-export-assets";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
@@ -1631,6 +1631,50 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     // one picture-height below the first rather than on top of it.
     const ys = pictureYs(partText(zip, "ppt/slides/slide2.xml"));
     expect(ys).toEqual([1188720, 1188720 + 457200]);
+  });
+
+  // §217 — one media PART per asset, deck-wide; relationship ids stay per
+  //  slide; shape ids stay per occurrence. Each scope gets its own assertion.
+  const cNvPrIds = (xml: string): string[] =>
+    [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1]);
+
+  it("ships one asset shown twice on ONE slide as one part and one rId, with distinct shape ids", async () => {
+    const small = { width: 96, height: 48 };
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><p><img data-asset-id="a1"></p>')],
+      wsWith(sized(small)),
+      inlined({ a1: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    const pics = slidePictures(zip, 2);
+    expect(pics.map((p) => p.relId)).toEqual(["rId2", "rId2"]);
+    expect(pics.every((p) => p.path === "ppt/media/image1.png")).toBe(true);
+    // The slide's rels relate to the part ONCE, not once per picture.
+    const rels = partText(zip, "ppt/slides/_rels/slide2.xml.rels");
+    expect(rels.match(/Target="\.\.\/media\//g)).toHaveLength(1);
+    // Every shape on the slide keeps a unique id, the two pictures included.
+    const ids = cNvPrIds(partText(zip, "ppt/slides/slide2.xml"));
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(pictureYs(partText(zip, "ppt/slides/slide2.xml"))).toHaveLength(2);
+  });
+
+  it("shares one part between two slides, each relating to it through its own rels", async () => {
+    const render = () => renderDocumentPptx(doc([
+      para('<p><img data-asset-id="a1"></p>'),
+      { type: "pageBreak" },
+      para('<p><img data-asset-id="a1"></p>'),
+    ]), wsWith(sized()), "en-US", inlined({ a1: PNG_B64 }));
+    const zip = await unzipBytes(render());
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    const first = slidePictures(zip, 2);
+    const second = slidePictures(zip, 3);
+    expect(first).toEqual([{ relId: "rId2", path: "ppt/media/image1.png", bytes: Array.from(base64ToBytes(PNG_B64)) }]);
+    expect(second).toEqual(first);
+    // ★ Package level: the raw entry list, not `unzipBytes`' Map, which would
+    //   collapse a part written twice into one key and pass either way.
+    const names = await zipEntryNames(render());
+    expect(names.filter((n) => n.startsWith("ppt/media/"))).toEqual(["ppt/media/image1.png"]);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("leaves an image-free document's package untouched by the new parameter", async () => {

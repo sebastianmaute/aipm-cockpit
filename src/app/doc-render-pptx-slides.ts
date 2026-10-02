@@ -496,11 +496,24 @@ function pptxIndentFor(line: RichLine): number | undefined {
  * FIRST slide's picture. Relationship ids are PER SLIDE, because each slide has
  * its own `_rels` part in which rId1 is already the layout — `buildPptxPackage`
  * throws if a media part claims it. `PptxSlide` states both halves too.
+ *
+ * ★★ ONE PART PER ASSET, deck-wide (§217). A repeat of an asset reuses the
+ * part PATH (and bytes) minted for its first use; on the SAME slide it reuses
+ * that slide's relationship too, and on another slide it gets that slide's own
+ * rId pointing at the same path. The dedup keys follow the scopes above — the
+ * path map lives in the deck closure, the rId map in the slide one — so the
+ * dedup cannot be added without respecting them. Picture SHAPE ids (`p:cNvPr`)
+ * are a third identity and stay per occurrence: `buildContentSlide` counts
+ * them itself.
  */
 export function createDeckMedia(ctx: RenderCtx) {
   let partCount = 0;
+  /** Asset id → the deck-wide part minted for its first use. */
+  const deckParts = new Map<string, Omit<MediaPart, "relId">>();
   return function slideMedia() {
     const parts: MediaPart[] = [];
+    /** Asset id → this slide's relationship to it. */
+    const slideParts = new Map<string, MediaPart>();
     /** The part for one image line, or null if its bytes or metadata have gone
      *  since `paragraphLines` accepted it.
      *
@@ -552,18 +565,25 @@ export function createDeckMedia(ctx: RenderCtx) {
       //   over three runs by timing `base64ToBytes` across twenty
       //   `Buffer.alloc(5 * 1024 * 1024).toString("base64")` rows. Paid once per
       //   export, never on a keystroke path.
-      const data = safeBase64ToBytes(b64);
-      if (!data) return null;
-      partCount += 1;
-      const part: MediaPart = {
-        // ★ The part name derives from the INDEX, never from the asset's
-        //   user-supplied name — a name must never become a zip path.
-        path: `ppt/media/image${partCount}.${embed.ext}`,
-        data,
-        extension: embed.ext,
-        relId: `rId${parts.length + 2}`,
-      };
+      const onSlide = slideParts.get(line.id);
+      if (onSlide) return onSlide;
+      let shared = deckParts.get(line.id);
+      if (!shared) {
+        const data = safeBase64ToBytes(b64);
+        if (!data) return null;
+        partCount += 1;
+        shared = {
+          // ★ The part name derives from the INDEX, never from the asset's
+          //   user-supplied name — a name must never become a zip path.
+          path: `ppt/media/image${partCount}.${embed.ext}`,
+          data,
+          extension: embed.ext,
+        };
+        deckParts.set(line.id, shared);
+      }
+      const part: MediaPart = { ...shared, relId: `rId${parts.length + 2}` };
       parts.push(part);
+      slideParts.set(line.id, part);
       return part;
     }
     return { mint, parts };
