@@ -452,7 +452,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
 | [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
-| [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | open |
+| [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing--closed-2026-10-02) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | **CLOSED** 2026-10-02 |
 | [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | open |
 | [§223](#223-the-asset-mime-allowlist-is-hand-restated-at-every-consumer-with-no-shared-predicate--closed-2026-08-23) | The asset mime allowlist is hand-restated at every consumer, with no shared predicate | — | — | **CLOSED** 2026-08-23 |
 | [§224](#224-timelog-bookings-are-fetched-only-on-demand--no-interval-job-and-no-delta-notice) | Timelog bookings are fetched only on demand — no interval job, and no delta notice | — | — | open |
@@ -19049,11 +19049,11 @@ that entry was opened to prevent. The near-cap sweep this entry prescribes (walk
 `src` for `.ts`/`.tsx`, take `split("\n").length`, print every file at 780—800 that
 `docs/baselines/file-sizes.json` does not name) is still the right first move.
 
-## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing
+## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing — CLOSED 2026-10-02
 
-**Status:** open — DISCLOSED, deliberately not fixed. Decision recorded below. Reproduced 2026-08-28 by `grep -n "ASSET_MIME_ALLOWED" src/app/document-asset-upload.ts`.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: LEAVE AS IS. Asked to choose between transcoding WebP to PNG at export, the placeholder, converting on upload, or keeping the current behaviour, they chose to keep embedding WebP verbatim and accept that older perpetual Office builds may show an empty frame. This confirms the interim "document it" decision below as final; the §219 item 6 measurement no longer gates anything here. No code change. The history below is kept as written.
 
-**Work item:** #195
+**Previously:** open — DISCLOSED, deliberately not fixed. Decision recorded below. Reproduced 2026-08-28 by `grep -n "ASSET_MIME_ALLOWED" src/app/document-asset-upload.ts`.
 
 `ASSET_MIME_ALLOWED` admits `image/webp` alongside png and jpeg, and every layer downstream
 carries it through to the package unchanged. The chain, verified in code:
