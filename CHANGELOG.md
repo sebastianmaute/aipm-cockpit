@@ -10,7 +10,7 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
-### Compatibility
+### Notes
 
 - **End-to-end contract type (§488).** A budget bucket can now be "end-to-end": a fixed-price
   contract under end-to-end responsibility. An older build does not know the type and reads such
