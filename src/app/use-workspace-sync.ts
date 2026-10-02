@@ -8,6 +8,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
 import { whenSaved } from "./save-queue";
+import type { PeerRevisionDeferral } from "./peer-revision-deferral";
 import type { StorageConfig, Workspace } from "./storage";
 import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { announcedRevision, type StorageBackend } from "./workspace";
@@ -28,12 +29,14 @@ export interface WorkspaceSyncDeps<S extends Slices> {
   backend: StorageBackend;
   /** Every slice's live value in this render. */
   slices: S;
+  /** §662 — where a peer's revision goes when this window's own save is queued or running. */
+  peerRevision: PeerRevisionDeferral;
   /** One applier per slice: applies a peer's value through the mirror ledger (`mirrorApply` in `useStorageBackend`). */
   mirrorApply: { readonly [K in keyof Workspace]-?: (value: S[K], fromWindow: string) => void };
 }
 
 export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): SyncContext {
-  const { isPopout, storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, slices: ws, mirrorApply } = deps;
+  const { isPopout, storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, slices: ws, mirrorApply, peerRevision } = deps;
   // §645 (final re-review 2 RI2) — what an UNKNOWN local-file binding scopes to: a token of this window's
   // own, so a window that has not learnt its binding (a failed or refused load, an old bare-handle slot,
   // a tab still on old code) syncs with nobody. That errs toward a visible pause, never toward mirroring
@@ -56,10 +59,10 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
     if (announcedRevision(backend) !== baseRevision) return; // also false for a null revision: `baseRevision` is always a string. §656 m2 — `announcedRevision`, so two windows that loaded a SharePoint file as absent match
-    // Idle only: a running/queued save was built without the peer's slices and must meet the newer revision and pause. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
-    if (whenSaved(backend) !== null) return;
+    // §662 — not while a save is queued or running: it may have been built without the peer's slices. The revision is DEFERRED instead (peer-revision-deferral.ts), so that save is skipped or retried from a snapshot that holds them, rather than meeting the revision and pausing. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
+    if (whenSaved(backend) !== null) { peerRevision.defer(backend, revision, baseRevision); return; }
     backend.adoptRevision?.(revision);
-  }, [backend]);
+  }, [backend, peerRevision]);
   useRevisionSync(syncContext, adoptPeerRevision);
   useBroadcastSync("tasks", ws.tasks, mirrorApply.tasks, syncContext);
   useBroadcastSync("raid", ws.raid, mirrorApply.raid, syncContext);

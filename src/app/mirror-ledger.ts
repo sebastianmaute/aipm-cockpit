@@ -61,6 +61,8 @@ export type MirrorLedger = {
   prune(ws: Workspace): void;
   /** True when every change since `saved` is a value mirrored from a peer. */
   isMirroredOnly(ws: Workspace): boolean;
+  /** True while any slice is contested: both windows edited it within one delivery (§662 reads it). */
+  hasContested(): boolean;
   /** How many peer values `judge` still remembers for `kind` (read-only; for tests and diagnostics). */
   peerValueCount(kind: Kind): number;
 };
@@ -148,6 +150,10 @@ export function createMirrorLedger(): MirrorLedger {
         if (!Object.is(ws[key], saved[key])) return false;
       }
       return changed;
+    },
+
+    hasContested() {
+      return contested.size > 0;
     },
 
     peerValueCount(kind) {

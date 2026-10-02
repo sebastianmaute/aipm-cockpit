@@ -383,4 +383,41 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     await run(500 + LATENCY_MS + 500);
     expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
   });
+  // §662 — the entry's named check. Each window has its own edit, of a different part, and their saves
+  // overlap on a slow backend: both start from revision 1, so whichever lands second meets the other's.
+  // That window had the other's part long before (it arrived on the other's commit), and the other's
+  // revision reached it while its own save was in flight, so it DEFERRED it. Its refused save is therefore
+  // not a conflict to report: a newer job, whose snapshot holds both parts, adopts the revision and writes.
+  // Before §662 the window that lost the race paused.
+  it("two windows whose own saves overlap on a slow backend both land, and neither pauses (§662)", async () => {
+    const { a, b } = await openBoth(1000);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
+    await run(100);
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); });
+    for (let i = 0; i < 10; i++) await run(500); // ★ in steps: a render a peer message causes commits when `act` ends, so the retry it schedules needs a later `run`
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from A"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from B"]);
+    expect(a.backend.save.mock.calls.length + b.backend.save.mock.calls.length).toBe(3); // both, then one retry
+    expect(store.rev).toBe(3);
+    expect(a.backend.revision()).toBe("3"); // the retry's writer holds it, the other adopted it
+    expect(b.backend.revision()).toBe("3");
+  });
+
+  // ★★ The deferral never covers a CONTESTED part: both windows changed the same part within one delivery,
+  // so each shows the other's copy, and a retry would write the peer's copy over this window's edit with
+  // nothing reported. The overlapping saves must still end in a reported conflict.
+  it("crossing edits to one part whose saves overlap are still reported, not retried away (§662)", async () => {
+    const { a, b } = await openBoth(1000);
+    bus.hold = true;
+    await act(async () => {
+      a.hook.result.current.setTasks([task(1, "from A")]);
+      b.hook.result.current.setTasks([task(2, "from B")]);
+    });
+    bus.hold = false;
+    await act(async () => { bus.release(); });
+    for (let i = 0; i < 10; i++) await run(500);
+    expect(a.conflicts() + b.conflicts()).toBeGreaterThan(0);
+  });
 });
