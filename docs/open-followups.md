@@ -3815,7 +3815,7 @@ and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth
 
 ## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed by `3196d245c` and `ab24666c4`: `readSized` now drops a stored width equal to the column's CURRENT default on BOTH the v1 and the v2 path (`dropDefaults`), so only differing widths survive as drags and the next v2 write persists just those; keys absent from the defaults are kept. The first commit covered v1 only and was nearly vacuous, because 0.212.0 had already rewritten most blobs as v2 with every default key stored as if dragged; the second heals those. Pinned by the v1 and v2 tests named `treats a v… key equal to the current default as not user-set (§52)` in `use-column-resize.test.ts`, each mutation-checked (v1: filter replaced by `true`; v2: filter removed from the v2 return — both fail on `sizedWidths`). Cost: a user who deliberately dragged a column to exactly its current default now follows future default changes for it; nothing visible changes today. Residual: a key whose default changed between the user's first display and now still holds the OLD default, differs from today's, and reads as a drag, keeping that old value.
+**Status:** CLOSED 2026-10-02 — fixed by `3196d245c` and `ab24666c4`: `readSized` now drops a stored width equal to the column's CURRENT default on BOTH the v1 and the v2 path (`dropDefaults`), so only differing widths survive as drags and the next v2 write persists just those; keys absent from the defaults are kept. The first commit covered v1 only and was nearly vacuous, because 0.212.0 had already rewritten most blobs as v2 with every default key stored as if dragged; the second heals those. Pinned by the v1 and v2 tests named `treats a v… key equal to the current default as not user-set (§52)` in `use-column-resize.test.ts`, each mutation-checked (v1: filter replaced by `true`; v2: filter removed from the v2 return — both fail on `sizedWidths`). Cost: a user who deliberately dragged a column to exactly its current default now follows future default changes for it. That is visible today in Open Points: a migrated `taskName` width equal to the current default (200) used to pin the flex column and now flexes again — the intended healing, not a side effect. Residual: a key whose default changed between the user's first display and now still holds the OLD default, differs from today's, and reads as a drag, keeping that old value.
 
 **Original status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
@@ -17240,7 +17240,7 @@ repository — is its step 4, ahead of the issue import (step 6) and the visibil
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed by `1f8705040`: `normalizeForCompare`'s array-join delimiter is now the six-character `\u0001` escape (`51e985657`), and `no-nul-bytes.test.ts` rejects any raw control byte other than TAB/LF/CR plus DEL over the same `src`+`docs` file set, naming file and offset. Widening it found two raw BEL bytes in a tracked plan doc (lost-backslash corruption of `\u0007`), repaired in `46861aa63`. Mutation-checked by putting the raw byte back into `jira-api.ts`, which turns the guard red naming that file.
+**Status:** CLOSED 2026-10-02 — fixed by `51e985657` (the code: `normalizeForCompare`'s array-join delimiter is now the six-character `\u0001` escape) and guarded by `1f8705040`: `no-nul-bytes.test.ts` rejects any raw control byte other than TAB/LF/CR plus DEL over the same `src`+`docs` file set, naming file and offset. Widening it found two raw BEL bytes in a tracked plan doc (lost-backslash corruption of `\u0007`), repaired in `46861aa63`. Mutation-checked by putting the raw byte back into `jira-api.ts`, which turns the guard red naming that file; `aa3bbde1e` then extracts the detector (`firstControlByte`) and pins it in-test, flagging a raw 0x01 and passing TAB/LF/CR (mutation-checked: narrowing the range to start at 1 reds it).
 
 **Original status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
 closes the entry. Status recorded 2026-08-28; never machine-verified by a committed probe.
@@ -18950,6 +18950,11 @@ claim about the package, not about the reader.
 7. The **deck length** case (§222): export a document mixing prose and one ordinary screenshot as
    `.pptx` and count the slides. The picture is expected to sit alone on its own slide, which is a
    layout question a reader answers instantly and no assertion here can.
+8. The **reused-image** case (§217): export a document that uses ONE image twice as `.docx` and
+   `.pptx` (once on two slides, once twice on one slide) and open the packages in **Word**,
+   **LibreOffice**, **PowerPoint** and **Pages**. The package now holds a single media part that
+   several relationships and several shape ids reach; unzip-and-inspect proves the structure, and
+   only a reader says whether each occurrence draws.
 
 ★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
 against its own spec reading and still be rejected by Word over a part relationship or content-type
@@ -36970,7 +36975,7 @@ Either way, the comment sweep above is already DONE and no comment work remains 
 
 ## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed by `1c01b7f19`: `browser-backend.ts` now runs the plan blob through the exported `coerceStoredPlan`, which coerces `currency`, an out-of-union `granularity` (to `"month"`) and an unparseable `startDate`/`endDate` (each replaced alone by the default's), and leaves a reversed window and `budgetFollowsPlan` as stored. `storage-browser-kv.test.ts` pins each shape with its own fixture ("quarter", non-string granularity, unparseable startDate with a valid endDate kept); mutation-checked by reverting the granularity coercion (2 tests red) and the date coercion (1 test red) separately.
+**Status:** CLOSED 2026-10-02 — fixed by `1c01b7f19`: `browser-backend.ts` now runs the plan blob through the exported `coerceStoredPlan`, which coerces `currency`, an out-of-union `granularity` (to `"month"`) and an unparseable `startDate`/`endDate` (each replaced alone by the default's), and leaves a reversed window and `budgetFollowsPlan` as stored. `storage-browser-kv.test.ts` pins each shape with its own fixture ("quarter", non-string granularity, unparseable startDate with a valid endDate kept, unparseable endDate with a valid startDate kept, both unparseable), each date test asserting EQUALITY with `defaultResourcePlan(today)` rather than an ISO shape; mutation-checked by reverting the granularity coercion (2 tests red) and the date coercion (1 test red) separately, and by pointing the endDate fallback at the default's start (2 tests red). Side effect: a well-formed but calendar-invalid date (e.g. `2026-02-30`) is kept raw and now logs one diagnostics warning on IndexedDB, as on the other backends; it was silent there before.
 
 **Original status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
 run 2026-09-12: `grep -c "sanitizePlan(" src/app/browser-backend.ts` → **0** (no call; the two
@@ -39065,6 +39070,8 @@ a page whose persisted settings resolve to `layout: "classic"` never reaches an 
 no-persisted-settings path), `useHashView` does nothing while it is false, and hydration lands on
 `"classic"` before anything ever applies. That half stays fixed; see the commits and mutation notes
 below.
+
+*Superseded by the closure above — the paragraph below is the pre-fix record of the mid-session path.*
 
 **What is still open, and is now the ONLY reachable path to the original symptom: the MID-SESSION
 switch.** A page that hydrates into (or stays in) classic layout runs its whole classic stretch with
@@ -41897,7 +41904,7 @@ Related: §566.
 
 ## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2` and `464c9081a`: `redactFields` scrubs only a bounded prefix, `SCRUB_WINDOW` (`FIELD_MAX + 512`), so the quadratic patterns never see more than 1012 chars; `464c9081a` then moves the cut back to the start of the whitespace-delimited token it would split (unless that token starts before `FIELD_MAX`, where it keeps at least 512 chars and still matches), because redaction shrinks text and the output can reach original positions past `FIELD_MAX`. Pinned by three tests in `diagnostics-redact.test.ts` (a secret straddling the cap is redacted; a 64k mixed-case run finishes under 500 ms; a token cut after the cap leaves no fragment), mutation-checked by removing the pre-slice (timing test red, 17.9 s) and the trim-back (fragment test red). Residual: a `+` or `=` padding lying only past the window stops the §606 pattern firing, the §564 catch-all still redacts the pieces of 32 or more chars, and for random base64 that needs no `+` in 1012 chars, about 1e-7; also a secret split by a non-whitespace separator after a long token could still be cut short, which is rare and not closed.
+**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2` and `464c9081a`: `redactFields` scrubs only a bounded prefix, `SCRUB_WINDOW` (`FIELD_MAX + 512`), so the quadratic patterns never see more than 1012 chars; `464c9081a` then moves the cut back to the start of the whitespace-delimited token it would split (unless that token starts before `FIELD_MAX`, where it keeps at least 512 chars and still matches), because redaction shrinks text and the output can reach original positions past `FIELD_MAX`. Pinned in `diagnostics-redact.test.ts` by three tests that each cover a DIFFERENT part, not three views of one: the timing test (a 64k mixed-case run finishes under 500 ms) is the only one that separates fixed from unfixed, and went red (17.9 s) when the pre-slice was removed; the fragment test (a token cut after the cap leaves no fragment) pins the trim-back and went red when that was removed; the straddle test (a secret straddling the cap is redacted) pins only the trim-back's `token start < FIELD_MAX` branch (red if that branch is removed) and still passes with the pre-slice removed. Residual: a `+` or `=` padding lying only past the window stops the §606 pattern firing, the §564 catch-all still redacts the pieces of 32 or more chars, and for random base64 that needs no `+` in 1012 chars, about 1e-7; also the trim-back only walks to WHITESPACE, so a long token that starts before the cap and carries a secret after a non-whitespace separator can still be cut mid-secret at the window edge and leave a fragment; no test covers it, it is rare, and it is not closed.
 
 **Original status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
 regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
