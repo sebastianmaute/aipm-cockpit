@@ -13,6 +13,10 @@ import { MODAL_HELP } from "./help-content";
 // Saved geometry keys are `${prefix}-pos` / `${prefix}-size`.
 const STORAGE_KEY_PREFIX = "aipm-cockpit:blockers-window";
 
+/** Offset from the note log's default (96,96), so the two windows opened
+ *  together do not stack exactly. */
+export const BLOCKERS_WINDOW_DEFAULT_POS = { x: 136, y: 136 } as const;
+
 export interface BlockersWindowProps extends BlockerLogPanelProps {
   open: boolean;
   onClose: () => void;
@@ -36,6 +40,8 @@ export function BlockersWindow(props: BlockersWindowProps) {
       storageKeyPrefix={STORAGE_KEY_PREFIX}
       helpConceptId={MODAL_HELP.blockersWindow}
       lang={panel.lang}
+      defaultX={BLOCKERS_WINDOW_DEFAULT_POS.x}
+      defaultY={BLOCKERS_WINDOW_DEFAULT_POS.y}
     >
       <BlockerLogPanel key={taskId ?? "none"} {...panel} />
     </FloatingLogWindow>

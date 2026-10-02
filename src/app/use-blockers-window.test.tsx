@@ -77,6 +77,25 @@ describe("useBlockersWindow", () => {
     expect(logActivity).toHaveBeenCalledWith("task.updated", 7, "Draft charter");
   });
 
+  // A double-click on Resolve: React re-renders between the two discrete
+  // clicks, so the second sees the entry already resolved — the mutator hands
+  // the row back and nothing is written or logged. Same for an edit that
+  // changes nothing.
+  it("a second resolve of the same entry, or an unchanged edit, writes and logs nothing", () => {
+    const { result, logActivity } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    act(() => result.current.win.blockersWindowProps.onAdd("One"));
+    act(() => result.current.win.blockersWindowProps.onResolve(1));
+    expect(task7(result.current.tasks).blockerLog?.[0]?.resolvedAt).toEqual(expect.any(String));
+    expect(logActivity).toHaveBeenCalledTimes(2);
+    const before = result.current.tasks;
+    act(() => result.current.win.blockersWindowProps.onResolve(1));
+    act(() => result.current.win.blockersWindowProps.onEdit(1, " One "));
+    expect(result.current.tasks).toBe(before);
+    expect(task7(result.current.tasks).blockerLog?.[0]?.editedAt).toBeUndefined();
+    expect(logActivity).toHaveBeenCalledTimes(2);
+  });
+
   it("stamps the self resource as the author", () => {
     const { result } = setup();
     act(() => result.current.win.openTaskBlockers(7));

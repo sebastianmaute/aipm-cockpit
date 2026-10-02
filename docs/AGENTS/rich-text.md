@@ -180,12 +180,20 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★★ **`Task.blockers` IS DERIVED TEXT.** It is `blockersText(blockerLog)` — the OPEN entries, oldest
   first, joined by newlines — and every reader (health, next actions, insights, Gantt, Kanban,
   exports, search, the AI) keeps reading it. **`withBlockerLog` is the ONLY writer of the pair (apart from create sites seeding an empty pair)**: it
-  sets the log and the text together. Everything else reaches it through `setBlockersText` (replace
-  the open entries: same text is a no-op, empty resolves them all, new text resolves them and adds
-  one), `applyTaskPatch` (a patch spread over the STORED row, its `blockers` routed through
-  `setBlockersText`, a patch's `blockerLog` ignored as stale), the window mutators, or the load
-  repair `migrateLoadedBlockers` → `migrateBlockers` (sanitise the log; the log wins; legacy text
-  becomes one open entry). Writers today: the window (`use-blockers-window.ts`), AI create/update
+  sets the log and the text together. Everything else reaches it through `setBlockersText` (the
+  replace rule: a text agreeing with the derived one is a no-op, empty resolves every open entry;
+  otherwise an open entry whose text is still present as a contiguous block of whole lines stays
+  open, the others are resolved, and the remaining lines become ONE new entry), `applyTaskPatch` (a
+  patch spread over the STORED row, its `blockers` routed through `setBlockersText`, a patch's
+  `blockerLog` ignored as stale), the window mutators, or the load repair `migrateLoadedBlockers` →
+  `migrateBlockers` (sanitise the log; a text that disagrees with it was written by something unaware
+  of the log, so the replace rule runs against the log, stamped from `lastUpdateDate`, never the
+  clock; legacy text with no log becomes one open entry). ★★ "Agrees" includes the derived text CUT
+  at `TEXTAREA_MAX`: open entries can join past the cap and `sanitizeBlockers` stores a prefix, so
+  without that every load would mint an entry. ★★ An OLDER client saving to Turso drops the
+  `blockerLog` column, so the history collapses to one entry on its next save — the same exposure
+  as `noteLog` (a newer build then loads the text as legacy: one open entry, the resolved history
+  gone). Writers today: the window (`use-blockers-window.ts`), AI create/update
   (`use-chat-dispatcher.ts`), bulk edit (`use-bulk-operations.ts`), Clear-blocker
   (`use-action-center-handlers.ts`), templates (`templates.ts`, via `sanitizeBlockerLog`), and the
   load funnels. Re-derive the list before relying on it:

@@ -8,7 +8,7 @@
 // mechanics clone `help-menu.tsx`; the body is whatever the caller passes as
 // `children`.
 
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "./icons";
 import { FLOATING_LAYER_ATTR } from "./modal";
@@ -22,15 +22,12 @@ import { usePanelInitialFocus } from "./use-panel-focus";
 import { HelpIconButton } from "./help-icon-button";
 import type { HelpEntryId } from "./help-content";
 
-const DEFAULT_X = 96;
-const DEFAULT_Y = 96;
+/** The note log's default corner gap; other log windows pass their own so two
+ *  windows opened side by side do not stack exactly. */
+export const DEFAULT_LOG_WINDOW_POS = { x: 96, y: 96 } as const;
 
 /** Above the entity editors (`EditModalShell`, z 50), below confirm dialogs (60). */
 export const NOTES_WINDOW_Z = 55;
-
-// Place the window on first open: saved position, else a default corner gap.
-const computeInitialPos: ComputeInitialPos = ({ saved, clamp }) =>
-  clamp(saved ?? { x: DEFAULT_X, y: DEFAULT_Y });
 
 export interface FloatingLogWindowProps {
   open: boolean;
@@ -43,6 +40,10 @@ export interface FloatingLogWindowProps {
   /** A `MODAL_HELP` value (a `HelpEntryId`), as the help button takes today. */
   helpConceptId: HelpEntryId;
   lang: Lang;
+  /** Where the window first appears when no position is saved; defaults to
+   *  `DEFAULT_LOG_WINDOW_POS` (the note log's corner). */
+  defaultX?: number;
+  defaultY?: number;
   children: ReactNode;
 }
 
@@ -53,8 +54,15 @@ export function FloatingLogWindow({
   storageKeyPrefix,
   helpConceptId,
   lang,
+  defaultX = DEFAULT_LOG_WINDOW_POS.x,
+  defaultY = DEFAULT_LOG_WINDOW_POS.y,
   children,
 }: FloatingLogWindowProps) {
+  // Place the window on first open: saved position, else the default corner gap.
+  const computeInitialPos = useCallback<ComputeInitialPos>(
+    ({ saved, clamp }) => clamp(saved ?? { x: defaultX, y: defaultY }),
+    [defaultX, defaultY],
+  );
   const { ref: panelRef, reset: resetSize } = useResizable(`${storageKeyPrefix}-size`, { open });
   // Drag/position (shared with help-menu); size stays on useResizable above.
   const { pos, onTitleBarMouseDown } = useDraggableWindow(`${storageKeyPrefix}-pos`, {
@@ -112,7 +120,7 @@ export function FloatingLogWindow({
       // deliberately not in the tab order.
       tabIndex={-1}
       aria-label={title}
-      style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)", zIndex: NOTES_WINDOW_Z }}
+      style={{ left: pos?.x ?? defaultX, top: pos?.y ?? defaultY, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)", zIndex: NOTES_WINDOW_Z }}
       className="fixed flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
     >
       <div

@@ -506,6 +506,7 @@ function TaskRowImpl({
             <BlockersBadgeButton
               openCount={openBlockerCount(task.blockerLog)}
               entityName={rowToken}
+              text={task.blockers}
               lang={lang}
               onClick={() => onOpenBlockers(task.id)}
             />

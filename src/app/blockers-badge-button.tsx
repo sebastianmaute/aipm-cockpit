@@ -22,18 +22,23 @@ export interface BlockersBadgeButtonProps {
   /** Row-unique entity label, used in the accessible name. */
   entityName: string;
   lang: Lang;
+  /** The open blockers' text (`Task.blockers`). Shown as the hover `title`
+   *  while any are open, so the text is a hover away; never the accessible
+   *  name, which stays `blockerBadgeLabel` (`aria-label` wins over `title`). */
+  text?: string;
   /** Open the floating blocker window for this task. */
   onClick: () => void;
 }
 
-export function BlockersBadgeButton({ openCount, entityName, lang, onClick }: BlockersBadgeButtonProps) {
+export function BlockersBadgeButton({ openCount, entityName, lang, text, onClick }: BlockersBadgeButtonProps) {
   const hasOpen = openCount > 0;
+  const hoverText = hasOpen && text ? text : t(lang, "blockerLogTitle");
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={t(lang, "blockerBadgeLabel", entityName, openCount)}
-      title={t(lang, "blockerLogTitle")}
+      title={hoverText}
       className={`inline-flex items-center gap-1.5 rounded-md border border-transparent px-2 py-0.5 text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
     >
       <Dot color={hasOpen ? TIER_RAG.now.dot : "bg-line"} size="sm" />

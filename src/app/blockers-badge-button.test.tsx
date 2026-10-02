@@ -32,6 +32,19 @@ describe("BlockersBadgeButton", () => {
     expect(dotOf(button).className).not.toContain(TIER_RAG.now.dot);
   });
 
+  it("hover shows the open blockers' text while any are open; the name is unchanged", () => {
+    const TEXT = ["Vendor", "DBA"].join("\n");
+    const { rerender } = render(
+      <BlockersBadgeButton openCount={2} entityName="Alpha" lang={EN} text={TEXT} onClick={vi.fn()} />,
+    );
+    const button = screen.getByRole("button", { name: t(EN, "blockerBadgeLabel", "Alpha", 2) });
+    expect(button.getAttribute("title")).toBe(TEXT);
+    rerender(<BlockersBadgeButton openCount={0} entityName="Alpha" lang={EN} text="" onClick={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t(EN, "blockerBadgeLabel", "Alpha", 0) }).getAttribute("title")).toBe(
+      t(EN, "blockerLogTitle"),
+    );
+  });
+
   // Row uniqueness is the CALLER's job (the row token is the entityName) and is
   // pinned in task-row.test.tsx's collision test; this file pins label-in-name.
   it("badge name contains the visible count (WCAG 2.5.3)", () => {

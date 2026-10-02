@@ -67,12 +67,25 @@ tooltip and the AI context keep reading `task.blockers` unchanged.
 
 `migrateBlockers(task: Task): Task`, applied wherever a task is loaded (both load funnels):
 
-- `blockerLog` present → the log wins; `blockers` is re-derived through `withBlockerLog`.
+*Amended 2026-10-02 after review: a disagreeing text is no longer discarded ("the log wins").*
+
+- `blockerLog` present and `blockers` AGREES with it → `blockers` is re-derived through
+  `withBlockerLog`. Agreeing means equal to the derived text after the shared normaliser (CRLF → LF,
+  control characters stripped, trimmed, each line trimmed), OR equal to the derived text cut at
+  `TEXTAREA_MAX`: several open entries can join to more than the cap, and `sanitizeBlockers` stores
+  only a prefix, which would otherwise disagree on every load and mint an entry each time.
+- `blockerLog` present and `blockers` DISAGREES → the text was written by something unaware of the
+  log (an older app build, a hand-edited Markdown/CSV file). The replace rule ("Writing the text")
+  runs against the log so nothing is lost: still-present open entries stay open, vanished ones are
+  resolved, the remainder becomes one new open entry with no author. The stamp is
+  `lastUpdateDate` as `YYYY-MM-DDT00:00:00.000Z` when valid, else the newest timestamp already in
+  the log, else the epoch — never the clock, so a load stays deterministic.
 - `blockerLog` absent and `blockers.trim() !== ""` → one OPEN entry
   `{ id: 1, text: blockers.trim(), createdAt: <lastUpdateDate as ISO, else now> }`, no author.
 - Neither → unchanged.
 
-Pure and idempotent: migrating twice equals migrating once.
+Pure and idempotent: migrating the result again returns the same reference (its text is derived,
+so it agrees).
 
 ### Persistence: all six write paths
 
@@ -160,10 +173,20 @@ editor button, and the updated bulk-edit hint.
 
 `setBlockersText(task: Task, text: string, actor: { resourceId?: number; name?: string }, now: string): Task`:
 
-- `text.trim()` equals the current derived text → task returned unchanged (an editor save or a
-  re-run import adds nothing).
-- `text.trim() === ""` → every open entry gets `resolvedAt = now`.
-- Otherwise → every open entry is resolved, and one new open entry with the trimmed text is added.
+*Amended 2026-10-02 after review: open entries whose text is still present are kept open.*
+
+- The normalised text agrees with the current derived text (as in "Migrating existing data") →
+  task returned unchanged (an editor save or a re-run import adds nothing).
+- Normalised text `""` → every open entry gets `resolvedAt = now`.
+- Otherwise the replace rule: the text is split into lines. An open entry whose text (itself
+  possibly multi-line) appears as a contiguous block of whole lines stays OPEN and untouched, and
+  those lines are consumed — each entry matches at most once, at its first match, entries tried
+  oldest first. Open entries not found get `resolvedAt = now`. The unconsumed lines, joined with
+  `"\n"` and normalised, become ONE new open entry when non-empty. Example: open A, B; text
+  `"A\nB\nC"` → A, B stay open, new entry "C"; text `"B"` → A resolved, B open, nothing added. A
+  pure reordering of the open entries changes nothing.
+- The inline AI card previews the stored result with `previewBlockersText`, so a reordering or a
+  partly matching text shows what will land, not what was typed.
 
 It always returns through `withBlockerLog`. Callers:
 
@@ -205,8 +228,10 @@ does. The log stays storage-only; entry text never reaches an export through it.
 ## 4. Testing
 
 - **Pure (`blocker-log.test.ts`):** `blockersText` (open only, ordered, empty); `withBlockerLog`
-  sets both fields; `setBlockersText` (same text → unchanged, empty → all resolved, new text →
-  old resolved plus one new); `migrateBlockers` (text-only → one entry, log wins, idempotent);
+  sets both fields; `setBlockersText` (same text → unchanged, empty → all resolved, otherwise the
+  replace rule: matching open entries kept, the rest resolved, remaining lines one new entry);
+  `migrateBlockers` (text-only → one entry; a disagreeing text → the replace rule; a capped text
+  agrees; idempotent);
   `sanitizeBlockerLog` (malformed dropped, caps, duplicate ids).
 - **Persistence:** `blockerLog` round-trip across all six paths in
   `entity-persistence-registry.test.ts`, counted to six per slice; regenerated golden fixtures; a

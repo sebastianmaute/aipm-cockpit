@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { FLOATING_LAYER_ATTR } from "./modal";
-import { FloatingLogWindow, NOTES_WINDOW_Z } from "./floating-log-window";
+import { DEFAULT_LOG_WINDOW_POS, FloatingLogWindow, NOTES_WINDOW_Z } from "./floating-log-window";
 import { MODAL_HELP } from "./help-content";
 import { t } from "./i18n";
 
@@ -12,7 +12,7 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-function setup(prefix = PREFIX) {
+function setup(prefix = PREFIX, defaults: { defaultX?: number; defaultY?: number } = {}) {
   const onClose = vi.fn();
   render(
     <FloatingLogWindow
@@ -22,6 +22,7 @@ function setup(prefix = PREFIX) {
       storageKeyPrefix={prefix}
       helpConceptId={MODAL_HELP.notesWindow}
       lang={EN}
+      {...defaults}
     >
       <p>body content</p>
     </FloatingLogWindow>,
@@ -66,5 +67,17 @@ describe("FloatingLogWindow", () => {
     expect(win.style.top).toBe("150px");
     expect(win.style.width).toBe("400px");
     expect(win.style.height).toBe("300px");
+  });
+
+  it("opens at the note log's default corner, or at the default it is given", () => {
+    setup();
+    const win = screen.getByRole("dialog", { name: "Log — Task ABC" });
+    expect(win.style.left).toBe(`${DEFAULT_LOG_WINDOW_POS.x}px`);
+    expect(win.style.top).toBe(`${DEFAULT_LOG_WINDOW_POS.y}px`);
+    cleanup();
+    setup(PREFIX, { defaultX: 136, defaultY: 136 });
+    const moved = screen.getByRole("dialog", { name: "Log — Task ABC" });
+    expect(moved.style.left).toBe("136px");
+    expect(moved.style.top).toBe("136px");
   });
 });
