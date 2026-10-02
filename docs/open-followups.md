@@ -386,7 +386,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--closed-2026-10-02) | PPTX export is one slide per row and drops most rich fields before they can be rendered | — | — | **CLOSED** 2026-10-02 |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
-| [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
+| [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--closed-2026-10-02) | `buildDocxTable` names a `Grid` table style that nothing declares | — | — | **CLOSED** 2026-10-02 |
 | [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--closed-2026-10-02) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent | — | — | **CLOSED** 2026-10-02 |
 | [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--closed-2026-10-02) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | **CLOSED** 2026-10-02 |
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
@@ -13765,11 +13765,11 @@ string assertions will read as coverage.
 
 ---
 
-## 155. `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident
+## 155. `buildDocxTable` names a `Grid` table style that nothing declares — CLOSED 2026-10-02
 
-**Status:** open — a table style referenced but never declared. Reproduced 2026-08-28 by `grep -n "tblStyle" src/app/ooxml-docx-primitives.ts`.
+**Status:** CLOSED 2026-10-02 — fixed by `b34e37f73`: `buildDocxTable` no longer emits `<w:tblStyle w:val="Grid"/>`, so the explicit six-edge `<w:tblBorders>` block is the table's single source of appearance (with a comment saying so). Pinned by the §155 test in `ooxml-docx-primitives.test.ts`; mutation-checked by re-adding the element, which turns it red.
 
-**Work item:** #164
+**Original status:** open — a table style referenced but never declared. Reproduced 2026-08-28 by `grep -n "tblStyle" src/app/ooxml-docx-primitives.ts`.
 
 Opened 2026-08-16 out of §141(b)'s styles work, which fixed the PARAGRAPH styles
 (`Heading1`-`Heading4`, `ListParagraph`, `Quote`, `CodeBlock` are now declared) and left this one.
