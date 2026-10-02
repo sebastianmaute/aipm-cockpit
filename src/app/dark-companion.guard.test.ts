@@ -56,7 +56,7 @@ export function missingCompanions(line: string, token: string): string[] {
     if (variant.startsWith("dark:")) continue;
     if (/\bh-[34] w-[34]\b/.test(line)) continue;
     if (/(?:^|[\s"'`])(?:focus:)?bg-ui-green(?![\w/-])/.test(line)) continue;
-    const esc = variant.replace(/[[\]&]/g, "\\$&");
+    const esc = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // every regex metacharacter, the backslash included
     const companion = new RegExp(String.raw`dark:` + esc + String.raw`text-(?!` + token + String.raw`(?![\w/-]))[\w\-[\]/]+`);
     if (!companion.test(line)) out.push(variant);
   }
