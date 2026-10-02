@@ -41880,7 +41880,7 @@ Related: §566.
 
 ## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2`: `redactFields` now slices each string to `SCRUB_WINDOW` (`FIELD_MAX + 512`) before `scrubSecretValues`, so the quadratic patterns never see more than 1012 chars; every pattern's minimum match is at most 32 chars and none looks past its run, so a secret starting inside the first `FIELD_MAX` still matches. Pinned by two tests in `diagnostics-redact.test.ts` (a secret straddling the cap is redacted; a 64k mixed-case run finishes under 500 ms); mutation-checked by removing the pre-slice, which turned the timing test red (17.9 s).
+**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2` and `464c9081a`: `redactFields` scrubs only a bounded prefix, `SCRUB_WINDOW` (`FIELD_MAX + 512`), so the quadratic patterns never see more than 1012 chars; `464c9081a` then moves the cut back to the start of the whitespace-delimited token it would split (unless that token starts before `FIELD_MAX`, where it keeps at least 512 chars and still matches), because redaction shrinks text and the output can reach original positions past `FIELD_MAX`. Pinned by three tests in `diagnostics-redact.test.ts` (a secret straddling the cap is redacted; a 64k mixed-case run finishes under 500 ms; a token cut after the cap leaves no fragment), mutation-checked by removing the pre-slice (timing test red, 17.9 s) and the trim-back (fragment test red). Residual: a `+` or `=` padding lying only past the window stops the §606 pattern firing, the §564 catch-all still redacts the pieces of 32 or more chars, and for random base64 that needs no `+` in 1012 chars, about 1e-7; also a secret split by a non-whitespace separator after a long token could still be cut short, which is rare and not closed.
 
 **Original status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
 regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
@@ -41915,6 +41915,8 @@ carry a real credential, and a half-redacted credential reads as already scrubbe
 one truncated whole and never scrubbed at all. A fix has to keep the whole value in front of the
 patterns while bounding their cost, which the current `.replace` loop over `SECRET_VALUE_PATTERNS`
 does not do.
+
+**Resolution of the above:** the shipped fix pre-caps to a window wider than `FIELD_MAX` and trims the cut back to a token boundary, so the fragment this paragraph warns about is closed for whitespace-delimited tokens; the residual is listed in the Status line.
 
 Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open),
 the catalogue of backtracking-quadratic regexes elsewhere in `src` — this pattern sits in
