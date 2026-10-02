@@ -364,7 +364,9 @@ register's fix to another is how two of them broke. Read the note that names you
   — **five** lines, the fifth being the `export function bulletMarker(` declaration itself.
   ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
   their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
-  for an indent — so they lose the item's indent (`docs/open-followups.md` §156). ★★ A nested
+  for an indent — and since §156 (closed 2026-10-02) they still get it: `nestBlocksUnder` stamps the
+  item's depth on them as `listDepth`, a SECOND axis beside the kind, and `docxRichParagraph` /
+  `pptxIndentFor` indent by it (a quote or code block keeps its own step on top). ★★ A nested
   `<ul>`/`<ol>` clears `item` too, and it belongs in a different list: its items are produced by the
   LI arm at their OWN deeper depth, so nothing is lost. This is pinned — the test named "does not
   let a nested list inherit the outer item's continuation state" asserts depth 0 then depth 1, with

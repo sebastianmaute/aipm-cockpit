@@ -569,14 +569,14 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
     // §157: the item keeps its marker on a marker-only head line of its own.
     expect(htmlToRichLines("<ul><li><blockquote>q</blockquote></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
-      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "q", marks: [] }] },
     ]);
   });
 
   it("keeps a heading inside an item as a heading, level intact", () => {
     expect(htmlToRichLines("<ul><li><h2>h</h2></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
-      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
+      { kind: "heading", level: 2, listDepth: 0, runs: [{ text: "h", marks: [] }] },
     ]);
   });
 
@@ -840,16 +840,27 @@ describe("continuation lines inside a list item", () => {
     ]);
   });
 
+  it("stamps a nested item's OWN depth on its blocks, not the outer item's (§156)", () => {
+    // The inner item's walk finishes first and stamps 1; the outer item's
+    // pass must not overwrite it with 0.
+    const lines = htmlToRichLines("<ul><li><p>a</p><ul><li><p>b</p><blockquote>q</blockquote></li></ul></li></ul>");
+    const quote = lines.find((l) => l.kind === "blockquote");
+    expect(quote).toMatchObject({ kind: "blockquote", listDepth: 1 });
+    // And a block outside any list carries none at all.
+    expect(htmlToRichLines("<blockquote>q</blockquote>")[0]).not.toHaveProperty("listDepth");
+  });
+
   it("keeps a <pre> inside an item preformatted rather than continuing the item", () => {
     // ★ THE DELIBERATE NON-CONTINUATION. A <pre> carries a kind whose whole
     // point is that whitespace and the monospace face survive; turning it into
     // an `li` line to win the indent would trade that away. Same for
     // <blockquote> and <hN> above. The cost is that those lines lose the item's
-    // indent — open-followups §156.
+    // indent — or did until §156 (closed 2026-10-02): `listDepth` now carries
+    // the item's depth beside the kind, so renderers indent it under the item.
     expect(htmlToRichLines("<ul><li><p>a</p><pre>x\ny</pre></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "pre", runs: [{ text: "x", marks: [] }] },
-      { kind: "pre", runs: [{ text: "y", marks: [] }] },
+      { kind: "pre", listDepth: 0, runs: [{ text: "x", marks: [] }] },
+      { kind: "pre", listDepth: 0, runs: [{ text: "y", marks: [] }] },
     ]);
   });
 
@@ -861,22 +872,22 @@ describe("continuation lines inside a list item", () => {
     // this file green — measured, not assumed.
     expect(htmlToRichLines("<ul><li><p>a</p><blockquote>q<br>r</blockquote></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
-      { kind: "blockquote", runs: [{ text: "r", marks: [] }] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "q", marks: [] }] },
+      { kind: "blockquote", listDepth: 0, runs: [{ text: "r", marks: [] }] },
     ]);
     // A heading's own arm runs with the INHERITED kind, so the line after the
     // break is a `p` — what matters is that it is not an `li`.
     expect(htmlToRichLines("<ul><li><p>a</p><h2>h<br>h2</h2></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
-      { kind: "p", runs: [{ text: "h2", marks: [] }] },
+      { kind: "heading", level: 2, listDepth: 0, runs: [{ text: "h", marks: [] }] },
+      { kind: "p", listDepth: 0, runs: [{ text: "h2", marks: [] }] },
     ]);
     // Text directly inside a <ul> is a parse error no editor makes, but this
     // parser is handed AI-authored and imported markup, and it is the only
     // input that can see the UL/OL arm's own clear.
     expect(htmlToRichLines("<ul><li><p>a</p><ul>stray<li><p>n</p></li></ul></li></ul>")).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "stray", marks: [] }] },
+      { kind: "p", listDepth: 0, runs: [{ text: "stray", marks: [] }] },
       { kind: "li", ordered: false, depth: 1, index: 0, runs: [{ text: "n", marks: [] }] },
     ]);
   });

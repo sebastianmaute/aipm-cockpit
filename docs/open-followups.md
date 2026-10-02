@@ -387,7 +387,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--closed-2026-10-02) | PPTX export is one slide per row and drops most rich fields before they can be rendered | — | — | **CLOSED** 2026-10-02 |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
-| [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--open-deliberate) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate | — | — | open |
+| [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--closed-2026-10-02) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent | — | — | **CLOSED** 2026-10-02 |
 | [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--closed-2026-10-02) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | **CLOSED** 2026-10-02 |
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
@@ -13785,11 +13785,11 @@ are load-bearing, because that is the fact no test can express.
 ★ Related but distinct from §154: this one needs no new package part, only a declaration (or a
 deletion) in a part that already exists.
 
-## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
+## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — CLOSED 2026-10-02
 
-**Status:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: fix it. The second axis the entry proposed now exists: `listDepth` on the `p`/`blockquote`/`pre`/`heading` members of `RichLine`, ABSENT outside a list. The LI arm runs `nestBlocksUnder` after the item's walk (like `promoteItemHead`), stamping the item's depth on every non-`li`, non-`hr` line it put out that has none yet — an inner item finishes first, so its deeper depth wins. The kind is kept, so a `<pre>` keeps its whitespace and a heading its level. `docxRichParagraph` indents such a line by `720 × (listDepth + 1)` twips plus the Quote/CodeBlock style's own 360, and `pptxIndentFor` by the same steps in EMU. Pinned in `rich-text-runs.test.ts` ("stamps a nested item's OWN depth…", mutation-checked), `ooxml-docx-primitives.test.ts` ("§156 blocks inside a list item") and `doc-render-pptx.test.ts` ("indents a heading and a quote inside a list item"). ★ The DOCX continuation-under-the-marker cousin at the end of this entry is §154's, unchanged. The history below is kept as written.
 
-**Work item:** #165
+**Previously:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
 wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that

@@ -57,7 +57,11 @@ type LineBase = { runs: TextRun[]; align?: Align };
 export type HeadingLevel = 1 | 2 | 3 | 4;
 
 export type RichLine =
-  | (LineBase & { kind: "p" | "blockquote" | "pre" })
+  /** ★ `listDepth` (§156): set on a block that keeps its OWN kind inside a
+   *  list item — a quote, a code block, a heading, or the paragraphs inside
+   *  one — to that item's `depth`, so a renderer indents it under the item
+   *  without the line pretending to be an `li`. ABSENT outside a list. */
+  | (LineBase & { kind: "p" | "blockquote" | "pre"; listDepth?: number })
   /** ★ DELIBERATELY NOT `LineBase`. A rule holds no text, so there is nothing to
    *  align, and it is CONSTRUCTED as `{ kind: "hr", runs: [] }` at the one site
    *  that makes one — an `align` in scope here could never be anything but
@@ -65,7 +69,7 @@ export type RichLine =
    *  `runs` stays so every member has one and a consumer can reach `line.runs`
    *  without narrowing first. */
   | { kind: "hr"; runs: TextRun[] }
-  | (LineBase & { kind: "heading"; level: HeadingLevel })
+  | (LineBase & { kind: "heading"; level: HeadingLevel; listDepth?: number })
   | (LineBase & {
       kind: "li";
       ordered: boolean;
@@ -363,7 +367,7 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  runs, inserted before the item's first output line. TWO shapes reach it,
    *  and the predicate is the DEPTH filter above — NOT a kind one:
    *    • `<li><h2>h</h2></li>` emits only lines of ANOTHER KIND, which keep that
-   *      kind (and lose the indent) by §156 and cannot carry a marker;
+   *      kind (indented by `listDepth`, §156) and cannot carry a marker;
    *    • `<li><ul>…</ul></li>` emits `li` lines — but they are the SUB-LIST's
    *      items, heads of their own one depth DEEPER, so `line.depth !== depth`
    *      skips every one of them.
@@ -374,6 +378,20 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  marker sits beside a block child it cannot share a line with).
    *  ★ The line has NO runs, so a sink that draws no list markers (the flat
    *  projections in `export-sections.ts`) must skip it — `isMarkerOnlyLine`. */
+  /** §156 — a block that keeps its own kind inside this item (a quote, a code
+   *  block, a heading) records the item's depth as `listDepth`, so both
+   *  renderers indent it under the item instead of at the margin.
+   *  ★ Runs AFTER the item's walk, like `promoteItemHead`, and SKIPS a line that
+   *  already has one: an inner item's walk finishes first and has already
+   *  stamped its own, deeper depth on the blocks it owns. */
+  function nestBlocksUnder(from: number, depth: number): void {
+    for (let i = from; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (line.kind === "li" || line.kind === "hr" || line.listDepth !== undefined) continue;
+      lines[i] = { ...line, listDepth: depth };
+    }
+  }
+
   function promoteItemHead(from: number, item: LiLine): void {
     const { depth } = item;
     for (let i = from; i < lines.length; i += 1) {
@@ -506,8 +524,8 @@ export function htmlToRichLines(html: string): RichLine[] {
       // therefore NOT a continuation — walked with `item` cleared. The kind is
       // the point of both: a <pre>'s verbatim whitespace and monospace face are
       // exactly what turning it into an `li` line to win the indent would throw
-      // away. The cost is that such a line loses the item's indent
-      // (open-followups §156); losing the indent beats losing the kind.
+      // away. The item's indent comes back on a second axis instead:
+      // `nestBlocksUnder` stamps `listDepth` after the item's walk (§156).
       const nested = NESTED_KIND_BY_TAG[tag];
       if (nested) {
         const nestedAlign = alignOf(el);
@@ -582,6 +600,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         walk(el, marks, kind, true, item, item.align, href);
         flush();
         promoteItemHead(outputBefore, item);
+        nestBlocksUnder(outputBefore, depth);
         // ★ AFTER the walk. The `listIndex.length` guard keeps a stray <li> with
         // no enclosing list from writing a counter that does not exist.
         if (listIndex.length > 0 && lines.length > outputBefore) listIndex[depth] = index + 1;

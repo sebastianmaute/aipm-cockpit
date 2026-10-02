@@ -356,6 +356,12 @@ export function docxRichParagraph(
   if (style) parts.push(`<w:pStyle w:val="${style}"/>`);
   if (line.kind === "li") {
     parts.push(`<w:ind w:left="${LIST_INDENT_TWIPS * (line.depth + 1)}"/>`);
+  } else if (line.listDepth !== undefined) {
+    // §156 — a block inside a list item sits under the item's text; a quote or
+    // code block keeps its OWN 360-twip style indent on top, which this
+    // explicit `w:ind` would otherwise replace.
+    const own = line.kind === "blockquote" || line.kind === "pre" ? 360 : 0;
+    parts.push(`<w:ind w:left="${LIST_INDENT_TWIPS * (line.listDepth + 1) + own}"/>`);
   }
   if (line.align) parts.push(`<w:jc w:val="${JC_VALUE[line.align]}"/>`);
   const pPr = parts.length > 0 ? `<w:pPr>${parts.join("")}</w:pPr>` : "";
@@ -363,11 +369,9 @@ export function docxRichParagraph(
   // line keeps the item's indent — but the MARKER is: one bullet per item that
   // put an `li` line into the output, however many lines it wraps to, and
   // repeating it renders one item as two.
-  // ★ NOT "one bullet per ITEM": an item that emits ONLY lines of another kind
-  // (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to mark, so
-  // it renders no bullet at all while still spending its ordinal —
-  // open-followups §157. `promoteItemHead` (rich-text-runs.ts) covers the case
-  // where the item does emit one but its FIRST attempt was dropped.
+  // ★ An item with no `li` line at its own depth (`<li><h2>h</h2></li>`,
+  // `<li><ul>…</ul></li>`) gets a marker-only head from `htmlToRichLines`
+  // (§157), so it is marked here like any other.
   const marker =
     line.kind === "li" && !line.continuation
       ? `<w:r>${docxCellRuns(`${bulletMarker(line.ordered, line.index, line.task)} `)}</w:r>`

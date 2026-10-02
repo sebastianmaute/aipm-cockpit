@@ -1179,6 +1179,15 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
     ]);
   });
 
+  it("indents a heading and a quote inside a list item under the item (§156)", async () => {
+    // RICH_INDENT_EMU 228600: the item (depth 0) sits at one step; a heading
+    // inside it at the same step, a quote one step further, as in DOCX.
+    const infos = paraInfos(await onlyContentSlide("<ul><li><p>a</p><h2>H</h2><blockquote>Q</blockquote></li></ul>"));
+    expect(infos).toContainEqual({ text: "• a", marL: "228600", indent: "0" });
+    expect(infos.find((i) => i.text === "H")?.marL).toBe("228600");
+    expect(infos.find((i) => i.text === "Q")?.marL).toBe("457200");
+  });
+
   it("leaves a list item's own runs unstyled by the marker", async () => {
     // The marker is a run, so it must not pick up the item's marks — and the
     // item's text must keep them.

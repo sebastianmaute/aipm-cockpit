@@ -477,9 +477,13 @@ function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): Pp
  * ★ A list item indents PER DEPTH so nesting is visible; `p` stays flush.
  */
 function pptxIndentFor(line: RichLine): number | undefined {
-  if (line.kind === "p" || line.kind === "heading") return undefined;
   if (line.kind === "li") return RICH_INDENT_EMU * (line.depth + 1);
-  return RICH_INDENT_EMU;
+  if (line.kind === "hr") return RICH_INDENT_EMU;
+  // §156 — a block inside a list item sits under the item, plus its own step
+  // for a quote or code block, exactly as DOCX does.
+  const own = line.kind === "blockquote" || line.kind === "pre" ? RICH_INDENT_EMU : 0;
+  if (line.listDepth !== undefined) return RICH_INDENT_EMU * (line.listDepth + 1) + own;
+  return own === 0 ? undefined : own;
 }
 
 /**
