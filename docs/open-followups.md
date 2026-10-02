@@ -283,7 +283,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
 | [§51](#51-a-second-load-sensitive-test--use-tasks-dedup-on-confirm--open-narrower-the-recorded-symptom-cannot-recur-the-mechanism-is-unreproduced) | A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced | found 0.211.1 (main #5418) | S–M | open |
-| [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--open-deliberate) | `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate | 0.212.0 (Nayler) | M | open |
+| [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--closed-2026-10-02) | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | **CLOSED** 2026-10-02 |
 | [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--closed-2026-09-10-routed-around) | ~~ESLint 10 is blocked upstream by `eslint-plugin-react`~~ | 0.211.2 | — | **CLOSED** 2026-09-10, routed around |
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
@@ -3813,11 +3813,11 @@ and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth
 
 ---
 
-## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
+## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — CLOSED 2026-10-02
 
-**Status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02 — fixed by `3196d245c`: `readSized` now drops a v1 key whose stored width equals the current default for that column, so only differing widths survive as drags and the v2 write that follows persists only those; keys absent from the defaults are kept as before. Pinned by `treats a v1 key equal to the current default as not user-set (§52)` in `use-column-resize.test.ts`, mutation-checked by replacing the equals-default filter with `true` (the test then fails on `sizedWidths`). Residual, stated in the source comment: a v1 snapshot holding an OLD default that has since changed still reads as a drag, and a blob already rewritten as v2 by an earlier launch is no longer identifiable, so the fix helps only blobs not yet migrated.
 
-**Work item:** #111
+**Original status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
 so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated
