@@ -16,8 +16,8 @@ describe("buildUpdatePromptHtml", () => {
     const html = buildUpdatePromptHtml({ version: "1.0.0", notes: '<script>alert(1)</script><img src=x onerror="y">' });
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).not.toContain("<img");
-    // Exactly one <script> element: the page's own.
-    expect(html.match(/<script>/g)).toHaveLength(1);
+    // Exactly one script element, in any letter case or with attributes: the page's own.
+    expect(html.toLowerCase().split("<script").length - 1).toBe(1);
   });
 
   it("puts the notes in a scrolling box", () => {

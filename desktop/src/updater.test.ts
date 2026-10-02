@@ -46,7 +46,7 @@ const fakeWindows = vi.hoisted(() => {
     static nextLoadFails = false;
     handlers: Record<string, Handler[]> = {};
     destroyed = false;
-    loadURL = vi.fn((_url: string) =>
+    loadURL = vi.fn<(url: string) => Promise<void>>(() =>
       FakeWindow.nextLoadFails ? Promise.reject(new Error("load failed")) : Promise.resolve());
     opts: Record<string, unknown>;
     constructor(opts: Record<string, unknown>) {
