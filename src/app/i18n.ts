@@ -3596,7 +3596,7 @@ const enUS = {
   tourStepReportReportsTitle: "Composable reports",
   tourStepReportReportsBody: "Budget, RAID, and change reports you can sort, filter, reorder, and print.",
   tourStepReportEvmTitle: "Earned value",
-  tourStepReportEvmBody: "The Budget Report, found under Reports, tracks planned vs earned vs actual effort (EVM) from task estimates, with SPI and CPI showing whether you are ahead or behind and over or under budget.",
+  tourStepReportEvmBody: "The Budget Report, found under Reports, tracks planned vs earned vs actual effort (EVM) from task estimates, with Effort SPI and Effort CPI showing whether you are ahead or behind and over or under budget.",
   // SP4 planning tour steps
   tourStepPlanMilestonesTitle: "Milestones",
   tourStepPlanMilestonesBody: "Set the dates that matter and track their health; overdue and upcoming ones surface on the dashboard horizon.",
@@ -3670,7 +3670,7 @@ const enUS = {
   tourStepBudPlanTitle: "Budget",
   tourStepBudPlanBody: "Budget compares budget hours with planned and actual hours for each bucket. The Budget hours follow plan option mirrors planned capacity instead of hand-entered hours.",
   tourStepBudEvmTitle: "Earned value",
-  tourStepBudEvmBody: "The Budget Report adds earned value from task estimates: planned, earned and actual effort, plus SPI and CPI. It shows nothing until tasks have estimates.",
+  tourStepBudEvmBody: "The Budget Report adds earned value from task estimates: planned, earned and actual effort, plus Effort SPI and Effort CPI. It shows nothing until tasks have estimates.",
   tourStepChgLogTitle: "Change log",
   tourStepChgLogBody: "Log each scope, schedule or cost request with its type, impact, and who decides. Its status moves from Proposed and Under Review to a decision such as Approved or Rejected.",
   tourStepChgReportTitle: "Change report",
