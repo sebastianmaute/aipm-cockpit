@@ -2,7 +2,7 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowPathIcon, CheckCircleIcon, EyeSlashIcon, PlusIcon } from "./icons";
-import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
+import { type Lang, type TranslationKey, priorityLabel, t, tPlural } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
 import { type JiraExtraProject } from "./settings-types";
@@ -876,7 +876,7 @@ export function TasksSection({
         <TypeToConfirmDialog
           lang={lang}
           title={t(lang, "tasksDeleteSelectedDialogTitle")}
-          message={t(lang, "tasksDeleteSelectedDialogMessage", selectedIds.size)}
+          message={tPlural(lang, "tasksDeleteSelectedDialogMessage", selectedIds.size, selectedIds.size)}
           confirmValue={t(lang, "tasksDeleteSelectedConfirmValue")}
           confirmLabel={t(lang, "tasksDeleteSelectedConfirmLabel")}
           onConfirm={() => {

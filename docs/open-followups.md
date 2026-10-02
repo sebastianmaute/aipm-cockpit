@@ -35414,7 +35414,10 @@ keys are `…One` pairs (EN + an authored German singular each) selected through
 `(s)` `(e)` `(n)` `(en)` `(er)` `(es)` shapes after a letter. A new escape now fails CI; a conversion
 must lower the pin. ★ The slash shape is still uncounted (it also separates real alternatives) and the
 figures are NOT comparable with the `[sne]+` counts above, which used a different shape set. Tiers
-(2)–(4) remain, so the entry stays open.
+(2)–(4) remain, so the entry stays open. ★ The same day the three BARE German plurals named above
+(`tasksDeleteSelectedDialogMessage`, `birthdayBannerTitle`, `birthdayToast`) became `…One` pairs
+rendered through `tPlural` — German now reads "die ausgewählte Aufgabe" / "1 bevorstehender
+Geburtstag" — and the EN pin fell to **61** with them, which is the ratchet working as designed.
 
 **Work item:** #286
 

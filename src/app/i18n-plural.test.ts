@@ -40,6 +40,14 @@ describe("tPlural", () => {
     expect(tPlural("en-US", "activityEntriesLogged", -2, -2)).toBe("-2 entries logged");
   });
 
+  it("renders the §450 bare-plural German keys grammatically at a count of one", () => {
+    // These three were "die 1 ausgewählten Aufgaben" / "1 bevorstehende
+    // Geburtstage" — a bare plural, worse than the escape it avoided.
+    expect(tPlural("de", "tasksDeleteSelectedDialogMessage", 1, 1)).toBe("Dies entfernt die ausgewählte Aufgabe aus diesem Projekt.");
+    expect(tPlural("de", "birthdayBannerTitle", 1, 1)).toBe("1 bevorstehender Geburtstag");
+    expect(tPlural("de", "birthdayToast", 2, 2)).toBe("🎂 2 bevorstehende Geburtstage");
+  });
+
   it("selects the German singular, which is a different stem, not a suffix drop", () => {
     expect(tPlural("de", "activityEntriesLogged", 1, 1)).toBe("1 Eintrag protokolliert");
     expect(tPlural("de", "activityEntriesLogged", 2, 2)).toBe("2 Einträge protokolliert");

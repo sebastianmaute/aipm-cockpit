@@ -63,7 +63,7 @@ function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => 
 }
 
 export function birthdayToastText(items: UpcomingBirthday[], lang: Lang): string {
-  return t(lang, "birthdayToast", items.length);
+  return tPlural(lang, "birthdayToast", items.length, items.length);
 }
 
 export function BirthdayBanner({
@@ -76,7 +76,7 @@ export function BirthdayBanner({
   return (
     <AlertBanner severity="info" ariaLabel={t(lang, "birthdayBannerAria")} icon="🎂"
       actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{tPlural(lang, "birthdayBannerTitle", items.length, items.length)}</p>
       <p className="text-xs text-ui-dark-blue dark:text-ui-light-grey">{summary}</p>
     </AlertBanner>
   );

@@ -53,7 +53,9 @@ describe("BirthdayBanner", () => {
     const items = [makeItem(1, "Alice", "Smith", 0)];
     render(<BirthdayBanner items={items} lang="en-US" onDismiss={() => {}} onSnooze={vi.fn()} />);
 
-    expect(screen.getByText(/1 upcoming birthday/i)).toBeInTheDocument();
+    // §450 — the exact singular, not the old "1 upcoming birthday(s)" escape
+    // (a regex would match either).
+    expect(screen.getByText("1 upcoming birthday")).toBeInTheDocument();
     expect(screen.getByText(/Alice Smith/i)).toBeInTheDocument();
     expect(screen.getByText(/today/i)).toBeInTheDocument();
   });

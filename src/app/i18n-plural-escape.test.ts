@@ -37,7 +37,7 @@ describe("plural escapes in dictionary values (§450)", () => {
   });
 
   it("only ever falls: EN", () => {
-    expect(escapedKeys(en), "a NEW escape — author a …One singular instead; a FEWER count — lower this pin").toHaveLength(64);
+    expect(escapedKeys(en), "a NEW escape — author a …One singular instead; a FEWER count — lower this pin").toHaveLength(61);
   });
 
   it("only ever falls: DE", () => {
