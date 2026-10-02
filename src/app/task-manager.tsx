@@ -264,8 +264,10 @@ function TaskManagerInner() {
   //    `defaultSettings` synchronously (layout "modern"), so without this gate
   //    the hook is enabled on render 1 for EVERY user: a classic user is routed
   //    before the layout flips (§536), and the cold rule judges the hash against
-  //    defaultSettings.features and never revisits it (§595).
-  useHashView(hydrated && settings.layout === "modern", settings.features);
+  //    defaultSettings.features and never revisits it (§595). `settled:
+  //    hydrated` lets a page that hydrates into Classic spend its cold window
+  //    there, so a later switch to Modern is a warm re-entry (§536).
+  useHashView(hydrated && settings.layout === "modern", settings.features, { settled: hydrated });
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
     if (
