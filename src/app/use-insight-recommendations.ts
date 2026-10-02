@@ -173,7 +173,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
           ].join("\n"),
         };
       }
-      // §360 — the TimeLog guardrails carry `view: "resources"`. Their sentence already names the person
+      // §360 — the TimeLog guardrails carry `view: "resources"`. The three text fields are capped like
+      // every other digest field: load trims them but bounds nothing (`optText`). Their sentence already names the person
       // and the numbers, so the digest carries only what it lacks: role-adjacent profile fields. NOT
       // `notes`: free text about a person can hold personal details that must not ride a billed prompt.
       if (ref.view === "resources") {
@@ -184,9 +185,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
           id: p.id,
           title: resourceDisplayName(p),
           fields: [
-            `jobTitle: ${p.title?.trim() || "(unset)"}`,
-            `department: ${p.department?.trim() || "(unset)"}`,
-            `company: ${p.company?.trim() || "(unset)"}`,
+            `jobTitle: ${p.title?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
+            `department: ${p.department?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
+            `company: ${p.company?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
             `external: ${p.isExternal ? "yes" : "no"}`,
             `active: ${p.active === false ? "no" : "yes"}`,
           ].join("\n"),

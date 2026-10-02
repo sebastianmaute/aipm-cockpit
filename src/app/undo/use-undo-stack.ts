@@ -352,18 +352,6 @@ function fieldRowsRunner(part: CompositeFragment): Runner {
   return runUndo;
 }
 
-/**
- * Build a REUSABLE undo↔redo runner for a composite (multi-array) op, threading
- * the PRIMARY delete's id-remap to every cascade fragment so a re-minted primary
- * row's FK references follow it (see `remapImageField`). The FIRST fragment is
- * the primary delete (holds at every call site); it publishes its remap into a
- * fresh per-invocation box, then the cascades restore reading it.
- *
- * REDO needs no cross-fragment remap: each fragment's redo re-applies its own op
- * from FORWARD images captured at undo time (the primary redo already removes the
- * re-minted row by its correct id via `buildForwardImages`). Re-undo re-runs
- * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
- */
 /** §134 — which fragment publishes the id-remap. The flagged one; with none flagged, fragment 0, the
  *  positional convention every composite used to rely on. ★★ That fallback is only safe while no
  *  fragment READS the remap: a cascade that follows the primary would silently read whatever fragment 0
@@ -381,6 +369,18 @@ export function primaryIndexOf(fragments: readonly CompositeFragment[]): number 
   return 0;
 }
 
+/**
+ * Build a REUSABLE undo↔redo runner for a composite (multi-array) op, threading
+ * the PRIMARY delete's id-remap to every cascade fragment so a re-minted primary
+ * row's FK references follow it (see `remapImageField`). The FIRST fragment is
+ * the primary delete (holds at every call site); it publishes its remap into a
+ * fresh per-invocation box, then the cascades restore reading it.
+ *
+ * REDO needs no cross-fragment remap: each fragment's redo re-applies its own op
+ * from FORWARD images captured at undo time (the primary redo already removes the
+ * re-minted row by its correct id via `buildForwardImages`). Re-undo re-runs
+ * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
+ */
 function compositeUndoRunner(
   fragments: readonly CompositeFragment[],
   /** ★★ FORWARDED, NEVER TESTED HERE (§295). A composite arms because a

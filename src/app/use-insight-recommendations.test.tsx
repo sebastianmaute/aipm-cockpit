@@ -413,6 +413,14 @@ describe("§360 — a resources entityRef gets a profile digest", () => {
     expect(ctx).not.toContain("PRIVATE-NOTE-MARKER");
   });
 
+  it("caps a long profile field like every other digest field", async () => {
+    const person = { id: 7, firstName: "Ada", lastName: "L", title: "x".repeat(5000), active: true };
+    const ctx = await contextFor(new Map([[7, person]]) as unknown as InsightRecommendationDeps["resourcesById"], 7);
+    const line = ctx.split("\n").find((l: string) => l.startsWith("jobTitle: "))!;
+    expect(line.length).toBeLessThanOrEqual("jobTitle: ".length + 200);
+    expect(line.length).toBeGreaterThan("jobTitle: ".length); // anti-vacuity: the field is there
+  });
+
   it("falls back to no linked entity when the person is gone", async () => {
     const ctx = await contextFor(new Map() as InsightRecommendationDeps["resourcesById"], 7);
     expect(ctx).toContain("(no linked entity)");
