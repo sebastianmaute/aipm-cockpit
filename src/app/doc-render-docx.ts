@@ -406,8 +406,10 @@ function renderBlock(
  *  ★★ It is a BOUND, not a count, and the inequality only ever goes one way:
  *  `createMediaMinter` pushes AT MOST one part per `IMG_TAG_ASSET_ID_RE` match
  *  in a PARAGRAPH block (`drawingFor` declines a missing, undecodable or
- *  un-embeddable asset), and no other block type reaches it. So this can
- *  over-reserve and never under-reserve. Over-reserving costs a gap in the id
+ *  un-embeddable asset), and no other block type reaches it. Since §217 it
+ *  also over-reserves whenever one asset repeats, because the repeats share
+ *  ONE part and relationship while this still counts each `<img>` match. So
+ *  this can over-reserve and never under-reserve. Over-reserving costs a gap in the id
  *  sequence; under-reserving would cost a collision, which
  *  `buildDocxPackage` throws on.
  *
