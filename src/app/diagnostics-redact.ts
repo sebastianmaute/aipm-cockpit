@@ -25,7 +25,7 @@ const REDACTED = "[redacted]";
 // this removes. Handing the partial run to the patterns would let §606 miss a `+` or `=` padding
 // that lies past the window, so that run is redacted outright. COST: a long non-secret run, such as
 // a URL over 512 chars with no separator, is redacted in diagnostics.
-export const SCRUB_WINDOW = FIELD_MAX + 512;
+const SCRUB_WINDOW = FIELD_MAX + 512;
 
 // The union of every character a SECRET_VALUE_PATTERNS match can be made of, read off the
 // patterns: sk-ant- [A-Za-z0-9_-]; Bearer [A-Za-z0-9._-]; Basic [A-Za-z0-9+/=]; eyJ [A-Za-z0-9._-];
