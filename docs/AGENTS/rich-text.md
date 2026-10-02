@@ -179,7 +179,7 @@ register's fix to another is how two of them broke. Read the note that names you
   unsaved task, exactly as Notes).
   ★★★ **`Task.blockers` IS DERIVED TEXT.** It is `blockersText(blockerLog)` — the OPEN entries, oldest
   first, joined by newlines — and every reader (health, next actions, insights, Gantt, Kanban,
-  exports, search, the AI) keeps reading it. **`withBlockerLog` is the ONLY writer of the pair**: it
+  exports, search, the AI) keeps reading it. **`withBlockerLog` is the ONLY writer of the pair (apart from create sites seeding an empty pair)**: it
   sets the log and the text together. Everything else reaches it through `setBlockersText` (replace
   the open entries: same text is a no-op, empty resolves them all, new text resolves them and adds
   one), `applyTaskPatch` (a patch spread over the STORED row, its `blockers` routed through

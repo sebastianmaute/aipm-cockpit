@@ -56,6 +56,7 @@ export const de: Record<TranslationKey, string> = {
   blockerLogResolve: "Lösen",
   blockerLogReopen: "Wieder öffnen",
   blockerLogEmpty: "Keine Blocker erfasst.",
+  blockerLogNoneOpen: "Keine offenen Blocker.",
   blockerLogDeleteConfirm: "Diesen Blocker löschen?",
   blockerLogSave: "Speichern",
   blockerBadgeLabel: "Blocker – {0} ({1} offen)",

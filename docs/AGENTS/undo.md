@@ -105,7 +105,7 @@ pair change: the task editor has no blockers field and its submit carries the pa
 row (`use-task-submit.ts`), and the inline cell cannot write it (`sanitizeInlinePatch` drops the
 key). The AI `update_task` site (`use-chat-dispatcher.ts`) captures a whole row, so undo keeps the
 live pair, and it skips the capture outright when only write-through keys (plus `localModifiedAt`)
-changed — otherwise Ctrl+Z would spend a step reverting nothing. ★ The bulk edit derives its WRITE
+changed — otherwise Ctrl+Z would spend a step reverting nothing. ★ That skip also covers an AI update that changes nothing at all (deliberate: an identical-row undo step is equally dead). ★ The bulk edit derives its WRITE
 set from `rowChanged`, not from the captured patches, because a row whose only change is its
 blockers yields no patch and must still be written.
 ★★ **THE SINGLE-ROW PATH IS NOT THE THREE-WAY MERGE.** `mergeFieldPatch`'s docstring says it

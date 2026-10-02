@@ -73,7 +73,11 @@ function aiBlockerActor(lang: Lang): BlockerActor {
 /** True when `next` differs from `prev` in nothing but write-through keys
  *  (`WRITE_THROUGH_KEYS`, e.g. the blocker pair) and the `localModifiedAt`
  *  stamp. A whole-row undo keeps the LIVE value of every write-through key, so
- *  an entry for such a write would revert nothing — a dead Ctrl+Z step. */
+ *  an entry for such a write would revert nothing — a dead Ctrl+Z step.
+ *
+ *  ★ DELIBERATE: it also returns true when NOTHING changed at all (an AI update
+ *  that re-sends the stored values), and that skip is intended — an undo step
+ *  that restores an identical row is as dead as one that reverts nothing. */
 function changedOnlyWriteThrough(prev: Task, next: Task): boolean {
   const before = prev as unknown as Record<string, unknown>;
   const after = next as unknown as Record<string, unknown>;

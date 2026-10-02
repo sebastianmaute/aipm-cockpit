@@ -227,6 +227,9 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
               <h3 id={openHeadingId} className="text-xs font-semibold uppercase text-muted-foreground">
                 {t(lang, "blockerLogOpen")}
               </h3>
+              {openEntries.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t(lang, "blockerLogNoneOpen")}</p>
+              )}
               <ul aria-labelledby={openHeadingId} className="flex flex-col gap-2">
                 {openEntries.map((entry) => (
                   <OpenRow

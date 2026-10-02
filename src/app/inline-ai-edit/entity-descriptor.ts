@@ -481,7 +481,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       assignee: sanitizeAssignee,
       // ★ M1: every AI email write stores the `Name <addr>`-unwrapped value, so the card shows it.
       assigneeEmail: sanitizeLoadedEmail,
-      blockers: (v: unknown) => normalizeBlockerText(sanitizeBlockers(v)),
+      // ★ A NON-STRING is dropped by the writer (`buildPatch`), leaving the log
+      //   untouched, so the card previews the STORED text: no diff, never a clear.
+      blockers: (v: unknown, _row: Record<string, unknown>, stored?: Record<string, unknown>) =>
+        normalizeBlockerText(sanitizeBlockers(typeof v === "string" ? v : stored?.blockers)),
       group: sanitizeGroup,
     },
     // ★ `taskFields` declares no id-list input — a task's relationships

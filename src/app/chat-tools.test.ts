@@ -698,6 +698,15 @@ describe("runTool — update_task / buildPatch", () => {
     expect(d.updateTask).toHaveBeenCalledWith(1, { taskName: "" });
   });
 
+  it("drops a non-string blockers value instead of clearing the log", async () => {
+    // "" would RESOLVE every open blocker; a malformed value must leave the key out.
+    for (const bad of [["a", "b"], 123]) {
+      const d = makeDispatcher();
+      await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, blockers: bad });
+      expect(d.updateTask).toHaveBeenCalledWith(1, {});
+    }
+  });
+
   it("omits an unknown priority from the patch entirely", async () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Nope" });

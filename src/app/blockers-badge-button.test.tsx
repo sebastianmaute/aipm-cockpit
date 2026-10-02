@@ -32,23 +32,13 @@ describe("BlockersBadgeButton", () => {
     expect(dotOf(button).className).not.toContain(TIER_RAG.now.dot);
   });
 
-  it("badge name is row-unique and contains the visible text", () => {
-    render(
-      <>
-        <BlockersBadgeButton openCount={3} entityName="Alpha" lang={EN} onClick={vi.fn()} />
-        <BlockersBadgeButton openCount={3} entityName="Alpha (2)" lang={EN} onClick={vi.fn()} />
-      </>,
-    );
-    const buttons = screen.getAllByRole("button");
-    // Positive floor: two badges rendered, so the uniqueness check is not vacuous.
-    expect(buttons).toHaveLength(2);
-    const names = buttons.map((b) => b.getAttribute("aria-label") ?? "");
-    expect(new Set(names).size).toBe(2);
-    for (const b of buttons) {
-      const visible = (b.textContent ?? "").trim();
-      expect(visible).not.toBe("");
-      // WCAG 2.5.3 label-in-name: the accessible name contains the visible text.
-      expect((b.getAttribute("aria-label") ?? "").toLowerCase()).toContain(visible.toLowerCase());
-    }
+  // Row uniqueness is the CALLER's job (the row token is the entityName) and is
+  // pinned in task-row.test.tsx's collision test; this file pins label-in-name.
+  it("badge name contains the visible count (WCAG 2.5.3)", () => {
+    render(<BlockersBadgeButton openCount={3} entityName="Alpha" lang={EN} onClick={vi.fn()} />);
+    const button = screen.getByRole("button");
+    const visible = (button.textContent ?? "").trim();
+    expect(visible).toBe("3");
+    expect((button.getAttribute("aria-label") ?? "").toLowerCase()).toContain(visible.toLowerCase());
   });
 });

@@ -89,6 +89,14 @@ describe("BlockerLogPanel", () => {
     expect(screen.queryByText(t(EN, "blockerLogEmpty"))).toBeNull();
   });
 
+  it("says so when entries exist but none is open", () => {
+    const { unmount } = render(<Harness initial={[RESOLVED_C]} />);
+    expect(screen.getByText(t(EN, "blockerLogNoneOpen"))).toBeTruthy();
+    unmount();
+    render(<Harness initial={[OPEN_A, RESOLVED_C]} />);
+    expect(screen.queryByText(t(EN, "blockerLogNoneOpen"))).toBeNull();
+  });
+
   it("edit to blank keeps the old text", () => {
     const spy = vi.fn();
     render(<Harness initial={[OPEN_A]} onEditSpy={spy} />);

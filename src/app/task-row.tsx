@@ -502,12 +502,19 @@ function TaskRowImpl({
               ★ Named by the row token alone, as the Notes badge is: the token
               is already row-unique, and a `#<id>` in the name would also match
               every query for the id cell's own `#<id>` button. */}
-          <BlockersBadgeButton
-            openCount={openBlockerCount(task.blockerLog)}
-            entityName={rowToken}
-            lang={lang}
-            onClick={() => onOpenBlockers(task.id)}
-          />
+          <span className="print:hidden">
+            <BlockersBadgeButton
+              openCount={openBlockerCount(task.blockerLog)}
+              entityName={rowToken}
+              lang={lang}
+              onClick={() => onOpenBlockers(task.id)}
+            />
+          </span>
+          {/* Print-only: the badge alone would drop the blocker text from a
+              printed table. Hidden on screen, so screen and axe are unchanged. */}
+          <span data-testid="blockers-print" className="hidden whitespace-pre-wrap print:block">
+            {task.blockers}
+          </span>
         </Td>
       )}
       {!hiddenCols.has("description") && (() => {

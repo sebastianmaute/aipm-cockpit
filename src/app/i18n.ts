@@ -52,6 +52,7 @@ const enUS = {
   blockerLogResolve: "Resolve",
   blockerLogReopen: "Reopen",
   blockerLogEmpty: "No blockers recorded.",
+  blockerLogNoneOpen: "No open blockers.",
   blockerLogDeleteConfirm: "Delete this blocker?",
   blockerLogSave: "Save",
   blockerBadgeLabel: "Blockers – {0} ({1} open)",

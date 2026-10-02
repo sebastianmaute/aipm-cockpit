@@ -1461,6 +1461,26 @@ describe("TaskRow inline cell editing", () => {
     expect(onInlinePatch).not.toHaveBeenCalled();
   });
 
+  test("the blockers cell carries a print-only span with the blocker text", () => {
+    const task = makeTask({
+      id: 48,
+      taskName: "Print me",
+      blockers: "waiting on X\nwaiting on Y",
+      blockerLog: [
+        { id: 1, text: "waiting on X", createdAt: "2026-05-01T09:00:00.000Z" },
+        { id: 2, text: "waiting on Y", createdAt: "2026-05-02T09:00:00.000Z" },
+      ],
+    });
+    const { getByRole, getByTestId } = renderRow(makeContext(), task);
+    const printed = getByTestId("blockers-print");
+    expect(printed.textContent).toBe("waiting on X\nwaiting on Y");
+    expect(printed.className).toContain("hidden");
+    expect(printed.className).toContain("print:block");
+    // The badge is wrapped in a print:hidden element, so the text prints once.
+    const badge = getByRole("button", { name: "Blockers – Print me (2 open)" });
+    expect(badge.closest(".print\\:hidden")).not.toBeNull();
+  });
+
   // ★★★ §622 class — an open inline cell holds its draft in state and commits
   // on blur/Enter. A window close, reload or navigation runs neither, so a
   // typed-but-unblurred cell was LOST. `pagehide` commits it; a tab switch must
@@ -1772,8 +1792,9 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     expectRowUniqueNames({
       // MEASURED, not guessed: set to 999, ran this test alone, and read the
       // length of the `Rendered: [...]` list the throw prints. It was 26
-      // before `raidRefsFor` seeded a RaidBadge onto each of the two rows.
-      minControls: 28,
+      // before `raidRefsFor` seeded a RaidBadge onto each of the two rows, and 28
+      // before each row gained its blockers badge.
+      minControls: 30,
       scope: container,
       roles: ["button", "combobox", "textbox", "checkbox"],
       requireCollisionSeed: true,
