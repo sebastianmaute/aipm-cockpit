@@ -47,7 +47,8 @@ export function isAuthResponseHash(raw: string): boolean {
  * the view stays, nothing is routed or opened, and the URL is rewritten to
  * the bare current view. Only the first enabled window of the PAGE LOAD
  * applies the cold rule (a view-only hash is stale residue → Dashboard; an
- * item-bearing hash is a deep link). See docs/open-followups.md §478.
+ * item-bearing hash is a deep link) — and a SETTLED disabled run (see
+ * `options.settled` below) also consumes that window. See docs/open-followups.md §478.
  * `features` gates navigation to disabled-module views — if the hash points at
  * a view whose module is off, the hash is ignored (the redirect effect keeps
  * the user on a valid view and will rewrite the hash).
@@ -86,8 +87,10 @@ export function useHashView(
 ): void {
   const { activeTab, setActiveTab, isPopout, requestOpen } = useWorkspaceTab();
   // ★★ TWO pieces of state, not one (docs/open-followups.md §478, option (c)):
-  //    - `pageColdDoneRef` — has THIS PAGE LOAD's first enabled window run yet?
-  //      Set once, NEVER reset (not by the disabled branch, not by a cleanup).
+  //    - `pageColdDoneRef` — has THIS PAGE LOAD's cold window been used up? True
+  //      after the first enabled window runs, OR after a SETTLED disabled run
+  //      consumed it (a page that hydrated into Classic, §536). Set once, NEVER
+  //      reset (not by the disabled branch, not by a cleanup).
   //    - `windowActiveRef` — are we inside a contiguous enabled window? Reset
   //      ONLY by the disabled branch, so an effect CLEANUP (a dep change, or
   //      StrictMode's mount → unmount → remount) does not end the window.

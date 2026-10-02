@@ -232,8 +232,8 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
 });
 
 // Own describe, own mount, no shared beforeAll — task-manager.tsx:
-// `useHashView(hydrated && settings.layout === "modern", settings.features)`
-// (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
+// `useHashView(hydrated && settings.layout === "modern", settings.features,
+// { settled: hydrated })` (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
 // synchronously and only flips `hydrated` via a MICROTASK (a bare
 // `Promise.resolve().then(...)` on the no-persisted-settings path, or the
 // async secret-merge chain otherwise) — never synchronously during the
@@ -308,7 +308,7 @@ describe("@characterization task-manager → hash-view hydration gate (§536)", 
     );
     // Positive observable first: the re-entry REPAIRED the URL to a bare view.
     expect(window.location.hash).toMatch(/^#[a-z-]+$/);
-    expect(window.location.hash).not.toBe("#raid");
+    expect(window.location.hash).not.toBe("#raid/123");
   });
   // ★★ §595 (the features half of the gate) is deliberately NOT pinned here.
   //    A call-site-level test using a dashboard-disabled hydrated `features`
