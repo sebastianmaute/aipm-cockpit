@@ -383,3 +383,38 @@ describe("§275 — confirm drops calls outside ALLOWED_REC_TOOLS", () => {
     expect(store.read()[0].recommendation?.status).toBe("applied");
   });
 });
+
+// §360 — a TimeLog guardrail points at a person (`view: "resources"`). The digest
+// says who they are in the organisation and NEVER carries their free-text notes.
+describe("§360 — a resources entityRef gets a profile digest", () => {
+  async function contextFor(resourcesById: InsightRecommendationDeps["resourcesById"], id: number) {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const store = mkStore([mkInsight({ entityRef: { view: "resources", id } } as Partial<Insight>)]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ resourcesById, insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(spy).toHaveBeenCalledTimes(1);
+    return spy.mock.calls[0][0].context;
+  }
+
+  it("names the role fields and leaves notes out", async () => {
+    const person = {
+      id: 7, firstName: "Ada", lastName: "Lovelace", title: "Data Engineer", department: "Analytics",
+      company: "Acme", isExternal: true, active: true, notes: "PRIVATE-NOTE-MARKER",
+    };
+    const ctx = await contextFor(new Map([[7, person]]) as unknown as InsightRecommendationDeps["resourcesById"], 7);
+    expect(ctx).toContain("Linked resources#7:");
+    expect(ctx).toContain("jobTitle: Data Engineer");
+    expect(ctx).toContain("department: Analytics");
+    expect(ctx).toContain("company: Acme");
+    expect(ctx).toContain("external: yes");
+    expect(ctx).toContain("active: yes");
+    expect(ctx).not.toContain("PRIVATE-NOTE-MARKER");
+  });
+
+  it("falls back to no linked entity when the person is gone", async () => {
+    const ctx = await contextFor(new Map() as InsightRecommendationDeps["resourcesById"], 7);
+    expect(ctx).toContain("(no linked entity)");
+  });
+});

@@ -591,7 +591,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--closed-2026-10-01) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-10-01 |
-| [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--closed-2026-10-02) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-10-02 |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
@@ -29600,9 +29600,11 @@ the unimplemented batch ceiling is more reachable than it was the day before.
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
 
-## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — OPEN
+## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — CLOSED 2026-10-02
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
+**Status:** CLOSED 2026-10-02 by owner decision: add the arm. `resolveInsightEntity` (`use-insight-recommendations.ts`) now resolves `view: "resources"` through `resourcesById` to a five-field profile digest — job title, department, company, external, active. It deliberately leaves out `notes`: free text about a person can hold personal details, and this text rides a billed prompt. A dangling id still yields no digest. Pinned by the "§360" describe in `use-insight-recommendations.test.tsx`, which asserts the fields, the absence of a notes marker and the dangling-id fallback; renaming the arm's view string turns it red (mutation-checked). Verify with `grep -n 'ref.view ===' src/app/use-insight-recommendations.ts`, which now returns three lines.
+
+**Original status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
 `grep -n 'ref.view ===' src/app/use-insight-recommendations.ts` returns exactly two lines,
 `"milestones"` and `"raid"`, so `resources` falls through to undefined.
 ★ The command originally cited here was `grep -n "resolveInsightEntity" ...`, which RUNS and
@@ -29610,8 +29612,6 @@ returns three lines — the declaration, the call and a dep-array entry — none
 arm. It answered a different question than the claim it was attached to, which is the failure shape
 this register's own Status rule exists to prevent: a command that runs and returns something
 plausible reads as verification.
-
-**Work item:** #257
 
 `detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
 a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —
