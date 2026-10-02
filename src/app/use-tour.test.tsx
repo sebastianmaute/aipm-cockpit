@@ -2,11 +2,20 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useTour } from "./use-tour";
 import { TOUR_STEPS, visibleSteps, findTour } from "./app-tour";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 const FEATURES = ["dashboard", "milestones", "resources", "raid", "changes", "stakeholders", "budget"] as const;
 const base = { features: [...FEATURES] };
 
 describe("useTour", () => {
+  it("useTour drops Turso-only steps on file", () => {
+    const mk = (storageKind: string) => renderHook(() =>
+      useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [...ALL_MODULE_IDS], storageKind, setSettings: vi.fn() }));
+    const file = mk("file");
+    const turso = mk("turso");
+    const count = (r: typeof file) => r.result.current.catalogTours.find((t) => t.id === "reporting")!.stepCount;
+    expect(count(turso) - count(file)).toBe(2);
+  });
   it("auto-launches getting-started once in modern, non-popout, unseen", () => {
     const setSettings = vi.fn();
     const { result } = renderHook(() =>
@@ -69,7 +78,7 @@ describe("useTour", () => {
     const setSettings = vi.fn();
     const { result } = renderHook(() =>
       useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: ["ai"], ...base, setSettings }));
-    expect(result.current.catalogTours.map((t) => t.id)).toEqual(["getting-started", "raid", "reporting", "planning", "stakeholders", "ai"]);
+    expect(result.current.catalogTours.map((t) => t.id)).toEqual(["getting-started", "working-faster", "raid", "reporting", "planning", "stakeholders", "resources", "budget-changes", "documents", "ai", "help-yourself"]);
     expect(result.current.completedTours).toEqual(["ai"]);
   });
   it("catalogTours drops a tour gated to 0 visible steps", () => {

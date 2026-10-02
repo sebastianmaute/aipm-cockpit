@@ -62,6 +62,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: "stakeholders", kind: "modal", titleKey: "tourStepStakeholdersTitle", bodyKey: "tourStepStakeholdersBody", view: "stakeholders" },
   { id: "steering", kind: "modal", titleKey: "tourStepSteeringTitle", bodyKey: "tourStepSteeringBody", view: "steering-committee" },
   { id: "settings", kind: "modal", titleKey: "tourStepSettingsTitle", bodyKey: "tourStepSettingsBody", view: "settings" },
+  { id: "more-tours", kind: "modal", titleKey: "tourStepMoreToursTitle", bodyKey: "tourStepMoreToursBody", view: "help" },
 ];
 
 const RAID_STEPS: readonly TourStep[] = [
@@ -74,18 +75,48 @@ const REPORTING_STEPS: readonly TourStep[] = [
   { id: "report-dashboard", kind: "modal", titleKey: "tourStepReportDashboardTitle", bodyKey: "tourStepReportDashboardBody", view: "dashboard" },
   { id: "report-reports", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "reports" },
   { id: "report-evm", kind: "modal", titleKey: "tourStepReportEvmTitle", bodyKey: "tourStepReportEvmBody", view: "reports" },
+  { id: "report-insights", kind: "modal", titleKey: "tourStepReportInsightsTitle", bodyKey: "tourStepReportInsightsBody", view: "insights" },
+  { id: "report-learning", kind: "modal", titleKey: "tourStepReportLearningTitle", bodyKey: "tourStepReportLearningBody", view: "learning-insights" },
+  { id: "report-activity", kind: "modal", titleKey: "tourStepReportActivityTitle", bodyKey: "tourStepReportActivityBody", view: "activity" },
+  { id: "report-trends", kind: "modal", titleKey: "tourStepReportTrendsTitle", bodyKey: "tourStepReportTrendsBody", view: "trends" },
+  { id: "report-history", kind: "modal", titleKey: "tourStepReportHistoryTitle", bodyKey: "tourStepReportHistoryBody", view: "history" },
 ];
 
 const PLANNING_STEPS: readonly TourStep[] = [
   { id: "plan-milestones", kind: "modal", titleKey: "tourStepPlanMilestonesTitle", bodyKey: "tourStepPlanMilestonesBody", view: "milestones" },
-  { id: "plan-gantt", kind: "modal", titleKey: "tourStepPlanGanttTitle", bodyKey: "tourStepPlanGanttBody", view: "milestones" },
+  { id: "plan-gantt", kind: "modal", titleKey: "tourStepPlanGanttTitle", bodyKey: "tourStepPlanGanttBody", view: "gantt" },
+  { id: "plan-gantt-view", kind: "modal", titleKey: "tourStepPlanGanttViewTitle", bodyKey: "tourStepPlanGanttViewBody", view: "gantt" },
   { id: "plan-critical", kind: "modal", titleKey: "tourStepPlanCriticalTitle", bodyKey: "tourStepPlanCriticalBody", view: "milestones" },
 ];
 
 const STAKEHOLDER_STEPS: readonly TourStep[] = [
   { id: "stake-register", kind: "modal", titleKey: "tourStepStakeRegisterTitle", bodyKey: "tourStepStakeRegisterBody", view: "stakeholders" },
   { id: "stake-raci", kind: "modal", titleKey: "tourStepStakeRaciTitle", bodyKey: "tourStepStakeRaciBody", view: "stakeholders" },
+  { id: "stake-raci-view", kind: "modal", titleKey: "tourStepStakeRaciViewTitle", bodyKey: "tourStepStakeRaciViewBody", view: "raci" },
+  { id: "stake-map", kind: "modal", titleKey: "tourStepStakeMapTitle", bodyKey: "tourStepStakeMapBody", view: "stakeholder-map" },
   { id: "stake-comms", kind: "modal", titleKey: "tourStepStakeCommsTitle", bodyKey: "tourStepStakeCommsBody", view: "stakeholders" },
+];
+
+const RESOURCES_STEPS: readonly TourStep[] = [
+  { id: "res-directory", kind: "spotlight", titleKey: "tourStepResDirectoryTitle", bodyKey: "tourStepResDirectoryBody", view: "directory", anchorId: TOUR_ANCHORS.navResources },
+  { id: "res-workload", kind: "modal", titleKey: "tourStepResWorkloadTitle", bodyKey: "tourStepResWorkloadBody", view: "workload" },
+  { id: "res-calendar", kind: "modal", titleKey: "tourStepResCalendarTitle", bodyKey: "tourStepResCalendarBody", view: "calendar" },
+  { id: "res-planning", kind: "modal", titleKey: "tourStepResPlanningTitle", bodyKey: "tourStepResPlanningBody", view: "planning" },
+  { id: "res-roles", kind: "modal", titleKey: "tourStepResRolesTitle", bodyKey: "tourStepResRolesBody", view: "manage-roles" },
+];
+
+const BUDGET_CHANGES_STEPS: readonly TourStep[] = [
+  { id: "bud-plan", kind: "spotlight", titleKey: "tourStepBudPlanTitle", bodyKey: "tourStepBudPlanBody", view: "budget", anchorId: TOUR_ANCHORS.navBudget },
+  { id: "bud-evm", kind: "modal", titleKey: "tourStepBudEvmTitle", bodyKey: "tourStepBudEvmBody", view: "budget-report" },
+  { id: "chg-log", kind: "spotlight", titleKey: "tourStepChgLogTitle", bodyKey: "tourStepChgLogBody", view: "changes", anchorId: TOUR_ANCHORS.navChanges },
+  { id: "chg-report", kind: "modal", titleKey: "tourStepChgReportTitle", bodyKey: "tourStepChgReportBody", view: "change-report" },
+  { id: "chg-link", kind: "modal", titleKey: "tourStepChgLinkTitle", bodyKey: "tourStepChgLinkBody", view: "changes" },
+];
+
+const DOCUMENTS_STEPS: readonly TourStep[] = [
+  { id: "doc-ai", kind: "spotlight", titleKey: "tourStepDocAiTitle", bodyKey: "tourStepDocAiBody", view: "documents", anchorId: TOUR_ANCHORS.navDocuments },
+  { id: "doc-editor", kind: "modal", titleKey: "tourStepDocEditorTitle", bodyKey: "tourStepDocEditorBody", view: "documents" },
+  { id: "doc-versions", kind: "modal", titleKey: "tourStepDocVersionsTitle", bodyKey: "tourStepDocVersionsBody", view: "documents" },
 ];
 
 const WORKING_FASTER_STEPS: readonly TourStep[] = [
@@ -123,6 +154,9 @@ export const TOURS: readonly TourDefinition[] = [
   { id: "reporting", titleKey: "tourReportingTitle", descKey: "tourReportingDesc", iconView: "reports", steps: REPORTING_STEPS },
   { id: "planning", titleKey: "tourPlanningTitle", descKey: "tourPlanningDesc", iconView: "milestones", steps: PLANNING_STEPS },
   { id: "stakeholders", titleKey: "tourStakeholdersTitle", descKey: "tourStakeholdersDesc", iconView: "stakeholders", steps: STAKEHOLDER_STEPS },
+  { id: "resources", titleKey: "tourResourcesTitle", descKey: "tourResourcesDesc", iconView: "resources", steps: RESOURCES_STEPS },
+  { id: "budget-changes", titleKey: "tourBudgetChangesTitle", descKey: "tourBudgetChangesDesc", iconView: "budget", steps: BUDGET_CHANGES_STEPS },
+  { id: "documents", titleKey: "tourDocumentsTitle", descKey: "tourDocumentsDesc", iconView: "documents", steps: DOCUMENTS_STEPS },
   { id: "ai", titleKey: "tourAiTitle", descKey: "tourAiDesc", iconView: "chat", steps: AI_STEPS },
   { id: "help-yourself", titleKey: "tourHelpYourselfTitle", descKey: "tourHelpYourselfDesc", iconView: "help", steps: HELP_YOURSELF_STEPS },
 ];

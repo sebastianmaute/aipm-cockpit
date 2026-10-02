@@ -15,12 +15,12 @@ describe("app-tour engine", () => {
   });
   it("ships the six themed tours with unique ids and at least one step each", () => {
     const ids = TOURS.map((t) => t.id);
-    expect(ids).toEqual(["getting-started", "working-faster", "raid", "reporting", "planning", "stakeholders", "ai", "help-yourself"]);
+    expect(ids).toEqual(["getting-started", "working-faster", "raid", "reporting", "planning", "stakeholders", "resources", "budget-changes", "documents", "ai", "help-yourself"]);
     expect(new Set(ids).size).toBe(ids.length);
     for (const t of TOURS) expect(t.steps.length).toBeGreaterThan(0);
   });
   it("every step view (when set) is a valid AppView used by other tours", () => {
-    const valid = new Set<AppView>(["dashboard", "projects", "open-points", "actions", "chat", "reports", "raid", "milestones", "stakeholders", "steering-committee", "settings", "help"]);
+    const valid = new Set<AppView>(["dashboard", "projects", "open-points", "actions", "chat", "reports", "raid", "milestones", "stakeholders", "steering-committee", "settings", "help", "gantt", "raci", "stakeholder-map", "insights", "learning-insights", "activity", "trends", "history", "directory", "workload", "calendar", "planning", "manage-roles", "budget", "budget-report", "changes", "change-report", "documents"]);
     for (const t of TOURS) for (const s of t.steps) if (s.view) expect(valid.has(s.view)).toBe(true);
   });
   it("findTour returns undefined for an unknown id", () => {
@@ -49,6 +49,12 @@ describe("app-tour engine", () => {
 });
 
 describe("tour anchors", () => {
+  it("every anchor is used by a step and every step anchor exists", () => {
+    const values = new Set(Object.values(TOUR_ANCHORS));
+    const used = new Set(TOURS.flatMap((t) => t.steps.map((s) => s.anchorId).filter(Boolean)));
+    for (const a of used) expect(values.has(a as never)).toBe(true);
+    for (const v of values) expect(used.has(v)).toBe(true);
+  });
   it("places the undo anchor around the undo controls", () => {
     const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
     expect(src).toContain("dataTourId={TOUR_ANCHORS.undo}");
@@ -85,6 +91,33 @@ describe("tour content", () => {
   });
   it("ai tour teaches inline edit and dictation", () => {
     expect(findTour("ai")!.steps.map((s) => s.id)).toEqual(["ai-chat", "ai-inline", "ai-dictation", "ai-actions", "ai-settings"]);
+  });
+});
+
+describe("new tours and gap fills", () => {
+  it("the planning tour's gantt step opens the gantt view", () => {
+    expect(findTour("planning")!.steps.find((s) => s.id === "plan-gantt")!.view).toBe("gantt");
+  });
+  it("hides the resources tour when the resources module is off", () => {
+    // every resources view (directory, workload, calendar, planning, manage-roles) belongs to the one "resources" module
+    const withoutResourcesModule = ALL_MODULE_IDS.filter((m) => m !== "resources");
+    const steps = findTour("resources")!.steps;
+    expect(visibleSteps(steps, ALL_MODULE_IDS)).toHaveLength(steps.length);
+    expect(visibleSteps(steps, withoutResourcesModule)).toHaveLength(0);
+  });
+  it("step ids are unique across all tours", () => {
+    const ids = TOURS.flatMap((t) => t.steps.map((s) => s.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("the new tours and gap fills carry the specified step ids", () => {
+    const ids = (tour: string) => findTour(tour)!.steps.map((s) => s.id);
+    expect(ids("resources")).toEqual(["res-directory", "res-workload", "res-calendar", "res-planning", "res-roles"]);
+    expect(ids("budget-changes")).toEqual(["bud-plan", "bud-evm", "chg-log", "chg-report", "chg-link"]);
+    expect(ids("documents")).toEqual(["doc-ai", "doc-editor", "doc-versions"]);
+    expect(ids("getting-started").at(-1)).toBe("more-tours");
+    expect(ids("planning")).toEqual(["plan-milestones", "plan-gantt", "plan-gantt-view", "plan-critical"]);
+    expect(ids("stakeholders")).toEqual(["stake-register", "stake-raci", "stake-raci-view", "stake-map", "stake-comms"]);
+    expect(ids("reporting").slice(-5)).toEqual(["report-insights", "report-learning", "report-activity", "report-trends", "report-history"]);
   });
 });
 
