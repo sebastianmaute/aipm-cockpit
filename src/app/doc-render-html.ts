@@ -94,6 +94,14 @@ const DOCUMENT_PAGE_STYLES = `
     li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
     li[data-type="taskItem"]::before { content: "\\2610"; }
     li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611"; }
+    /* Alt text for the glyph, read instead of its character name; the words
+       follow the html lang attribute. Same rules as globals.css (open-followups 147). */
+    @supports (content: "x" / "y") {
+      li[data-type="taskItem"]::before { content: "\\2610" / "not checked"; }
+      li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611" / "checked"; }
+      :lang(de) li[data-type="taskItem"]::before { content: "\\2610" / "nicht abgehakt"; }
+      :lang(de) li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611" / "abgehakt"; }
+    }
     /* ★★★ A standalone export loads NO app stylesheet. globals.css styles this
        marker for the live preview, and that file is not here — so without this
        rule the attribute would be set and NOTHING would draw it, which reads to

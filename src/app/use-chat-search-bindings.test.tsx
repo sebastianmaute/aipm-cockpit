@@ -78,6 +78,18 @@ describe("useChatSearchBindings", () => {
     expect(render("p1", undefined).first.chatPointer()).toBeDefined();
   });
 
+  it("returns no pointer over a payload marked unavailable, however populated (§173)", () => {
+    // The load's mid-flight-adoption catch keeps the rows this client holds and
+    // still marks the slot unavailable. Pointing at them made the model call
+    // `search_chats`, which then answered `coverage: "unavailable"`.
+    const threads = [thread("t1", "p1", "Vendor decision"), thread("t2", "p1", "Kickoff")];
+    publishChatThreads("p1", { threads, activeThreadId: "t2", available: false });
+    expect(render("p1", undefined).first.chatPointer()).toBeUndefined();
+    // Positive control: the SAME payload, available, does point.
+    publishChatThreads("p1", { threads, activeThreadId: "t2", available: true });
+    expect(render("p1", undefined).first.chatPointer()).toBeDefined();
+  });
+
   it("reads the toggle LIVE, so a mid-conversation switch takes effect", () => {
     const { first, rerender } = render("p1", undefined);
     expect(first.tools.isChatSearchEnabled()).toBe(true);

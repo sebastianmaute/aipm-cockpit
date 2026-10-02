@@ -1590,13 +1590,15 @@ describe("useChatThreads — registry publication", () => {
     rerender({ ...initialProps, projectId: "p2" });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
 
-    // `available` tracks REACHABILITY, not emptiness: a project whose load is
-    // still in flight IS searchable, it just has nothing to show yet. (A load
-    // that FAILED is the other side of that split — the test below.)
+    // §174: a project whose load is still in flight is NOT available. This
+    // used to assert `true` ("searchable, nothing to show yet"), but the flag
+    // reaches the model as `coverage: "turso"` — "past conversations WERE
+    // searched" — and over an unfilled list that claims a topic was never
+    // discussed. It turns true when the load SETTLES (the tests beside this).
     expect(readChatThreads("p2")).toEqual({
       threads: [],
       activeThreadId: null,
-      available: true,
+      available: false,
     });
     expect(JSON.stringify(readChatThreads("p2"))).not.toContain("P1 SECRET");
   });

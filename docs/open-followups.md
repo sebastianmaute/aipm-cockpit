@@ -378,7 +378,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
 | [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ | — | — | **CLOSED** 2026-08-30 |
-| [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
+| [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--closed-2026-10-02) | Read-only task-item checked state is a character name to AT, not "checked" | — | — | **CLOSED** 2026-10-02 |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
@@ -404,8 +404,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
 | [§172](#172-a-partial-timelog-fetch-overwrote-the-cached-aggregate-and-the-manual-apply-path-would-write-it--closed-2026-08-18) | A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it | — | — | **CLOSED** 2026-08-18 |
-| [§173](#173-the-load-catchs-mid-flight-adoption-branch-publishes-a-populated-thread-list-with-available-false--open-narrow) | The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow | — | — | open |
-| [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--open-pre-existing) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing | — | — | open |
+| [§173](#173-the-load-catchs-mid-flight-adoption-branch-publishes-a-populated-thread-list-with-available-false--closed-2026-10-02) | The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` | — | — | **CLOSED** 2026-10-02 |
+| [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--closed-2026-10-02) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight | — | — | **CLOSED** 2026-10-02 |
 | [§175](#175-buildchatpointerblock-is-no-longer-bounded-by-any-test--closed-2026-08-20) | `buildChatPointerBlock` is no longer bounded by any test | — | — | **CLOSED** 2026-08-20 |
 | [§176](#176-the-chat-pointer-title-path-flipped-from-flatten-then-cap-to-cap-then-flatten-and-no-test-pins-either-order--closed-2026-08-20) | The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order | — | — | **CLOSED** 2026-08-20 |
 | [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open |
@@ -429,7 +429,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | open |
 | [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false--closed-2026-09-27) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | **CLOSED** 2026-09-27 |
-| [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
+| [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
@@ -12915,11 +12915,11 @@ broken listener as correct behaviour.
 
 ---
 
-## 147. Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit
+## 147. Read-only task-item checked state is a character name to AT, not "checked" — CLOSED 2026-10-02
 
-**Status:** open — an a11y gap, checked state as a bare glyph with no alt text. Reproduced 2026-08-28 by `grep -rn "data-checked" src/app/rich-text-editor.tsx`.
+**Status:** CLOSED 2026-10-02. Took the candidate fix after the compatibility check this entry said was owed: the `content: <glyph> / <text>` alt-text syntax is supported by every engine this app targets now (Chromium, so Electron too; Firefox 128+; Safari 17.4+), and the rules sit inside `@supports (content: "x" / "y")` so an engine without it keeps the plain glyph instead of dropping the declaration. Both stylesheets carry them, `globals.css` (app read-only surfaces) and `doc-render-html.ts` `DOCUMENT_PAGE_STYLES` (standalone HTML/PDF): "checked" / "not checked", and under `:lang(de)` "abgehakt" / "nicht abgehakt", following `<html lang>`, which `use-settings.ts` and the export both set. MEASURED, not reasoned: a real standalone export (en-US and de) loaded in Chromium 1194 exposes `text: checked` / `text: not checked` (German: `abgehakt` / `nicht abgehakt`) in its accessibility tree where the glyph name used to be, and the `@supports` block survives the production `@tailwindcss/postcss` minified build intact. The editor is untouched: its nodeView `<li>` carries no `data-type`, so the real checkbox stays the only voice there. ★ Still a TEXT node, not a checkbox role with `aria-checked` — there is no form control here by design. Pinned by `doc-render-html.test.ts` → "ships alt text for both states, in English and German, behind @supports" (the rules only; jsdom cannot compute generated content). The history below is kept as written.
 
-**Work item:** #158
+**Previously:** open — an a11y gap, checked state as a bare glyph with no alt text. Reproduced 2026-08-28 by `grep -rn "data-checked" src/app/rich-text-editor.tsx`.
 
 Opened 2026-08-13 out of §140's closure. `TaskItem.renderHTML` (`rich-text-editor.tsx`) stores task
 items as `<li data-type="taskItem" data-checked="…">` with no `<input>` — the editor's Tiptap nodeView
@@ -15123,11 +15123,11 @@ short-returns with no error and no `failedProjects`, so it is the same "short ag
 complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
 recorded because nothing anywhere else says it.
 
-## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow
+## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — CLOSED 2026-10-02
 
-**Status:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
+**Status:** CLOSED 2026-10-02. Took repair (b): `useChatSearchBindings`' pointer now returns nothing when the published payload is `available: false` (`use-chat-search-bindings.ts`), so the pointer and `search_chats` speak with one voice and the rows the adoption branch keeps stay visible in the sidebar. Repair (a) was rejected on reading the code, not just on taste: leaving `loadFailed` unset on that branch would publish `available: true` over a list holding only this client's rows and none of the server's, i.e. the "never discussed" assertion this register keeps closing. Pinned by `use-chat-search-bindings.test.tsx` → "returns no pointer over a payload marked unavailable, however populated (§173)", with the same payload marked available as its positive control. The history below is kept as written.
 
-**Work item:** #171
+**Previously:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
 
 Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
 
@@ -15188,11 +15188,11 @@ adoption branch — a rejected fetch says nothing about the rows this client alr
 (b) gate the ambient pointer on `available` so both surfaces speak with one voice. (b) also closes
 §174.
 
-## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing
+## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — CLOSED 2026-10-02
 
-**Status:** open — an availability flag published true while the load is in flight. Reproduced 2026-08-28 by `grep -n "loadFailed" src/app/use-chat-threads.ts`.
+**Status:** CLOSED 2026-10-02. The in-flight ruling is reversed rather than re-argued: `available` is now `tursoMode && threadsMatchProject && !loadFailed` (`use-chat-threads.ts`), so the slot reads unavailable until the load for the LIVE project settles, either way, and `search_chats` answers `coverage: "unavailable"` — which `chat-tool-defs.ts` already tells the model to report as "cannot look". `ChatCoverage` was NOT widened, so no tool-visible contract changed. The three-way table's in-flight row says why in place. The test that pinned the old ruling ("never publishes the OLD project's threads under the NEW project's id") now asserts `available: false` for the in-flight project. The history below is kept as written.
 
-**Work item:** #172
+**Previously:** open — an availability flag published true while the load is in flight. Reproduced 2026-08-28 by `grep -n "loadFailed" src/app/use-chat-threads.ts`.
 
 Same review, same day. NOT a regression — it predates the `available` work.
 ★★ **THE PREMISE THIS ENTRY WAS FILED ON IS NO LONGER TRUE, AND THAT CHANGES WHAT IT IS.** It read
@@ -16840,13 +16840,13 @@ that branch introduced it.
 but a different thing, and do not merge them: §195 is about the ORDER of a read, this is about the
 MEANING of a return.
 
-## 198. A block delete reads its baseline at CLICK time, not at menu-open time
+## 198. A block delete reads its baseline at CLICK time, not at menu-open time — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low (needs a concurrent write inside a narrow
+**Status:** CLOSED 2026-10-02. Built as the entry describes: `DocumentBlockGutter` freezes the row's block in its menu-OPEN click (`openedOnRef`) and hands it back as `onDelete(index, opened)`, and `document-editor.tsx`'s `deleteBlock` uses that capture both for the `blockIsTrivial` confirm gate and as the `expect` baseline for `structural.remove`. In the concrete failure below the confirm is now raised for the HEADING the user pointed at and the engine refuses against the paragraph that slid in, with the translated conflict reason §186 added. Pinned twice: `document-block-gutter.test.tsx` → "hands onDelete the block captured at menu-open, not the one rendered at click" and `document-editor.test.tsx` → "hands the engine the block the menu was OPENED on, not the one that slid in"; reverting the gutter to the click-time `block` reddens both. The history below is kept as written.
+
+**Previously:** open. **Severity:** low (needs a concurrent write inside a narrow
 window). **Found by:** cold review of the S3c structural-blocks round.
 **Deliberately not fixed — it is a component-contract change, not a one-liner.** Reproduced 2026-08-28 by `grep -n "onDelete" src/app/document-block-gutter.tsx`.
-
-**Work item:** #184
 
 In `document-editor.tsx`'s `deleteBlock`, `const block = doc.blocks[index]` runs
 when the menu ITEM IS CLICKED, from whichever render is current at that moment —
