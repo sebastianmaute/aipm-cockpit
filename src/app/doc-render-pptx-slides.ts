@@ -109,6 +109,9 @@ export function isBlankLine(line: SlideLine): boolean {
   //    `paginateLines`' leading-blank strip just below.
   if (isImageLine(line)) return false;
   if (typeof line !== "string" && line.kind === "hr") return false;
+  // ★ §157's marker-only list head has no runs either, and its marker is drawn
+  //   at emit time (`bulletMarker`) — content, like a rule.
+  if (typeof line !== "string" && line.kind === "li") return false;
   return slideLineText(line).trim() === "";
 }
 
@@ -446,9 +449,9 @@ function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): Pp
   // ★★ `pptxIndentFor` below is deliberately NOT guarded on `continuation` — a
   // wrapped line keeps the item's indent — but the marker is: one bullet per
   // item that put an `li` line into the output, however many lines it wraps to.
-  // ★ NOT "one bullet per ITEM": an item that emits ONLY lines of another kind
-  // (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to mark, so
-  // it renders no bullet while still spending its ordinal — open-followups §157.
+  // ★ An item with no `li` line at its own depth (`<li><h2>h</h2></li>`,
+  // `<li><ul>…</ul></li>`) gets a marker-only head from `htmlToRichLines`
+  // (§157), so it is marked here like any other.
   const marked =
     line.kind === "li" && !line.continuation
       ? [{ text: `${bulletMarker(line.ordered, line.index, line.task)} ` }, ...runs]

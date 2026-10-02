@@ -566,13 +566,16 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
     // so folding one into the item loses nothing. A blockquote carries a kind
     // that merging would destroy — and it can only reach here from markup the
     // editor cannot produce (`paragraph block*` puts a <p> first).
+    // §157: the item keeps its marker on a marker-only head line of its own.
     expect(htmlToRichLines("<ul><li><blockquote>q</blockquote></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
       { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
     ]);
   });
 
   it("keeps a heading inside an item as a heading, level intact", () => {
     expect(htmlToRichLines("<ul><li><h2>h</h2></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [] },
       { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
     ]);
   });
@@ -995,8 +998,11 @@ describe("a list index is spent only on an item that reaches the output", () => 
     // index 0, and so certified a client-facing DOCX numbering the second item
     // "1.". The question is "did this item put anything into `lines`", NOT "did
     // the item's own li LINE survive".
+    // §157: and it now SHOWS that number, on a marker-only head before the
+    // heading — item 1 used to render no "1." anywhere.
     const lines = htmlToRichLines("<ol><li><h2>h</h2></li><li>a</li></ol>");
-    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual(["heading", 1]);
+    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual([0, "heading", 1]);
+    expect(lines[0].runs).toEqual([]);
   });
 
   it("SPENDS a number on an item whose only content is a nested list", () => {
@@ -1005,9 +1011,13 @@ describe("a list index is spent only on an item that reaches the output", () => 
     // numbered slot exactly as every browser and Word renders it.
     const lines = htmlToRichLines("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
     expect(lines.map((l) => (l.kind === "li" ? [l.depth, l.index] : l.kind))).toEqual([
+      [0, 0], // §157: item 1's marker-only head, so its "1." is shown
       [1, 0], // n
       [0, 1], // b <- item 2, because item 1 rendered a sub-list
     ]);
+    // The outer marker is NOT moved onto the nested item: that one keeps its runs.
+    expect(lines[0].runs).toEqual([]);
+    expect(lines[1].runs).toEqual([{ text: "n", marks: [] }]);
   });
 
   it("numbers a run of mixed bare and paragraph-wrapped items consecutively", () => {

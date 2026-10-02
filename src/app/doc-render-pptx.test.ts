@@ -584,6 +584,13 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text.join(" ")).not.toContain("•");
   });
 
+  it("shows the number of an item whose only child is a heading (§157)", async () => {
+    const text = await bodyText(doc([{ type: "paragraph", html: "<ol><li><h2>h</h2></li><li>a</li></ol>" }]));
+    // The marker-only head survives the blank-line strip and draws "1." on a
+    // line of its own, ahead of the heading (one text node per run).
+    expect(text).toEqual(["1. ", "h", "2. ", "a"]);
+  });
+
   it("renders a table's columns and rows", async () => {
     const text = await bodyText(
       doc([{ type: "table", columns: ["Risk", "Owner"], rows: [["Vendor", "Ana"]] }]),

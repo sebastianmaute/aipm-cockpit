@@ -288,6 +288,13 @@ export function bulletMarker(
   return ordered ? `${index + 1}.` : "•";
 }
 
+/** §157 — the marker-only head an item with no line at its own depth gets: an
+ *  `li` with no runs and no task state. A sink that draws no list marker has
+ *  nothing to show for it and must skip it, or it emits an empty paragraph. */
+export function isMarkerOnlyLine(line: RichLine): boolean {
+  return line.kind === "li" && line.runs.length === 0 && line.task === undefined;
+}
+
 export function htmlToRichLines(html: string): RichLine[] {
   if (!html) return [];
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -351,18 +358,24 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  ★ It promotes ONE line. Every later `li` line at this depth is a genuine
    *  continuation, and a second promoted line would put two bullets on one item.
    *
-   *  ★★ AN ITEM WITH NO `li` LINE AT ITS OWN DEPTH IS LEFT ALONE, and that is
-   *  the residue. TWO shapes reach it, and the predicate is the DEPTH filter
-   *  above — NOT a kind one, which is how this docblock used to spell it:
+   *  ★★ AN ITEM WITH NO `li` LINE AT ITS OWN DEPTH gets a MARKER-ONLY head
+   *  (§157, closed 2026-10-02): an `li` line with the item's geometry and no
+   *  runs, inserted before the item's first output line. TWO shapes reach it,
+   *  and the predicate is the DEPTH filter above — NOT a kind one:
    *    • `<li><h2>h</h2></li>` emits only lines of ANOTHER KIND, which keep that
    *      kind (and lose the indent) by §156 and cannot carry a marker;
    *    • `<li><ul>…</ul></li>` emits `li` lines — but they are the SUB-LIST's
    *      items, heads of their own one depth DEEPER, so `line.depth !== depth`
-   *      skips every one of them. "Only lines of another kind" is FALSE about
-   *      this shape and sends a reader hunting for a kind bug that is not there.
-   *  Either way the item still spends its ordinal and renders no marker —
-   *  open-followups §157. */
-  function promoteItemHead(from: number, depth: number): void {
+   *      skips every one of them.
+   *  Before §157 the item spent its ordinal and rendered no marker, so an
+   *  export showed "2." with no "1." anywhere. Widening the depth filter
+   *  instead would put the outer number on the first NESTED item, which reads
+   *  as a numbering bug; a line of its own is how a browser draws it too (the
+   *  marker sits beside a block child it cannot share a line with).
+   *  ★ The line has NO runs, so a sink that draws no list markers (the flat
+   *  projections in `export-sections.ts`) must skip it — `isMarkerOnlyLine`. */
+  function promoteItemHead(from: number, item: LiLine): void {
+    const { depth } = item;
     for (let i = from; i < lines.length; i += 1) {
       const line = lines[i];
       if (line.kind !== "li" || line.depth !== depth) continue;
@@ -377,6 +390,10 @@ export function htmlToRichLines(html: string): RichLine[] {
       }
       return;
     }
+    // §157 — the item rendered, but nothing at its own depth can carry its
+    // marker: give it a line of its own. ★ `runs` is a FRESH array — `item` is
+    // the live line object the walk filled, and sharing its array would alias.
+    if (lines.length > from) lines.splice(from, 0, { ...item, runs: [] });
   }
 
   /** ★ `item` is the list item this text belongs to, or null outside one. It is
@@ -564,7 +581,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         const outputBefore = lines.length;
         walk(el, marks, kind, true, item, item.align, href);
         flush();
-        promoteItemHead(outputBefore, depth);
+        promoteItemHead(outputBefore, item);
         // ★ AFTER the walk. The `listIndex.length` guard keeps a stray <li> with
         // no enclosing list from writing a counter that does not exist.
         if (listIndex.length > 0 && lines.length > outputBefore) listIndex[depth] = index + 1;

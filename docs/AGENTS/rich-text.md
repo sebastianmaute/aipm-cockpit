@@ -341,20 +341,16 @@ register's fix to another is how two of them broke. Read the note that names you
   the LI arm already snapshots and promoting that first line back to a head — so a `continuation:
   true` seen MID-WALK is provisional, and a reader tracing the walk alone will conclude the marker is
   lost.
-  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item with no `li` line AT ITS OWN DEPTH has
-  none to promote, so it renders NO marker while still spending its ordinal —
-  `docs/open-followups.md` §157, which is §156 seen from the numbering side and has the same cause.
-  Say "per item that put an `li` line AT ITS OWN DEPTH into the output".
-  ★★★ **"EMITS ONLY LINES OF ANOTHER KIND" IS THE WRONG PREDICATE, AND THIS LINE SAID IT.** It is
-  true of `<li><h2>h</h2></li>`, whose only output is a heading — and FALSE of `<li><ul>…</ul></li>`,
-  whose output IS `li` lines. Those are the SUB-LIST's items, heads of their own one depth DEEPER,
-  and what skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind test. The
-  branch's own test proves it — `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` yields `[1, 0]`
-  then `[0, 1]` as `[depth, index]`, and the mapper that produced them emits an array only for a
-  line of kind `"li"`, so BOTH are `li` lines. Reproduce:
-  `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts`. Cover both shapes
-  when you restate this: only-another-kind AND only-a-sub-list. A reader handed the kind spelling
-  goes looking for a kind bug that is not there.
+  ★★ **AN ITEM WITH NO `li` LINE AT ITS OWN DEPTH GETS A MARKER-ONLY HEAD** (§157, closed
+  2026-10-02): `promoteItemHead` inserts an `li` line with the item's geometry and NO runs before the
+  item's first output line, so `<li><h2>h</h2></li>` and `<li><ul>…</ul></li>` show their "1." on
+  a line of their own instead of spending the ordinal invisibly. Two shapes reach it and the
+  predicate is the DEPTH filter, not a kind one: the `<h2>` shape emits only another kind, the
+  sub-list shape emits `li` lines one depth DEEPER. Widening the filter instead would put the outer
+  number on the first nested item. ★★ A sink that draws no list marker must SKIP that line
+  (`isMarkerOnlyLine`), or it emits an empty paragraph — `export-sections.ts`'s two flat/runs
+  projections do; and `isBlankLine` (`doc-render-pptx-slides.ts`) treats every `li` as content, or
+  the PPTX blank strip would delete the head and its number with it.
   ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
   `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
   **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure

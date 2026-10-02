@@ -970,6 +970,14 @@ describe("cellLinkedLines — the structural projection (§330)", () => {
     expect(cellLinkedLines(richCell("<p>plain <em>words</em></p>"))).toBeUndefined();
   });
 
+  it("skips §157's marker-only list head, which this projection cannot draw", () => {
+    const cell = richCell('<ol><li><ul><li><a href="https://a/x">n</a></li></ul></li></ol>');
+    const lines = cellLinkedLines(cell)!;
+    expect(lines.every((line) => line.runs.length > 0)).toBe(true);
+    expect(flatten(lines)).toBe("n");
+    expect(cellTextWithLinks(cell)).toBe("n (https://a/x)");
+  });
+
   it("returns undefined for a cell that is not rich at all", () => {
     expect(cellLinkedLines("raw")).toBeUndefined();
     expect(cellLinkedLines(42)).toBeUndefined();

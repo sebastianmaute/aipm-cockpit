@@ -437,6 +437,14 @@ describe("docxInlineDrawing", () => {
 // change the bytes of EVERY package, including link-free ones, and move
 // docs/baselines/ooxml-parts.json. The media path already solves the identical
 // problem the identical way, on `a:blip`.
+describe("docxRichParagraphs — §157 marker-only list head", () => {
+  it("draws the number of an item whose only content is a nested list", () => {
+    const xml = docxRichParagraphs("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
+    const texts = [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]!.trim());
+    expect(texts.filter((x) => x !== "")).toEqual(["1.", "•", "n", "2.", "b"]);
+  });
+});
+
 describe("docxRichParagraphs — hyperlinks", () => {
   it("wraps a linked run in w:hyperlink carrying the sink's rel id", () => {
     const sink = createLinkSink(2);

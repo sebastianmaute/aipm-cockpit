@@ -388,7 +388,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
 | [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--open-deliberate) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate | — | — | open |
-| [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--open) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | open |
+| [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--closed-2026-10-02) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | **CLOSED** 2026-10-02 |
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
@@ -13824,11 +13824,11 @@ above, not a lost one.
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
 
-## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
+## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — CLOSED 2026-10-02
 
-**Status:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. `promoteItemHead` (`rich-text-runs.ts`) now gives an item with no `li` line at its own depth a MARKER-ONLY head — an `li` line with the item's geometry and no runs, inserted before the item's first output line — so `<ol><li><h2>h</h2></li><li>a</li></ol>` and `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` render "1." on a line of its own (DOCX and both PPTX paths), the way a browser puts the marker beside a block child. The depth filter is unchanged, so the outer number never lands on a nested item. Sinks that draw no list marker skip the head via `isMarkerOnlyLine` (`cellTextWithLinks`, `cellLinkedLines`), and `isBlankLine` now treats every `li` as content so the PPTX blank strip cannot delete it (mutation-checked). Pinned in `rich-text-runs.test.ts` (the two "SPENDS a number" tests, now asserting the head), `ooxml-docx-primitives.test.ts` ("§157 marker-only list head"), `doc-render-pptx.test.ts` ("shows the number of an item whose only child is a heading") and `export-sections.test.ts` ("skips §157's marker-only list head"). The history below is kept as written.
 
-**Work item:** #166
+**Previously:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
 (`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
