@@ -75,30 +75,45 @@ const formatCount = (n: number, lang: Lang): string => new Intl.NumberFormat(loc
  *  render into. Refusing to write is the whole fix there; do not fake a notice.
  *
  * ★★★ `role="status"` IS LOAD-BEARING, and its absence made the docstring above
- *  false for exactly the users it was written for. This element mounts AFTER a
- *  blur has already moved focus elsewhere, so a screen-reader user gets no
- *  announcement from the mount alone: the "silent refusal" this component
- *  exists to prevent stayed silent for them, in both states. `status` carries
- *  an implicit `aria-live="polite"`, so the reason is announced without
- *  interrupting whatever the user is now typing.
+ *  false for exactly the users it was written for. On the blur path focus has
+ *  already moved elsewhere, and on the `commitValue` paths (bullets add/remove/
+ *  move/toggle, table add/remove, the dataSection select) it is still on the
+ *  control just operated — either way the user is not reading this element, so
+ *  only a live region reaches them. `status` carries an implicit
+ *  `aria-live="polite"`, so the reason is announced without interrupting
+ *  whatever the user is now typing.
+ *  ★★★ ALWAYS MOUNTED (§190): callers pass `refusal` straight through, `null`
+ *   included, and this renders an EMPTY region. A live region inserted in the
+ *   same commit as its text is the case screen readers handle worst; a region
+ *   already in the tree whose text changes is the reliable one (the shape
+ *   `dashboard-panel.tsx` and `modern-shell.tsx` use). `empty:sr-only` keeps the
+ *   empty region in the accessibility tree while taking it out of the layout,
+ *   so it adds no space under every block editor. Do NOT restore a
+ *   `{refusal && …}` guard at a call site, and do NOT swap in `FieldNotice` to
+ *   "fix" this — it returns null on no children, i.e. the same insertion.
  *  ★★ NOT `role="alert"` (assertive): it would cut across the user's next
  *   keystrokes to report a refusal they can act on at their leisure. Nothing
  *   here is time-critical — the draft text is still on screen and still theirs.
  *  ★★ NO axe RULE COVERS THIS, at any seed size: a missing live region is not
  *   a violation, it is an absence. `document-block-editors.test.tsx` pins the
- *   role in both states, and that unit test is the only detector there will be.
+ *   role in both states and that the region exists before any refusal — that
+ *   is the only detector of the ROLE and the MOUNT there will be. Nothing can
+ *   detect the ANNOUNCEMENT itself: jsdom cannot tell an inserted region from
+ *   a changed one.
  *   The identical problem is solved the identical way one file over, in
  *   `documents-panel.tsx`'s rejection banner.
  */
-export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
+export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal | null }) {
   const text =
-    typeof refusal !== "object"
+    refusal === null
+      ? null
+      : typeof refusal !== "object"
       ? t(lang, refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved")
-      : refusal.kind === "tooLong"
-        ? t(lang, "documentsBlockTooLongNotSaved", formatCount(refusal.excess, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
-        : t(lang, OVER_LIMIT_KEY[refusal.violation.kind], formatCount(refusal.violation.limit, lang));
+        : refusal.kind === "tooLong"
+          ? t(lang, "documentsBlockTooLongNotSaved", formatCount(refusal.excess, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
+          : t(lang, OVER_LIMIT_KEY[refusal.violation.kind], formatCount(refusal.violation.limit, lang));
   return (
-    <p role="status" className="text-xs text-ui-pink-strong">
+    <p role="status" className="text-xs text-ui-pink-strong empty:sr-only">
       {text}
     </p>
   );

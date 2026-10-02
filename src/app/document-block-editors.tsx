@@ -579,7 +579,7 @@ export function HeadingBlockEditor({
           onChange={(e) => setValue({ ...value, text: e.target.value })}
         />
       </div>
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }
@@ -654,7 +654,7 @@ function ParagraphEditorBody({
         ariaDescribedBy={countId}
       />
       <ParagraphCharCount lang={lang} visible={htmlTextLength(html)} id={countId} />
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }
@@ -728,7 +728,7 @@ export function DataSectionBlockEditor({
           </option>
         ))}
       </Select>
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }

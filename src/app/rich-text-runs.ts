@@ -666,8 +666,19 @@ export function htmlToRichLines(html: string): RichLine[] {
         // justifies only the ABSENT-align case here; applied to the resolution
         // ORDER it argues the opposite of what the head arm does, since a
         // browser would let an inner `<p data-align>` beat the outer `<li>`.
+        //
+        // ★★ INSIDE A BLOCKQUOTE, THE QUOTE'S ALIGN IS INHERITED TOO (§158).
+        // `<blockquote data-align="right"><p>q</p></blockquote>` used to export
+        // UNALIGNED: the nested arm's own line held no text and `flush` dropped
+        // it, taking the align with it. The nested arm hands its align down as
+        // the alignment in force, and only here, with `kind === "blockquote"`,
+        // is it consulted. Deliberately NOT a blanket `?? align`: that would
+        // also change every `<p>` inside a top-level `<div data-align>` and
+        // inside a `<pre>`, a wider output change than the defect. Editor
+        // output never reaches this (TextAlign is paragraph/heading only);
+        // imported and AI HTML do.
         const lineAlign = alignOf(el);
-        const resolved = lineAlign ?? item?.align;
+        const resolved = lineAlign ?? item?.align ?? (kind === "blockquote" ? align : undefined);
         startLine(
           item === null ? { kind, runs: [], align: resolved } : continuationOf(item, resolved),
         );

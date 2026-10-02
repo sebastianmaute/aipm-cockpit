@@ -33,6 +33,7 @@ import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
 import { DocumentLinksSection } from "./document-links-section";
 import { resolveDocRef } from "./document-ref";
+import { displayRejected } from "./document-refusal-text";
 import { useDocumentEntityFilter } from "./use-document-entity-filter";
 import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
@@ -721,16 +722,18 @@ export function DocumentsPanel({
             `documents-panel.test.tsx`: moving this back inside the section
             reddens the modal-refusal case on its own.
             ★ `role="status"` so the refusal is ANNOUNCED rather than only
-            drawn. The reasons are the engine's own strings and are not
-            translated — an i18n key for this was not available to add; see the
-            report. An untranslated reason beats a silent no-op.
+            drawn. The reasons are the engine's own strings, EXCEPT a
+            concurrent-writer refusal, which `isWriterConflictReason`
+            recognises and the user reads translated (§186); the engine text
+            stays on the `title` as the diagnostic detail. Any other reason is
+            still shown raw — an untranslated reason beats a silent no-op.
             ★★ AND THAT HOIST IS WHY THE CLEARING IS EXPLICIT. Inside the
             section, closing it took the message down; out here nothing does,
             so the four clearing contexts listed on `restoreRejected` are what
             keep this from becoming a line of permanent furniture. */}
         {restoreRejected.length > 0 && (
-          <p role="status" className="text-sm text-ui-pink-strong">
-            {restoreRejected.join("; ")}
+          <p role="status" className="text-sm text-ui-pink-strong" title={restoreRejected.join("; ")}>
+            {displayRejected(lang, restoreRejected).join("; ")}
           </p>
         )}
         <DocumentLinksSection
@@ -859,3 +862,4 @@ export function DocumentsPanel({
     </div>
   );
 }
+

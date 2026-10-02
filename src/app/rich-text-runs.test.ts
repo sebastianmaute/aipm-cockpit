@@ -349,9 +349,9 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     // `types: ["heading", "paragraph"]` (rich-text-editor.tsx), so `data-align`
     // never lands on a `<pre>` either. What the four DO cover is that each
     // block arm hands its own align down to a line re-opened by a break —
-    // on inputs chosen to make that observable. The editor-real blockquote
-    // shape does NOT hold the property; it is characterized in the test below
-    // (open-followups §158).
+    // on inputs chosen to make that observable. A quote's align reaching a
+    // WRAPPED paragraph is the separate case pinned below (open-followups
+    // §158, closed).
     expect(htmlToRichLines('<p data-align="center">a<br>b</p>').map(alignOfLine)).toEqual([
       "center",
       "center",
@@ -372,24 +372,23 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     ]);
   });
 
-  it("DROPS a blockquote's OWN align when its content is wrapped in a paragraph", () => {
-    // ★★★ A CHARACTERIZATION OF A GAP, NOT A GUARANTEE — it asserts the defect
-    // is still there and is meant to go RED when open-followups §158 is fixed.
-    //
-    // ★★★ THIS FIXTURE IS IMPORTED/AI HTML, NOT EDITOR OUTPUT, and an earlier
-    // name for this test ("in the shape the editor actually stores") claimed the
-    // opposite — the same hand-authored-fixture-as-real-input class the comment
-    // above warns about, reintroduced by the round that wrote that warning.
-    // `TextAlign` is configured `types: ["heading", "paragraph"]`
-    // (rich-text-editor.tsx), so `data-align` never lands on a `<blockquote>`
-    // any more than it lands on a `<pre>`. The align the user sets inside a
-    // quote lands on the inner `<p>`, and THAT shape is fine — pinned below.
-    // The inner `<p>` takes the LINE_TAGS arm with `item === null`, so it opens
-    // a line with its OWN align; here that is absent and the blockquote's is
-    // gone, which is why only imported markup can reach this.
+  it("keeps a blockquote's OWN align when its content is wrapped in a paragraph (§158)", () => {
+    // ★★★ IMPORTED/AI HTML, NOT EDITOR OUTPUT. `TextAlign` is configured
+    // `types: ["heading", "paragraph"]` (rich-text-editor.tsx), so the editor
+    // never puts `data-align` on a `<blockquote>`. This went RED-to-GREEN with
+    // §158: the inner `<p>` used to take the LINE_TAGS arm with `item === null`
+    // and open a line with its own ABSENT align, dropping the quote's.
     expect(
       htmlToRichLines('<blockquote data-align="right"><p>q</p></blockquote>').map(alignOfLine),
-    ).toEqual([undefined]);
+    ).toEqual(["right"]);
+    // The paragraph's own declaration still wins over the quote's.
+    expect(
+      htmlToRichLines('<blockquote data-align="right"><p data-align="center">q</p></blockquote>').map(alignOfLine),
+    ).toEqual(["center"]);
+  });
+
+  it("does NOT widen the fallback to a paragraph inside a top-level div (§158 scope)", () => {
+    expect(htmlToRichLines('<div data-align="right"><p>q</p></div>').map(alignOfLine)).toEqual([undefined]);
   });
 
   it("keeps the align the EDITOR stores on a quote — on the inner paragraph", () => {

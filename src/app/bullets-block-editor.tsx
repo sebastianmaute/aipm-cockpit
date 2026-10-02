@@ -172,7 +172,7 @@ export function BulletsBlockEditor({
           {t(lang, "documentsListItemLimitReached", new Intl.NumberFormat(localeFor(lang)).format(MAX_BULLET_ITEMS))}
         </p>
       )}
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }

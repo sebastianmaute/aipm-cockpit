@@ -389,7 +389,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
 | [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--open-deliberate) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate | — | — | open |
 | [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--open) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | open |
-| [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--open) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | open |
+| [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
 | [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare--closed-2026-09-14) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | **CLOSED** 2026-09-14 |
@@ -417,11 +417,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
 | [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
-| [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
+| [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
-| [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | open |
+| [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
 | [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
@@ -13875,11 +13875,11 @@ the editor always puts a `<p>` first. AI-authored and imported HTML can produce 
 -- src` and the same for `listMarker` each return zero commits, ever. Both are proposed vocabulary for
 the unbuilt second axis, not lost names.
 
-## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
+## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — CLOSED 2026-10-02
 
-**Status:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The narrow shape below was built: `walk`'s nested arm already passed its own align down as the alignment in force, and the LINE_TAGS arm now resolves `lineAlign ?? item?.align ?? (kind === "blockquote" ? align : undefined)` (`rich-text-runs.ts`), so `<blockquote data-align="right"><p>q</p></blockquote>` projects to one `right` line and an inner `<p data-align>` still wins. Scoped to `blockquote` on purpose: a `<p>` inside a top-level `<div data-align>` (and inside a `<pre>`) is unchanged, pinned by "does NOT widen the fallback to a paragraph inside a top-level div". The characterization test this entry names went red as promised and was replaced by "keeps a blockquote's OWN align when its content is wrapped in a paragraph (§158)". The history below is kept as written.
 
-**Work item:** #167
+**Previously:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
 (`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
@@ -16011,12 +16011,12 @@ never call DOMPurify.
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry anchors on `capHtmlText`, but §208 moved the truncation branch to `degradeToPlain`, which now APPENDS surviving asset images. "Bold, links, lists and headings are REMOVED" is still exactly true; "loses every mark" is one degree too strong. Reproduced by `grep -n "degradeToPlain" src/app/rich-text-plain.ts`.
 
-## 186. The block-editor conflict reason reaches users untranslated
+## 186. The block-editor conflict reason reaches users untranslated — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-02. All three concurrent-writer refusals (`replace`, `delete`, `move`) now end with the exported `WRITER_CONFLICT_REASON` (`document-ops.ts`), which is the rejection's code; `isWriterConflictReason` recognises it. `documents-panel.tsx`'s refusal banner renders through `displayRejected` (`document-refusal-text.ts`), which collapses every conflict reason into one `documentsBlockConflictNotSaved` sentence and passes any other reason through; the engine text stays on the banner's `title` as the diagnostic detail. The engine stays i18n-free and the model still reads the engine string. Pinned by `document-refusal-text.test.ts`, which drives the real `applyOps` for all three ops, so a reworded engine string reddens it. ★ The OTHER engine reasons in that banner (limits, out-of-range) are still raw English; that was never this entry's scope. The history below is kept as written.
+
+**Previously:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. Reproduced 2026-08-28 by `grep -rn "was changed by another writer" src/app --include=*.ts`.
-
-**Work item:** #175
 
 `applyOps` rejects a guarded `replace` with the engine string
 `op {i}: replace index {n} was changed by another writer`, and
@@ -16279,9 +16279,11 @@ until rebased. Deliberately left to whoever runs the slice.
 **To close:** run it as its own branch — answer the citation question first,
 then config + reformat + cap + baseline in one reviewable change set.
 
-## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract
+## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract — CLOSED 2026-10-02
 
-**Status:** open. **Severity:** low (an announcement that may not fire, on a
+**Status:** CLOSED 2026-10-02. `BlockRefusalNotice` takes `BlockRefusal | null` and is ALWAYS mounted: all five call sites (re-derived with the grep below) pass `refusal` straight through with no `&&`, so the `role="status"` region sits in the tree empty and the refusal changes its text. `empty:sr-only` keeps the empty region in the accessibility tree and out of the layout, which answers the "permanent vertical space" question below without an eye check of spacing. `FieldNotice` was NOT adopted: it returns null on no children (the same insertion), the block notice has no `aria-describedby` wiring for its `id` to serve, and the token difference is gone already. Both over-broad docstring sentences are corrected in the same commit (the blur-only premise now names the `commitValue` paths; the "only detector" claim now separates the role and mount, which a test pins, from the announcement, which nothing can). Pinned by `document-block-editors.test.tsx` → "keeps the refusal live region mounted and writes the reason into it" (same node before and after, empty before); restoring the guard at one call site reddens it. ★ The announcement itself is still unverified by any detector, as below — this closes the shape, not a screen-reader run. The history below is kept as written.
+
+**Previously:** open. **Severity:** low (an announcement that may not fire, on a
 surface that already shows the reason visually). **Found by:** cold code review
 of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 
@@ -16289,8 +16291,6 @@ of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 token as `FieldNotice`, so the palette cost under "Costs" is gone and only the `mt-1` margin differs.
 `BlockRefusal` also has a third, object variant (`tooLong`, §185). All five call sites still mount the
 notice together with its text.
-
-**Work item:** #179
 
 `BlockRefusalNotice` (`document-block-notices.tsx`) renders
 `<p role="status" className="text-xs text-ui-pink">`, and every call site spells it

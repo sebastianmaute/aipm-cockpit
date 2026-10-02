@@ -241,7 +241,7 @@ export function TableBlockEditor({
           {t(lang, "documentsTableColumnLimitReached", formatLimit(MAX_TABLE_COLUMNS))}
         </p>
       )}
-      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+      <BlockRefusalNotice lang={lang} refusal={refusal} />
     </div>
   );
 }

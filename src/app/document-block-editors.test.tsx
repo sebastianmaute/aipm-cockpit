@@ -1864,6 +1864,24 @@ describe("blocks the loader would discard", () => {
     //  the other. (Here it is one element for both, and that is worth pinning.)
     expect(screen.getByRole("status")).toHaveTextContent(t(LANG, "documentsBlockEmptyNotSaved"));
   });
+
+  // §190: the region must already be in the tree, EMPTY, before the refusal,
+  //  and the refusal must write into that same node rather than insert a new
+  //  one. jsdom cannot hear the announcement; this pins the shape that makes it
+  //  reliable.
+  it("keeps the refusal live region mounted and writes the reason into it", async () => {
+    const block: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Alpha" };
+    render(<HeadingBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.clear(text);
+    act(() => {
+      text.blur();
+    });
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(t(LANG, "documentsBlockEmptyNotSaved"));
+  });
 });
 
 // ★★★ THE TWO UNMOUNT-FLUSH DEFECTS, PINNED THROUGH THE REAL ENGINE.
