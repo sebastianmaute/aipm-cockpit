@@ -43783,6 +43783,13 @@ Pinned by `use-storage-backend.mirror-race.test.tsx`:
 
 `peer-revision-deferral.test.ts` covers the module's rules, and `use-workspace-sync.test.tsx` covers the deferring branch.
 
+**Review round (2026-10-02, an independent read of the branch).** Three defects in the first cut were fixed:
+- **One slot.** A peer that saves twice while this window is busy posts {R1, from B} and then {R2, from R1}. Overwriting kept {R2, from R1}, which this window, still at B, never matched, so it wrote from B and paused. `defer` now CHAINS a revision whose base is the pending one's revision into {R2, from B}. A revision that neither continues the entry nor starts from this window's own base is ignored, so it cannot displace a usable one. `adoptPeerRevision` now defers BEFORE its base check, because that check discarded exactly the second revision.
+- **The ordering race.** The save queue starts the successor job before the refused job's rejection handler runs, so the successor's `settle` could consume the entry first and `covers` then raised the pause anyway. `covers` also accepts the entry the last `settle` ADOPTED. The successor's own refusal reads the adopted revision, never the chain's base, so it still pauses: no loop.
+- **The journal.** A skipped or covered job used to drop its unload-journal entry, relying on a successor that a gate can still stop. It now keeps it until a successor's write confirms, which clears every older entry anyway.
+- Pinned by `use-storage-backend.mirror-race.test.tsx` "a peer that saves twice while this window's slow save is in flight still causes no pause (§666)", and by new rows in `peer-revision-deferral.test.ts` and `use-workspace-sync.test.tsx`. Each of the three fixes was mutation-checked: removing the chain, the adopted-entry cover or the defer-first order turns tests red.
+- ★ Not pinned by a test: the journal half. A test would need a successor run that a gate stops (`savesAllowed`, the load hold, a destructive refusal) between the refusal and the retry.
+
 ★ Residual: a refusal that reaches this window BEFORE the peer's revision message still pauses. On a real backend the two can cross: the server refuses this write as soon as the peer's commits, while the peer's client is still waiting for its response. Then nothing was deferred yet. Closing that would need the pause to wait a short grace period for the message. Not built; the pause is visible and nothing is lost.
 
 The original report follows.

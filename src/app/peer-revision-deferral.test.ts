@@ -87,4 +87,51 @@ describe("createPeerRevisionDeferral (§666)", () => {
     expect(d.covers(b, null, 0, false)).toBe(false);
     expect(d.covers(b, undefined, 0, false)).toBe(false); // never read one: the job never ran
   });
+
+  // A peer that saves twice while this window is busy posts R1 (from B), then R2 (from R1). One slot
+  // overwritten kept {R2, from R1}, which this window, still at B, never matched: it wrote from B and paused.
+  it("chains a revision whose base is the pending one's revision, so the window adopts the peer's latest", () => {
+    const d = createPeerRevisionDeferral(() => {});
+    const b = backendAt("1");
+    d.defer(b, "2", "1");
+    d.defer(b, "3", "2");
+    expect(d.covers(b, "1", 0, false)).toBe(true); // the running job read 1: the chain explains its refusal
+    expect(d.settle(b, 1, false)).toBe("skip"); // a snapshot from before the SECOND message still lacks its slices
+    expect(d.settle(b, 2, false)).toBe("write");
+    expect(b.adoptRevision).toHaveBeenCalledWith("3");
+  });
+
+  it("ignores a revision that neither continues the pending one nor starts from this window's own", () => {
+    const onDeferred = vi.fn();
+    const d = createPeerRevisionDeferral(onDeferred);
+    const b = backendAt("1");
+    d.defer(b, "2", "1");
+    d.defer(b, "9", "7"); // another writer's, from a base this window never held
+    expect(onDeferred).toHaveBeenCalledTimes(1);
+    expect(d.covers(b, "1", 0, false)).toBe(true); // the usable entry survived
+    expect(d.settle(b, 1, false)).toBe("write");
+    expect(b.adoptRevision).toHaveBeenCalledWith("2");
+  });
+
+  it("a revision from this window's own base replaces an entry it does not continue", () => {
+    const d = createPeerRevisionDeferral(() => {});
+    const b = backendAt("1");
+    d.defer(b, "2", "1");
+    d.defer(b, "5", "1"); // a second writer, also from 1: only one of the two can be adopted
+    expect(d.settle(b, 2, false)).toBe("write");
+    expect(b.adoptRevision).toHaveBeenCalledWith("5");
+  });
+
+  // The queue starts the successor BEFORE the refused job's rejection handler runs, so the successor's
+  // `settle` may adopt (and consume) the entry first. The refusal it explains must still be covered.
+  it("still covers a refusal after the successor already adopted the entry, and not the successor's own", () => {
+    const d = createPeerRevisionDeferral(() => {});
+    const b = backendAt("1");
+    d.defer(b, "2", "1");
+    expect(d.settle(b, 1, false)).toBe("write"); // the successor adopts 2
+    expect(d.covers(b, "1", 0, false)).toBe(true); // the old job, read from 1 before the message
+    expect(d.covers(b, "2", 1, false)).toBe(false); // the successor's own refusal is a real conflict: no loop
+    expect(d.covers(b, "1", 0, true)).toBe(false); // contested: reported
+  });
 });
+

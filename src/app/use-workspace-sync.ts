@@ -57,10 +57,10 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
     [isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
+    // §666 — not while a save is queued or running: it may have been built without the peer's slices. The revision is DEFERRED instead (peer-revision-deferral.ts), so that save is skipped or retried from a snapshot that holds them, rather than meeting the revision and pausing. ★ BEFORE the base check below: a peer's SECOND write while this window is busy names a base (its first write) this window does not hold yet, and only the deferral can chain it onto the first. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
+    if (whenSaved(backend) !== null) { peerRevision.defer(backend, revision, baseRevision); return; }
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
     if (announcedRevision(backend) !== baseRevision) return; // also false for a null revision: `baseRevision` is always a string. §656 m2 — `announcedRevision`, so two windows that loaded a SharePoint file as absent match
-    // §666 — not while a save is queued or running: it may have been built without the peer's slices. The revision is DEFERRED instead (peer-revision-deferral.ts), so that save is skipped or retried from a snapshot that holds them, rather than meeting the revision and pausing. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
-    if (whenSaved(backend) !== null) { peerRevision.defer(backend, revision, baseRevision); return; }
     backend.adoptRevision?.(revision);
   }, [backend, peerRevision]);
   useRevisionSync(syncContext, adoptPeerRevision);

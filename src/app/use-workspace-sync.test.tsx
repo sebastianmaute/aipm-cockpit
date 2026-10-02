@@ -66,4 +66,21 @@ describe("useWorkspaceSync — adopting a peer's revision (§656 m2)", () => {
     release();
     await queued;
   });
+
+  // §666 — the peer's SECOND write while this window is busy names a base this window does not hold yet.
+  // Checking the base first discarded it, so the deferral could never chain it onto the first.
+  it("a busy window defers even a revision whose base it does not hold, so the deferral can chain it (§666)", async () => {
+    const adoptRevision = vi.fn();
+    const backend = { revision: () => '"v1,1"', adoptRevision } as unknown as StorageBackend;
+    const peerRevision = { defer: vi.fn(), settle: vi.fn(), covers: vi.fn() };
+    const onRevision = onRevisionFor(backend, peerRevision);
+    let release!: () => void;
+    const queued = enqueueSave(backend, () => new Promise<void>((resolve) => { release = resolve; }));
+    onRevision('"v3,3"', '"v2,2"');
+    expect(peerRevision.defer).toHaveBeenCalledWith(backend, '"v3,3"', '"v2,2"');
+    expect(adoptRevision).not.toHaveBeenCalled();
+    release();
+    await queued;
+  });
 });
+

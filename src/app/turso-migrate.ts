@@ -227,6 +227,15 @@ export function idColumnFromPragma(res: PipelineResultLike | undefined): { type:
  * ★ Gated on the PRAGMA saying `INTEGER` AND primary key — a table already TEXT
  *   (every database created since the fix) produces nothing, so this is a
  *   one-shot self-heal like the rest of this module.
+ * ★ A leftover `…__pre_text_id` table would make the RENAME fail, and with it
+ *   every save. None can arise from here: the four steps run in the save's one
+ *   BEGIN…COMMIT batch, so a failing step rolls the RENAME back too. Deliberately
+ *   NO `DROP TABLE IF EXISTS` first: a table of that name that exists anyway
+ *   was not made by this code, and dropping it would destroy data of unknown origin.
+ * ★ The rebuild REPLACES the rename pass (`columnRenameAlters`) for its table: no
+ *   rename is registered for a text-id table today. One added later must copy the
+ *   OLD column name into the new one in the INSERT…SELECT below, or its data is
+ *   left behind in the dropped table.
  */
 export function idKindRebuild(
   spec: TableColumns,

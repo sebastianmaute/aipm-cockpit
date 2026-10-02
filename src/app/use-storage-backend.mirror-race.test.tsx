@@ -420,4 +420,24 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     for (let i = 0; i < 10; i++) await run(500);
     expect(a.conflicts() + b.conflicts()).toBeGreaterThan(0);
   });
+  // §666, review round — the peer saves TWICE while this window's own save is in flight: {2, from 1}, then
+  // {3, from 2}. The deferral chains them into {3, from 1}, so the refused save is retried, adopting 3,
+  // instead of pausing. A single overwritten slot held {3, from 2}, never matched this window (still at 1).
+  it("a peer that saves twice while this window's slow save is in flight still causes no pause (§666)", async () => {
+    const a = openWindow(strict, LATENCY_MS);
+    const b = openWindow(strict, 4000);
+    await run(0);
+    await run(1000);
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); }); // B's save: 1500 → 5500
+    await run(100);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
+    for (let i = 0; i < 4; i++) await run(500); // A's first save has landed (rev 2), B is still writing
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A2")]); });
+    for (let i = 0; i < 30; i++) await run(500);
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["A2"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from B"]);
+    expect(b.backend.revision()).toBe(String(store.rev));
+  });
 });
