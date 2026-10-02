@@ -365,7 +365,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
 | [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--closed-2026-10-02) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word | — | — | **CLOSED** 2026-10-02 |
 | [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
-| [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--open-latent-measured) | ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured | — | — | open |
+| [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--closed-2026-10-02) | ONE `captureComposite` caller flags no primary and rides the positional fallback | — | — | **CLOSED** 2026-10-02 |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
 | [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--open-dead-code) | The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code | — | — | open |
 | [§137](#137-the-seven-rich-entity-fields-editor-cannot-represent-three-tags-their-storage-permits--closed-2026-08-11) | The seven rich entity fields' editor cannot represent three tags their storage permits | — | — | **CLOSED** 2026-08-11 |
@@ -11355,11 +11355,16 @@ enclosing workspace decoder where the dangling pass runs.
 and a missing id renders nothing. It is recorded because a code comment stated flatly that it self-heals on
 the next load, which is false exactly where most users are.
 
-## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured
+## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — CLOSED 2026-10-02
 
-**Status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The hazard this entry exists for, a cascade silently pointed at stale ids, can no longer pass silently.
+- Every `CompositeFragment` now reports `followsPrimary`: true when it reads the primary's id-remap (`fkRemapField`, or `captureFieldPart`'s `remapBefore`).
+- `primaryIndexOf` (`undo/use-undo-stack.ts`) owns the choice the runner made inline. It takes the flagged fragment; with none flagged, it keeps the positional fallback only while no fragment follows the remap. Otherwise the composite is a programming error: it throws outside production, where a test meets it at capture, and logs `undo.compositeUnflaggedPrimary` in production, where the user's action still goes through.
+- `use-task-submit.ts`, the one unflagged caller, follows no remap, so it is unaffected.
+- Four `use-undo-stack.test.tsx` composites relied on the fallback with an `fkRemapField` cascade; they now flag their primary.
+- Pinned by "refuses a composite whose cascade follows the remap when no fragment is flagged primary" and its harmless-fallback sibling. Removing the throw turns the first red. The full suite shows no production composite of the refused shape.
 
-**Work item:** #151
+**Original status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
 composite silently nominates fragment 0. Of the SEVEN call sites, **six** flag one; only

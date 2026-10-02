@@ -7,6 +7,7 @@ import { t, type Lang, tPlural } from "../i18n";
 import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
+import { logDiag } from "../diagnostics";
 import { mergeFieldPatch } from "./merge-field-value";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "../scope-epoch";
 import {
@@ -317,6 +318,9 @@ const EMPTY_REMAP: ReadonlyMap<number, number> = new Map();
 export interface CompositeFragment {
   /** Whether this fragment is the PRIMARY delete (its id-remap drives cascades). */
   isPrimary: boolean;
+  /** §134 — whether this fragment READS the primary's id-remap (`fkRemapField` or `remapBefore`). A
+   *  composite holding one must flag its primary explicitly: see `primaryIndexOf`. */
+  followsPrimary: boolean;
   /** ★ `arm` is threaded THROUGH by `compositeUndoRunner` and spent (or ignored)
    *  by the fragment builder — the decision is per-fragment, because only the
    *  fragment knows whether its own forward images remove rows. A
@@ -360,6 +364,23 @@ function fieldRowsRunner(part: CompositeFragment): Runner {
  * re-minted row by its correct id via `buildForwardImages`). Re-undo re-runs
  * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
  */
+/** §134 — which fragment publishes the id-remap. The flagged one; with none flagged, fragment 0, the
+ *  positional convention every composite used to rely on. ★★ That fallback is only safe while no
+ *  fragment READS the remap: a cascade that follows the primary would silently read whatever fragment 0
+ *  published, which for a field patch is nothing, so it restores stale ids with no error. So a composite
+ *  with a following fragment and no flagged primary is a programming error: thrown outside production,
+ *  where a test meets it, and logged in production, where the user's action must still go through. */
+export function primaryIndexOf(fragments: readonly CompositeFragment[]): number {
+  const flagged = fragments.findIndex((f) => f.isPrimary);
+  if (flagged >= 0) return flagged;
+  if (fragments.some((f) => f.followsPrimary)) {
+    const message = "captureComposite: a fragment follows the primary's id-remap, but no fragment is flagged isPrimary";
+    if (process.env.NODE_ENV !== "production") throw new Error(message);
+    logDiag("error", "undo.compositeUnflaggedPrimary", {});
+  }
+  return 0;
+}
+
 function compositeUndoRunner(
   fragments: readonly CompositeFragment[],
   /** ★★ FORWARDED, NEVER TESTED HERE (§295). A composite arms because a
@@ -369,9 +390,9 @@ function compositeUndoRunner(
    *  per-fragment answer or, worse, disagree with it. */
   arm?: () => void,
 ): Runner {
-  // The PRIMARY (remap source) is the explicitly-flagged fragment; fall back to
-  // index 0 for back-compat. Explicit beats the fragile positional convention.
-  const primaryIdx = Math.max(0, fragments.findIndex((f) => f.isPrimary));
+  // The PRIMARY (remap source) is the explicitly-flagged fragment; `primaryIndexOf` owns the fallback and
+  // refuses it for a composite whose cascades follow the remap (§134).
+  const primaryIdx = primaryIndexOf(fragments);
   const runUndo: Runner = () => {
     // Fresh box each undo so a re-undo (after redo) re-derives the remap from
     // live state rather than a stale one.
@@ -440,7 +461,7 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
       setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
     };
   };
-  return { isPrimary: isPrimary === true, restore };
+  return { isPrimary: isPrimary === true, followsPrimary: fkRemapField !== undefined, restore };
 }
 
 /** One FIELD-LEVEL contribution to a composite undo: N rows in ONE array, each
@@ -501,8 +522,10 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `capturePart` cascade. It removes nothing, so it publishes no id-remap — and
  * `compositeUndoRunner` falls back to fragment 0 when no fragment sets
  * `isPrimary`, so a field part sitting first would become the nominal primary,
- * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
- * stale ids with no error.
+ * leave `primaryRemap` empty, and point every `fkRemapField` cascade at stale ids.
+ * ★ §134 — no longer SILENT: `primaryIndexOf` throws outside production (and logs
+ * `undo.compositeUnflaggedPrimary` in it) when a fragment follows the remap and none
+ * is flagged. Flag the delete `isPrimary: true` and the question never arises.
  * ★★★ ENUMERATE WITH ALL THREE CALL SHAPES OR YOU WILL MISS ONE. An earlier
  * revision of this paragraph said SIX and named only the budget caller, because
  * its grep matched `captureComposite({` and `captureCompositeRef.current?.({`
@@ -588,7 +611,7 @@ export function captureFieldPart<T extends { id: number }>(
     apply(remapped, (e) => e.before, (e) => e.after);
     return () => apply(() => resolved, (e) => e.after, (e) => e.before);
   };
-  return { isPrimary: false, restore };
+  return { isPrimary: false, followsPrimary: fkRemapField !== undefined || remapBefore !== undefined, restore };
 }
 
 /** A composite undo: one entry whose restore reverts a primary removal AND

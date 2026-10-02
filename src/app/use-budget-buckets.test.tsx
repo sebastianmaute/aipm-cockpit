@@ -110,7 +110,7 @@ describe("commitBuckets", () => {
   test("a tasksPart routes through captureComposite instead of capture", () => {
     const prev = bucket(1, "Design");
     const s = setup([prev]);
-    const tasksPart = { isPrimary: false, restore: () => () => {} };
+    const tasksPart = { isPrimary: false, followsPrimary: false, restore: () => () => {} };
     s.result.current.commitBuckets([{ ...prev, name: "x" }], {
       kind: "bulk.edit", primaryCount: 3, tasksPart,
     });
