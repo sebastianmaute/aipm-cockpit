@@ -5,7 +5,7 @@
 // works outside the table's RowContextProvider — the Kanban board renders cards
 // without that provider. Imports nothing from task-row (fully decoupled).
 import { memo } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { countByCategory } from "./raid";
 import { rowLabel } from "./row-tokens";
@@ -73,7 +73,7 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // is the only detector of the CONTAINMENT property specifically. The exact
       // name, leading count included, is ALSO pinned in `task-row.test.tsx` and
       // `task-kanban-card.test.tsx`, so an ORDER mutant reddens three files.
-      aria-label={rowLabel(rowLabel(countText, t(lang, "raidReferencedBy", refs.length)), rowToken)}
+      aria-label={rowLabel(rowLabel(countText, tPlural(lang, "raidReferencedBy", refs.length, refs.length)), rowToken)}
       className={`ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
       {countText}

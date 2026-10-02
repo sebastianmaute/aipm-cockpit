@@ -2,7 +2,7 @@
 import { useCallback, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { planEntityReconcile, type HasEventLink } from "./calendar-reconcile";
 import { logDiag } from "./diagnostics";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
@@ -121,7 +121,7 @@ export function useEntityCalendarPush<T extends HasEventLink>(
       // Auto-sync (interactive:false) stays fully silent — no result/partial toast.
       if (interactive) {
         showToast("info", t(lang, "calendarPushResult", plan.create.length, plan.update.length, plan.delete.length));
-        if (failed > 0) showToast("error", t(lang, "calendarPushPartial", failed));
+        if (failed > 0) showToast("error", tPlural(lang, "calendarPushPartial", failed, failed));
       }
     } catch (err) {
       if (interactive) showToast("error", t(lang, "calendarPushNoAccess"));

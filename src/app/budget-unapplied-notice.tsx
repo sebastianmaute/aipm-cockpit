@@ -13,7 +13,7 @@
 //   bug, and the unattributed branch below is the only place the app admits it.
 import { useMemo } from "react";
 import { ExclamationTriangleIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { buildApplyPlan, bucketsMissingAllocations } from "./timelog-apply";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { bucketOverlay } from "./timelog-actuals";
@@ -134,11 +134,11 @@ export function BudgetUnappliedNotice({
       <div className="flex-1 space-y-1">
         {partial && <p className="text-foreground">{t(lang, "timelogApplyPartial")}</p>}
         {!partial && affected > 0 && (
-          <p className="text-foreground">{t(lang, "budgetUnappliedActuals", String(affected))}</p>
+          <p className="text-foreground">{tPlural(lang, "budgetUnappliedActuals", affected, String(affected))}</p>
         )}
         {!partial && missing > 0 && (
           <p className="text-muted-foreground">
-            {t(lang, "timelogApplyNoAllocation", String(missing))}
+            {tPlural(lang, "timelogApplyNoAllocation", missing, String(missing))}
           </p>
         )}
         {!partial && withheld > 0 && (
@@ -147,7 +147,7 @@ export function BudgetUnappliedNotice({
           // wording and same 1dp formatting the Timelog panel uses, so the two
           // surfaces cannot describe one cache differently.
           <p className="text-muted-foreground">
-            {t(lang, "timelogApplyUnmatched", String(withheld), formatHours(plan?.unmatchedHours ?? 0))}
+            {tPlural(lang, "timelogApplyUnmatched", withheld, String(withheld), formatHours(plan?.unmatchedHours ?? 0))}
           </p>
         )}
         {!partial && unattributed !== 0 && (

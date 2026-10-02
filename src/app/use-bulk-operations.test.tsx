@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import type { BudgetBucket, Task } from "./types";
 import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -399,7 +399,7 @@ describe("useBulkOperations", () => {
       // silently would look identical to an edit that simply did not take.
       expect(args.showToast).toHaveBeenCalledWith(
         "info",
-        t("en-US", "bulkEditHiddenSkipped", 1),
+        tPlural("en-US", "bulkEditHiddenSkipped", 1, 1),
       );
       expect(args.showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
     });
@@ -429,7 +429,7 @@ describe("useBulkOperations", () => {
       // notice the whole apply is indistinguishable from one that worked.
       expect(args.showToast).toHaveBeenCalledWith(
         "info",
-        t("en-US", "bulkEditHiddenSkipped", 1),
+        tPlural("en-US", "bulkEditHiddenSkipped", 1, 1),
       );
       // …and it must not also claim rows were updated.
       expect(args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
@@ -793,7 +793,7 @@ describe("useBulkOperations", () => {
       // The "N updated" branch did NOT fire, so the else-if WAS evaluated.
       expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
       // The user gets the withholding notice…
-      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditHiddenSkipped", 1));
+      expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "bulkEditHiddenSkipped", 1, 1));
       // …and NOT a second, contradicting explanation for the same outcome.
       expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
     });
@@ -830,14 +830,14 @@ describe("useBulkOperations", () => {
       // The row is the sole VISIBLE target, so nothing here is hidden — this is
       // the `skippedSynced` conjunct on its own, not the one above.
       expect(result.current.workspace.tasks[0].localModifiedAt).toBe("STAMP");
-      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditHiddenSkipped", 1));
+      expect(showToast).not.toHaveBeenCalledWith("info", tPlural("en-US", "bulkEditHiddenSkipped", 1, 1));
       // The "N updated" branch did NOT fire, so the else-if WAS evaluated.
       expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
       expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
       // The user gets the Jira notice…
       expect(showToast).toHaveBeenCalledWith(
         "info",
-        t("en-US", "jiraBulkManagedFieldsSkipped", 1),
+        tPlural("en-US", "jiraBulkManagedFieldsSkipped", 1, 1),
       );
       // …and NOT a second explanation contradicting it.
       expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));

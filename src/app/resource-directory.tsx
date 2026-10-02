@@ -6,7 +6,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
@@ -300,7 +300,7 @@ function ResourceDirectoryInner({
 
   const handleBulkDelete = async () => {
     if (!onBulkDeleteResources || sel.count === 0) return;
-    if (await confirm({ message: `${t(lang, "resourceBulkDeleteConfirm", String(sel.count))} ${t(lang, "resourceDeleteCascadeNote")}` })) {
+    if (await confirm({ message: `${tPlural(lang, "resourceBulkDeleteConfirm", sel.count, String(sel.count))} ${t(lang, "resourceDeleteCascadeNote")}` })) {
       onBulkDeleteResources(Array.from(sel.selectedIds));
       sel.clear();
       setBulkOpen(false);

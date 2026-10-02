@@ -341,7 +341,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     // Assert the STALE toast specifically (not just "contains 1") — the
     // applied-count toast below ALSO contains "1", so a loose stringContaining
     // assertion here would pass even if the stale toast were never sent.
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "allocPlanSkippedStale", 1));
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedStale", 1, 1));
     expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanApplied", 1, 1));
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.

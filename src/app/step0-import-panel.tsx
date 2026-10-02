@@ -13,7 +13,7 @@
 // `finally`.
 
 import { useRef, useState } from "react";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
@@ -417,7 +417,7 @@ export function Step0ImportPanel({
 
         {skipped.length > 0 && (
           <p className="text-xs text-muted-foreground">
-            {t(lang, "wizardImportSkippedFiles", skipped.length, skipped.map((s) => s.name).join(", "))}
+            {tPlural(lang, "wizardImportSkippedFiles", skipped.length, skipped.length, skipped.map((s) => s.name).join(", "))}
           </p>
         )}
 

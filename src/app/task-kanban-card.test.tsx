@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { ChangeItem, RaidItem, Resource, Task } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -101,7 +101,7 @@ describe("TaskKanbanCard", () => {
     // here the point is only that the badge renders and is clickable outside
     // RowContextProvider, so the name is composed the way the component does.
     const badge = screen.getByRole("button", {
-      name: rowLabel(rowLabel(t("en-US", "raidReferencedByCount", 2), t("en-US", "raidReferencedBy", 2)), "Alpha"),
+      name: rowLabel(rowLabel(t("en-US", "raidReferencedByCount", 2), tPlural("en-US", "raidReferencedBy", 2, 2)), "Alpha"),
     });
     fireEvent.click(badge);
     expect(onJumpToRaid).toHaveBeenCalledWith(1);
@@ -237,8 +237,8 @@ describe("TaskKanbanCard linked-documents badge", () => {
     renderCards();
     const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 document(s) – Alpha",
-      "Referenced by 1 document(s) – Beta",
+      "Referenced by 2 documents – Alpha",
+      "Referenced by 1 document – Beta",
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(screen.queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
@@ -247,7 +247,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
 
   it("clicking a badge opens the Documents pane for THAT task", () => {
     const { onOpenDocuments } = renderCards();
-    fireEvent.click(screen.getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 1 document – Beta" }));
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
   });
 

@@ -74,6 +74,9 @@ const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot:
   "ai.taskDedup": { base: "activityAiTaskDedup", slot: 0 },
   "undo": { base: "activityUndo", slot: 0 },
   "redo": { base: "activityRedo", slot: 0 },
+  // §450 — the third argument (`{2}`) is the conflict count; the first two
+  // are bare numbers ("3 pulled") with no noun to agree.
+  "jira.sync": { base: "activityJiraSync", slot: 2 },
 };
 
 /** Exposed for the drift test only — not part of the rendering contract. */

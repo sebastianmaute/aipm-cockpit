@@ -11,11 +11,12 @@ import { de } from "./i18n.de";
 // key that never got one is outside their domain by construction. This reads
 // the dictionary VALUES instead.
 //
-// ★★ A RATCHET, PINNED EXACTLY. The count may only FALL — convert a key to a
-//   `…One` pair (and `tPlural` at its call site) and lower the number in the
-//   same commit. A RISE means a new escape was written; author the singular
-//   instead. Exact rather than `<=`, so a conversion that forgets to lower the
-//   pin is caught too and the number here stays true.
+// ★★ ZERO, AND IT STAYS ZERO. This began as a ratchet (64 EN / 55 DE on
+//   2026-10-02) and §450 converted every escape the same day: sentence keys
+//   became `…One` pairs rendered through `tPlural`, two-count sentences take
+//   one plural FRAGMENT per noun, the interval unit labels take the interval
+//   as their count, dead keys were deleted and two count-free prompts were
+//   reworded. A failure here names the key: author its singular instead.
 // ★ The shapes matched are the parenthetical suffixes after a letter: `(s)`,
 //   `(e)`, `(n)`, `(en)`, `(er)`, `(es)`. The SLASH shape (`Vorgang/Vorgänge`)
 //   is NOT counted — a slash also separates real alternatives ("Ja/Nein"), so
@@ -36,11 +37,11 @@ describe("plural escapes in dictionary values (§450)", () => {
     for (const v of ["(s)ome", "see (e)", "Version (1)", "Vorgang/Vorgänge"]) expect(ESCAPE.test(v), v).toBe(false);
   });
 
-  it("only ever falls: EN", () => {
-    expect(escapedKeys(en), "a NEW escape — author a …One singular instead; a FEWER count — lower this pin").toHaveLength(61);
+  it("has none in EN", () => {
+    expect(escapedKeys(en), "an escape-shaped plural — author a …One singular instead").toEqual([]);
   });
 
-  it("only ever falls: DE", () => {
-    expect(escapedKeys(de), "a NEW escape — author a …One singular instead; a FEWER count — lower this pin").toHaveLength(55);
+  it("has none in DE", () => {
+    expect(escapedKeys(de), "an escape-shaped plural — author a …One singular instead").toEqual([]);
   });
 });

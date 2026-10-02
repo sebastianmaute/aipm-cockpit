@@ -8,7 +8,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { TimelogPanel } from "./timelog-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
-import { loadI18n, t } from "./i18n";
+import { loadI18n, t, tPlural } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
@@ -2030,7 +2030,7 @@ describe("TimelogPanel", () => {
       await waitFor(() => expect(btn).toBeEnabled());
       await act(async () => { fireEvent.click(btn); });
       await waitFor(() => {
-        expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardTimelogPartialProjectFetch", 3));
+        expect(showToast).toHaveBeenCalledWith("error", tPlural("en-US", "guardTimelogPartialProjectFetch", 3, 3));
       });
       expect(logDiag).toHaveBeenCalledWith("warn", "timelog.partialProjectFetch", { failedProjects: 3 });
     });
@@ -2147,7 +2147,7 @@ describe("TimelogPanel", () => {
       // …and the user is told HOW MUCH is missing, not merely that something is:
       // the bucket will read 8h low, which is the number that makes the notice
       // actionable. A bare "1 bucket" left them nothing to reconcile against.
-      expect(screen.getByText(t("en-US", "timelogApplyUnmatched", "1", "8"))).toBeInTheDocument();
+      expect(screen.getByText(tPlural("en-US", "timelogApplyUnmatched", 1, "1", "8"))).toBeInTheDocument();
     });
 
     // Apply OWNS every line of a period that routed any booking, so a figure the

@@ -14,7 +14,7 @@ import { stripComments } from "../test/strip-comments";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useLoadTruncation } from "./use-load-truncation";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { enqueueSave } from "./save-queue";
 
 const langRef = { current: "en-US" as Lang };
@@ -84,7 +84,7 @@ describe("useLoadTruncation — import diagnostics", () => {
   // Built from the SAME keys the hook uses, so these assert composition and
   // reachability rather than re-pinning the copy (`i18n-encoding` and the DE
   // key-parity typecheck own the strings themselves).
-  const droppedMsg = (n: number) => t("en-US", "importDroppedRowsWarning", n);
+  const droppedMsg = (n: number) => tPlural("en-US", "importDroppedRowsWarning", n, n);
   const quoteMsg = t("en-US", "importUnbalancedQuotesWarning");
 
   it("surfaces the DROPPED-ROWS count when only rows were skipped", () => {
@@ -324,7 +324,7 @@ describe("useLoadTruncation — reportImportFor", () => {
   it("reports dropped rows without raising the hold", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 }), true); });
-    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importDroppedRowsWarning", 4));
+    expect(showToast).toHaveBeenLastCalledWith("error", tPlural("en-US", "importDroppedRowsWarning", 4, 4));
     expect(result.current.loadWasIncomplete).toBe(false);
   });
 
@@ -333,7 +333,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 2, unterminated: true }), true); });
     expect(showToast).toHaveBeenLastCalledWith(
       "error",
-      `${t("en-US", "importDroppedRowsWarning", 2)} ${t("en-US", "importUnbalancedQuotesWarning")}`,
+      `${tPlural("en-US", "importDroppedRowsWarning", 2, 2)} ${t("en-US", "importUnbalancedQuotesWarning")}`,
     );
   });
 
@@ -371,7 +371,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     // that stopped telling the user why their save was refused pass unnoticed.
     expect(showToast).toHaveBeenLastCalledWith(
       "error",
-      `${t("en-US", "importMalformedQuotesWarning", 3)} ${t("en-US", "importMalformedQuotesPaused")}`,
+      `${tPlural("en-US", "importMalformedQuotesWarning", 3, 3)} ${t("en-US", "importMalformedQuotesPaused")}`,
     );
   });
 
@@ -436,7 +436,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     // folding the two strings back into one.
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), false); });
-    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 2));
+    expect(showToast).toHaveBeenLastCalledWith("error", tPlural("en-US", "importMalformedQuotesWarning", 2, 2));
   });
 
   it("DOES claim saving is paused when it raises the hold", () => {
@@ -447,7 +447,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
     expect(showToast).toHaveBeenLastCalledWith(
       "error",
-      `${t("en-US", "importMalformedQuotesWarning", 2)} ${t("en-US", "importMalformedQuotesPaused")}`,
+      `${tPlural("en-US", "importMalformedQuotesWarning", 2, 2)} ${t("en-US", "importMalformedQuotesPaused")}`,
     );
   });
   it("still reports the import diagnostics when it does not raise the hold", () => {
@@ -457,7 +457,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     // costs, so only the STATE CHANGE is conditional — the diagnostics are not.
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 }), false); });
-    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importDroppedRowsWarning", 4));
+    expect(showToast).toHaveBeenLastCalledWith("error", tPlural("en-US", "importDroppedRowsWarning", 4, 4));
   });
 
   it("does NOT lower a truncation hold a previous load raised", () => {

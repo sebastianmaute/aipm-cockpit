@@ -668,7 +668,7 @@ export function useLoadTruncation(
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
     if (dropped > 0) {
-      parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+      parts.push(tPlural(langRef.current, "importDroppedRowsWarning", dropped, dropped));
       // ★★ WALKED IN `IMPORT_SECTION_KEYS` ORDER, never `Object.keys` order.
       // The breakdown is built as the decoder happens to encounter sections, so
       // the same data in a CSV and in a Markdown file would name them in
@@ -694,7 +694,7 @@ export function useLoadTruncation(
     // mis-parsed — so it is added, never substituted.
     const malformed = backend.lastImportMalformedQuotes ?? 0;
     if (malformed > 0) {
-      parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+      parts.push(tPlural(langRef.current, "importMalformedQuotesWarning", malformed, malformed));
       if (holdWillBeRaised) parts.push(t(langRef.current, "importMalformedQuotesPaused"));
     }
     if (parts.length > 0) showToast("error", parts.join(" "));
@@ -799,7 +799,7 @@ export function useLoadTruncation(
       if (decoded > 0) parts.push(tPlural(langRef.current, "documentsUnreadableWarning", decoded, decoded));
       // ★★ UNCONDITIONAL HERE, unlike in `reportImportDiagnostics`: this is the REFUSAL path — the user asked to write and was declined, so the pause is not a prediction but what just happened.
       if (malformed > 0) {
-        parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+        parts.push(tPlural(langRef.current, "importMalformedQuotesWarning", malformed, malformed));
         parts.push(t(langRef.current, "importMalformedQuotesPaused"));
       }
       if (parts.length > 0) showToast("error", parts.join(" "));

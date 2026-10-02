@@ -13,7 +13,7 @@
 // ★★ This is NOT `calendar-recurrence-text.ts`. That module is i18n-free by
 // contract and mirrors `sanitizeRecurrence` for the AI review card; this one
 // only renders a rule that is already stored.
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, type PluralBaseKey, t, type TranslationKey } from "./i18n";
 import type { RecurrenceRule, Weekday } from "./calendar-event";
 import type { Ordinal } from "./recurrence-draft";
 
@@ -35,7 +35,9 @@ export const ORDINAL_LABEL_KEY: Record<Ordinal, TranslationKey> = {
   [-1]: "calendarEventOrdinalLast",
 };
 
-export const INTERVAL_UNIT_KEY: Record<RecurrenceRule["freq"], TranslationKey> = {
+/** §450 — plural pairs: the label sits beside the interval input, whose value
+ *  selects "day" or "days" (`tPlural(lang, key, interval)`). */
+export const INTERVAL_UNIT_KEY: Record<RecurrenceRule["freq"], PluralBaseKey> = {
   daily: "calendarEventIntervalUnitDaily",
   weekly: "calendarEventIntervalUnitWeekly",
   monthly: "calendarEventIntervalUnitMonthly",

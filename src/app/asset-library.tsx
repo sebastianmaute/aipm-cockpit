@@ -21,7 +21,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
 import { ExclamationTriangleIcon, EyeSlashIcon } from "./icons";
-import { t, localeFor, type Lang } from "./i18n";
+import { t, localeFor, type Lang, tPlural } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { ASSET_MIME_ALLOWED, isBlockedAssetMime } from "./document-asset-upload";
 import { DataTable } from "./data-table";
@@ -196,7 +196,7 @@ export function AssetLibrary({
     const count = usage[asset.id] ?? 0;
     const message =
       count > 0
-        ? t(lang, "assetLibraryDeleteConfirmUsed", asset.name, count)
+        ? tPlural(lang, "assetLibraryDeleteConfirmUsed", count, asset.name, count)
         : t(lang, "assetLibraryDeleteConfirm", asset.name);
     if (await confirm({ message })) onDelete(asset.id);
   }

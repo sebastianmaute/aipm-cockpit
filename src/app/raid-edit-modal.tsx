@@ -13,7 +13,7 @@ import { useDraggable } from "./use-draggable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import {
   defaultStatusForCategory,
   riskSeverityFromMatrix,
@@ -253,7 +253,7 @@ export function RaidEditModal({
       description: capRich(draft.description) || undefined,
       mitigation: capRich(draft.mitigation) || undefined,
     };
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave(saved);
   }
 

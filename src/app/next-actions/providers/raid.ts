@@ -56,7 +56,7 @@ export const raidProvider: ActionProvider = {
       // applied where no `Lang` is available to call it directly.
       const why =
         r.reason === "overdue"
-          ? { key: "actionRaidWhyReviewOverdue" as const, params: [r.daysOverdue] }
+          ? { key: r.daysOverdue === 1 ? "actionRaidWhyReviewOverdueOne" as const : "actionRaidWhyReviewOverdue" as const, params: [r.daysOverdue] }
           : { key: r.daysSinceReview === 1 ? "actionRaidWhyReviewStaleOne" as const : "actionRaidWhyReviewStale" as const, params: [r.daysSinceReview] };
       out.push({
         id: `raid:${r.item.id}:${r.reason}`,

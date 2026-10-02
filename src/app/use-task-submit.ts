@@ -5,7 +5,7 @@ import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useAdjustmentTracker } from "./field-feedback";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, tPlural } from "./i18n";
 import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem, type Resource } from "./types";
@@ -201,7 +201,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       };
 
       if (adj.count() > 0) {
-        showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+        showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
       }
 
       setContacts((prev) => upsertContact(prev, assignee, email));
@@ -369,7 +369,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           ),
         });
         if (successors.skipped > 0) {
-          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+          showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
         }
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a
@@ -454,7 +454,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           tasks: withNew,
         });
         if (successors.skipped > 0) {
-          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+          showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
         }
         const newIds = new Set(withNew.map((r) => r.id));
         const nextList =

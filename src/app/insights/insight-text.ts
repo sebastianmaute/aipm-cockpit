@@ -69,22 +69,22 @@ export function insightDetail(insight: Insight, lang: Lang): string {
   const d = insight.data;
   switch (insight.type) {
     case "milestoneSlip":
-      return t(lang, "insightMilestoneSlipDetail", str(d, "name"), num(d, "daysOverdue"), str(d, "date"));
+      return tPlural(lang, "insightMilestoneSlipDetail", num(d, "daysOverdue"), str(d, "name"), num(d, "daysOverdue"), str(d, "date"));
     case "overdueTrend":
       return tPlural(lang, "insightOverdueTrendDetail", num(d, "current"), num(d, "current"), num(d, "delta"), num(d, "prior"));
     case "stalledWork":
       return tPlural(lang, "insightStalledWorkDetail", num(d, "count"), num(d, "count"));
     case "budgetVariance":
-      return t(lang, "insightBudgetVarianceDetail", str(d, "name"), num(d, "variancePct"), num(d, "buckets"));
+      return tPlural(lang, "insightBudgetVarianceDetail", num(d, "buckets"), str(d, "name"), num(d, "variancePct"), num(d, "buckets"));
     case "raidAging":
-      return t(lang, "insightRaidAgingDetail", str(d, "name"), num(d, "daysSinceUpdate"), str(d, "targetDate"));
+      return tPlural(lang, "insightRaidAgingDetail", num(d, "daysSinceUpdate"), str(d, "name"), num(d, "daysSinceUpdate"), str(d, "targetDate"));
     case "timelogCapPerEntry":
-      return t(lang, "insightTimelogCapPerEntryDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+      return tPlural(lang, "insightTimelogCapPerEntryDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
     case "timelogCapPerDay":
-      return t(lang, "insightTimelogCapPerDayDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+      return tPlural(lang, "insightTimelogCapPerDayDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
     case "timelogNonWorkingDay":
-      return t(lang, "insightTimelogNonWorkingDayDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+      return tPlural(lang, "insightTimelogNonWorkingDayDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
     case "timelogWorkingHours":
-      return t(lang, "insightTimelogWorkingHoursDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+      return tPlural(lang, "insightTimelogWorkingHoursDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
   }
 }

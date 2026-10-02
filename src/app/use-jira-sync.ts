@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { formatExpiryDate } from "./date-format";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-types";
@@ -358,21 +358,14 @@ export function useJiraSync(args: UseJiraSyncArgs) {
 
       args.logActivityAs("integration", "jira.sync", added + pulled, pushed, conflictItems.length);
 
-      const summary = t(
-        langRef.current,
-        "jiraSyncDoneFull",
-        issues.length,
-        added,
-        pulled,
-        pushed,
-      );
+      const summary = tPlural(langRef.current, "jiraSyncDoneFull", issues.length, issues.length, added, pulled, pushed);
       if (conflictItems.length > 0) {
         setJiraConflicts(conflictItems);
         args.showToast(
           "info",
           summary +
             " " +
-            t(langRef.current, "jiraSyncConflictsReview", conflictItems.length),
+            tPlural(langRef.current, "jiraSyncConflictsReview", conflictItems.length, conflictItems.length),
         );
       } else {
         args.showToast("info", summary);
@@ -546,7 +539,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     jiraConflictsRef.current = [];
     args.showToast(
       "info",
-      t(langRef.current, "jiraConflictResolved", resolutions.length, pulled, pushed),
+      tPlural(langRef.current, "jiraConflictResolved", resolutions.length, resolutions.length, pulled, pushed),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
   }, [args.showToast, args.logActivityAs]);

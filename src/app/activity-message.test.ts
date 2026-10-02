@@ -28,7 +28,7 @@ describe("activityMessage", () => {
     // it was there for. Measured 2026-09-08: two members; §450 tier 1 added
     // eight (2026-10-02). Bump this deliberately when a kind is added, which
     // is the point.
-    expect(ACTIVITY_PLURAL_KINDS.length).toBe(10);
+    expect(ACTIVITY_PLURAL_KINDS.length).toBe(11);
     for (const kind of ACTIVITY_PLURAL_KINDS) {
       expect(activityPluralBase(kind)).toBe(ACTIVITY_KIND_TO_KEY[kind]);
     }

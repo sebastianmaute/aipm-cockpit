@@ -88,7 +88,7 @@ export function JiraTokenBanner({
   const msg =
     alert.state === "invalid" ? t(lang, "jiraTokenInvalidBanner")
     : alert.state === "expired" ? t(lang, "jiraTokenExpiredBanner", formatExpiryDate(alert.date, lang))
-    : t(lang, "jiraTokenExpiringBanner", alert.daysLeft, formatExpiryDate(alert.date, lang));
+    : tPlural(lang, "jiraTokenExpiringBanner", alert.daysLeft, alert.daysLeft, formatExpiryDate(alert.date, lang));
   return (
     <AlertBanner severity="warn" ariaLabel={t(lang, "jiraTokenBannerAria")} icon="⚠"
       actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
@@ -350,7 +350,7 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   const countParts = [
     truncationCount,
     decodeFailureCount > 0 ? tPlural(lang, "documentsUnreadableCount", decodeFailureCount, decodeFailureCount) : null,
-    malformedQuoteCount > 0 ? t(lang, "importMalformedQuotesCount", malformedQuoteCount) : null,
+    malformedQuoteCount > 0 ? tPlural(lang, "importMalformedQuotesCount", malformedQuoteCount, malformedQuoteCount) : null,
   ].filter((part): part is string => part !== null);
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
   // ★★★ THE HEADLINE FOLLOWS THE CAUSE, because "document data" was true of only

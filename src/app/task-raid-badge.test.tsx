@@ -27,9 +27,9 @@ describe("RaidBadge", () => {
   //
   // ★★ SO THIS TEST DOES NOT PIN THE HEAD POSITION, and reading it as if it did
   // is the trap. MEASURED, not reasoned: with the name rebuilt to lead with the
-  // MIX instead ("2R · 1A · 0I · 0D – Referenced by 3 RAID item(s) – Alpha"),
+  // MIX instead ("2R · 1A · 0I · 0D – Referenced by 3 RAID items – Alpha"),
   // this test still PASSES — the visible "3 RAID" is a substring of the
-  // spelled-out "Referenced by 3 RAID item(s)" sitting in the middle, so
+  // spelled-out "Referenced by 3 RAID items" sitting in the middle, so
   // containment survives by coincidence. That mutant is caught by the
   // exact-name pin below, which is what holds the ordering. Both assertions are
   // load-bearing.
@@ -53,7 +53,7 @@ describe("RaidBadge", () => {
   it("keeps the count and the row token in the name after the visible text", () => {
     render(<RaidBadge taskId={7} refs={MIXED_REFS} lang="en-US" rowToken="Alpha" onJumpToRaid={vi.fn()} />);
     expect(screen.getByRole("button").getAttribute("aria-label")).toBe(
-      "3 RAID – Referenced by 3 RAID item(s) – Alpha",
+      "3 RAID – Referenced by 3 RAID items – Alpha",
     );
     // ★ `title` carries the per-category BREAKDOWN: `aria-label` wins the NAME,
     // so `title` is only the accessible DESCRIPTION plus the hover tooltip —
@@ -89,8 +89,8 @@ describe("RaidBadge", () => {
     // `Rendered: [...]` list): two badges, no other controls.
     expectRowUniqueNames({ minControls: 2, scope: container, roles: ["button"] });
     expect(names).toEqual([
-      "3 RAID – Referenced by 3 RAID item(s) – Alpha",
-      "3 RAID – Referenced by 3 RAID item(s) – Beta",
+      "3 RAID – Referenced by 3 RAID items – Alpha",
+      "3 RAID – Referenced by 3 RAID items – Beta",
     ]);
   });
 

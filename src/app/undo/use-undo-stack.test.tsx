@@ -3,7 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
-import { t } from "../i18n";
+import { tPlural } from "../i18n";
 
 type Row = { id: number; name: string };
 type Ref = { id: number; roleId: number | null };
@@ -654,12 +654,12 @@ describe("buildUndoLabel — entity registration", () => {
   // the entity from the kind's prefix via ENTITY_KEY_SET; an unregistered prefix
   // yields `null` and the function returns its generic fallback BEFORE reading
   // `opts.name`. So a capture site can correctly pass the entity's title and
-  // still get "Deleted 1 item(s)" — restore works, only the label is wrong,
+  // still get "Deleted 1 item" — restore works, only the label is wrong,
   // which no functional test can see. calendarEvent shipped exactly that way.
   it("names a calendar event on delete instead of falling back to the generic label", () => {
     const label = buildUndoLabel("en-US", "calendarEvent.deleted", 1, { name: "Sprint Planning" });
     expect(label).toBe('Delete meeting "Sprint Planning"');
-    expect(label).not.toBe("Deleted 1 item(s)");
+    expect(label).not.toBe("Deleted 1 item");
   });
 
   it("names a calendar event on edit", () => {
@@ -682,7 +682,7 @@ describe("buildUndoLabel — entity registration", () => {
     // and the sweep would then report zero unnamed entities for EVERY future
     // omission — passing vacuously at exactly the moment it should fail. That
     // is the same silent-fallback class this whole test exists to catch.
-    const generic = [t("en-US", "undoToastDelete", 1), t("en-US", "undoToastEdit", 1)];
+    const generic = [tPlural("en-US", "undoToastDelete", 1, 1), tPlural("en-US", "undoToastEdit", 1, 1)];
     const prefixes = new Set(
       (Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[])
         .filter((k) => k.endsWith(".created") || k.endsWith(".updated") || k.endsWith(".deleted"))
@@ -717,10 +717,10 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     // `"bulk"` is not in ENTITY_KEY_SET, so this takes buildUndoLabel's generic
     // `if (!key)` arm — where the ONLY thing choosing the wording is the
     // predicate under test.
-    expect(buildUndoLabel("en-US", "bulk.delete", 3)).toBe("Deleted 3 item(s)");
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).toBe("Deleted 3 items");
     // The pre-fix output, spelled out: the naive suffix test sent this kind
     // down the same arm's edit side.
-    expect(buildUndoLabel("en-US", "bulk.delete", 3)).not.toBe("Edited 3 item(s)");
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).not.toBe("Edited 3 items");
   });
 
   // ★★★ THE PART EVERY EARLIER READING GOT WRONG. `buildUndoLabel` resolves
@@ -735,7 +735,7 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     // no such string) but the count-only edit fallback at the end of the entity
     // arm — the noun was resolved and then dropped on the floor.
     expect(buildUndoLabel("en-US", "bulk.delete", 3, { entityKey: "task" })).not.toBe(
-      "Edited 3 item(s)",
+      "Edited 3 items",
     );
   });
 
@@ -756,7 +756,7 @@ describe("the delete verb for a synthesized bulk.delete", () => {
     });
     expect(deps.showToastAction).toHaveBeenCalledWith(
       "info",
-      "Deleted 3 item(s)",
+      "Deleted 3 items",
       expect.objectContaining({ labelKey: "undo" }),
     );
     // The control: the entry really was pushed, so a toast that never fired

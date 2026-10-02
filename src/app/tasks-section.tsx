@@ -827,7 +827,7 @@ export function TasksSection({
         <TypeToConfirmDialog
           lang={lang}
           title={t(lang, "tasksClearDialogTitle")}
-          message={t(lang, "tasksClearDialogMessage", tasks.length)}
+          message={tPlural(lang, "tasksClearDialogMessage", tasks.length, tasks.length)}
           confirmValue={t(lang, "tasksClearAllConfirmValue")}
           confirmLabel={t(lang, "tasksClearConfirmLabel")}
           onConfirm={() => {

@@ -8,7 +8,7 @@
 import type React from "react";
 import { PlusIcon } from "./icons";
 import { Checkbox } from "./form-controls";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { Badge } from "./badge";
 import { TextButton } from "./text-button";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
@@ -348,7 +348,7 @@ export function RaidTable({
                       })}
                       {children.length > 0 && (
                         <span
-                          title={t(lang, "raidCausedThisCount", children.length)}
+                          title={tPlural(lang, "raidCausedThisCount", children.length, children.length)}
                           className="inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white"
                         >
                           → {children.length}

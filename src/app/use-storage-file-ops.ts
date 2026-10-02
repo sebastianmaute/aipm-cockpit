@@ -762,7 +762,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
           deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before: a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Same landmine as `onOpenStorageFile`.
           deps.applyPickedWorkspace(existing.workspace); // bumps the scope epoch, replaces the activity log, and opens the §586 gate — see its doc on `StorageFilePickerDeps`.
           await deps.refreshBackendStatus();
-          deps.emitToast("info", t(deps.langRef.current, "storageOpenedToast", existing.workspace.tasks.length));
+          deps.emitToast("info", tPlural(deps.langRef.current, "storageOpenedToast", existing.workspace.tasks.length, existing.workspace.tasks.length));
           // ★★★ §103/§152 — REPORT THE LOAD, and `reportFor`, NOT `reportImportFor`. This branch does
           //   every single thing the import report exists to catch: it READS a file (publishing
           //   `lastLoadTruncation` and the four import fields), APPLIES the decoded rows, BINDS the
@@ -844,7 +844,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       if (!load) throw new StorageNotReadyError("local-file-not-picked"); // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend, and both facade helpers narrow on the same `instanceof` against the same instance. The guard exists only because every facade helper is uniformly nullable. ★★★ A `throw`, NEVER a `return`. BOTH exit above `reportImportFor`, and that is fine here — no load has happened yet, so there are no import diagnostics to report. What differs is SILENCE: a bare `return` makes the user's click do nothing and say nothing, while the throw reaches the catch below and surfaces a real error. Nothing pins that the two helpers' predicates stay in agreement, so if this ever DOES become reachable it must fail loudly. ★★ Its neighbour `setBackendFileHandle` below is nullable for the same reason and is deliberately NOT hardened — do not read the asymmetry as a claim it is safer: a `null` there `await`s to nothing, so the pick would go silently UNBOUND while the apply proceeded, which is the worse failure of the two. It is left alone because a second unreachable guard costs a line this file has no budget for, not because it cannot go wrong.
       const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
       // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits OF THE CONFIRM: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
-      const accepted = deps.tasks.length === 0 || window.confirm(t(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length));
+      const accepted = deps.tasks.length === 0 || window.confirm(tPlural(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length, deps.tasks.length));
       if (accepted) {
         const binding = unregisteredBinding(); // §645 C1 — stored with the handle, so a later load of this file joins this window
         await setBackendFileHandle(deps.backend, picked, binding); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
@@ -864,7 +864,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // NOTE: absences and shifts intentionally NOT restored here —
         // faithful extraction of original behavior (not a bug fix).
         await deps.refreshBackendStatus();
-        deps.emitToast("info", t(deps.langRef.current, "storageOpenedToast", loaded.tasks.length));
+        deps.emitToast("info", tPlural(deps.langRef.current, "storageOpenedToast", loaded.tasks.length, loaded.tasks.length));
         const openedEmails = summarizeUnsafeEmailRecords({ tasks: loaded.tasks, raid: loaded.raid }); // only what this path applies
         if (openedEmails) deps.emitToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", openedEmails.count, openedEmails.names));
       }

@@ -84,6 +84,7 @@ describe("due-dates — properties", () => {
         task: makeTask({ id, dueDate }),
         category,
         workDaysLeft,
+        workDaysOverdue: 0,
       }));
     fc.assert(
       fc.property(fc.array(itemArb, { maxLength: 50 }), (items) => {

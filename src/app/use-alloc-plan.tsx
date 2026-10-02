@@ -230,7 +230,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
     }
     if (staleCount > 0) {
-      showToast("info", t(lang, "allocPlanSkippedStale", staleCount));
+      showToast("info", tPlural(lang, "allocPlanSkippedStale", staleCount, staleCount));
     }
     if (fresh.length === 0) {
       // Every chosen cell had moved — the stale toast above already told the

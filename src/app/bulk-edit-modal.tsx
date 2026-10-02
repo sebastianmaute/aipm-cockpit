@@ -118,7 +118,7 @@ export function BulkEditModal({
           </select>
           {selectedJiraCount > 0 && (
             <p className="mt-1 text-xs italic text-muted-foreground">
-              {t(lang, "jiraBulkManagedFieldsNote")}
+              {tPlural(lang, "jiraBulkManagedFieldsNote", selectedJiraCount, selectedJiraCount)}
             </p>
           )}
         </BulkEditFieldRow>
@@ -201,7 +201,7 @@ export function BulkEditModal({
           />
           {selectedJiraCount > 0 && (
             <p className="mt-1 text-xs italic text-muted-foreground">
-              {t(lang, "jiraBulkManagedFieldsNote")}
+              {tPlural(lang, "jiraBulkManagedFieldsNote", selectedJiraCount, selectedJiraCount)}
             </p>
           )}
         </BulkEditFieldRow>

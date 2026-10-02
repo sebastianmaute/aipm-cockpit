@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, beforeAll } from "vitest";
-import { loadI18n, tPlural } from "./i18n";
+import { loadI18n, t, tPlural } from "./i18n";
 
 describe("tPlural", () => {
   beforeAll(async () => {
@@ -38,6 +38,15 @@ describe("tPlural", () => {
     expect(tPlural("en-US", "activityEntriesLogged", -1, -1)).toBe("-1 entries logged");
     expect(tPlural("de", "activityEntriesLogged", -1, -1)).toBe("-1 Einträge protokolliert");
     expect(tPlural("en-US", "activityEntriesLogged", -2, -2)).toBe("-2 entries logged");
+  });
+
+  it("composes a two-count sentence from per-noun plural fragments (§450)", () => {
+    const sent = (lang: "en-US" | "de", e: number, k: number) =>
+      t(lang, "bulkSendDone", tPlural(lang, "bulkSendEmailCount", e, e), tPlural(lang, "bulkSendTaskCount", k, k));
+    expect(sent("en-US", 1, 3)).toBe("Opened 1 email for 3 tasks.");
+    expect(sent("de", 2, 1)).toBe("2 E-Mails für 1 Aufgabe geöffnet.");
+    expect(tPlural("de", "calendarEventIntervalUnitWeekly", 1)).toBe("Woche");
+    expect(tPlural("de", "calendarEventIntervalUnitWeekly", 2)).toBe("Wochen");
   });
 
   it("renders the §450 bare-plural German keys grammatically at a count of one", () => {
@@ -150,6 +159,20 @@ describe("plural key pairing", () => {
       "actionChangeAggTitle@src/app/next-actions/providers/change-pending.ts": "i18n-free engine emits a key",
       "actionCommitteeInfoWhy@src/app/next-actions/providers/committee-info.ts": "i18n-free engine emits a key",
       "actionRaidWhyReviewStale@src/app/next-actions/providers/raid.ts": "i18n-free engine emits a key",
+      // §450 tier 2 — the same engine shape for three more provider reasons.
+      "actionRaidWhyReviewOverdue@src/app/next-actions/providers/raid.ts": "i18n-free engine emits a key",
+      "actionTaskWhyOverdue@src/app/next-actions/providers/task-due.ts": "i18n-free engine emits a key",
+      "actionTaskWhySoon@src/app/next-actions/providers/task-due.ts": "i18n-free engine emits a key",
+      // The history popover's count line: the key is a PROP (`countKey`, typed
+      // `PluralBaseKey`) and `UndoHistory` renders it through tPlural.
+      "undoNActions@src/app/undo/undo-control.tsx": "countKey prop; tPlural renders it",
+      "activityJiraSync@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityJiraSync@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      // The interval unit labels: a freq→key Record, rendered by tPlural with the interval as the count.
+      "calendarEventIntervalUnitDaily@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
+      "calendarEventIntervalUnitWeekly@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
+      "calendarEventIntervalUnitMonthly@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
+      "redoNActions@src/app/undo/undo-control.tsx": "countKey prop; tPlural renders it",
       "actionWorkloadWhyOverload@src/app/next-actions/providers/workload.ts": "i18n-free engine emits a key",
       // §415 exception B — FIXED. These four entries were two, both labelled
       // LIVE DEFECT: the singulars were authored in both languages and nothing

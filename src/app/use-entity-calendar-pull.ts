@@ -96,7 +96,7 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     } catch {
       // Do NOT write baseline on failure — leave it non-matching so it re-conflicts
       // next pull (never falsely "in sync").
-      showToast("error", t(lang, "calendarPushPartial", 1));
+      showToast("error", tPlural(lang, "calendarPushPartial", 1, 1));
     }
   }, [items, acquireToken, showToast, lang, projectId, entityType, toGraphEvent]);
 

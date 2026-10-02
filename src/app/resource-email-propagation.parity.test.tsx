@@ -10,7 +10,7 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 import { entityToken } from "./ai-entity-token";
 import { runTool } from "./chat-tools";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { Resource, Task } from "./types";
 
 const ada: Resource = { id: 7, firstName: "Ada", lastName: "L", email: "old@x.com", roleId: null, utilizationMode: "percent", utilization: {} };
@@ -151,7 +151,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
     expect(ai.result.current.ws.resources[0].title).toBe("Lead"); // control: the edit landed
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("Ada L <old@x.com>");
-    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+    expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
   });
 
   it("M-C3: a real correction retargets a linked row holding a Name <addr> copy, on both writers, and undo restores it exactly", () => {
@@ -187,7 +187,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
   it("keeps the plain edit toast on the AI path when nothing propagates", () => {
     const { ai, showToastAction } = renderAi();
     act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
-    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+    expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("OLD@x.com ");
   });
 

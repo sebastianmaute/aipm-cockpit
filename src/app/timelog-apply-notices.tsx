@@ -8,7 +8,7 @@
 //    that DISABLES Apply: the other two explain hours that will be left out of
 //    a write the user can still make, while this one explains why there is no
 //    write to make. A reader who sees a greyed button needs its reason first.
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 
 interface TimelogApplyNoticesProps {
   lang: Lang;
@@ -32,7 +32,7 @@ export function TimelogApplyNotices({
     <>
       {partial && <p className={NOTICE}>{t(lang, "timelogApplyPartial")}</p>}
       {skippedCount > 0 && (
-        <p className={NOTICE}>{t(lang, "timelogApplyNoAllocation", String(skippedCount))}</p>
+        <p className={NOTICE}>{tPlural(lang, "timelogApplyNoAllocation", skippedCount, String(skippedCount))}</p>
       )}
       {unmatchedCount > 0 && (
         <p className={NOTICE}>
@@ -40,7 +40,7 @@ export function TimelogApplyNotices({
               correction nets to zero while hours are still withheld. */}
           {/* 1dp, not Math.round: a net of -0.4 rounded to "0 hours withheld",
               so the notice contradicted itself. Trailing ".0" is trimmed. */}
-          {t(lang, "timelogApplyUnmatched", String(unmatchedCount),
+          {tPlural(lang, "timelogApplyUnmatched", unmatchedCount, String(unmatchedCount),
              unmatchedHours.toFixed(1).replace(/\.0$/, ""))}
         </p>
       )}

@@ -872,8 +872,8 @@ describe("ChangePanel linked-documents badge", () => {
     const { getAllByRole } = renderWithProbe();
     const badges = getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 document(s) – Alpha scope",
-      "Referenced by 1 document(s) – Beta cost",
+      "Referenced by 2 documents – Alpha scope",
+      "Referenced by 1 document – Beta cost",
     ]);
     expectRowUniqueNames({ minControls: 20 });
   });
@@ -881,7 +881,7 @@ describe("ChangePanel linked-documents badge", () => {
   it("clicking the badge switches the app to the Documents view", () => {
     const { getByRole, getByTestId } = renderWithProbe();
     expect(getByTestId("active-tab").textContent).toBe("dashboard");
-    fireEvent.click(getByRole("button", { name: "Referenced by 2 document(s) – Alpha scope" }));
+    fireEvent.click(getByRole("button", { name: "Referenced by 2 documents – Alpha scope" }));
     expect(getByTestId("active-tab").textContent).toBe("documents");
     expect(getByTestId("pending-doc-filter").textContent).toBe("change:1");
   });

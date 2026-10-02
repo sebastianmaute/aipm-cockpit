@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { flushSync } from "react-dom";
-import { t, type Lang } from "../i18n";
+import { t, type Lang, tPlural } from "../i18n";
 import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
@@ -111,7 +111,7 @@ export function buildUndoLabel(
   const isDelete = isDeleteKind(kind);
   const isBulk = kind === "bulk.edit";
   const name = opts?.name && opts.name.trim() ? truncateName(opts.name) : "";
-  if (!key) return t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count);
+  if (!key) return tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count, count);
   const singular = t(lang, ENTITY_SINGULAR[key]);
   const plural = t(lang, ENTITY_PLURAL[key] ?? ENTITY_SINGULAR[key]);
   // ★★★ THE NOUN AGREES WITH `count`, AND THIS LINE SHIPPED WITHOUT IT — a
@@ -133,7 +133,7 @@ export function buildUndoLabel(
     return t(lang, "undoLabelDeleteCount", count, count === 1 ? singular : plural);
   }
   if (name) return t(lang, "undoLabelEditNamed", singular, name);
-  return t(lang, "undoToastEdit", count);
+  return tPlural(lang, "undoToastEdit", count, count);
 }
 
 export interface CaptureOpts<T extends { id: number }> {
@@ -827,7 +827,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     //   count-shaped "Undid 1 action(s)". Both keys already exist.
     showToast("info", inverses.length === 1
       ? t(lang, "undoneX", inverses[0].meta.label)
-      : t(lang, "undoneNActions", inverses.length));
+      : tPlural(lang, "undoneNActions", inverses.length, inverses.length));
     setStack(taken.rest);
     setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
   }, [liveEntries]);
@@ -847,7 +847,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // Mirror of undoThrough's single-entry fallback above.
     showToast("info", inverses.length === 1
       ? t(lang, "redoneX", inverses[0].meta.label)
-      : t(lang, "redoneNActions", inverses.length));
+      : tPlural(lang, "redoneNActions", inverses.length, inverses.length));
     setRedoStack(taken.rest);
     setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
   }, [liveEntries]);
@@ -922,7 +922,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // entry's label describe ONE action, and fixing only the label leaves this
     // saying "Edited" over a mass deletion.
     const isDelete = isDeleteKind(kind);
-    const text = toastText ?? t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
+    const text = toastText ?? tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount, primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 

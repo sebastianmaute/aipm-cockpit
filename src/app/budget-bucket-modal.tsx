@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -278,7 +278,7 @@ export function BudgetBucketModal({
     const savedPoNumber = draft.poNumber != null
       ? adj.track(describeTextCap(draft.poNumber, PO_NUMBER_MAX)).trim() || undefined
       : undefined;
-    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
     onSave({ ...draft, fxRateOverride, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
   };
 
