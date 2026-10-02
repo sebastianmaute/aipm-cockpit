@@ -30,7 +30,7 @@ describe("view digests", () => {
       filters: { assignee: "Ana", group: FILTER_ALL, label: FILTER_ALL },
       today: "2026-08-05",
     });
-    expect(text).toContain("1 task(s)");
+    expect(text).toContain("1 task visible as a row");
     expect(text).toContain("Ana");
   });
 
@@ -72,7 +72,7 @@ describe("view digests", () => {
       tasks: [],
       today: "2026-08-05",
     });
-    expect(text).toContain("0 task(s)");
+    expect(text).toContain("0 tasks visible");
     expect(text).not.toContain("Visible rows");
   });
 
@@ -85,7 +85,7 @@ describe("view digests", () => {
       dueDate: "2026-08-10",
     }));
     const text = digestForView("open-points", { tasks, today: "2026-08-05" });
-    expect(text).toContain("20 task(s)");
+    expect(text).toContain("20 tasks visible");
     expect(text).toContain("5 further visible rows");
   });
 
@@ -98,12 +98,12 @@ describe("view digests", () => {
       ],
       today: "2026-08-05",
     });
-    expect(text).toContain("2 resource(s)");
+    expect(text).toContain("2 resources in");
   });
 
   it("defaults workload to zero resources when none are supplied", () => {
     const text = digestForView("workload", { tasks: [], today: "2026-08-05" });
-    expect(text).toContain("0 resource(s)");
+    expect(text).toContain("0 resources in");
   });
 
   it("reports task and milestone counts for gantt", () => {
@@ -112,13 +112,13 @@ describe("view digests", () => {
       milestones: [{ id: 1, name: "Kickoff", date: "2026-08-20" }],
       today: "2026-08-05",
     });
-    expect(text).toContain("1 task(s)");
-    expect(text).toContain("1 milestone(s)");
+    expect(text).toContain("1 task and");
+    expect(text).toContain("1 milestone in");
   });
 
   it("defaults gantt milestone count to zero when none are supplied", () => {
     const text = digestForView("gantt", { tasks: [], today: "2026-08-05" });
-    expect(text).toContain("0 milestone(s)");
+    expect(text).toContain("0 milestones in");
   });
 
   it("reports the bucket count for budget", () => {
@@ -127,12 +127,12 @@ describe("view digests", () => {
       budgets: [{ id: 1, name: "Delivery" }],
       today: "2026-08-05",
     });
-    expect(text).toContain("1 bucket(s)");
+    expect(text).toContain("1 bucket in");
   });
 
   it("defaults budget bucket count to zero when none are supplied", () => {
     const text = digestForView("budget", { tasks: [], today: "2026-08-05" });
-    expect(text).toContain("0 bucket(s)");
+    expect(text).toContain("0 buckets in");
   });
 });
 

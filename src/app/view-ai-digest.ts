@@ -67,11 +67,19 @@ function activeFilters(filters: TaskFilterValues | undefined): string[] {
     .map(([k, v]) => `${k}=${v === GROUP_NONE ? "(none)" : v}`);
 }
 
+/** "1 task" / "3 tasks". This text is English-only model context (it is never
+ *  translated or shown), so a local helper rather than the plural dictionary;
+ *  every noun here takes a plain "s". */
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
 const openPoints: DigestFn = (i) => {
   const filters = [...activeFilters(i.filters), ...(i.extraFilters ?? [])];
   const surface = i.surface ?? "table";
-  const unit = surface === "table" ? "row(s)" : "card(s)";
-  const lines = [`${i.tasks.length} task(s) visible as ${unit} in the ${surface}.`];
+  const n = i.tasks.length;
+  const unit = `${n === 1 ? "a " : ""}${surface === "table" ? "row" : "card"}${n === 1 ? "" : "s"}`;
+  const lines = [`${count(n, "task")} visible as ${unit} in the ${surface}.`];
   if (filters.length > 0) {
     lines.push(
       `Active filters: ${filters.join(", ")}. Tasks outside these filters are NOT shown.`,
@@ -83,9 +91,9 @@ const openPoints: DigestFn = (i) => {
     .slice(0, VISIBLE_ROW_SAMPLE_CAP)
     .map((t) => `#${t.id} ${t.taskName} [${t.status}]`);
   // ★ Both strings derive from the surface, never hardcode "rows" — a board
-  // digest that announces "card(s) in the board" and then lists "Visible rows:"
+  // digest that announces "cards in the board" and then lists "Visible rows:"
   // names the wrong surface twice per message, which is what `surface` exists
-  // to prevent. (Plain plural here, not the "(s)" form used for the count.)
+  // to prevent.
   const plural = surface === "table" ? "rows" : "cards";
   if (sample.length > 0) lines.push(`Visible ${plural}: ${sample.join("; ")}`);
   if (i.tasks.length > sample.length) {
@@ -99,26 +107,26 @@ const openPoints: DigestFn = (i) => {
 // workspace-wide arrays because their panes filter through state this module
 // cannot reach without duplicating the panel's own logic — which is exactly how
 // a digest silently drifts from the chart it claims to describe. An earlier
-// revision printed "Gantt showing N task(s)" under a wrapper promising "after
+// revision printed "Gantt showing N tasks" under a wrapper promising "after
 // their filters and sorting": two overclaims stacked. State the scope in the
 // LINE, because the wrapper is shared by all four views and cannot qualify one.
 const workload: DigestFn = (i) => {
   const people = (i.resources ?? []).length;
   return (
-    `Workload grid over ${people} resource(s) in the project. ` +
+    `Workload grid over ${count(people, "resource")} in the project. ` +
     "This is the directory count: the pane's Hide-externals toggle and its extra rows " +
     "for unlinked assignees are NOT reflected, so it may differ from the rows on screen."
   );
 };
 
 const gantt: DigestFn = (i) =>
-  `Gantt over ${i.tasks.length} task(s) and ${(i.milestones ?? []).length} milestone(s) in the project. ` +
+  `Gantt over ${count(i.tasks.length, "task")} and ${count((i.milestones ?? []).length, "milestone")} in the project. ` +
   "These are project totals, NOT the bars drawn: the chart applies its own status, priority " +
   "and assignee filters, hides milestones when that toggle is off, and never draws a task " +
   "with no due date. Call a tool if the exact on-chart set matters.";
 
 const budget: DigestFn = (i) =>
-  `Budget planner with ${(i.budgets ?? []).length} bucket(s) in the project. ` +
+  `Budget planner with ${count((i.budgets ?? []).length, "bucket")} in the project. ` +
   "The pane's own bucket filter is NOT reflected in this count.";
 
 export const VIEW_AI_DIGEST: Partial<Record<AppView, DigestFn>> = {
