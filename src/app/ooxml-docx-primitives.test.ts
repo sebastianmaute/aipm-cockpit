@@ -245,6 +245,8 @@ describe("buildDocxTable — width follows the page", () => {
     for (const edge of ["top", "left", "bottom", "right", "insideH", "insideV"]) {
       expect(borders).toMatch(new RegExp(`<w:${edge}\\s+w:val="single"`));
     }
+    // EXACTLY six edges: a seventh (e.g. a diagonal) would pass the loop above.
+    expect(borders.match(/<w:[A-Za-z]+\s/g)).toHaveLength(6);
   });
 
   it("declares the same total on <w:tblW> as the columns add up to", () => {
