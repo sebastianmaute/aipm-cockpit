@@ -88,7 +88,7 @@ describe("handleSaveResource propagates a corrected email (spec Part 7)", () => 
 
   it("undo and redo of a correction keep a contact person added after it", () => {
     const { result } = renderDirectory();
-    const carol = { name: "Carol", email: "carol@x.com", synced: false };
+    const carol = { id: 99, name: "Carol", email: "carol@x.com", synced: false };
     act(() => { result.current.directory.handleEditResource(ada); });
     act(() => { result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
     act(() => {

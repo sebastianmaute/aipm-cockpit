@@ -4208,6 +4208,7 @@ export const de: Record<TranslationKey, string> = {
   infoMore: "Weitere Informationen",
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen.",
+  contactEditSave: "Speichern",
   // UX batch "Aldiss" (0.177.0)
   dashboardCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardCompleteHintNoTrend: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor.",

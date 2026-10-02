@@ -110,13 +110,13 @@ describe("manual-contact email field", () => {
 // file took that default — which made the whole `cp.email ? …` branch of
 // `contactDisplay` unreachable, so a change to it was green by construction.
 // Pass a real address whenever the assertion is about the token's INPUT.
-const contact = (name: string, email = "") => ({ name, email, synced: false });
+const contact = (name: string, email = "", id = 1) => ({ id, name, email, synced: false });
 
 // ★ `names.map((n) => contact(n))`, never `names.map(contact)` — the bare
 // reference hands `map`'s INDEX to the email parameter.
 const withContacts = (...names: string[]) => ({
   ...props,
-  draft: { ...emptyProjectDraft(), contactPersons: names.map((n) => contact(n)) },
+  draft: { ...emptyProjectDraft(), contactPersons: names.map((n, i) => contact(n, "", i + 1)) },
 });
 
 /** Contacts with explicit addresses, for the cases about the token's INPUT. */
@@ -124,7 +124,7 @@ const withContactPeople = (...people: { name: string; email?: string }[]) => ({
   ...props,
   draft: {
     ...emptyProjectDraft(),
-    contactPersons: people.map((p) => contact(p.name, p.email ?? "")),
+    contactPersons: people.map((p, i) => contact(p.name, p.email ?? "", i + 1)),
   },
 });
 
@@ -164,14 +164,16 @@ describe("contact persons", () => {
     // state has to be produced by running the updater against the fixture.
     expect(setDraft).toHaveBeenCalledTimes(1);
     const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
-    expect(updater(fixture.draft).contactPersons).toEqual([contact("Bob Jones")]);
+    // §537 — by id: the SECOND contact (id 2) is the one left.
+    expect(updater(fixture.draft).contactPersons).toEqual([contact("Bob Jones", "", 2)]);
   });
 
   it("gives duplicate contacts distinct accessible names", () => {
     render(<IdentityPeopleFields {...withContacts("Bob Jones", "Bob Jones")} />);
-    // minControls MEASURED: the list renders exactly the two ✕ buttons.
+    // minControls MEASURED: two rows × (Edit, ✕) — §537 added the Edit control,
+    //  and it must be row-unique too.
     expectRowUniqueNames({
-      minControls: 2,
+      minControls: 4,
       roles: ["button"],
       scope: contactsList(),
       requireCollisionSeed: true,
@@ -184,7 +186,7 @@ describe("contact persons", () => {
     // that each name still carries the contact's own display string, and the
     // action verb with it.
     const names = within(contactsList())
-      .getAllByRole("button")
+      .getAllByRole("button", { name: /^Remove/ })
       .map((b) => b.getAttribute("aria-label") ?? "");
     expect(names).toHaveLength(2);
     for (const n of names) {
@@ -208,7 +210,7 @@ describe("contact persons", () => {
       />,
     );
     const names = within(contactsList())
-      .getAllByRole("button")
+      .getAllByRole("button", { name: /^Remove/ })
       .map((b) => b.getAttribute("aria-label") ?? "");
     expect(names).toHaveLength(2);
     expect(names[0]).toContain("bob@north.example");
@@ -227,7 +229,7 @@ describe("contact persons", () => {
       />,
     );
     const names = within(contactsList())
-      .getAllByRole("button")
+      .getAllByRole("button", { name: /^Remove/ })
       .map((b) => b.getAttribute("aria-label") ?? "");
     expect(names).toHaveLength(2);
     // ★ The cost this asserts the ABSENCE of is what the first cut charged every
@@ -256,7 +258,7 @@ describe("contact persons", () => {
   it("distinguishes contacts that differ only by an internal whitespace run", () => {
     render(<IdentityPeopleFields {...withContacts("Bob  Jones", "Bob Jones")} />);
     const heard = controlNames(["button"], contactsList()).map((n) => n.replace(/\s+/g, " "));
-    expect(heard).toHaveLength(2);
+    expect(heard).toHaveLength(4); // two rows × (Edit, ✕), §537
     expect(new Set(heard).size).toBe(heard.length);
   });
 });
@@ -336,5 +338,59 @@ describe("contact person add follows the email write rule", () => {
     expect(setDraft).toHaveBeenCalledTimes(1);
     const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
     expect(updater(props.draft).contactPersons[0].email).toBe("bob@x.com");
+  });
+});
+
+// §537 — a contact can be corrected IN PLACE (it used to take remove + re-add),
+//  addressed by its id, and the email keeps the add path's write rule.
+describe("contact person in-place edit (§537)", () => {
+  async function openEdit(user: ReturnType<typeof userEvent.setup>, setDraft = vi.fn()) {
+    const fixture = withContactPeople({ name: "Ann Lee", email: "ann@x.com" }, { name: "Bob Jones", email: "bob@x.com" });
+    render(<IdentityPeopleFields {...fixture} setDraft={setDraft} />);
+    await user.click(screen.getByRole("button", { name: `${t("en-US", "edit")} – Bob Jones` }));
+    return { fixture, setDraft };
+  }
+
+  it("saves a corrected name and email onto the SAME contact, keeping its id", async () => {
+    const user = userEvent.setup();
+    const { fixture, setDraft } = await openEdit(user);
+    const name = screen.getByRole("textbox", { name: `${t("en-US", "name")} – Bob Jones` });
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "email")} – Bob Jones` });
+    await user.clear(name);
+    await user.type(name, "Robert Jones");
+    await user.clear(email);
+    await user.type(email, "robert@x.com");
+    await user.click(screen.getByRole("button", { name: t("en-US", "contactEditSave") }));
+    const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
+    expect(updater(fixture.draft).contactPersons).toEqual([
+      contact("Ann Lee", "ann@x.com", 1),
+      contact("Robert Jones", "robert@x.com", 2),
+    ]);
+  });
+
+  it("refuses a name another contact already has, and an unsafe typed email", async () => {
+    const user = userEvent.setup();
+    const { setDraft } = await openEdit(user);
+    const name = screen.getByRole("textbox", { name: `${t("en-US", "name")} – Bob Jones` });
+    await user.clear(name);
+    await user.type(name, "ann lee");
+    await user.click(screen.getByRole("button", { name: t("en-US", "contactEditSave") }));
+    expect(setDraft).not.toHaveBeenCalled();
+    await user.clear(name);
+    await user.type(name, "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "email")} – Bob Jones` });
+    await user.clear(email);
+    await user.type(email, "a,b@x.com");
+    await user.click(screen.getByRole("button", { name: t("en-US", "contactEditSave") }));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("cancel leaves the contact untouched", async () => {
+    const user = userEvent.setup();
+    const { setDraft } = await openEdit(user);
+    await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: `${t("en-US", "edit")} – Bob Jones` })).toBeInTheDocument();
   });
 });

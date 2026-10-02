@@ -20,6 +20,8 @@ import {
   AMOUNT_MAX,
   toNumber,
   capRaidStoredText,
+  withContactPersonIds,
+  sanitizeProjectMeta,
   TASK_NAME_MAX,
   BUDGET_NAME_MAX,
 } from "./sanitize";
@@ -661,5 +663,21 @@ describe("capRaidStoredText / the RAID load cap (§37)", () => {
     const item = buildRaidItemFromObj({ id: "1", category: "R", status: "Open", title: "x".repeat(TASK_NAME_MAX + 1), owner: "o".repeat(BUDGET_NAME_MAX + 1) });
     expect(item?.title).toHaveLength(TASK_NAME_MAX);
     expect(item?.owner).toHaveLength(BUDGET_NAME_MAX);
+  });
+});
+
+// §537 — every contact gets an id on load; a valid one is kept, a missing or
+// repeated one is minted above the list's maximum, deterministically.
+describe("withContactPersonIds (§537)", () => {
+  const c = (name: string, id?: number) => ({ ...(id !== undefined ? { id } : {}), name, email: "", synced: false });
+  it("mints 1, 2, 3 for an id-less list, the same on every load", () => {
+    expect(withContactPersonIds([c("a"), c("b"), c("c")]).map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+  it("keeps valid ids and mints above the maximum for missing or repeated ones", () => {
+    expect(withContactPersonIds([c("a", 7), c("b"), c("c", 7), c("d", 2)]).map((x) => x.id)).toEqual([7, 8, 9, 2]);
+  });
+  it("is reached by the load funnel: an old project loads with ids", () => {
+    const meta = sanitizeProjectMeta({ name: "P", contactPersons: [{ name: "Ann", email: "", synced: false }, { name: "Bob", email: "", synced: true }] });
+    expect(meta?.contactPersons.map((x) => x.id)).toEqual([1, 2]);
   });
 });

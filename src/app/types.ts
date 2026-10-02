@@ -721,6 +721,10 @@ export type RegulatoryRequirement =
   | "Export control / sanctions compliance";
 
 export type ContactPerson = {
+  /** §537 — stable within the project's list (positive, unique). Minted on load
+   *  for a contact stored before ids existed (`withContactPersonIds`), so code
+   *  can edit, remove and undo a contact by id rather than by list position. */
+  id: number;
   name: string;
   email: string;
   /** true = copied from the address book; false = manual, never synced back. */

@@ -45,7 +45,7 @@ export interface EmailPropagationResult {
 }
 
 /** `edited` holds the before-images (the rows as they were), which the undo
- *  fragment needs because a contact person has no id to restore by. */
+ *  fragment pairs back to the live rows by id (§537). */
 export interface ContactPersonPropagation { next: readonly ContactPerson[]; edited: ContactPerson[]; changed: number }
 
 const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
@@ -125,23 +125,23 @@ export function retargetContactPersonEmails(rows: readonly ContactPerson[], chan
 
 /** The undo of a contact-person retarget. `retarget` matches case- and
  *  space-insensitively and `Name <addr>`-unwrapped, so a row may have held the
- *  old address spelled differently from `change.from` (" Old@X.com "). `ContactPerson` has no id
- *  (§537), so each linked row now holding `change.to` is paired, in order, with
- *  an unconsumed before-image of the SAME name and gets that row's own stored
- *  email back byte-for-byte. A row no before-image pairs with — one linked and
- *  given the new address after the correction — falls back to `change.from`. */
+ *  old address spelled differently from `change.from` (" Old@X.com "). Each
+ *  linked row now holding `change.to` is paired with its OWN before-image BY ID
+ *  (§537 — it was paired by name, in order, while contacts had no id) and gets
+ *  that row's stored email back byte-for-byte. A row no before-image pairs with
+ *  — one linked and given the new address after the correction — falls back to
+ *  `change.from`, and that is now the only case that does: two contacts sharing
+ *  a name can no longer swap addresses on undo. */
 export function restoreContactPersonEmails(
   rows: readonly ContactPerson[],
   change: ResourceEmailChange,
   originals: readonly ContactPerson[],
 ): readonly ContactPerson[] {
   const reverse: ResourceEmailChange = { resourceId: change.resourceId, from: change.to, to: change.from };
-  const consumed = new Set<number>();
+  const byId = new Map(originals.map((o) => [o.id, o] as const));
   return retarget(rows, reverse, (r) => r.resourceId === change.resourceId, (r) => r.email, (r, fallback) => {
-    const i = originals.findIndex((o, idx) => !consumed.has(idx) && o.name === r.name);
-    if (i < 0) return { ...r, email: fallback };
-    consumed.add(i);
-    return { ...r, email: originals[i].email };
+    const original = byId.get(r.id);
+    return original ? { ...r, email: original.email } : { ...r, email: fallback };
   }).next;
 }
 

@@ -26,16 +26,18 @@ import {
 
 export type PropagationSetters = Pick<ReturnType<typeof useWorkspace>, "setTasks" | "setRaid" | "setAbsences" | "setShifts" | "setStakeholders" | "setProject">;
 
-/** ★ `ContactPerson` has no id, so `capturePart` cannot hold it. Instead the
+/** ★ Contacts live INSIDE `ProjectMeta`, not in an array of their own, so
+ *  `capturePart` (which takes a setter over `T[]`) cannot hold them. Instead the
  *  fragment works over the LIVE `prev`: undo gives each linked row holding the
  *  propagated address back its OWN stored before-image (`originals`, paired by
- *  name — `restoreContactPersonEmails`), so casing and surrounding whitespace
+ *  id since §537 — `restoreContactPersonEmails`), so casing and surrounding whitespace
  *  survive the round trip; redo re-runs the forward retarget. A whole-array
  *  restore would drop every contact person added (or edited) after the
  *  correction — only linked rows holding the propagated address are touched.
- *  ★ Without ids, a row linked to the same resource and given the new address
- *  AFTER the correction is also moved back on undo (to the old primary, having
- *  no before-image of its own). Unarmed: a plain edit removes no rows. */
+ *  ★ Since §537 each row is paired with its own before-image by id. A row
+ *  linked to the same resource and given the new address AFTER the correction
+ *  has no before-image and is still moved back on undo (to the old primary).
+ *  Unarmed: a plain edit removes no rows. */
 export function contactPersonsFragment(
   setProject: PropagationSetters["setProject"],
   change: ResourceEmailChange,

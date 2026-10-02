@@ -40,8 +40,8 @@ function makeProjectMeta(): ProjectMeta {
     sharepointUrl: "https://sp.example.com/b",
     confluenceUrl: "https://cf.example.com/c",
     contactPersons: [
-      { name: "Eve | Contact", email: "eve@example.com", synced: true },
-      { name: "Frank Contact", email: "frank@example.com", synced: false },
+      { id: 1, name: "Eve | Contact", email: "eve@example.com", synced: true },
+      { id: 2, name: "Frank Contact", email: "frank@example.com", synced: false },
     ],
     docRepoLocation: "C:\\repos\\apollo",
     regulatory: ["GDPR / data protection regulation", "DORA"],

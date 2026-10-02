@@ -4471,6 +4471,7 @@ const enUS = {
   infoMore: "More information",
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list.",
+  contactEditSave: "Save",
   // UX batch "Aldiss" (0.177.0)
   dashboardCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both. Trending up is good; a flat line signals stalled delivery.",
   dashboardCompleteHintNoTrend: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both.",

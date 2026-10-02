@@ -183,7 +183,9 @@ describe("ProjectForm", () => {
     fireEvent.click(saveButton());
     const meta = onSubmit.mock.calls[0][0];
     const sofia = meta.contactPersons.find((c) => c.name === "Sofia Ramirez");
+    // §537 — an added contact takes the next id above the list's maximum.
     expect(sofia).toEqual({
+      id: 2,
       name: "Sofia Ramirez",
       email: "s@x.com",
       synced: true,
@@ -202,7 +204,7 @@ describe("ProjectForm", () => {
     fireEvent.click(saveButton());
     const meta = onSubmit.mock.calls[0][0];
     const manny = meta.contactPersons.find((c) => c.name === "Manny Manual");
-    expect(manny).toEqual({ name: "Manny Manual", email: "", synced: false });
+    expect(manny).toEqual({ id: 2, name: "Manny Manual", email: "", synced: false });
   });
 
   it("captures a typed email for an external (free-typed) contact", () => {
@@ -218,7 +220,7 @@ describe("ProjectForm", () => {
     fireEvent.click(saveButton());
     const meta = onSubmit.mock.calls[0][0];
     const vera = meta.contactPersons.find((c) => c.name === "Vera Vendor");
-    expect(vera).toEqual({ name: "Vera Vendor", email: "vera@vendor.com", synced: false });
+    expect(vera).toEqual({ id: 2, name: "Vera Vendor", email: "vera@vendor.com", synced: false });
   });
 
   it("offers NO '+ Add as resource' row in the contact-persons picker (link-only)", () => {

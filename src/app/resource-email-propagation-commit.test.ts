@@ -7,7 +7,7 @@ import type { ContactPerson, ProjectMeta, Resource, Task } from "./types";
 
 const change = { resourceId: 7, from: "old@x.com", to: "new@x.com" };
 const linked = { id: 1, taskName: "T", assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do" } as Task;
-const ada: ContactPerson = { name: "Ada", email: "old@x.com", synced: true, resourceId: 7 };
+const ada: ContactPerson = { id: 11, name: "Ada", email: "old@x.com", synced: true, resourceId: 7 };
 
 /** Applies a functional update the way React would. */
 function apply<S>(value: S, action: SetStateAction<S>): S {
@@ -109,8 +109,8 @@ describe("contactPersonsFragment", () => {
 
   it("keeps contact persons added after the correction, and leaves unlinked rows alone, on undo and redo", () => {
     const s = setters();
-    const carol: ContactPerson = { name: "Carol", email: "carol@x.com", synced: false };
-    const namesake: ContactPerson = { name: "Other Ada", email: "new@x.com", synced: false, resourceId: 8 };
+    const carol: ContactPerson = { id: 12, name: "Carol", email: "carol@x.com", synced: false };
+    const namesake: ContactPerson = { id: 13, name: "Other Ada", email: "new@x.com", synced: false, resourceId: 8 };
     const fragment = contactPersonsFragment(s.setProject, change, [ada]);
     const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, namesake, carol] } as ProjectMeta;
     const redo = fragment.restore({ current: new Map() }, false, vi.fn());
@@ -132,7 +132,7 @@ describe("contactPersonsFragment", () => {
   it("undo restores each retargeted row's own stored address byte-for-byte, and redo re-applies", () => {
     const s = setters();
     const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
-    const shouty: ContactPerson = { name: "Ada B", email: "OLD@X.COM", synced: false, resourceId: 7 };
+    const shouty: ContactPerson = { id: 14, name: "Ada B", email: "OLD@X.COM", synced: false, resourceId: 7 };
     const input = empty({ contactPersons: [spaced, shouty] });
     const parts = commitEmailPropagation({ change, input, result: propagateResourceEmail(change, input), setters: s });
     const committed = apply<ProjectMeta | undefined>({ name: "P", contactPersons: [spaced, shouty] } as ProjectMeta, setProjectCall(s, 0));
@@ -151,8 +151,9 @@ describe("contactPersonsFragment", () => {
   // `consumed` both would take the FIRST before-image.
   it("two same-named rows retargeted together each get their own spelling back, in order", () => {
     const s = setters();
-    const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
-    const shouty: ContactPerson = { ...ada, email: "OLD@X.COM", synced: false };
+    // Distinct ids: two contacts in one list never share one (§537).
+    const spaced: ContactPerson = { ...ada, id: 21, email: " Old@X.com " };
+    const shouty: ContactPerson = { ...ada, id: 22, email: "OLD@X.COM", synced: false };
     const input = empty({ contactPersons: [spaced, shouty] });
     const parts = commitEmailPropagation({ change, input, result: propagateResourceEmail(change, input), setters: s });
     const committed = apply<ProjectMeta | undefined>({ name: "P", contactPersons: [spaced, shouty] } as ProjectMeta, setProjectCall(s, 0));
@@ -161,26 +162,26 @@ describe("contactPersonsFragment", () => {
     expect(undone?.contactPersons).toEqual([spaced, shouty]);
   });
 
-  // ★ A residual of §537's cause, pinned honestly rather than fixed (§537 names
-  // the cause, not this shift): rows have no id, so a same-named linked row inserted AHEAD after the correction
-  // takes the first before-image, the originals shift down one, and the last
-  // row falls back to `change.from`. Every value is still fold-equal to the old
-  // primary; only the per-row spelling moves.
-  it("a same-named row inserted ahead after the correction shifts the pairing by one", () => {
+  // §537 — this used to pin a residual: rows had no id, so a same-named linked
+  //  row inserted AHEAD after the correction took the first before-image, the
+  //  originals shifted down one, and the last row fell back to `change.from`.
+  //  Pairing is by id now, so each original row gets ITS OWN spelling back and
+  //  only the inserted row (no before-image) falls back.
+  it("a same-named row inserted ahead after the correction no longer shifts the pairing", () => {
     const s = setters();
-    const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
-    const shouty: ContactPerson = { ...ada, email: "OLD@X.COM", synced: false };
+    const spaced: ContactPerson = { ...ada, id: 21, email: " Old@X.com " };
+    const shouty: ContactPerson = { ...ada, id: 22, email: "OLD@X.COM", synced: false };
     const fragment = contactPersonsFragment(s.setProject, change, [spaced, shouty]);
     fragment.restore({ current: new Map() }, false, vi.fn());
-    const inserted: ContactPerson = { ...ada, email: "new@x.com", synced: false, title: "added later" } as ContactPerson;
+    const inserted: ContactPerson = { ...ada, id: 23, email: "new@x.com", synced: false };
     const live = { name: "P", contactPersons: [inserted, { ...spaced, email: "new@x.com" }, { ...shouty, email: "new@x.com" }] } as ProjectMeta;
     const undone = apply<ProjectMeta | undefined>(live, setProjectCall(s, 0));
-    expect(undone?.contactPersons.map((c) => c.email)).toEqual([" Old@X.com ", "OLD@X.COM", "old@x.com"]);
+    expect(undone?.contactPersons.map((c) => c.email)).toEqual(["old@x.com", " Old@X.com ", "OLD@X.COM"]);
   });
 
   it("a linked row with no before-image of its name still falls back to the old primary on undo", () => {
     const s = setters();
-    const addedLater: ContactPerson = { name: "Dora", email: "new@x.com", synced: false, resourceId: 7 };
+    const addedLater: ContactPerson = { id: 15, name: "Dora", email: "new@x.com", synced: false, resourceId: 7 };
     const fragment = contactPersonsFragment(s.setProject, change, [{ ...ada, email: " Old@X.com " }]);
     fragment.restore({ current: new Map() }, false, vi.fn());
     const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, addedLater] } as ProjectMeta;

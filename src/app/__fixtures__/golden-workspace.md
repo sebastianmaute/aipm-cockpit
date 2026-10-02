@@ -184,7 +184,7 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85
 - confluenceUrl: https://example.atlassian.net/wiki/spaces/CIP
 - jiraUrl: https://example.atlassian.net/browse/CIP
 - operatingTimezone: Europe/Berlin
-- contactPersons: David Okoro;liam.okoro@northwind.example;0|Sofia Ramirez;sofia.ramirez@example.com;1
+- contactPersons: David Okoro;liam.okoro@northwind.example;0;;1|Sofia Ramirez;sofia.ramirez@example.com;1;;2
 - docRepoLocation: https://example.sharepoint.com/sites/cip-2026/Shared Documents
 - regulatory: GDPR / data protection regulation|NIS2
 - notes: Generated sample project for the multi-tenant Turso demo database.
