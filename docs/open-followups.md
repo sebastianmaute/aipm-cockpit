@@ -1,3 +1,15 @@
+
+## 665. Burn-down chart join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
+
+**Status:** CLOSED 2026-10-02. The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
+- The label keeps its half-plot anchor. It is fitted to the room between the plot's right edge and the left limit: the plot's left edge, or, where the "Budget at start of recording" label is drawn, that label's right end.
+- Only the bucket-name part is shortened, with "…", so the amount at the end stays readable. A shortened label carries the full sentence as an SVG `<title>`, its hover text.
+- Widths use the same wide-side estimate as the marker-label band (`estimatedLabelWidth`). The chart never measures text, so this is an estimate that errs towards shortening.
+- Pinned by `burndown-chart.test.tsx` "join labels stay clear of the baseline label (§665)". It uses a long four-bucket chain, as on the seeded sample, and asserts the two labels' estimated x-ranges do not overlap. The pre-fix chart fails it, and so does dropping the baseline label from the left limit.
+- `burndown-geometry.test.ts` "fitJoinLabel (§665)" covers the rule itself.
+- ★ Not re-run here: the Reports → budget history (cumulative) visual baseline that was held back because of this. It needs a browser run and a re-baseline (`npm run e2e:visual:update`), checked by eye.
+
+**Source:** GitHub issue #540, filed 2026-10-02 from that visual run. The issue named §665 before the register had an entry; this entry was written when it closed.
 # Open follow-ups — central register
 
 _Opened 2026-07-27, at the close of 0.203.0 "Czerneda". Self-contained: it absorbed the R5 calendar
@@ -887,6 +899,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
 | [§661](#661-a-local-file-save-that-waits-on-its-web-lock-at-tab-close-has-never-been-checked-to-land--open) | A local-file save that waits on its Web Lock at tab close has never been checked to land | — | — | open |
 | [§662](#662-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
+| [§665](#665-burn-down-chart-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | Burn-down chart join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two

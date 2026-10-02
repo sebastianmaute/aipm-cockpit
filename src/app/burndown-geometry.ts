@@ -289,6 +289,38 @@ export function layoutMarkerLabels(ticks: readonly MarkerLabelTick[], midX: numb
   return { labels, rows: rowExtents.length };
 }
 
+/** Estimated width of an 8px label, by the same wide-side estimate the marker band uses. */
+export function estimatedLabelWidth(text: string): number {
+  return text.length * MARKER_LABEL_CHAR_EM * MARKER_LABEL_FONT_PX;
+}
+
+export type FittedJoinLabel = { anchor: "start" | "end"; text: string; truncated: boolean; left: number; right: number };
+
+/**
+ * §665 — places a bucket-chain join label at `x` and shortens it to the room between `bounds.left` and
+ * `bounds.right`. It is end-anchored on the right half of the plot, as before, so it grows leftward and
+ * used to run past the plot edge over the "Budget at start of recording" label and the axis ticks.
+ * Only the NAME part (`label`) is shortened, with "…", so the amount the sentence ends with stays
+ * readable; `compose` builds the whole sentence from a name. When even an empty name does not fit, the
+ * name is just "…" and the label may still overrun, which only a degenerate plot width can reach.
+ */
+export function fitJoinLabel(
+  compose: (label: string) => string, label: string, x: number, midX: number, bounds: { left: number; right: number },
+): FittedJoinLabel {
+  const anchor = x > midX ? "end" : "start";
+  const room = anchor === "end" ? x - bounds.left : bounds.right - x;
+  const extent = (text: string) => {
+    const width = estimatedLabelWidth(text);
+    return anchor === "end" ? { left: x - width, right: x } : { left: x, right: x + width };
+  };
+  const full = compose(label);
+  if (estimatedLabelWidth(full) <= room) return { anchor, text: full, truncated: false, ...extent(full) };
+  const fixed = compose("").length;
+  const nameChars = Math.floor(room / (MARKER_LABEL_CHAR_EM * MARKER_LABEL_FONT_PX)) - fixed - 1; // 1: the "…"
+  const text = compose(nameChars > 0 ? `${label.slice(0, nameChars).trimEnd()}…` : "…");
+  return { anchor, text, truncated: true, ...extent(text) };
+}
+
 /** Height the label band needs above the plot's top edge for `rows` rows. */
 export function markerBandHeight(rows: number): number {
   return rows === 0 ? 0 : MARKER_LABEL_BASELINE_GAP_PX + (rows - 1) * MARKER_LABEL_LINE_PX + MARKER_LABEL_FONT_PX;
