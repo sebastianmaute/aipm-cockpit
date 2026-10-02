@@ -2961,7 +2961,7 @@ function TaskManagerInner() {
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const undoControlEl = isPopout ? null : (
-    <>
+    <span data-tour-id={TOUR_ANCHORS.undo} className="inline-flex items-center gap-1">
       <UndoControl
         lang={lang}
         entries={undoApi.stack}
@@ -2974,7 +2974,7 @@ function TaskManagerInner() {
         onRedo={undoApi.redo}
         onRedoThrough={undoApi.redoThrough}
       />
-    </>
+    </span>
   );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
     handleCancelEdit,

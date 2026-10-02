@@ -37,6 +37,15 @@ export const TOUR_ANCHORS = {
   navActions: "tour-nav-actions",
   askClaude: "tour-ask-claude",
   projectSwitcher: "tour-project-switcher",
+  undo: "tour-undo",
+  globalSearch: "tour-global-search",
+  tasksViewMode: "tour-tasks-view-mode",
+  selectAll: "tour-select-all",
+  savedViews: "tour-saved-views",
+  navResources: "tour-nav-resources",
+  navBudget: "tour-nav-budget",
+  navChanges: "tour-nav-changes",
+  navDocuments: "tour-nav-documents",
 } as const;
 
 // The original onboarding walkthrough — now the "getting-started" tour's steps.

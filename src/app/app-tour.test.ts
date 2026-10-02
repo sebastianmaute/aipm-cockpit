@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOUR_STEPS, TOURS, findTour, visibleSteps, clampStep, type TourStep } from "./app-tour";
 import { ALL_MODULE_IDS } from "./feature-modules";
@@ -43,6 +45,13 @@ describe("app-tour engine", () => {
     expect(clampStep(-1, 5)).toBe(0);
     expect(clampStep(9, 5)).toBe(4);
     expect(clampStep(0, 0)).toBe(0);
+  });
+});
+
+describe("tour anchors", () => {
+  it("places the undo anchor around the undo controls", () => {
+    const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
+    expect(src).toContain("data-tour-id={TOUR_ANCHORS.undo}");
   });
 });
 

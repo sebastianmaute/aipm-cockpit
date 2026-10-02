@@ -292,6 +292,17 @@ describe("TasksSection", () => {
     expect(screen.getByText(t("en-US", "noTasksFiltered"))).toBeInTheDocument();
   });
 
+  it("places the tour anchors on the view-mode, select-all and saved-views controls", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const { container } = render(<TasksSection {...makeProps()} />);
+    for (const id of ["tour-tasks-view-mode", "tour-select-all", "tour-saved-views"]) {
+      expect(container.querySelectorAll(`[data-tour-id="${id}"]`)).toHaveLength(1);
+    }
+    const checkbox = screen.getByRole("checkbox", { name: t("en-US", "selectAllVisible") });
+    expect(checkbox.getAttribute("data-tour-id")).toBe("tour-select-all");
+  });
+
   it("renders table when both tasks and filtered list are non-empty", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
