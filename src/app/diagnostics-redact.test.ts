@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { redactFields } from "./diagnostics-redact";
+import { expectLinearScaling } from "../test/scaling";
 
 describe("redactFields", () => {
   it("returns undefined for empty/absent input", () => {
@@ -168,13 +169,17 @@ describe("§608: the scrub window bounds backtracking without leaking a cut toke
     expect(out?.message).not.toMatch(/[A-Za-z0-9]{32}/);
   });
 
-  it("passes a 64k mixed-case run (no `+`, no padding) through redactFields in bounded time", () => {
-    const run = RUN.repeat(2000).slice(0, 64000);
-    const start = performance.now();
-    const out = redactFields({ message: run });
-    const elapsed = performance.now() - start;
-    expect(out?.message).toBe("[redacted]");
-    expect(elapsed).toBeLessThan(500);
+  // A ratio guard (src/test/scaling.ts), not a ms ceiling (§592, §612). With the pre-slice the work
+  // is bounded by SCRUB_WINDOW, so quadrupling the run leaves the ratio near 1; without it the
+  // patterns backtrack quadratically (ratio near 16). Hang backstop, not the guard.
+  it("stays bounded on a long mixed-case run (no `+`, no padding)", { timeout: 120_000 }, () => {
+    expectLinearScaling({
+      label: "redactFields on a long mixed-case run",
+      build: (n) => RUN.repeat(Math.ceil(n / RUN.length)).slice(0, n),
+      run: (run) => redactFields({ message: run }),
+      check: (out) => expect(out?.message).toBe("[redacted]"),
+      n: 16_000,
+    });
   });
 
   // Redaction shrinks text, so the output's first 500 chars reach original positions past the
