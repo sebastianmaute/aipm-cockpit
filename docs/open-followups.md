@@ -325,7 +325,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--closed-2026-09-14) | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | **CLOSED** 2026-09-14 |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
 | [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
-| [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--open-eye-verify-owed) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
+| [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--closed-2026-10-02) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-02 |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
@@ -7400,11 +7400,11 @@ problem for free. Prefer that trick wherever a marker can carry no prose.
 
 ---
 
-## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
+## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — CLOSED 2026-10-02
 
-**Status:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. Fix option (b), plus (a) only where (b) cannot reach. `lineCost` now estimates how many rendered lines a TEXT line wraps to — `ceil(length / BODY_CHARS_PER_LINE)` per "\n" segment, where `BODY_CHARS_PER_LINE` (82) is derived from the body box width minus its insets and a deliberately wide 0.55em average glyph at the 14pt body size — so `paginateLines` breaks a slide before wrapped text overflows it, and a picture is placed below the text's estimated height rather than its line count. One line costing more than a whole slide cannot be split, so `buildContentSlide` sets `normAutofit` on exactly that chunk and PowerPoint shrinks it; every other slide keeps its bytes. ★ Still an estimate (wide glyphs, bullet indents), and the eye-verification in a real PowerPoint is still worth doing once — but the budget is no longer optimistic by construction. Pinned in `doc-render-pptx.test.ts` ("costs a long text line by the lines it wraps to", "breaks a slide earlier when its lines wrap", "shrinks only a slide whose single line costs more than the whole slide"; the last mutation-checked). The history below is kept as written.
 
-**Work item:** #131
+**Previously:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Half of this is already fixed — do not re-open the fixed half.** `BODY_LINES_PER_SLIDE` is derived
 from the body box and font size, and each slide's lines are chunked through `paginateLines`, so

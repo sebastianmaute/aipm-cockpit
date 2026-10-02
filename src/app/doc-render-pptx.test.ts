@@ -1302,6 +1302,40 @@ describe("cost-based paginateLines", () => {
     expect(chunks[1][0]).toEqual(image);
   });
 
+  /** §94 — characters per rendered body line, spelled out for the same reason
+   *  as ONE_LINE_EMU: (8229600 − 2×91440) EMU / 12700 = 633.6pt of width, at
+   *  14pt × 0.55em = 7.7pt per character → 82. */
+  const CHARS_PER_LINE = 82;
+
+  it("costs a long text line by the lines it wraps to (§94)", () => {
+    expect(lineCost("x".repeat(CHARS_PER_LINE))).toBe(1);
+    expect(lineCost("x".repeat(CHARS_PER_LINE + 1))).toBe(2);
+    expect(lineCost("x".repeat(CHARS_PER_LINE * 3))).toBe(3);
+    // A smuggled newline is two paragraphs, each costing at least one.
+    expect(lineCost("a\nb")).toBe(2);
+  });
+
+  it("breaks a slide earlier when its lines wrap (§94)", () => {
+    // Three 3-line paragraphs against a budget of 6: the third moves on.
+    const long = "x".repeat(CHARS_PER_LINE * 3);
+    expect(paginateLines([long, long, long], 6)).toEqual([[long, long], [long]]);
+  });
+
+  it("shrinks only a slide whose single line costs more than the whole slide (§94)", async () => {
+    // ~20 rendered lines against a 16-line budget: the paginator cannot split
+    // one line, so that slide asks PowerPoint to shrink it.
+    const huge = "word ".repeat(CHARS_PER_LINE * 4);
+    const all = await slides(doc([
+      { type: "paragraph", html: `<p>${huge}</p>` },
+      { type: "heading", level: 1, text: "Next" },
+      { type: "paragraph", html: "<p>short</p>" },
+    ]));
+    const withHuge = all.find((x) => x.includes("word word"))!;
+    const withShort = all.find((x) => x.includes(">short<"))!;
+    expect(withHuge).toContain("<a:normAutofit/>");
+    expect(withShort).not.toContain("<a:normAutofit/>");
+  });
+
   it("keeps the existing text-only behaviour exactly", () => {
     expect(paginateLines(["a", "b", "c"], 2)).toEqual([["a", "b"], ["c"]]);
     expect(paginateLines([], 2)).toEqual([[]]);
