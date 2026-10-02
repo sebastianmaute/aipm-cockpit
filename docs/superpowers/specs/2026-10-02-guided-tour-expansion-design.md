@@ -62,12 +62,11 @@ Added to `TOUR_ANCHORS` and placed as `data-tour-id`:
 
 | Anchor key | Element | Present when |
 |---|---|---|
-| `undo` | `UndoControl` (`undo/undo-control.tsx`) in the modern top bar | always |
+| `undo` | a span wrapping the undo and redo controls in `task-manager.tsx` | once the undo stack has an entry (`UndoControl` renders nothing on an empty stack; the empty span has no size, which the overlay treats as missing) |
 | `globalSearch` | the search box (`global-search-box.tsx`) | always |
 | `tasksViewMode` | the Table / Board / Swimlane control (`tasks-section.tsx`) | on Open Points |
 | `selectAll` | the "select all visible" header checkbox | table mode only |
 | `savedViews` | the saved-views control on Open Points | on Open Points |
-| `helpIcon` | the Open Points panel's `?` button | on Open Points |
 | `navResources`, `navBudget`, `navChanges`, `navDocuments` | sidebar entries, via the existing `NAV_TOUR_ID` map | the module is enabled and the entry is rendered |
 
 A missing anchor (board mode for `selectAll`, a collapsed sidebar parent for a
@@ -86,7 +85,7 @@ S = spotlight (anchor), M = centred card. "→" is the step's `view`.
 
 | id | kind | → | content |
 |---|---|---|---|
-| wf-undo | S `undo` | open-points | Ctrl+Z undoes, Ctrl+Shift+Z or Ctrl+Y redoes; the control's history list; the shortcuts are ignored while typing in a field |
+| wf-undo | S `undo` | open-points | the undo control appears after your first change; Ctrl+Z undoes, Ctrl+Shift+Z or Ctrl+Y redoes; the control's history list; the shortcuts are ignored while typing in a field |
 | wf-undo-limits | M | open-points | note and blocker entries save immediately and cannot be undone |
 | wf-search | S `globalSearch` | open-points | Ctrl+K searches the whole project |
 | wf-select | S `selectAll` | open-points | tick rows, or all visible rows, to open the bulk bar |
@@ -113,8 +112,9 @@ plan — wording set by what the code does).
 AI drafts from project data), doc-editor (M, → documents: block editor and
 export), doc-versions (M, → documents: versions and restore).
 
-**Help yourself** (new tour `help-yourself`): help-icon (S `helpIcon`, →
-open-points), help-search (M, → help), help-escape (M: Escape closes the
+**Help yourself** (new tour `help-yourself`): help-icon (M, → open-points:
+the view hint banner's Learn more link and the `?` button in dialogs — Open
+Points has no panel `?` button, so this step has no anchor), help-search (M, → help), help-escape (M: Escape closes the
 top-most popup or panel), help-popout (M: what can open in its own window —
 wording set by what the code supports; the step is dropped if the answer is
 "only the chat", since the AI tour then covers it).
@@ -158,7 +158,7 @@ Each test names the mutant that must turn it red.
 | storage filter | `app-tour.test.ts` | trends/history steps kept for `"turso"`, dropped for `"file"` and `undefined`; a step with no `view` always kept | drop the storage condition |
 | sidebar parity | `nav-config.test.ts` | for every `AppView` × {turso, file} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` | invert the Turso check in one of the two |
 | anchors resolve | `app-tour.test.ts` | every step `anchorId` is a `TOUR_ANCHORS` value and every value is used by a step | rename an anchor on one side |
-| anchors placed | component tests for undo-control, global-search-box, tasks-section, help-icon-button, sidebar-nav | the element carries its `data-tour-id` | delete the attribute |
+| anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; the undo wrapper by a source check on `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
 | hook threads storage | `use-tour.test.tsx` | the reporting tour's `steps.length` and its catalog `stepCount` differ between turso and file | ignore `storageKind` |
 | empty tour hidden | `use-tour.test.tsx` | a tour whose steps are all filtered out is absent from the catalog | remove the hide |
 | done state kept | `app-tour.test.ts` | the six existing tour ids and their step ids are still present | rename an existing id |
