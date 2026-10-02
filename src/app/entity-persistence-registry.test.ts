@@ -946,9 +946,11 @@ describe("entity persistence registry — Task.blockerLog across all six write p
     for (const [name, roundTrip] of PATHS) {
       const back = (await roundTrip(seed({ blockerLog: LOG, blockers: "Hand-edited" }))).tasks[0];
       expect(back?.blockerLog, name).toEqual([
-        { ...LOG[0], resolvedAt: "2026-01-10T00:00:00.000Z" },
+        // The stamp is clamped to the log's newest time (LOG[0].createdAt), so
+        // nothing minted on load sorts before, or resolves before, an entry.
+        { ...LOG[0], resolvedAt: "2026-07-01T09:00:00.000Z" },
         LOG[1],
-        { id: 3, text: "Hand-edited", createdAt: "2026-01-10T00:00:00.000Z" },
+        { id: 3, text: "Hand-edited", createdAt: "2026-07-01T09:00:00.000Z" },
       ]);
       expect(back?.blockers, name).toBe("Hand-edited");
       seen.push(name);

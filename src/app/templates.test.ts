@@ -272,14 +272,28 @@ describe("a template seed task's blockers go through the blocker log", () => {
     expect(out?.blockerLog).toEqual([{ id: 1, text: "Waiting on legal", createdAt: "2026-06-01T00:00:00.000Z" }]);
   });
 
-  it("a captured log is carried and wins over the text, history included", () => {
+  it("a captured log is carried, history included", () => {
+    const log = [
+      { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" },
+      { id: 2, text: "Open", createdAt: "2026-05-03T00:00:00.000Z" },
+    ];
+    const out = seedOf({ id: 1, taskName: "K", blockers: "Open", blockerLog: log });
+    expect(out?.blockerLog).toEqual(log);
+    expect(out?.blockers).toBe("Open");
+  });
+
+  it("a text that disagrees with the captured log is kept as a new entry, not discarded", () => {
     const log = [
       { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" },
       { id: 2, text: "Open", createdAt: "2026-05-03T00:00:00.000Z" },
     ];
     const out = seedOf({ id: 1, taskName: "K", blockers: "stale text", blockerLog: log });
-    expect(out?.blockerLog).toEqual(log);
-    expect(out?.blockers).toBe("Open");
+    expect(out?.blockerLog).toEqual([
+      log[0],
+      { ...log[1], resolvedAt: "2026-05-03T00:00:00.000Z" },
+      { id: 3, text: "stale text", createdAt: "2026-05-03T00:00:00.000Z" },
+    ]);
+    expect(out?.blockers).toBe("stale text");
   });
 });
 
