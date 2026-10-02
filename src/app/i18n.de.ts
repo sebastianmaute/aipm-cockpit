@@ -3411,7 +3411,7 @@ export const de: Record<TranslationKey, string> = {
   tourStepWfSelectTitle: "Mehrere Aufgaben auswählen",
   tourStepWfSelectBody: "Haken Sie Zeilen an – oder das Kästchen in der Kopfzeile für alle sichtbaren Zeilen –, dann öffnet sich die Sammelleiste.",
   tourStepWfBulkTitle: "Sammelbearbeitung",
-  tourStepWfBulkBody: "Die Sammelbearbeitung ändert nur die Felder, die Sie ankreuzen; alles andere bleibt unverändert. Ein einziges Rückgängig nimmt die ganze Änderung zurück.",
+  tourStepWfBulkBody: "Die Sammelbearbeitung ändert nur die Felder, die Sie ankreuzen; alles andere bleibt unverändert. Ein Rückgängig nimmt die Änderung zurück – außer bei Blockern, die nie zum Rückgängig-Verlauf gehören.",
   tourStepWfInlineTitle: "Direkt in der Zeile bearbeiten",
   tourStepWfInlineBody: "Klicken Sie auf eine Priorität, einen Verantwortlichen oder ein Datum, um es direkt in der Zeile zu ändern; ein Doppelklick auf den Aufgabennamen benennt ihn um. Enter speichert, Escape bricht ab.",
   tourStepWfTableTitle: "Die Tabelle anpassen",

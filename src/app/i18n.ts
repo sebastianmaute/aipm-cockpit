@@ -3628,7 +3628,7 @@ const enUS = {
   tourStepWfSelectTitle: "Select several tasks",
   tourStepWfSelectBody: "Tick rows, or the header checkbox to select all visible rows, and the bulk bar opens.",
   tourStepWfBulkTitle: "Bulk edit",
-  tourStepWfBulkBody: "Bulk edit changes only the fields you tick; everything else stays as it is. One undo reverts the whole change.",
+  tourStepWfBulkBody: "Bulk edit changes only the fields you tick; everything else stays as it is. One undo reverts the change, except blockers, which are never part of undo.",
   tourStepWfInlineTitle: "Edit in place",
   tourStepWfInlineBody: "Click a priority, assignee or date cell to edit it right in the row; double-click a task name to rename it. Enter saves and Escape cancels.",
   tourStepWfTableTitle: "Shape the table",
