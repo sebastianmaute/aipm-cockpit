@@ -228,8 +228,10 @@ export function idColumnFromPragma(res: PipelineResultLike | undefined): { type:
  *   (every database created since the fix) produces nothing, so this is a
  *   one-shot self-heal like the rest of this module.
  * ★ A leftover `…__pre_text_id` table would make the RENAME fail, and with it
- *   every save. None can arise from here: the four steps run in the save's one
- *   BEGIN…COMMIT batch, so a failing step rolls the RENAME back too. Deliberately
+ *   every save. None can arise from here: the four steps run in the column
+ *   ensure's own BEGIN…COMMIT batch (`runColumnEnsure`, turso-backend.ts, a
+ *   separate request ahead of the save), so a failing step rolls the RENAME back
+ *   too. Deliberately
  *   NO `DROP TABLE IF EXISTS` first: a table of that name that exists anyway
  *   was not made by this code, and dropping it would destroy data of unknown origin.
  * ★ The rebuild REPLACES the rename pass (`columnRenameAlters`) for its table: no
