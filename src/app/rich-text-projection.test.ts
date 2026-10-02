@@ -79,6 +79,31 @@ describe("appendDictationToHtml", () => {
   it("upgrades a legacy plain value before appending", () => {
     expect(appendDictationToHtml("plain & old", "more")).toBe("<p>plain &amp; old more</p>");
   });
+
+  // §16 — dictation used to flatten the whole field to plain text to join
+  // segments; every bold, list and link in it was lost.
+  it("keeps existing formatting, and the dictated words inherit none of it", () => {
+    expect(appendDictationToHtml("<p>cost is <strong>up</strong></p><ul><li>one</li></ul>", "two more"))
+      .toBe("<p>cost is <strong>up</strong></p><ul><li>one two more</li></ul>");
+    expect(appendDictationToHtml('<p>see <a href="https://x.test">the spec</a></p>', "today"))
+      .toBe('<p>see <a href="https://x.test">the spec</a> today</p>');
+  });
+
+  it("joins repeated onFinal segments into one run, as the plain-text join did", () => {
+    let v = appendDictationToHtml("<p><em>Note:</em></p>", "first");
+    v = appendDictationToHtml(v, "second");
+    v = appendDictationToHtml(v, "  third  ");
+    expect(v).toBe("<p><em>Note:</em> first second third</p>");
+  });
+
+  it("starts a paragraph when the field holds no text, and ignores a blank segment", () => {
+    expect(appendDictationToHtml("<hr>", "after")).toBe("<hr><p>after</p>");
+    expect(appendDictationToHtml("<p><strong>x</strong></p>", "   ")).toBe("<p><strong>x</strong></p>");
+  });
+
+  it("escapes dictated markup rather than interpreting it", () => {
+    expect(appendDictationToHtml("<p>a</p>", "<b>b</b> & c")).toBe("<p>a &lt;b&gt;b&lt;/b&gt; &amp; c</p>");
+  });
 });
 
 describe("descriptionTextWithBreaks", () => {

@@ -255,7 +255,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
-| [§16](#16-dictation-flattens-rich-formatting--open-needs-a-design) | Dictation flattens rich formatting — open, needs a design | 0.196.0, widened 0.209.0 | M | open |
+| [§16](#16-dictation-flattens-rich-formatting--closed-2026-10-02) | Dictation flattens rich formatting | 0.196.0, widened 0.209.0 | M | **CLOSED** 2026-10-02 |
 | [§21](#21-eye-verification-owed-on-two-editors-and-four-detail-cases--open-slice-b-02090) | Eye verification owed on two editors and four detail cases — open, slice B (0.209.0) | 0.209.0 (Lafferty) | S | open |
 | [§22](#22-cliptext-truncates-on-utf-16-code-units-and-can-split-a-surrogate-pair--closed) | `clipText` truncates on UTF-16 code units and can split a surrogate pair | 0.209.0 (Lafferty) | M | **CLOSED** |
 | [§24](#24-named-entities-are-neither-decoded-nor-counted--closed-2026-09-30) | NAMED entities are neither decoded nor counted | 0.209.0 (Lafferty) | S | **CLOSED** 2026-09-30 |
@@ -1694,11 +1694,11 @@ browser, which is why both sites use `sr-only`.
 
 ---
 
-## 16. Dictation flattens rich formatting — open, needs a design
+## 16. Dictation flattens rich formatting — CLOSED 2026-10-02
 
-**Status:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: keep formatting. Built without dropping the multi-`onFinal` join this entry warns about: `appendDictationToHtml` (`rich-text-projection.ts`) no longer flattens the field to plain text; it parses the stored HTML, finds the block holding the field's last non-blank text, and appends the segment there as a NEW PLAIN TEXT NODE outside any inline mark, using `appendDictation`'s separator rule. The next `onFinal` segment finds that node as the last text and joins the same run — the "tracked run" the fix direction below asked for, tracked by position rather than by a stored node. Existing bold/italic/lists/links are untouched and the dictated words inherit none of them; a field with no text gets a new `<p>`; the result is re-sanitised. All four call sites (task, RAID, change, milestone `description`) take it unchanged. Pinned in `rich-text-projection.test.ts` (formatting kept, no inherited mark or link, three segments joining, the empty-field and blank-segment cases, dictated markup escaped); the three pre-existing expectations pass unchanged. The history below is kept as written.
 
-**Work item:** #93
+**Previously:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `appendDictationToHtml` round-trips the field through plain text before appending, because Web
 Speech fires `onFinal` **multiple times per hold** and each segment must join onto the previous one

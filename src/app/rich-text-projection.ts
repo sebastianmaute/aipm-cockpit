@@ -8,7 +8,7 @@
 // Every non-DOM consumer of a rich description — global search, the export
 // section builders, the AI entity digests, the inline-AI plan preview — reads
 // its value through descriptionText. DOM consumers use RichTextView.
-import { htmlToText, plainToHtml } from "./sanitize-html";
+import { htmlToText, plainToHtml, sanitizeRichHtml } from "./sanitize-html";
 import { appendDictation } from "./dictation-engine";
 import {
   descriptionHtml,
@@ -16,7 +16,7 @@ import {
   markTaskItems,
   separateBlockBoundaries,
 } from "./rich-text-plain";
-import { PROJECTION_SINK } from "./html-start";
+import { PROJECTION_SINK, RICH_SINK } from "./html-start";
 
 /** Stored value -> plain text, upgrading a legacy plain value on the way so a
  *  never-edited record projects identically to an edited one.
@@ -73,14 +73,48 @@ export function descriptionTextWithBreaks(stored: string | undefined): string {
   );
 }
 
-/** Append a dictated utterance to a rich field.
+/** Block elements a dictated run joins at the END of. Anything else (inline
+ *  marks, links) is walked OUT of, so dictated words never inherit bold, italic
+ *  or a link target. */
+const DICTATION_BLOCKS = new Set(["P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "DIV"]);
+
+/** Append a dictated utterance to a rich field, KEEPING its formatting (§16).
  *
- *  ★ Round-tripping through text is what lets appendDictation join mid-utterance
- *  segments (Web Speech fires onFinal repeatedly per hold). The cost is that any
- *  existing bold/italic/list formatting in the field is FLATTENED on dictation —
- *  shipped behaviour on Task.description since 0.196.0, carried forward here so
- *  all six rich fields behave identically. Fixing it needs per-utterance segment
- *  tracking; see docs/open-followups.md. */
+ *  ★★★ Web Speech fires `onFinal` SEVERAL TIMES PER HOLD, and each segment must
+ *  JOIN the previous one, never replace it. This used to be done by flattening
+ *  the field to plain text, joining there, and re-wrapping — which joined
+ *  correctly and discarded every bold, italic, list and link already in the
+ *  field. Now the join happens in the HTML: the segment becomes a new PLAIN text
+ *  node at the end of the block that holds the field's last text, outside any
+ *  inline mark. The next segment finds that node as the last text and joins the
+ *  same run, so the multi-`onFinal` behaviour is unchanged and nothing else in
+ *  the field is touched. A field with no text gets a fresh `<p>`.
+ *  ★ The separator rule is `appendDictation`'s (one space unless the existing
+ *  text already ends in whitespace). The result is re-sanitised, so a stored
+ *  value carrying anything the allow-list drops cannot ride through. */
 export function appendDictationToHtml(html: string | undefined, txt: string): string {
-  return plainToHtml(appendDictation(descriptionText(html), txt));
+  const seg = txt.trim();
+  const current = descriptionHtml(html, RICH_SINK);
+  if (!seg) return current;
+  if (!current.trim()) return plainToHtml(seg);
+  const doc = new DOMParser().parseFromString(`<body>${current}</body>`, "text/html");
+  const body = doc.body;
+  let last: Text | null = null;
+  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if ((n.nodeValue ?? "").trim()) last = n as Text;
+  }
+  if (!last) {
+    const p = doc.createElement("p");
+    p.textContent = seg;
+    body.appendChild(p);
+    return sanitizeRichHtml(body.innerHTML);
+  }
+  let block: Element | null = last.parentElement;
+  while (block && block !== body && !DICTATION_BLOCKS.has(block.tagName)) block = block.parentElement;
+  const host: Element = block ?? body;
+  const joined = appendDictation(host.textContent ?? "", seg);
+  // Only the ADDED tail is inserted; `appendDictation` decides the separator.
+  host.appendChild(doc.createTextNode(joined.slice((host.textContent ?? "").length)));
+  return sanitizeRichHtml(body.innerHTML);
 }
