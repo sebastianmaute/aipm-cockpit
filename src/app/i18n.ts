@@ -2782,6 +2782,8 @@ const enUS = {
   milestoneDescription: "Description",
   milestoneAchieved: "Achieved",
   milestoneLinkedTasks: "Linked tasks",
+  milestoneLinkedTasksFilter: "Search tasks",
+  milestoneLinkedTasksNoMatch: "No matching tasks",
   milestoneSave: "Save milestone",
   milestoneErrorRequired: "Name and date are required.",
   milestoneDeleteConfirm: "Delete this milestone?",

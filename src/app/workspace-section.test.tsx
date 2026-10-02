@@ -19,6 +19,7 @@ import { saveActualsCache } from "./timelog-actuals-store";
 import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
+import { t } from "./i18n";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -993,5 +994,45 @@ describe("WorkspaceSection — the dashboard hero and its CTA bundle (spec C)", 
     expect(bag.onSnooze).toBe(onSnooze);
     expect(bag.onLogAsRaid).toBe(onLogAsRaid);
     expect(props.expertMode).toBe(true);
+  });
+});
+
+describe("WorkspaceSection — suggested-actions strip", () => {
+  function TabProbe({ view }: { view: AppView }) {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-tab" onClick={() => setActiveTab(view)} />;
+  }
+  const mk = (id: string, view: AppView, ctaId: number): SuggestedAction => ({
+    id, source: "raid",
+    title: { key: "actionRaidTitle", params: [ctaId, id] },
+    why: { key: "actionRaidWhySeverity", params: ["High"] },
+    score: 50, tier: "now",
+    cta: { kind: "open", view, id: ctaId },
+  });
+  const strip = () => screen.queryByRole("group", { name: t("en-US", "actionChipsLabel") });
+
+  // The Dashboard already lists every action in its hero and Top actions, so
+  // the strip only repeated them. An item-opening chip is used on purpose: it
+  // would survive `chipsActionableOnView`, so only the tab exclusion removes it.
+  it("renders no strip on the Dashboard", () => {
+    render(<WorkspaceSection {...makeProps({ nextActions: [mk("d", "dashboard", 5)] })} />, { wrapper: Wrapper });
+    expect(strip()).toBeNull();
+  });
+
+  // A chip whose Open names no item only re-opens the view it sits on.
+  it("shows item chips on their view and drops the item-less one", () => {
+    render(
+      <>
+        <TabProbe view="raid" />
+        <WorkspaceSection {...makeProps({ nextActions: [mk("item", "raid", 7), mk("summary", "raid", 0)] })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-tab"));
+    const group = strip();
+    expect(group).not.toBeNull();
+    const labels = within(group!).getAllByRole("button").map((b) => b.textContent);
+    expect(labels).toHaveLength(1);
+    expect(labels[0]).toContain("item");
   });
 });

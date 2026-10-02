@@ -7,7 +7,9 @@
 // `help-menu.tsx`; the composer + entry list live in the shared `NoteLogPanel`,
 // so the same body can also be mounted inside the task editor.
 
+import { createPortal } from "react-dom";
 import { XMarkIcon } from "./icons";
+import { FLOATING_LAYER_ATTR } from "./modal";
 import { IconButton } from "./icon-button";
 // `Lang` no longer needs importing here: the props are derived from
 // NoteLogPanelProps, which already types `lang`.
@@ -26,6 +28,9 @@ const STORAGE_KEY_SIZE = "aipm-cockpit:notes-window-size";
 
 const DEFAULT_X = 96;
 const DEFAULT_Y = 96;
+
+/** Above the entity editors (`EditModalShell`, z 50), below confirm dialogs (60). */
+export const NOTES_WINDOW_Z = 55;
 
 // Place the window on first open: saved position, else a default corner gap.
 const computeNotesInitialPos: ComputeInitialPos = ({ saved, clamp }) =>
@@ -93,16 +98,25 @@ export function NotesWindow(props: NotesWindowProps) {
   // Deriving all three from one const makes the drift unrepresentable.
   const windowTitle = `${t(lang, "noteLogTitle")} — ${entityLabel}`;
 
-  return (
+  // ★★ PORTALED TO <body> ABOVE THE EDITORS. The window opens from the "Notes"
+  // button inside the task/RAID/change editor, and is meant to be used beside
+  // it. Rendered in place at z-40 it sat UNDER the editor's z-50 backdrop: the
+  // scrim dimmed it, and a click on it landed on the backdrop and closed the
+  // editor. The portal keeps it out of any ancestor stacking context, and
+  // NOTES_WINDOW_Z puts it above the editors (50) but below confirm dialogs (60),
+  // so a delete confirmation still covers it. FLOATING_LAYER_ATTR stops the
+  // editor's Tab trap from pulling keyboard focus back out of it.
+  return createPortal(
     <div
       ref={panelRef}
       role="dialog"
+      {...{ [FLOATING_LAYER_ATTR]: "" }}
       // Focus target for `usePanelInitialFocus` — carries no focus ring, and is
       // deliberately not in the tab order.
       tabIndex={-1}
       aria-label={windowTitle}
-      style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)" }}
-      className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+      style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)", zIndex: NOTES_WINDOW_Z }}
+      className="fixed flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
     >
       <div
         onMouseDown={onTitleBarMouseDown}
@@ -175,6 +189,7 @@ export function NotesWindow(props: NotesWindowProps) {
         labelSuffix={null}
         aiReadable={aiReadable}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }

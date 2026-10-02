@@ -1,7 +1,7 @@
 // electron-updater wired to the pure policy in lib/update-policy.ts. Checks only in a packaged
 // build; nothing downloads or installs without the user's click. Excluded from the root tsc
 // like main.ts; typechecked by `npm run desktop:typecheck`.
-import { app, dialog, shell, type BrowserWindow, type MessageBoxOptions } from "electron";
+import { app, BrowserWindow, dialog, shell, type MessageBoxOptions } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RELEASES_URL } from "./lib/constants";
@@ -10,6 +10,7 @@ import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
   serializeSkipped, summarizeError, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
 } from "./lib/update-policy";
+import { buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice } from "./lib/update-window";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
@@ -117,6 +118,66 @@ function wireUpdater(
     }
   };
 
+  // The "Update available" prompt is its own small window, not a native box: a native box cannot
+  // scroll, so a real changelog ran off the screen (lib/update-window.ts says how a click comes
+  // back). Closing the window, or any failure to show it, means "later" -- never a download the user
+  // did not click. A window that cannot be created or loaded falls back to the native box, so the
+  // user still gets the choice.
+  const promptAvailable = (version: string, notes: string): Promise<UpdateChoice> => {
+    const fallback = async (): Promise<UpdateChoice> => {
+      const r = await box({
+        type: "info", title: "Update available", message: `AI PM Cockpit ${version} is available.`, detail: notes,
+        buttons: ["Download and install", "Later", "Skip this version"], defaultId: 0, cancelId: 1,
+      });
+      return r === 0 ? "download" : r === 2 ? "skip" : "later";
+    };
+    return new Promise<UpdateChoice>((resolve) => {
+      prompting = true;
+      let settled = false;
+      const finish = (c: UpdateChoice) => {
+        if (settled) return;
+        settled = true;
+        prompting = false;
+        resolve(c);
+      };
+      const fallBack = (why: string) => {
+        if (settled) return;
+        settled = true;
+        deps.log(`update prompt window: ${why}; using the native dialog`);
+        prompting = false;
+        resolve(fallback());
+      };
+      let win: BrowserWindow;
+      try {
+        const parent = deps.window();
+        win = new BrowserWindow({
+          ...(parent ? { parent, modal: true } : {}),
+          width: 560, height: 520, minWidth: 420, minHeight: 320,
+          title: "Update available", show: false, autoHideMenuBar: true,
+          webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+        });
+      } catch (e: unknown) {
+        fallBack(String(e));
+        return;
+      }
+      win.setMenu(null);
+      win.on("page-title-updated", (event, title) => {
+        // Keep the window's own title; the page title is only the choice channel.
+        event.preventDefault();
+        const c = parseChoiceTitle(title);
+        if (c === null) return;
+        finish(c);
+        if (!win.isDestroyed()) win.close();
+      });
+      win.on("closed", () => finish("later"));
+      win.once("ready-to-show", () => win.show());
+      win.loadURL(updatePromptUrl(buildUpdatePromptHtml({ version, notes }))).catch((e: unknown) => {
+        fallBack(String(e));
+        if (!win.isDestroyed()) win.destroy();
+      });
+    });
+  };
+
   const act = async (d: UpdateDecision): Promise<void> => {
     if (d.kind === "silent") return;
     if (d.kind === "up-to-date") {
@@ -131,15 +192,12 @@ function wireUpdater(
       if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
       return;
     }
-    const r = await box({
-      type: "info", title: "Update available", message: `AI PM Cockpit ${d.version} is available.`, detail: d.notes,
-      buttons: ["Download and install", "Later", "Skip this version"], defaultId: 0, cancelId: 1,
-    });
-    if (r === 2) {
+    const choice = await promptAvailable(d.version, d.notes);
+    if (choice === "skip") {
       try { writeFileSync(skipFile(), serializeSkipped(d.version)); } catch (e: unknown) { deps.log(`updater skip write: ${String(e)}`); }
       return;
     }
-    if (r !== 0) return;
+    if (choice !== "download") return;
     downloading = true;
     phase = "downloading";
     autoUpdater.autoInstallOnAppQuit = true;

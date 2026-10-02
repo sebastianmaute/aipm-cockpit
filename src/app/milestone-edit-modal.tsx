@@ -25,7 +25,16 @@ import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
 import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
+import { TableFilter } from "./report-table";
 import type { Milestone, Task } from "./types";
+
+/** Case-insensitive match on the row's visible text, `#<id> <name>`, so both
+ *  "#12" and a fragment of the name find a task. An empty query keeps all. */
+function filterLinkableTasks(tasks: readonly Task[], query: string): readonly Task[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return tasks;
+  return tasks.filter((tk) => `#${tk.id} ${tk.taskName}`.toLowerCase().includes(q));
+}
 
 interface Props {
   lang: Lang;
@@ -77,10 +86,16 @@ export function MilestoneEditModal({
       setDraft((p) => (p ? { ...p, name: appendDictation(p.name ?? "", txt) } : p)),
   });
 
+  // Linked-tasks search. It narrows only what the list SHOWS: a ticked task the
+  // query hides stays in `linkedTaskIds`, so filtering can never unlink anything.
+  const [taskQuery, setTaskQuery] = useState("");
+  const visibleTasks = filterLinkableTasks(tasks, taskQuery);
+
   if (prev !== milestone) {
     setPrev(milestone);
     setDraft(milestone);
     setError(null);
+    setTaskQuery("");
   }
 
   function toggleLinked(id: number) {
@@ -272,11 +287,21 @@ export function MilestoneEditModal({
             <legend className="font-medium text-foreground">
               {t(lang, "milestoneLinkedTasks")}
             </legend>
+            {tasks.length > 0 && (
+              <TableFilter
+                lang={lang}
+                value={taskQuery}
+                onChange={setTaskQuery}
+                placeholderKey="milestoneLinkedTasksFilter"
+              />
+            )}
             <div className="max-h-40 overflow-y-auto rounded-md border border-line p-2">
               {tasks.length === 0 ? (
                 <p className="text-muted-foreground">—</p>
+              ) : visibleTasks.length === 0 ? (
+                <p className="text-muted-foreground">{t(lang, "milestoneLinkedTasksNoMatch")}</p>
               ) : (
-                tasks.map((tk) => (
+                visibleTasks.map((tk) => (
                   <label key={tk.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"

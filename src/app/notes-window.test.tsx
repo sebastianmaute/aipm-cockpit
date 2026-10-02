@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { Modal } from "./modal";
-import { NotesWindow } from "./notes-window";
+import { FLOATING_LAYER_ATTR, Modal } from "./modal";
+import { NOTES_WINDOW_Z, NotesWindow } from "./notes-window";
 import { t } from "./i18n";
 import { HELP_ENTRIES, MODAL_HELP } from "./help-content";
 import type { NoteLogEntry, Resource } from "./types";
@@ -34,6 +34,23 @@ const ENTRIES: NoteLogEntry[] = [
   { id: 2, timestamp: "2026-01-02T10:00:00Z", html: "<p>Second note</p>", text: "Second note", authorResourceId: 2, authorName: "Bob Baker" },
   { id: 3, timestamp: "2026-01-03T10:00:00Z", html: "<p>Third note</p>", text: "Third note" },
 ];
+
+// The window is used BESIDE an open editor. jsdom has no layout, so it cannot
+// show a click landing on the editor's backdrop — these pin the three things
+// that decide it in a browser: out of any ancestor stacking context, above the
+// editors' z 50 and below confirm dialogs' 60, and marked so the editor's Tab
+// trap leaves its focus alone (that half is pinned in `modal.test.tsx`).
+describe("NotesWindow — layering above an open editor", () => {
+  it("portals to <body> above the editors, below confirms, carrying the floating-layer marker", () => {
+    setup();
+    const win = screen.getByRole("dialog", { name: /Task ABC/ });
+    expect(win.parentElement).toBe(document.body);
+    expect(NOTES_WINDOW_Z).toBeGreaterThan(50);
+    expect(NOTES_WINDOW_Z).toBeLessThan(60);
+    expect(win.style.zIndex).toBe(String(NOTES_WINDOW_Z));
+    expect(win.hasAttribute(FLOATING_LAYER_ATTR)).toBe(true);
+  });
+});
 
 function setup(over: Partial<React.ComponentProps<typeof NotesWindow>> = {}) {
   const onClose = vi.fn();
@@ -206,7 +223,9 @@ describe("NotesWindow", () => {
         text: "Safe body",
       },
     ];
-    const { container } = render(
+    // ★ `baseElement`, not `container`: the window PORTALS to <body>, so the
+    // render container is empty and every assertion below would pass vacuously.
+    const { baseElement: container } = render(
       <NotesWindow
         open
         onClose={vi.fn()}

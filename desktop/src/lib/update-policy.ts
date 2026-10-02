@@ -1,7 +1,10 @@
 // What the updater does, decided without Electron so it is unit-testable (the wiring is
 // desktop/src/updater.ts). Spec: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md §2.
 export const STARTUP_CHECK_DELAY_MS = 10_000;
-const NOTES_MAX = 1500;
+// The notes now render in a SCROLLING window (lib/update-window.ts), so this is a flood guard
+// against a pathological release body, not a fit-the-dialog limit. It was 1500 while the notes sat
+// in a native message box that cannot scroll, which cut every real changelog short.
+export const NOTES_MAX = 20_000;
 const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";

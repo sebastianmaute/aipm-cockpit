@@ -2,6 +2,7 @@
 // Pure, i18n-free engine for AI operating guides. No React, no i18n imports.
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
+import { BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES } from "./operating-guide-builtin.generated";
 
 export interface GuideScope {
   modes?: AppMode[];
@@ -25,8 +26,14 @@ export interface GuideContext {
   view: AppView;
 }
 
-/** Soft cap; above this the Settings UI warns. ~10k tokens. */
-export const GUIDE_CHAR_BUDGET = 40_000;
+/** Soft cap; above this the Settings UI warns. It is the combined size of the
+ *  guides THIS BUILD ships (the leadership guide plus every feature guide), so
+ *  a release always starts below it and the banner fires only once the enabled
+ *  set grows past that baseline. It moves with every regeneration of the guide
+ *  sources — nothing to bump by hand. A fixed 40,000 used to sit here while the
+ *  shipped guides alone came to roughly 71,000, so a fresh install warned. */
+export const GUIDE_CHAR_BUDGET =
+  BUILTIN_GUIDE_CONTENT.length + BUILTIN_FEATURE_GUIDES.reduce((sum, g) => sum + g.content.length, 0);
 
 function dimensionMatches<T>(allowed: T[] | undefined, current: T | T[]): boolean {
   if (!allowed || allowed.length === 0) return true; // wildcard
