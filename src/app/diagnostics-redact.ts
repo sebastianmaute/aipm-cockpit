@@ -13,13 +13,13 @@ const REDACTED = "[redacted]";
 // quadratically on a long run that fails them (64k mixed-case ~12 s), so the input is cut
 // BEFORE scrubbing. Minimum match lengths differ per pattern (sk-ant- ~8, Bearer ~8, Basic 22,
 // eyJ 23, ATATT 6, key=value ~7, the two base64 rules 32), all far under 512, and none looks
-// beyond its own run: a token that starts inside the first FIELD_MAX chars keeps >= 512 chars
-// before the cut, so it still matches.
-// ★ That argument covers only a token that STARTS inside FIELD_MAX. Redaction SHRINKS text, so
-// the first FIELD_MAX chars of the OUTPUT can reach original positions far past FIELD_MAX, and
-// a token that starts there and is cut by the window with too few chars kept would survive as a
-// raw fragment. `boundScrubInput` therefore moves the cut back to the start of the token-
-// alphabet run it would split (a linear backward scan, no regex over the window).
+// beyond its own run, so any token wholly inside the window is matched exactly as before.
+// ★ Only a token CUT by the window is a problem. Redaction SHRINKS text, so the first FIELD_MAX
+// chars of the OUTPUT can reach original positions far past FIELD_MAX, and a cut token with too
+// few chars kept would survive as a raw fragment. `boundScrubInput` therefore finds the start of
+// the token-alphabet run the cut splits (a linear backward scan, no regex over the window): a run
+// starting at or after FIELD_MAX is DROPPED (the output is cut back to its start), and a run
+// starting before FIELD_MAX is REDACTED outright, as follows.
 // ★ A run that starts BEFORE FIELD_MAX and reaches the cut is at least 512 token chars long: never
 // readable log text, and only matching the WHOLE run could judge it, which is the quadratic cost
 // this removes. Handing the partial run to the patterns would let §606 miss a `+` or `=` padding
@@ -30,7 +30,7 @@ export const SCRUB_WINDOW = FIELD_MAX + 512;
 // The union of every character a SECRET_VALUE_PATTERNS match can be made of, read off the
 // patterns: sk-ant- [A-Za-z0-9_-]; Bearer [A-Za-z0-9._-]; Basic [A-Za-z0-9+/=]; eyJ [A-Za-z0-9._-];
 // ATATT [A-Za-z0-9_=.-]; the base64 rule [A-Za-z0-9+/] and `=`; the catch-all [A-Za-z0-9_-].
-// key=value's value class [^&s] is wider, but any prefix of it still matches and a cut right
+// key=value's value class [^&\s] is wider, but any prefix of it still matches and a cut right
 // after the `=` only drops the value, so it needs no entry. Whitespace is NOT in the set: a
 // secret is split from what precedes it by anything outside it, which is how JSON quotes and
 // commas end a run. Widening a pattern's alphabet means widening this set; the §608 test pins it.
@@ -44,7 +44,7 @@ function boundScrubInput(value: string): string {
   }
   let start = SCRUB_WINDOW;
   while (start > 0 && TOKEN_CHAR.test(value[start - 1])) start--;
-  return start < FIELD_MAX ? value.slice(0, start) + REDACTED : value.slice(0, start);
+  return start < FIELD_MAX ? value.slice(0, start) + REDACTED + value.slice(start, start + 60) :value.slice(0, start);
 }
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
