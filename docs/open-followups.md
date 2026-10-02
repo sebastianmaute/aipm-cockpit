@@ -805,7 +805,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--closed-2026-09-25) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360; closed 2026-09-25 on `fix/defect-batch-6` | S — `fitHistoryToBudget` (chat-threads.ts) placeholders the oldest earlier-turn attachments at send time until the request fits | closed |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
-| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads | audit (2026-09) | M | open |
+| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads | audit (2026-09) | M | **CLOSED** 2026-10-02 |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--closed-2026-09-30) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap | audit (2026-09) | S | **CLOSED** 2026-09-30 |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
@@ -40066,7 +40066,7 @@ It does NOT see a bounded `[^>]{0,N}`, such as `html-extract.ts`'s `TAG_STRIP_RE
 string concatenation. It does not see other backtracking shapes either, such as a leading `\s*`. It
 returns no hits in the four extractors (`docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts`,
 `html-extract.ts`) or in `office-xml.ts`. Quadratic regexes outside the four OOXML extractors are
-out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open)). The
+out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02)). The
 point of the command is that it can SEE them. The earlier one could not.
 
 ★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
@@ -40896,9 +40896,22 @@ started), or (3) both — compare to-date budget vs to-date actual for the breac
 surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
 that is still worth flagging.
 
-## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
+## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
+**Status:** CLOSED 2026-10-02 — fixed by `b9099bd23`, `4a66f896c` and `1c86cae3e`, one per site: `htmlToPlainText`'s
+`<li>` and catch-all passes and `isNarrativeEmpty`'s tag strip now go through `replaceOpenTags` (a linear
+`forEachOpenTag` walk in `tag-pair-walk.ts`); `buildEscalationEntry` caps `recipient.name` with the load path's
+`stripBreakTagsWithin` at `RAID_ESCALATION_NAME_MAX` before stripping; the eleven fenced-json reads in
+`markdown-codecs-core.ts` share one forward-scanning `readFencedJsonSection` (`markdown-fenced-json.ts`). Output is
+unchanged: each test file keeps the old regex as a differential oracle (hand-picked cases plus a seeded fast-check
+property), and the golden fixtures are byte-identical. Each site has an `expectLinearScaling` guard
+(`html-to-text.test.ts`, `narrative-html.test.ts`, `action-escalate.test.ts`, `markdown-fenced-json.test.ts`).
+Mutation-checked one site at a time on 2026-10-02 by restoring the old code: the `<li>` regex gave a ratio of 15.76 and
+`<[^>]+>` 15.87 (same fixture), `<[^>]*>` 16.15, the uncapped `stripBreakTags` 16.83, and the old fenced regex 16.00,
+each against the limit of 8. The `project-ingest.ts` "bound the input before the HTML pass" item in the fix shape was not
+done. With `htmlToPlainText` linear it is no longer needed to avoid the quadratic cost.
+
+**Original status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
 extractors. `fe253f4f` (committed before this entry was filed) bounded one of them, the RAID
 `BREAK_TAG` LOAD path; the rest — `html-to-text.ts`, `narrative-html.ts`, the RAID WRITE path and the
 eleven `markdown-codecs-core.ts` fenced-block reads — remain open. Established by
@@ -40907,8 +40920,6 @@ and by `grep -cF '\s*\n+```json' src/app/markdown-codecs-core.ts` (prints 11). T
 regexes with `node -e` one-liners, for example
 `node -e "for(const n of [20000,40000,80000]){const s='<li '.repeat(n),t=performance.now();s.replace(/<\s*li[^>]*>/gi,'');console.log(n,Math.round(performance.now()-t))}"`
 (printed 496 / 1970 / 8357 ms). **Never measured end to end through a real call site.**
-
-**Work item:** #363
 
 §558's sweep found the lazy-pair regex shape and greedy `[^>]*` in the OOXML extractors. Widened to
 catch `[^>]*` and `[^>]+`, it also hits four modules outside those extractors. Each is quadratic on
@@ -41918,7 +41929,7 @@ does not do.
 
 **Resolution of the above:** the shipped fix pre-caps to a window wider than `FIELD_MAX` and trims the cut back to a token boundary, so the fragment this paragraph warns about is closed for whitespace-delimited tokens; the residual is listed in the Status line.
 
-Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open),
+Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02),
 the catalogue of backtracking-quadratic regexes elsewhere in `src` — this pattern sits in
 `diagnostics-redact.ts`, outside that sweep's scope, and could be folded into it rather than tracked as
 a fifth site of its own. Found reviewing [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21)
