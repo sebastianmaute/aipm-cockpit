@@ -628,7 +628,7 @@ function uniqueDeckParts(slides: readonly PptxSlide[]): MediaPart[] {
       byPath.set(part.path, part);
       continue;
     }
-    if (prior.data.length !== part.data.length || prior.data.some((b, i) => b !== part.data[i])) {
+    if (prior.data !== part.data && (prior.data.length !== part.data.length || prior.data.some((b, i) => b !== part.data[i]))) {
       throw new Error(`media path "${part.path}" is claimed by two different images`);
     }
   }

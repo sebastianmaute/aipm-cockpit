@@ -606,8 +606,11 @@ export function createDeckMedia(ctx: RenderCtx) {
  * re-scans each block's HTML for `<img data-asset-id>`; here the candidates are
  * already `ImageLine`s in the chunk, so the only slack is whether `mint`
  * DECLINES one (bytes or metadata gone since `paragraphLines` accepted them —
- * "unreachable by construction", per its docstring). So this over-reserves only
- * on that path and can never under-reserve.
+ * "unreachable by construction", per its docstring). So this over-reserves on
+ * that path, and — since §217 — whenever one asset repeats on the same slide,
+ * because `createDeckMedia` then mints ONE rId for every occurrence while this
+ * still counts each image line. Both only widen the gap; it can never
+ * under-reserve.
  *
  * ★ Over-reserving costs a GAP in the id sequence, which is legal — `Id` is an
  * xsd:ID and nothing in OPC requires contiguity. Under-reserving would cost a
