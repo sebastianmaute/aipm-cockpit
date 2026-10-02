@@ -97,6 +97,20 @@ describe("blocker-log", () => {
     expect(out.blockers).toBe("Line1\nLine2");
   });
 
+  it("migrateBlockers stamps legacy text deterministically: a real date at midnight UTC, else the epoch", () => {
+    const EPOCH_STAMP = "1970-01-01T00:00:00.000Z";
+    const real = migrateBlockers(makeTask({ blockers: "X", lastUpdateDate: "2026-03-04" }));
+    expect(real.blockerLog?.[0]?.createdAt).toBe("2026-03-04T00:00:00.000Z");
+    for (const lastUpdateDate of ["2026-13-45", "", "bad", undefined]) {
+      const task = makeTask({ blockers: "X", lastUpdateDate });
+      const a = migrateBlockers(task);
+      expect(a.blockerLog?.[0]?.createdAt).toBe(EPOCH_STAMP);
+      expect(migrateBlockers(task)).toEqual(a);
+      // The minted entry survives the sanitizer, so it is not dropped and re-minted.
+      expect(sanitizeBlockerLog(a.blockerLog)).toEqual(a.blockerLog);
+    }
+  });
+
   it("migrateBlockers keeps a disagreeing text as a new entry, keeping the history, and is idempotent", () => {
     // Amended 2026-10-02: the text was written by something unaware of the log
     // (an older build, a hand-edited file), so the replace rule runs against it.

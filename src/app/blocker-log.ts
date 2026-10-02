@@ -302,7 +302,8 @@ function loadStamp(task: Task, log: readonly BlockerEntry[]): string {
   return timeOf(dayStamp) >= timeOf(newest) ? dayStamp : newest;
 }
 
-/** Load migration. Legacy text with no log becomes one open entry. With a log,
+/** Load migration. Legacy text with no log becomes one open entry, stamped by
+ *  `loadStamp` (a real `lastUpdateDate`, else the epoch). With a log,
  *  a text that agrees with it (`agreesWithLog`) is re-derived; one that
  *  DISAGREES was written by something unaware of the log (an older build, a
  *  hand-edited Markdown/CSV file), so the replace rule (`replaceOpen`) runs
@@ -323,10 +324,8 @@ export function migrateBlockers(task: Task): Task {
   }
   const legacy = typeof task.blockers === "string" ? cleanText(task.blockers) : "";
   if (legacy === "") return task;
-  const createdAt = ISO_DATE.test(task.lastUpdateDate ?? "")
-    ? `${task.lastUpdateDate}T00:00:00.000Z`
-    : new Date().toISOString();
-  return withBlockerLog(task, [{ id: 1, text: legacy, createdAt }]);
+  // Same deterministic rule as a disagreement: a real `lastUpdateDate`, else the epoch.
+  return withBlockerLog(task, [{ id: 1, text: legacy, createdAt: loadStamp(task, []) }]);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
