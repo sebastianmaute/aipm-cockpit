@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BurndownChart } from "./burndown-chart";
-import { buildChartModel, type ChartInput, type ChartModel } from "./burndown-geometry";
+import { buildChartModel, estimatedLabelWidth, type ChartInput, type ChartModel } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { EvHistory } from "./budget-ev-history";
@@ -620,5 +620,43 @@ describe("BurndownChart", () => {
       render(<BurndownChart lang="en-US" currency="EUR" model={{ ...MODEL, empty: true }} unit="eur" orientation="cumulative" periods={[]} />);
       expect(screen.queryByRole("button")).toBeNull();
     });
+  });
+});
+
+// §665 — seen on the seeded sample (Reports → budget history, cumulative): a join label naming a long
+// chain of buckets ran leftward past the plot edge and printed over "Budget at start of recording".
+describe("BurndownChart — join labels stay clear of the baseline label (§665)", () => {
+  const names = "Build (fixed price), Discovery Phase (closed), Security Review (closed, rate override), Hypercare";
+  const model: ChartModel = {
+    ...MODEL,
+    bacSteps: [{ date: "2026-01-01", value: 80 }, { date: "2026-02-15", value: 100 }],
+    bacBaseline: 80,
+    bacLine: null,
+    evJoins: [{ date: "2026-02-20", value: 70, amount: 102_600, label: names, count: 4 }],
+  };
+
+  it("shortens the label to the room right of the baseline label, with the full text on hover", () => {
+    const { container } = render(<BurndownChart lang="en-US" currency="EUR" model={model} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+    const join = container.querySelector("text[data-ev-join-label]")!;
+    const shown = join.lastChild!.textContent!;
+    const full = join.querySelector("title")?.textContent ?? "";
+    expect(full).toContain(names); // nothing is lost: the whole sentence is the hover text
+    expect(shown).toContain("…");
+    expect(shown.length).toBeLessThan(full.length);
+    // The two labels' estimated x-ranges must not overlap. The baseline label starts at X0 + 4.
+    const baseline = [...container.querySelectorAll("text")].find((el) => el.textContent === "Budget at start of recording")!;
+    const baselineRight = Number(baseline.getAttribute("x")) + estimatedLabelWidth(baseline.textContent!);
+    expect(join.getAttribute("text-anchor")).toBe("end");
+    const joinLeft = Number(join.getAttribute("x")) - estimatedLabelWidth(shown);
+    expect(joinLeft).toBeGreaterThan(baselineRight);
+  });
+
+  it("leaves a short label whole, with no hover title", () => {
+    const short: ChartModel = { ...model, evJoins: [{ ...model.evJoins[0], label: "Hypercare", count: 1 }] };
+    const { container } = render(<BurndownChart lang="en-US" currency="EUR" model={short} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+    const join = container.querySelector("text[data-ev-join-label]")!;
+    expect(join.querySelector("title")).toBeNull();
+    expect(join.textContent).toContain("Hypercare");
+    expect(join.textContent).not.toContain("…");
   });
 });

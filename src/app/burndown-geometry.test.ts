@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
-  MARKER_LABEL_FONT_PX, type ChartInput,
+  MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, type ChartInput,
 } from "./burndown-geometry";
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
@@ -507,5 +507,38 @@ describe("layoutMarkerLabels", () => {
     const layout = layoutMarkerLabels([], MID_X);
     expect(layout.rows).toBe(0);
     expect(markerBandHeight(0)).toBe(0);
+  });
+});
+
+// §665 — a join label used to run past the plot's left edge, over the baseline label and the axis ticks.
+describe("fitJoinLabel (§665)", () => {
+  const compose = (name: string) => `${name} join (+€102,600)`;
+  const bounds = { left: 100, right: 560 };
+
+  it("leaves a label that fits untouched, anchored by the half-plot rule", () => {
+    const end = fitJoinLabel(compose, "Discovery", 500, 330, bounds);
+    expect(end).toMatchObject({ anchor: "end", text: compose("Discovery"), truncated: false, right: 500 });
+    expect(fitJoinLabel(compose, "Discovery", 200, 330, bounds)).toMatchObject({ anchor: "start", truncated: false, left: 200 });
+  });
+
+  it("shortens only the NAME of a long label, so it stays inside the bounds and keeps its amount", () => {
+    const names = "Build (fixed price), Discovery Phase (closed), Security Review (closed, rate override), Hypercare";
+    const end = fitJoinLabel(compose, names, 500, 330, bounds);
+    expect(end.truncated).toBe(true);
+    expect(end.left).toBeGreaterThanOrEqual(bounds.left);
+    expect(end.text).toMatch(/… join \(\+€102,600\)$/);
+    expect(end.text.startsWith("Build (fixed price)")).toBe(true);
+    const start = fitJoinLabel(compose, names, 200, 330, bounds);
+    expect(start.right).toBeLessThanOrEqual(bounds.right);
+    expect(start.text).toMatch(/… join \(\+€102,600\)$/);
+  });
+
+  it("estimates extents by the marker band's own width rule", () => {
+    const fitted = fitJoinLabel(compose, "A", 500, 330, bounds);
+    expect(fitted.right - fitted.left).toBeCloseTo(estimatedLabelWidth(fitted.text));
+  });
+
+  it("falls back to a bare ellipsis for the name when there is no room for any of it", () => {
+    expect(fitJoinLabel(compose, "Discovery", 120, 330, { left: 100, right: 130 }).text).toBe(compose("…"));
   });
 });
