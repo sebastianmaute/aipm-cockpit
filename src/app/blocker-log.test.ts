@@ -8,6 +8,7 @@ import {
   migrateBlockers,
   nextBlockerId,
   openBlockerCount,
+  previewBlockersText,
   reopenBlocker,
   resolveBlocker,
   sanitizeBlockerLog,
@@ -16,7 +17,7 @@ import {
   withBlockerLog,
 } from "./blocker-log";
 import { MAX_NOTE_ENTRIES } from "./note-log-policy";
-import { TEXTAREA_MAX } from "./sanitize-core";
+import { sanitizeBlockers, TEXTAREA_MAX } from "./sanitize-core";
 import type { BlockerEntry, Task } from "./types";
 
 const NOW = "2026-05-01T10:00:00.000Z";
@@ -96,17 +97,163 @@ describe("blocker-log", () => {
     expect(out.blockers).toBe("Line1\nLine2");
   });
 
-  it("migrateBlockers lets the log win and is idempotent", () => {
+  it("migrateBlockers keeps a disagreeing text as a new entry, keeping the history, and is idempotent", () => {
+    // Amended 2026-10-02: the text was written by something unaware of the log
+    // (an older build, a hand-edited file), so the replace rule runs against it.
     const t = makeTask({
       blockers: "old",
-      blockerLog: [{ id: 1, text: "Fresh", createdAt: "2026-01-01T00:00:00Z" }],
+      blockerLog: [
+        { id: 1, text: "Fresh", createdAt: "2026-01-01T00:00:00Z" },
+        { id: 2, text: "Done", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-02T00:00:00Z" },
+      ],
     });
     const once = migrateBlockers(t);
-    expect(once.blockers).toBe("Fresh");
-    expect(migrateBlockers(once)).toEqual(once);
+    expect(once.blockerLog).toEqual([
+      { id: 1, text: "Fresh", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-03-04T00:00:00.000Z" },
+      { id: 2, text: "Done", createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-02T00:00:00Z" },
+      { id: 3, text: "old", createdAt: "2026-03-04T00:00:00.000Z" },
+    ]);
+    expect(once.blockers).toBe("old");
     expect(migrateBlockers(once)).toBe(once);
     const empty = makeTask({ blockers: "" });
     expect(migrateBlockers(empty)).toBe(empty);
+  });
+
+  it("migrateBlockers keeps still-present open entries open when the text disagrees", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const once = migrateBlockers(makeTask({ blockers: "B\nC", blockerLog: log }));
+    expect(once.blockerLog?.[0]).toEqual({ ...log[0], resolvedAt: "2026-03-04T00:00:00.000Z" });
+    expect(once.blockerLog?.[1]).toBe(log[1]);
+    expect(once.blockerLog?.[2]).toEqual({ id: 3, text: "C", createdAt: "2026-03-04T00:00:00.000Z" });
+    expect(once.blockers).toBe("B\nC");
+    expect(migrateBlockers(once)).toBe(once);
+  });
+
+  it("migrateBlockers returns the same reference when the text agrees with the log", () => {
+    const t = withBlockerLog(makeTask(), [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B", createdAt: "2026-01-02T00:00:00Z" },
+    ]);
+    expect(migrateBlockers(t)).toBe(t);
+  });
+
+  it("migrateBlockers treats CRLF and edge whitespace from a codec as agreeing", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    for (const blockers of [" A\r\nB ", "A\r\nB", "A \nB\n", "\tA\nB"]) {
+      const out = migrateBlockers(makeTask({ blockers, blockerLog: log }));
+      expect(out.blockerLog, JSON.stringify(blockers)).toBe(log);
+      expect(out.blockers).toBe("A\nB");
+    }
+  });
+
+  it("migrateBlockers treats the derived text cut at the text cap as agreeing", () => {
+    // Two open entries joined run past TEXTAREA_MAX, so a path that caps the
+    // text (`sanitizeBlockers`) stores a prefix of the derived text.
+    const log: BlockerEntry[] = [
+      { id: 1, text: "a".repeat(TEXTAREA_MAX - 10), createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "b".repeat(200), createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const derived = blockersText(log);
+    expect(derived.length).toBeGreaterThan(TEXTAREA_MAX);
+    const capped = sanitizeBlockers(derived);
+    const out = migrateBlockers(makeTask({ blockers: capped, blockerLog: log }));
+    expect(out.blockerLog).toBe(log);
+    expect(out.blockers).toBe(derived);
+    expect(migrateBlockers(out)).toBe(out);
+  });
+
+  it("migrateBlockers agrees with a cap that drops an astral character whole", () => {
+    // `sanitizeBlockers` backs the cut off by one rather than split a surrogate
+    // pair; the log's own normaliser slices plainly, so the two prefixes differ.
+    const log: BlockerEntry[] = [
+      { id: 1, text: `${"a".repeat(TEXTAREA_MAX - 1)}\u{1F600}`, createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "b", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const capped = sanitizeBlockers(blockersText(log));
+    expect(capped).toBe("a".repeat(TEXTAREA_MAX - 1));
+    expect(migrateBlockers(makeTask({ blockers: capped, blockerLog: log })).blockerLog).toBe(log);
+  });
+
+  it("migrateBlockers stamps a disagreement from the newest log time when lastUpdateDate is invalid, else the epoch", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00.000Z", resolvedAt: "2026-02-05T00:00:00.000Z" },
+      { id: 2, text: "B", createdAt: "2026-01-03T00:00:00.000Z", editedAt: "2026-01-04T00:00:00.000Z" },
+    ];
+    const out = migrateBlockers(makeTask({ blockers: "X", lastUpdateDate: "bad", blockerLog: log }));
+    expect(out.blockerLog?.[1]?.resolvedAt).toBe("2026-02-05T00:00:00.000Z");
+    expect(out.blockerLog?.[2]).toEqual({ id: 3, text: "X", createdAt: "2026-02-05T00:00:00.000Z" });
+    const bare = migrateBlockers(makeTask({ blockers: "X", lastUpdateDate: "", blockerLog: [] }));
+    expect(bare.blockerLog).toEqual([{ id: 1, text: "X", createdAt: "1970-01-01T00:00:00.000Z" }]);
+  });
+
+  it("setBlockersText keeps open entries whose text is still present and adds the rest as one", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const t = withBlockerLog(makeTask(), log);
+    const grown = setBlockersText(t, "A\nB\nC", ACTOR, NOW);
+    expect(grown.blockerLog?.[0]).toBe(log[0]);
+    expect(grown.blockerLog?.[1]).toBe(log[1]);
+    expect(grown.blockerLog?.[2]).toEqual({ id: 3, text: "C", createdAt: NOW, authorResourceId: 7, authorName: "Ada" });
+    expect(grown.blockers).toBe("A\nB\nC");
+    const shrunk = setBlockersText(t, "B", ACTOR, NOW);
+    expect(shrunk.blockerLog).toEqual([{ ...log[0], resolvedAt: NOW }, log[1]]);
+    expect(shrunk.blockerLog?.[1]).toBe(log[1]);
+    expect(shrunk.blockers).toBe("B");
+  });
+
+  it("setBlockersText matches a multi-line entry as a contiguous block, each entry at most once", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "X\nY", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "Z", createdAt: "2026-01-02T00:00:00Z" },
+      { id: 3, text: "Q", createdAt: "2026-01-03T00:00:00Z" },
+      { id: 4, text: "Q", createdAt: "2026-01-04T00:00:00Z" },
+    ];
+    const t = withBlockerLog(makeTask(), log);
+    const out = setBlockersText(t, "New\nX\nY\nQ\nZ more", {}, NOW);
+    expect(out.blockerLog?.[0]).toBe(log[0]);
+    expect(out.blockerLog?.[1]?.resolvedAt).toBe(NOW);
+    expect(out.blockerLog?.[2]).toBe(log[2]);
+    expect(out.blockerLog?.[3]?.resolvedAt).toBe(NOW);
+    expect(out.blockerLog?.[4]).toEqual({ id: 5, text: "New\nZ more", createdAt: NOW });
+    // "X" alone is not the whole block "X\nY": the entry is resolved.
+    const split = setBlockersText(t, "X\nZ", {}, NOW);
+    expect(split.blockerLog?.[0]?.resolvedAt).toBe(NOW);
+    expect(split.blockerLog?.[1]).toBe(log[1]);
+    expect(split.blockerLog?.[4]).toEqual({ id: 5, text: "X", createdAt: NOW });
+  });
+
+  it("setBlockersText with only a reordering of the open entries is a no-op", () => {
+    const t = withBlockerLog(makeTask(), [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B", createdAt: "2026-01-02T00:00:00Z" },
+    ]);
+    expect(setBlockersText(t, "B\nA", ACTOR, NOW)).toBe(t);
+  });
+
+  it("setBlockersText with the derived text cut at the cap is a no-op", () => {
+    const t = withBlockerLog(makeTask(), [
+      { id: 1, text: "a".repeat(TEXTAREA_MAX - 10), createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "b".repeat(200), createdAt: "2026-01-02T00:00:00Z" },
+    ]);
+    expect(setBlockersText(t, sanitizeBlockers(t.blockers), ACTOR, NOW)).toBe(t);
+    expect(setBlockersText(t, t.blockers, ACTOR, NOW)).toBe(t);
+  });
+
+  it("previewBlockersText shows the text the replace rule will store", () => {
+    const stored = withBlockerLog(makeTask(), [{ id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" }]);
+    expect(previewBlockersText(stored, "C\nA")).toBe("A\nC");
+    expect(previewBlockersText(stored, " A ")).toBe("A");
+    expect(previewBlockersText(stored, "")).toBe("");
+    expect(previewBlockersText({ blockers: "legacy" }, "x\nlegacy")).toBe("legacy\nx");
+    expect(previewBlockersText(undefined, "  new ")).toBe("new");
   });
 
   it("addBlocker ignores blank text", () => {
@@ -137,6 +284,12 @@ describe("blocker-log", () => {
     expect(out.blockerLog?.[0]).toMatchObject({ text: "B", editedAt: NOW });
     expect(out.blockers).toBe("B");
     expect(editBlocker(t, 99, "B", NOW)).toBe(t);
+  });
+
+  it("editBlocker with unchanged text returns the task, stamping no editedAt", () => {
+    const t = withBlockerLog(makeTask(), [{ id: 1, text: "A\nB", createdAt: "2026-01-01T00:00:00Z" }]);
+    expect(editBlocker(t, 1, "A\nB", NOW)).toBe(t);
+    expect(editBlocker(t, 1, " A\r\nB ", NOW)).toBe(t);
   });
 
   it("resolve, reopen and delete behave and return the task for no-ops", () => {

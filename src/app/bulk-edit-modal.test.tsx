@@ -41,8 +41,9 @@ function defaultProps(
 }
 
 describe("BulkEditModal", () => {
-  // Bulk blockers go through `setBlockersText`: the open entries are resolved
-  // (kept as history), not erased — the hint says so, and describes the field.
+  // Bulk blockers go through `setBlockersText`: an open entry the text still
+  // carries stays open, the rest are resolved (kept as history), never erased —
+  // the hint says so, and describes the field.
   test("the blockers field carries the replace-open-blockers hint as its description", () => {
     render(
       <TaskFormProvider>
@@ -52,7 +53,9 @@ describe("BulkEditModal", () => {
       </TaskFormProvider>,
     );
     const hint = t("en-US", "bulkBlockersHint");
-    expect(hint).toBe("Replaces the open blockers on each task; they are kept as resolved.");
+    expect(hint).toBe(
+      "Replaces the open blockers on each task: a line matching one keeps it open, the others are kept as resolved.",
+    );
     const field = screen.getByRole("textbox", { name: t("en-US", "blockers") });
     expect(field).toHaveAccessibleDescription(hint);
   });

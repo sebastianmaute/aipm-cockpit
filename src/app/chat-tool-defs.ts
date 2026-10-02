@@ -260,7 +260,7 @@ const taskFields = {
   blockers: {
     type: "string" as const,
     description:
-      "Replaces the task's open blockers with this text (the previous open ones are marked resolved). An empty string resolves them all.",
+      "Replaces the task's open blockers with this text: lines that match an existing open blocker keep it open, open blockers left out are marked resolved, and any other text is added as one new blocker. An empty string resolves them all.",
   },
   description: {
     type: "string" as const,

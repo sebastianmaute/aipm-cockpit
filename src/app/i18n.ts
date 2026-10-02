@@ -57,7 +57,7 @@ const enUS = {
   blockerLogSave: "Save",
   blockerBadgeLabel: "Blockers – {0} ({1} open)",
   blockerLogButton: "Blockers ({0})",
-  bulkBlockersHint: "Replaces the open blockers on each task; they are kept as resolved.",
+  bulkBlockersHint: "Replaces the open blockers on each task: a line matching one keeps it open, the others are kept as resolved.",
   selfResourceLabel: "I am this resource",
   selfResourceHint: "Used to attribute notes and activity to you.",
   selfResourceNone: "Not set",

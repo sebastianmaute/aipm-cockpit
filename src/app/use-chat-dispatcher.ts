@@ -391,7 +391,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const cleanPatch = buildTaskCleanPatch(patch, existing);
         const stamp = new Date().toISOString();
         // `blockers` replaces the STORED row's open blockers through its log
-        // (they are resolved, not dropped); every other key is a plain spread.
+        // (left-out ones are resolved, not dropped); every other key is a
+        // plain spread.
         const mergedBase: Task = {
           ...applyTaskPatch(existing, cleanPatch, aiBlockerActor(settingsRef.current.language), stamp),
           id: existing.id,

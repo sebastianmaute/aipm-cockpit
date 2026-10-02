@@ -61,7 +61,7 @@ export const de: Record<TranslationKey, string> = {
   blockerLogSave: "Speichern",
   blockerBadgeLabel: "Blocker – {0} ({1} offen)",
   blockerLogButton: "Blocker ({0})",
-  bulkBlockersHint: "Ersetzt die offenen Blocker jeder Aufgabe; sie bleiben als gelöst erhalten.",
+  bulkBlockersHint: "Ersetzt die offenen Blocker jeder Aufgabe: Eine passende Zeile hält ihren Blocker offen, die übrigen bleiben als gelöst erhalten.",
   selfResourceLabel: "Ich bin diese Ressource",
   selfResourceHint: "Wird verwendet, um Notizen und Aktivitäten Ihnen zuzuordnen.",
   selfResourceNone: "Nicht festgelegt",

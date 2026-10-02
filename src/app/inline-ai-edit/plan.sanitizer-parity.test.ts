@@ -28,6 +28,7 @@ import {
 } from "../sanitize";
 import { sanitizeCalendarEvent } from "../calendar-event";
 import { buildTaskCleanPatch } from "../chat-task-patch";
+import { buildPatch } from "../chat-tools-updates";
 import { applyTaskPatch } from "../blocker-log";
 import { buildBulkEditUpdates } from "../bulk-operations-helpers";
 import { creatableResourceEmail } from "../resource-create-email";
@@ -317,7 +318,10 @@ const taskReader: StoredReader = (field, value) => {
     return merged.status;
   }
   try {
-    const patch = buildTaskCleanPatch({ [field]: value } as Partial<Task>, TASK_BASE);
+    // ★ `buildPatch` first, as the `update_task` tool does before `updateTask`:
+    // it is where a NON-STRING `blockers` is dropped (the log left untouched),
+    // so skipping it read `blockers: true` as a clear the real write never makes.
+    const patch = buildTaskCleanPatch(buildPatch({ [field]: value }), TASK_BASE);
     // ★ The patch is merged by `applyTaskPatch`, as `updateTask` does — NOT
     // read off the patch: `blockers` is stored through the blocker log, whose
     // normaliser trims, so the patch's own value is not what lands.

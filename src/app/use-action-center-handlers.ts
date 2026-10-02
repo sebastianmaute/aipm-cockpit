@@ -179,7 +179,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
     const id = Number(action.cta.id);
     // Resolves every open entry of the row's log (kept as history) rather than
-    // blanking the text, which the next load would re-derive from the log.
+    // blanking the text outside the log, which would leave the pair out of step.
     const now = new Date().toISOString();
     const actor = selfBlockerActor(selfResourceId, resources);
     setTasks((prev) => prev.map((tk) => (tk.id === id ? setBlockersText(tk, "", actor, now) : tk)));

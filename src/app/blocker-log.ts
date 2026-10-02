@@ -6,7 +6,7 @@
 // cannot drift.
 import { MAX_AUTHOR_NAME, MAX_NOTE_ENTRIES } from "./note-log-policy";
 import { resourceDisplayName } from "./resource-foundation";
-import { TEXTAREA_MAX } from "./sanitize-core";
+import { sanitizeBlockers, TEXTAREA_MAX } from "./sanitize-core";
 import type { BlockerEntry, Resource, Task } from "./types";
 
 export type BlockerActor = { resourceId?: number; name?: string };
@@ -110,10 +110,12 @@ function updateEntry(
   );
 }
 
+/** Unchanged text (after the normaliser) returns the task by reference, so an
+ *  edit that changes nothing stamps no `editedAt` and logs no activity. */
 export function editBlocker(task: Task, id: number, text: string, now: string): Task {
   const clean = cleanText(text);
   if (clean === "") return task;
-  return updateEntry(task, id, (e) => ({ ...e, text: clean, editedAt: now }));
+  return updateEntry(task, id, (e) => (e.text === clean ? e : { ...e, text: clean, editedAt: now }));
 }
 
 export function resolveBlocker(task: Task, id: number, now: string): Task {
@@ -138,8 +140,74 @@ export function deleteBlocker(task: Task, id: number): Task {
   );
 }
 
-/** Replace the open blockers with `text`: same text is a no-op, empty resolves
- *  them all, anything else resolves them and adds one new open entry. */
+/** A text's comparison form: normalised, each line trimmed. */
+function lineKey(text: string): string {
+  return cleanText(text)
+    .split("\n")
+    .map((l) => l.trim())
+    .join("\n");
+}
+
+/** Does `text` say the same as the log's open entries? Besides equality (CRLF
+ *  and edge whitespace ignored), the derived text CUT at the text cap agrees:
+ *  several open entries can join to more than TEXTAREA_MAX, and a path that
+ *  caps `blockers` (`sanitizeBlockers`, `cleanText`) stores only a prefix —
+ *  without this, that prefix would read as a disagreement on every load. */
+function agreesWithLog(text: string, log: readonly BlockerEntry[]): boolean {
+  const key = lineKey(text);
+  const derived = blockersText(log);
+  return key === lineKey(derived) || key === lineKey(sanitizeBlockers(derived));
+}
+
+/** The replace rule, shared by a write (`setBlockersText`) and a load whose
+ *  text disagrees with the log (`migrateBlockers`). The new text is split into
+ *  lines; an open entry whose (possibly multi-line) text appears as a contiguous
+ *  block of whole, not-yet-consumed lines stays open, untouched, and consumes
+ *  them — entries are tried oldest first (the derived text's order), each
+ *  matching at most once, at its first match. Open entries not found are
+ *  resolved at `now`. The unconsumed lines, joined and cleaned, become ONE new
+ *  open entry when non-empty. Returns `log` itself when nothing changes. */
+function replaceOpen(
+  log: readonly BlockerEntry[],
+  clean: string,
+  actor: BlockerActor,
+  now: string,
+): readonly BlockerEntry[] {
+  const lines = clean === "" ? [] : clean.split("\n").map((l) => l.trim());
+  const consumed = lines.map(() => false);
+  const kept = new Set<BlockerEntry>();
+  const open = log
+    .filter(isOpen)
+    .slice()
+    .sort((a, b) => timeOf(a.createdAt) - timeOf(b.createdAt) || a.id - b.id);
+  for (const entry of open) {
+    const block = entry.text.split("\n").map((l) => l.trim());
+    const at = findBlock(lines, consumed, block);
+    if (at < 0) continue;
+    block.forEach((_, i) => {
+      consumed[at + i] = true;
+    });
+    kept.add(entry);
+  }
+  const rest = cleanText(lines.filter((_, i) => !consumed[i]).join("\n"));
+  const resolvesAny = open.some((e) => !kept.has(e));
+  if (!resolvesAny && rest === "") return log;
+  const next = log.map((e) => (isOpen(e) && !kept.has(e) ? { ...e, resolvedAt: now } : e));
+  return rest === "" ? next : [...next, newEntry(log, rest, actor, now)];
+}
+
+/** First index where `block` sits on unconsumed lines of `lines`; -1 if none. */
+function findBlock(lines: readonly string[], consumed: readonly boolean[], block: readonly string[]): number {
+  for (let at = 0; at + block.length <= lines.length; at++) {
+    if (block.every((l, i) => !consumed[at + i] && lines[at + i] === l)) return at;
+  }
+  return -1;
+}
+
+/** Replace the open blockers with `text` (the replace rule, `replaceOpen`):
+ *  lines matching an open entry keep it open, open entries left out are
+ *  resolved, any other text becomes one new open entry. The same text (or a
+ *  reordering of the open entries) is a no-op; empty resolves them all. */
 export function setBlockersText(
   task: Task,
   text: string,
@@ -148,13 +216,32 @@ export function setBlockersText(
 ): Task {
   const clean = cleanText(text);
   const base = migrateBlockers(task);
-  if (clean === blockersText(base.blockerLog)) return task;
   const log = base.blockerLog ?? [];
-  const resolved = log.map((e) => (isOpen(e) ? { ...e, resolvedAt: now } : e));
-  return withBlockerLog(
-    base,
-    clean === "" ? resolved : [...resolved, newEntry(log, clean, actor, now)],
-  );
+  if (agreesWithLog(clean, log)) return task;
+  const next = replaceOpen(log, clean, actor, now);
+  return next === log ? base : withBlockerLog(base, [...next]);
+}
+
+/** A far-future stamp for `previewBlockersText`'s new entry, so it sorts after
+ *  every stored one exactly as a real write's `now` does. */
+const PREVIEW_NOW = "9999-12-31T23:59:59.999Z";
+
+/** The `blockers` text `setBlockersText` would store for `text` on `stored` —
+ *  the inline AI card previews this, so a reordering or a partly-matching text
+ *  shows what will land rather than what was typed. `stored` absent (a create)
+ *  previews the normalised text. */
+export function previewBlockersText(
+  stored: Partial<Pick<Task, "blockers" | "blockerLog" | "lastUpdateDate">> | undefined,
+  text: string,
+): string {
+  if (!stored) return cleanText(text);
+  const log = sanitizeBlockerLog(stored.blockerLog);
+  const row = {
+    blockers: typeof stored.blockers === "string" ? stored.blockers : "",
+    lastUpdateDate: stored.lastUpdateDate,
+    ...(log ? { blockerLog: log } : {}),
+  } as Task;
+  return setBlockersText(row, text, {}, PREVIEW_NOW).blockers;
 }
 
 /** Spread a task `patch` over the STORED `row`, routing `blockers` through
@@ -191,13 +278,41 @@ export function selfBlockerActor(
   return name !== "" ? { resourceId: selfResourceId, name } : { resourceId: selfResourceId };
 }
 
-/** Load migration: the log wins; legacy text becomes one open entry. Returns the
- *  SAME reference when nothing changes; idempotent. */
+const EPOCH = "1970-01-01T00:00:00.000Z";
+
+/** The stamp a load-time disagreement writes. Load stays pure and deterministic
+ *  (the same input loads to the same output, every time), so no clock: the
+ *  task's `lastUpdateDate` at midnight UTC when it is a valid date, else the
+ *  newest timestamp already in the log, else the epoch. */
+function loadStamp(task: Task, log: readonly BlockerEntry[]): string {
+  const day = task.lastUpdateDate ?? "";
+  if (ISO_DATE.test(day) && !Number.isNaN(Date.parse(day))) return `${day}T00:00:00.000Z`;
+  const times = log.flatMap((e) => [e.createdAt, e.editedAt, e.resolvedAt]);
+  let newest = EPOCH;
+  for (const t of times) {
+    if (t !== undefined && timeOf(t) > timeOf(newest)) newest = t;
+  }
+  return newest;
+}
+
+/** Load migration. Legacy text with no log becomes one open entry. With a log,
+ *  a text that agrees with it (`agreesWithLog`) is re-derived; one that
+ *  DISAGREES was written by something unaware of the log (an older build, a
+ *  hand-edited Markdown/CSV file), so the replace rule (`replaceOpen`) runs
+ *  against the log and nothing is lost: still-present open entries stay open,
+ *  vanished ones are resolved, the remainder becomes one new open entry with no
+ *  author, stamped by `loadStamp`. Returns the SAME reference when nothing
+ *  changes; idempotent (the result's text is derived, so it agrees). */
 export function migrateBlockers(task: Task): Task {
   if (task.blockerLog) {
-    return task.blockers === blockersText(task.blockerLog)
-      ? task
-      : withBlockerLog(task, task.blockerLog);
+    const log = task.blockerLog;
+    const derived = blockersText(log);
+    if (task.blockers === derived) return task;
+    if (typeof task.blockers !== "string" || agreesWithLog(task.blockers, log)) {
+      return withBlockerLog(task, log);
+    }
+    const next = replaceOpen(log, cleanText(task.blockers), {}, loadStamp(task, log));
+    return withBlockerLog(task, next === log ? log : [...next]);
   }
   const legacy = typeof task.blockers === "string" ? cleanText(task.blockers) : "";
   if (legacy === "") return task;

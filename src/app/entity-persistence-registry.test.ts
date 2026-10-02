@@ -42,6 +42,8 @@ import {
 } from "./csv-codecs-core";
 import { DOCUMENT_ASSETS_CSV_COLUMNS } from "./csv-codecs";
 import { sanitizeRaidEscalations } from "./raid-escalation";
+import { blockersText } from "./blocker-log";
+import { sanitizeBlockers, TEXTAREA_MAX } from "./sanitize-core";
 import {
   ENTITY_SPECS, SCHEMA_DDL, TABLE_NAMES, rowsToWorkspace, workspaceToStatements,
   type PipelineResultLike, type SqlStmt,
@@ -906,7 +908,9 @@ describe("entity persistence registry — Task.blockerLog across all six write p
       { id: "x", text: "bad id", createdAt: "2026-07-01T09:00:00.000Z" },
       "not an object",
     ] as unknown as BlockerEntry[];
-    const ws = seed({ blockerLog: hostile, blockers: "stale text" });
+    // The text agrees with what survives sanitising (CRLF aside), so the load
+    // rule mints no entry and only the sanitiser is under test here.
+    const ws = seed({ blockerLog: hostile, blockers: "Kept\r\nline" });
     for (const [name, back] of [
       ["JSON", jsonToWorkspace(JSON.stringify(ws))],
       ["IndexedDB", await idbRoundTrip(ws)],
@@ -914,6 +918,42 @@ describe("entity persistence registry — Task.blockerLog across all six write p
       expect(back.tasks[0]?.blockerLog, name).toEqual([{ id: 1, text: "Kept\nline", createdAt: "2026-07-01T09:00:00.000Z" }]);
       expect(back.tasks[0]?.blockers, name).toBe("Kept\nline");
     }
+  });
+
+  // ★ Open entries can join to more than TEXTAREA_MAX; a text cut at the cap
+  //  must still AGREE with the log on load, or every load would mint an entry.
+  it("open entries joining past the text cap round-trip with no new entry, capped or not", async () => {
+    const long: BlockerEntry[] = [
+      { id: 1, text: "a".repeat(TEXTAREA_MAX - 10), createdAt: "2026-07-01T09:00:00.000Z" },
+      { id: 2, text: "b".repeat(300), createdAt: "2026-07-02T09:00:00.000Z" },
+    ];
+    const derived = blockersText(long);
+    expect(derived.length).toBeGreaterThan(TEXTAREA_MAX);
+    const seen: string[] = [];
+    for (const blockers of [derived, sanitizeBlockers(derived)]) {
+      for (const [name, roundTrip] of PATHS) {
+        const back = (await roundTrip(seed({ blockerLog: long, blockers }))).tasks[0];
+        expect(back?.blockerLog, name).toEqual(long);
+        expect(back?.blockers, name).toBe(derived);
+        seen.push(name);
+      }
+    }
+    expect(seen).toHaveLength(12);
+  });
+
+  it("a text an older client wrote beside the log loads as a new entry on every path", async () => {
+    const seen: string[] = [];
+    for (const [name, roundTrip] of PATHS) {
+      const back = (await roundTrip(seed({ blockerLog: LOG, blockers: "Hand-edited" }))).tasks[0];
+      expect(back?.blockerLog, name).toEqual([
+        { ...LOG[0], resolvedAt: "2026-01-10T00:00:00.000Z" },
+        LOG[1],
+        { id: 3, text: "Hand-edited", createdAt: "2026-01-10T00:00:00.000Z" },
+      ]);
+      expect(back?.blockers, name).toBe("Hand-edited");
+      seen.push(name);
+    }
+    expect(seen).toHaveLength(6);
   });
 
   it("a blockerLog the sanitiser empties falls back to the legacy text", () => {

@@ -994,6 +994,21 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
     expect(log[2].resolvedAt).toBeUndefined();
   });
 
+  it("AI update_task keeps an open blocker its text still carries and adds only the rest", () => {
+    const { result } = renderDispatcher(seededWithLog());
+    act(() => {
+      result.current.updateTask(1, { blockers: "Waiting on DBA\nVendor contract" });
+    });
+    const stored = result.current.getTask(1);
+    expect(stored?.blockers).toBe("Waiting on DBA\nVendor contract");
+    const log = stored?.blockerLog ?? [];
+    expect(log).toHaveLength(3);
+    expect(log[0]).toEqual(RESOLVED);
+    expect(log[1]).toEqual(OPEN);
+    expect(log[2]).toMatchObject({ id: 3, text: "Vendor contract", authorName: "AI created" });
+    expect(log[2].resolvedAt).toBeUndefined();
+  });
+
   it("AI update_task with an empty blockers string resolves every open entry", () => {
     const { result } = renderDispatcher(seededWithLog());
     act(() => {

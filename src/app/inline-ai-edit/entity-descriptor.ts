@@ -14,6 +14,7 @@ import {
   CHANGE_TYPES, CHANGE_STATUSES,
   STAKEHOLDER_CATEGORIES, INFLUENCE_INTEREST_LEVELS,
   type RaidCategory,
+  type Task,
 } from "../types";
 import { type Workspace } from "../workspace";
 import {
@@ -58,7 +59,7 @@ import {
 } from "../sanitize-records";
 import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-allowlist-guards";
 import { roleLabel } from "../resource-foundation";
-import { normalizeBlockerText } from "../blocker-log";
+import { normalizeBlockerText, previewBlockersText } from "../blocker-log";
 import { str } from "./str";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
@@ -483,8 +484,14 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       assigneeEmail: sanitizeLoadedEmail,
       // ★ A NON-STRING is dropped by the writer (`buildPatch`), leaving the log
       //   untouched, so the card previews the STORED text: no diff, never a clear.
+      // ★ A string previews through the REPLACE RULE against the stored row
+      //   (`previewBlockersText`): an open entry the text still carries keeps
+      //   its place and the rest lands after it, so "C\nA" over an open "A"
+      //   stores "A\nC" — the card shows that, not the typed order.
       blockers: (v: unknown, _row: Record<string, unknown>, stored?: Record<string, unknown>) =>
-        normalizeBlockerText(sanitizeBlockers(typeof v === "string" ? v : stored?.blockers)),
+        typeof v === "string"
+          ? previewBlockersText(stored as Partial<Task> | undefined, sanitizeBlockers(v))
+          : normalizeBlockerText(sanitizeBlockers(stored?.blockers)),
       group: sanitizeGroup,
     },
     // ★ `taskFields` declares no id-list input — a task's relationships

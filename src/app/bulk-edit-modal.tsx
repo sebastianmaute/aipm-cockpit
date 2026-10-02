@@ -262,8 +262,9 @@ export function BulkEditModal({
             aria-describedby="bulk-blockers-hint"
             className={`${inputClass} disabled:opacity-50`}
           />
-          {/* Written through `setBlockersText`: the open entries are resolved
-              (kept as history), never erased. */}
+          {/* Written through `setBlockersText`: an open entry the text still
+              carries stays open, the rest are resolved (kept as history),
+              never erased. */}
           <p id="bulk-blockers-hint" className="mt-1 text-xs text-muted-foreground">
             {t(lang, "bulkBlockersHint")}
           </p>

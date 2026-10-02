@@ -57,9 +57,9 @@ describe("the task blockers schema description", () => {
       }
     ).properties.blockers.description;
 
-  it("update_task says the text replaces the open blockers", () => {
+  it("update_task describes the replace rule: matching lines keep a blocker open", () => {
     expect(blockersDescription("update_task")).toBe(
-      "Replaces the task's open blockers with this text (the previous open ones are marked resolved). An empty string resolves them all.",
+      "Replaces the task's open blockers with this text: lines that match an existing open blocker keep it open, open blockers left out are marked resolved, and any other text is added as one new blocker. An empty string resolves them all.",
     );
   });
 

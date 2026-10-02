@@ -317,6 +317,38 @@ describe("useBulkOperations", () => {
       expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
     });
 
+    it("bulk blockers keep an open entry the text still carries on the task that has it", () => {
+      const row = (id: number, open: string): Task => ({
+        id, taskName: `Task ${id}`, status: "To Do", priority: "Medium",
+        assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
+        description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+        blockerLog: [{ id: 1, text: open, createdAt: "2026-05-03T00:00:00.000Z" }],
+        blockers: open,
+      });
+      const { result } = renderBulk({});
+      act(() => { result.current.workspace.setTasks([row(1, "Waiting A"), row(2, "Waiting B")]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => { result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev,
+          enabled: { ...prev.enabled, blockers: true },
+          blockers: "Waiting A\nShared vendor delay",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      const [first, second] = result.current.workspace.tasks;
+      // Task 1 carries "Waiting A": it stays open, only the new line is added.
+      expect(first.blockerLog).toEqual([
+        { id: 1, text: "Waiting A", createdAt: "2026-05-03T00:00:00.000Z" },
+        expect.objectContaining({ id: 2, text: "Shared vendor delay" }),
+      ]);
+      expect(first.blockerLog?.[1].resolvedAt).toBeUndefined();
+      // Task 2's "Waiting B" is left out: resolved, the whole text added.
+      expect(second.blockerLog?.[0].resolvedAt).toEqual(expect.any(String));
+      expect(second.blockerLog?.[1]).toMatchObject({ id: 2, text: "Waiting A\nShared vendor delay" });
+    });
+
     it("bulk blockers + priority: every changed row is written, the undo patch carries no blocker key", () => {
       const row = (id: number, priority: "Medium" | "High"): Task => ({
         id, taskName: `Task ${id}`, status: "To Do", priority,
