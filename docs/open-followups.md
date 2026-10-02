@@ -562,7 +562,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | **CLOSED** 2026-10-01 |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
-| [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
+| [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes--closed-2026-10-02) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | **CLOSED** 2026-10-02 |
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
@@ -27954,17 +27954,17 @@ action. That second asymmetry was the one a manual pass reported, and it is gone
 
 ---
 
-## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes
+## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes — CLOSED 2026-10-02
 
-**Status:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: convert the LINEAR groups only; the project-template cards and the 2-D influence/interest quadrant stay toggle-button-shaped by decision. Converted, four sites: the import method (`step0-import-panel.tsx`) and the knowledge source filter (`knowledge-panel.tsx`) are now the shared `SegmentedControl` (new group labels `wizardImportMethodGroup` / `documentsFilterSourceGroup`). The task health override (`task-form-fields.tsx`) keeps its RAG look but is a real `radiogroup` — `role="radio"`, `aria-checked`, a roving `tabIndex`, and the arrow-key handler `SegmentedControl` itself now uses, extracted as `handleRadioGroupKeyDown` (`radio-group-keys.ts`) so the two cannot drift; every chip, "Auto" included, carries the same always-rendered check marker. ★★ The RACI chip picker is the one that could NOT be a radio group: a pick commits and closes the popover, and a radio's arrows select, so every arrow would commit. It is `menu` + `menuitemradio` (`aria-checked`, roving tab stop, arrows move focus only via `handleRovingFocusKeyDown`), the ARIA pattern for exactly that; the clear chip stays outside the menu as an action, and opening the picker now focuses the checked role rather than "R". Recorded in `docs/AGENTS/accessibility.md`. Pinned by the rewritten marker/width tests and new keyboard tests in `knowledge-panel.test.tsx`, `task-form-fields.test.tsx` and `raci-chip-picker.test.tsx`; the wizard and step-0 tests now query `radio`, with a positive control so the absence checks are not vacuous. ★ Still owed, as below: a real screen-reader pass on each converted surface — nothing automated can hear the announcement. The history below is kept as written.
+
+**Previously:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
 read, but no screen-reader or keyboard pass has been run against any of them, and there is no probe to
 run: the markup is individually valid at every site. Filed 2026-09-01 while closing §55. Enumerate the
 hand-rolled residue with
 `grep -rn "aria-pressed={" src/app --include=*.tsx | grep -v "\.test\." | grep -v "toggle-button.tsx"`
 — the two that migrated to `ToggleButton` do NOT appear there, because the primitive owns the
 attribute; find those with `grep -n "<ToggleButton" src/app/create-project-wizard.tsx src/app/knowledge-panel.tsx`.
-
-**Work item:** #240
 
 **What happens.** SC 4.1.2 is about role, name and STATE being programmatically determinable.
 `aria-pressed` says "this button is a toggle and it is currently on" — a claim about ONE control,

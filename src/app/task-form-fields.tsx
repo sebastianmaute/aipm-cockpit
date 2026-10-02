@@ -22,10 +22,15 @@ import {
   computeTaskHealth,
   HEALTH_VALUES,
   healthColorName,
+  type Health,
 } from "./health";
+
+/** §331 — the health radio group's choices: "" is "Auto", then the three overrides. */
+const HEALTH_CHOICES: readonly ("" | Health)[] = ["", ...HEALTH_VALUES];
 import { RagDot } from "./rag-dot";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
-import { ToggleButton } from "./toggle-button";
+import { handleRadioGroupKeyDown } from "./radio-group-keys";
+import { CheckIcon } from "./icons";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
@@ -439,63 +444,52 @@ export function TaskFormFields({
               "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
             const chipActive = HEALTH_CHIP_ACTIVE_CLASS;
             return (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, healthOverride: "" })}
-                  aria-pressed={form.healthOverride === ""}
-                  className={`${chipBase} ${
-                    form.healthOverride === ""
-                      ? "border-ui-dark-blue bg-surface-muted text-ui-dark-blue dark:border-ui-blue dark:bg-surface-muted dark:text-ui-light-grey"
-                      : chipInactive
-                  }`}
-                >
-                  {autoLabel}
-                </button>
-                {/* open-followups §55 (WCAG 1.4.1) — these three ride
-                    `ToggleButton` for its non-colour pressed marker. The active
-                    amber and green borders measured 1.34-2.34 and 2.47-2.96
-                    against the inactive `--line` in the light schemes, so the
-                    RAG hue alone could not carry the selected state. The hue
-                    stays (it carries WHICH health was picked) as the appended
-                    `chipActive[h]`.
-                    ★ The dot goes through `icon`, NOT into `children`: the
-                      primitive renders `icon` as its own flex item, so the
-                      dot keeps the `gap-1.5` it had when the chip was a bare
-                      flex `<button>`. Folded into `children` it would share
-                      one wrapper span with the label and butt against it —
-                      JSX drops the newline between them, so there would not
-                      even be a space.
-                    ★ The sibling "Auto (currently: …)" chip above is
-                      deliberately left hand-rolled: its selected border
-                      already measures 8.97-10.22 light / 4.22-4.58 dark, so
-                      migrating it would be a change with no defect behind
-                      it. */}
-                {HEALTH_VALUES.map((h) => (
-                  <ToggleButton
-                    key={h}
-                    pressed={form.healthOverride === h}
-                    onToggle={() => setForm({ ...form, healthOverride: h })}
-                    icon={<RagDot level={h} />}
-                    className={form.healthOverride === h ? chipActive[h] : undefined}
-                    lang={lang}
-                    // ★★ ONE-OF-N, so the marker's width is RESERVED. The
-                    //    collapsing default is justified by the marker
-                    //    TRAILING the label: a lone toggle's growth lands on
-                    //    its right edge and displaces only its rightward
-                    //    neighbours, never the control under the pointer. That
-                    //    does NOT hold for a mutually-exclusive group — one
-                    //    click COLLAPSES the old selection and EXPANDS the new
-                    //    one, so every chip after the old selection shifts
-                    //    LEFTWARD, the chip being clicked included. AGENTS.md
-                    //    prescribes `SegmentedControl` for a one-of-N choice
-                    //    and that primitive kept its constant width; these
-                    //    chips match it. Pinned by task-form-fields.test.tsx.
-                    reserveMarkerSpace
-                  >
-                    {healthColorName(h, lang)}
-                  </ToggleButton>
-                ))}
+              // §331 — ONE-OF-N, so a real radio group: one Tab stop (the checked
+              // chip, roving), arrow keys move the choice through the SAME handler
+              // `SegmentedControl` uses. The chips keep their own look (the RAG
+              // dot and fill carry WHICH health was picked), and every chip,
+              // "Auto" included, carries `SegmentedControl`'s check marker as the
+              // non-colour selected cue (§55, WCAG 1.4.1). The marker is always
+              // RENDERED and only `invisible` when off, so a pick cannot shift the
+              // row — the guarantee `reserveMarkerSpace` used to buy.
+              <div
+                role="radiogroup"
+                aria-label={t(lang, "health")}
+                className="flex flex-wrap items-center gap-2"
+                onKeyDown={(e) =>
+                  handleRadioGroupKeyDown(e, HEALTH_CHOICES, form.healthOverride, (v) => setForm({ ...form, healthOverride: v }))
+                }
+              >
+                {HEALTH_CHOICES.map((h) => {
+                  const checked = form.healthOverride === h;
+                  const className =
+                    h === ""
+                      ? checked
+                        ? "border-ui-dark-blue bg-surface-muted text-ui-dark-blue dark:border-ui-blue dark:bg-surface-muted dark:text-ui-light-grey"
+                        : chipInactive
+                      : checked
+                        ? chipActive[h]
+                        : chipInactive;
+                  return (
+                    <button
+                      key={h || "auto"}
+                      type="button"
+                      role="radio"
+                      aria-checked={checked}
+                      tabIndex={checked ? 0 : -1}
+                      onClick={() => setForm({ ...form, healthOverride: h })}
+                      className={`${chipBase} ${className}`}
+                    >
+                      {h !== "" && <RagDot level={h} />}
+                      {h === "" ? autoLabel : healthColorName(h, lang)}
+                      <CheckIcon
+                        aria-hidden="true"
+                        data-selected-marker={checked ? "on" : "off"}
+                        className={`h-3 w-3 shrink-0${checked ? "" : " invisible"}`}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             );
           })()}

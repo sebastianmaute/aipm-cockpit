@@ -23,8 +23,7 @@
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { CheckIcon } from "./icons";
-
-const NAV_KEYS = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
+import { handleRadioGroupKeyDown } from "./radio-group-keys";
 
 interface SegmentedControlOption<T extends string> {
   value: T;
@@ -58,55 +57,10 @@ export function SegmentedControl<T extends string>({
   title,
   className = "",
 }: SegmentedControlProps<T>) {
-  // APG radiogroup roving: arrows (and Home/End) move selection + focus to the
-  // adjacent radio and wrap; the checked radio is the sole Tab-stop.
+  // APG radiogroup roving — the shared implementation, so every radio group in
+  // the app moves the same way (§331). Its notes live with it.
   function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
-    if (!NAV_KEYS.includes(e.key)) return;
-    e.preventDefault();
-    const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
-    // ★★ Step from the FOCUSED radio, falling back to the checked one. APG
-    // defines the move relative to focus, and normally the two agree — the
-    // checked radio is the sole Tab-stop, so that is where focus lands. They
-    // come apart inside a portaled auto-focusing panel: `PopoverPanel` focuses
-    // the FIRST control in document order, which for the field-visibility tier
-    // switch is "Simple" while the checked tier is "Advanced". Stepping from
-    // `value` there moved TWO positions per keypress. In "custom" mode (`value`
-    // matching no option) `findIndex` returns -1, so the step started from the
-    // wrong end of the group as well.
-    // ★★ THE TWO-POSITION JUMP WAS THE BUG — the custom-mode DISCARD IS NOT
-    // FIXED AND IS NOT A DEFECT. An arrow in a radiogroup IS a selection, so
-    // arrowing out of "custom" necessarily replaces the hand-picked set; only
-    // WHICH tier it lands on changed. Measured on the field-visibility popover
-    // after this fix: opening fresh while already custom focuses "Simple" (the
-    // tab-stop, since nothing is checked) and ArrowRight lands on "Advanced";
-    // hand-toggling into custom with the popover already open leaves focus on
-    // the old radio and ArrowRight lands on "Full". Both discard the set. Do
-    // not read this comment as closing that path.
-    // ★ `indexOf` over THIS group's radios scopes the check by construction —
-    // focus in another radiogroup, or nowhere, yields -1 and the fallback.
-    // ★ Behaviour change for ALL consumers, not just the popover: where an
-    // `onChange` does NOT update `value` (a guarded, rejected or async change),
-    // focus now advances while `value` stays, and the next arrow steps from
-    // focus rather than re-deriving from the stale `value`. That is the APG
-    // behaviour and it fixes rapid arrowing, which previously stuck whenever
-    // `value` had not re-rendered yet. No consumer guards `onChange` today.
-    const focused = radios.indexOf(document.activeElement as HTMLElement);
-    const cur = focused >= 0 ? focused : options.findIndex((o) => o.value === value);
-    const last = options.length - 1;
-    const next =
-      e.key === "Home"
-        ? 0
-        : e.key === "End"
-          ? last
-          : e.key === "ArrowRight" || e.key === "ArrowDown"
-            ? cur >= last
-              ? 0
-              : cur + 1
-            : cur <= 0
-              ? last
-              : cur - 1;
-    onChange(options[next].value);
-    radios[next]?.focus();
+    handleRadioGroupKeyDown(e, options.map((o) => o.value), value, onChange);
   }
   const hasSelection = options.some((o) => o.value === value);
   return (

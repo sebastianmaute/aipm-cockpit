@@ -14,6 +14,7 @@
 
 import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
+import { SegmentedControl } from "./segmented-control";
 import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
@@ -312,9 +313,12 @@ export function Step0ImportPanel({
   return (
     <>
       <div className="flex flex-col gap-4 pb-2">
-        {/* Source method picker. */}
-        <div className="flex flex-wrap gap-2">
-          {(
+        {/* Source method picker. §331 — a single choice, so a real radio group
+            (one Tab stop, arrow keys), not a row of toggle buttons. */}
+        <SegmentedControl
+          ariaLabel={t(lang, "wizardImportMethodGroup")}
+          value={method}
+          options={(
             [
               { id: "describe", key: "wizardImportMethodDescribe", show: true },
               { id: "file", key: "wizardImportMethodFile", show: true },
@@ -323,27 +327,14 @@ export function Step0ImportPanel({
             ] as const
           )
             .filter((m) => m.show)
-            .map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                aria-pressed={method === m.id}
-                onClick={() => {
-                  setMethod(m.id);
-                  setImportError(null);
-                  setSkipped([]);
-                  onResetAi();
-                }}
-                className={`rounded-md border px-3 py-1.5 text-sm hover:bg-surface-muted ${
-                  method === m.id
-                    ? "border-ui-green bg-ui-green/10 font-medium text-foreground"
-                    : "border-line bg-surface text-muted-foreground"
-                }`}
-              >
-                {t(lang, m.key)}
-              </button>
-            ))}
-        </div>
+            .map((m) => ({ value: m.id, label: t(lang, m.key) }))}
+          onChange={(id) => {
+            setMethod(id);
+            setImportError(null);
+            setSkipped([]);
+            onResetAi();
+          }}
+        />
 
         {method === "describe" && (
           <label className="flex flex-col gap-1 text-sm">

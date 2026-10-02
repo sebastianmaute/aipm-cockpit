@@ -191,67 +191,44 @@ describe("KnowledgePanel", () => {
     renderWithTasks([{ ...taskWithRaid, knowledgeLinks: [LINK, raidDoc] }]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
     expect(screen.getByText(/Risk\.pdf/)).toBeInTheDocument();
-    // The "All" chip is present and pressed by default.
-    const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });
-    expect(allChip).toHaveAttribute("aria-pressed", "true");
+    // The "All" radio is present and checked by default (§331: a radio group).
+    const allChip = screen.getByRole("radio", { name: new RegExp(t("en-US", "documentsFilterAll")) });
+    expect(allChip).toHaveAttribute("aria-checked", "true");
   });
 
-  // WCAG 1.4.1 (open-followups §55): the selected source chip used to be carried
-  // by the --ui-dark-blue fill ALONE, which measures 1.01-1.17:1 against the
-  // unselected --surface-muted in the three dark schemes — invisible to every
-  // user, not only to users with a colour-vision deficiency. The non-colour cue
-  // is ToggleButton's trailing marker. ★ Assert it in BOTH states: it is
-  // rendered always, so an ON-state-only assertion passes against a
-  // conditional-render regression that would drop the off-state marker from the
-  // DOM entirely. What is pinned HERE is that PRESENCE, not the width — the
-  // width is a separate guarantee (these chips pass `reserveMarkerSpace`) and
-  // belongs to the next test.
-  it("gives the source filter chips a non-colour pressed marker in both states", () => {
+  // §331 — the source filter is a SINGLE choice, so it is a real radio group
+  // (the shared SegmentedControl): one Tab stop, arrow keys move the selection.
+  it("is a labelled radio group with one Tab stop that arrow keys move", () => {
+    const raidDoc: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    renderWithTasks([{ ...seededTask([LINK]), knowledgeLinks: [LINK, raidDoc] } as Task]);
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "documentsFilterSourceGroup") });
+    const radios = Array.from(group.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+    expect(radios.length).toBeGreaterThanOrEqual(2);
+    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
+    radios[0].focus();
+    fireEvent.keyDown(radios[0], { key: "ArrowRight" });
+    expect(radios[1]).toHaveAttribute("aria-checked", "true");
+    expect(radios[0]).toHaveAttribute("aria-checked", "false");
+  });
+
+  // WCAG 1.4.1 (open-followups §55): the selected chip used to be carried by
+  // the --ui-dark-blue fill ALONE. The non-colour cue is now SegmentedControl's
+  // check marker. ★ Asserted in BOTH states, and it must stay RENDERED when
+  // off (only `invisible`), which is also what keeps the row's width constant
+  // when the selection moves — the guarantee `reserveMarkerSpace` used to buy.
+  it("gives the source filter a non-colour selected marker that keeps its width in both states", () => {
     renderWithTasks([seededTask([LINK])]);
-    const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });
-    const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"));
-    expect(chips.length).toBeGreaterThanOrEqual(2);
-    const offChip = chips.find((c) => c.getAttribute("aria-pressed") === "false");
-    expect(allChip).toHaveAttribute("aria-pressed", "true");
-    expect(offChip).toBeDefined();
-    expect(allChip.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("on");
-    expect(offChip!.querySelector("[data-pressed-marker]")).not.toBeNull();
-    expect(offChip!.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("off");
+    const radios = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+    // COUNT (measured for this fixture): "All" plus one source — two.
+    expect(radios).toHaveLength(2);
+    const on = radios.find((r) => r.getAttribute("aria-checked") === "true")!;
+    const off = radios.find((r) => r.getAttribute("aria-checked") === "false")!;
+    expect(on.querySelector("[data-selected-marker]")?.getAttribute("data-selected-marker")).toBe("on");
+    const offMarker = off.querySelector("[data-selected-marker]");
+    expect(offMarker?.getAttribute("data-selected-marker")).toBe("off");
+    expect(offMarker?.getAttribute("class") ?? "").toContain("invisible");
     // The trailing count span survives the migration.
-    expect(allChip.textContent).toMatch(/\d/);
-  });
-
-  // ★★★ THE SOURCE FILTER IS ONE-OF-N (`setSourceFilter(k)` REPLACES the
-  //    selection), so the marker must RESERVE its width. The animated default
-  //    is justified by the marker TRAILING the label: growth lands on the right
-  //    edge, so a lone toggle moves only its rightward neighbours and never the
-  //    control under the pointer. IN A MUTUALLY-EXCLUSIVE GROUP THAT FAILS —
-  //    one click collapses the old chip and expands the new one, so everything
-  //    after the old selection shifts LEFTWARD, the clicked chip included.
-  //    AGENTS.md prescribes `SegmentedControl` for one-of-N and that primitive
-  //    kept its constant width; these chips opt out to match it.
-  // ★★ ANTI-VACUITY: a PRESSED marker is `w-3.5` either way, so only the OFF
-  //    state discriminates — and the counts are pinned because this fixture
-  //    yields exactly ONE off chip, which a silently-emptied list would
-  //    otherwise satisfy with a loop that never runs.
-  it("reserves the marker's width on the source-filter chips, so picking one cannot shift the row", () => {
-    renderWithTasks([seededTask([LINK])]);
-    const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"));
-    // COUNT (measured for this fixture): "All" plus one chip per source that
-    // actually has a document — a single task-attached link, so two. Pins the
-    // loop below against an empty or single-chip render.
-    expect(chips).toHaveLength(2);
-    const off = chips.filter((c) => c.getAttribute("aria-pressed") === "false");
-    // The filter defaults to "All", so exactly the one source chip is OFF.
-    expect(off).toHaveLength(1);
-    for (const chip of off) {
-      const cls = chip.querySelector("[data-pressed-marker]")?.getAttribute("class") ?? "";
-      expect(cls).toContain("w-3.5");
-      expect(cls).not.toContain("w-0");
-      // Present only on the COLLAPSING path, to cancel the gap a zero-width
-      // marker would leave — so its absence is the second discriminator.
-      expect(cls).not.toContain("-ml-1.5");
-    }
+    expect(on.textContent).toMatch(/\d/);
   });
 
   it("narrows by the search box", () => {

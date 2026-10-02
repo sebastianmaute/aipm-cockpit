@@ -69,90 +69,55 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
 
   // open-followups §55 (WCAG 1.4.1). The active RAG border measured 1.34-2.34
   // (amber) and 2.47-2.96 (green) against the inactive `--line` in the light
-  // schemes, so the hue alone cannot carry the selected state. The marker is
-  // rendered in BOTH states — so asserting only the ON state would pass
-  // against a conditional-render regression, which is the failure the mechanism
-  // exists to prevent. (These chips also pass `reserveMarkerSpace`, so the off
-  // marker keeps its WIDTH as well as its place in the DOM; that is a separate
-  // guarantee, pinned by the next test rather than by this one.)
-  // ★ The "Auto (currently: …)" chip in the same row is deliberately NOT
-  //   covered: its selected border already measures 8.97-10.22 light /
-  //   4.22-4.58 dark, so it has no defect to fix.
+  // schemes, so the hue alone cannot carry the selected state. §331 made the
+  // group a real radio group and moved the non-colour cue to the shared check
+  // marker, which every chip ("Auto" included) renders in BOTH states — so an
+  // ON-only assertion would pass against a conditional-render regression.
   it("each health chip carries the non-colour selected marker in both states", async () => {
     const user = userEvent.setup();
     render(<Harness />, { wrapper: TestProviders });
     const markerState = (name: string) => {
-      const marker = screen
-        .getByRole("button", { name })
-        .querySelector("[data-pressed-marker]");
+      const marker = screen.getByRole("radio", { name }).querySelector("[data-selected-marker]");
       expect(marker).not.toBeNull();
-      return marker?.getAttribute("data-pressed-marker");
+      return marker?.getAttribute("data-selected-marker");
     };
-
-    // No override is set, so every RAG chip is off — and each still renders a
-    // marker.
-    for (const name of ["Red", "Amber", "Green"]) {
-      expect(markerState(name)).toBe("off");
-    }
-
-    await user.click(screen.getByRole("button", { name: "Amber" }));
+    // No override is set, so every RAG chip is off — and each still renders a marker.
+    for (const name of ["Red", "Amber", "Green"]) expect(markerState(name)).toBe("off");
+    await user.click(screen.getByRole("radio", { name: "Amber" }));
     expect(markerState("Amber")).toBe("on");
     expect(markerState("Red")).toBe("off");
     expect(markerState("Green")).toBe("off");
   });
 
-  // ★★★ THESE ARE A ONE-OF-N GROUP, so the marker must RESERVE its width.
-  //    The animated default is justified by the marker TRAILING the label:
-  //    growth lands on the button's RIGHT edge, so a lone toggle displaces only
-  //    neighbours to its right and never the control under the pointer. THAT
-  //    ARGUMENT DOES NOT SURVIVE A MUTUALLY-EXCLUSIVE GROUP — one click
-  //    COLLAPSES the old selection and EXPANDS the new one, so every chip after
-  //    the old selection shifts LEFTWARD, including the chip being clicked.
-  //    AGENTS.md prescribes `SegmentedControl` for a one-of-N choice and that
-  //    primitive kept its constant width, so these chips opt out to match.
-  // ★★★ ANTI-VACUITY, and this exact vacuity already shipped once on this
-  //    branch: a pressed marker renders `w-3.5` whether or not the prop is
-  //    passed, so a test inspecting the SELECTED chip passes for the wrong
-  //    reason (a loop over eight Gantt toggles was blind to six of them because
-  //    `DEFAULT_PREFS` left only two off). So this asserts the OFF state, and
-  //    pins the COUNT so an empty or short chip list cannot pass trivially.
-  it("reserves the marker's width on every health chip, so a pick cannot shift the row", async () => {
+  // ★★★ ONE-OF-N, so a pick must not shift the row: the marker is always
+  //  RENDERED and only `invisible` when off. ANTI-VACUITY: asserted on the OFF
+  //  chips (a selected marker looks the same either way) with the COUNT pinned.
+  it("keeps every chip's marker in the layout, so a pick cannot shift the row", async () => {
     const user = userEvent.setup();
     render(<Harness />, { wrapper: TestProviders });
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "health") });
+    // COUNT: Auto + Red + Amber + Green.
+    expect(group.querySelectorAll("[data-selected-marker]")).toHaveLength(4);
     const markerClass = (name: string) =>
-      screen
-        .getByRole("button", { name })
-        .querySelector("[data-pressed-marker]")
-        ?.getAttribute("class") ?? "";
+      screen.getByRole("radio", { name }).querySelector("[data-selected-marker]")?.getAttribute("class") ?? "";
+    for (const name of ["Red", "Amber", "Green"]) expect(markerClass(name)).toContain("invisible");
+    await user.click(screen.getByRole("radio", { name: "Amber" }));
+    for (const name of ["Red", "Green"]) expect(markerClass(name)).toContain("invisible");
+    expect(markerClass("Amber")).not.toContain("invisible");
+  });
 
-    // COUNT: the group renders exactly three `ToggleButton` chips. The sibling
-    // "Auto (currently: …)" chip is hand-rolled and carries NO marker, which is
-    // why it is not four — it is part of the same one-of-N set but has no
-    // marker width to reserve, so it cannot shift on a click either.
-    const group = screen.getByRole("button", { name: "Red" }).parentElement!;
-    expect(group.querySelectorAll("[data-pressed-marker]")).toHaveLength(3);
-
-    // No override is set, so all three are OFF — the only state that can tell
-    // the reserving path from the collapsing one.
-    const OFF = ["Red", "Amber", "Green"];
-    expect(
-      OFF.map((n) => screen.getByRole("button", { name: n }).getAttribute("aria-pressed")),
-    ).toEqual(["false", "false", "false"]);
-    for (const name of OFF) {
-      expect(markerClass(name)).toContain("w-3.5");
-      expect(markerClass(name)).not.toContain("w-0");
-      // The negative margin exists only to cancel the gap a COLLAPSED marker
-      // would otherwise leave, so its absence is the second discriminator.
-      expect(markerClass(name)).not.toContain("-ml-1.5");
-    }
-
-    // And the reservation survives a pick: the two now-DESELECTED chips keep
-    // their slot, which is the whole point in a mutually-exclusive group.
-    await user.click(screen.getByRole("button", { name: "Amber" }));
-    for (const name of ["Red", "Green"]) {
-      expect(markerClass(name)).toContain("w-3.5");
-      expect(markerClass(name)).not.toContain("w-0");
-    }
+  // §331 — one Tab stop, and arrow keys move the choice (APG radiogroup).
+  it("is one radio group with a single Tab stop that arrow keys move", async () => {
+    const user = userEvent.setup();
+    render(<Harness />, { wrapper: TestProviders });
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "health") });
+    const radios = Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+    expect(radios).toHaveLength(4);
+    expect(radios.filter((r) => r.tabIndex === 0)).toEqual([radios[0]]); // Auto is checked
+    radios[0].focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Red" })).toHaveAttribute("aria-checked", "true");
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Red" }));
   });
 });
 
