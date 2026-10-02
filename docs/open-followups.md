@@ -448,7 +448,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
 | [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
-| [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | open |
+| [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice--closed-2026-10-02) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | **CLOSED** 2026-10-02 |
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
 | [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
@@ -18580,11 +18580,11 @@ needed.
 PowerPoint, and none can. The manifest proves the package is the one the builders meant to write,
 never that a reader accepts it.
 
-## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
+## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice — CLOSED 2026-10-02
 
-**Status:** open — deliberate in 0.256.0; a size cost, never a correctness one. Status recorded 2026-08-28; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02 — fixed by `f92b93c46`: DOCX `createMediaMinter` now mints one media part per asset id and draws each occurrence with its own `wp:docPr` id from a separate shape counter; PPTX `createDeckMedia` keeps one part path per asset deck-wide and one rId per asset per slide, and `buildPptxPackage` writes a shared path once (throwing when one path carries two different images). Pinned by the new §217 tests in `doc-render-docx.test.ts`, `doc-render-pptx.test.ts` and `ooxml-pptx-primitives.test.ts` (part counts, shared rIds, distinct shape ids, duplicate-free raw zip entry lists via `zipEntryNames`); mutation-checked by reverting each dedupe lookup and by deriving shape ids from the part/rId counter — every mutant went red. ★ Still unzip-and-inspect evidence only: the §219 manual pass in Word, Pages and PowerPoint has NOT been run against a deduplicated package.
 
-**Work item:** #193
+**Original status:** open — deliberate in 0.256.0; a size cost, never a correctness one. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
 An `<img data-asset-id>` appearing twice in one document mints TWO media parts holding IDENTICAL
 bytes, in both renderers. DOCX: `createMediaMinter`'s own docstring says so. PPTX:
