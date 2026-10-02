@@ -168,6 +168,18 @@ describe("useColumnResize", () => {
     expect(later.result.current.colWidths).toEqual({ a: 150, b: 333 });
   });
 
+  // §52 documented RESIDUAL, pinned so it is not mistaken for a bug: a key whose default changed
+  // between the user's first display and now still holds the OLD default, differs from today's,
+  // and reads as a drag — it survives as user-set and keeps the old value.
+  it("keeps a stored width equal to an OLD default as user-set once the default has changed (§52 residual)", async () => {
+    localStorage.setItem(KEY("t13"), JSON.stringify({ v: 2, widths: { a: DEFAULTS.a, b: 333 } }));
+    const changed = { a: 150, b: 200 } as const;
+    const { result } = renderHook(() => useColumnResize("t13", changed));
+
+    expect(result.current.sizedWidths).toEqual({ a: DEFAULTS.a, b: 333 });
+    expect(result.current.colWidths).toEqual({ a: DEFAULTS.a, b: 333 });
+  });
+
   // ★ The payload is NOT durably removed: the debounced effect re-runs on the
   //   state change and writes `{v:2,widths:{}}` back 250ms later. Asserting only
   //   the null would pin a transient state. Both are checked here, so the test
