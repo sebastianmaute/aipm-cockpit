@@ -88,19 +88,43 @@ const STAKEHOLDER_STEPS: readonly TourStep[] = [
   { id: "stake-comms", kind: "modal", titleKey: "tourStepStakeCommsTitle", bodyKey: "tourStepStakeCommsBody", view: "stakeholders" },
 ];
 
+const WORKING_FASTER_STEPS: readonly TourStep[] = [
+  { id: "wf-undo", kind: "spotlight", titleKey: "tourStepWfUndoTitle", bodyKey: "tourStepWfUndoBody", view: "open-points", anchorId: TOUR_ANCHORS.undo },
+  { id: "wf-undo-limits", kind: "modal", titleKey: "tourStepWfUndoLimitsTitle", bodyKey: "tourStepWfUndoLimitsBody", view: "open-points" },
+  { id: "wf-search", kind: "spotlight", titleKey: "tourStepWfSearchTitle", bodyKey: "tourStepWfSearchBody", view: "open-points", anchorId: TOUR_ANCHORS.globalSearch },
+  { id: "wf-select", kind: "spotlight", titleKey: "tourStepWfSelectTitle", bodyKey: "tourStepWfSelectBody", view: "open-points", anchorId: TOUR_ANCHORS.selectAll },
+  { id: "wf-bulk", kind: "modal", titleKey: "tourStepWfBulkTitle", bodyKey: "tourStepWfBulkBody", view: "open-points" },
+  { id: "wf-inline", kind: "modal", titleKey: "tourStepWfInlineTitle", bodyKey: "tourStepWfInlineBody", view: "open-points" },
+  { id: "wf-table", kind: "modal", titleKey: "tourStepWfTableTitle", bodyKey: "tourStepWfTableBody", view: "open-points" },
+  { id: "wf-views", kind: "spotlight", titleKey: "tourStepWfViewsTitle", bodyKey: "tourStepWfViewsBody", view: "open-points", anchorId: TOUR_ANCHORS.savedViews },
+  { id: "wf-board", kind: "spotlight", titleKey: "tourStepWfBoardTitle", bodyKey: "tourStepWfBoardBody", view: "open-points", anchorId: TOUR_ANCHORS.tasksViewMode },
+  { id: "wf-logs", kind: "modal", titleKey: "tourStepWfLogsTitle", bodyKey: "tourStepWfLogsBody", view: "open-points" },
+];
+
+const HELP_YOURSELF_STEPS: readonly TourStep[] = [
+  { id: "help-icon", kind: "modal", titleKey: "tourStepHelpIconTitle", bodyKey: "tourStepHelpIconBody", view: "open-points" },
+  { id: "help-search", kind: "modal", titleKey: "tourStepHelpSearchTitle", bodyKey: "tourStepHelpSearchBody", view: "help" },
+  { id: "help-escape", kind: "modal", titleKey: "tourStepHelpEscapeTitle", bodyKey: "tourStepHelpEscapeBody" },
+  { id: "help-popout", kind: "modal", titleKey: "tourStepHelpPopoutTitle", bodyKey: "tourStepHelpPopoutBody" },
+];
+
 const AI_STEPS: readonly TourStep[] = [
   { id: "ai-chat", kind: "modal", titleKey: "tourStepAiChatTitle", bodyKey: "tourStepAiChatBody", view: "chat" },
+  { id: "ai-inline", kind: "modal", titleKey: "tourStepAiInlineTitle", bodyKey: "tourStepAiInlineBody", view: "open-points" },
+  { id: "ai-dictation", kind: "modal", titleKey: "tourStepAiDictationTitle", bodyKey: "tourStepAiDictationBody", view: "settings" },
   { id: "ai-actions", kind: "modal", titleKey: "tourStepAiActionsTitle", bodyKey: "tourStepAiActionsBody", view: "actions" },
   { id: "ai-settings", kind: "modal", titleKey: "tourStepAiSettingsTitle", bodyKey: "tourStepAiSettingsBody", view: "settings" },
 ];
 
 export const TOURS: readonly TourDefinition[] = [
   { id: "getting-started", titleKey: "tourGettingStartedTitle", descKey: "tourGettingStartedDesc", iconView: "dashboard", steps: TOUR_STEPS },
+  { id: "working-faster", titleKey: "tourWorkingFasterTitle", descKey: "tourWorkingFasterDesc", iconView: "open-points", steps: WORKING_FASTER_STEPS },
   { id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", iconView: "raid", steps: RAID_STEPS },
   { id: "reporting", titleKey: "tourReportingTitle", descKey: "tourReportingDesc", iconView: "reports", steps: REPORTING_STEPS },
   { id: "planning", titleKey: "tourPlanningTitle", descKey: "tourPlanningDesc", iconView: "milestones", steps: PLANNING_STEPS },
   { id: "stakeholders", titleKey: "tourStakeholdersTitle", descKey: "tourStakeholdersDesc", iconView: "stakeholders", steps: STAKEHOLDER_STEPS },
   { id: "ai", titleKey: "tourAiTitle", descKey: "tourAiDesc", iconView: "chat", steps: AI_STEPS },
+  { id: "help-yourself", titleKey: "tourHelpYourselfTitle", descKey: "tourHelpYourselfDesc", iconView: "help", steps: HELP_YOURSELF_STEPS },
 ];
 
 export function findTour(id: string): TourDefinition | undefined {
