@@ -697,7 +697,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 | [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--closed-2026-09-26) | PDF export opens a window that never prints in the desktop app | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | **CLOSED** 2026-09-26 |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
-| [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
+| [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--closed-2026-10-02) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | **CLOSED** 2026-10-02 |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--closed-2026-10-02) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | **CLOSED** 2026-10-02 |
@@ -36968,9 +36968,11 @@ Size S–M: the work is the decision — delete the field (one table's schema, i
 and decode), or keep it and normalise it to EUR at the writer so a later reader cannot be misled.
 Either way, the comment sweep above is already DONE and no comment work remains in this entry.
 
-## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN
+## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
+**Status:** CLOSED 2026-10-02 — fixed by `1c01b7f19`: `browser-backend.ts` now runs the plan blob through the exported `coerceStoredPlan`, which coerces `currency`, an out-of-union `granularity` (to `"month"`) and an unparseable `startDate`/`endDate` (each replaced alone by the default's), and leaves a reversed window and `budgetFollowsPlan` as stored. `storage-browser-kv.test.ts` pins each shape with its own fixture ("quarter", non-string granularity, unparseable startDate with a valid endDate kept); mutation-checked by reverting the granularity coercion (2 tests red) and the date coercion (1 test red) separately.
+
+**Original status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
 run 2026-09-12: `grep -c "sanitizePlan(" src/app/browser-backend.ts` → **0** (no call; the two
 `sanitizePlan` mentions in that file are all inside the comment explaining why it is not called, so
 a bare name grep there answers the opposite question — and its COUNT is not quoted here, because
@@ -36979,8 +36981,6 @@ the same round; the `(` is what makes the witness stable), against
 `grep -rln "sanitizePlan(" src/app --include=*.ts | grep -v test` → five files
 (`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `sanitize-entities.ts`, `turso-schema.ts`,
 `workspace.ts`), i.e. every other load path.
-
-**Work item:** #299
 
 `browser-backend.ts` reads the KV plan blob verbatim and casts it. `7b0c00e3` added a coercion for
 the CURRENCY only — `isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }`
