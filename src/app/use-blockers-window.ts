@@ -95,7 +95,7 @@ export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowRe
     resources,
     lang,
     entityLabel: target?.taskName ?? t(lang, "blockerLogTitle"),
-    taskId: targetId,
+    taskId: targetGone ? null : targetId,
   };
 
   return {

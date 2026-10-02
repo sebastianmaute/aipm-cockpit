@@ -43666,9 +43666,9 @@ On browser storage, the §4 round-7 probes measured that waiting for a Web Lock 
 
 ## 662. A notes or blocker window keeps its target after the task is deleted or the project switches — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `cbb1f673d` (both windows close when their target is gone). Originally open 2026-10-02, found by the blocker-log whole-branch review, inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
+**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `cbb1f673d` (both windows close when their target is gone). The fix clears the target on `loadPending` rather than on a `getScopeEpoch` change, because every scope-epoch bump site runs while `loadPending` is held (`resolveLogModeAndStamp` in the load effect, where `settledBackend !== backend`; `applyWorkspaceForOp` and `applyPickedWorkspace`, inside `holdDuring`; and `onOpenStorageFile`, inside `holdDuring`), so `loadPending` covers every swap the epoch does.
 
-**Work item:** #531
+**Original status:** open 2026-10-02, found by the blocker-log whole-branch review, inferred from `useBlockersWindow` and `useNotesWindow`, which hold the target task id in state that nothing clears.
 
 Both hooks keep the target task id in state that survives the task's deletion and a project switch, because `TaskManagerInner` stays mounted through the load hold. A deleted target leaves the window open with an empty title, and text typed there is dropped without a message, because the write finds no live row. After a project switch the window reopens on whichever task in the new project has the same id. Its title shows that task's name, so a write is visible, but it lands on a different task than the one the user opened. Fix both hooks together: close the window when the target is missing, and clear the target when the scope epoch changes (`getScopeEpoch`).
 
@@ -43676,9 +43676,9 @@ Both hooks keep the target task id in state that survives the task's deletion an
 
 ## 663. An older client drops the blocker log on every backend it saves to, not only Turso — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — decided by the owner: a newer build cannot stop an older client from writing, so there is no guard. Fixed on `fix/blocker-log-followups` by correcting `docs/AGENTS/rich-text.md`, which now names every backend: Turso, CSV and Markdown column lists predate `blockerLog`; JSON and IndexedDB keep unknown task fields in today's pipeline, so an older build would likely keep the log there (inference). The release notes of the version that ships the blocker log must warn against running an older build on the same data. Originally open 2026-10-02, found by the blocker-log fix-round review.
+**Status:** CLOSED 2026-10-02 — decided by the owner: a newer build cannot stop an older client from writing, so there is no guard. Fixed on `fix/blocker-log-followups` by correcting `docs/AGENTS/rich-text.md`, which now names every backend: Turso, CSV and Markdown column lists predate `blockerLog`; JSON and IndexedDB keep unknown task fields in today's pipeline, so an older build would likely keep the log there (inference). The release notes of the version that ships the blocker log must warn against running an older build on the same data.
 
-**Work item:** #532
+**Original status:** open 2026-10-02, found by the blocker-log fix-round review.
 
 `docs/AGENTS/rich-text.md` names one downgrade exposure: an older client saving to Turso omits the new column, so `blockerLog` becomes NULL and the history collapses to one legacy entry on the next load. An older client's CSV and Markdown writers have no `blockerLog` column either, and its JSON and IndexedDB paths very likely drop the unknown field too, so the same collapse happens on every backend. `noteLog` had the same exposure when it shipped. Decide whether to say so in the release notes of the version that ships the blocker log, or to guard against a downgrade; either way, correct the rich-text note.
 
@@ -43686,9 +43686,9 @@ Both hooks keep the target task id in state that survives the task's deletion an
 
 ## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `8b628ab43` (legacy blocker text gets a deterministic stamp on load). Originally open 2026-10-02, found by the blocker-log scoped review, inferred from `migrateBlockers` in `blocker-log.ts`.
+**Status:** CLOSED 2026-10-02 — fixed on `fix/blocker-log-followups` by `8b628ab43` (legacy blocker text gets a deterministic stamp on load).
 
-**Work item:** #533
+**Original status:** open 2026-10-02, found by the blocker-log scoped review, inferred from `migrateBlockers` in `blocker-log.ts`.
 
 The legacy branch of `migrateBlockers` (a task with blocker text and no log) checks `lastUpdateDate` only against `ISO_DATE`, not `Date.parse`. An impossible date such as `2026-13-45` produces an invalid `createdAt`, and `sanitizeEntry` drops that entry on the next load, so the entry is minted again on every load. A missing or malformed date falls back to `new Date()`, so the minted `createdAt` differs on each load until the project is saved. No data is lost. `loadStamp` already has the right check; the legacy branch should use it, or a fixed fallback, so load stays pure.
 
