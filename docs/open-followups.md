@@ -249,7 +249,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
-| [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--open) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | open |
+| [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
 | [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
 | [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
@@ -1400,11 +1400,11 @@ Do not re-litigate it as a pure win.
 
 ---
 
-## 10. Keyboard move has no preview — band and day grid both — open
+## 10. Keyboard move has no preview — band and day grid both — CLOSED 2026-10-02
 
-**Status:** open — an armed keyboard move that renders no preview. Reproduced 2026-08-28 by `grep -rn "onMoveModeChange" src/app/resource-calendar-band.tsx`.
+**Status:** CLOSED 2026-10-02. Both halves fixed. The day grid now outlines the target cells of an armed move or resize with a dashed `outline-ui-green` (`data-move-preview`; the dash is the non-colour cue) and its live region appends where Enter would land it — `calendarMovePreview` ("Lands on {0} to {1}") or `calendarMovePreviewPerson` when the move reassigns. The preview and the commit both go through `resolvePendingGesture` (`resource-calendar.tsx`), so the outline is exactly what Enter writes. The meetings band outlines the target day in the chip's lane and reports the target date up with every step (`onMoveModeChange("armed", target)`), which the parent announces as `calendarMeetingMovePreview`. Three Alt+Rights and one no longer sound the same. Pinned in `resource-calendar.test.tsx` ("keyboard move preview (§10)") and `resource-calendar-band.test.tsx` ("previews where an armed move lands"); the outline span is mutation-checked. `docs/AGENTS/features.md` no longer says there is no preview. The history below is kept as written.
 
-**Work item:** #90
+**Previously:** open — an armed keyboard move that renders no preview. Reproduced 2026-08-28 by `grep -rn "onMoveModeChange" src/app/resource-calendar-band.tsx`.
 
 **Where:** `resource-calendar-band.tsx` (chips) and `resource-calendar.tsx` (the day-cell grid).
 

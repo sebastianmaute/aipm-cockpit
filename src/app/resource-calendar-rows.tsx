@@ -52,6 +52,9 @@ interface CalendarRowsProps {
   /** Absence (if any) covering a given row+date — shared with the parent's
    *  keyboard move-mode entry check, so both agree on the same predicate. */
   hitFor: (rowKey: string, dateIso: string) => Absence | undefined;
+  /** §10 — where an armed keyboard move/resize would land: the target row's
+   *  index and its inclusive date span. Those cells wear a dashed outline. */
+  movePreview?: { row: number; from: string; to: string } | null;
   focusRow: number;
   focusCol: number;
   setFocusCell: (cell: { row: number; col: number }) => void;
@@ -75,6 +78,7 @@ export function CalendarRows({
   resourceByKey,
   absences,
   hitFor,
+  movePreview,
   focusRow,
   focusCol,
   setFocusCell,
@@ -137,6 +141,8 @@ export function CalendarRows({
                       startDate: d.iso,
                       endDate: d.iso,
                     });
+              const inPreview =
+                !!movePreview && movePreview.row === rowIndex && d.iso >= movePreview.from && d.iso <= movePreview.to;
               const tip = hit
                 ? `${localTypeLabel(hit.type, lang)} — ${hit.startDate}${
                     hit.startDate === hit.endDate
@@ -148,7 +154,13 @@ export function CalendarRows({
                 <td
                   key={d.iso}
                   role="gridcell"
-                  className="relative border-b border-r border-line p-0"
+                  // ★ A DASHED outline, not a fill: the dash is the non-colour
+                  //   cue, and an outline sits over the absence colour without
+                  //   changing it. Inset so neighbouring cells do not clip it.
+                  data-move-preview={inPreview ? "" : undefined}
+                  className={`relative border-b border-r border-line p-0${
+                    inPreview ? " outline-dashed outline-2 -outline-offset-2 outline-ui-green" : ""
+                  }`}
                   style={{
                     minWidth: CELL_PX,
                     width: CELL_PX,
