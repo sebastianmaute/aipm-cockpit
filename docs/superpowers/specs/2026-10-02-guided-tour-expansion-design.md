@@ -62,7 +62,7 @@ Added to `TOUR_ANCHORS` and placed as `data-tour-id`:
 
 | Anchor key | Element | Present when |
 |---|---|---|
-| `undo` | a span wrapping the undo and redo controls in `task-manager.tsx` | once the undo stack has an entry (`UndoControl` renders nothing on an empty stack; the empty span has no size, which the overlay treats as missing) |
+| `undo` | the `dataTourId` prop on `UndoControl`'s root element, passed as `TOUR_ANCHORS.undo` from `task-manager.tsx` | once the undo stack has an entry (`UndoControl` renders nothing on an empty stack, so the anchor is absent, which the overlay treats like a zero-size one) |
 | `globalSearch` | the search box (`global-search-box.tsx`) | always |
 | `tasksViewMode` | the Table / Board / Swimlane control (`tasks-section.tsx`) | on Open Points |
 | `selectAll` | the "select all visible" header checkbox | table mode only |
@@ -158,7 +158,7 @@ Each test names the mutant that must turn it red.
 | storage filter | `app-tour.test.ts` | trends/history steps kept for `"turso"`, dropped for `"file"` and `undefined`; a step with no `view` always kept | drop the storage condition |
 | sidebar parity | `nav-config.test.ts` | for every `AppView` × {turso, file} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` | invert the Turso check in one of the two |
 | anchors resolve | `app-tour.test.ts` | every step `anchorId` is a `TOUR_ANCHORS` value and every value is used by a step | rename an anchor on one side |
-| anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; the undo wrapper by a source check on `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
+| anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; `undo-control.test.tsx` (anchor present with entries, absent when empty) plus a source check for `dataTourId={TOUR_ANCHORS.undo}` in `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
 | hook threads storage | `use-tour.test.tsx` | the reporting tour's `steps.length` and its catalog `stepCount` differ between turso and file | ignore `storageKind` |
 | empty tour hidden | `use-tour.test.tsx` | a tour whose steps are all filtered out is absent from the catalog | remove the hide |
 | done state kept | `app-tour.test.ts` | the six existing tour ids and their step ids are still present | rename an existing id |
