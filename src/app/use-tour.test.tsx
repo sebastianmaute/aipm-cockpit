@@ -3,23 +3,24 @@ import { renderHook, act } from "@testing-library/react";
 import { useTour } from "./use-tour";
 import { TOUR_STEPS, visibleSteps, findTour } from "./app-tour";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import type { StorageKind } from "./workspace";
 
 const FEATURES = ["dashboard", "milestones", "resources", "raid", "changes", "stakeholders", "budget"] as const;
 const base = { features: [...FEATURES] };
 
 describe("useTour", () => {
   it("useTour drops Turso-only steps on file", () => {
-    const mk = (storageKind: string) => renderHook(() =>
+    const mk = (storageKind: StorageKind) => renderHook(() =>
       useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [...ALL_MODULE_IDS], storageKind, setSettings: vi.fn() }));
-    const file = mk("file");
+    const file = mk("local-json");
     const turso = mk("turso");
     const count = (r: typeof file) => r.result.current.catalogTours.find((t) => t.id === "reporting")!.stepCount;
     expect(count(turso) - count(file)).toBe(2);
   });
   it("start() under turso yields two more steps than under file", () => {
-    const mk = (storageKind: string) => renderHook(() =>
+    const mk = (storageKind: StorageKind) => renderHook(() =>
       useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [...ALL_MODULE_IDS], storageKind, setSettings: vi.fn() }));
-    const file = mk("file");
+    const file = mk("local-json");
     const turso = mk("turso");
     act(() => { file.result.current.start("reporting"); });
     act(() => { turso.result.current.start("reporting"); });

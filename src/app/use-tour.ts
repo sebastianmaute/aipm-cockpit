@@ -8,6 +8,7 @@ import type { TranslationKey } from "./i18n";
 import { clampStep, visibleSteps, findTour, TOURS, type TourStep, type TourCatalogEntry } from "./app-tour";
 import type { FeatureModuleId } from "./feature-modules";
 import type { Settings } from "./settings-types";
+import type { StorageKind } from "./workspace";
 
 const DEFAULT_TOUR_ID = "getting-started";
 
@@ -18,7 +19,7 @@ interface UseTourArgs {
   tourSeen: boolean | undefined;
   completedTours: readonly string[] | undefined;
   features: readonly FeatureModuleId[];
-  storageKind?: string;
+  storageKind?: StorageKind;
   setSettings: Dispatch<SetStateAction<Settings>>;
 }
 

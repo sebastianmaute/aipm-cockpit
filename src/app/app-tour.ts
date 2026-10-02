@@ -2,6 +2,7 @@
 import type { TranslationKey } from "./i18n";
 import { isViewReachable, type AppView } from "./nav-config";
 import type { FeatureModuleId } from "./feature-modules";
+import type { StorageKind } from "./workspace";
 
 export type TourStepKind = "modal" | "spotlight";
 
@@ -74,7 +75,7 @@ const RAID_STEPS: readonly TourStep[] = [
 const REPORTING_STEPS: readonly TourStep[] = [
   { id: "report-dashboard", kind: "modal", titleKey: "tourStepReportDashboardTitle", bodyKey: "tourStepReportDashboardBody", view: "dashboard" },
   { id: "report-reports", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "reports" },
-  { id: "report-evm", kind: "modal", titleKey: "tourStepReportEvmTitle", bodyKey: "tourStepReportEvmBody", view: "reports" },
+  { id: "report-evm", kind: "modal", titleKey: "tourStepReportEvmTitle", bodyKey: "tourStepReportEvmBody", view: "budget-report" },
   { id: "report-insights", kind: "modal", titleKey: "tourStepReportInsightsTitle", bodyKey: "tourStepReportInsightsBody", view: "insights" },
   { id: "report-learning", kind: "modal", titleKey: "tourStepReportLearningTitle", bodyKey: "tourStepReportLearningBody", view: "learning-insights" },
   { id: "report-activity", kind: "modal", titleKey: "tourStepReportActivityTitle", bodyKey: "tourStepReportActivityBody", view: "activity" },
@@ -171,7 +172,7 @@ export function findTour(id: string): TourDefinition | undefined {
 export function visibleSteps(
   steps: readonly TourStep[],
   features: readonly FeatureModuleId[],
-  storageKind?: string,
+  storageKind?: StorageKind,
 ): TourStep[] {
   return steps.filter((s) => s.view === undefined || isViewReachable(s.view, features, storageKind));
 }

@@ -3596,7 +3596,7 @@ const enUS = {
   tourStepReportReportsTitle: "Composable reports",
   tourStepReportReportsBody: "Budget, RAID, and change reports you can sort, filter, reorder, and print.",
   tourStepReportEvmTitle: "Earned value",
-  tourStepReportEvmBody: "Track planned vs earned vs actual (EVM) to see whether you're ahead or behind, over or under budget.",
+  tourStepReportEvmBody: "The Budget Report, found under Reports, tracks planned vs earned vs actual effort (EVM) from task estimates, with SPI and CPI showing whether you are ahead or behind and over or under budget.",
   // SP4 planning tour steps
   tourStepPlanMilestonesTitle: "Milestones",
   tourStepPlanMilestonesBody: "Set the dates that matter and track their health; overdue and upcoming ones surface on the dashboard horizon.",
@@ -3694,7 +3694,7 @@ const enUS = {
   tourStepReportInsightsTitle: "Insights",
   tourStepReportInsightsBody: "Insights lists what the app has detected in your project. Filter by status or type, and tick Show resolved & dismissed to see the history.",
   tourStepReportLearningTitle: "Action Center learning",
-  tourStepReportLearningBody: "For each kind of action, see how often you acted, snoozed, or dismissed it and the resulting adjustment. Set an override such as Always surface; open it from Settings.",
+  tourStepReportLearningBody: "Once \"Learn from my Action Center responses\" is switched on in Settings, this view shows for each kind of action how often you acted, snoozed, or dismissed it and the resulting adjustment. Set an override such as Always surface; open it from Settings.",
   tourStepReportActivityTitle: "Activity",
   tourStepReportActivityBody: "Activity is the project's audit trail of changes to tasks, RAID items, budget and more, with when each happened. Clear log empties it.",
   tourStepReportTrendsTitle: "Trends",

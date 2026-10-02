@@ -119,6 +119,7 @@ function CollapsedNavFlyout({
         aria-expanded={open}
         aria-label={label}
         title={label}
+        data-tour-id={NAV_TOUR_ID[item.view]}
         className={`${navItemClass(active, "root", true)} relative`}
       >
         <NavIcon view={item.view} />

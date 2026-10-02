@@ -1,5 +1,6 @@
 import type { TranslationKey } from "./i18n";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import type { StorageKind } from "./workspace";
 
 // Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points"
 // and "settings" are main-window-only views.
@@ -165,7 +166,7 @@ const PARENT_VIEW = new Map<AppView, AppView>(
 export function isViewReachable(
   view: AppView,
   features: readonly FeatureModuleId[],
-  storageKind?: string,
+  storageKind?: StorageKind,
 ): boolean {
   const own = isViewEnabled(view, features) && (storageKind === "turso" || !TURSO_ONLY_VIEWS.includes(view));
   if (!own) return false;
@@ -179,7 +180,7 @@ export function isViewReachable(
  *  current storage backend is Turso. */
 export function filterNavGroups(
   features: readonly FeatureModuleId[],
-  storageKind?: string,
+  storageKind?: StorageKind,
 ): NavGroup[] {
   const keepView = (view: AppView): boolean => isViewReachable(view, features, storageKind);
   return NAV_GROUPS.map((group) => ({

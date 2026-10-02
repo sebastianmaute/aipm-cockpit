@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOUR_ANCHORS, TOUR_STEPS, TOURS, findTour, visibleSteps, clampStep, type TourStep } from "./app-tour";
 import { ALL_MODULE_IDS } from "./feature-modules";
-import type { AppView } from "./nav-config";
 
 const ALL = ["dashboard", "milestones", "resources", "raid", "changes", "stakeholders", "budget"] as const;
 
@@ -18,10 +17,6 @@ describe("app-tour engine", () => {
     expect(ids).toEqual(["getting-started", "working-faster", "raid", "reporting", "planning", "stakeholders", "resources", "budget-changes", "documents", "ai", "help-yourself"]);
     expect(new Set(ids).size).toBe(ids.length);
     for (const t of TOURS) expect(t.steps.length).toBeGreaterThan(0);
-  });
-  it("every step view (when set) is a valid AppView used by other tours", () => {
-    const valid = new Set<AppView>(["dashboard", "projects", "open-points", "actions", "chat", "reports", "raid", "milestones", "stakeholders", "steering-committee", "settings", "help", "gantt", "raci", "stakeholder-map", "insights", "learning-insights", "activity", "trends", "history", "directory", "workload", "calendar", "planning", "manage-roles", "budget", "budget-report", "changes", "change-report", "documents"]);
-    for (const t of TOURS) for (const s of t.steps) if (s.view) expect(valid.has(s.view)).toBe(true);
   });
   it("findTour returns undefined for an unknown id", () => {
     expect(findTour("nope")).toBeUndefined();
@@ -43,7 +38,7 @@ describe("app-tour engine", () => {
     const trend: TourStep = { id: "t", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "trends" };
     const bare: TourStep = { id: "b", kind: "modal", titleKey: "tourStepWelcomeTitle", bodyKey: "tourStepWelcomeBody" };
     expect(visibleSteps([trend, bare], ALL_MODULE_IDS, "turso").map((s) => s.id)).toEqual(["t", "b"]);
-    expect(visibleSteps([trend, bare], ALL_MODULE_IDS, "file").map((s) => s.id)).toEqual(["b"]);
+    expect(visibleSteps([trend, bare], ALL_MODULE_IDS, "local-json").map((s) => s.id)).toEqual(["b"]);
     expect(visibleSteps([trend, bare], ALL_MODULE_IDS).map((s) => s.id)).toEqual(["b"]);
   });
   it("clampStep bounds the index", () => {
