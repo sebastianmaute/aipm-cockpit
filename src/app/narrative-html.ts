@@ -11,6 +11,7 @@
 // they are not the reason (open-followups §151).
 import { plainToHtml } from "./sanitize-html";
 import { isHtmlStart, RICH_SINK } from "./html-start";
+import { replaceOpenTags } from "./tag-pair-walk";
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped.
  *
@@ -59,7 +60,10 @@ export function normalizeNarrativeHtml(html: string): string {
  *  depend on which of the three spellings arrived.) */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;|\u00a0/gi;
 
-/** True when the HTML carries no visible text — e.g. the editor's empty `<p></p>`. */
+/** True when the HTML carries no visible text — e.g. the editor's empty `<p></p>`.
+ *  ★ §578: the tag strip was `/<[^>]*>/g`, quadratic on opens with no ">" after
+ *  them, and this runs on every dashboard render. replaceOpenTags is the same
+ *  replacement scanned linearly; an unterminated "<" still counts as text. */
 export function isNarrativeEmpty(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").replace(NBSP, " ").trim() === "";
+  return replaceOpenTags(html, "<", "").replace(NBSP, " ").trim() === "";
 }
