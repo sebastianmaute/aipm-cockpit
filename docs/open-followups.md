@@ -292,7 +292,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c-and-d) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d) | post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--closed-2026-09-30) | Two reference-data handlers have no production consumer | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-09-30 |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
@@ -4787,9 +4787,9 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d)
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c)
 
-**Status:** open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open, narrowed 2026-10-02. (d) is DONE by owner decision: the four RAID handlers moved, bodies and dependency arrays unchanged, into `use-raid-items.ts` (`useRaidItems`), which the planner calls and spreads into its return, so every consumer keeps its names. `handleCreateMitigationTaskFromRaid` stayed in the planner because it writes tasks. That move is the "third extraction" (c) predicted: `npm run dup:check` now reports one 10-line, 69-token clone between `use-raid-items.ts` and `use-resource-planner.ts` — the `captureRef`/`allowDestructiveRef` pair — and the gate still passes on its total line percentage (1.17% on 2026-10-02). (c) stays open. Previously: open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #115
 

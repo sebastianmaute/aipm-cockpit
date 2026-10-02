@@ -8,7 +8,7 @@
 // use-resource-planner.ts in SHAPE (editing state + open/edit/close/save/
 // delete), but — unlike handleSaveAbsence's plain id-existence check —
 // routes create-vs-update through resolveEntitySave (the pattern
-// handleSaveRaidItem, in use-resource-planner.ts, already uses): the modal
+// handleSaveRaidItem, in use-raid-items.ts, already uses): the modal
 // mints its id at open time, and a concurrent writer could take that id
 // before Save; resolveEntitySave re-mints on a genuine create rather than
 // letting the id-existence check misread it as an update and clobber the

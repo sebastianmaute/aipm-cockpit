@@ -728,7 +728,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      `find(id) === undefined` misclassifies the create as an UPDATE and **map-replace silently clobbers
      the concurrent row** (real data loss, fixed in 0.170.2 "Doctorow"). Route it through pure
      `entity-id-mint.ts` `resolveEntitySave(existing, itemId, isNew, mintId)`, which takes the intent and
-     **re-mints** the id when the open-time one was taken: RAID (`use-resource-planner`), changes
+     **re-mints** the id when the open-time one was taken: RAID (`use-raid-items`), changes
      (`use-change-log`), stakeholders (`use-stakeholders`), milestones (`milestones-panel`), calendar
      events (`use-calendar-events`). Modals forward `isNew`; the pane contract types are
      `(item, isNew?) => void` (`workspace-section-types.ts`). ★ `isNew` is OPTIONAL and the fallback is
@@ -958,7 +958,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `resolutionNotes` and `Milestone.description` are rich HTML; Tasks, RAID and Changes each carry a dated
   `noteLog` surfaced by ONE shared floating window. ★★★ Open that file before touching any of it — its
   landmines are NOT uniform across the three registers, and the same defect is closed by a DIFFERENT
-  mechanism in each (`use-task-submit.ts` omits the field from its payload, `use-resource-planner.ts`
+  mechanism in each (`use-task-submit.ts` omits the field from its payload, `use-raid-items.ts`
   carries it from the STORED row, `change-log.ts`'s `withStoredNoteLog` does it at three decode/JSON/AI
   boundaries) — copying one register's fix to another is how two of them broke.
   It also owns: the DOM-free vs browser-only split across `rich-text-plain.ts` / `rich-text-projection.ts`
