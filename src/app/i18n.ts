@@ -3694,7 +3694,7 @@ const enUS = {
   tourStepReportInsightsTitle: "Insights",
   tourStepReportInsightsBody: "Insights lists what the app has detected in your project. Filter by status or type, and tick Show resolved & dismissed to see the history.",
   tourStepReportLearningTitle: "Action Center learning",
-  tourStepReportLearningBody: "Once \"Learn from my Action Center responses\" is switched on in Settings, this view shows for each kind of action how often you acted, snoozed, or dismissed it and the resulting adjustment. Set an override such as Always surface; open it from Settings.",
+  tourStepReportLearningBody: "Once \"Learn from my Action Center responses\" is switched on in Settings, this view shows how often you acted on, snoozed, or dismissed each kind of action and the resulting adjustment. You can also set an override such as \"Always surface\", and you open this view from Settings.",
   tourStepReportActivityTitle: "Activity",
   tourStepReportActivityBody: "Activity is the project's audit trail of changes to tasks, RAID items, budget and more, with when each happened. Clear log empties it.",
   tourStepReportTrendsTitle: "Trends",

@@ -3477,7 +3477,7 @@ export const de: Record<TranslationKey, string> = {
   tourStepReportInsightsTitle: "Erkenntnisse",
   tourStepReportInsightsBody: "Erkenntnisse listet auf, was die App in Ihrem Projekt erkannt hat. Filtern Sie nach Status oder Typ und aktivieren Sie „Erledigte & verworfene anzeigen“, um den Verlauf zu sehen.",
   tourStepReportLearningTitle: "Aktionscenter-Lernen",
-  tourStepReportLearningBody: "Sobald „Aus meinen Aktionscenter-Reaktionen lernen“ in den Einstellungen aktiviert ist, zeigt diese Ansicht je Aktionsart, wie oft Sie bearbeitet, verschoben oder verworfen haben, und die daraus folgende Anpassung. Legen Sie eine Übersteuerung wie „Immer hervorheben“ fest; geöffnet wird sie über die Einstellungen.",
+  tourStepReportLearningBody: "Sobald „Aus meinen Aktionscenter-Reaktionen lernen“ in den Einstellungen aktiviert ist, zeigt diese Ansicht je Aktionsart, wie oft Sie bearbeitet, verschoben oder verworfen haben, und die daraus folgende Anpassung. Sie können auch eine Übersteuerung wie „Immer hervorheben“ festlegen und öffnen diese Ansicht über die Einstellungen.",
   tourStepReportActivityTitle: "Aktivität",
   tourStepReportActivityBody: "Aktivität ist das Änderungsprotokoll des Projekts für Aufgaben, RAID-Einträge, Budget und mehr, mit dem Zeitpunkt jeder Änderung. „Verlauf löschen“ leert es.",
   tourStepReportTrendsTitle: "Trends",
