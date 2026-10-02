@@ -22,6 +22,7 @@ const APP = resolve(__dirname);
 const NO_EXPORTED_DDL_ALLOWLIST: Record<string, string> = {
   "turso-tenant-schema.ts": "DDL is the tenantSchemaDdl() function, executed explicitly below",
   "turso-backend.ts": "OLD_BLOB_DDL: the legacy single-row `workspace` blob table, no project_id",
+  "turso-migrate.ts": "§211 idKindRebuild re-CREATEs an EXISTING ENTITY_SPECS table from its own columns (`textIdDdl`, built by `colDdl`), never a new table",
 };
 const EXPORT_RE = /export const ([A-Z0-9_]+_DDL)\b/g;
 export const DDL_LITERAL_RE = /[`"']\s*CREATE TABLE/;
