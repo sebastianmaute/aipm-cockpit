@@ -1535,12 +1535,12 @@ on ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_ASSET_ID_RE` requi
 `<span>`, which §218 and its own table still use: `span` is absent from `DOCUMENT_ALLOWED_TAGS`, so
 the sanitizer unwraps the element at KEEP_CONTENT and `data-asset-id` leaves with it — `p`,
 `strong`, `li` and `a` all keep the attribute through a real load (measured,
-`docs/open-followups.md` §249). ★★ That second one is
+`docs/open-followups.md` §249). ★★ That divergence is
 **§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
 it is now VISIBLE (the cap message reports how much room removing those references would reclaim)
 and pinned. It is described under "The three asset-id patterns" above.
 
-★★ A third was a maintainability gap rather than a divergence, CLOSED as §223 (2026-08-23):
+★★ A maintainability gap, rather than a divergence, was CLOSED as §223 (2026-08-23):
 `sanitizeDocumentAsset` deliberately does NOT enforce `ASSET_MIME_ALLOWED` on load, so every
 consumer once restated the allowlist check by hand. They now share `isAllowedAssetMime` and
 `isBlockedAssetMime` (`document-asset-upload.ts`); `git grep -n "ASSET_MIME_ALLOWED as readonly

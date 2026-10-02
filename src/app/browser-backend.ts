@@ -105,7 +105,9 @@ import { requiredIsoDateOnLoad } from "./sanitize-load-date";
  *  fields whose stored value can violate the declared type are touched:
  *  `currency`, `granularity`, and a start/end date that does not parse (each
  *  replaced ALONE by `fallback`'s). A reversed window and `budgetFollowsPlan`
- *  (incl. an explicit `false`) are deliberately left as stored. The date test
+ *  (incl. an explicit `false`) are deliberately left as stored — and replacing
+ *  one date alone can itself produce a reversed window (stored end before the
+ *  default start), which is left unswapped for the same reason. The date test
  *  is the one `sanitizePlan` uses. */
 export function coerceStoredPlan(stored: ResourcePlan, fallback: ResourcePlan): ResourcePlan {
   const startOk = requiredIsoDateOnLoad(stored.startDate, "plan", undefined, "startDate") !== "";

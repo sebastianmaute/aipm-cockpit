@@ -704,11 +704,13 @@
   as INVOCATIONS, not files: `raid-report-panel` alone holds 7 and `resources-report` 5). So a `*_COL_WIDTHS` default change
   now reaches a user who once dragged one unrelated column. ★★ BUT NOT retroactively, and the reason is a
   trap: the PRE-v2 persist effect had NO first-run guard, so it fired ~250ms after MOUNT and wrote the whole
-  MERGED map — meaning a v1 blob is a full DEFAULTS SNAPSHOT, not a record of drags, and `readSized`
-  promotes every key of it to user-set. A table carrying a v1 blob therefore still ignores its new defaults.
-  Open Points escapes ONLY because its id was bumped `open-points` → `open-points-v2`; the other 37 tables
-  did not (`docs/open-followups.md` §52). Bumping the tableId is the same remedy as the `useResizable`
-  storage-key bump above, for the same reason. ★ An unrecognised VERSION reads as "no user widths" rather
+  MERGED map — meaning a v1 blob is a full DEFAULTS SNAPSHOT, not a record of drags. §52 (closed
+  2026-10-02) heals both v1 and v2 blobs: `readSized` drops a stored width EQUAL to the column's current
+  default (`dropDefaults`), so only differing widths survive as drags and a default change reaches those
+  tables. Open Points was ALSO bumped `open-points` → `open-points-v2`, which predates that fix. Cost: a
+  user who dragged a column to exactly its current default follows future default changes for it. Do NOT
+  bump a tableId to force new defaults any more — it throws away genuine drags; the `useResizable`
+  storage-key bump above is a different mechanism and still applies there. ★ An unrecognised VERSION reads as "no user widths" rather
   than falling through to the v1 branch — a `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and
   an OBJECT-valued `widths` into a `Record<TId, number>`.
 - **★★ Open Points table geometry — ONE auto column, computed minWidth (0.212.0).** The table is
