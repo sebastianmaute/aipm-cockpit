@@ -38,6 +38,7 @@ import { useToastContext } from "./toast-context";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { differs } from "./undo/field-groups";
+import { BLOCKER_WRITE_THROUGH_KEYS } from "./undo/write-through-fields";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -519,11 +520,10 @@ export function TasksSection({
             : row,
         ),
       );
-      // The undo entry carries the log beside the text: restoring the text
-      // alone would leave the log holding the edit.
+      // ★ The blocker pair is write-through (no undo, like notes), so the undo
+      // entry leaves both keys out; a blockers-only edit records nothing.
       const afterRow = applyTaskPatch(beforeRow, clean, actor, stamp);
-      const cleanKeys = Object.keys(clean) as (keyof Task)[];
-      const keys: (keyof Task)[] = "blockers" in clean ? [...cleanKeys, "blockerLog"] : cleanKeys;
+      const keys = (Object.keys(clean) as (keyof Task)[]).filter((k) => !BLOCKER_WRITE_THROUGH_KEYS.has(k));
       const anyChanged = keys.some((k) => differs(beforeRow[k], afterRow[k]));
       if (keys.length > 0 && anyChanged) {
         const before: Partial<Task> = {};

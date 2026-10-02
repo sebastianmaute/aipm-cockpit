@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { useBlockersWindow } from "./use-blockers-window";
+import { useUndoStack } from "./undo/use-undo-stack";
 import type { Resource, Task } from "./types";
+import type { Lang } from "./i18n";
 
 const RESOURCES: Resource[] = [
   { id: 1, firstName: "Alice", lastName: "Anders", roleId: null, utilizationMode: "percent", utilization: {} },
@@ -35,6 +37,7 @@ describe("useBlockersWindow", () => {
     act(() => result.current.win.openTaskBlockers(7));
     expect(result.current.win.blockersWindowProps.open).toBe(true);
     expect(result.current.win.blockersWindowProps.entityLabel).toBe("Draft charter");
+    expect(result.current.win.blockersWindowProps.taskId).toBe(7);
     act(() => result.current.win.blockersWindowProps.onClose());
     expect(result.current.win.blockersWindowProps.open).toBe(false);
   });
@@ -130,5 +133,35 @@ describe("useBlockersWindow", () => {
     act(() => result.current.win.blockersWindowProps.onAdd("Ignored"));
     expect(task7(result.current.tasks).blockerLog).toBeUndefined();
     expect(logActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("useBlockersWindow — undo", () => {
+  // ★ Blocker writes are write-through (WRITE_THROUGH_FIELDS): a whole-row undo
+  // of an UNRELATED edit restores the row image but keeps the live blocker pair,
+  // so an entry the window added after that edit survives.
+  it("a whole-row undo of an unrelated edit keeps a window-added blocker entry", () => {
+    const { result } = renderHook(() => {
+      const [tasks, setTasks] = useState<readonly Task[]>(TASKS);
+      const undoApi = useUndoStack({ lang: "en-US" as Lang, logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      const win = useBlockersWindow({ tasks, setTasks, selfResourceId: 1, resources: RESOURCES, lang: "en-US", logActivity: vi.fn() });
+      return { tasks, setTasks, undoApi, win };
+    });
+    // An unrelated whole-row edit, captured the way a cascade/dedup op does.
+    act(() => {
+      result.current.undoApi.capture({ setter: result.current.setTasks, kind: "task.updated", edited: [TASKS[0]], fromArray: TASKS });
+      result.current.setTasks((prev) => prev.map((tk) => (tk.id === 7 ? { ...tk, priority: "High" } : tk)));
+    });
+    act(() => result.current.win.openTaskBlockers(7));
+    act(() => result.current.win.blockersWindowProps.onAdd("Added after the edit"));
+    expect(result.current.undoApi.stack).toHaveLength(1);
+
+    act(() => result.current.undoApi.undo());
+    const row = task7(result.current.tasks);
+    // The edit is undone…
+    expect(row.priority).toBeUndefined();
+    // …and the window entry, with its derived text, is kept.
+    expect(row.blockerLog?.map((e) => e.text)).toEqual(["Added after the edit"]);
+    expect(row.blockers).toBe("Added after the edit");
   });
 });

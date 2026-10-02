@@ -396,26 +396,46 @@ describe("useTaskSubmit — the blocker log is carried from the STORED row", () 
   }
   const ALIGNED = { group: "", labels: [], dependencies: [], knowledgeLinks: [], description: "", completedDate: "" };
 
-  it("an editor blockers change is ONE undo entry, and undoing it restores the text AND the log", () => {
-    const stored = makeTask({ ...ALIGNED, blockerLog: [RESOLVED, A], blockers: "Waiting A" });
-    const { result } = renderHook(() => {
+  /** The submit hook over REAL state and a REAL undo stack. */
+  function renderWithUndo(stored: Task, form: TaskFormDraft) {
+    return renderHook(() => {
       const [tasks, setTasks] = useState<readonly Task[]>([stored]);
       const undoApi = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
       const submit = useTaskSubmit(makeArgs({
         tasks, setTasks, tasksRef: { current: tasks }, editingId: 1,
-        form: formFor(stored, "Vendor delay"),
+        form,
         captureFieldEdit: undoApi.captureFieldEdit,
       }));
       return { tasks, submit, undoApi };
     });
+  }
+
+  // ★ Blocker writes are write-through (spec: no undo, like notes): the pair is
+  // in WRITE_THROUGH_FIELDS and the editor capture strips it.
+  it("an editor save that changes only blockers pushes NO undo entry", () => {
+    const stored = makeTask({ ...ALIGNED, blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const { result } = renderWithUndo(stored, formFor(stored, "Vendor delay"));
     act(() => result.current.submit.openEditModal(stored));
     act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
     expect(result.current.tasks[0].blockers).toBe("Vendor delay");
     expect(result.current.tasks[0].blockerLog).toHaveLength(3);
+    expect(result.current.undoApi.stack).toHaveLength(0);
+  });
+
+  it("a save changing blockers AND another field pushes an entry WITHOUT the blocker pair", () => {
+    const stored = makeTask({ ...ALIGNED, blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const { result } = renderWithUndo(stored, { ...formFor(stored, "Vendor delay"), priority: "Urgent" });
+    act(() => result.current.submit.openEditModal(stored));
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    expect(result.current.tasks[0].priority).toBe("Urgent");
     expect(result.current.undoApi.stack).toHaveLength(1);
+    const savedLog = result.current.tasks[0].blockerLog;
+    expect(savedLog).toHaveLength(3);
     act(() => result.current.undoApi.undo());
-    expect(result.current.tasks[0].blockers).toBe("Waiting A");
-    expect(result.current.tasks[0].blockerLog).toEqual([RESOLVED, A]);
+    // The priority reverts; the blocker text and log stay as saved.
+    expect(result.current.tasks[0].priority).toBe("Medium");
+    expect(result.current.tasks[0].blockers).toBe("Vendor delay");
+    expect(result.current.tasks[0].blockerLog).toEqual(savedLog);
   });
 
   it("a whitespace-only edit of the opened text writes nothing to the log", () => {

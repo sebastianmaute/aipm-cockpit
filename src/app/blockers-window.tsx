@@ -17,10 +17,13 @@ export interface BlockersWindowProps extends BlockerLogPanelProps {
   open: boolean;
   onClose: () => void;
   entityLabel: string;
+  /** The task the window is open for. Keys the body, so a draft typed for one
+   *  task never carries over when the window switches to another. */
+  taskId: number | null;
 }
 
 export function BlockersWindow(props: BlockersWindowProps) {
-  const { open, onClose, entityLabel, ...panel } = props;
+  const { open, onClose, entityLabel, taskId, ...panel } = props;
   // ★★ ONE SPELLING, THREE SINKS: accessible name, visible heading and the help
   // trigger's dialog title all come from this one string (see notes-window.tsx).
   const windowTitle = `${t(panel.lang, "blockerLogTitle")} — ${entityLabel}`;
@@ -34,7 +37,7 @@ export function BlockersWindow(props: BlockersWindowProps) {
       helpConceptId={MODAL_HELP.blockersWindow}
       lang={panel.lang}
     >
-      <BlockerLogPanel {...panel} />
+      <BlockerLogPanel key={taskId ?? "none"} {...panel} />
     </FloatingLogWindow>
   );
 }

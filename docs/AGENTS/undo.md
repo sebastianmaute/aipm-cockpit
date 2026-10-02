@@ -99,6 +99,13 @@ excludes them from a patch through the derived `WRITE_THROUGH_KEYS`. Membership 
 there iff a writer other than the entity's own save handler can change it on a row nobody is editing.
 A new such field that is not added there is silently reverted by a whole-row undo. The remaining
 whole-row paths are §177.
+★★ **The task blocker pair (`blockers` + `blockerLog`) is a member AND is never undoable from any
+writer** (spec: no undo for blocker writes, like notes). The single-row capture paths cannot drop the
+whole list — the task editor legitimately captures `calendarOptOut` — so the editor save
+(`use-task-submit.ts`, via `withoutKeys`) and the inline cell edit (`tasks-section.tsx`) strip
+`BLOCKER_WRITE_THROUGH_KEYS` themselves. ★ The bulk edit derives its WRITE set from `rowChanged`, not
+from the captured patches, because a row whose only change is its blockers yields no patch and must
+still be written.
 ★★ **THE SINGLE-ROW PATH IS NOT THE THREE-WAY MERGE.** `mergeFieldPatch`'s docstring says it
 "Replaces the `{ ...row, ...patch }` spread the undo runner used to do" — true for `captureFieldPart`,
 the only caller (`grep -rn "mergeFieldPatch(" src/app --include=*.ts | grep -v "\.test\."`).

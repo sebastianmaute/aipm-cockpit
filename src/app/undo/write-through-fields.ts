@@ -13,7 +13,15 @@
 // is not being edited. Today that is the notes window (`noteLog`, on Task, RaidItem
 // and ChangeItem), the background calendar push/pull (`outlookEventId`, on every
 // calendar-capable entity) and the pull's prune (`calendarOptOut`, §486 — written in
-// the same statement as `outlookEventId`, on the five calendar-pushed entities).
+// the same statement as `outlookEventId`, on the five calendar-pushed entities),
+// and the blocker window (`blockers` + `blockerLog`, on Task — the text is DERIVED
+// from the log, so the two are always kept live together).
+//
+// ★★ THE BLOCKER PAIR IS NEVER UNDOABLE, from ANY writer (spec: no undo for
+// blocker writes, like notes). The bulk patch drops them here; the single-row
+// field-edit paths (editor save, inline cell) strip `BLOCKER_WRITE_THROUGH_FIELDS`
+// themselves, because those paths DO capture the other members (the task editor
+// edits `calendarOptOut`), so they cannot drop the whole list.
 //
 // ★★ THIS LIST IS THE BACKSTOP, NOT THE PRIMARY FIX. The bulk-edit sites capture
 // FIELD PATCHES and are immune by construction; what this protects is the paths
@@ -35,11 +43,25 @@
 // length forces that rather than letting it ride on an unrelated slot's type.
 import type { Absence, ChangeItem, CommitteeMeeting, Milestone, RaidItem, Task } from "../types";
 
-export const WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId", "calendarOptOut"] as const satisfies readonly [
+export const WRITE_THROUGH_FIELDS = [
+  "noteLog",
+  "outlookEventId",
+  "calendarOptOut",
+  "blockers",
+  "blockerLog",
+] as const satisfies readonly [
   keyof (Task | RaidItem | ChangeItem),
   keyof (Task | RaidItem | Milestone | ChangeItem | CommitteeMeeting | Absence),
   keyof (Task | RaidItem | Milestone | ChangeItem | Absence),
+  keyof Task,
+  keyof Task,
 ];
+
+/** The blocker pair, as a lookup for the single-row capture paths that must strip
+ *  it (see the ★★ note above). The `satisfies` ties each member to the tuple. */
+export const BLOCKER_WRITE_THROUGH_KEYS: ReadonlySet<string> = new Set<string>(
+  ["blockers", "blockerLog"] as const satisfies readonly (typeof WRITE_THROUGH_FIELDS)[number][],
+);
 
 /** The same list as a lookup. DERIVED — never restate the members here.
  *

@@ -288,7 +288,9 @@ describe("useBulkOperations", () => {
         blockerLog: [resolved, { id: 2, text: open, createdAt: "2026-05-03T00:00:00.000Z" }],
         blockers: open,
       });
-      const { result } = renderBulk();
+      const captureFieldRows = vi.fn();
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ captureFieldRows, logActivity });
       act(() => { result.current.workspace.setTasks([row(1, "Waiting A"), row(2, "Waiting B")]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
       act(() => { result.current.bulk.onToggleSelect(2); });
@@ -309,6 +311,47 @@ describe("useBulkOperations", () => {
         expect(log[2]).toMatchObject({ id: 3, text: "Shared vendor delay" });
         expect(log[2].resolvedAt).toBeUndefined();
       }
+      // ★ Write-through (spec: no undo for blocker writes): both rows are
+      // written and counted, and nothing is captured for undo.
+      expect(captureFieldRows).not.toHaveBeenCalled();
+      expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
+    });
+
+    it("bulk blockers + priority: every changed row is written, the undo patch carries no blocker key", () => {
+      const row = (id: number, priority: "Medium" | "High"): Task => ({
+        id, taskName: `Task ${id}`, status: "To Do", priority,
+        assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
+        description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+        blockers: "",
+      });
+      const captureFieldRows = vi.fn();
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ captureFieldRows, logActivity });
+      // Row 2 already holds the target priority: only its blockers change.
+      act(() => { result.current.workspace.setTasks([row(1, "Medium"), row(2, "High")]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => { result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev,
+          enabled: { ...prev.enabled, blockers: true, priority: true },
+          blockers: "Vendor delay",
+          priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      for (const task of result.current.workspace.tasks) {
+        expect(task.priority).toBe("High");
+        expect(task.blockers).toBe("Vendor delay");
+      }
+      expect(captureFieldRows).toHaveBeenCalledTimes(1);
+      const capOpts = captureFieldRows.mock.calls[0][0] as {
+        edits: { id: number; before: Partial<Task>; after: Partial<Task> }[];
+      };
+      expect(capOpts.edits).toEqual([
+        { id: 1, before: { priority: "Medium" }, after: { priority: "High" } },
+      ]);
+      expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
     });
 
     /** PER-SITE COVER for the bulk-edit transition (`statusActivityKind` in

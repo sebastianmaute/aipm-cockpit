@@ -1220,7 +1220,7 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("captures a field-level undo entry for an inline cell edit (blockers)", () => {
+  it("an inline blockers edit is written but pushes NO undo entry (write-through)", () => {
     const task = { id: 1, taskName: "T1", blockers: "old note" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
@@ -1255,22 +1255,15 @@ describe("TasksSection", () => {
       ctx.onInlinePatch(1, { blockers: "new note" });
     });
 
-    // ★ The blocker log rides the same entry: the text is derived from it, so
-    // an undo that restored the text alone would be re-derived away on load.
-    expect(captureFieldEdit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "task.updated",
-        id: 1,
-        before: { blockers: "old note", blockerLog: undefined },
-        after: {
-          blockers: "new note",
-          blockerLog: [
-            { id: 1, text: "old note", createdAt: expect.any(String), resolvedAt: expect.any(String) },
-            { id: 2, text: "new note", createdAt: expect.any(String) },
-          ],
-        },
-      }),
-    );
+    // ★ Blocker writes are write-through (spec: no undo, like notes): the row
+    // is written through its log, and nothing is captured for undo.
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+    const row = currentTasks[0] as { blockers: string; blockerLog: { id: number; text: string; resolvedAt?: string }[] };
+    expect(row.blockers).toBe("new note");
+    expect(row.blockerLog.map((e) => [e.id, e.text, e.resolvedAt === undefined])).toEqual([
+      [1, "old note", false],
+      [2, "new note", true],
+    ]);
   });
 
   it("an inline blockers edit writes through the STORED row's log and keeps its history", () => {

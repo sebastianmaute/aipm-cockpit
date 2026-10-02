@@ -23,7 +23,7 @@ import { applyTaskPatch, selfBlockerActor } from "./blocker-log";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
-import { TASK_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
+import { TASK_UNDO_GROUPS, buildBulkFieldEdits, differs } from "./undo/field-groups";
 import { visibleTaskRows } from "./visible-task-rows";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
@@ -33,6 +33,18 @@ import { visibleTaskRows } from "./visible-task-rows";
 // Jira-managed (Jira's statusCategory drives it) but is applied separately via
 // applyStatusChange — see the `statusEnabled` handling in applyBulkEdit.
 const JIRA_MANAGED_BULK_FIELDS = ["assignee", "priority", "dueDate"] as const;
+
+/** Does `after` change anything on `before` other than the sync stamp? Unlike
+ *  `buildBulkFieldEdits` this COUNTS write-through keys (the blocker pair): they
+ *  are not captured for undo, but a row changing only them must still be written. */
+function rowChanged(before: Task, after: Task): boolean {
+  const keys = new Set<string>([...Object.keys(before), ...Object.keys(after)]);
+  for (const k of keys) {
+    if (k === "localModifiedAt") continue;
+    if (differs((before as Record<string, unknown>)[k], (after as Record<string, unknown>)[k])) return true;
+  }
+  return false;
+}
 
 export interface BulkRowHandlers {
   onEdit: (task: Task) => void;
@@ -290,9 +302,8 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // Field PATCHES, not whole rows — so undo reverts only what this apply
     // wrote, and a note added through the notes window (or an outlookEventId
     // stamped by a background Outlook push) survives the undo (§50).
-    const taskEdits = taskFieldsEnabled
-      ? buildBulkFieldEdits(beforeRows.map((row) => ({ before: row, after: patchRow(row) })), TASK_UNDO_GROUPS)
-      : [];
+    const rowChanges = taskFieldsEnabled ? beforeRows.map((row) => ({ before: row, after: patchRow(row) })) : [];
+    const taskEdits = buildBulkFieldEdits(rowChanges, TASK_UNDO_GROUPS);
     // ★★★ THE ROWS THE CAPTURE RECORDS AND THE ROWS THE WRITE TOUCHES ARE ONE
     // SET, derived from the one `patchRow` diff above. Gating the write on
     // `taskFieldsEnabled && targetIds.length > 0` while gating the capture on
@@ -310,14 +321,23 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // no spurious `localModifiedAt` reaches a row for a Jira pull to revert. An
     // empty-patch capture would instead have offered an undo for a change the
     // user cannot see.
-    const editedIds = new Set(taskEdits.map((e) => e.id));
-    // ★★ ONE count for the toast, the activity row AND the undo label.
-    // `captureFieldRows` pushes `edits.length` as its own count, so the pure
-    // task-field path must report exactly that or the toast and the undo entry
-    // describe different sets of rows. A bucket move rewrites the link for every
-    // visible target whether or not its task fields changed, so that path keeps
-    // the target count (minus the synced rows left fully untouched).
-    const count = bucketsChanged ? targetIds.length - untouchedSynced : taskEdits.length;
+    // ★★ WRITE-THROUGH KEYS ARE THE ONE EXCEPTION. The blocker pair is written
+    // but never captured (write-through-fields.ts: no undo, like notes), so a row
+    // whose only change is its blockers yields no edit and must STILL be written —
+    // deriving the write set from `taskEdits` alone would drop a blockers-only
+    // bulk edit entirely. The set is every row whose patch changes anything but
+    // the stamp; the undo entry then covers the captured subset of it.
+    const editedIds = new Set(
+      rowChanges.filter(({ before, after }) => rowChanged(before, after)).map(({ before }) => before.id),
+    );
+    // ★★ The toast and the activity row count the rows WRITTEN. The undo label
+    // (`captureFieldRows` pushes `edits.length`) counts the rows it can revert,
+    // which is the same number unless some rows changed ONLY write-through keys
+    // (the blocker pair) — those are written and, by design, not undoable. A
+    // bucket move rewrites the link for every visible target whether or not its
+    // task fields changed, so that path keeps the target count (minus the synced
+    // rows left fully untouched).
+    const count = bucketsChanged ? targetIds.length - untouchedSynced : editedIds.size;
     const tasksPart = taskEdits.length > 0
       ? captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" })
       : null;

@@ -12,7 +12,8 @@ import { type Task, type RaidItem, type Resource } from "./types";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { normalizeBlockerText, selfBlockerActor, setBlockersText } from "./blocker-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
-import { TASK_UNDO_GROUPS } from "./undo/field-groups";
+import { TASK_UNDO_GROUPS, withoutKeys } from "./undo/field-groups";
+import { BLOCKER_WRITE_THROUGH_KEYS } from "./undo/write-through-fields";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
@@ -435,8 +436,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             setter: setTasks,
             kind: "task.updated",
             id: updatedId,
-            prev: prevTask,
-            next: nextTask,
+            // ★ The blocker pair is write-through (no undo, like notes): stripped
+            // here so a blockers change records nothing and the rest still does.
+            prev: withoutKeys(prevTask, BLOCKER_WRITE_THROUGH_KEYS),
+            next: withoutKeys(nextTask, BLOCKER_WRITE_THROUGH_KEYS),
             groups: TASK_UNDO_GROUPS,
             stampField: "localModifiedAt",
             name: taskName,

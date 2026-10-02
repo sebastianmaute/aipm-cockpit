@@ -69,15 +69,22 @@ export function changedFieldGroups<T extends { id: number }>(
   return out;
 }
 
-/** status⟺completedDate invariant; assignee identity is written as one unit;
- *  `blockers` is DERIVED from `blockerLog` (blocker-log.ts), so the two revert
- *  together — undoing one alone would leave the text and the log disagreeing,
- *  and the next load would re-derive the text from the log. */
+/** status⟺completedDate invariant; assignee identity is written as one unit.
+ *  ★ No blockers group: `blockers` + `blockerLog` are write-through and never
+ *  captured (write-through-fields.ts), so a group for them would be dead. */
 export const TASK_UNDO_GROUPS: readonly FieldGroup<Task>[] = [
   ["status", "completedDate"],
   ["assignee", "assigneeEmail", "resourceId"],
-  ["blockers", "blockerLog"],
 ];
+
+/** A shallow copy of `row` without the `drop` keys — for a single-row capture
+ *  that must not record some fields (the blocker pair) while still capturing
+ *  the rest. Diffing two stripped rows sees no change on the dropped keys. */
+export function withoutKeys<T extends object>(row: T, drop: ReadonlySet<string>): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) if (!drop.has(k)) out[k] = v;
+  return out as T;
+}
 /** A change's status transition auto-fills/clears decisionDate together. */
 export const CHANGE_UNDO_GROUPS: readonly FieldGroup<ChangeItem>[] = [
   ["status", "decisionDate"],
