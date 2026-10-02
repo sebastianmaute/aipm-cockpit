@@ -43,7 +43,7 @@ describe("htmlToPlainText — linear tag passes (§578)", () => {
 
   it("matches the regex implementation on random tag soup", () => {
     const token = fc.constantFrom(
-      "<", ">", "</", "/", "li", "LI", "Li", "br", "p", "div", "h2", "tr", " ", "\t", "\n", " ", "x", "&amp;", "&nbsp;",
+      "<", ">", "</", "/", "li", "LI", "Li", "br", "p", "div", "h2", "tr", " ", "\t", "\n", "\u00a0", "x", "&amp;", "&nbsp;",
     );
     fc.assert(
       fc.property(fc.array(token, { maxLength: 40 }), (parts) => {
