@@ -95,9 +95,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 - `ResourcePlan.currency` is narrowed to `BudgetCurrency` (`SUPPORTED_CURRENCIES`: EUR, USD and GBP
   today; `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts`). INR is requested in §477.
 - ★★ **THE INDEXEDDB LOAD PATH IS THE ONE PATH THAT DOES NOT RUN `sanitizePlan`**, and it coerces
-  the CURRENCY ONLY (`isBudgetCurrency`, else `"EUR"`, in `browser-backend.ts`). Do not "complete
-  the pattern" by calling `sanitizePlan` there. It would also swap reversed dates and drop an
-  explicit `budgetFollowsPlan: false`. Instead the exported `coerceStoredPlan` (§470, closed
+  a stored plan field-wise instead (in `browser-backend.ts`; `isBudgetCurrency` gates the
+  currency). Do not "complete the pattern" by calling `sanitizePlan` there. It would also swap
+  reversed dates and drop an explicit `budgetFollowsPlan: false`. Instead the exported `coerceStoredPlan` (§470, closed
   2026-10-02) coerces FIELD-WISE: `currency` (else `"EUR"`), an out-of-union `granularity` (else
   `"month"`) and a start or end date that does not parse (each replaced ALONE by the default's —
   which can itself produce a reversed window, left unswapped like any stored one). The suite pins
