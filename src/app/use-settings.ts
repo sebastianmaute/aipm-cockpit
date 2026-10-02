@@ -10,6 +10,7 @@ import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
 import { sanitizeTemplates } from "./templates";
+import { CANONICAL_NOTE_HTML_OPS } from "./note-log";
 import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
@@ -334,7 +335,8 @@ export function useSettings(): {
             nextActionsLearning: migrateNextActionsLearning((parsed as Record<string, unknown>).nextActionsLearning),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
             versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
-            templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),
+            // §298 — the canonical note cleaner, so a template keeps a long note rich.
+            templates: sanitizeTemplates((parsed as Record<string, unknown>).templates, CANONICAL_NOTE_HTML_OPS),
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
             outlookCalendar: sanitizeOutlookCalendar((parsed as Record<string, unknown>).outlookCalendar),
             // Fall back to the default branding (seeds the app slogan) when the

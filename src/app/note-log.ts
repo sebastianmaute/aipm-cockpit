@@ -9,15 +9,20 @@ import type { NoteLogEntry } from "./types";
 import { sanitizeRichHtml, htmlToText } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
-import { sanitizeNoteLogWith } from "./note-log-policy";
+import { sanitizeNoteLogWith, type NoteLogHtmlOps } from "./note-log-policy";
 
 /** Accept only well-formed note entries from untrusted JSON. Delegates the
  *  whole policy (entry cap, byte html cap, control-char stripping, timestamp
  *  validation, mint-and-dedupe) to the shared core in `note-log-policy.ts`,
  *  supplying this module's DOM-bound html ops. See that file's docstring for
  *  the full contract. */
+/** The CANONICAL note-log html ops (DOMPurify + the DOM projection). Exported
+ *  so a BROWSER caller of the DOM-free template sanitizers can inject them
+ *  (§298) — `templates.ts` itself cannot import this module. */
+export const CANONICAL_NOTE_HTML_OPS: NoteLogHtmlOps = { sanitizeHtml: sanitizeRichHtml, toText: htmlToText };
+
 export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
-  return sanitizeNoteLogWith(raw, { sanitizeHtml: sanitizeRichHtml, toText: htmlToText });
+  return sanitizeNoteLogWith(raw, CANONICAL_NOTE_HTML_OPS);
 }
 
 /** Every rich-HTML field name across the entities the whole-object load paths

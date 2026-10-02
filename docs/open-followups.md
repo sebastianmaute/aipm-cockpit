@@ -459,7 +459,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | open |
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
 | [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair--closed-2026-10-02) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | **CLOSED** 2026-10-02 |
-| [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
+| [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load--closed-2026-10-02) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | **CLOSED** 2026-10-02 |
 | [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet--closed-2026-08-29) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | **CLOSED** 2026-08-29 |
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
@@ -529,7 +529,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--closed-2026-08-31) | ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ | carved out of §146 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
-| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--closed-2026-10-02) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | **CLOSED** 2026-10-02 |
 | [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--closed-2026-10-02) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | **CLOSED** 2026-10-02 |
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31) | ~~The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
@@ -19687,14 +19687,14 @@ The For/Against arguments above are still the arguments, and the prohibition on
 `reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands unchanged — only the "nothing has
 counted them" premise they were deferred against has moved.
 
-## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load
+## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load — CLOSED 2026-10-02
 
-**Status:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
+**Status:** CLOSED 2026-10-02. Fixed the way the reverted attempt wanted, once its two blockers were gone. `applyTemplate` now runs the WHOLE seed through `sanitizeSeed` — the function the localStorage load path runs — with the canonical note cleaner injected (§298), so an in-session apply sanitises every slice the load path does, not only tasks: one template, one behaviour, whether or not a reload happened in between. The two reasons the 2026-10-02 attempt was reverted are both addressed: `sanitizeSeed` gained the `resources` arm `TemplateSeed` declares (`sanitizeResource`), so a proposal saved as a template keeps its people on load and on apply; and the canonical cleaner keeps a long rich RAID note rich. Every template suite, including the two that failed that attempt, is green. Pinned in `template-apply.test.ts` ("§228 — runs the load path's sanitiser on EVERY slice": a RAID row with an unknown category is dropped on apply as a reload would drop it) and `templates.test.ts` (the resources arm). The history below is kept as written.
+
+**Previously:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
 five seed slices still bypass the sanitiser on the in-session path. **Severity:** low (the window is
 one session, a reload closes it, and nothing in `src` should be producing an invalid row to launder
 in the first place). Never machine-verified by a committed probe.
-
-**Work item:** #200
 
 ★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
 DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** EVERY number in the block
@@ -25802,16 +25802,16 @@ test the fixer writes is the only detector this will ever have, and it must asse
 somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
 panel never opened.
 
-## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — open
+## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — CLOSED 2026-10-02
 
-**Status:** open — **never machine-verified**. The arithmetic below was derived from the source on
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02: give templates the canonical semantics rather than accept the difference. ★ Done by INJECTION, not by a new parser: `sanitizeRichText` is not an HTML cleaner at all (it escapes, upgrades plain text and caps), so a "DOM-free cleaner with canonical caps" would have meant hand-writing an HTML sanitizer at a security boundary. The note-log core already takes its html ops as a parameter, so the seed sanitizers (`sanitizeSeedNoteLog` → the three per-entity seed sanitizers → `sanitizeSeed` → `sanitizeTemplate` → `sanitizeTemplates`) now accept an optional `NoteLogHtmlOps`; the default stays `DOM_FREE_SEED_NOTE_OPS`, so `scripts/` importers never reach DOMPurify, and the app's two browser callers inject `CANONICAL_NOTE_HTML_OPS` (`note-log.ts`) — the settings LOAD path (`use-settings.ts`) and the in-session APPLY path (`template-apply.ts`, via §228). A template now keeps a long rich note rich, exactly as every other route does, and the visually-empty-note divergence goes with it. Pinned: the DOM-free default still flattens and the canonical ops do not (`templates.test.ts`, kept as an intended difference for scripts), the load wiring (`use-settings.test.ts`, mutation-checked) and the apply wiring (`template-apply.test.ts`, mutation-checked). ★ The point-free trap the new parameter creates was caught by tsc at `template-apply.ts`'s old `.map(sanitizeSeedTask)`. The history below is kept as written.
+
+**Previously:** open — **never machine-verified**. The arithmetic below was derived from the source on
 2026-08-30 by reading the constants (`grep -n "RICH_BYTE_K = \|RICH_BYTE_FLOOR = \|richByteCeiling = " src/app/rich-text-plain.ts`
 and `grep -n "export const TEXTAREA_MAX" src/app/sanitize-core.ts`), and the injection asymmetry from
 `grep -n "sanitizeHtml:" src/app/templates.ts src/app/note-log.ts`, which prints one line per route.
 No committed test drives a note past either trigger through `sanitizeSeedNoteLog`, so nothing has
 EXECUTED the divergence — the reading is of the call path, not of a run.
-
-**Work item:** #227
 
 Residue of [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30),
 which closed on the strength of a shared core (`sanitizeNoteLogWith`, `note-log-policy.ts`) that both

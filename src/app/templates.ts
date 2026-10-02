@@ -17,6 +17,7 @@ import {
   sanitizeLoadedSeedMilestone,
   sanitizeOptionalMinutes,
   sanitizePriority,
+  sanitizeResource,
   sanitizeStakeholder,
   sanitizeTaskName,
   TEXTAREA_MAX,
@@ -26,7 +27,7 @@ import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 // ★ M2: a stored template is a LOAD funnel, so an optional date it blanks is reported (`templateSeed`).
 import { optionalIsoDateOnTemplateLoad } from "./sanitize-load-date";
 import { RICH_SINK } from "./html-start";
-import { sanitizeNoteLogWith } from "./note-log-policy";
+import { sanitizeNoteLogWith, type NoteLogHtmlOps } from "./note-log-policy";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -124,18 +125,25 @@ const RISK_SCALES = new Set([1, 2, 3, 4, 5]);
  * its html — a hand-edited template, or a sink change since capture — and the
  * html is the source of truth.
  */
-function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
-  // ★★ Same policy as the canonical validator — only the two html steps differ,
-  // because this file is DOM-free by contract (sample-generator import graph).
-  // FIVE of the six divergences open-followups §286 recorded are gone; the
-  // policy lives once, in note-log-policy.ts.
-  // Tracked as open-followups §298; do NOT close it
-  // by loosening a cap or slicing raw html before sanitising, which would
-  // manufacture parity by weakening the boundary this carry exists to enforce.
-  const out = sanitizeNoteLogWith(raw, {
-    sanitizeHtml: (h) => sanitizeRichText(h, TEXTAREA_MAX, RICH_SINK),
-    toText: htmlPlainProjection,
-  });
+/** The DOM-FREE note-log html ops — the default, for every caller that has no
+ *  DOM (the sample generator and the other `scripts/` importers). Their caps
+ *  are `sanitizeRichText`'s, which flatten a note past `TEXTAREA_MAX` visible
+ *  characters and empty a visually-empty one (open-followups §298). */
+export const DOM_FREE_SEED_NOTE_OPS: NoteLogHtmlOps = {
+  sanitizeHtml: (h) => sanitizeRichText(h, TEXTAREA_MAX, RICH_SINK),
+  toText: htmlPlainProjection,
+};
+
+/** ★★ Same policy as the canonical validator — the html ops are INJECTED.
+ *  This file is DOM-free by contract (sample-generator import graph), so it
+ *  cannot import the canonical cleaner itself; a BROWSER caller passes
+ *  `CANONICAL_NOTE_HTML_OPS` (`note-log.ts`) instead, and a template then
+ *  keeps a long note rich exactly as every other path does (§298, closed
+ *  2026-10-02). The default stays DOM-free so a script importing this file
+ *  never reaches DOMPurify. Do NOT close the gap by loosening a cap or slicing
+ *  raw html before sanitising instead. */
+function sanitizeSeedNoteLog(raw: unknown, ops: NoteLogHtmlOps = DOM_FREE_SEED_NOTE_OPS): NoteLogEntry[] | undefined {
+  const out = sanitizeNoteLogWith(raw, ops);
   return out.length ? out : undefined;
 }
 
@@ -146,10 +154,10 @@ function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
  * `{ id > 0, taskName }` shape and passes every other field through the
  * existing field sanitizers. Returns null for anything malformed.
  */
-/** ★ Exported for `template-apply.ts`, so the in-session APPLY path sanitises
- *  through the SAME function as the localStorage LOAD path. Two sanitisers
- *  would drift; one cannot (open-followups §228). */
-export function sanitizeSeedTask(raw: unknown): Task | null {
+/** ★ Exported for tests. The in-session APPLY path reaches it through
+ *  `sanitizeSeed`, the same function the localStorage LOAD path runs, so the
+ *  two cannot drift (open-followups §228, closed 2026-10-02). */
+export function sanitizeSeedTask(raw: unknown, ops?: NoteLogHtmlOps): Task | null {
   if (!isPlainObject(raw)) return null;
   const id = fkIdOrUndefined(raw.id);
   if (id === undefined) return null;
@@ -251,7 +259,7 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
-  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog, ops);
   if (noteLog) task.noteLog = noteLog;
   // `migrateTask` derives a valid workflow status for legacy/sparse seed
   // content; a present-and-valid status is left alone, EVEN when it
@@ -279,7 +287,7 @@ function sanitizeRiskScale(raw: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
  * required `{ id > 0, category, title, status }` shape and passes the rest
  * through the existing field sanitizers. Returns null for anything malformed.
  */
-function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
+function sanitizeSeedRaidItem(raw: unknown, ops?: NoteLogHtmlOps): RaidItem | null {
   if (!isPlainObject(raw)) return null;
   const id = fkIdOrUndefined(raw.id);
   if (id === undefined) return null;
@@ -323,7 +331,7 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
     const impact = sanitizeRiskScale(raw.impact);
     if (impact !== undefined) item.impact = impact;
   }
-  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog, ops);
   if (noteLog) item.noteLog = noteLog;
   return item;
 }
@@ -340,48 +348,55 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
  * the workspace load paths and the AI write path included — a note-log carry
  * they must not have.
  */
-function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
+function sanitizeSeedChangeItem(raw: unknown, ops?: NoteLogHtmlOps): ChangeItem | null {
   const item = sanitizeLoadedSeedChangeItem(raw);
   if (!item) return null;
   if (!isPlainObject(raw)) return item;
-  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog, ops);
   return noteLog ? { ...item, noteLog } : item;
 }
 
-/** ★ Exported for TESTS only — no other module imports it, and its only caller
- *  is `sanitizeTemplate` below (verify:
- *  `grep -rnE "\bsanitizeSeed\b" src scripts e2e | grep -v "\.test\."`). The seed note-log
+/** ★ Two production callers: `sanitizeTemplate` below (the settings LOAD path)
+ *  and `applyTemplate` (`template-apply.ts`, the in-session APPLY path — §228
+ *  made it this one function so the two cannot drift). Verify:
+ *  `grep -rnE "\bsanitizeSeed\b" src scripts e2e | grep -v "\.test\."`. The seed note-log
  *  carry is wired per-route (tasks and RAID locally, changes through
  *  `sanitizeSeedChangeItem`), and a test calling the per-item helpers directly
  *  would pass with every route unwired. Reaching them THROUGH here is what
  *  proves the wiring, so the widening buys a real assertion rather than
- *  convenience. Do not add a production caller without revisiting that. */
-export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
+ *  convenience — and the apply caller is pinned by its own tests in
+ *  `template-apply.test.ts`, so it does not weaken that. */
+export function sanitizeSeed(raw: unknown, ops?: NoteLogHtmlOps): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};
-  const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
+  const tasks = sanitizeArr<Task>(raw.tasks, (x) => sanitizeSeedTask(x, ops));
   // Stored templates are a LOAD funnel (settings hydration), so a seed
   // milestone's non-calendar date is kept like the workspace funnels keep it,
   // with the diagnostic attributed to the template seed.
   const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeLoadedSeedMilestone);
-  const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
-  const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
+  const rd = sanitizeArr<RaidItem>(raw.raid, (x) => sanitizeSeedRaidItem(x, ops));
+  const changes = sanitizeArr<ChangeItem>(raw.changes, (x) => sanitizeSeedChangeItem(x, ops));
   const stakeholders = sanitizeArr<Stakeholder>(
     raw.stakeholders,
     sanitizeStakeholder,
   );
   const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeLoadedSeedBudgetBucket);
+  // §228 — `TemplateSeed` declares `resources` (an AI project proposal writes
+  // them) and this funnel used to drop them, so a proposal saved as a template
+  // lost its people on the next load. The canonical resource validator.
+  const resources = sanitizeArr<Resource>(raw.resources, sanitizeResource);
   if (tasks) seed.tasks = tasks;
   if (milestones) seed.milestones = milestones;
   if (rd) seed.raid = rd;
   if (changes) seed.changes = changes;
   if (stakeholders) seed.stakeholders = stakeholders;
   if (budgets) seed.budgets = budgets;
+  if (resources) seed.resources = resources;
   return Object.keys(seed).length ? seed : undefined;
 }
 
 /** Sanitize one stored template. Returns null when it lacks a usable id/name. */
-export function sanitizeTemplate(raw: unknown): ProjectTemplate | null {
+export function sanitizeTemplate(raw: unknown, ops?: NoteLogHtmlOps): ProjectTemplate | null {
   if (!isPlainObject(raw)) return null;
   const id = nonEmptyStr(raw.id);
   const name = nonEmptyStr(raw.name);
@@ -394,7 +409,7 @@ export function sanitizeTemplate(raw: unknown): ProjectTemplate | null {
   };
   const desc = nonEmptyStr(raw.description);
   if (desc) tpl.description = desc;
-  const seed = sanitizeSeed(raw.seed);
+  const seed = sanitizeSeed(raw.seed, ops);
   if (seed) tpl.seed = seed;
   return tpl; // builtIn never honored from stored data
 }
@@ -439,9 +454,9 @@ export function templateFromWorkspace(
 }
 
 /** Sanitize a stored array of templates, dropping any malformed entries. */
-export function sanitizeTemplates(raw: unknown): ProjectTemplate[] {
+export function sanitizeTemplates(raw: unknown, ops?: NoteLogHtmlOps): ProjectTemplate[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map(sanitizeTemplate)
+    .map((t) => sanitizeTemplate(t, ops))
     .filter((t): t is ProjectTemplate => t !== null);
 }
