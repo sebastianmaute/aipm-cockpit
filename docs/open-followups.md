@@ -442,7 +442,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
 | [§209](#209-one-data-asset-id-pattern-four-hand-maintained-spellings-was-five--closed-2026-08-25) | One `data-asset-id` pattern, FOUR hand-maintained spellings (was five) | — | — | **CLOSED** 2026-08-25 |
 | [§210](#210-standalone-html-and-pdf-export-carry-an-image-with-no-source-and-no-placeholder-either--closed-2026-08-22) | Standalone HTML and PDF export carry an image with no source, and no placeholder either | — | — | **CLOSED** 2026-08-22 |
-| [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
+| [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever--closed-2026-10-02) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | **CLOSED** 2026-10-02 |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
 | [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling--closed-02710) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | **CLOSED** 0.271.0 |
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
@@ -17948,12 +17948,12 @@ falls through to the `data-asset-missing` branch on a miss, and is unit-tested a
 attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
 be downgraded on reachability grounds.
 
-## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
+## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever — CLOSED 2026-10-02
 
-**Status:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
+**Status:** CLOSED 2026-10-02. The migration now repairs it. `idKindRebuild` (`turso-migrate.ts`) runs inside the existing column-ensure pass: on a SINGLE-TENANT table whose spec declares `idKind: "text"` (`TableColumns.textIdDdl`, set by `singleTenantTableColumns` only) and whose PRAGMA reports `id` as `INTEGER` and primary key, it emits the SQLite table rebuild — rename aside, `CREATE` with the corrected DDL, copy every shared column, drop — in the same `BEGIN…COMMIT` as the other alters, replacing the add/rename passes for that table. A rowid alias could only ever hold integer ids, which the TEXT column keeps, so the copy loses nothing; a database created by the current DDL, and every tenant layout, produces no statement. Executed against `node:sqlite` in `turso-schema.execute.test.ts` ("§211 — a pre-fix single-tenant database self-heals its id type": the pre-fix DDL refuses a UUID, the migration rebuilds it keeping an existing row, a full workspace save then commits every table, and a second run is a no-op; mutation-checked) and pinned pure in `turso-migrate.test.ts`. ★ Locally that suite needs `--environment node` (vitest cannot bundle `node:sqlite` under the default environment here); its other jsdom-dependent cases fail under that flag, unrelated. ★ Never machine-verified against a REAL pre-fix Turso database — none exists to test with. The history below is kept as written.
+
+**Previously:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
 than `26282f64`. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #191
 
 ★★★ **SINGLE-TENANT ONLY, and an earlier revision of this entry said "a Turso DB" flatly.** The
 MULTI-TENANT builder never emitted a rowid alias: `tenantColDdl` emits a bare `id INTEGER` and the

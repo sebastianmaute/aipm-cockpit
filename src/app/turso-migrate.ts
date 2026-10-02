@@ -24,15 +24,16 @@
 // number, and `id TEXT PRIMARY KEY` for those that mint a string
 // (`document_assets`, a crypto.randomUUID()). In the tenant schema both drop
 // the single-column PK (`id INTEGER` / `id TEXT` inside a composite PK). Either
-// way `id` is created WITH the table and so always pre-exists, which is why we
-// only ever ADD TEXT columns and never touch `id` — this module never has to
-// know which kind a table uses.
+// way `id` is created WITH the table and so always pre-exists, which is why the
+// ADD/RENAME passes never touch `id`. The ONE exception is `idKindRebuild`
+// (§211): a single-tenant table a pre-fix build created with the wrong `id`
+// TYPE, which no `ALTER` can repair, so it is rebuilt instead.
 //
 // The module is pure + i18n-free: it builds SqlStmt arrays and parses PRAGMA
 // results. The backend (turso-backend.ts) runs the resulting statements.
 
 import {
-  ENTITY_SPECS, PLAN_COLUMNS, type SqlStmt, type PipelineResultLike,
+  ENTITY_SPECS, PLAN_COLUMNS, colDdl, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
 import { PROJECT_CSV_COLUMNS } from "./csv-codecs";
 
@@ -75,24 +76,20 @@ const COLUMN_RENAMES: readonly { readonly from: string; readonly to: string }[] 
 export interface TableColumns {
   table: string;
   columns: readonly string[];
-}
-
-/** Entity tables only (NOT fx_rates/meta — those have stable column sets and
- *  the singleton/meta rows are re-written wholesale). The column-ensure fix
- *  targets tables whose column sets grow as features are added.
- *
- *  NOTE: `plan` is NOT stable — a TEXT column (e.g. `budgetFollowsPlan`) was
- *  added to PLAN_COLUMNS + both plan INSERTs, so an existing DB's 4-column plan
- *  table must self-heal too. It is included separately (via PLAN_COLUMNS) in the
- *  single-tenant/tenant spec builders below, since it is not an ENTITY_SPEC. */
-function entityTableColumns(): TableColumns[] {
-  return ENTITY_SPECS.map((s) => ({ table: s.table, columns: s.columns }));
+  /** §211 — set on a SINGLE-TENANT table whose `id` must be `TEXT PRIMARY KEY`:
+   *  the column list it is CREATEd with, so an old table still carrying the
+   *  pre-fix `id INTEGER PRIMARY KEY` can be rebuilt (see `idKindRebuild`). */
+  textIdDdl?: string;
 }
 
 /** Single-tenant expected columns: each ENTITY_SPEC's own columns, plus the
  *  `plan` singleton table's columns (all TEXT — safe to ALTER-add). */
 export function singleTenantTableColumns(): TableColumns[] {
-  return [...entityTableColumns(), { table: "plan", columns: PLAN_COLUMNS }];
+  const entities = ENTITY_SPECS.map((s): TableColumns =>
+    s.idKind === "text"
+      ? { table: s.table, columns: s.columns, textIdDdl: colDdl(s.columns, "text") }
+      : { table: s.table, columns: s.columns });
+  return [...entities, { table: "plan", columns: PLAN_COLUMNS }];
 }
 
 /** Multi-tenant expected columns: the entity + plan columns PLUS the
@@ -198,6 +195,57 @@ export function columnRenameAlters(
   return { alters, renamed };
 }
 
+/** The `id` row of a PRAGMA table_info result, as (declared type, pk flag), or
+ *  null when the shape cannot be read — which means "do not rebuild". */
+export function idColumnFromPragma(res: PipelineResultLike | undefined): { type: string; pk: boolean } | null {
+  const cols = res?.response?.result?.cols ?? [];
+  const rows = res?.response?.result?.rows ?? [];
+  const at = (name: string) => cols.findIndex((c) => c?.name === name);
+  const [nameIdx, typeIdx, pkIdx] = [at("name"), at("type"), at("pk")];
+  if (nameIdx < 0 || typeIdx < 0 || pkIdx < 0) return null;
+  const row = rows.find((r) => r[nameIdx]?.value === "id");
+  if (!row) return null;
+  return { type: String(row[typeIdx]?.value ?? ""), pk: String(row[pkIdx]?.value ?? "0") !== "0" };
+}
+
+/**
+ * §211 — rebuild a single-tenant table created before `idKind: "text"` existed.
+ *
+ * A pre-fix build created `document_assets` with `id INTEGER PRIMARY KEY`: a
+ * ROWID ALIAS, the one column type SQLite ENFORCES, so every UUID id the app
+ * mints is refused with `datatype mismatch` and every save after the first
+ * image upload reports failure — forever, because `CREATE TABLE IF NOT EXISTS`
+ * never re-runs on an existing table and no `ALTER` can change a column's type.
+ *
+ * SQLite's documented way to change a column type is to rebuild the table:
+ * rename the old one aside, create the corrected one, copy every column both
+ * share, drop the old. It runs inside the caller's BEGIN…COMMIT, so a failure
+ * leaves the old table in place. ★ Nothing can be lost by the copy: a rowid
+ * alias can only ever have held INTEGER ids, which the TEXT column keeps (as
+ * their text), and every column the new table expects that the old one lacked
+ * starts empty, exactly as the ADD pass would have left it.
+ * ★ Gated on the PRAGMA saying `INTEGER` AND primary key — a table already TEXT
+ *   (every database created since the fix) produces nothing, so this is a
+ *   one-shot self-heal like the rest of this module.
+ */
+export function idKindRebuild(
+  spec: TableColumns,
+  existing: readonly string[],
+  pragma: PipelineResultLike | undefined,
+): SqlStmt[] | null {
+  if (spec.textIdDdl === undefined) return null;
+  const id = idColumnFromPragma(pragma);
+  if (!id || !id.pk || id.type.toUpperCase() !== "INTEGER") return null;
+  const old = `${spec.table}__pre_text_id`;
+  const shared = spec.columns.filter((c) => existing.includes(c)).map((c) => `"${c}"`).join(", ");
+  return [
+    { sql: `ALTER TABLE "${spec.table}" RENAME TO "${old}"` },
+    { sql: `CREATE TABLE "${spec.table}" (${spec.textIdDdl})` },
+    { sql: `INSERT INTO "${spec.table}" (${shared}) SELECT ${shared} FROM "${old}"` },
+    { sql: `DROP TABLE "${old}"` },
+  ];
+}
+
 /**
  * Combine the per-table (table, expectedColumns) list with the PRAGMA results
  * (parallel by index) into all the ALTER statements needed to bring every table
@@ -213,6 +261,13 @@ export function buildColumnEnsureAlters(
   specs.forEach((spec, i) => {
     const existing = existingColumnsFromPragma(pragmaResults[i]);
     if (existing === null) return; // unknown schema for this table — do not ALTER
+    // §211 — a rebuild CREATEs the full corrected column set, so it replaces
+    // the rename/add passes for that table rather than following them.
+    const rebuild = idKindRebuild(spec, existing, pragmaResults[i]);
+    if (rebuild) {
+      out.push(...rebuild);
+      return;
+    }
     const { alters, renamed } = columnRenameAlters(spec.table, existing, spec.columns);
     out.push(...alters);
     // A just-renamed column now holds its data under the new name; treat it as

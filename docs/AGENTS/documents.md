@@ -629,6 +629,12 @@ is written (per the Hrana protocol; the live-database check is owed). `EntitySpe
 PK, and a text-bound arg. ★ It DEFAULTS to `"integer"`, which is what keeps every other spec
 byte-identical and is also what makes omitting it silent. Enumerate today's declarers with
 `grep -n 'idKind: "' src/app/turso-schema.ts` — one line per spec that declares it.
+★★ A SINGLE-TENANT database a pre-fix build had already created kept its `id INTEGER PRIMARY KEY`
+(`CREATE TABLE IF NOT EXISTS` never re-runs, and no `ALTER` changes a type). Since §211 (closed
+2026-10-02) the column-ensure migration repairs it: `idKindRebuild` (`turso-migrate.ts`) sees an
+`INTEGER` primary-key `id` on a spec declaring `idKind: "text"` and rebuilds the table in the same
+transaction (rename aside, create, copy the shared columns, drop). A new text-id spec gets this for
+free; the executing suite pins it against a pre-fix DDL.
 
 ★★ **NO STRING-MATCHING TEST COULD HAVE CAUGHT THAT, which is why `turso-schema.execute.test.ts`
 exists.** `entity-persistence-registry.test.ts` proves the Turso paths by matching DDL TEXT and

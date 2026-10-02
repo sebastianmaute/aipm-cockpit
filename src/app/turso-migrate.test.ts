@@ -7,6 +7,7 @@ import {
   buildColumnEnsureAlters,
   singleTenantTableColumns,
   tenantTableColumns,
+  idKindRebuild,
   type TableColumns,
 } from "./turso-migrate";
 import { ENTITY_SPECS, PLAN_COLUMNS, type PipelineResultLike } from "./turso-schema";
@@ -328,5 +329,39 @@ describe("plan table self-heal (budgetFollowsPlan)", () => {
       s.table === "plan" ? pragmaResult(["id", ...PLAN_COLUMNS]) : pragmaResult([...s.columns]),
     );
     expect(hasPlanBudgetFollowsPlanAlter(buildColumnEnsureAlters(specs, results))).toBe(false);
+  });
+});
+
+describe("idKindRebuild (§211)", () => {
+  const spec: TableColumns = { table: "document_assets", columns: ["id", "name"], textIdDdl: 'id TEXT PRIMARY KEY, "name" TEXT' };
+  const pragma = (type: string, pk: string): PipelineResultLike => ({
+    type: "ok",
+    response: { type: "execute", result: {
+      cols: [{ name: "cid" }, { name: "name" }, { name: "type" }, { name: "pk" }],
+      rows: [[{ value: "0" }, { value: "id" }, { value: type }, { value: pk }], [{ value: "1" }, { value: "name" }, { value: "TEXT" }, { value: "0" }]],
+    } },
+  });
+
+  it("rebuilds an INTEGER primary-key id, copying the shared columns", () => {
+    const sql = idKindRebuild(spec, ["id", "name"], pragma("INTEGER", "1"))!.map((s) => s.sql);
+    expect(sql).toEqual([
+      'ALTER TABLE "document_assets" RENAME TO "document_assets__pre_text_id"',
+      'CREATE TABLE "document_assets" (id TEXT PRIMARY KEY, "name" TEXT)',
+      'INSERT INTO "document_assets" ("id", "name") SELECT "id", "name" FROM "document_assets__pre_text_id"',
+      'DROP TABLE "document_assets__pre_text_id"',
+    ]);
+  });
+
+  it("does nothing for a TEXT id, a non-key id, an integer-id spec, or an unreadable PRAGMA", () => {
+    expect(idKindRebuild(spec, ["id", "name"], pragma("TEXT", "1"))).toBeNull();
+    expect(idKindRebuild(spec, ["id", "name"], pragma("INTEGER", "0"))).toBeNull();
+    expect(idKindRebuild({ table: "tasks", columns: ["id"] }, ["id"], pragma("INTEGER", "1"))).toBeNull();
+    expect(idKindRebuild(spec, ["id", "name"], undefined)).toBeNull();
+  });
+
+  it("is declared on exactly the single-tenant text-id specs, never on the tenant layout", () => {
+    const textTables = ENTITY_SPECS.filter((s) => s.idKind === "text").map((s) => s.table);
+    expect(singleTenantTableColumns().filter((t) => t.textIdDdl !== undefined).map((t) => t.table)).toEqual(textTables);
+    expect(tenantTableColumns().some((t) => t.textIdDdl !== undefined)).toBe(false);
   });
 });
