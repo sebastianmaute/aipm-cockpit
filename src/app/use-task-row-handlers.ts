@@ -39,14 +39,13 @@ export interface UseTaskRowHandlersArgs {
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
-  /** Capture a pre-op snapshot for undo (a delete removes rows). */
-  capture: UndoStackApi["capture"];
   /** Capture a single field-level undo entry (the inline status dropdown). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** §177b — the delete's undo as a composite: the deleted row whole, the
-   *  dependents as a `dependencies` FIELD patch. Absent → the whole-row
-   *  `capture` it replaced (kept for callers that wire only `capture`). */
-  captureComposite?: UndoStackApi["captureComposite"];
+   *  dependents as a `dependencies` FIELD patch whose links follow a re-minted
+   *  task. Required: the whole-row `capture` fallback it replaced restored the
+   *  links without that remap, and no production caller used it. */
+  captureComposite: UndoStackApi["captureComposite"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
 }
@@ -67,7 +66,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
-    capture,
     captureFieldEdit,
     captureComposite,
     resolveTemplateBody,
@@ -378,7 +376,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       const dependents = arr.filter((tk) =>
         tk.dependencies?.some((d) => d.taskId === id),
       );
-      if (doomed && captureComposite) {
+      if (doomed) {
         // §177b — only `dependencies` is written on a dependent, so only it is
         // reverted: a note, a stamp or any other edit made to a dependent
         // between the delete and its undo survives. The deleted row itself is
@@ -406,8 +404,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
             }),
           ],
         });
-      } else if (doomed) {
-        capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr, name: deletedName });
       }
       setTasks((prev) =>
         prev
@@ -427,7 +423,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, capture, captureComposite],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {

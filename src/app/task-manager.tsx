@@ -1891,7 +1891,6 @@ function TaskManagerInner() {
     deselectIdRef,
     handleCancelEdit,
     logActivity: logActivityUser,
-    capture: undoApi.capture,
     captureFieldEdit: undoApi.captureFieldEdit,
     captureComposite: undoApi.captureComposite,
     resolveTemplateBody: resolveCommBody,
