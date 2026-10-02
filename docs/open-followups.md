@@ -372,7 +372,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
-| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | open |
+| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open--closed-2026-10-02) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | **CLOSED** 2026-10-02 |
 | [§142](#142-notelogpanels-labelsuffix-is-honour-system-and-unguarded--a-third-mount-site-collides-silently--closed-2026-08-12) | `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently | — | — | **CLOSED** 2026-08-12 |
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
@@ -12104,11 +12104,11 @@ flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below,
 
 ---
 
-## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open
+## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open — CLOSED 2026-10-02
 
-**Status:** open — PARTLY FIXED, (a) is open and (c) fell with the closure of its premise. Reproduced 2026-08-28 by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
+**Status:** CLOSED 2026-10-02. Owner decision 2026-10-02 on (a): leave as is. A stored value escaped by the pre-§137 boundary cannot be told apart from a user who typed a literal tag, so any repair would rewrite legitimate text on a guess; the affected population is bounded (only values that crossed an AI or import boundary between §107 and §137) and shrinks with every re-save. (b) and (d) were fixed 2026-08-16 and (c) fell with §31, so nothing in this entry remains open. The history below is kept as written.
 
-**Work item:** #156
+**Previously:** open — PARTLY FIXED, (a) is open and (c) fell with the closure of its premise. Reproduced 2026-08-28 by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
 
 Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
 values written from now on and repaired nothing already stored.
@@ -17539,7 +17539,7 @@ into the history modal's render path.
 
 ## 207. Single-tenant asset metadata is global while the bytes are always partitioned
 
-**Status:** open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
+**Status:** POSTPONED by the owner 2026-10-02 — the re-key needs a migration that cannot be checked without a live single-tenant Turso database; nothing is lost meanwhile. open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
 round. Reproduced 2026-08-28 by `grep -n "loadPortfolioMode" src/app/workspace-panels.tsx`.
 
 **Work item:** #190
