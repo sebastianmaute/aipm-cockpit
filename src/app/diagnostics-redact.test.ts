@@ -133,6 +133,24 @@ describe("§606: a base64-shaped secret split by `+` or ending in `=` padding is
     expect(out?.message).toBe("upstream said [redacted]=on was rejected");
   });
 
+  // §608: the scrub runs over a bounded prefix, so a secret that straddles FIELD_MAX is still
+  // redacted and an adversarial long run no longer pays the quadratic backtracking.
+  it("redacts a secret-shaped run that starts before the cap and extends past it", () => {
+    const SECRET = "aB3zQ9zK7mP2wR8tYuJ5hG0fD1sA6lM4nB2".repeat(40); // 1400, mixed case + digits
+    const out = redactFields({ message: `${"x ".repeat(240)}${SECRET}` });
+    expect(out?.message).toBe(`${"x ".repeat(240)}[redacted]`);
+    expect(out?.message).not.toMatch(/[A-Za-z0-9]{32}/);
+  });
+
+  it("passes a 64k mixed-case run (no `+`, no padding) through redactFields in bounded time", () => {
+    const run = "aB3zQ9zK7mP2wR8tYuJ5hG0fD1sA6lM4nB2".repeat(2000).slice(0, 64000);
+    const start = performance.now();
+    const out = redactFields({ message: run });
+    const elapsed = performance.now() - start;
+    expect(out?.message).toBe("[redacted]");
+    expect(elapsed).toBeLessThan(500);
+  });
+
   // ★ Every one of these is a real shape that flows through logDiag in this app, plus the
   // shapes this rule's alphabet newly risks: paths and stack frames that use `/`, and a 32+ run
   // followed by a `=` that does not end the string.

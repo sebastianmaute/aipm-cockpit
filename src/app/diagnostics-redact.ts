@@ -8,6 +8,12 @@ const SECRET_KEY_PARTS = [
   "password", "secret", "authorization", "bearer",
 ];
 const FIELD_MAX = 500;
+// §608: scrub only a bounded prefix, never the full field. Several patterns backtrack
+// quadratically on a long run that fails them (64k mixed-case ~12 s), so the input is cut
+// BEFORE scrubbing. Safe because every pattern needs a run of >= 32 chars and none looks
+// beyond its own run: a run that starts inside the first FIELD_MAX chars keeps >= 512 chars
+// before this cut, so it still matches and is redacted, and nothing past FIELD_MAX is output.
+export const SCRUB_WINDOW = FIELD_MAX + 512;
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /sk-ant-[A-Za-z0-9_-]+/g,                 // Anthropic API keys
@@ -67,7 +73,7 @@ export function redactFields(
     if (typeof value === "number" || typeof value === "boolean") {
       out[key] = value;
     } else if (typeof value === "string") {
-      const scrubbed = scrubSecretValues(value);
+      const scrubbed = scrubSecretValues(value.slice(0, SCRUB_WINDOW));
       out[key] = scrubbed.length > FIELD_MAX ? scrubbed.slice(0, FIELD_MAX) : scrubbed;
     }
     // objects/arrays/functions/undefined -> dropped
