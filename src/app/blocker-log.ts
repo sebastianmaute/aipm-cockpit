@@ -285,8 +285,9 @@ const EPOCH = "1970-01-01T00:00:00.000Z";
 
 /** The stamp a load-time disagreement writes. Load stays pure and deterministic
  *  (the same input loads to the same output, every time), so no clock: the
- *  task's `lastUpdateDate` at midnight UTC when it is a valid date, else the
- *  newest timestamp already in the log, else the epoch. */
+ *  LATER of the task's `lastUpdateDate` at midnight UTC (when it is a valid
+ *  date) and the newest timestamp already in the log, so a minted entry never
+ *  sorts before existing ones. The epoch when neither exists. */
 function loadStamp(task: Task, log: readonly BlockerEntry[]): string {
   const day = task.lastUpdateDate ?? "";
   const times = log.flatMap((e) => [e.createdAt, e.editedAt, e.resolvedAt]);
