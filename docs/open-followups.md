@@ -40903,11 +40903,17 @@ that is still worth flagging.
 `forEachOpenTag` walk in `tag-pair-walk.ts`); `buildEscalationEntry` caps `recipient.name` with the load path's
 `stripBreakTagsWithin` at `RAID_ESCALATION_NAME_MAX` before stripping; the eleven fenced-json reads in
 `markdown-codecs-core.ts` share one forward-scanning `readFencedJsonSection` (`markdown-fenced-json.ts`). Output is
-unchanged: each test file keeps the old regex as a differential oracle (hand-picked cases plus a seeded fast-check
-property), and the golden fixtures are byte-identical. Each site has an `expectLinearScaling` guard
-(`html-to-text.test.ts`, `narrative-html.test.ts`, `action-escalate.test.ts`, `markdown-fenced-json.test.ts`).
+unchanged for html-to-text, narrative-html and the markdown reads. Each test file keeps the old regex as a differential
+oracle (hand-picked cases plus a seeded fast-check property; for the markdown reader, a structured section property, added in `f4295caff`), and the golden fixtures are
+byte-identical. The RAID write path is unchanged within the cap only: a name over `RAID_ESCALATION_NAME_MAX` is now
+truncated at write, exactly as every reload already truncated it in `sanitizeEntry`. One consequence: a name with more
+than 200 leading whitespace or `<br>` characters before its text now writes no `toName`. Each site has an
+`expectLinearScaling` guard (`html-to-text.test.ts`, `narrative-html.test.ts`, `action-escalate.test.ts`,
+`markdown-fenced-json.test.ts`). Three of the four measure through the real call site (`htmlToPlainText`,
+`isNarrativeEmpty`, `buildEscalationEntry`). The markdown guard calls `readFencedJsonSection` directly, and each of the
+eleven readers is a single call to it.
 Mutation-checked one site at a time on 2026-10-02 by restoring the old code: the `<li>` regex gave a ratio of 15.76 and
-`<[^>]+>` 15.87 (same fixture), `<[^>]*>` 16.15, the uncapped `stripBreakTags` 16.83, and the old fenced regex 16.00,
+`<[^>]+>` 15.87 (same fixture), `<[^>]*>` 16.15 (15.81 on the cheaper-to-calibrate `<&` fixture from `f4295caff`), the uncapped `stripBreakTags` 16.83, and the old fenced regex 16.00,
 each against the limit of 8. The `project-ingest.ts` "bound the input before the HTML pass" item in the fix shape was not
 done. With `htmlToPlainText` linear it is no longer needed to avoid the quadratic cost.
 
