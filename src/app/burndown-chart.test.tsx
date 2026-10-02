@@ -660,4 +660,3 @@ describe("BurndownChart — join labels stay clear of the baseline label (§665)
     expect(join.textContent).not.toContain("…");
   });
 });
-

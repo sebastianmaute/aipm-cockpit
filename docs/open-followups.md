@@ -43750,15 +43750,9 @@ The legacy branch of `migrateBlockers` (a task with blocker text and no log) che
 
 ## 665. The burn-down chart's join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
 
-**Status:** CLOSED 2026-10-02 by the burn-down join-label fix on `claude/happy-archimedes-uaunil` (PR #542). The chart (`burndown-chart.tsx`) now places each bucket-chain join label through `fitJoinLabel` (`burndown-geometry.ts`).
-- The label keeps its half-plot anchor. It is fitted to the room between the plot's right edge and the left limit: the plot's left edge, or, where the "Budget at start of recording" label is drawn, that label's right end.
-- Only the bucket-name part is shortened, with "…", so the amount at the end stays readable. A shortened label carries the full sentence as an SVG `<title>`, its hover text.
-- Widths use the same wide-side estimate as the marker-label band (`estimatedLabelWidth`). The chart never measures text, so this is an estimate that errs towards shortening.
-- Pinned by `burndown-chart.test.tsx` "join labels stay clear of the baseline label (§665)". It uses a long four-bucket chain, as on the seeded sample, and asserts the two labels' estimated x-ranges do not overlap. The pre-fix chart fails it, and so does dropping the baseline label from the left limit.
-- `burndown-geometry.test.ts` "fitJoinLabel (§665)" covers the rule itself.
-- ★ Not re-run here: the Reports → budget history (cumulative) visual baseline that was held back because of this. It needs a browser run and a re-baseline (`npm run e2e:visual:update`), checked by eye.
+**Status:** CLOSED 2026-10-02 — fixed by `e74f8de3e`: `fitJoinLabel` (`burndown-geometry.ts`) fits the join label to the room between the baseline label and the plot edge, shortening only the bucket names with "…" and putting the full sentence in the label's hover title. Pinned by the §665 tests in `burndown-geometry.test.ts` and `burndown-chart.test.tsx` (mutation-checked: drawing the unfitted text fails the chart test). The `reports-budget-history` visual baseline was refreshed in the same branch and shows the two labels apart.
 
-**Original status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checks label overlap in `burndown-chart.tsx`.
+**Original status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checked label overlap in `burndown-chart.tsx`.
 
 In cumulative mode the bucket-chain join label (`burndownEvJoins*`, e.g. "… (fixed price), Discovery Phase (closed), Security Review (closed, rate override) join (+€102,6…") grows with the number of joined buckets and is neither truncated nor repositioned, so it runs off the left edge of the plot and overprints the `burndownBacBaseline` label ("Budget at start of recording", drawn at `X0 + 4`) and the € tick beside it. The `reports-budget-history` visual baseline was deliberately left stale because of it. Fix direction: clamp or truncate the join label to the plot width with the full text in the readout or a tooltip, or place it where it cannot cross the baseline label; add a test that the two labels' x-ranges do not overlap for a long bucket list, then refresh that baseline.
 

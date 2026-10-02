@@ -542,4 +542,3 @@ describe("fitJoinLabel (§665)", () => {
     expect(fitJoinLabel(compose, "Discovery", 120, 330, { left: 100, right: 130 }).text).toBe(compose("…"));
   });
 });
-
