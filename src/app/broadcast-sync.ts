@@ -39,6 +39,7 @@
 //     out as an edit (§644). A restored journal is sent as an edit: it is unsaved work (I3).
 
 import { useEffect, useLayoutEffect, useRef } from "react";
+import type { TieVerdict } from "./mirror-ledger";
 import type { AppView } from "./nav-config";
 
 const CHANNEL_NAME = "aipm-cockpit:sync";
@@ -101,6 +102,16 @@ export function getWindowId(): string {
   return id;
 }
 
+/** §656 — which of two windows saves a slice value both hold with the same content (`MirrorLedger.judge`):
+ *  the window with the smaller id keeps it, the other yields. Both windows compare the same two ids, so
+ *  they always decide opposite ways. `undefined` (both save, the old behaviour) when the ids are equal,
+ *  which a DUPLICATED tab's copied sessionStorage makes possible. */
+export function tieVerdict(fromWindow: string): TieVerdict | undefined {
+  const own = getWindowId();
+  if (fromWindow === own) return undefined;
+  return own < fromWindow ? "keep" : "yield";
+}
+
 /** The main-window gates a slice and a revision message share, in ONE place so the two cannot drift
  *  (final review m6): the sender's scope equals this window's own non-null scope, and no project op
  *  has bumped the scope epoch since this window's last commit. */
@@ -111,7 +122,8 @@ function acceptsFromMain(ctx: Extract<SyncContext, { role: "main" }>, scope: str
 export function useBroadcastSync<T>(
   kind: string,
   value: T,
-  applyIncoming: (next: T) => void,
+  /** `fromWindow` is the sender's `windowId` (§656: the mirror ledger's tie-break). */
+  applyIncoming: (next: T, fromWindow: string) => void,
   sync: SyncContext,
 ): void {
   const syncRef = useRef(sync);
@@ -154,7 +166,7 @@ export function useBroadcastSync<T>(
         if (!acceptsFromMain(ctx, msg.scope, committedEpochRef.current)) return;
       }
       lastSeenRef.current = msg.value;
-      applyIncoming(msg.value);
+      applyIncoming(msg.value, msg.windowId);
     };
     channel.addEventListener("message", onMessage);
 

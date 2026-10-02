@@ -324,12 +324,17 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   each other's revisions and converge on one workspace. The revision check pauses only a writer
   that is not mirroring: its epoch differs, it is already paused, or its own save is queued or running.
 - **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
-  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave lands, `postRevision` sends the new revision and the
-  one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
+  `use-workspace-sync.ts`, which `useStorageBackend` calls). After an autosave or the pre-switch
+  flush lands, `postRevision` sends the new revision and the one it replaced over `aipm-cockpit:sync`.
+  ★ `guardedWrite` and the project-creating file ops do NOT post, deliberately (§656). A main window on the same scope and epoch
   (`useRevisionSync`) adopts it only while nothing is queued for its backend (`whenSaved` is
-  `null`) AND its own revision equals the sender's base; otherwise its next save meets the check.
+  `null`) AND its own base equals the sender's base; otherwise its next save meets the check
+  (§662). Both bases are read through `announcedRevision`, so a SharePoint file loaded as absent has
+  one (`ABSENT_REVISION`), and a second window adopts the first window's create (§656 m2).
   The mirror ledger (`createMirrorLedger`, `mirror-ledger.ts`) stops a window re-saving a slice it
-  only received from a peer.
+  only received from a peer. ★ A peer value with the SAME CONTENT as an own unsaved one (two windows
+  running the insights reconcile on the same load) is a tie, not a contest: `tieVerdict` lets the
+  window with the smaller id save it and the other mirror it (§656).
 - **The pause.** A refused save sets `savesPaused` with `reason: "conflict"`, which shuts the save
   gate, and the banner `SavingPausedCause` `{ kind: "conflict" }` (`notifications.tsx`, copy
   `storageSavePausedConflict`) offers three actions (`use-conflict-resolution.ts`):

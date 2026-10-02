@@ -70,7 +70,7 @@ import {
 
 // ── Broadcast-sync mock ───────────────────────────────────────────────────────
 vi.mock("./broadcast-sync", () => ({
-  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(),
+  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(), tieVerdict: vi.fn(() => undefined),
 }));
 
 // ── Diagnostics mock (only the §72 teardown test asserts on it) ───────────────

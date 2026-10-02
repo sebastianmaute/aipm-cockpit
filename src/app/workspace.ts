@@ -489,6 +489,10 @@ export interface StorageBackend {
   lastDecodeFailures?: readonly string[];
   /** §4: the revision this instance last loaded or wrote; `null` before any load. */
   revision?(): string | null;
+  /** §656 m2 — the revision a revision message names as this instance's base, when that differs from
+   *  `revision()`: a SharePoint file loaded as ABSENT has no revision, yet two windows that both saw it
+   *  absent hold the same base. Omitted, `revision()` is the base (see `announcedRevision`). */
+  revisionBase?(): string | null;
   /** §4: adopt `rev` as this instance's current revision without a load/save. */
   adoptRevision?(rev: string): void;
   /** §4: make the next `save()` skip the revision compare and force a rewrite, then clear itself.
@@ -867,4 +871,10 @@ export function jsonToWorkspace(
     if (strict) throw new WorkspaceParseError("shape");
     return emptyWorkspace();
   }
+}
+
+/** §656 m2 — the base a revision message carries for `backend`, and the one a receiver compares it with:
+ *  `revisionBase()` where the backend has one, else `revision()`. `null` posts and adopts nothing. */
+export function announcedRevision(backend: StorageBackend): string | null {
+  return backend.revisionBase?.() ?? backend.revision?.() ?? null;
 }

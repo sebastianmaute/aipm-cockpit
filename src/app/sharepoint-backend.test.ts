@@ -166,9 +166,9 @@ describe("parseSharePointSiteUrl", () => {
   });
 });
 
-import { SharePointBackend } from "./sharepoint-backend";
+import { ABSENT_REVISION, SharePointBackend } from "./sharepoint-backend";
 import type { Workspace } from "./storage";
-import { workspaceToJson } from "./workspace";
+import { announcedRevision, workspaceToJson } from "./workspace";
 
 // §635: forces the documents rich-field pass to throw (the no-DOM DOMPurify
 // failure), delegating to the real pass unless the flag is set. Reset after
@@ -709,6 +709,41 @@ describe("SharePointBackend revision guard (§4)", () => {
     await other.save(EMPTY_WORKSPACE);
     expect(seen).toEqual([null, '"r"']);
     expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  // §656 m2 — two windows that both loaded "no file yet": the first one's create-only write lands, and the
+  // second must be able to adopt the revision it produced (the revision message names ABSENT_REVISION as its
+  // base). Before, both held `null`, nothing was posted, and the second's first save met a 409.
+  it("a file loaded as absent announces ABSENT_REVISION as its base; after adopting the creator's eTag the second instance saves with If-Match, not create-only (§656 m2)", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const a = make();
+    const b = make();
+    expect(a.revisionBase()).toBeNull(); // never loaded: no base to announce
+    await a.load();
+    await b.load();
+    expect(a.revision()).toBeNull(); // never sent as If-Match
+    expect(announcedRevision(a)).toBe(ABSENT_REVISION);
+    expect(announcedRevision(b)).toBe(ABSENT_REVISION);
+    await a.save(EMPTY_WORKSPACE);
+    expect(announcedRevision(a)).toBe('"new,2"'); // what A's revision message carries as the new revision
+    b.adoptRevision(a.revision()!);
+    expect(announcedRevision(b)).toBe('"new,2"');
+    await b.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"new,2"']);
+    expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  it("a file loaded WITH an eTag, or loaded degraded without one, announces exactly revision() (§656 m2)", async () => {
+    loadOk('"v1,1"');
+    const be = make();
+    await be.load();
+    expect(be.revisionBase()).toBe('"v1,1"');
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), null));
+    const degraded = make();
+    await degraded.load();
+    expect(degraded.revision()).toBeNull();
+    expect(degraded.revisionBase()).toBeNull();
   });
 
   it("the ETag comes from the metadata BODY even though no response carries an ETag header", async () => {

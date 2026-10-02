@@ -171,4 +171,40 @@ describe("createMirrorLedger", () => {
     ledger.judge("tasks", p1, p3);
     expect(ledger.isMirroredOnly({ ...base, tasks: p3 })).toBe(false);
   });
+
+  // §656 — a tie: a peer value with the SAME CONTENT as this window's own unsaved one.
+  describe("a tie verdict (§656)", () => {
+    function ownUnsaved() {
+      const { ledger, base } = loaded();
+      return { ledger, base, own: list("derived") };
+    }
+
+    it("'yield' mirrors a same-content peer value over an own unsaved one, so the run writes nothing", () => {
+      const { ledger, base, own } = ownUnsaved();
+      const peer = list("derived"); // equal content, its own reference
+      ledger.judge("tasks", own, peer, "yield");
+      expect(ledger.isMirroredOnly({ ...base, tasks: peer })).toBe(true);
+    });
+
+    it("'keep' contests it, so this window writes it", () => {
+      const { ledger, base, own } = ownUnsaved();
+      const peer = list("derived");
+      ledger.judge("tasks", own, peer, "keep");
+      expect(ledger.isMirroredOnly({ ...base, tasks: peer })).toBe(false);
+    });
+
+    it("no verdict contests it, as before", () => {
+      const { ledger, base, own } = ownUnsaved();
+      const peer = list("derived");
+      ledger.judge("tasks", own, peer);
+      expect(ledger.isMirroredOnly({ ...base, tasks: peer })).toBe(false);
+    });
+
+    it("'yield' never spares a peer value with DIFFERENT content: a real collision stays contested", () => {
+      const { ledger, base, own } = ownUnsaved();
+      const peer = list("other");
+      ledger.judge("tasks", own, peer, "yield");
+      expect(ledger.isMirroredOnly({ ...base, tasks: peer })).toBe(false);
+    });
+  });
 });

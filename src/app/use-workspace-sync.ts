@@ -10,7 +10,7 @@ import { useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast
 import { whenSaved } from "./save-queue";
 import type { StorageConfig, Workspace } from "./storage";
 import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
-import type { StorageBackend } from "./workspace";
+import { announcedRevision, type StorageBackend } from "./workspace";
 
 /** The live value of every workspace slice, typed as the caller's state holds it. */
 type Slices = { readonly [K in keyof Workspace]-?: unknown };
@@ -29,7 +29,7 @@ export interface WorkspaceSyncDeps<S extends Slices> {
   /** Every slice's live value in this render. */
   slices: S;
   /** One applier per slice: applies a peer's value through the mirror ledger (`mirrorApply` in `useStorageBackend`). */
-  mirrorApply: { readonly [K in keyof Workspace]-?: (value: S[K]) => void };
+  mirrorApply: { readonly [K in keyof Workspace]-?: (value: S[K], fromWindow: string) => void };
 }
 
 export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): SyncContext {
@@ -55,7 +55,7 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   );
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
-    if (backend.revision?.() !== baseRevision) return; // also false for a null/absent revision: `baseRevision` is always a string
+    if (announcedRevision(backend) !== baseRevision) return; // also false for a null revision: `baseRevision` is always a string. §656 m2 — `announcedRevision`, so two windows that loaded a SharePoint file as absent match
     // Idle only: a running/queued save was built without the peer's slices and must meet the newer revision and pause. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
     if (whenSaved(backend) !== null) return;
     backend.adoptRevision?.(revision);
