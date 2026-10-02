@@ -1,6 +1,8 @@
 // src/app/use-task-submit.test.ts
 import { act, renderHook } from "@testing-library/react";
+import { useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { useUndoStack } from "./undo/use-undo-stack";
 import type { RaidItem } from "./types";
 import { __resetMintStateForTests } from "./id-mint-session";
 
@@ -377,6 +379,95 @@ describe("useTaskSubmit — the blocker log is carried from the STORED row", () 
     expect(saved.blockerLog?.[1].resolvedAt).toEqual(expect.any(String));
     expect(saved.blockerLog?.[2]).toMatchObject({ id: 3, text: "Vendor delay" });
     expect(saved.blockerLog?.[2].resolvedAt).toBeUndefined();
+  });
+
+  /** A form that matches `stored` field for field, so the ONLY difference a save
+   *  writes is the blockers text — the undo stack then holds just that edit. */
+  function formFor(stored: Task, blockers: string): TaskFormDraft {
+    return {
+      ...validForm(),
+      taskName: stored.taskName,
+      assignee: stored.assignee,
+      assigneeEmail: stored.assigneeEmail ?? "",
+      dueDate: stored.dueDate,
+      lastUpdateDate: stored.lastUpdateDate,
+      blockers,
+    };
+  }
+  const ALIGNED = { group: "", labels: [], dependencies: [], knowledgeLinks: [], description: "", completedDate: "" };
+
+  it("an editor blockers change is ONE undo entry, and undoing it restores the text AND the log", () => {
+    const stored = makeTask({ ...ALIGNED, blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const { result } = renderHook(() => {
+      const [tasks, setTasks] = useState<readonly Task[]>([stored]);
+      const undoApi = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      const submit = useTaskSubmit(makeArgs({
+        tasks, setTasks, tasksRef: { current: tasks }, editingId: 1,
+        form: formFor(stored, "Vendor delay"),
+        captureFieldEdit: undoApi.captureFieldEdit,
+      }));
+      return { tasks, submit, undoApi };
+    });
+    act(() => result.current.submit.openEditModal(stored));
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    expect(result.current.tasks[0].blockers).toBe("Vendor delay");
+    expect(result.current.tasks[0].blockerLog).toHaveLength(3);
+    expect(result.current.undoApi.stack).toHaveLength(1);
+    act(() => result.current.undoApi.undo());
+    expect(result.current.tasks[0].blockers).toBe("Waiting A");
+    expect(result.current.tasks[0].blockerLog).toEqual([RESOLVED, A]);
+  });
+
+  it("a whitespace-only edit of the opened text writes nothing to the log", () => {
+    const atOpen = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const storedNow = makeTask({ blockerLog: [RESOLVED, A, B], blockers: "Waiting A\nWaiting B" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [storedNow], tasksRef: { current: [storedNow] },
+        form: { ...validForm(), blockers: "  Waiting A \r\n" },
+      })),
+    );
+    act(() => result.current.openEditModal(atOpen));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const [saved] = (setTasks.mock.calls[0][0] as (p: Task[]) => Task[])([storedNow]);
+    expect(saved.blockerLog).toEqual([RESOLVED, A, B]);
+    expect(saved.blockers).toBe("Waiting A\nWaiting B");
+  });
+
+  it.each([
+    ["the editor was not opened through openEditModal", null],
+    ["the editor was opened for a different task", 2],
+  ])("falls back to the STORED row when %s", (_label, openedId) => {
+    const stored = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [stored], tasksRef: { current: [stored] },
+        form: { ...validForm(), blockers: "Vendor delay" },
+      })),
+    );
+    if (openedId !== null) act(() => result.current.openEditModal(makeTask({ id: openedId, blockers: "Vendor delay" })));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const [saved] = (setTasks.mock.calls[0][0] as (p: Task[]) => Task[])([stored]);
+    expect(saved.blockers).toBe("Vendor delay");
+    expect(saved.blockerLog).toHaveLength(3);
+    expect(saved.blockerLog?.[1]).toMatchObject({ id: 2, text: "Waiting A", resolvedAt: expect.any(String) });
+    expect(saved.blockerLog?.[2]).toMatchObject({ id: 3, text: "Vendor delay" });
+  });
+
+  it("the fallback is a no-op when the text equals the stored row's", () => {
+    const stored = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [stored], tasksRef: { current: [stored] },
+        form: { ...validForm(), blockers: "Waiting A" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const [saved] = (setTasks.mock.calls[0][0] as (p: Task[]) => Task[])([stored]);
+    expect(saved.blockerLog).toBe(stored.blockerLog);
   });
 
   it("a new task with blockers text starts a log with one open entry", () => {

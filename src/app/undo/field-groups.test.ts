@@ -58,6 +58,9 @@ describe("per-entity undo groups", () => {
     expect(TASK_UNDO_GROUPS).toContainEqual(["status", "completedDate"]);
     expect(TASK_UNDO_GROUPS).toContainEqual(["assignee", "assigneeEmail", "resourceId"]);
   });
+  test("task pairs blockers with the blocker log it is derived from", () => {
+    expect(TASK_UNDO_GROUPS).toContainEqual(["blockers", "blockerLog"]);
+  });
   test("change pairs status+decisionDate", () => {
     expect(CHANGE_UNDO_GROUPS).toContainEqual(["status", "decisionDate"]);
   });

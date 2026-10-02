@@ -48,3 +48,24 @@ describe("the resource roleId schema description", () => {
     });
   }
 });
+
+describe("the task blockers schema description", () => {
+  const blockersDescription = (toolName: string): string =>
+    (
+      TOOL_DEFS.find((def) => def.name === toolName)!.input_schema as unknown as {
+        properties: { blockers: { description: string } };
+      }
+    ).properties.blockers.description;
+
+  it("update_task says the text replaces the open blockers", () => {
+    expect(blockersDescription("update_task")).toBe(
+      "Replaces the task's open blockers with this text (the previous open ones are marked resolved). An empty string resolves them all.",
+    );
+  });
+
+  it("create_task describes initial blockers, not a replacement", () => {
+    expect(blockersDescription("create_task")).toBe(
+      "Initial blockers for the new task, as text. Leave empty if none.",
+    );
+  });
+});

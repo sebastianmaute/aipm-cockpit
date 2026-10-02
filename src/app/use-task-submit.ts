@@ -10,7 +10,7 @@ import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem, type Resource } from "./types";
 import { applyStatusChange, statusActivityKind } from "./task-status";
-import { selfBlockerActor, setBlockersText } from "./blocker-log";
+import { normalizeBlockerText, selfBlockerActor, setBlockersText } from "./blocker-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -184,7 +184,12 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       const blockersDraft = sanitizeBlockers(adj.track(describeTextCap(form.blockers, TEXTAREA_MAX)));
       const atOpen = blockersAtOpenRef.current;
       const blockersTouched =
-        editingId === null || atOpen === null || atOpen.id !== editingId || form.blockers !== atOpen.text;
+        editingId === null ||
+        atOpen === null ||
+        atOpen.id !== editingId ||
+        // Compared NORMALISED: a whitespace or line-ending difference is what the
+        // log would store as the same text, so it is not a deliberate change.
+        normalizeBlockerText(form.blockers) !== normalizeBlockerText(atOpen.text);
       const blockerActor = selfBlockerActor(settings.selfResourceId, resources);
       const withBlockers = (row: Task, stamp: string): Task =>
         blockersTouched ? setBlockersText(row, blockersDraft, blockerActor, stamp) : row;

@@ -308,7 +308,15 @@ export const TOOL_DEFS = [
       "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly.",
     input_schema: {
       type: "object",
-      properties: taskFields,
+      // ★ Own `blockers` wording: the shared one describes REPLACING open
+      // blockers, which only an update does.
+      properties: {
+        ...taskFields,
+        blockers: {
+          type: "string" as const,
+          description: "Initial blockers for the new task, as text. Leave empty if none.",
+        },
+      },
       required: ["taskName", "assignee", "dueDate"],
     },
   },

@@ -69,10 +69,14 @@ export function changedFieldGroups<T extends { id: number }>(
   return out;
 }
 
-/** status⟺completedDate invariant; assignee identity is written as one unit. */
+/** status⟺completedDate invariant; assignee identity is written as one unit;
+ *  `blockers` is DERIVED from `blockerLog` (blocker-log.ts), so the two revert
+ *  together — undoing one alone would leave the text and the log disagreeing,
+ *  and the next load would re-derive the text from the log. */
 export const TASK_UNDO_GROUPS: readonly FieldGroup<Task>[] = [
   ["status", "completedDate"],
   ["assignee", "assigneeEmail", "resourceId"],
+  ["blockers", "blockerLog"],
 ];
 /** A change's status transition auto-fills/clears decisionDate together. */
 export const CHANGE_UNDO_GROUPS: readonly FieldGroup<ChangeItem>[] = [
