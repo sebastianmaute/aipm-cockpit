@@ -93,6 +93,28 @@ describe("committed source files are text", () => {
     expect(offenders).toEqual([]);
   });
 
+  // ★ Widened for open-followups §201: ANY raw C0 control byte except TAB, LF and
+  // CR, plus DEL. A NUL is the only one that makes grep print "Binary file", but a
+  // raw U+0001 sat in `jira-api.ts` and two BEL bytes in a plan doc (a lost
+  // backslash turning the escape into the byte) and nothing could see them.
+  it("no .ts/.tsx/.md file under src/ or docs/ contains a raw control byte other than TAB, LF or CR", () => {
+    const files = scannedFiles();
+    // ★ Positive control — an empty sweep would pass `toEqual([])` trivially.
+    expect(files.length).toBeGreaterThan(500);
+    const offenders: string[] = [];
+    for (const file of files) {
+      const bytes = readFileSync(file);
+      for (let i = 0; i < bytes.length; i++) {
+        const c = bytes[i];
+        if (c < 9 || c === 11 || c === 12 || (c > 13 && c < 32) || c === 127) {
+          offenders.push(`${relative(ROOT, file)} @ byte ${i} (0x${c.toString(16).padStart(2, "0")})`);
+          break;
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   // The skip set must come from `.gitignore`, never a hardcoded list.
   //
   // ★★★ THIS ASSERTION WAS INVERTED ON 2026-08-21 (0.253.0), AND THE INVERSION IS
