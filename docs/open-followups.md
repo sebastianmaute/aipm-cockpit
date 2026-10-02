@@ -889,7 +889,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§662](#662-a-notes-or-blocker-window-keeps-its-target-after-the-task-is-deleted-or-the-project-switches--closed-2026-10-02) | A notes or blocker window keeps its target after the task is deleted or the project switches | — | — | **CLOSED** 2026-10-02 |
 | [§663](#663-an-older-client-drops-the-blocker-log-on-every-backend-it-saves-to-not-only-turso--closed-2026-10-02) | An older client drops the blocker log on every backend it saves to, not only Turso | — | — | **CLOSED** 2026-10-02 |
 | [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--closed-2026-10-02) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | **CLOSED** 2026-10-02 |
-| [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--open) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | open |
+| [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43695,11 +43695,11 @@ The legacy branch of `migrateBlockers` (a task with blocker text and no log) che
 
 **Source:** the blocker-log scoped review, 2026-10-02.
 
-## 665. The burn-down chart's join label overprints the "Budget at start of recording" label — open
+## 665. The burn-down chart's join label overprints the "Budget at start of recording" label — CLOSED 2026-10-02
 
-**Status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checks label overlap in `burndown-chart.tsx`.
+**Status:** CLOSED 2026-10-02 — fixed by `e74f8de3e`: `fitJoinLabel` (`burndown-geometry.ts`) fits the join label to the room between the baseline label and the plot edge, shortening only the bucket names with "…" and putting the full sentence in the label's hover title. Pinned by the §665 tests in `burndown-geometry.test.ts` and `burndown-chart.test.tsx` (mutation-checked: drawing the unfitted text fails the chart test). The `reports-budget-history` visual baseline was refreshed in the same branch and shows the two labels apart.
 
-**Work item:** #540
+**Original status:** open 2026-10-02, found by the visual run of Reports → budget history (cumulative) on the seeded sample workspace. Never machine-verified beyond that one screenshot: no test checked label overlap in `burndown-chart.tsx`.
 
 In cumulative mode the bucket-chain join label (`burndownEvJoins*`, e.g. "… (fixed price), Discovery Phase (closed), Security Review (closed, rate override) join (+€102,6…") grows with the number of joined buckets and is neither truncated nor repositioned, so it runs off the left edge of the plot and overprints the `burndownBacBaseline` label ("Budget at start of recording", drawn at `X0 + 4`) and the € tick beside it. The `reports-budget-history` visual baseline was deliberately left stale because of it. Fix direction: clamp or truncate the join label to the plot width with the full text in the readout or a tooltip, or place it where it cannot cross the baseline label; add a test that the two labels' x-ranges do not overlap for a long bucket list, then refresh that baseline.
 
