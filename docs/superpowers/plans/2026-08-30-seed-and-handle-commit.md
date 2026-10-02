@@ -594,12 +594,12 @@ describe("sanitizeNoteLogWith — the six behaviours that used to diverge (§286
   });
 
   it("strips control characters from text", () => {
-    const out = sanitizeNoteLogWith([{ id: 1, timestamp: ts, text: "ab" }], OPS);
+    const out = sanitizeNoteLogWith([{ id: 1, timestamp: ts, text: "a\u0007b" }], OPS);
     expect(out[0].text).toBe("ab");
   });
 
   it("strips control characters from authorName", () => {
-    const out = sanitizeNoteLogWith([{ id: 1, timestamp: ts, text: "t", authorName: "xy" }], OPS);
+    const out = sanitizeNoteLogWith([{ id: 1, timestamp: ts, text: "t", authorName: "x\u0007y" }], OPS);
     expect(out[0].authorName).toBe("xy");
   });
 
