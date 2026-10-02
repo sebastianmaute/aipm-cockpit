@@ -21,6 +21,8 @@ export interface BlockersWindowDeps {
   resources: readonly Resource[];
   lang: Lang;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** True while a load, backend change or project swap holds the tree (§548). */
+  loadPending: boolean;
 }
 
 export interface UseBlockersWindowResult {
@@ -40,10 +42,19 @@ type BlockerWrite = (task: Task, now: string) => Task;
 // on the row as stored at that moment — two adds in one tick chain, and a field
 // another writer changed after the window opened is kept.
 export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowResult {
-  const { tasks, setTasks, selfResourceId, resources, lang, logActivity } = deps;
+  const { tasks, setTasks, selfResourceId, resources, lang, logActivity, loadPending } = deps;
   const [targetId, setTargetId] = useState<number | null>(null);
 
   const target = targetId === null ? undefined : tasks.find((tk) => tk.id === targetId);
+
+  // ★★ §662: the id must not outlive its row. `TaskManagerInner` stays mounted
+  // through the load hold, so without this a deleted target left an open, untitled
+  // window that dropped typed text, and a project swap reopened it on whichever
+  // task of the new project carried the same id. Render-time reconcile (never an
+  // effect): clear the id when its row is gone or a load holds the tree; it
+  // settles because the second render sees `null`.
+  const targetGone = targetId !== null && (loadPending || target === undefined);
+  if (targetGone) setTargetId(null);
 
   const commit = (write: BlockerWrite) => {
     if (targetId === null) return;
@@ -68,7 +79,7 @@ export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowRe
   };
 
   const blockersWindowProps: BlockersWindowProps = {
-    open: targetId !== null,
+    open: targetId !== null && !targetGone,
     onClose: () => setTargetId(null),
     entries: target?.blockerLog ?? [],
     onAdd: (text) => {
@@ -84,7 +95,7 @@ export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowRe
     resources,
     lang,
     entityLabel: target?.taskName ?? t(lang, "blockerLogTitle"),
-    taskId: targetId,
+    taskId: targetGone ? null : targetId,
   };
 
   return {
