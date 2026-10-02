@@ -453,7 +453,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
 | [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing--closed-2026-10-02) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | **CLOSED** 2026-10-02 |
-| [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | open |
+| [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck--closed-2026-10-02) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | **CLOSED** 2026-10-02 |
 | [§223](#223-the-asset-mime-allowlist-is-hand-restated-at-every-consumer-with-no-shared-predicate--closed-2026-08-23) | The asset mime allowlist is hand-restated at every consumer, with no shared predicate | — | — | **CLOSED** 2026-08-23 |
 | [§224](#224-timelog-bookings-are-fetched-only-on-demand--no-interval-job-and-no-delta-notice) | Timelog bookings are fetched only on demand — no interval job, and no delta notice | — | — | open |
 | [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | open |
@@ -19102,11 +19102,11 @@ order to improve a case that fails on builds we have not yet confirmed fail. Tha
 §219 measurement first. Option 1 is the real fix if the measurement says the perpetual builds
 matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
 
-## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck
+## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck — CLOSED 2026-10-02
 
-**Status:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it. Reproduced 2026-08-28 by `grep -n "BODY_LINES_PER_SLIDE" src/app/doc-render-pptx-slides.ts`.
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: SCALE TO FIT. Built in `paginateLines` (`doc-render-pptx-slides.ts`): every image is first capped to ONE slide (`perSlide` lines — the 17th line was an overflow of the 16-line budget, not a layout choice), and an image that does not fit the lines LEFT on the current slide is scaled down into them, aspect ratio kept, when at least half a slide remains (`ceil(perSlide / 2)` = 8 lines ≈ 4.7 cm, still legible for a screenshot); with less room it starts the next slide as before. `buildContentSlide` already places pictures below all of a slide's text and the budget counts both, so a scaled image cannot overlap the words. Consequence: a chunk containing an image now never costs more than the budget — the `ImageLine` docstring that said otherwise was rewritten (it now scopes the 17 to an UNPAGINATED line). The single forward pass is unchanged, so pagination still terminates. Pinned by `doc-render-pptx-slides.test.ts` → "paginateLines scales an image to fit (§222)" (shares a slide after 4 text lines at 12 lines with its aspect kept; moves on after 10; caps a lone image to 16; leaves a small image untouched; no chunk over budget). ★ Still unverified in a real PowerPoint, as the rest of this renderer is (§219). The history below is kept as written.
 
-**Work item:** #196
+**Previously:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it. Reproduced 2026-08-28 by `grep -n "BODY_LINES_PER_SLIDE" src/app/doc-render-pptx-slides.ts`.
 
 `paginateLines` charges an image line `lineCost = ceil(cyEmu / BODY_LINE_EMU)` against a budget of
 `BODY_LINES_PER_SLIDE`. Both numbers are derived, and they cross:

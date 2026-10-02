@@ -63,11 +63,13 @@ export type SlideLine = string | RichLine | ImageLine;
  * An image on its way to a slide.
  *
  * ★★ The extent is already FITTED AND CAPPED to `BODY_BOX` by `paragraphLines`
- * (doc-render-pptx.ts), so `cyEmu` is at most one body box tall. That
- * bounds `lineCost` at 17 (`ceil(3474720 / 213360)`) — one line-height MORE
- * than `BODY_LINES_PER_SLIDE`, so a full-height picture always takes a slide
- * of its own. "Cost never exceeds the budget" is therefore NOT the invariant,
- * and a reader who assumes it is will write a guard that never fires.
+ * (doc-render-pptx.ts), so `cyEmu` is at most one body box tall — which still
+ * costs 17 lines (`ceil(3474720 / 213360)`), one MORE than
+ * `BODY_LINES_PER_SLIDE`. Since §222 `paginateLines` scales such an image to
+ * the budget before placing it, and scales one down into the space LEFT on a
+ * slide when at least half a slide remains — so an IMAGE in a chunk never
+ * costs more than the budget. ★ A raw `ImageLine` straight from
+ * `paragraphLines` still can; only the paginated one cannot.
  *
  * ★ It carries the extent rather than the `DocumentAsset` so pagination needs
  * no lookups, and so `lineCost` is a pure function of the line.
@@ -173,23 +175,48 @@ export function lineCost(line: SlideLine): number {
   return isImageLine(line) ? Math.max(1, Math.ceil(line.cyEmu / BODY_LINE_EMU)) : 1;
 }
 
+/** §222 — scale an image proportionally so it costs at most `maxLines`. */
+function scaleImageToLines(line: ImageLine, maxLines: number): ImageLine {
+  const targetCy = maxLines * BODY_LINE_EMU;
+  if (line.cyEmu <= targetCy) return line;
+  const factor = targetCy / line.cyEmu;
+  return { ...line, cyEmu: targetCy, cxEmu: Math.max(1, Math.round(line.cxEmu * factor)) };
+}
+
 /**
  * Split a slide's lines into per-slide chunks.
  *
  * Returns `[[]]` for an empty list so a titled slide with no body still yields
  * exactly one slide (a section divider); the caller drops the untitled case.
+ *
+ * ★★ §222 — IMAGES SCALE TO FIT (decided 2026-10-02). An ordinary screenshot
+ *  fitted to the body box costs 17 lines against a 16-line budget, so every
+ *  image used to land alone on its own slide and long decks got longer. Now:
+ *  an image is first capped to ONE slide (`perSlide` lines — the 17th line was
+ *  an overflow, not a choice), and an image that does not fit the lines LEFT on
+ *  the current slide is scaled down into them, keeping its aspect ratio, when
+ *  at least half a slide remains (`ceil(perSlide / 2)` = 8 lines ≈ 4.7 cm,
+ *  still legible for a screenshot). With less room it starts the next slide as
+ *  before. The picture sits below the slide's text either way
+ *  (`buildContentSlide`), and the budget counts both, so it cannot overlap.
  */
 export function paginateLines(lines: readonly SlideLine[], perSlide: number): SlideLine[][] {
   if (lines.length === 0) return [[]];
   const chunks: SlideLine[][] = [];
   let current: SlideLine[] = [];
   let spent = 0;
+  const minImageLines = Math.ceil(perSlide / 2);
 
   // ★★ A SINGLE FORWARD PASS, one line consumed per iteration. That is what
   //    makes it total: a line costing more than the whole budget lands alone on
   //    its own chunk rather than repeatedly failing to fit. A formulation that
   //    re-tested the same line after breaking would not terminate for one.
-  for (const line of lines) {
+  for (const original of lines) {
+    let line: SlideLine = isImageLine(original) ? scaleImageToLines(original, perSlide) : original;
+    if (isImageLine(line) && current.length > 0) {
+      const left = perSlide - spent;
+      if (lineCost(line) > left && left >= minImageLines) line = scaleImageToLines(line, left);
+    }
     const cost = lineCost(line);
     if (current.length > 0 && spent + cost > perSlide) {
       chunks.push(current);

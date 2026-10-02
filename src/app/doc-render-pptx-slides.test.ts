@@ -7,7 +7,10 @@
 // `doc-render-pptx.test.ts` already covers.
 import { describe, expect, it } from "vitest";
 import {
+  BODY_LINES_PER_SLIDE,
   createDeckMedia,
+  lineCost,
+  paginateLines,
   pptxRun,
   type ImageLine,
   type RenderCtx,
@@ -165,5 +168,46 @@ describe("pptxRun — a linked run is underlined regardless of its marks", () =>
     //   emits no `<a:hlinkClick>`, so an underline there would promise a link
     //   the slide does not contain.
     expect(pptxRun(run({ href: "https://a/x" }), "p", undefined).underline).toBe(false);
+  });
+});
+
+// §222 — images scale to fit (decided 2026-10-02). A screenshot fitted to the
+// body box costs 17 lines against the 16-line budget, so it always took a slide
+// of its own and decks got long.
+describe("paginateLines scales an image to fit (§222)", () => {
+  const PER = BODY_LINES_PER_SLIDE; // 16
+  // The real fitted extent of a 1920×1080 screenshot: full body-box height.
+  const shot: ImageLine = { kind: "image", id: "a", cxEmu: 6177280, cyEmu: 3474720 };
+  const text = (n: number) => Array.from({ length: n }, (_, i) => `line ${i + 1}`);
+
+  it("shares a slide with the text before it when at least half a slide is left", () => {
+    const chunks = paginateLines([...text(4), shot], PER);
+    expect(chunks).toHaveLength(1);
+    const img = chunks[0][4] as ImageLine;
+    expect(lineCost(img)).toBe(PER - 4);
+    // Aspect ratio kept.
+    expect(img.cxEmu / img.cyEmu).toBeCloseTo(shot.cxEmu / shot.cyEmu, 3);
+  });
+
+  it("starts the next slide when less than half a slide is left, capped to one slide", () => {
+    const chunks = paginateLines([...text(10), shot], PER);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[1]).toHaveLength(1);
+    expect(lineCost(chunks[1][0])).toBe(PER); // not the overflowing 17
+  });
+
+  it("caps an image alone on a slide to the budget, and leaves a small one untouched", () => {
+    const [[alone]] = paginateLines([shot], PER);
+    expect(lineCost(alone)).toBe(PER);
+    const small: ImageLine = { kind: "image", id: "b", cxEmu: 3810000, cyEmu: 2857500 }; // 400×300, 14 lines
+    const [[kept]] = paginateLines([small], PER);
+    expect(kept).toBe(small);
+  });
+
+  it("never lets a chunk's total cost exceed the budget once images are involved", () => {
+    const lines = [...text(3), shot, ...text(5), shot, shot, ...text(9), shot];
+    for (const chunk of paginateLines(lines, PER)) {
+      expect(chunk.reduce((n, l) => n + lineCost(l), 0)).toBeLessThanOrEqual(PER);
+    }
   });
 });
