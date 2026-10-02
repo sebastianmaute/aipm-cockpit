@@ -367,7 +367,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
 | [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--closed-2026-10-02) | ONE `captureComposite` caller flags no primary and rides the positional fallback | — | — | **CLOSED** 2026-10-02 |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
-| [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--open-dead-code) | The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code | — | — | open |
+| [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--closed-2026-10-02) | The `dependencies` branch of `sanitizeInlinePatch` has no caller | — | — | **CLOSED** 2026-10-02 |
 | [§137](#137-the-seven-rich-entity-fields-editor-cannot-represent-three-tags-their-storage-permits--closed-2026-08-11) | The seven rich entity fields' editor cannot represent three tags their storage permits | — | — | **CLOSED** 2026-08-11 |
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
@@ -11456,11 +11456,11 @@ removal by index) as the thing that was traded away, not as a regression. Settle
 recorded as an accepted cost in source. Left open here because the design question above is real and
 this rewrite is not a triage pass.
 
-## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
+## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — CLOSED 2026-10-02
 
-**Status:** open — an unreachable patch branch left in place deliberately. Reproduced 2026-08-28 by `grep -n "sanitizeDependencies" src/app/task-inline-patch.ts`.
+**Status:** CLOSED 2026-10-02 by owner decision: KEEP the branch, pinned. It is the guard a future inline dependencies edit would need, and it is not dead in the sense that matters: `task-inline-patch.test.ts` already drives three `dependencies` patches through `sanitizeInlinePatch` (self-link, unknown id, valid link). Measured: replacing the `sanitizeDependencies` call with a pass-through turns two of them red. A comment at the branch now says why it stays, so a dead-code sweep does not delete it.
 
-**Work item:** #153
+**Original status:** open — an unreachable patch branch left in place deliberately. Reproduced 2026-08-28 by `grep -n "sanitizeDependencies" src/app/task-inline-patch.ts`.
 
 Removing the Open Points inline relations pencil (0.228.0) left the `dependencies` branch of
 `sanitizeInlinePatch`, and its `sanitizeDependencies` call, unreachable: no `onInlinePatch` call site passes

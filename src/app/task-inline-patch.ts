@@ -71,6 +71,9 @@ export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContex
   if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
   if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
   if ("description" in patch) clean.description = sanitizeRichHtml(patch.description ?? "");
+  // §136 — no inline control patches `dependencies` today (the relations pencil is gone). Kept on
+  // purpose, by owner decision: it is the guard a future inline dependencies edit needs, and
+  // task-inline-patch.test.ts exercises it, so it is pinned rather than dead.
   if ("dependencies" in patch) {
     clean.dependencies = sanitizeDependencies(patch.dependencies, ctx.knownTaskIds, ctx.ownTaskId);
   }
