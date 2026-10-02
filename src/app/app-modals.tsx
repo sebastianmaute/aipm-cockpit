@@ -92,6 +92,10 @@ export interface AppModalsProps {
    *  editor. Provided only when editing an EXISTING task; absent → the form
    *  falls back to the disabled "Notes" launcher button. */
   taskNotePanel?: NoteLogPanelProps;
+  /** Opens the blocker window for the currently-edited task. Provided only when
+   *  editing an EXISTING task, exactly as `taskOnOpenNotes`; absent → the form's
+   *  "Blockers" button is disabled. */
+  taskOnOpenBlockers?: () => void;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
   /** §486 — Outlook sync is configured for tasks / absences; each gates that
@@ -161,6 +165,7 @@ export function AppModals({
   taskEditorExtras,
   taskOnOpenNotes,
   taskNotePanel,
+  taskOnOpenBlockers,
   budgetLink,
   taskCalendarSyncEnabled,
   absenceCalendarSyncEnabled,
@@ -206,6 +211,7 @@ export function AppModals({
           editorExtras={taskEditorExtras}
           onOpenNotes={taskOnOpenNotes}
           taskNotePanel={taskNotePanel}
+          onOpenBlockers={taskOnOpenBlockers}
           budgetLink={budgetLink}
           calendarSyncEnabled={taskCalendarSyncEnabled}
         />

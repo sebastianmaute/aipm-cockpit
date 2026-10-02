@@ -49,6 +49,11 @@ export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowRe
     if (targetId === null) return;
     const id = targetId;
     const now = new Date().toISOString();
+    // A no-op on the LIVE row (blank text, unknown entry id: the mutator hands
+    // the same reference back) writes nothing and logs nothing — otherwise every
+    // such click would stamp `localModifiedAt` and add a `task.updated` entry.
+    const live = tasks.find((tk) => tk.id === id);
+    if (!live || write(live, now) === live) return;
     setTasks((prev) =>
       prev.map((tk) => {
         if (tk.id !== id) return tk;
@@ -59,7 +64,7 @@ export function useBlockersWindow(deps: BlockersWindowDeps): UseBlockersWindowRe
     );
     // Name read from the LIVE closure array, never from inside the updater.
     // `activityTaskUpdated` takes ONE argument after the id.
-    logActivity("task.updated", id, tasks.find((tk) => tk.id === id)?.taskName ?? "");
+    logActivity("task.updated", id, live.taskName);
   };
 
   const blockersWindowProps: BlockersWindowProps = {

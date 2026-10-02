@@ -61,6 +61,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     hiddenCols: new Set(),
     onToggleSelect: vi.fn(),
     onOpenNotes: vi.fn(),
+    onOpenBlockers: vi.fn(),
     onJumpToRaid: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
@@ -1432,18 +1433,32 @@ describe("TaskRow inline cell editing", () => {
     });
   });
 
-  test("double-clicking the blockers cell opens a textarea and commits a blockers patch on blur", () => {
+  // The blockers cell is a counting badge now; the old double-click textarea is
+  // gone, so the text is written only through the blocker window's log.
+  test("task row blockers cell opens the blocker window for that task", () => {
     const onInlinePatch = vi.fn();
-    const ctx = makeContext({ onInlinePatch });
-    const task = makeTask({ id: 47, taskName: "Block me", blockers: "waiting on X" });
-    const { getByText, getByLabelText } = renderRow(ctx, task);
+    const onOpenBlockers = vi.fn();
+    const ctx = makeContext({ onInlinePatch, onOpenBlockers });
+    const task = makeTask({
+      id: 47,
+      taskName: "Block me",
+      blockers: "waiting on X\nwaiting on Y",
+      blockerLog: [
+        { id: 1, text: "waiting on X", createdAt: "2026-05-01T09:00:00.000Z" },
+        { id: 2, text: "waiting on Y", createdAt: "2026-05-02T09:00:00.000Z" },
+        { id: 3, text: "old", createdAt: "2026-04-01T09:00:00.000Z", resolvedAt: "2026-04-02T09:00:00.000Z" },
+      ],
+    });
+    const { getByRole, queryByRole } = renderRow(ctx, task);
 
-    fireEvent.doubleClick(getByText("waiting on X"));
-    const area = getByLabelText("Blockers – Block me") as HTMLTextAreaElement;
-    fireEvent.change(area, { target: { value: "waiting on Y" } });
-    fireEvent.blur(area);
-
-    expect(onInlinePatch).toHaveBeenCalledWith(47, { blockers: "waiting on Y" });
+    // Two OPEN entries (the resolved one is not counted); row-unique name.
+    const badge = getByRole("button", { name: "Blockers – Block me (2 open)" });
+    expect(badge.textContent).toBe("2");
+    fireEvent.doubleClick(badge);
+    expect(queryByRole("textbox", { name: "Blockers – Block me" })).toBeNull();
+    fireEvent.click(badge);
+    expect(onOpenBlockers).toHaveBeenCalledWith(47);
+    expect(onInlinePatch).not.toHaveBeenCalled();
   });
 
   // ★★★ §622 class — an open inline cell holds its draft in state and commits
@@ -1830,12 +1845,12 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // ties one row's editing state to another's, so the REACT STATE alone
   // does not rule out two rows editing at once.
   //
-  // ★★★ BUT MEASURED (not reasoned) AGAINST A REAL DOM, four of the five
+  // ★★★ BUT MEASURED (not reasoned) AGAINST A REAL DOM, three of the four
   // sites still can't collide, and the reason is native focus/blur, not
-  // React: every one of taskName/startDate/dueDate/blockers/priority's edit
-  // controls carries `autoFocus` (or — for blockers — is opened from a
-  // trigger that IS itself an ordinary React element the browser focuses on
-  // click) AND closes via `onBlur={inline.commit}` / `onBlur={inline.cancel}`.
+  // React: every one of taskName/startDate/dueDate/priority's edit
+  // controls carries `autoFocus` AND closes via `onBlur={inline.commit}` /
+  // `onBlur={inline.cancel}`. (Blockers used to be a fifth site; the cell is
+  // a badge opening the blocker window now, with no inline editor.)
   // Mounting a SECOND such editor anywhere in the table calls native
   // `.focus()` on it, which synchronously blurs whatever was previously
   // focused — closing it — before the new one ever renders. Reproduce this

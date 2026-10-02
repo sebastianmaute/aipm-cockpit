@@ -33,12 +33,10 @@ import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
 import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-patch";
-import { applyTaskPatch, selfBlockerActor } from "./blocker-log";
 import { useToastContext } from "./toast-context";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { differs } from "./undo/field-groups";
-import { BLOCKER_WRITE_THROUGH_KEYS } from "./undo/write-through-fields";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -114,6 +112,8 @@ export interface TasksSectionProps {
   onToggleSelect: (id: number) => void;
   /** Open the floating notes window for a task (running note log). */
   onOpenNotes: (id: number) => void;
+  /** Open the floating blocker window for a task (blocker log). */
+  onOpenBlockers: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
@@ -219,6 +219,7 @@ export function TasksSection({
   jiraExtraProjects,
   onToggleSelect,
   onOpenNotes,
+  onOpenBlockers,
   onJumpToRaid,
   onSendInquiry,
   onPushToJira,
@@ -297,7 +298,6 @@ export function TasksSection({
   const showToast = useToastContext();
 
   const { settings, setSettings } = useSettings();
-  const selfResourceId = settings.selfResourceId;
   // ONE holidaySet, threaded from task-manager, which feeds the SAME value to
   // useBulkOperations. Deriving a second one here made the pane and the hook
   // agree only by convention — both happened to read the same device setting.
@@ -507,42 +507,35 @@ export function TasksSection({
       };
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      // ★ `clean` never carries `blockers`/`blockerLog` (`sanitizeInlinePatch`
+      // drops them): the blockers cell is a badge opening the blocker window,
+      // which is the only writer of the log, so a plain spread is safe here.
       const clean = sanitizeInlinePatch(patch, patchCtx);
-      // ★ Interim until the blockers cell becomes the badge: a `blockers` text
-      // edit goes through the STORED row's blocker log (`applyTaskPatch`), so
-      // it is not re-derived away from the log on the next load.
-      const stamp = new Date().toISOString();
-      const actor = selfBlockerActor(selfResourceId, resources ?? EMPTY_RESOURCES);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === taskId && !row.jiraKey
-            ? { ...applyTaskPatch(row, clean, actor, stamp), localModifiedAt: stamp }
+            ? { ...row, ...clean, localModifiedAt: new Date().toISOString() }
             : row,
         ),
       );
-      // ★ The blocker pair is write-through (no undo, like notes), so the undo
-      // entry leaves both keys out; a blockers-only edit records nothing.
-      const afterRow = applyTaskPatch(beforeRow, clean, actor, stamp);
-      const keys = (Object.keys(clean) as (keyof Task)[]).filter((k) => !BLOCKER_WRITE_THROUGH_KEYS.has(k));
-      const anyChanged = keys.some((k) => differs(beforeRow[k], afterRow[k]));
-      if (keys.length > 0 && anyChanged) {
+      const cleanKeys = Object.keys(clean) as (keyof Task)[];
+      const anyChanged = cleanKeys.some((k) => differs(beforeRow[k], clean[k]));
+      if (cleanKeys.length > 0 && anyChanged) {
         const before: Partial<Task> = {};
-        const after: Partial<Task> = {};
-        for (const k of keys) {
+        for (const k of cleanKeys) {
           (before as Record<string, unknown>)[k] = beforeRow[k];
-          (after as Record<string, unknown>)[k] = afterRow[k];
         }
         captureFieldEdit?.({
           setter: setTasks,
           kind: "task.updated",
           id: taskId,
           before,
-          after,
+          after: clean,
           stampField: "localModifiedAt",
         });
       }
     },
-    [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang, selfResourceId, resources],
+    [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang],
   );
 
   const rowContextValue = useMemo<RowContextValue>(
@@ -557,6 +550,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -580,6 +574,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,

@@ -58,6 +58,25 @@ describe("useBlockersWindow", () => {
     expect(result.current.win.blockersWindowProps.entries).toHaveLength(2);
   });
 
+  it("a no-op write (blank add, unknown entry) neither writes the row nor logs activity", () => {
+    const { result, logActivity } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    const before = result.current.tasks;
+    act(() => {
+      result.current.win.blockersWindowProps.onAdd("   ");
+      result.current.win.blockersWindowProps.onResolve(99);
+      result.current.win.blockersWindowProps.onDelete(99);
+    });
+    // Same array by reference: no setTasks write, no localModifiedAt stamp.
+    expect(result.current.tasks).toBe(before);
+    expect(logActivity).not.toHaveBeenCalled();
+    // Positive control: a real add writes and logs exactly once.
+    act(() => result.current.win.blockersWindowProps.onAdd("Real"));
+    expect(result.current.tasks).not.toBe(before);
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("task.updated", 7, "Draft charter");
+  });
+
   it("stamps the self resource as the author", () => {
     const { result } = setup();
     act(() => result.current.win.openTaskBlockers(7));

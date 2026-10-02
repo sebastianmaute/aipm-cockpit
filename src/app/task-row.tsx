@@ -11,6 +11,8 @@ import { isReadOnlyIssue } from "./jira-projects";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { NotesBadgeButton } from "./notes-badge-button";
+import { BlockersBadgeButton } from "./blockers-badge-button";
+import { openBlockerCount } from "./blocker-log";
 import { RaidBadge } from "./task-raid-badge";
 import { DocumentBadge } from "./document-badge";
 import { refKey } from "./document-ref";
@@ -124,6 +126,7 @@ function TaskRowImpl({
     hiddenCols,
     onToggleSelect,
     onOpenNotes,
+    onOpenBlockers,
     onJumpToRaid,
     onStatusChange,
     onEdit,
@@ -233,50 +236,6 @@ function TaskRowImpl({
       >
         {display}
       </button>
-    );
-  };
-
-  // Multiline inline cell (blockers): double-click the cell to open a textarea
-  // (mirrors the task-name double-click), commit on blur, cancel on Escape,
-  // Ctrl/Cmd+Enter also commits (Enter alone inserts a newline). Keeps the read
-  // display untouched when idle.
-  const onTextareaKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      inline.cancel();
-    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      inline.commit();
-    }
-  };
-  const renderInlineTextarea = (
-    field: Extract<InlineField, "blockers">,
-    current: string,
-    display: ReactNode,
-  ): ReactNode => {
-    if (inlineEditable && inline.editing === field) {
-      return (
-        <textarea
-          autoFocus
-          rows={3}
-          value={inline.draft}
-          onChange={(e) => inline.setDraft(e.target.value)}
-          onBlur={inline.commit}
-          onKeyDown={onTextareaKeyDown}
-          aria-label={`${t(lang, field)} – ${rowToken}`}
-          className={`w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-        />
-      );
-    }
-    if (!inlineEditable) return display;
-    return (
-      <div
-        onDoubleClick={() => inline.begin(field, current)}
-        title={t(lang, "doubleClickToEdit")}
-        className="cursor-text rounded-md border border-transparent px-1 hover:border-ui-dark-blue"
-      >
-        {display}
-      </div>
     );
   };
 
@@ -536,8 +495,19 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
-        <Td className="max-w-xs whitespace-pre-wrap text-muted-foreground">
-          {renderInlineTextarea("blockers", task.blockers, task.blockers || "—")}
+        <Td>
+          {/* Open-blocker count badge opening the floating blocker window. The
+              text is derived from the blocker log and written only there.
+              Not gated on `jiraKey`: blockers are local-only, never pushed.
+              ★ Named by the row token alone, as the Notes badge is: the token
+              is already row-unique, and a `#<id>` in the name would also match
+              every query for the id cell's own `#<id>` button. */}
+          <BlockersBadgeButton
+            openCount={openBlockerCount(task.blockerLog)}
+            entityName={rowToken}
+            lang={lang}
+            onClick={() => onOpenBlockers(task.id)}
+          />
         </Td>
       )}
       {!hiddenCols.has("description") && (() => {

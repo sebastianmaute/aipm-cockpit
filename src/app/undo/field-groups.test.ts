@@ -1,5 +1,5 @@
 import { describe, test, it, expect } from "vitest";
-import { pick, changedFieldGroups, buildBulkFieldEdits, withoutKeys, type FieldGroup } from "./field-groups";
+import { pick, changedFieldGroups, buildBulkFieldEdits, type FieldGroup } from "./field-groups";
 
 interface Row { id: number; a: string; b: string; c: string; tags: string[]; localModifiedAt?: string }
 
@@ -73,11 +73,6 @@ describe("per-entity undo groups", () => {
     ]);
     // Blockers-only: nothing to capture.
     expect(buildBulkFieldEdits([{ before, after: { ...after, priority: "Low" } }], [])).toEqual([]);
-  });
-  test("withoutKeys drops the named keys and keeps the rest", () => {
-    const row = { id: 1, a: "x", blockers: "b", blockerLog: [] as number[] };
-    expect(withoutKeys(row, new Set(["blockers", "blockerLog"]))).toEqual({ id: 1, a: "x" });
-    expect(row.blockers).toBe("b");
   });
   test("change pairs status+decisionDate", () => {
     expect(CHANGE_UNDO_GROUPS).toContainEqual(["status", "decisionDate"]);

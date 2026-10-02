@@ -77,14 +77,6 @@ export const TASK_UNDO_GROUPS: readonly FieldGroup<Task>[] = [
   ["assignee", "assigneeEmail", "resourceId"],
 ];
 
-/** A shallow copy of `row` without the `drop` keys — for a single-row capture
- *  that must not record some fields (the blocker pair) while still capturing
- *  the rest. Diffing two stripped rows sees no change on the dropped keys. */
-export function withoutKeys<T extends object>(row: T, drop: ReadonlySet<string>): T {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(row)) if (!drop.has(k)) out[k] = v;
-  return out as T;
-}
 /** A change's status transition auto-fills/clears decisionDate together. */
 export const CHANGE_UNDO_GROUPS: readonly FieldGroup<ChangeItem>[] = [
   ["status", "decisionDate"],

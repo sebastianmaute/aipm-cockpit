@@ -34,7 +34,7 @@ const enUS = {
   taskHintDependencies: "Tasks that must finish before this one can start.",
   taskHintSuccessors:
     "Add tasks that cannot start until this one is done. Existing successors are managed on those tasks.",
-  taskHintBlockers: "What is currently holding this task up — surfaced as an impediment.",
+  taskHintBlockers: "Open the blocker log: add what is holding this task up, then resolve or reopen each entry.",
   taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
   noteLogTitle: "Notes log",
@@ -55,6 +55,8 @@ const enUS = {
   blockerLogDeleteConfirm: "Delete this blocker?",
   blockerLogSave: "Save",
   blockerBadgeLabel: "Blockers – {0} ({1} open)",
+  blockerLogButton: "Blockers ({0})",
+  bulkBlockersHint: "Replaces the open blockers on each task; they are kept as resolved.",
   selfResourceLabel: "I am this resource",
   selfResourceHint: "Used to attribute notes and activity to you.",
   selfResourceNone: "Not set",
@@ -1538,7 +1540,7 @@ const enUS = {
     "The app ships a modern layout by default: a Dark-Blue left sidebar with grouped navigation (Open Points, Chat, Gantt, Resources, Budget, RAID, Reports, Activity, Settings), a top bar with the view title and actions, and a full-viewport content area showing one view at a time. Opening a task or Settings fills the page instead of a popover; the sidebar collapses to an icon rail on narrow screens (and on demand via the top-bar menu button). The URL hash deep-links each view (#gantt, #raid, …) so back / forward and bookmarks work.\nPrefer the original single-scroll page? Switch to Classic mode in Settings → Appearance → Layout — it keeps the boxed workspace tabs and header described in the other help sections.\nTheme: choose Light, Dark, or System (follows your OS) in Settings → Appearance; colors stay on the brand palette either way.",
   helpSecAddTitle: "Adding & editing tasks",
   helpSecAddBody:
-    "Click + Add task in the Open Points toolbar — or the + in the header in Classic layout — to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, [[Description]]. The + beside the Assignee saves that person to the address book; picking an existing person from the dropdown fills their name and email together. You can also ask Claude in the AI Assistant tab (e.g. \"add a task to review the deck due Friday\").",
+    "Click + Add task in the Open Points toolbar — or the + in the header in Classic layout — to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, [[Description]]. The Blockers button opens the blocker log of a saved task: add what is holding it up, then resolve, reopen or delete each entry; resolved entries stay as history. In the Open Points table the Blockers badge shows the open count and opens the same window. The + beside the Assignee saves that person to the address book; picking an existing person from the dropdown fills their name and email together. You can also ask Claude in the AI Assistant tab (e.g. \"add a task to review the deck due Friday\").",
   helpSecWorkspaceTitle: "Workspace pane",
   helpSecWorkspaceBody:
     "The boxed pane below the header holds the workspace tabs (AI Assistant, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads. Each tab's pop-out icon opens it in its own window — a read-only mirror that reflects the main window live; make edits in the main window.",
@@ -2205,7 +2207,6 @@ const enUS = {
   directorySearchPlaceholder: "Filter by name, title, department, email…",
   sortBy: "Sort by {0}",
   clickToEdit: "click to edit",
-  doubleClickToEdit: "double-click to edit",
   popoutReadOnly: "Editing is disabled in the pop-out view — make changes in the main window.",
   popoutReadOnlyBanner: "Read-only mirror — make changes in the main window.",
   priorityFilterHint: "Show only tasks of the selected priority.",

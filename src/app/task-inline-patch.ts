@@ -8,7 +8,6 @@
 import {
   emailWriteRefusal,
   sanitizeAssignee,
-  sanitizeBlockers,
   sanitizeDependencies,
   sanitizeIsoDate,
   sanitizeLoadedEmail,
@@ -50,6 +49,9 @@ export function inlineAssigneeEmailRefusal(patch: Partial<Task>, ctx: InlinePatc
  * fields. `taskName` is dropped when it sanitizes to empty (identity is never
  * blanked); `resourceId` unlinks (→ undefined) unless it points at a live
  * resource; `dependencies` are re-validated against the live task set.
+ * ★ `blockers` (and `blockerLog`) are never emitted: the text is derived from
+ * the blocker log and written only through `withBlockerLog`, and the Open
+ * Points cell is a badge opening the blocker window, not an inline editor.
  */
 export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContext): Partial<Task> {
   const clean: Partial<Task> = {};
@@ -69,7 +71,6 @@ export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContex
   if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
   if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
   if ("description" in patch) clean.description = sanitizeRichHtml(patch.description ?? "");
-  if ("blockers" in patch) clean.blockers = sanitizeBlockers(patch.blockers);
   if ("dependencies" in patch) {
     clean.dependencies = sanitizeDependencies(patch.dependencies, ctx.knownTaskIds, ctx.ownTaskId);
   }

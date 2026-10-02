@@ -18,10 +18,13 @@
 // from the log, so the two are always kept live together).
 //
 // ★★ THE BLOCKER PAIR IS NEVER UNDOABLE, from ANY writer (spec: no undo for
-// blocker writes, like notes). The bulk patch drops them here; the single-row
-// field-edit paths (editor save, inline cell) strip `BLOCKER_WRITE_THROUGH_FIELDS`
-// themselves, because those paths DO capture the other members (the task editor
-// edits `calendarOptOut`), so they cannot drop the whole list.
+// blocker writes, like notes). The bulk patch drops them here. The single-row
+// field-edit paths never see them change: the task editor's submit carries the
+// pair from the STORED row (no blockers field in its payload), and the inline
+// cell cannot write them (`sanitizeInlinePatch` drops the key). The AI
+// `update_task` site (`use-chat-dispatcher.ts`) captures a WHOLE row, which
+// keeps the live pair on undo through this list, and skips the capture entirely
+// when only members of this list (plus `localModifiedAt`) changed.
 //
 // ★★ THIS LIST IS THE BACKSTOP, NOT THE PRIMARY FIX. The bulk-edit sites capture
 // FIELD PATCHES and are immune by construction; what this protects is the paths
@@ -56,12 +59,6 @@ export const WRITE_THROUGH_FIELDS = [
   keyof Task,
   keyof Task,
 ];
-
-/** The blocker pair, as a lookup for the single-row capture paths that must strip
- *  it (see the ★★ note above). The `satisfies` ties each member to the tuple. */
-export const BLOCKER_WRITE_THROUGH_KEYS: ReadonlySet<string> = new Set<string>(
-  ["blockers", "blockerLog"] as const satisfies readonly (typeof WRITE_THROUGH_FIELDS)[number][],
-);
 
 /** The same list as a lookup. DERIVED — never restate the members here.
  *

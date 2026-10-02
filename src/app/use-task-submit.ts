@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
@@ -10,19 +10,15 @@ import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem, type Resource } from "./types";
 import { applyStatusChange, statusActivityKind } from "./task-status";
-import { normalizeBlockerText, selfBlockerActor, setBlockersText } from "./blocker-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
-import { TASK_UNDO_GROUPS, withoutKeys } from "./undo/field-groups";
-import { BLOCKER_WRITE_THROUGH_KEYS } from "./undo/write-through-fields";
+import { TASK_UNDO_GROUPS } from "./undo/field-groups";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
   GROUP_MAX,
   TASK_NAME_MAX,
-  TEXTAREA_MAX,
   sanitizeAssignee,
-  sanitizeBlockers,
   normalizeEmailShape,
   sanitizeDependencies,
   sanitizeLoadedEmail,
@@ -126,14 +122,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
   );
   const saveDisabled = hasTaskErrors(fieldErrors);
   const adj = useAdjustmentTracker();
-  // The blockers text the editor OPENED with, keyed by the task it was opened
-  // for. An edit save whose textarea still holds it writes nothing to the
-  // blocker log, so an entry the blockers window adds to the stored row while
-  // the editor is open survives the save instead of being resolved by a stale
-  // copy of the text. With no matching record (a create, or an editor not
-  // opened through `openEditModal`) the text is compared against the STORED
-  // row by `setBlockersText`, whose same-text case is a no-op.
-  const blockersAtOpenRef = useRef<{ id: number; text: string } | null>(null);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -178,23 +166,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       const startDate =
         rawStart && rawStart > dueDate ? dueDate : rawStart || undefined;
 
-      // ★★ `blockers` is NOT in the payload: the payload is spread OVER the
-      // stored row, and the text is derived from the row's blocker log, so it
-      // is written through `setBlockersText` against that STORED row instead
-      // (`withBlockers` below) — the same stored-row carry as `noteLog`.
-      const blockersDraft = sanitizeBlockers(adj.track(describeTextCap(form.blockers, TEXTAREA_MAX)));
-      const atOpen = blockersAtOpenRef.current;
-      const blockersTouched =
-        editingId === null ||
-        atOpen === null ||
-        atOpen.id !== editingId ||
-        // Compared NORMALISED: a whitespace or line-ending difference is what the
-        // log would store as the same text, so it is not a deliberate change.
-        normalizeBlockerText(form.blockers) !== normalizeBlockerText(atOpen.text);
-      const blockerActor = selfBlockerActor(settings.selfResourceId, resources);
-      const withBlockers = (row: Task, stamp: string): Task =>
-        blockersTouched ? setBlockersText(row, blockersDraft, blockerActor, stamp) : row;
-
       const payload = {
         taskName,
         assignee,
@@ -224,6 +195,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // added/edited/deleted, and since `payload` is spread OVER `row` it
         // would overwrite the live log with that stale copy — silent data
         // loss. The write-through path is the sole owner.
+        // ★★ `blockers` and `blockerLog` are absent for the SAME reason: the
+        // text is derived from the blocker log, which only the floating blocker
+        // window writes (the editor's Blockers button opens it). Leaving both
+        // out of this payload carries them from the STORED row on an edit.
       };
 
       if (adj.count() > 0) {
@@ -414,7 +389,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           return prev.map((row) => {
             if (row.id === editingId) {
               return applyStatusChange(
-                withBlockers({ ...row, ...payload, localModifiedAt: stamp }, stamp),
+                { ...row, ...payload, localModifiedAt: stamp },
                 form.status,
                 today,
               );
@@ -428,7 +403,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           // Single-item edit, so tasksRef's row equals the mapped row — recompute
           // the same next value to diff prev→next for the undo capture + audit detail.
           const nextTask = applyStatusChange(
-            withBlockers({ ...prevTask, ...payload, localModifiedAt: stamp }, stamp),
+            { ...prevTask, ...payload, localModifiedAt: stamp },
             form.status,
             today,
           );
@@ -436,10 +411,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             setter: setTasks,
             kind: "task.updated",
             id: updatedId,
-            // ★ The blocker pair is write-through (no undo, like notes): stripped
-            // here so a blockers change records nothing and the rest still does.
-            prev: withoutKeys(prevTask, BLOCKER_WRITE_THROUGH_KEYS),
-            next: withoutKeys(nextTask, BLOCKER_WRITE_THROUGH_KEYS),
+            // The blocker pair is not in the payload, so prev and next carry the
+            // same pair and it is never captured (blocker writes are not undoable).
+            prev: prevTask,
+            next: nextTask,
             groups: TASK_UNDO_GROUPS,
             stampField: "localModifiedAt",
             name: taskName,
@@ -459,19 +434,17 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
         recordSuccessorEdits(successors, tasksRef.current);
       } else {
-        const stamp = new Date().toISOString();
+        // A new task starts with no blockers and no log; the Blockers button
+        // is disabled until the task is saved (as Notes), then the window adds.
         const newTask: Task = applyStatusChange(
-          withBlockers(
-            {
-              id: mintId("task", tasks),
-              ...payload,
-              blockers: "",
-              status: form.status,
-              inquiriesSent: 0,
-              createdDate: today,
-            },
-            stamp,
-          ),
+          {
+            id: mintId("task", tasks),
+            ...payload,
+            blockers: "",
+            status: form.status,
+            inquiriesSent: 0,
+            createdDate: today,
+          },
           form.status,
           today,
         );
@@ -480,6 +453,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           form.pushToJira &&
           settings.jira.enabled &&
           !!settings.jira.projectKey;
+        const stamp = new Date().toISOString();
         const withNew = [...tasksRef.current, newTask];
         // ★★★ Resolve AFTER the mint, against a list that CONTAINS the new
         // task. Resolving against tasksRef.current makes newId a dangling
@@ -544,7 +518,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       }
       setForm(emptyForm());
-      blockersAtOpenRef.current = null;
       // Reset only on this clean-close path. The jira-assignee early-return
       // above intentionally leaves `submitted` true so its field errors persist
       // while the form stays open.
@@ -556,7 +529,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       editingId,
       isNewTask,
       tasks,
-      resources,
       emailContext,
       today,
       lang,
@@ -582,7 +554,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
   const handleCancelEdit = useCallback(() => {
     pendingLinkRaidIdRef.current = null;
-    blockersAtOpenRef.current = null;
     onEditorDiscard?.();
     setEditingId(null);
     setSubmitted(false);
@@ -598,7 +569,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // wrong parent id.
       onEditorDiscard?.();
       pendingLinkRaidIdRef.current = null;
-      blockersAtOpenRef.current = { id: task.id, text: task.blockers };
       setEditingId(task.id);
       setSubmitted(false);
       setTaskModalOpen(true);
@@ -611,7 +581,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         lastUpdateDate: task.lastUpdateDate,
         priority: task.priority,
         status: task.status,
-        blockers: task.blockers,
         description: task.description,
         group: task.group ?? "",
         labels: task.labels ?? [],
