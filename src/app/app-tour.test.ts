@@ -12,7 +12,7 @@ describe("app-tour engine", () => {
     expect(findTour("getting-started")?.steps).toBe(TOUR_STEPS);
     expect(TOUR_STEPS[0].id).toBe("welcome");
   });
-  it("ships the six themed tours with unique ids and at least one step each", () => {
+  it("ships the themed tours with unique ids and at least one step each", () => {
     const ids = TOURS.map((t) => t.id);
     expect(ids).toEqual(["getting-started", "working-faster", "raid", "reporting", "planning", "stakeholders", "resources", "budget-changes", "documents", "ai", "help-yourself"]);
     expect(new Set(ids).size).toBe(ids.length);

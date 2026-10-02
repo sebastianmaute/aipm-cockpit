@@ -185,6 +185,9 @@ describe("isViewReachable", () => {
     expect(isViewReachable("insights", [...ALL_MODULE_IDS], "turso")).toBe(true);
     expect(isViewReachable("open-points", [], "local-json")).toBe(true);
   });
+  it("keeps a view outside the nav that belongs to no module reachable", () => {
+    expect(isViewReachable("learning-insights", [], "local-json")).toBe(true);
+  });
   it("hides Turso-only views off Turso", () => {
     for (const v of TURSO_ONLY_VIEWS) {
       expect(isViewReachable(v, ALL_MODULE_IDS, "turso")).toBe(true);
