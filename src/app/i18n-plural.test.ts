@@ -160,6 +160,23 @@ describe("plural key pairing", () => {
       "activityAiRaciSuggest@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
       "activityAiAllocationPlan@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
       "activityAiRaciSuggest@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      // §450 tier 1 — the same two rows for each of the eight converted kinds.
+      "activityBulkEdit@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityBulkEdit@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityBulkDelete@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityBulkDelete@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityBulkInquiries@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityBulkInquiries@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityHistoryRestore@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityHistoryRestore@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityCalendarAutoPulled@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityCalendarAutoPulled@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityAiTaskDedup@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityAiTaskDedup@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityUndo@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityUndo@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityRedo@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityRedo@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
       // Variable-base helper: `seg(n, base)` calls tPlural one line above, so
       // only the bare key literal is visible on these lines.
       "diagnosticsUnitError@src/app/diagnostics-panel.tsx": "variable-base seg() helper",

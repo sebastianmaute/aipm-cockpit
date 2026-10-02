@@ -644,7 +644,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
 | [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
 | [§414](#414-the-browser-eye-verify-owed-by-the-control-defects-batch--open) | The browser eye-verify owed by the control-defects batch | deferred 2026-09-06 by the control-defects batch | M — six items; 1–4 now automated by a spec, 5–6 unmeasured | open |
-| [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
+| [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--closed-2026-10-02) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | **CLOSED** 2026-10-02 |
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--closed-2026-09-08) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | **CLOSED** 2026-09-08 |
@@ -32284,9 +32284,11 @@ eye-verify closes this entry and anything it turns up gets its own.
 
 ---
 
-## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — OPEN
+## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — CLOSED 2026-10-02
 
-**Status:** 2026-09-08 — **exception B is FIXED** (both singulars now render; see B below), and
+**Status:** CLOSED 2026-10-02. Nothing live is left. Exception B was fixed and C withdrawn (2026-09-08); exception A — the four next-actions provider ternaries — is CORRECT for every shipped locale (`count === 1` is exactly `tPlural`'s category selection for en-US, en-GB and de, which each provider's comment states) and becomes a defect only if a locale with different plural rules is added, at which point it is a locale-addition task, not this one. The 45-vs-31 dispute is about a LOST earlier list and cannot be reconciled; what it was a proxy for — "how many keys still dodge plural agreement" — is now MEASURED AND GATED instead: paired keys by `PluralBaseKey` + `i18n-plural.test.ts`, and the escape shape by the value-axis ratchet `i18n-plural-escape.test.ts` (§450, 2026-10-02). The remaining conversion work lives in §450. The history below is kept as written.
+
+**Previously:** 2026-09-08 — **exception B is FIXED** (both singulars now render; see B below), and
 **exception C was withdrawn as a non-defect** rather than fixed (see C). The entry stays OPEN for
 exception A and for the 45-vs-31 dispute, which is NOT closed by the measurement below — a live
 count says what is true today and says nothing about what either earlier pass counted.
@@ -32327,8 +32329,6 @@ claim below; none of them was run with `--update` or otherwise made to agree wit
 `i18n.ts` and `i18n.de.ts` (was 42). The four added are `budgetFxRollupUnresolved`,
 `projectKeyFactsMissing`, `dashboardHiddenTilesBadge` and `raciSuggestSkippedHandover`. Exception A's
 four provider ternaries, the 12-key dead set and the 31-row table are unchanged.
-
-**Work item:** #275
 
 ### What this branch converted — and what "converted" does not cover (2026-09-07)
 
@@ -35405,6 +35405,16 @@ still no check on dictionary values.
 `tPlural` at their call sites (`resource-email-propagation-commit.ts`, `use-storage-file-ops.ts`), so German
 reads "1 verknüpften Eintrag" and "1 Datensatz"; `i18n-plural.test.ts` and each call site's test pin the
 count of one. The class itself stays open, and there is still no detector for it.
+
+★ Narrowed 2026-10-02: **tier (1) is DONE and the value-axis detector EXISTS.** The eight activity-log
+keys are `…One` pairs (EN + an authored German singular each) selected through `ACTIVITY_PLURAL`
+(`activity-message.ts`), pinned by "§450 tier 1" in `activity-message.test.ts`. And
+`i18n-plural-escape.test.ts` now reads the dictionary VALUES — the axis this entry said no gate covered
+— and pins the escape count EXACTLY as a ratchet: **64** EN / **55** DE after this tier, counting the
+`(s)` `(e)` `(n)` `(en)` `(er)` `(es)` shapes after a letter. A new escape now fails CI; a conversion
+must lower the pin. ★ The slash shape is still uncounted (it also separates real alternatives) and the
+figures are NOT comparable with the `[sne]+` counts above, which used a different shape set. Tiers
+(2)–(4) remain, so the entry stays open.
 
 **Work item:** #286
 

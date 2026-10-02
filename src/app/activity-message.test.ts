@@ -25,9 +25,10 @@ describe("activityMessage", () => {
     // ★★ EXACT, not `> 0`, and the loose form is what this replaced. The
     // anti-vacuity floor is the guard meant to notice a DELETED row, and at
     // `> 0` it stays green with one member left — so it did not do the one job
-    // it was there for. Measured 2026-09-08: two members. Bump this
-    // deliberately when a third kind is added, which is the point.
-    expect(ACTIVITY_PLURAL_KINDS.length).toBe(2);
+    // it was there for. Measured 2026-09-08: two members; §450 tier 1 added
+    // eight (2026-10-02). Bump this deliberately when a kind is added, which
+    // is the point.
+    expect(ACTIVITY_PLURAL_KINDS.length).toBe(10);
     for (const kind of ACTIVITY_PLURAL_KINDS) {
       expect(activityPluralBase(kind)).toBe(ACTIVITY_KIND_TO_KEY[kind]);
     }
@@ -150,3 +151,20 @@ describe("activityMessage", () => {
     expect(activityMessage("en-US", "toString", [])).toBe("Unrecognized activity (toString)");
   });
 });
+
+describe("§450 tier 1 — the eight converted activity kinds render a real singular", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("selects the singular at a count of one and the plural otherwise, in both languages", () => {
+    expect(activityMessage("en-US", "undo", [1])).toBe("Undo: restored 1 item");
+    expect(activityMessage("en-US", "undo", [3])).toBe("Undo: restored 3 items");
+    expect(activityMessage("de", "bulk.edit", [1])).toBe("Sammelbearbeitung auf 1 Aufgabe angewendet");
+    expect(activityMessage("de", "bulk.edit", [2])).toBe("Sammelbearbeitung auf 2 Aufgaben angewendet");
+    // The count is slot 0 even where a second argument follows it.
+    expect(activityMessage("de", "history.restore", [1, "v3"])).toBe("1 Änderung aus Version v3 wiederhergestellt");
+    expect(activityMessage("en-US", "calendar.autoPulled", [1, "Kickoff"])).toBe("Auto-applied 1 Outlook date change to Kickoff");
+  });
+});
+
