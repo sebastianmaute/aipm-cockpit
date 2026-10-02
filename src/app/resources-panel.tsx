@@ -176,6 +176,10 @@ function sumHours(h: WeekHours): number {
 
 const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
 
+// One shared empty list: a `= []` default is a new array each render, which would defeat the
+// memoized `onMoveOccurrence` and ResourceCalendar's memo whenever the prop is omitted (§1).
+const NO_CALENDAR_EVENTS: readonly CalendarEvent[] = [];
+
 function ResourcesPanelInner({
   lang,
   view,
@@ -185,7 +189,7 @@ function ResourcesPanelInner({
   raid,
   raidEnabled,
   resources,
-  calendarEvents = [],
+  calendarEvents = NO_CALENDAR_EVENTS,
   today,
   holidaySet,
   onAddAbsence,
@@ -318,6 +322,16 @@ function ResourcesPanelInner({
     setPrevPlanGranularity(plan.granularity);
     setViewGranularity(plan.granularity);
   }
+
+  // §1 — memoized so the memo()'d ResourceCalendar can bail: built inline in the JSX it was a
+  // fresh function every render. Keyed on the events it resolves against and the save handler.
+  const onMoveOccurrence = useMemo(
+    () =>
+      isPopout || !onSaveCalendarEvent
+        ? undefined
+        : buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent),
+    [isPopout, calendarEvents, onSaveCalendarEvent],
+  );
 
   const resourcesById = useMemo(() => {
     const m = new Map<number, Resource>();
@@ -715,11 +729,7 @@ function ResourcesPanelInner({
             endDate={calendarWin.endDate}
             calendarEvents={calendarEvents}
             onEditEvent={isPopout ? undefined : onEditCalendarEvent}
-            onMoveOccurrence={
-              isPopout || !onSaveCalendarEvent
-                ? undefined
-                : buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)
-            }
+            onMoveOccurrence={onMoveOccurrence}
           />
           <CalendarSeriesList
             lang={lang}

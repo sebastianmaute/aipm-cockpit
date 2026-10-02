@@ -240,7 +240,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
-| [§1](#1-two-dead-memos-in-the-resources-subtree--fork-open) | Two dead `memo()`s in the Resources subtree — **fork open** | R5 (0.202.0) | S–M | open |
+| [§1](#1-two-dead-memos-in-the-resources-subtree--closed-2026-10-02) | Two dead `memo()`s in the Resources subtree | R5 (0.202.0) | S–M | **CLOSED** 2026-10-02 |
 | [§2](#2-use-resource-plannerts-is-30-over-the-800-line-ceiling--closed-post-02120) | ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED** post-0.212.0 |
 | [§3](#3-optimize_wbs-never-built--owed-from-r4) | `optimize_wbs` never built — owed from R4 | R4 (0.201.0) | ? | open |
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
@@ -952,11 +952,11 @@ to this register.
 
 ---
 
-## 1. Two dead `memo()`s in the Resources subtree — **fork open**
+## 1. Two dead `memo()`s in the Resources subtree — CLOSED 2026-10-02
 
-**Status:** open — a memo that cannot bail while unstable handler props are threaded. Reproduced 2026-08-28 by `grep -n "export const ResourcesPanel = memo" src/app/resources-panel.tsx`.
+**Status:** CLOSED 2026-10-02 by owner decision: stabilise both — fork C's outcome, reached without its `useCallback` sweep. `workspace-section.tsx` passes every `ResourcesPanel` function prop through the new `useStableHandlers` (`use-stable-handlers.ts`): each wrapper keeps one identity and forwards to the handler from the LATEST render, so the deps-object handlers stay live and the stale-closure risk the fork table names does not arise. The panel's non-function props are workspace state or primitives. Inside, `onMoveOccurrence` is now a `useMemo`, and the omitted-`calendarEvents` default is a shared constant instead of a fresh `[]`. Pinned by the "§1" describe in `workspace-section.test.tsx` (identities survive fresh parent handlers; a held wrapper calls the latest one) and `resources-panel.memo.test.tsx` (every `ResourceCalendar` prop is `Object.is`-equal across an unrelated panel re-render). Mutation-checked: passing one handler raw, wrapping `onMoveOccurrence` inline, or restoring the `= []` default each turns them red. Still not profiled — see the caveat below.
 
-**Work item:** #84
+**Original status:** open — a memo that cannot bail while unstable handler props are threaded. Reproduced 2026-08-28 by `grep -n "export const ResourcesPanel = memo" src/app/resources-panel.tsx`.
 
 Originally filed as R5 §3, "`ResourcesPanel`'s memo never bails". Re-opened and re-derived
 2026-07-27; the original write-up was right about the symptom and wrong about the cause, and it

@@ -991,14 +991,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `RowLookupContext` split above), and `WorkspaceProvider`'s value is one `useMemo` over ~30 slices, so a
   milestone/RAID/budget/insight edit — or a background Outlook-pull / insight-recommendation / scheduled-job
   write — would re-render the whole panel (for Resources: the planning table, workload rollups and absence
-  calendar). ★★ HONEST STATE: `ResourcesPanel`'s memo does NOT currently bail, so the optimization this bullet defends is aspirational,
-  not in effect. `workspace-section` passes it ~47 props and several are a FRESH IDENTITY every render —
-  every `guardEdit(handler)` (`guardEdit` is `makeEditGuard(...)` called unmemoized during render in
-  `task-manager.tsx`) plus the `absenceCalendar` bag. Verified twice in review. Do NOT cite this memo as the
-  reason anything is fast, and note that "memoize `guardEdit`" is NOT the fix — it is one unstable family of
-  several. Either stabilise every handler prop (measure first) or delete the memo and this bullet; tracked in
-  the R5 follow-ups doc. The guidance below still stands regardless, because it is what would make a bail
-  possible at all. THREAD PROPS instead — workspace-section already holds
+  calendar). ★★ `ResourcesPanel` and its `ResourceCalendar` can bail since §1 closed: `workspace-section` routes every
+  function prop through `useStableHandlers` (`resourcesHandlers`), whose wrappers keep one identity and call the
+  LATEST handler, so no `useCallback` sweep (and no stale closure) was needed; inside, `onMoveOccurrence` is a
+  `useMemo` and the omitted-`calendarEvents` default is one shared list. ★★ A NEW function prop on `ResourcesPanel`
+  goes into that bag — passed raw it re-breaks the bail silently; the "§1" describe in `workspace-section.test.tsx`
+  catches it only if `makeProps` supplies the handler. Not profiled: the bail is shown by prop identity
+  (`resources-panel.memo.test.tsx`), not measured. The guidance below still stands, because a context read
+  defeats any bail. THREAD PROPS instead — workspace-section already holds
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (The un-memoized panels it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — lose nothing by consuming context.)
 - **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation +
