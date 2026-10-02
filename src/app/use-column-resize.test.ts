@@ -152,6 +152,22 @@ describe("useColumnResize", () => {
     expect(later.result.current.colWidths).toEqual({ a: 150, b: 333 });
   });
 
+  // §52: v2 shipped with the same defaults snapshot stored as if dragged, so the
+  // filter must heal v2 blobs too, not only v1.
+  it("treats a v2 key equal to the current default as not user-set (§52)", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem(KEY("t12"), JSON.stringify({ v: 2, widths: { a: DEFAULTS.a, b: 333 } }));
+    const changed = { a: 150, b: 200 } as const;
+    const { result } = renderHook(() => useColumnResize("t12", DEFAULTS));
+    expect(result.current.sizedWidths).toEqual({ b: 333 });
+
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(JSON.parse(localStorage.getItem(KEY("t12")) as string)).toEqual({ v: 2, widths: { b: 333 } });
+
+    const later = renderHook(() => useColumnResize("t12", changed));
+    expect(later.result.current.colWidths).toEqual({ a: 150, b: 333 });
+  });
+
   // ★ The payload is NOT durably removed: the debounced effect re-runs on the
   //   state change and writes `{v:2,widths:{}}` back 250ms later. Asserting only
   //   the null would pin a transient state. Both are checked here, so the test
