@@ -67,7 +67,9 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  ★★ DOM-BOUND: `sanitizeRichHtml` calls DOMPurify, which binds its `window` at
  *  module-eval. THIS FUNCTION and its four per-entity wrappers must not become
  *  reachable from a codec, an entity sanitizer, or anything under `scripts/` —
- *  the two whole-object load paths are the only legal callers.
+ *  the two whole-object load paths and `sanitizeDecodedRichFields`
+ *  (`workspace-rich-sanitize.ts`, run by the browser backends after a codec
+ *  decode — §28) are the only legal callers.
  *  ★★★ SCOPED TO THIS FUNCTION, NOT TO THE FILE, and an earlier revision read as
  *  a file-level contract that the file itself violates. `sanitizeNoteLog` (above)
  *  calls `sanitizeRichHtml` and `htmlToText` too, and IS reached from CSV,

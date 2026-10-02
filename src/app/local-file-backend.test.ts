@@ -524,3 +524,23 @@ describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () 
     expect(fingerprintWorkspace(loaded)).toBe(before);
   });
 });
+
+// §28 — the CSV/Markdown codecs are DOM-free, so a dangerous rich cell used to
+// reach the app un-sanitized from these two backends. The load runs the same
+// post-decode pass `jsonToWorkspace` applies.
+describe("LocalFileBackend load() sanitizes rich fields (§28)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("strips script-bearing markup from a CSV task description and keeps the text", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(
+      fakeHandle({ text: '# TASKS\r\nid,taskName,description\r\n1,T,"<p>ok</p><img src=x onerror=""alert(1)"">"\r\n' }),
+    );
+    const ws = await be.load();
+    expect(ws.tasks[0]!.description).toContain("<p>ok</p>");
+    expect(ws.tasks[0]!.description).not.toContain("onerror");
+  });
+});

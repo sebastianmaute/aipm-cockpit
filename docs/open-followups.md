@@ -259,7 +259,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§21](#21-eye-verification-owed-on-two-editors-and-four-detail-cases--open-slice-b-02090) | Eye verification owed on two editors and four detail cases — open, slice B (0.209.0) | 0.209.0 (Lafferty) | S | open |
 | [§22](#22-cliptext-truncates-on-utf-16-code-units-and-can-split-a-surrogate-pair--closed) | `clipText` truncates on UTF-16 code units and can split a surrogate pair | 0.209.0 (Lafferty) | M | **CLOSED** |
 | [§24](#24-named-entities-are-neither-decoded-nor-counted--closed-2026-09-30) | NAMED entities are neither decoded nor counted | 0.209.0 (Lafferty) | S | **CLOSED** 2026-09-30 |
-| [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
+| [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--closed-2026-10-02) | CSV / Markdown / Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | **CLOSED** 2026-10-02 |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
@@ -1942,11 +1942,11 @@ produces numeric forms — so this is genuinely small and genuinely optional.
 
 ---
 
-## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary
+## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — CLOSED 2026-10-02
 
-**Status:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The post-decode boundary now exists, in the BACKENDS rather than the codecs: `sanitizeDecodedRichFields` (`workspace-rich-sanitize.ts`) runs the same four `sanitize*RichFields` passes `jsonToWorkspace` and the IndexedDB read use, and `LocalFileBackend.load()` (CSV + Markdown), `SharePointBackend` (CSV) and `TursoBackend.load()` (single-tenant and tenant, relational and legacy-blob) apply it to the decoded workspace. The codecs stay DOM-free, so `scripts/` importing them is unaffected. The pass is idempotent on the app's own output, so a workspace this app wrote loads byte-identical; the golden fixtures (which pin the codecs, not the backends) are untouched. ★ The `decodeNoteLog` no-DOM silent-drop recorded at `sanitizeRichFields` is unchanged — telling "no DOM" from "malformed" is still open there. Pinned in `workspace-rich-sanitize.test.ts`, `local-file-backend.test.ts` and `turso-backend.test.ts` (both backend tests mutation-checked). The history below is kept as written.
 
-**Work item:** #96
+**Previously:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `f4251d84` closed the two **whole-object cast** load paths: `jsonToWorkspace` (file-JSON, SharePoint,
 local-file) and the IndexedDB read now route all six rich fields through the escape-then-sanitize

@@ -5,6 +5,7 @@
 // useMsAuth().acquireToken).
 
 import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
+import { sanitizeDecodedRichFields } from "./workspace-rich-sanitize";
 import {
   StorageNotReadyError,
   emptyWorkspace,
@@ -232,7 +233,8 @@ export class SharePointBackend implements StorageBackend {
       }
       if (this.kind === "sp-csv") {
         const csv = res.text;
-        const ws = csvToWorkspace(csv, diag);
+        // §28 — the codec is DOM-free, so the rich fields are sanitized here.
+        const ws = sanitizeDecodedRichFields(csvToWorkspace(csv, diag));
         this.lastImportDroppedRows = diag.droppedRows;
         this.lastImportDroppedBySection = diag.droppedBySection;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;

@@ -79,10 +79,12 @@ register's fix to another is how two of them broke. Read the note that names you
   (1) SINK re-sanitize `sanitizeRichHtml(html)` in `RichTextView` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
-  CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
-  if it covered `description` too. It does not: NOTHING sanitizes the six rich DESCRIPTION fields on
-  those three backends (see the rich-text bullet below; `docs/open-followups.md` §28). A NEW
-  whole-object load path MUST call the `sanitize*RichFields` matching its entity, not just this one.
+  CSV/MD/Turso route `noteLog` through `decodeNoteLog` at decode, and since §28 (closed 2026-10-02) each
+  of their BROWSER backends' `load()` (`local-file-backend.ts`, `sharepoint-backend.ts`,
+  `turso-backend.ts`) runs `sanitizeDecodedRichFields` (`workspace-rich-sanitize.ts`) over the decoded
+  workspace — the same four `sanitize*RichFields` passes, so the seven rich fields are sanitized on every
+  backend. ★★ It runs in the BACKEND, never in a codec: the codecs are DOM-free by contract. A NEW load
+  path MUST end in one of the two (`jsonToWorkspace`'s own pass, or `sanitizeDecodedRichFields`).
   ★★ The form must never write `noteLog` back: the log is WRITE-THROUGH and owns itself, so a draft
   that snapshots it at modal-open and spreads it over the live row on save silently destroys any note
   added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
