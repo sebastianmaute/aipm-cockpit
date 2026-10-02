@@ -376,7 +376,7 @@ export type ConflictItem = {
 function normalizeForCompare(v: unknown): string {
   if (v === undefined || v === null) return "";
   if (Array.isArray(v)) {
-    return [...v.map((x) => String(x))].sort().join("");
+    return [...v.map((x) => String(x))].sort().join("\u0001");
   }
   return String(v);
 }

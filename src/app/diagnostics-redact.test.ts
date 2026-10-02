@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { redactFields } from "./diagnostics-redact";
+import { expectLinearScaling } from "../test/scaling";
 
 describe("redactFields", () => {
   it("returns undefined for empty/absent input", () => {
@@ -156,3 +157,68 @@ describe("§606: a base64-shaped secret split by `+` or ending in `=` padding is
     expect(redactFields({ id: value })?.id).toBe(value);
   });
 });
+
+// §608: the scrub runs over a bounded prefix (SCRUB_WINDOW), so an adversarial long run no longer
+// pays the quadratic backtracking, and a token cut by the window must not leak as a fragment.
+describe("§608: the scrub window bounds backtracking without leaking a cut token", () => {
+  const RUN = "aB3zQ9zK7mP2wR8tYuJ5hG0fD1sA6lM4nB2";
+
+  it("redacts a secret-shaped run that starts before the cap and extends past it", () => {
+    const out = redactFields({ message: `${"x ".repeat(240)}${RUN.repeat(40)}` });
+    expect(out?.message).toBe(`${"x ".repeat(240)}[redacted]`);
+    expect(out?.message).not.toMatch(/[A-Za-z0-9]{32}/);
+  });
+
+  // A ratio guard (src/test/scaling.ts), not a ms ceiling (§592, §612). With the pre-slice the work
+  // is bounded by SCRUB_WINDOW, so quadrupling the run leaves the ratio near 1; without it the
+  // patterns backtrack quadratically (ratio near 16). Hang backstop, not the guard.
+  it("stays bounded on a long mixed-case run (no `+`, no padding)", { timeout: 120_000 }, () => {
+    expectLinearScaling({
+      label: "redactFields on a long mixed-case run",
+      build: (n) => RUN.repeat(Math.ceil(n / RUN.length)).slice(0, n),
+      run: (run) => redactFields({ message: run }),
+      check: (out) => expect(out?.message).toBe("[redacted]"),
+      n: 16_000,
+    });
+  });
+
+  // Redaction shrinks text, so the output's first 500 chars reach original positions past the
+  // cap: a token that starts after FIELD_MAX and is cut by the window must not be emitted raw.
+  // The cut can land anywhere in a token that follows an earlier redacted secret in WHITESPACE-FREE
+  // text (a JSON response body). Sweeping the padding moves the cut across every offset of the
+  // token, and each token shape below is one the trim-back alphabet (TOKEN_CHAR) must cover.
+  it.each([
+    ["an opaque token", "Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0YaQwErTy"],
+    ["a dotted JWT", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sigQz8Lm2Xv9Rt4"],
+    ["a base64 token with + and padding", "Qw3Er5Ty7Ui9Op+As2Df4Gh6Jk8Lz0Xc1Vb=="],
+    ["an sk-ant key", "sk-ant-api03-Zx9Cv8Bn7Mq6Wa5Se4Dr3Ft2Gy1Hu0"],
+    ["a Jira ATATT token", "ATATT3xFfGF0Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0Ya="],
+  ])("leaves no raw prefix of %s that a JSON body's window cuts", (_label, token) => {
+    for (let pad = 0; pad <= 80; pad++) {
+      const body = `{"access_token":"${RUN.repeat(40).slice(0, 900 + pad)}","x":"","refresh_token":"${token}"}`;
+      const out = redactFields({ message: body })?.message as string;
+      expect(out, `pad ${pad}`).not.toContain(token.slice(0, 8));
+    }
+  });
+
+  it("does not emit a fragment of a token the window cuts after the cap", () => {
+    const TOKEN = "Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0YaQwErTy"; // 38 chars, mixed case + digits
+    const lead = RUN.repeat(29).slice(0, 994); // redacts to a few chars, starts before the cap
+    const out = redactFields({ message: `${lead} ${TOKEN}` });
+    expect(out?.message).not.toContain("Zq8Lm2Xv9");
+    expect(out?.message).toBe("[redacted] ");
+  });
+
+  // A run that starts before the cap and reaches the window's cut is never handed to the patterns:
+  // its only `+` lies past the window, where the §606 rule would have needed it, so the whole run is
+  // redacted instead of leaving short `/`-separated pieces visible.
+  it("redacts a long base64 run whose only + lies past the window, leaving no raw piece", () => {
+    const piece = (n: number) => `Ab3${String(n).padStart(4, "0")}xYzQ`; // 11 chars, mixed case + digits
+    let run = "";
+    for (let n = 0; run.length < 1100; n++) run += piece(n) + (n % 2 === 1 ? "/" : "");
+    const out = redactFields({ message: `k${run}+Zz9` })?.message as string;
+    expect(out).toBe("[redacted]");
+    expect(out).not.toMatch(/Ab3\d{4}x/);
+  });
+});
+

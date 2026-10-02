@@ -236,6 +236,19 @@ describe("buildDocxTable — width follows the page", () => {
     }
   });
 
+  it("§155 names no table style and draws its rules from all six explicit borders", () => {
+    // A `<w:tblStyle>` the package never declares is silently ignored by Word, so the
+    // borders below are the ONLY thing giving the table its appearance.
+    const xml = buildDocxTable(["A", "B"], [["1", "2"]]);
+    expect(xml).not.toContain("tblStyle");
+    const borders = xml.match(/<w:tblBorders>[\s\S]*?<\/w:tblBorders>/)?.[0] ?? "";
+    for (const edge of ["top", "left", "bottom", "right", "insideH", "insideV"]) {
+      expect(borders).toMatch(new RegExp(`<w:${edge}\\s+w:val="single"`));
+    }
+    // EXACTLY six edges: a seventh (e.g. a diagonal) would pass the loop above.
+    expect(borders.match(/<w:[A-Za-z]+\s/g)).toHaveLength(6);
+  });
+
   it("declares the same total on <w:tblW> as the columns add up to", () => {
     const xml = buildDocxTable(["A", "B"], [], docxContentWidth("portrait"));
     expect(xml).toContain(`<w:tblW w:w="${tableWidth(xml)}" w:type="dxa"/>`);

@@ -182,16 +182,37 @@ export function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: Ta
  *  Linear because the next open is searched for from just past the ">" this
  *  one ended at, so no character is scanned twice. That also consumes any
  *  open sitting inside the visited tag's text, as the regex did. An open with
- *  no ">" after it ends the walk: none further right can have one either. */
-export function forEachOpenTag(xml: string, openPattern: string, visit: (tag: string) => boolean): void {
+ *  no ">" after it ends the walk: none further right can have one either.
+ *  `start` is the tag's offset in `xml`. */
+export function forEachOpenTag(
+  xml: string,
+  openPattern: string,
+  visit: (tag: string, start: number) => boolean,
+): void {
   const openRe = new RegExp(openPattern, "g");
   let m: RegExpExecArray | null;
   while ((m = openRe.exec(xml)) !== null) {
     const gt = xml.indexOf(">", openRe.lastIndex);
     if (gt === -1) return;
-    if (!visit(xml.slice(m.index, gt + 1))) return;
+    if (!visit(xml.slice(m.index, gt + 1), m.index)) return;
     openRe.lastIndex = gt + 1;
   }
+}
+
+/** forEachOpenTag with every open tag replaced by `replacement` — what a global
+ *  `String.replace(/<name[^>]*>/g, replacement)` did, minus the backtracking
+ *  (§578). An open with no ">" after it is left in place, as the regex left it.
+ *  ★ `openPattern` must not match a ">" itself, or the tag would end before
+ *  the open does; a `<` plus name/whitespace classes never does. */
+export function replaceOpenTags(html: string, openPattern: string, replacement: string): string {
+  let out = "";
+  let cursor = 0;
+  forEachOpenTag(html, openPattern, (tag, start) => {
+    out += html.slice(cursor, start) + replacement;
+    cursor = start + tag.length;
+    return true;
+  });
+  return out + html.slice(cursor);
 }
 
 /** forEachTagPair with each pair replaced by `render`'s output — what

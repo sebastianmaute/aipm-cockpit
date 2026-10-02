@@ -95,11 +95,13 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 - `ResourcePlan.currency` is narrowed to `BudgetCurrency` (`SUPPORTED_CURRENCIES`: EUR, USD and GBP
   today; `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts`). INR is requested in §477.
 - ★★ **THE INDEXEDDB LOAD PATH IS THE ONE PATH THAT DOES NOT RUN `sanitizePlan`**, and it coerces
-  the CURRENCY ONLY (`isBudgetCurrency`, else `"EUR"`, in `browser-backend.ts`). Do not "complete
-  the pattern" by calling `sanitizePlan` there. It would also clamp `granularity`, replace the date
-  window on an unparseable date, swap reversed dates, and drop an explicit
-  `budgetFollowsPlan: false`. The comment beside the coercion records which of the four the suite
-  pins (two). That gap is open as §470.
+  a stored plan instead (in `browser-backend.ts`; `isBudgetCurrency` gates the
+  currency). Do not "complete the pattern" by calling `sanitizePlan` there. It would also swap
+  reversed dates and drop an explicit `budgetFollowsPlan: false`. Instead the exported `coerceStoredPlan` (§470, closed
+  2026-10-02) coerces FIELD-WISE: `currency` (else `"EUR"`), an out-of-union `granularity` (else
+  `"month"`) and a start or end date that does not parse (each replaced ALONE by the default's —
+  which can itself produce a reversed window, left unswapped like any stored one). The suite pins
+  each shape with its own fixture.
 - ★★ **A NON-EUR PLAN: RATES ARE IN ITS CURRENCY (§473, closed 2026-10-02).** When the plan and a
   fixed-price bucket share one non-EUR currency, `planCurrencyPerEur` reuses the BUCKET's rate
   resolution (its `fxRateOverride` included), so the contract and the cost divide by the same number
@@ -229,7 +231,7 @@ comments).
 
 ## Open register entries
 
-§470 (the IndexedDB plan path sanitises only the currency) · §473 (a non-EUR plan) · §476 (the
+§473 (a non-EUR plan) · §476 (the
 baseline currency is hardcoded EUR) · §477 (only three currencies; INR wanted) · §500 (budget
 forecast hours cannot be imported from a spreadsheet) · §545 (the AI
 dashboard snapshot and the exports carry no budget forecast figures) · §551 (the dead snapshot

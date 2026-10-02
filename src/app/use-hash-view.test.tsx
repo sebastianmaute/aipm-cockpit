@@ -501,6 +501,50 @@ describe("useHashView", () => {
     expect(result.current.activeTab).toBe("open-points");
   });
 
+  // §536 — the disabled stretch above is the PRE-HYDRATION one (`settled`
+  // defaults to false), which every load has. Once settings have hydrated
+  // into Classic, the page's cold window is spent there, so the first switch
+  // to Modern is a §478 re-entry rather than a cold apply against the hash
+  // Classic left behind.
+  it("treats a switch to modern after a settled classic stretch as a re-entry, not a cold load", () => {
+    window.location.hash = "#raid/123"; // stale: classic never maintains the hash
+    // Cold target (open-points) differs from the provider default, so a cold
+    // apply of a VIEW-only reading would be visible too — not just the reopen.
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    const { result, rerender } = renderHook(
+      ({ enabled, settled }: { enabled: boolean; settled: boolean }) => {
+        useHashView(enabled, features, { settled });
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: false, settled: false } },
+    );
+    rerender({ enabled: false, settled: true }); // hydrated: classic
+    act(() => { result.current.setActiveTab("gantt"); }); // classic writes no hash
+    expect(window.location.hash).toBe("#raid/123");
+
+    rerender({ enabled: true, settled: true }); // Settings → Modern
+    expect(result.current.activeTab).toBe("gantt");
+    expect(result.current.pendingOpen).toBeNull();
+    expect(window.location.hash).toBe("#gantt");
+  });
+
+  it("still applies the cold rule when hydration lands on modern directly", () => {
+    // The real call site settles and enables in ONE commit for a modern user;
+    // the settled-and-disabled consumption above must not fire for it.
+    window.location.hash = "#raid/123";
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    const { result, rerender } = renderHook(
+      ({ enabled, settled }: { enabled: boolean; settled: boolean }) => {
+        useHashView(enabled, features, { settled });
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: false, settled: false } },
+    );
+    rerender({ enabled: true, settled: true });
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toEqual({ view: "raid", id: 123 });
+  });
+
   it("does not treat StrictMode's mount → unmount → mount as a layout re-entry", () => {
     // A re-entry rewrites the URL to the bare view, which would strip the `/<id>`
     // from a genuine deep link on the very first load in dev (StrictMode).

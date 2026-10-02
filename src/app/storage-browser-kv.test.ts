@@ -5,6 +5,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { createBackend, emptyWorkspace } from "./storage";
+import { defaultResourcePlan } from "./resource-foundation";
 import { KV_PLAN_KEY, idbSet } from "./idb";
 import type { ChangeItem, Milestone, ProjectStatus, Stakeholder } from "./types";
 
@@ -99,6 +100,71 @@ describe("BrowserBackend plan currency coercion", () => {
 
     expect(loaded.plan.currency).toBe("EUR");
     expect(loaded.plan.budgetFollowsPlan).toBe(false);
+  });
+
+  it("coerces an out-of-union stored granularity to month", async () => {
+    await idbSet(KV_PLAN_KEY, {
+      startDate: "2026-03-01", endDate: "2026-09-30",
+      granularity: "quarter", currency: "EUR",
+    });
+
+    const loaded = await createBackend({ kind: "browser" }).load();
+
+    expect(loaded.plan.granularity).toBe("month");
+    expect(loaded.plan.startDate).toBe("2026-03-01");
+  });
+
+  it("coerces a non-string stored granularity to month", async () => {
+    await idbSet(KV_PLAN_KEY, {
+      startDate: "2026-03-01", endDate: "2026-09-30",
+      granularity: 7, currency: "EUR",
+    });
+
+    const loaded = await createBackend({ kind: "browser" }).load();
+
+    expect(loaded.plan.granularity).toBe("month");
+  });
+
+  it("replaces only an unparseable startDate with the default's, keeping the valid endDate", async () => {
+    await idbSet(KV_PLAN_KEY, {
+      startDate: "not-a-date", endDate: "2026-09-30",
+      granularity: "week", currency: "EUR",
+    });
+
+    const loaded = await createBackend({ kind: "browser" }).load();
+
+    // The load's own fallback: `defaultResourcePlan(today)`. An ISO-shape check
+    // would also pass for any other well-formed date.
+    const fallback = defaultResourcePlan(new Date().toISOString().slice(0, 10));
+    expect(loaded.plan.startDate).toBe(fallback.startDate);
+    expect(loaded.plan.endDate).toBe("2026-09-30");
+    expect(loaded.plan.granularity).toBe("week");
+  });
+
+  it("replaces only an unparseable endDate with the default's, keeping the valid startDate", async () => {
+    await idbSet(KV_PLAN_KEY, {
+      startDate: "2026-03-01", endDate: "not-a-date",
+      granularity: "week", currency: "EUR",
+    });
+
+    const loaded = await createBackend({ kind: "browser" }).load();
+
+    const fallback = defaultResourcePlan(new Date().toISOString().slice(0, 10));
+    expect(loaded.plan.startDate).toBe("2026-03-01");
+    expect(loaded.plan.endDate).toBe(fallback.endDate);
+  });
+
+  it("replaces both dates with the defaults when both are unparseable", async () => {
+    await idbSet(KV_PLAN_KEY, {
+      startDate: "nope", endDate: "also-nope",
+      granularity: "week", currency: "EUR",
+    });
+
+    const loaded = await createBackend({ kind: "browser" }).load();
+
+    const fallback = defaultResourcePlan(new Date().toISOString().slice(0, 10));
+    expect(loaded.plan.startDate).toBe(fallback.startDate);
+    expect(loaded.plan.endDate).toBe(fallback.endDate);
   });
 
   it("leaves a supported stored currency untouched", async () => {

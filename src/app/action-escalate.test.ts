@@ -13,7 +13,9 @@ import {
 } from "./action-escalate";
 import { loadI18n, t } from "./i18n";
 import { severityLabel } from "./raid-labels";
+import { RAID_ESCALATION_NAME_MAX, stripBreakTags } from "./raid-escalation";
 import type { RaidItem } from "./types";
+import { expectLinearScaling } from "../test/scaling";
 
 function raid(partial: Partial<RaidItem>): RaidItem {
   return { id: 1, category: "I", title: "X", status: "Open", severity: "High", ...partial } as RaidItem;
@@ -122,6 +124,33 @@ describe("buildEscalationEntry", () => {
     expect(entry.toName).toBe("Jane Doe");
     expect(describeEscalation("en-US", entry)).not.toMatch(/<br/i);
     expect(describeEscalation("en-US", entry)).toContain("Jane Doe"); // positive control
+  });
+  it("caps the name at RAID_ESCALATION_NAME_MAX before stripping, as the load path does (§578)", () => {
+    const plan = { raisesSeverity: false, reason: "risk" } as const;
+    const long = buildEscalationEntry(plan, { name: "a".repeat(RAID_ESCALATION_NAME_MAX + 300), email: "a@example.com", resourceId: null }, AT);
+    expect(long.toName).toBe("a".repeat(RAID_ESCALATION_NAME_MAX));
+    // Within the cap the write path strips exactly as before.
+    const names = ["Ada Lovelace", "  Ada <br/> Lovelace  ", "Ada<BR class=\"x\">Lovelace", "a".repeat(RAID_ESCALATION_NAME_MAX)];
+    const out = names.map((name) => buildEscalationEntry(plan, { name, email: "a@example.com", resourceId: null }, AT).toName);
+    expect(out).toEqual(names.map(stripBreakTags));
+  });
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays linear on a huge name full of unclosed <br opens (§578)", { timeout: 120_000 }, () => {
+    // BREAK_TAG's `\s*` and `[^>]*` backtrack to the end of the value from every
+    // start; the write path stripped the whole name (§578: ~23 s at 80k "<br "
+    // bare). A ratio guard (src/test/scaling.ts): linear ≈ 4, quadratic ≈ 16,
+    // limit 8 — a ms ceiling fails a correct build on a loaded runner (§592, §612).
+    // n is 5,000 so the quadratic mutant finishes in seconds.
+    // ★ `check` deliberately does NOT pin the cap: the uncapped mutant returns the
+    // whole name, and a length assertion would fail it on the untimed warm-up,
+    // before any ratio is measured. The test above pins the cap.
+    expectLinearScaling({
+      label: "buildEscalationEntry on unclosed <br opens",
+      build: (n) => "<br ".repeat(n),
+      run: (name) => buildEscalationEntry({ raisesSeverity: false, reason: "risk" }, { name, email: "a@example.com", resourceId: null }, AT),
+      check: (entry) => expect(entry.toName?.startsWith("<br <br")).toBe(true),
+      n: 5_000,
+    });
   });
 });
 
