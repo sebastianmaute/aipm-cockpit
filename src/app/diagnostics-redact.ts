@@ -14,21 +14,31 @@ const FIELD_MAX = 500;
 // eyJ 23, ATATT 6, key=value ~7, the two base64 rules 32), all far under 512, and none looks
 // beyond its own run: a token that starts inside the first FIELD_MAX chars keeps >= 512 chars
 // before the cut, so it still matches.
-// ★ Redaction SHRINKS text, so the first FIELD_MAX chars of the OUTPUT can reach original
-// positions past FIELD_MAX. A token that starts there and is cut by the window with too few
-// chars kept would survive as a raw fragment, so `boundScrubInput` moves the cut back to the
-// start of the trailing whitespace-delimited token (a linear backward scan, no regex).
+// ★ That argument covers only a token that STARTS inside FIELD_MAX. Redaction SHRINKS text, so
+// the first FIELD_MAX chars of the OUTPUT can reach original positions far past FIELD_MAX, and
+// a token that starts there and is cut by the window with too few chars kept would survive as a
+// raw fragment. `boundScrubInput` therefore moves the cut back to the start of the token-
+// alphabet run it would split (a linear backward scan, no regex over the window).
 export const SCRUB_WINDOW = FIELD_MAX + 512;
+
+// The union of every character a SECRET_VALUE_PATTERNS match can be made of, read off the
+// patterns: sk-ant- [A-Za-z0-9_-]; Bearer [A-Za-z0-9._-]; Basic [A-Za-z0-9+/=]; eyJ [A-Za-z0-9._-];
+// ATATT [A-Za-z0-9_=.-]; the base64 rule [A-Za-z0-9+/] and `=`; the catch-all [A-Za-z0-9_-].
+// key=value's value class [^&s] is wider, but any prefix of it still matches and a cut right
+// after the `=` only drops the value, so it needs no entry. Whitespace is NOT in the set: a
+// secret is split from what precedes it by anything outside it, which is how JSON quotes and
+// commas end a run. Widening a pattern's alphabet means widening this set; the §608 test pins it.
+const TOKEN_CHAR = /[A-Za-z0-9+/=_.-]/;
 
 function boundScrubInput(value: string): string {
   if (value.length <= SCRUB_WINDOW) return value;
-  // The cut lands between two non-whitespace chars only when it splits a token.
-  if (/\s/.test(value[SCRUB_WINDOW - 1]) || /\s/.test(value[SCRUB_WINDOW])) {
+  // The cut splits a token run only when the chars on both sides are token chars.
+  if (!TOKEN_CHAR.test(value[SCRUB_WINDOW - 1]) || !TOKEN_CHAR.test(value[SCRUB_WINDOW])) {
     return value.slice(0, SCRUB_WINDOW);
   }
   let start = SCRUB_WINDOW;
-  while (start > 0 && !/\s/.test(value[start - 1])) start--;
-  // A token starting inside FIELD_MAX keeps >= 512 chars, so its pattern still matches.
+  while (start > 0 && TOKEN_CHAR.test(value[start - 1])) start--;
+  // A run starting inside FIELD_MAX keeps >= 512 chars, so its pattern still matches.
   return value.slice(0, start < FIELD_MAX ? SCRUB_WINDOW : start);
 }
 

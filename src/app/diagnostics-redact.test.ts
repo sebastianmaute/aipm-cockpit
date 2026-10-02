@@ -184,6 +184,23 @@ describe("§608: the scrub window bounds backtracking without leaking a cut toke
 
   // Redaction shrinks text, so the output's first 500 chars reach original positions past the
   // cap: a token that starts after FIELD_MAX and is cut by the window must not be emitted raw.
+  // The cut can land anywhere in a token that follows an earlier redacted secret in WHITESPACE-FREE
+  // text (a JSON response body). Sweeping the padding moves the cut across every offset of the
+  // token, and each token shape below is one the trim-back alphabet (TOKEN_CHAR) must cover.
+  it.each([
+    ["an opaque token", "Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0YaQwErTy"],
+    ["a dotted JWT", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sigQz8Lm2Xv9Rt4"],
+    ["a base64 token with + and padding", "Qw3Er5Ty7Ui9Op+As2Df4Gh6Jk8Lz0Xc1Vb=="],
+    ["an sk-ant key", "sk-ant-api03-Zx9Cv8Bn7Mq6Wa5Se4Dr3Ft2Gy1Hu0"],
+    ["a Jira ATATT token", "ATATT3xFfGF0Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0Ya="],
+  ])("leaves no raw prefix of %s that a JSON body's window cuts", (_label, token) => {
+    for (let pad = 0; pad <= 80; pad++) {
+      const body = `{"access_token":"${RUN.repeat(40).slice(0, 900 + pad)}","x":"","refresh_token":"${token}"}`;
+      const out = redactFields({ message: body })?.message as string;
+      expect(out, `pad ${pad}`).not.toContain(token.slice(0, 8));
+    }
+  });
+
   it("does not emit a fragment of a token the window cuts after the cap", () => {
     const TOKEN = "Zq8Lm2Xv9Rt4Wb7Nc3Hd6Jf1Ks5Pg0YaQwErTy"; // 38 chars, mixed case + digits
     const lead = RUN.repeat(29).slice(0, 994); // redacts to a few chars, starts before the cap
