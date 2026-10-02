@@ -173,7 +173,8 @@ function replaceOpen(
   actor: BlockerActor,
   now: string,
 ): readonly BlockerEntry[] {
-  const lines = clean === "" ? [] : clean.split("\n").map((l) => l.trim());
+  const rawLines = clean === "" ? [] : clean.split("\n");
+  const lines = rawLines.map((l) => l.trim());
   const consumed = lines.map(() => false);
   const kept = new Set<BlockerEntry>();
   const open = log
@@ -189,7 +190,9 @@ function replaceOpen(
     });
     kept.add(entry);
   }
-  const rest = cleanText(lines.filter((_, i) => !consumed[i]).join("\n"));
+  // Compare on trimmed lines, but build the new entry from the UNTRIMMED ones
+  // so its indentation survives (as `addBlocker` keeps it).
+  const rest = cleanText(rawLines.filter((_, i) => !consumed[i]).join("\n"));
   const resolvesAny = open.some((e) => !kept.has(e));
   if (!resolvesAny && rest === "") return log;
   const next = log.map((e) => (isOpen(e) && !kept.has(e) ? { ...e, resolvedAt: now } : e));
@@ -286,13 +289,16 @@ const EPOCH = "1970-01-01T00:00:00.000Z";
  *  newest timestamp already in the log, else the epoch. */
 function loadStamp(task: Task, log: readonly BlockerEntry[]): string {
   const day = task.lastUpdateDate ?? "";
-  if (ISO_DATE.test(day) && !Number.isNaN(Date.parse(day))) return `${day}T00:00:00.000Z`;
   const times = log.flatMap((e) => [e.createdAt, e.editedAt, e.resolvedAt]);
   let newest = EPOCH;
   for (const t of times) {
     if (t !== undefined && timeOf(t) > timeOf(newest)) newest = t;
   }
-  return newest;
+  if (!ISO_DATE.test(day) || Number.isNaN(Date.parse(day))) return newest;
+  const dayStamp = `${day}T00:00:00.000Z`;
+  // Never earlier than the log's newest time: a minted entry must not sort
+  // before existing ones, nor a `resolvedAt` predate its entry's `createdAt`.
+  return timeOf(dayStamp) >= timeOf(newest) ? dayStamp : newest;
 }
 
 /** Load migration. Legacy text with no log becomes one open entry. With a log,

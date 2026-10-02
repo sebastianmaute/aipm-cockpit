@@ -408,6 +408,70 @@ describe("blocker-log", () => {
     expect(selfBlockerActor(null, resources)).toEqual({});
   });
 
+  it("setBlockersText keeps the indentation of the new entry's lines", () => {
+    const out = setBlockersText(makeTask(), "Waiting:\n  - legal\n    - review", ACTOR, NOW);
+    expect(out.blockerLog?.[0]?.text).toBe("Waiting:\n  - legal\n    - review");
+    expect(out.blockers).toBe("Waiting:\n  - legal\n    - review");
+  });
+
+  it("setBlockersText still matches an open entry when the line's surrounding whitespace differs", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "B\nC", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const t = withBlockerLog(makeTask(), log);
+    const out = setBlockersText(t, "  A\t\n B \n   C\nNew\n  - sub", ACTOR, NOW);
+    expect(out.blockerLog?.[0]).toBe(log[0]);
+    expect(out.blockerLog?.[1]).toBe(log[1]);
+    expect(out.blockerLog?.[2]).toEqual({
+      id: 3,
+      text: "New\n  - sub",
+      createdAt: NOW,
+      authorResourceId: 7,
+      authorName: "Ada",
+    });
+  });
+
+  it("a load-minted entry never sorts before existing entries nor resolves before its creation", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-06-01T00:00:00.000Z" },
+      { id: 2, text: "Z", createdAt: "2026-05-01T00:00:00.000Z" },
+    ];
+    const out = migrateBlockers(makeTask({ blockers: "A\nNew", lastUpdateDate: "2026-03-04", blockerLog: log }));
+    expect(out.blockerLog?.[1]?.resolvedAt).toBe("2026-06-01T00:00:00.000Z");
+    expect(out.blockerLog?.[2]).toEqual({ id: 3, text: "New", createdAt: "2026-06-01T00:00:00.000Z" });
+    expect(out.blockers).toBe("A\nNew");
+    expect(migrateBlockers(out)).toBe(out);
+    // A later lastUpdateDate still wins over an older log.
+    const later = migrateBlockers(makeTask({ blockers: "A\nNew", lastUpdateDate: "2026-09-09", blockerLog: log }));
+    expect(later.blockerLog?.[2]?.createdAt).toBe("2026-09-09T00:00:00.000Z");
+  });
+
+  it("setBlockersText with duplicate identical open entries keeps the oldest and resolves the other", () => {
+    const log: BlockerEntry[] = [
+      { id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" },
+      { id: 2, text: "A", createdAt: "2026-01-02T00:00:00Z" },
+    ];
+    const t = withBlockerLog(makeTask(), log);
+    const one = setBlockersText(t, "A", ACTOR, NOW);
+    expect(one.blockerLog?.[0]).toBe(log[0]);
+    expect(one.blockerLog?.[1]).toEqual({ ...log[1], resolvedAt: NOW });
+    expect(one.blockers).toBe("A");
+    const grown = setBlockersText(t, "A\nA\nB", ACTOR, NOW);
+    expect(grown.blockerLog?.[0]).toBe(log[0]);
+    expect(grown.blockerLog?.[1]).toBe(log[1]);
+    expect(grown.blockerLog?.[2]).toMatchObject({ id: 3, text: "B", createdAt: NOW });
+    expect(grown.blockerLog).toHaveLength(3);
+  });
+
+  it("setBlockersText does not match an open entry against a longer line", () => {
+    const log: BlockerEntry[] = [{ id: 1, text: "A", createdAt: "2026-01-01T00:00:00Z" }];
+    const out = setBlockersText(withBlockerLog(makeTask(), log), "AB", ACTOR, NOW);
+    expect(out.blockerLog?.[0]).toEqual({ ...log[0], resolvedAt: NOW });
+    expect(out.blockerLog?.[1]).toMatchObject({ id: 2, text: "AB", createdAt: NOW });
+    expect(out.blockers).toBe("AB");
+  });
+
   it("a text whose cap lands just after a space settles in one migrate", () => {
     // The cap falls on the space at index TEXTAREA_MAX - 1, so a cleaner that
     // only trimmed BEFORE slicing would keep a trailing space for the next pass.
