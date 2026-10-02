@@ -99,6 +99,25 @@ import {
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
 import { SaveConflictError } from "./storage-error";
+import { requiredIsoDateOnLoad } from "./sanitize-load-date";
+
+/** Field-wise load coercion of a KV plan blob (register §470). Only the three
+ *  fields whose stored value can violate the declared type are touched:
+ *  `currency`, `granularity`, and a start/end date that does not parse (each
+ *  replaced ALONE by `fallback`'s). A reversed window and `budgetFollowsPlan`
+ *  (incl. an explicit `false`) are deliberately left as stored. The date test
+ *  is the one `sanitizePlan` uses. */
+export function coerceStoredPlan(stored: ResourcePlan, fallback: ResourcePlan): ResourcePlan {
+  const startOk = requiredIsoDateOnLoad(stored.startDate, "plan", undefined, "startDate") !== "";
+  const endOk = requiredIsoDateOnLoad(stored.endDate, "plan", undefined, "endDate") !== "";
+  return {
+    ...stored,
+    currency: isBudgetCurrency(stored.currency) ? stored.currency : "EUR",
+    granularity: stored.granularity === "week" || stored.granularity === "month" ? stored.granularity : "month",
+    startDate: startOk ? stored.startDate : fallback.startDate,
+    endDate: endOk ? stored.endDate : fallback.endDate,
+  };
+}
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -304,27 +323,18 @@ export class BrowserBackend implements StorageBackend {
       roles = idbRoles;
       disciplines = idbDisciplines;
       grades = idbGrades;
-      // ★★ CURRENCY-ONLY coercion, and the "only" is load-bearing. This path
-      // reads the KV plan blob VERBATIM and casts it — unlike `jsonToWorkspace`
-      // and the CSV/MD/Turso decoders, it never runs `sanitizePlan`. Since
-      // `ResourcePlan.currency` became the `BudgetCurrency` union, a workspace
-      // stored before that narrowing can hold a value the type forbids ("CHF"),
-      // which would make the declaration a lie on this backend. Do NOT
-      // "complete the pattern" by calling `sanitizePlan` here: it would ALSO
-      // clamp `granularity` to "month", replace the entire date window whenever
-      // either date fails to parse, swap reversed dates, and DROP an explicit
-      // `budgetFollowsPlan: false` — four unrelated rewrites on every load.
-      // ★★ `storage-browser-kv.test.ts` pins TWO of those four, not all four:
-      // the reversed window (a fixture whose end precedes its start, asserted
-      // unswapped) and the dropped `budgetFollowsPlan: false`. The other two
-      // are NOT covered. The granularity fixture seeds `"week"`, which
-      // `sanitizePlan` PRESERVES (`raw.granularity === "week" ? "week" :
-      // "month"`), so that assertion passes identically with or without the
-      // call — only a granularity OUTSIDE the union would discriminate. And no
-      // fixture carries a malformed date, so the date-window replacement is
-      // unreachable there. Adding `sanitizePlan` here would still be wrong for
-      // all four reasons; the suite would only go red for two of them.
-      plan = idbPlan ? (isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }) : plan;
+      // ★★ FIELD-WISE coercion (`coerceStoredPlan`), not `sanitizePlan`. This
+      // path reads the KV plan blob VERBATIM — unlike `jsonToWorkspace` and the
+      // CSV/MD/Turso decoders, it never runs `sanitizePlan`. The stored blob can
+      // violate the declared types in three fields, so exactly those are
+      // coerced: `currency` (the `BudgetCurrency` union), `granularity` (the
+      // `PlanGranularity` union) and an unparseable start/end date (each
+      // replaced alone by the default's). Do NOT "complete the pattern" by
+      // calling `sanitizePlan` here: it would ALSO swap a reversed window and
+      // DROP an explicit `budgetFollowsPlan: false` — two rewrites that are a
+      // real behaviour change, and both stay untouched on purpose.
+      // `storage-browser-kv.test.ts` pins all five shapes, one fixture each.
+      plan = idbPlan ? coerceStoredPlan(idbPlan, plan) : plan;
       budgets = idbBudgets;
       fxRates = idbFxRates ?? null;
       status = idbStatus ?? {};
