@@ -151,6 +151,40 @@ export interface CaptureOpts<T extends { id: number }> {
   name?: string;
   /** Explicit entity for the label when the kind is entity-ambiguous (bulk.edit). */
   entityKey?: UndoEntityKey;
+  /** §177b — the `edited` rows AS THE OP WROTE THEM. When given, the edits are
+   *  captured as a FIELD patch of exactly the keys that changed
+   *  (`fieldEditsFromRows`) instead of whole-row before-images, so an undo
+   *  leaves every other field — including one a concurrent writer changed —
+   *  alone. `removed` rows stay whole-row either way. */
+  editedAfter?: readonly T[];
+}
+
+/** §177b — derive a field patch from whole before/after rows: per row, every
+ *  top-level key whose value is not the SAME REFERENCE before and after. Every
+ *  producer here builds a new row by spreading the old one, so an untouched key
+ *  keeps its reference and an edited one does not. Rows with no `after` (or no
+ *  changed key) are skipped. */
+export function fieldEditsFromRows<T extends { id: number }>(
+  before: readonly T[],
+  after: readonly T[],
+): { id: number; before: Partial<T>; after: Partial<T> }[] {
+  const afterById = new Map(after.map((r) => [r.id, r]));
+  const out: { id: number; before: Partial<T>; after: Partial<T> }[] = [];
+  for (const b of before) {
+    const a = afterById.get(b.id);
+    if (!a) continue;
+    const was: Record<string, unknown> = {};
+    const now: Record<string, unknown> = {};
+    for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) {
+      const bv = (b as Record<string, unknown>)[k];
+      const av = (a as Record<string, unknown>)[k];
+      if (bv === av) continue;
+      was[k] = bv;
+      now[k] = av;
+    }
+    if (Object.keys(was).length > 0) out.push({ id: b.id, before: was as Partial<T>, after: now as Partial<T> });
+  }
+  return out;
 }
 
 /** A single-field-group edit: revert by MERGING `before`/`after` onto the live
@@ -410,8 +444,8 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  notes, at the time marked "very likely" but UNVERIFIED. That half was
  *  measured true on 2026-08-18 — `use-bulk-operations.ts` captured whole
  *  `beforeRows` exactly like RAID and changes — and both are now CLOSED: every
- *  `bulk.edit` site was converted to a field patch. Residual whole-row paths
- *  outside `bulk.edit` are tracked as open-followups §177, not here). A patch
+ *  `bulk.edit` site was converted to a field patch, and §177 converted the
+ *  field-shaped non-bulk ones — see `CaptureOpts.editedAfter`). A patch
  *  merge touches only the fields the op actually wrote. Use this whenever the
  *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
@@ -429,6 +463,13 @@ export interface CaptureFieldPart<T extends { id: number }> {
    *  do not add a runtime dedup here on the strength of one site's list. */
   edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
   stampField?: keyof T & string;
+  /** §177b — the field on THESE rows that references the composite's PRIMARY
+   *  deleted entity, exactly as on `CapturePart`: on undo each `before[field]`
+   *  is remapped through the primary's id-remap, so a cascade restored as a
+   *  field patch follows a re-minted primary instead of pointing at whatever
+   *  live row now holds the old id. Only meaningful inside a composite whose
+   *  primary is a `capturePart` delete flagged `isPrimary`. */
+  fkRemapField?: keyof T & string;
 }
 
 /**
@@ -483,15 +524,17 @@ export interface CaptureFieldPart<T extends { id: number }> {
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,
 ): CompositeFragment | null {
-  const { setter, edits, stampField } = part;
-  if (edits.length === 0) return null;
-  const byId = new Map(edits.map((e) => [e.id, e]));
+  const { setter, stampField, fkRemapField } = part;
+  if (part.edits.length === 0) return null;
+  type Edit = (typeof part.edits)[number];
   const apply = (
-    target: (e: (typeof edits)[number]) => Partial<T>,
-    other: (e: (typeof edits)[number]) => Partial<T>,
+    byIdOf: () => ReadonlyMap<number, Edit>,
+    target: (e: Edit) => Partial<T>,
+    other: (e: Edit) => Partial<T>,
   ) => {
-    setter((prev) =>
-      prev.map((row) => {
+    setter((prev) => {
+      const byId = byIdOf();
+      return prev.map((row) => {
         const edit = byId.get(row.id);
         if (!edit) return row;
         // Per-key merge, not a wholesale spread: a concurrent writer that changed
@@ -504,12 +547,28 @@ export function captureFieldPart<T extends { id: number }>(
         return stampField
           ? ({ ...merged, [stampField]: new Date().toISOString() } as T)
           : merged;
-      }),
-    );
+      });
+    });
   };
-  const restore = (): (() => void) => {
-    apply((e) => e.before, (e) => e.after);
-    return () => apply((e) => e.after, (e) => e.before);
+  const plain = new Map(part.edits.map((e) => [e.id, e]));
+  const restore = (primaryRemap?: { current: ReadonlyMap<number, number> }): (() => void) => {
+    // §177b — follow the primary's re-mint for the FK this cascade cleared.
+    // ★ Read INSIDE the updater, as `capturePart` does: the primary's own
+    //   updater publishes the remap, and an updater queued after it runs after
+    //   it, however React batches the two calls.
+    let resolved: ReadonlyMap<number, Edit> = plain;
+    const remapped = (): ReadonlyMap<number, Edit> => {
+      const remap = fkRemapField && primaryRemap ? primaryRemap.current : EMPTY_REMAP;
+      if (remap.size === 0) return (resolved = plain);
+      resolved = new Map(part.edits.map((e) => {
+        const fk = e.before[fkRemapField as keyof T];
+        const to = typeof fk === "number" ? remap.get(fk) : undefined;
+        return [e.id, to === undefined ? e : { ...e, before: { ...e.before, [fkRemapField as string]: to } }];
+      }));
+      return resolved;
+    };
+    apply(remapped, (e) => e.before, (e) => e.after);
+    return () => apply(() => resolved, (e) => e.after, (e) => e.before);
   };
   return { isPrimary: false, restore };
 }
@@ -868,7 +927,19 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [undoById]);
 
   const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
-    const { setter, kind, removed = [], edited = [], fromArray, name, entityKey } = opts;
+    const { setter, kind, removed = [], edited = [], fromArray, name, entityKey, editedAfter } = opts;
+    if (editedAfter !== undefined) {
+      // §177b — removed rows whole (the primary, so a reused id re-mints),
+      // edited rows as a field patch. Same count rule as below.
+      const fragments = [
+        capturePart({ setter, removed, fromArray, isPrimary: true }),
+        captureFieldPart({ setter, edits: fieldEditsFromRows(edited, editedAfter) }),
+      ].filter((f): f is CompositeFragment => f !== null);
+      if (fragments.length === 0) return;
+      const count = removed.length > 0 ? removed.length : edited.length;
+      pushEntry(kind, count, compositeUndoRunner(fragments, armDestructive), { name, entityKey });
+      return;
+    }
     const images = buildBeforeImages(removed, edited, fromArray);
     if (images.length === 0) return;
     // Toast/count reflect the PRIMARY op (the rows the user acted on), not the

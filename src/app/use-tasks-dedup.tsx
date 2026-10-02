@@ -182,6 +182,8 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       kind: "task.deleted",
       removed: result.removed,
       edited: result.editedBefore,
+      // §177b — the keep rows as merged, so undo reverts only what the merge wrote.
+      editedAfter: result.nextTasks,
       fromArray: before,
       entityKey: "task",
     });

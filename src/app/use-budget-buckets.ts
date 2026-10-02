@@ -9,7 +9,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { ActivityKind } from "./activity-log";
 import type { BudgetBucket } from "./types";
-import { capturePart, type CompositeFragment, type UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, capturePart, fieldEditsFromRows, type CompositeFragment, type UndoStackApi } from "./undo/use-undo-stack";
 import { recordBudgetChange, type BudgetHistoryEntry, type ProjectBac } from "./budget-history";
 
 export interface BucketCommitMeta {
@@ -57,7 +57,7 @@ export interface BudgetBucketsApi {
 }
 
 export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
-  const { budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity, projectBac, setBudgetHistory, today } = deps;
+  const { budgets, setBudgets, allowDestructiveSave, captureComposite, logActivity, projectBac, setBudgetHistory, today } = deps;
 
   function commitBuckets(next: readonly BudgetBucket[], meta?: BucketCommitMeta): void {
     const prev = budgets;
@@ -98,19 +98,26 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
     // otherwise become the nominal primary by position, silently leaving any
     // `fkRemapField` cascade pointed at stale ids. Flagging this one keeps the
     // real primary here regardless of which slot `tasksPart` occupies.
+    // §177b — DELETED buckets restore whole (row-shaped, and the primary, so a
+    // reused id re-mints); EDITED buckets restore as a FIELD patch of exactly
+    // the keys the commit changed. Producers hand over whole next-objects, so
+    // the written keys are DERIVED: every top-level key whose value is not the
+    // same reference before and after. An undo then puts back only those, and
+    // an edit another writer made to a different key of the bucket survives.
+    const bucketEdits = fieldEditsFromRows(editedBefore, next);
     const budgetsPart = capturePart<BudgetBucket>({
       setter: setBudgets,
       removed: deleted,
-      edited: editedBefore,
       fromArray: prev,
       isPrimary: true,
     });
+    const bucketEditsPart = captureFieldPart<BudgetBucket>({ setter: setBudgets, edits: bucketEdits });
 
     if (meta?.tasksPart !== undefined && meta.tasksPart !== null) {
       captureComposite({
         kind,
         primaryCount: meta.primaryCount ?? (deleted.length + editedBefore.length),
-        parts: [meta.tasksPart, budgetsPart],
+        parts: [meta.tasksPart, budgetsPart, bucketEditsPart],
         name,
         // ★★ "task", NOT "budget" — and this literal is safe only under BOTH
         // halves of a coupling that nothing here enforces. `buildUndoLabel`
@@ -138,13 +145,13 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
         // it, minus this warning.
         entityKey: "task",
       });
-    } else if (budgetsPart !== null) {
-      capture<BudgetBucket>({
-        setter: setBudgets,
+    } else if (budgetsPart !== null || bucketEditsPart !== null) {
+      // The count the single-array `capture` this replaced reported: the
+      // removed rows when any, else the edited ones.
+      captureComposite({
         kind,
-        removed: deleted,
-        edited: editedBefore,
-        fromArray: prev,
+        primaryCount: deleted.length > 0 ? deleted.length : editedBefore.length,
+        parts: [budgetsPart, bucketEditsPart],
         name,
         entityKey: "budget",
       });

@@ -770,13 +770,41 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
         showToastAction: vi.fn(),
       });
       const handlers = useTaskRowHandlers(
-        makeArgs({ tasksRef, setTasks, capture: undo.capture }),
+        makeArgs({ tasksRef, setTasks, capture: undo.capture, captureComposite: undo.captureComposite }),
       );
       return { tasks, setTasks, undo, handlers };
     });
   }
 
   afterEach(() => vi.restoreAllMocks());
+
+  it("§177b — undoing a delete keeps ANY field a dependent changed since, not only the write-through ones", () => {
+    // The two tests below pin `noteLog` / `outlookEventId`, the fields the
+    // engine's WRITE_THROUGH backstop names. A RENAME is in no such list: under
+    // the whole-row capture it was reverted; as a `dependencies` field patch it
+    // survives, and only the dependency comes back.
+    const blocker = makeTask({ id: 1, taskName: "blocker" });
+    const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = harness([blocker, dependent]);
+    act(() => result.current.handlers.onDelete(1));
+    rerender();
+    act(() => {
+      result.current.setTasks((prev) => prev.map((tk) => (tk.id === 2 ? { ...tk, taskName: "renamed meanwhile" } : tk)));
+    });
+    rerender();
+    act(() => result.current.undo.undo());
+    rerender();
+    expect(result.current.tasks.map((tk) => tk.id).sort()).toEqual([1, 2]);
+    const restored = result.current.tasks.find((tk) => tk.id === 2);
+    expect(restored?.taskName).toBe("renamed meanwhile");
+    expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+    // And redo strips it again, still leaving the rename.
+    act(() => result.current.undo.redo());
+    rerender();
+    expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
+    expect(result.current.tasks[0]).toMatchObject({ taskName: "renamed meanwhile", dependencies: [] });
+  });
 
   it("undoing a delete keeps a note added to a DEPENDENT since the delete", () => {
     const blocker = makeTask({ id: 1, taskName: "blocker" });

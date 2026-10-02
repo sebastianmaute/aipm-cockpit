@@ -252,6 +252,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       setter: setResources,
       kind: "bulk.edit",
       edited: result.editedBefore,
+      // §177b — undo reverts only the utilization cells the plan wrote (a
+      // per-key merge), so a concurrent edit to another period survives.
+      editedAfter: result.nextResources,
       fromArray: before,
       entityKey: "resource",
     });

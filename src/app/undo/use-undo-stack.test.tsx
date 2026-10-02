@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel } from "./use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel, fieldEditsFromRows } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
 import { t } from "../i18n";
 
@@ -1644,3 +1644,57 @@ describe("undo/redo rows name the delivered-ness they reverse (§299)", () => {
     expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "milestone.updated", 1);
   });
 });
+
+describe("§177b — capture with editedAfter is a field patch", () => {
+  type Item = { id: number; name: string; note: string };
+
+  it("fieldEditsFromRows keeps only the keys whose value changed", () => {
+    const shared = { a: 1 };
+    const before = [{ id: 1, name: "a", note: "n", meta: shared }, { id: 2, name: "b", note: "n", meta: shared }];
+    const after = [{ id: 1, name: "A", note: "n", meta: shared }, { id: 2, name: "b", note: "n", meta: shared }];
+    expect(fieldEditsFromRows(before, after)).toEqual([{ id: 1, before: { name: "a" }, after: { name: "A" } }]);
+  });
+
+  function harness(initial: Item[]) {
+    return renderHook(() => {
+      const [rows, setRows] = useState<readonly Item[]>(initial);
+      const undo = useUndoStack(makeDeps());
+      return { rows, setRows: setRows as Dispatch<SetStateAction<readonly Item[]>>, undo };
+    });
+  }
+
+  it("undo reverts the edited key and restores removed rows, keeping a concurrent edit", () => {
+    const start: Item[] = [{ id: 1, name: "keep", note: "" }, { id: 2, name: "gone", note: "" }];
+    const { result } = harness(start);
+    const written = [{ ...start[0], name: "merged" }];
+    act(() => {
+      result.current.setRows(written);
+      result.current.undo.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [start[1]], edited: [start[0]], editedAfter: written, fromArray: start,
+      });
+    });
+    // Another writer touches a DIFFERENT field of the edited row.
+    act(() => result.current.setRows((prev) => prev.map((r) => (r.id === 1 ? { ...r, note: "added" } : r))));
+    act(() => result.current.undo.undo());
+    expect([...result.current.rows].sort((a, b) => a.id - b.id)).toEqual([
+      { id: 1, name: "keep", note: "added" },
+      { id: 2, name: "gone", note: "" },
+    ]);
+    act(() => result.current.undo.redo());
+    expect(result.current.rows).toEqual([{ id: 1, name: "merged", note: "added" }]);
+  });
+
+  it("without editedAfter the whole-row capture still reverts the concurrent edit (the contrast)", () => {
+    const start: Item[] = [{ id: 1, name: "keep", note: "" }];
+    const { result } = harness(start);
+    act(() => {
+      result.current.setRows([{ ...start[0], name: "merged" }]);
+      result.current.undo.capture({ setter: result.current.setRows, kind: "bulk.edit", edited: [start[0]], fromArray: start });
+    });
+    act(() => result.current.setRows((prev) => prev.map((r) => ({ ...r, note: "added" }))));
+    act(() => result.current.undo.undo());
+    expect(result.current.rows[0].note).toBe("");
+  });
+});
+

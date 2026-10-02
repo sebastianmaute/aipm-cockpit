@@ -34,9 +34,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useWorkspace } from "./workspace-context";
 import { mintId } from "./id-mint-session";
-import { type Role } from "./types";
+import { type Resource, type Role } from "./types";
 import { type ActivityKind } from "./activity-log";
-import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 export interface UseReferenceDataArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
@@ -125,7 +125,14 @@ export function useReferenceData(args: UseReferenceDataArgs) {
           name: `${removed.disciplineId}/${removed.gradeId}`,
           parts: [
             capturePart({ setter: setRoles, removed: [removed], fromArray: roles, isPrimary: true }),
-            capturePart({ setter: setResources, edited: affected, fromArray: resources, fkRemapField: "roleId" }),
+            // §177b — a FIELD patch, so undo restores `roleId` alone and a
+            // concurrent edit to another field of these resources survives.
+            captureFieldPart<Resource>({
+              setter: setResources,
+              edits: affected.map((r) => ({ id: r.id, before: { roleId: r.roleId }, after: { roleId: null } })),
+              stampField: "localModifiedAt",
+              fkRemapField: "roleId",
+            }),
           ],
         });
         logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
@@ -217,7 +224,15 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         name: removed.name,
         parts: [
           capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines, isPrimary: true }),
-          capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "disciplineId" }),
+          captureFieldPart<Role>({
+            setter: setRoles,
+            edits: affected.map((r) => ({
+              id: r.id,
+              before: { disciplineId: r.disciplineId, internalRate: r.internalRate, externalRate: r.externalRate },
+              after: { disciplineId: 0, internalRate: 0, externalRate: 0 },
+            })),
+            fkRemapField: "disciplineId",
+          }),
         ],
       });
       logActivityRef.current("discipline.deleted", id, removed.name);
@@ -241,7 +256,15 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         name: removed.name,
         parts: [
           capturePart({ setter: setGrades, removed: [removed], fromArray: grades, isPrimary: true }),
-          capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "gradeId" }),
+          captureFieldPart<Role>({
+            setter: setRoles,
+            edits: affected.map((r) => ({
+              id: r.id,
+              before: { gradeId: r.gradeId, internalRate: r.internalRate, externalRate: r.externalRate },
+              after: { gradeId: 0, internalRate: 0, externalRate: 0 },
+            })),
+            fkRemapField: "gradeId",
+          }),
         ],
       });
       logActivityRef.current("grade.deleted", id, removed.name);

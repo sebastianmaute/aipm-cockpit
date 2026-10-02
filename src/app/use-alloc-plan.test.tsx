@@ -293,6 +293,8 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(arg.kind).toBe("bulk.edit");
     expect(arg.entityKey).toBe("resource");
     expect(arg.edited).toHaveLength(1);
+    // §177b — the written rows ride along, so the undo is a field patch.
+    expect(arg.editedAfter.some((r: { id: number }) => r.id === 1)).toBe(true);
     // The pre-edit image — the resource as it was BEFORE the write.
     expect(arg.edited[0].id).toBe(1);
     expect(arg.edited[0].utilization).toEqual({});
