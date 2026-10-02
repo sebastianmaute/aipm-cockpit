@@ -51,7 +51,7 @@ describe("app-tour engine", () => {
 describe("tour anchors", () => {
   it("places the undo anchor around the undo controls", () => {
     const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
-    expect(src).toContain("data-tour-id={TOUR_ANCHORS.undo}");
+    expect(src).toContain("dataTourId={TOUR_ANCHORS.undo}");
   });
 });
 
