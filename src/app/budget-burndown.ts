@@ -1,7 +1,7 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
 // Reads budgeted vs actual hours across all buckets, and € on the
 // external-rate basis for T&M buckets / the contract-amount basis for
-// fixed-price ones (§472 — see the `type === "fixed"` branch below), returns
+// fixed-price ones (§472 — see the `isContractPriced` branch below, which an end-to-end bucket (§488) shares), returns
 // "remaining" arrays that descend over the plan periods — optionally sliced
 // to a narrower x-axis span (see `span` below).
 // No React, no I/O.
@@ -11,6 +11,7 @@ import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./bud
 import { currencyToEur, planCurrencyPerEur } from "./fx";
 import { actualHoursIn } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
+import { isContractPriced } from "./types";
 
 export type BurndownSeries = {
   periods: readonly string[];
@@ -85,7 +86,7 @@ export function computeBurndownSeries(
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);
 
-    if (b.type === "fixed") {
+    if (isContractPriced(b.type)) {
       // §472: a fixed-price bucket is valued from its CONTRACT AMOUNT, never
       // hours × rate — mirrors computeBucketReport's `fixedPrice`/`consumedValue`
       // (budget-report.ts), through the SAME `currencyToEur` helper (§474/§475
@@ -107,7 +108,10 @@ export function computeBurndownSeries(
       // show budget left in a period that had already exhausted it. The deltas
       // telescope, so an unclipped series still sums to the report's `consumedValue`.
       const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
-      const inWindow: { i: number; bh: number; ah: number }[] = [];
+      // §488 — an end-to-end bucket consumes its contract by COST (actual hours
+      // × internal rate), uncapped, exactly as `computeBucketReport` does.
+      const isEndToEnd = b.type === "e2e";
+      const inWindow: { i: number; bh: number; ah: number; cost: number }[] = [];
       let bucketBudgetHours = 0;
       // `indexByKey` only knows periods inside the CURRENT chart window (see
       // `periods`/`span` above) — a period from `active` outside it is
@@ -125,16 +129,19 @@ export function computeBurndownSeries(
         if (i === undefined) continue;
         let bh = 0;
         let ah = 0;
+        let cost = 0;
         for (const row of rows) {
           bh += effectiveBudgetHours(
             row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
           );
-          ah += actualHoursIn(row.actualHours, p.key);
+          const rowHours = actualHoursIn(row.actualHours, p.key);
+          ah += rowHours;
+          cost += rowHours * row.rates.internal;
         }
         budgetH[i] += bh;
         actualH[i] += ah;
         bucketBudgetHours += bh;
-        inWindow.push({ i, bh, ah });
+        inWindow.push({ i, bh, ah, cost });
       }
       const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
         ? Math.min(fixedPriceEur, fixedPriceEur * (cumActualHours / bucketBudgetHours))
@@ -144,9 +151,13 @@ export function computeBurndownSeries(
       const ordered = [...inWindow].sort((x, y) => x.i - y.i);
       let cumActualHours = 0;
       let cumConsumedEur = 0;
-      for (const { i, bh, ah } of ordered) {
+      for (const { i, bh, ah, cost } of ordered) {
         const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
         budgetV[i] += fixedPriceEur * budgetShare;
+        if (isEndToEnd) {
+          actualV[i] += cost;
+          continue;
+        }
         cumActualHours += ah;
         const nextConsumedEur = consumedAt(cumActualHours);
         actualV[i] += nextConsumedEur - cumConsumedEur;

@@ -20,6 +20,18 @@ role rates ANY OTHER WAY is plan currency and must divide by `planCurrencyPerEur
 tiles' blended rate (`budget-report-panel.tsx`) is the one such site today. The Resources views
 format rate-derived money in `plan.currency`, which is now correct rather than a contradiction.
 
+★★ **THREE BUDGET TYPES, TWO PRICED BY CONTRACT** (§488, 2026-10-02). `BUDGET_TYPES` is
+`tm` · `fixed` · `e2e`; ask `isContractPriced(type)` (`types.ts`), never `type === "fixed"`, for
+"is this bucket valued from `fixedPriceAmount`" — the amount, its FX conversion, the unresolved-rate
+count, the rate-mix exclusion and the win/loss "—" gate all key on it. The two contract types differ
+in ONE thing, consumption: `fixed` consumes a capped share of the contract by hours
+(`min(price, price × actual / budget)`), `e2e` (end-to-end responsibility: the vendor owns delivery,
+so budget hours are an estimate) consumes by COST — actual hours × internal rate, uncapped, so an
+overrun reads past 100% and burns the burndown below zero. `computeBucketReport`,
+`computeBurndownSeries` and the forecast's AC each branch on `type === "e2e"` for exactly that, and
+`budget-burndown.test.ts` pins burndown ⟺ report parity for it. Converting a `fixed` bucket is
+switching the type in the modal; the amount is kept. Labels come from `BUDGET_TYPE_LABEL`.
+
 ## The FX boundary (`fx.ts`)
 
 - **The rate means units of the bucket's currency per 1 EUR.** `currencyToEur` divides by it,

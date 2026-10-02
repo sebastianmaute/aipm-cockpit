@@ -18,6 +18,7 @@ import { currencyToEur, planCurrencyPerEur } from "./fx";
 import { periodKeyForDate } from "./resource-capacity";
 import { isDayKey, granularityOfPeriodKey } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
+import { isContractPriced } from "./types";
 
 export const BURN_RATE_WINDOW_WORKING_DAYS = 20;
 export const FORECAST_GAP_WARNING_RATIO = 0.10;
@@ -213,7 +214,10 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
   for (const bucket of buckets) {
     const br = reportById.get(bucket.id);
     if (!br) continue;
-    const isFixed = bucket.type === "fixed";
+    const isFixed = isContractPriced(bucket.type);
+    // §488 — an end-to-end bucket's actual cost IS its consumption (cost at the
+    // internal rate), so it takes the T&M-shaped terms below at that rate.
+    const isEndToEnd = bucket.type === "e2e";
     hasFixedPrice ||= isFixed;
     // §5.4: the uncapped contract ratio, so a fixed-price overrun shows.
     // ★ Review finding 1: `br.budgetHours` is `computeBucketReport`'s REPORTED
@@ -232,7 +236,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     const fixedPerHour = isFixed && ownBudgetHours > 0
       ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / ownBudgetHours
       : 0;
-    ac += isFixed ? fixedPerHour * br.actualHours : br.consumedValue;
+    ac += isFixed && !isEndToEnd ? fixedPerHour * br.actualHours : br.consumedValue;
     // ★★★ OWN budget, in BOTH units. Ruling 1 (MR 3) said the opposite — EV on
     // the REPORTED, spillover-inclusive basis — and it is SUPERSEDED by the
     // §550 project-rollup fix, not worked around.
@@ -264,7 +268,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     }
     const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
     for (const row of bucketRateRows(bucket, roles, planCurrencyPerEur(plan.currency, bucket, fxRates))) { // §473
-      const perHour = isFixed ? fixedPerHour : row.rates.external;
+      const perHour = isEndToEnd ? row.rates.internal : isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
         // Ruling 4: hours ≤ 0 carry no booking date at all — a negative hand
         // correction is therefore excluded from the dated window BY DESIGN, so

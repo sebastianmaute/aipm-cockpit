@@ -1,4 +1,5 @@
 import type { BudgetBucket, FxRates } from "./types";
+import { isContractPriced } from "./types";
 
 /**
  * Which branch of `resolveRate`'s precedence produced its return value.
@@ -67,7 +68,7 @@ export function countUnresolvedBuckets(
   fxRates: FxRates | null,
 ): number {
   return buckets.reduce(
-    (count, bucket) => count + (bucket.type === "fixed" && resolveRateSource(bucket, fxRates) === "unresolved" ? 1 : 0),
+    (count, bucket) => count + (isContractPriced(bucket.type) && resolveRateSource(bucket, fxRates) === "unresolved" ? 1 : 0),
     0,
   );
 }

@@ -11,8 +11,10 @@ import { useResizable } from "./use-resizable";
 import { SegmentedControl } from "./segmented-control";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
+import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import {
   BUDGET_TYPES,
+  isContractPriced,
   SUPPORTED_CURRENCIES,
   type BudgetBucket,
   type BudgetCurrency,
@@ -251,7 +253,7 @@ export function BudgetBucketModal({
       setError(t(lang, "budgetDateRangeInvalid"));
       return;
     }
-    if (draft.type === "fixed" && draft.fixedPriceAmount != null &&
+    if (isContractPriced(draft.type) && draft.fixedPriceAmount != null &&
         (!Number.isFinite(draft.fixedPriceAmount) || draft.fixedPriceAmount < 0)) {
       return setError(t(lang, "budgetAmountInvalid"));
     }
@@ -292,7 +294,9 @@ export function BudgetBucketModal({
     }));
   };
 
-  const isFixed = draft.type === "fixed";
+  // §488 — "e2e" is contract-priced too, so switching a fixed bucket to it
+  // keeps the amount field (and the amount) on screen: that IS the conversion.
+  const isFixed = isContractPriced(draft.type);
 
   return (
     <Modal
@@ -372,10 +376,7 @@ export function BudgetBucketModal({
               ariaLabel={t(lang, "budgetType")}
               options={BUDGET_TYPES.map((bt) => ({
                 value: bt,
-                label: t(
-                  lang,
-                  bt === "fixed" ? "budgetTypeFixed" : "budgetTypeTm",
-                ),
+                label: t(lang, BUDGET_TYPE_LABEL[bt]),
               }))}
               onChange={(type) => setDraft((d) => ({ ...d, type }))}
             />

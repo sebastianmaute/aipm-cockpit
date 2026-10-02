@@ -5,6 +5,7 @@ import type {
   Absence, BudgetBucket, FxRates, PlanGranularity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
+import { isContractPriced } from "./types";
 import { currencyToEur, planCurrencyPerEur } from "./fx";
 import {
   blendedDisciplineRate,
@@ -391,7 +392,9 @@ export function computeBucketReport(
     : !hasRatedRow ? "no-rates"
     : "unrated-hours";
 
-  const isFixed = bucket.type === "fixed";
+  const isFixed = isContractPriced(bucket.type);
+  // §488 — an end-to-end contract consumes by COST, uncapped (see BudgetType).
+  const isEndToEnd = bucket.type === "e2e";
   // The contract amount is stored in the BUCKET's currency (see
   // BudgetBucket.fixedPriceAmount). Every other money term here is already EUR
   // — `bucketRateRows` converted the plan-currency rates (§473) — so it is
@@ -411,9 +414,11 @@ export function computeBucketReport(
   // out a second time would let the fixed-price branch drift between them.
   const ownBudgetValue = isFixed ? fixedPrice : budgetValueExternal;
   const budgetValue = isFixed ? ownBudgetValue : ownBudgetValue + spilloverInValue;
-  const consumedValue = isFixed
-    ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
-    : tmRevenue;
+  const consumedValue = isEndToEnd
+    ? cost
+    : isFixed
+      ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
+      : tmRevenue;
 
   // The badge is suppressed only when the two DISPLAYED figures are the same
   // number. Row structure alone is not enough: the reported budget hours carry
@@ -439,7 +444,9 @@ export function computeBucketReport(
   const ownWinLossValue = isFixed ? revenue - cost : ownBudgetValue - consumedValue;
 
   // For fixed-price with no budgeted hours, consumption % is meaningless.
-  const consumptionPercent = isFixed && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
+  // An end-to-end bucket's consumption is cost over the contract, which needs
+  // no budgeted hours at all (`pct` answers null for a zero contract).
+  const consumptionPercent = isFixed && !isEndToEnd && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
 
   // Earned value rides the SAME cost-knowability gate as `cost`/`budgetCost`:
   // a rateless/unrated bucket's `budgetCost` collapses to 0 like `cost` does,

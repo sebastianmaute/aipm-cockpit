@@ -127,6 +127,29 @@ describe("computeBurndownSeries — budget follows plan", () => {
   });
 });
 
+describe("computeBurndownSeries — end-to-end buckets (§488)", () => {
+  // 120 h (Jan) + 90 h (Feb) at internal rate 100 = 12000 + 9000 of cost,
+  // against a 15000 contract. A fixed-price bucket would consume 6000 + 4500.
+  const e2eBucket = bucket({ type: "e2e", fixedPriceAmount: 15000 });
+
+  it("spreads the contract as the budget line, like fixed price", () => {
+    const s = computeBurndownSeries([e2eBucket], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.totalBudgetValue).toBeCloseTo(15000, 5);
+    expect(s.plannedRemainingValue).toEqual([10000, 5000, 0]);
+  });
+
+  it("burns the contract by cost, uncapped, so an overrun goes below zero", () => {
+    const s = computeBurndownSeries([e2eBucket], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.actualRemainingValue).toEqual([3000, -6000, null]);
+  });
+
+  it("matches the report's consumed value", () => {
+    const s = computeBurndownSeries([e2eBucket], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    const rep = computeBudgetReport([e2eBucket], plan, roles, [], 8, new Set<string>(), [], [], null);
+    expect(s.totalBudgetValue - (s.actualRemainingValue[1] as number)).toBeCloseTo(rep.buckets[0]!.consumedValue, 5);
+  });
+});
+
 describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
   // Same shape as the top-level `bucket()` helper (300 budgeted hours across
   // Jan-Mar, 210 actual hours in Jan+Feb) but `type: "fixed"` with a contract

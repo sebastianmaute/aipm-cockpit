@@ -532,6 +532,7 @@ const enUS = {
   budgetType: "Type",
   budgetTypeTm: "Time & Material",
   budgetTypeFixed: "Fixed price",
+  budgetTypeE2e: "End-to-end (fixed price)",
   budgetCurrency: "Currency",
   budgetFxRefresh: "Refresh ECB rates",
   budgetFixedPrice: "Fixed price amount",

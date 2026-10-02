@@ -12,6 +12,7 @@ import { actualHoursIn } from "./actual-hours";
 import { roleLabel } from "./resource-foundation";
 import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
+import { isContractPriced } from "./types";
 import { planCurrencyPerEur } from "./fx";
 
 export const RATE_DRIFT_SIGNAL_RATIO = 0.03;
@@ -69,7 +70,7 @@ export function computeRateMix(input: RateMixInput): RateMix | null {
   let bookedValue = 0;
   let excludedActualHours = 0;
   for (const bucket of buckets) {
-    if (bucket.type === "fixed") {
+    if (isContractPriced(bucket.type)) {
       // Actual hours only — no `effectiveBudgetHours` walk here (see the field's
       // comment on `RateMix`); this loop runs on every dashboard recalculation.
       const fixedPeriods = bucketActivePeriods(bucket, plan);

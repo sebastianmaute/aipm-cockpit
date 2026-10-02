@@ -23,6 +23,7 @@ import {
   type BucketStatus,
   type FxRates,
   BUDGET_TYPES,
+  isContractPriced,
   PLANNING_MODES,
   type PlanningMode,
   SUPPORTED_CURRENCIES,
@@ -761,7 +762,7 @@ function budgetWithDateReader(input: unknown, readOptional: RequiredDateReader):
     allocations: sanitizeAllocations(input.allocations),
   };
   const po = sanitizeText(input.poNumber, PO_NUMBER_MAX); if (po) bucket.poNumber = po;
-  if (type === "fixed") {
+  if (isContractPriced(type)) {
     const amt = sanitizeAmount(input.fixedPriceAmount);
     if (amt !== undefined) bucket.fixedPriceAmount = amt;
   }

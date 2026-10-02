@@ -503,6 +503,7 @@ export const de: Record<TranslationKey, string> = {
   budgetType: "Typ",
   budgetTypeTm: "Time & Material",
   budgetTypeFixed: "Festpreis",
+  budgetTypeE2e: "End-to-End (Festpreis)",
   budgetCurrency: "Währung",
   budgetFxRefresh: "EZB-Kurse aktualisieren",
   budgetFixedPrice: "Festpreisbetrag",

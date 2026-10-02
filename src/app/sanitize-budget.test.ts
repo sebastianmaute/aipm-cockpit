@@ -43,6 +43,11 @@ describe("sanitizeBudgetBucket", () => {
   test("keeps fixedPriceAmount only for fixed type", () => {
     expect(sanitizeBudgetBucket({ ...base, type: "fixed", fixedPriceAmount: 1000 })!.fixedPriceAmount).toBe(1000);
     expect(sanitizeBudgetBucket({ ...base, type: "tm", fixedPriceAmount: 1000 })!.fixedPriceAmount).toBeUndefined();
+    // §488 — an end-to-end bucket is contract-priced too: the type survives a
+    // load and so does its amount.
+    const e2e = sanitizeBudgetBucket({ ...base, type: "e2e", fixedPriceAmount: 1000 })!;
+    expect(e2e.type).toBe("e2e");
+    expect(e2e.fixedPriceAmount).toBe(1000);
   });
   test("parses allocations from an encoded string (CSV/MD path)", () => {
     const enc = encodeAllocations(base.allocations as never);

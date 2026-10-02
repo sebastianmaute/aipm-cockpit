@@ -622,8 +622,22 @@ export const DEFAULT_CURRENCY = "EUR";
 // resources whose capacity forms its PLAN, plus per-period budget & actual
 // hours. Closing a bucket spills its remaining budget into a successor.
 
-export const BUDGET_TYPES = ["tm", "fixed"] as const;
-export type BudgetType = (typeof BUDGET_TYPES)[number]; // time-&-material | fixed-price
+export const BUDGET_TYPES = ["tm", "fixed", "e2e"] as const;
+/** time-&-material | fixed-price | end-to-end (§488).
+ *  ★ "e2e" is a fixed-price contract under END-TO-END responsibility: the
+ *  vendor owns delivery, so the budgeted hours are an ESTIMATE, not a bound.
+ *  Revenue is the contract amount, like "fixed"; what differs is consumption,
+ *  which is the vendor's COST (actual hours × internal rate) against that
+ *  amount — uncapped, so an overrun reads past 100% — where "fixed" prices
+ *  consumption as a capped share of the contract by hours. Converting a
+ *  "fixed" bucket is switching the type: the contract amount is kept. */
+export type BudgetType = (typeof BUDGET_TYPES)[number];
+
+/** Whether a bucket is priced by its contract amount (`fixedPriceAmount`)
+ *  rather than hours × external rate — "fixed" and "e2e" (§488). */
+export function isContractPriced(type: BudgetType): boolean {
+  return type === "fixed" || type === "e2e";
+}
 
 export const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP"] as const;
 export type BudgetCurrency = (typeof SUPPORTED_CURRENCIES)[number];
@@ -668,7 +682,7 @@ export type BudgetBucket = {
   poNumber?: string;
   type: BudgetType;
   currency: BudgetCurrency;
-  /** Fixed-price contract amount in the bucket currency; only when type === "fixed". */
+  /** Contract amount in the bucket currency; only when `isContractPriced(type)`. */
   fixedPriceAmount?: number;
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
