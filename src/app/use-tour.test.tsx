@@ -27,6 +27,12 @@ describe("useTour", () => {
       expect(result.current.isOpen).toBe(false);
     }
   });
+  it("hides a tour whose steps are all filtered out", () => {
+    // features=[] disables every module-gated view; the RAID tour is all module-gated today
+    const { result } = renderHook(() =>
+      useTour({ layout: "modern", isPopout: false, hydrated: true, tourSeen: true, completedTours: undefined, features: [], setSettings: vi.fn() }));
+    expect(result.current.catalogTours.map((t) => t.id)).not.toContain("raid");
+  });
   it("start(id) activates a themed tour at index 0", () => {
     const setSettings = vi.fn();
     const { result } = renderHook(() =>

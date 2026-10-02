@@ -1,7 +1,6 @@
 // src/app/app-tour.ts — pure, i18n-free guided-tour engine (keys only; no React/Date).
 import type { TranslationKey } from "./i18n";
-import type { AppView } from "./nav-config";
-import { isViewEnabled } from "./feature-modules";
+import { isViewReachable, type AppView } from "./nav-config";
 import type { FeatureModuleId } from "./feature-modules";
 
 export type TourStepKind = "modal" | "spotlight";
@@ -99,10 +98,15 @@ export function findTour(id: string): TourDefinition | undefined {
   return TOURS.find((t) => t.id === id);
 }
 
-/** Drop steps whose deep-link view belongs to a disabled feature module, so a
- *  tour never navigates to a hidden view. Steps without a `view` always survive. */
-export function visibleSteps(steps: readonly TourStep[], features: readonly FeatureModuleId[]): TourStep[] {
-  return steps.filter((s) => s.view === undefined || isViewEnabled(s.view, features));
+/** Drop steps whose deep-link view belongs to a disabled feature module, or is
+ *  Turso-only on a non-Turso backend, so a tour never navigates to a hidden view.
+ *  Steps without a `view` always survive. */
+export function visibleSteps(
+  steps: readonly TourStep[],
+  features: readonly FeatureModuleId[],
+  storageKind?: string,
+): TourStep[] {
+  return steps.filter((s) => s.view === undefined || isViewReachable(s.view, features, storageKind));
 }
 
 /** Bound an index to [0, total-1]; returns 0 for an empty list. */

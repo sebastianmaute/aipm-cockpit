@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TOUR_STEPS, TOURS, findTour, visibleSteps, clampStep } from "./app-tour";
+import { TOUR_STEPS, TOURS, findTour, visibleSteps, clampStep, type TourStep } from "./app-tour";
+import { ALL_MODULE_IDS } from "./feature-modules";
 import type { AppView } from "./nav-config";
 
 const ALL = ["dashboard", "milestones", "resources", "raid", "changes", "stakeholders", "budget"] as const;
@@ -30,6 +31,13 @@ describe("app-tour engine", () => {
     expect(none.length).toBeLessThan(TOUR_STEPS.length);
     // a fully module-gated tour collapses to 0 visible steps
     expect(visibleSteps(findTour("raid")!.steps, []).length).toBe(0);
+  });
+  it("visibleSteps drops Turso-only views off Turso and keeps view-less steps", () => {
+    const trend: TourStep = { id: "t", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "trends" };
+    const bare: TourStep = { id: "b", kind: "modal", titleKey: "tourStepWelcomeTitle", bodyKey: "tourStepWelcomeBody" };
+    expect(visibleSteps([trend, bare], ALL_MODULE_IDS, "turso").map((s) => s.id)).toEqual(["t", "b"]);
+    expect(visibleSteps([trend, bare], ALL_MODULE_IDS, "file").map((s) => s.id)).toEqual(["b"]);
+    expect(visibleSteps([trend, bare], ALL_MODULE_IDS).map((s) => s.id)).toEqual(["b"]);
   });
   it("clampStep bounds the index", () => {
     expect(clampStep(-1, 5)).toBe(0);

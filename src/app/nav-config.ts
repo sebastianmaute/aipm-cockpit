@@ -151,6 +151,17 @@ export function allNavViews(): AppView[] {
  *  file backend. "history" is gated this way (version history lives in Turso). */
 export const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
 
+/** True when `view` is enabled by the feature modules AND, for a Turso-only view,
+ *  the storage backend is Turso. The single predicate behind the sidebar filter
+ *  and the guided tour's step filter. */
+export function isViewReachable(
+  view: AppView,
+  features: readonly FeatureModuleId[],
+  storageKind?: string,
+): boolean {
+  return isViewEnabled(view, features) && (storageKind === "turso" || !TURSO_ONLY_VIEWS.includes(view));
+}
+
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
  *  and any group left with no items dropped. Core views always survive.
  *  Turso-only views (see TURSO_ONLY_VIEWS) are additionally pruned unless the
@@ -159,9 +170,7 @@ export function filterNavGroups(
   features: readonly FeatureModuleId[],
   storageKind?: string,
 ): NavGroup[] {
-  const onTurso = storageKind === "turso";
-  const keepView = (view: AppView): boolean =>
-    isViewEnabled(view, features) && (onTurso || !TURSO_ONLY_VIEWS.includes(view));
+  const keepView = (view: AppView): boolean => isViewReachable(view, features, storageKind);
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items

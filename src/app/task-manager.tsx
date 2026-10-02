@@ -1436,7 +1436,8 @@ function TaskManagerInner() {
   // view so it survives the view remount that the modern shell performs.
   const tour = useTour({
     layout: settings.layout, isPopout, hydrated, tourSeen: settings.tourSeen,
-    completedTours: settings.completedTours, features: settings.features, setSettings,
+    completedTours: settings.completedTours, features: settings.features,
+    storageKind: settings.storageConfig.kind, setSettings,
   });
   const startTour = tour.start;
 

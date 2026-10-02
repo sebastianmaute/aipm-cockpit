@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews, subTabsFor,
-  filterNavGroups,
+  filterNavGroups, isViewReachable, TURSO_ONLY_VIEWS,
   parseHash, buildHash,
   type AppView,
 } from "./nav-config";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 describe("nav-config", () => {
   it("every nav item has a unique slug", () => {
@@ -164,6 +165,35 @@ describe("filterNavGroups", () => {
     const item = groups.flatMap((g) => g.items).find((i) => i.view === "stakeholders");
     expect(item).toBeTruthy();
     expect((item?.children ?? []).map((c) => c.view)).toEqual(["raci", "stakeholder-map"]);
+  });
+});
+
+describe("isViewReachable", () => {
+  it("agrees with filterNavGroups for every view, backend and module set", () => {
+    const flat = (groups: ReturnType<typeof filterNavGroups>) =>
+      groups.flatMap((g) => g.items.flatMap((i) => [i.view, ...(i.children ?? []).map((c) => c.view)]));
+    // A child only shows when its parent does, so the expectation is parent AND child reachable.
+    const entries = NAV_GROUPS.flatMap((g) =>
+      g.items.flatMap((i) => [
+        { view: i.view, parent: undefined as AppView | undefined },
+        ...(i.children ?? []).map((c) => ({ view: c.view, parent: i.view as AppView | undefined })),
+      ]),
+    );
+    for (const features of [[...ALL_MODULE_IDS], []] as const)
+      for (const kind of ["turso", "file", undefined]) {
+        const shown = new Set(flat(filterNavGroups(features, kind)));
+        for (const { view, parent } of entries) {
+          const reachable = isViewReachable(view, features, kind) && (!parent || isViewReachable(parent, features, kind));
+          expect(reachable, `${view}/${kind}`).toBe(shown.has(view));
+        }
+      }
+  });
+  it("hides Turso-only views off Turso", () => {
+    for (const v of TURSO_ONLY_VIEWS) {
+      expect(isViewReachable(v, ALL_MODULE_IDS, "turso")).toBe(true);
+      expect(isViewReachable(v, ALL_MODULE_IDS, "file")).toBe(false);
+      expect(isViewReachable(v, ALL_MODULE_IDS)).toBe(false);
+    }
   });
 });
 
