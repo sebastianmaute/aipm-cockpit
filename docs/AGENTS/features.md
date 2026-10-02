@@ -14,7 +14,7 @@
 ### Guided tour + demo
 
 MODERN-shell-only onboarding (never classic/popout). Pure i18n-free `app-tour.ts` (keys-only step lists collected in `TOURS`;
-count the tours with `grep -c "iconView:" src/app/app-tour.ts`, the steps with `grep -c "kind: \"" src/app/app-tour.ts`;
+count the tours with `grep -c '^  { id: ".*iconView:' src/app/app-tour.ts`, the steps with `grep -c "kind: \"" src/app/app-tour.ts`;
 `visibleSteps(steps, features, storageKind?)` drops steps whose `view` is not reachable, `clampStep`).
 ★ REACHABILITY IS ONE RULE: `isViewReachable` (`nav-config.ts`) = module enabled AND, for a Turso-only view, a Turso
 backend. `filterNavGroups` and `visibleSteps` both call it, so the tour never deep-links to a view the sidebar hides
