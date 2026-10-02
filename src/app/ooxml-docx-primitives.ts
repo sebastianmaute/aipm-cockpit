@@ -570,9 +570,10 @@ export function buildDocxTable(
     .join("");
 
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
+  // ★ The explicit <w:tblBorders> below are the table's ONLY source of rules — no
+  // table style is named (the package declares none), so do not delete them.
   return `<w:tbl>
       <w:tblPr>
-        <w:tblStyle w:val="Grid"/>
         <w:tblW w:w="${totalWidth}" w:type="dxa"/>
         <w:tblBorders>
           <w:top    w:val="single" w:sz="4" w:space="0" w:color="${COLOR_LIGHT_GREY}"/>

@@ -7,9 +7,11 @@
 // load-bearing prop KEYS reaching the child. It MAY be updated freely when a diff
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { SETTINGS_KEY } from "./use-settings";
+import type { Settings } from "./settings-types";
 
 // task-manager mints task/resource ids from session-scoped state on interaction;
 // clear it before each test so the suite never inherits another test's mark.
@@ -230,8 +232,8 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
 });
 
 // Own describe, own mount, no shared beforeAll — task-manager.tsx:
-// `useHashView(hydrated && settings.layout === "modern", settings.features)`
-// (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
+// `useHashView(hydrated && settings.layout === "modern", settings.features,
+// { settled: hydrated })` (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
 // synchronously and only flips `hydrated` via a MICROTASK (a bare
 // `Promise.resolve().then(...)` on the no-persisted-settings path, or the
 // async secret-merge chain otherwise) — never synchronously during the
@@ -276,6 +278,37 @@ describe("@characterization task-manager → hash-view hydration gate (§536)", 
     render(<TaskManager />);
     // Pre-hydration the stored layout is not yet known; nothing may be routed.
     expect(window.location.hash).toBe("#raid");
+  });
+
+  it("treats a classic→modern switch after hydration as a re-entry, not a cold load (§536)", async () => {
+    // The mid-session half of §536: a page that HYDRATES into classic must
+    // spend its cold window there (`{ settled: hydrated }` at the call site),
+    // so a later switch to modern keeps the view instead of applying the cold
+    // rule to a hash classic left behind. An ITEM-bearing stale hash is the
+    // observable: a cold apply honours it as a deep link and leaves the URL at
+    // `#raid/123`; a re-entry rewrites it to the bare current view.
+    window.localStorage.clear();
+    seedRegistry();
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ layout: "classic" }));
+    captured.props = null;
+    render(<TaskManager />);
+    await waitFor(() =>
+      expect((captured.props?.projectSettings as Settings | undefined)?.layout).toBe("classic"),
+    );
+    // What `requestOpen` (global search) writes in classic — via replaceState,
+    // as the hook's own writes do, so no listener sees it as a navigation.
+    window.history.replaceState(null, "", "#raid/123");
+
+    const current = captured.props!.projectSettings as Settings;
+    const onChange = captured.props!.onChangeProjectSettings as (next: Settings) => void;
+    act(() => onChange({ ...current, layout: "modern" }));
+
+    await waitFor(() =>
+      expect((captured.props?.projectSettings as Settings | undefined)?.layout).toBe("modern"),
+    );
+    // Positive observable first: the re-entry REPAIRED the URL to a bare view.
+    expect(window.location.hash).toMatch(/^#[a-z-]+$/);
+    expect(window.location.hash).not.toBe("#raid/123");
   });
   // ★★ §595 (the features half of the gate) is deliberately NOT pinned here.
   //    A call-site-level test using a dashboard-disabled hydrated `features`

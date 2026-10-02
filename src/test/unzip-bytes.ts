@@ -55,6 +55,26 @@ export async function unzipBytes(blob: Blob): Promise<Map<string, Uint8Array>> {
   return files;
 }
 
+/** Every entry NAME in archive order, duplicates KEPT — `unzipBytes` returns a
+ *  Map, which collapses a repeated name into one key and so can never show a
+ *  part written twice (open-followups §217). */
+export async function zipEntryNames(blob: Blob): Promise<string[]> {
+  const bytes = await blobBytes(blob);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const dec = new TextDecoder();
+  const names: string[] = [];
+  let offset = 0;
+  while (offset + 30 < bytes.byteLength) {
+    if (view.getUint32(offset, true) !== LOCAL_FILE_HEADER) break;
+    const fnLen = view.getUint16(offset + 26, true);
+    const extraLen = view.getUint16(offset + 28, true);
+    const compSize = view.getUint32(offset + 18, true);
+    names.push(dec.decode(bytes.slice(offset + 30, offset + 30 + fnLen)));
+    offset += 30 + fnLen + extraLen + compSize;
+  }
+  return names;
+}
+
 /** Decode one part as UTF-8 — for asserting on XML alongside binary parts. */
 export function partText(parts: Map<string, Uint8Array>, path: string): string {
   const part = parts.get(path);

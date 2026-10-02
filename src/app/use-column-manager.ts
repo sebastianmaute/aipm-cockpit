@@ -32,7 +32,9 @@ export { DEFAULT_COL_WIDTHS };
  *  cannot distinguish a width the user DRAGGED from one that is merely the
  *  default: the pre-v2 persist effect had no first-run guard, so it wrote the
  *  whole MERGED map ~250ms after MOUNT. Nearly every existing blob is therefore a
- *  full defaults snapshot, and `readSized` promotes every key of it to user-set.
+ *  full defaults snapshot, and `readSized` promoted every key of it to user-set
+ *  (before §52; it now drops default-equal widths, but a fat width that is NOT
+ *  the current default would still survive).
  *  Migrating it would carry the OLD fat widths forward and make the retune above
  *  a no-op for exactly the users who see the wasted space. The cost is losing
  *  genuine drags for this one table; "reset columns" is unaffected. */

@@ -22,6 +22,7 @@ import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
 import { hasAnyOverride, sanitizeOverridesOrNone } from "./settings-overrides";
 import { decodeMetaJson, noteIfSanitizedToNothing } from "./meta-slice-decode";
+import { readFencedJsonSection } from "./markdown-fenced-json";
 import type { SettingsOverrides } from "./settings-types";
 import {
   type Absence,
@@ -133,16 +134,19 @@ export function fieldVisibilityToMarkdown(cfg: FieldVisibilityConfig): string {
 }
 
 export function markdownToFieldVisibility(md: string, diag?: DocTruncationDiag): FieldVisibilityConfig | undefined {
-  const m = /## Field Visibility\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
+  const body = readFencedJsonSection(md, "Field Visibility");
+  if (body === undefined) return undefined;
+  // ★ §578: every fenced-json decoder below finds its block with
+  //  readFencedJsonSection — one linear reader in place of eleven copies of a
+  //  regex that was quadratic on a long whitespace run after the heading.
   // ★★ §630: every fenced-json decoder below goes through `decodeMetaJson`,
   //  which records the slice's key when the JSON does not parse or sanitizes
   //  to nothing — the swallowed `catch` used to lose both.
   // ★ KNOWN LIMITATION, shared by all of them: a heading whose ```json fence
-  //  this regex cannot find (a hand-edit that broke the fence) returns above
+  //  readFencedJsonSection cannot find (a hand-edit that broke the fence) returns above
   //  as ABSENT and is not recorded. Telling "broken fence" from "no section"
   //  needs a real section parser, which this codec does not have.
-  return decodeMetaJson(m[1], sanitizeFieldVisibility, "fieldVisibility", diag);
+  return decodeMetaJson(body, sanitizeFieldVisibility, "fieldVisibility", diag);
 }
 
 /** Serializes the per-project feature list as JSON inside a fenced
@@ -152,9 +156,9 @@ export function featuresToMarkdown(features: readonly FeatureModuleId[]): string
 }
 
 export function markdownToFeatures(md: string, diag?: DocTruncationDiag): FeatureModuleId[] | undefined {
-  const m = /## Functions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  return decodeMetaJson(m[1], sanitizeFeatures, "features", diag);
+  const body = readFencedJsonSection(md, "Functions");
+  if (body === undefined) return undefined;
+  return decodeMetaJson(body, sanitizeFeatures, "features", diag);
 }
 
 /** Serializes the steering committee (nested object) as JSON inside a fenced
@@ -165,9 +169,9 @@ export function steeringCommitteeToMarkdown(committee: SteeringCommittee): strin
 }
 
 export function markdownToSteeringCommittee(md: string, diag?: DocTruncationDiag): SteeringCommittee | undefined {
-  const m = /## Steering Committee\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  return decodeMetaJson(m[1], sanitizeSteeringCommittee, "steeringCommittee", diag);
+  const body = readFencedJsonSection(md, "Steering Committee");
+  if (body === undefined) return undefined;
+  return decodeMetaJson(body, sanitizeSteeringCommittee, "steeringCommittee", diag);
 }
 
 export function timelogLinksToMarkdown(links: TimelogLinks): string {
@@ -175,9 +179,9 @@ export function timelogLinksToMarkdown(links: TimelogLinks): string {
 }
 
 export function markdownToTimelogLinks(md: string, diag?: DocTruncationDiag): TimelogLinks | undefined {
-  const m = /## Timelog Links\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  return decodeMetaJson(m[1], sanitizeTimelogLinks, "timelogLinks", diag);
+  const body = readFencedJsonSection(md, "Timelog Links");
+  if (body === undefined) return undefined;
+  return decodeMetaJson(body, sanitizeTimelogLinks, "timelogLinks", diag);
 }
 
 export function knowledgeItemsToMarkdown(items: readonly KnowledgeItem[]): string {
@@ -185,9 +189,9 @@ export function knowledgeItemsToMarkdown(items: readonly KnowledgeItem[]): strin
 }
 
 export function markdownToKnowledgeItems(md: string, diag?: DocTruncationDiag): KnowledgeItem[] | undefined {
-  const m = /## Knowledge Items\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  const items = decodeMetaJson(m[1], sanitizeKnowledgeItems, "knowledgeItems", diag);
+  const body = readFencedJsonSection(md, "Knowledge Items");
+  if (body === undefined) return undefined;
+  const items = decodeMetaJson(body, sanitizeKnowledgeItems, "knowledgeItems", diag);
   return items?.length ? items : undefined;
 }
 
@@ -220,8 +224,8 @@ export function markdownToDocuments(
   md: string,
   diag?: DocTruncationDiag,
 ): ProjectDocument[] | undefined {
-  const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
+  const body = readFencedJsonSection(md, "Documents");
+  if (body === undefined) return undefined;
   // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
   // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
   // sanitizeDocumentRichFields applies the paragraph HTML allow-list. Markdown
@@ -242,7 +246,7 @@ export function markdownToDocuments(
   // never reaches this decode; a new call path needs that probe re-run. A new
   // bare-node importer must install a DOM first.
   const docs = decodeMetaJson(
-    m[1],
+    body,
     (raw) => sanitizeProjectDocumentsWithDiag(raw, diag).map(sanitizeDocumentRichFields),
     "documents",
     diag,
@@ -270,15 +274,15 @@ export function markdownToDocumentVersions(
   md: string,
   diag?: DocTruncationDiag,
 ): DocVersion[] | undefined {
-  const m = /## Document versions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
+  const body = readFencedJsonSection(md, "Document versions");
+  if (body === undefined) return undefined;
   // Same two-pass shape as markdownToDocuments just above: sanitizeDocumentVersions
   // enforces structure (DOM-free), then each version's blocks get the paragraph
   // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
   // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
   // wrapper with savedAt standing in for both.
   const versions = decodeMetaJson(
-    m[1],
+    body,
     (raw) =>
       sanitizeDocumentVersionsWithDiag(raw, diag).map((v) => ({
         ...v,
@@ -301,9 +305,9 @@ export function insightsToMarkdown(insights: readonly Insight[]): string {
 }
 
 export function markdownToInsights(md: string, diag?: DocTruncationDiag): Insight[] | undefined {
-  const m = /## Insights\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  const ins = decodeMetaJson(m[1], sanitizeInsights, "insights", diag);
+  const body = readFencedJsonSection(md, "Insights");
+  if (body === undefined) return undefined;
+  const ins = decodeMetaJson(body, sanitizeInsights, "insights", diag);
   return ins?.length ? ins : undefined;
 }
 
@@ -325,11 +329,11 @@ export function activityLogToMarkdown(log: readonly ActivityEntry[]): string {
 }
 
 export function markdownToActivityLog(md: string, diag?: DocTruncationDiag): ActivityEntry[] | undefined {
-  const m = /## Activity Log\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
+  const body = readFencedJsonSection(md, "Activity Log");
+  if (body === undefined) return undefined;
   // sanitizeActivityLog (activity-log.ts) is DOM-free — no second rich-field
   // pass needed, unlike markdownToDocuments above.
-  const log = decodeMetaJson(m[1], sanitizeActivityLog, "activityLog", diag);
+  const log = decodeMetaJson(body, sanitizeActivityLog, "activityLog", diag);
   return log?.length ? log : undefined;
 }
 
@@ -340,9 +344,9 @@ export function budgetHistoryToMarkdown(history: readonly BudgetHistoryEntry[]):
 }
 
 export function markdownToBudgetHistory(md: string, diag?: DocTruncationDiag): BudgetHistoryEntry[] | undefined {
-  const found = /## Budget History\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!found) return undefined;
-  const history = decodeMetaJson(found[1], sanitizeBudgetHistory, "budgetHistory", diag);
+  const body = readFencedJsonSection(md, "Budget History");
+  if (body === undefined) return undefined;
+  const history = decodeMetaJson(body, sanitizeBudgetHistory, "budgetHistory", diag);
   return history?.length ? history : undefined;
 }
 
@@ -351,9 +355,9 @@ export function settingsOverridesToMarkdown(overrides: SettingsOverrides): strin
 }
 
 export function markdownToSettingsOverrides(md: string, diag?: DocTruncationDiag): SettingsOverrides | undefined {
-  const m = /## Settings Overrides\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
-  if (!m) return undefined;
-  return decodeMetaJson(m[1], sanitizeOverridesOrNone, "settingsOverrides", diag);
+  const body = readFencedJsonSection(md, "Settings Overrides");
+  if (body === undefined) return undefined;
+  return decodeMetaJson(body, sanitizeOverridesOrNone, "settingsOverrides", diag);
 }
 
 

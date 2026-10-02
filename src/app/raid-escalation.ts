@@ -104,7 +104,8 @@ export function stripBreakTags(name: string): string {
 const TRAILING_BREAK_PREFIX = /<(?:b?$|br\b[^>]*$)/i;
 const BREAK_TAG_AT = /<br\b[^>]*>/iy;
 
-/** `stripBreakTags` over the first `max` characters of a LOADED value.
+/** `stripBreakTags` over the first `max` characters of a LOADED or WRITTEN
+ *  value (`sanitizeEntry` here; `buildEscalationEntry` in action-escalate.ts, §578).
  *  Slicing first bounds the regex: `BREAK_TAG`'s `\s*` and `[^>]*` backtrack
  *  to the end of the value from every start, so stripping an unbounded stored
  *  name first took seconds. Stripping only shortens a value, so the result
@@ -115,7 +116,7 @@ const BREAK_TAG_AT = /<br\b[^>]*>/iy;
  *  trailing prefix is dropped when the FULL value completes it into a real
  *  tag there. That is one anchored scan, so it stays linear. A "<b" that was
  *  never a tag ("<bob>", "<brx>") is kept, as before. */
-function stripBreakTagsWithin(raw: string, max: number): string {
+export function stripBreakTagsWithin(raw: string, max: number): string {
   let head = raw.slice(0, max);
   const cut = raw.length > max ? head.search(TRAILING_BREAK_PREFIX) : -1;
   if (cut !== -1) {

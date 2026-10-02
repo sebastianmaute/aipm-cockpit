@@ -1519,22 +1519,28 @@ bytes and document-XML substrings. That proves the package is the one the builde
 It says nothing about whether Word, LibreOffice Writer or PowerPoint accept it. The owed manual
 pass is enumerated in `docs/open-followups.md` §219, and no green run substitutes for it.
 
-★★ Two further known divergences are recorded rather than fixed: media parts are minted per
-OCCURRENCE, so one image used twice ships twice (§217 — deduplicating needs a SECOND counter,
-because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the relationship is
-shared, and today one running index serves as both); and `ANY_TAG_ASSET_ID_RE` counts a `data-asset-id`
+★★ **Media parts are minted per ASSET, shape ids per OCCURRENCE (§217, CLOSED 2026-10-02).** One
+image used twice ships ONE media part. DOCX: `createMediaMinter` keys the part on the asset id and
+draws every occurrence's `wp:docPr` id from a SEPARATE shape counter, because a picture's shape id
+must stay unique even where the relationship is shared. PPTX: `createDeckMedia` keeps one part path
+per asset DECK-wide and one rId per asset PER SLIDE, with `p:cNvPr` ids still per occurrence;
+`buildPptxPackage` writes a path shared by two slides once (a duplicate zip entry name is a corrupt
+zip) and THROWS when one path carries two different images, which is the scope swap rather than a
+reuse. The unverified half is the readers: the §219 pass has not opened a package that reuses one
+image.
+
+★★ One further known divergence is recorded rather than fixed: `ANY_TAG_ASSET_ID_RE` counts a `data-asset-id`
 on ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_ASSET_ID_RE` requires an `<img`, so a
 `<p data-asset-id>` consumes a slot and reaches no export bucket at all. ★ Carrier deliberately NOT
 `<span>`, which §218 and its own table still use: `span` is absent from `DOCUMENT_ALLOWED_TAGS`, so
 the sanitizer unwraps the element at KEEP_CONTENT and `data-asset-id` leaves with it — `p`,
 `strong`, `li` and `a` all keep the attribute through a real load (measured,
-`docs/open-followups.md` §249). ★★ That second one is
+`docs/open-followups.md` §249). ★★ That divergence is
 **§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
 it is now VISIBLE (the cap message reports how much room removing those references would reclaim)
-and pinned. It is described under "The three asset-id patterns" above, and only §217 remains open
-here.
+and pinned. It is described under "The three asset-id patterns" above.
 
-★★ A third was a maintainability gap rather than a divergence, CLOSED as §223 (2026-08-23):
+★★ A maintainability gap, rather than a divergence, was CLOSED as §223 (2026-08-23):
 `sanitizeDocumentAsset` deliberately does NOT enforce `ASSET_MIME_ALLOWED` on load, so every
 consumer once restated the allowlist check by hand. They now share `isAllowedAssetMime` and
 `isBlockedAssetMime` (`document-asset-upload.ts`); `git grep -n "ASSET_MIME_ALLOWED as readonly

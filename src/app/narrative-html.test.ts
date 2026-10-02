@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import fc from "fast-check";
 import { narrativeToHtml, normalizeNarrativeHtml, isNarrativeEmpty } from "./narrative-html";
+import { expectLinearScaling } from "../test/scaling";
 
 describe("narrativeToHtml", () => {
   it("wraps and escapes a legacy plain-text narrative", () => {
@@ -148,5 +150,50 @@ describe("isNarrativeEmpty", () => {
     expect(isNarrativeEmpty("<p>x</p>")).toBe(false);
     // The entity spelling must not swallow neighbouring text.
     expect(isNarrativeEmpty("<p>&#160;x</p>")).toBe(false);
+  });
+});
+
+describe("isNarrativeEmpty — linear tag strip (§578)", () => {
+  // The pre-§578 implementation, kept verbatim as the oracle.
+  const oldIsEmpty = (html: string) =>
+    html.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#0*160;|&#x0*a0;| /gi, " ").trim() === "";
+
+  it("matches the regex implementation on random tag soup", () => {
+    const token = fc.constantFrom("<", ">", "<>", "p", "/", " ", "\n", "&nbsp;", "&#160;", " ", "x", "<br>");
+    fc.assert(
+      fc.property(fc.array(token, { maxLength: 30 }), (parts) => {
+        const html = parts.join("");
+        expect(isNarrativeEmpty(html)).toBe(oldIsEmpty(html));
+      }),
+      { seed: 578, numRuns: 3000 },
+    );
+  });
+
+  it("still counts an unterminated '<' as text", () => {
+    expect(isNarrativeEmpty("<p")).toBe(false);
+    expect(isNarrativeEmpty("<>")).toBe(true);
+  });
+
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays linear on opens with no '>' after them", { timeout: 120_000 }, () => {
+    // `<[^>]*>` ran to the end of input from EVERY "<" (§578: 124 / 517 / 2140 ms
+    // at 20k / 40k / 80k), and this runs on every dashboard render. A ratio
+    // guard (src/test/scaling.ts): linear ≈ 4, quadratic ≈ 16, limit 8 — a ms
+    // ceiling fails a correct build on a loaded runner (§592, §612).
+    // ★ The "&" is for calibration. On a bare "<".repeat(n) the linear code returns
+    // after one indexOf, so it calibrated at 8,192–16,384 loops, above the
+    // ≤4,096 that src/test/scaling.ts asks for. A runner ~4x faster would then hit
+    // MAX_LOOPS and fail a correct build. Each "&" makes the NBSP pass try its
+    // entity alternatives, and the old regex stays quadratic on it (no ">" anywhere).
+    // One machine's measurement, 2026-10-02 (not a bound): 1,024–2,048 loops and
+    // ratio 3.85–4.01 over 5 runs; the old `/<[^>]*>/g` gave a ratio of 15.81
+    // (3.0 s to fail).
+    expectLinearScaling({
+      label: "isNarrativeEmpty on unclosed '<'",
+      build: (n) => "<&".repeat(n),
+      run: isNarrativeEmpty,
+      check: (out) => expect(out).toBe(false),
+      n: 10_000,
+    });
   });
 });

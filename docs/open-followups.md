@@ -283,7 +283,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
 | [§51](#51-a-second-load-sensitive-test--use-tasks-dedup-on-confirm--open-narrower-the-recorded-symptom-cannot-recur-the-mechanism-is-unreproduced) | A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced | found 0.211.1 (main #5418) | S–M | open |
-| [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--open-deliberate) | `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate | 0.212.0 (Nayler) | M | open |
+| [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--closed-2026-10-02) | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | **CLOSED** 2026-10-02 |
 | [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--closed-2026-09-10-routed-around) | ~~ESLint 10 is blocked upstream by `eslint-plugin-react`~~ | 0.211.2 | — | **CLOSED** 2026-09-10, routed around |
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
@@ -386,7 +386,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--closed-2026-10-02) | PPTX export is one slide per row and drops most rich fields before they can be rendered | — | — | **CLOSED** 2026-10-02 |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
-| [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
+| [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--closed-2026-10-02) | `buildDocxTable` names a `Grid` table style that nothing declares | — | — | **CLOSED** 2026-10-02 |
 | [§156](#156-a-blockquote-pre-or-hn-inside-a-list-item-loses-the-items-indent--closed-2026-10-02) | A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent | — | — | **CLOSED** 2026-10-02 |
 | [§157](#157-an-item-with-no-li-line-at-its-own-depth-still-spends-an-ordinal-and-renders-no-marker--closed-2026-10-02) | An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker | — | — | **CLOSED** 2026-10-02 |
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--closed-2026-10-02) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only | — | — | **CLOSED** 2026-10-02 |
@@ -432,7 +432,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
-| [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
+| [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce--closed-2026-10-02) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | **CLOSED** 2026-10-02 |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
 | [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | **CLOSED** 2026-09-14 |
@@ -448,7 +448,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
 | [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
-| [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | open |
+| [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice--closed-2026-10-02) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | **CLOSED** 2026-10-02 |
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
 | [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
@@ -697,7 +697,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 | [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--closed-2026-09-26) | PDF export opens a window that never prints in the desktop app | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | **CLOSED** 2026-09-26 |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
-| [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
+| [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--closed-2026-10-02) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | **CLOSED** 2026-10-02 |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--closed-2026-10-02) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | **CLOSED** 2026-10-02 |
@@ -763,7 +763,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
-| [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--open) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | open |
+| [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--closed-2026-10-02) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | **CLOSED** 2026-10-02 |
 | [§537](#537-project-contact-persons-have-no-ids--closed-2026-10-02) | Project contact persons have no ids | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | **CLOSED** 2026-10-02 |
 | [§538](#538-single-db-turso-never-persists-project-meta--closed-2026-09-25) | Single-DB Turso never persists project meta | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant `project_meta` meta row, `dirtyWorkspaceTables` taught about project-only edits, and `handleUpdateCurrentProjectByMode`'s no-config no-op fixed | **CLOSED** 2026-09-25 |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
@@ -805,7 +805,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--closed-2026-09-25) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360; closed 2026-09-25 on `fix/defect-batch-6` | S — `fitHistoryToBudget` (chat-threads.ts) placeholders the oldest earlier-turn attachments at send time until the request fits | closed |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
-| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads | audit (2026-09) | M | open |
+| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads | audit (2026-09) | M | **CLOSED** 2026-10-02 |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--closed-2026-09-30) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap | audit (2026-09) | S | **CLOSED** 2026-09-30 |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
@@ -835,7 +835,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
 | [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
-| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
+| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--closed-2026-10-02) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | **CLOSED** 2026-10-02 |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
@@ -3813,11 +3813,11 @@ and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth
 
 ---
 
-## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
+## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — CLOSED 2026-10-02
 
-**Status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02 — fixed by `3196d245c` and `ab24666c4`: `readSized` now drops a stored width equal to the column's CURRENT default on BOTH the v1 and the v2 path (`dropDefaults`), so only differing widths survive as drags and the next v2 write persists just those; keys absent from the defaults are kept. The first commit covered v1 only and was nearly vacuous, because 0.212.0 had already rewritten most blobs as v2 with every default key stored as if dragged; the second heals those. Pinned by the v1 and v2 tests named `treats a v… key equal to the current default as not user-set (§52)` in `use-column-resize.test.ts`, each mutation-checked (v1: filter replaced by `true`; v2: filter removed from the v2 return — both fail on `sizedWidths`). Cost: a user who deliberately dragged a column to exactly its current default now follows future default changes for it. That is visible today in Open Points: a migrated `taskName` width equal to the current default (200) used to pin the flex column and now flexes again — the intended healing, not a side effect. Residual: a key whose default changed between the user's first display and now still holds the OLD default, differs from today's, and reads as a drag, keeping that old value.
 
-**Work item:** #111
+**Original status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
 so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated
@@ -13770,11 +13770,11 @@ string assertions will read as coverage.
 
 ---
 
-## 155. `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident
+## 155. `buildDocxTable` names a `Grid` table style that nothing declares — CLOSED 2026-10-02
 
-**Status:** open — a table style referenced but never declared. Reproduced 2026-08-28 by `grep -n "tblStyle" src/app/ooxml-docx-primitives.ts`.
+**Status:** CLOSED 2026-10-02 — fixed by `b34e37f73`: `buildDocxTable` no longer emits `<w:tblStyle w:val="Grid"/>`, so the explicit six-edge `<w:tblBorders>` block is the table's single source of appearance (with a comment saying so). Pinned by the §155 test in `ooxml-docx-primitives.test.ts`; mutation-checked by re-adding the element, which turns it red.
 
-**Work item:** #164
+**Original status:** open — a table style referenced but never declared. Reproduced 2026-08-28 by `grep -n "tblStyle" src/app/ooxml-docx-primitives.ts`.
 
 Opened 2026-08-16 out of §141(b)'s styles work, which fixed the PARAGRAPH styles
 (`Heading1`-`Heading4`, `ListParagraph`, `Quote`, `CodeBlock` are now declared) and left this one.
@@ -17243,12 +17243,12 @@ order; this entry's close condition — the `verify-rewrite --expect clean` run 
 repository — is its step 4, ahead of the issue import (step 6) and the visibility flip itself
 (step 10). This entry still closes only when that run passes; nothing else here changes.
 
-## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
+## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce — CLOSED 2026-10-02
 
-**Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
+**Status:** CLOSED 2026-10-02 — fixed by `51e985657` (the code: `normalizeForCompare`'s array-join delimiter is now the six-character `\u0001` escape) and guarded by `1f8705040`: `no-nul-bytes.test.ts` rejects any raw control byte other than TAB/LF/CR plus DEL over the same `src`+`docs` file set, naming file and offset. Widening it found two raw BEL bytes in a tracked plan doc (lost-backslash corruption of `\u0007`), repaired in `46861aa63`. Mutation-checked by putting the raw byte back into `jira-api.ts`, which turns the guard red naming that file; `aa3bbde1e` then extracts the detector (`controlBytes`, which reports every offender per file up to a cap of 50) and pins it in-test, flagging a raw 0x01, passing TAB/LF/CR and reporting all offenders in one buffer (mutation-checked: narrowing the range to start at 1 reds the first, capping at one hit reds the last).
+
+**Original status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
 closes the entry. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #186
 
 ★ Correction 2026-08-21: `buildJiraCacheKey` never existed — `git log --oneline --all
 -S'buildJiraCacheKey' -- src` returns zero commits, ever. The array branch described below belongs to
@@ -18585,11 +18585,11 @@ needed.
 PowerPoint, and none can. The manifest proves the package is the one the builders meant to write,
 never that a reader accepts it.
 
-## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
+## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice — CLOSED 2026-10-02
 
-**Status:** open — deliberate in 0.256.0; a size cost, never a correctness one. Status recorded 2026-08-28; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02 — fixed by `f92b93c46`: DOCX `createMediaMinter` now mints one media part per asset id and draws each occurrence with its own `wp:docPr` id from a separate shape counter; PPTX `createDeckMedia` keeps one part path per asset deck-wide and one rId per asset per slide, and `buildPptxPackage` writes a shared path once (throwing when one path carries two different images). Pinned by the new §217 tests in `doc-render-docx.test.ts`, `doc-render-pptx.test.ts` and `ooxml-pptx-primitives.test.ts` (part counts, shared rIds, distinct shape ids, duplicate-free raw zip entry lists via `zipEntryNames`); mutation-checked by reverting each dedupe lookup and by deriving shape ids from the part/rId counter — every mutant went red. ★ Still unzip-and-inspect evidence only: the §219 manual pass in Word, Pages and PowerPoint has NOT been run against a deduplicated package.
 
-**Work item:** #193
+**Original status:** open — deliberate in 0.256.0; a size cost, never a correctness one. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
 An `<img data-asset-id>` appearing twice in one document mints TWO media parts holding IDENTICAL
 bytes, in both renderers. DOCX: `createMediaMinter`'s own docstring says so. PPTX:
@@ -18955,6 +18955,11 @@ claim about the package, not about the reader.
 7. The **deck length** case (§222): export a document mixing prose and one ordinary screenshot as
    `.pptx` and count the slides. The picture is expected to sit alone on its own slide, which is a
    layout question a reader answers instantly and no assertion here can.
+8. The **reused-image** case (§217): export a document that uses ONE image twice as `.docx` and
+   `.pptx` (once on two slides, once twice on one slide) and open the packages in **Word**,
+   **LibreOffice**, **PowerPoint** and **Pages**. The package now holds a single media part that
+   several relationships and several shape ids reach; unzip-and-inspect proves the structure, and
+   only a reader says whether each occurrence draws.
 
 ★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
 against its own spec reading and still be rejected by Word over a part relationship or content-type
@@ -36973,9 +36978,11 @@ Size S–M: the work is the decision — delete the field (one table's schema, i
 and decode), or keep it and normalise it to EUR at the writer so a later reader cannot be misled.
 Either way, the comment sweep above is already DONE and no comment work remains in this entry.
 
-## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN
+## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
+**Status:** CLOSED 2026-10-02 — fixed by `1c01b7f19`: `browser-backend.ts` now runs the plan blob through the exported `coerceStoredPlan`, which coerces `currency`, an out-of-union `granularity` (to `"month"`) and an unparseable `startDate`/`endDate` (each replaced alone by the default's), and leaves a reversed window and `budgetFollowsPlan` as stored. `storage-browser-kv.test.ts` pins each shape with its own fixture ("quarter", non-string granularity, unparseable startDate with a valid endDate kept, unparseable endDate with a valid startDate kept, both unparseable), each date test asserting EQUALITY with `defaultResourcePlan(today)` rather than an ISO shape; mutation-checked by reverting the granularity coercion (2 tests red) and the date coercion (1 test red) separately, and by pointing the endDate fallback at the default's start (2 tests red). Replacing one date alone can itself produce a reversed window (e.g. stored end 2026-09-30 with a default start of 2026-10-01); that is deliberately left unswapped, like any stored reversed window. Side effect: a well-formed but calendar-invalid date (e.g. `2026-02-30`) is kept raw and now logs one diagnostics warning on IndexedDB, as on the other backends; it was silent there before.
+
+**Original status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
 run 2026-09-12: `grep -c "sanitizePlan(" src/app/browser-backend.ts` → **0** (no call; the two
 `sanitizePlan` mentions in that file are all inside the comment explaining why it is not called, so
 a bare name grep there answers the opposite question — and its COUNT is not quoted here, because
@@ -36984,8 +36991,6 @@ the same round; the `(` is what makes the witness stable), against
 `grep -rln "sanitizePlan(" src/app --include=*.ts | grep -v test` → five files
 (`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `sanitize-entities.ts`, `turso-schema.ts`,
 `workspace.ts`), i.e. every other load path.
-
-**Work item:** #299
 
 `browser-backend.ts` reads the KV plan blob verbatim and casts it. `7b0c00e3` added a coercion for
 the CURRENCY only — `isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }`
@@ -39040,9 +39045,11 @@ committed, or have the cold apply write the hash it honoured. Pin it with a Stri
 
 Related: §478, §536.
 
-## 536. A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — OPEN
+## 536. A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — CLOSED 2026-10-02
 
-**Status:** OPEN (reopened) 2026-09-20 on `fix/hash-view-cold-apply`. Closed earlier the same day;
+**Status:** CLOSED 2026-10-02 — fixed by `ee5f29e79`: `useHashView` now takes `{ settled }`, which `task-manager.tsx` passes as `hydrated`; a settled-but-disabled run (a page that hydrated into classic) sets `pageColdDoneRef`, so the later switch to modern is a §478 re-entry that keeps the view, opens nothing and rewrites the URL to the bare view, while the pre-hydration disabled stretch still consumes nothing. Pinned at the hook by `treats a switch to modern after a settled classic stretch as a re-entry, not a cold load` (plus `still applies the cold rule when hydration lands on modern directly`, `use-hash-view.test.tsx`) and at the call site by `treats a classic→modern switch after hydration as a re-entry, not a cold load (§536)` (`task-manager.characterization.test.tsx`, which flips `layout` through `onChangeProjectSettings`); mutation-checked: deleting the `settled && !enabled` consumption reds both re-entry tests, and dropping `{ settled: hydrated }` from the call site reds the call-site test.
+
+**Original status:** OPEN (reopened) 2026-09-20 on `fix/hash-view-cold-apply`. Closed earlier the same day;
 reopened the same day once review found the closure covered only half of this entry's original symptom.
 Mechanism verified 2026-09-20 by `npx vitest run src/app/use-hash-view.test.tsx --maxWorkers=1`
 (40/40): `is cold on the first enabled window even when the page loaded disabled and the cold target is
@@ -39052,8 +39059,6 @@ sets `pageColdDoneRef`, so the first enabled window applies the stale-residue ru
 the user-visible route to it: nothing exercises the actual Settings layout toggle end to end, so the
 claim that a mid-session classic→modern switch reaches this path is still reasoned from the call site
 (`task-manager.tsx` passes `hydrated && settings.layout === "modern"`), not observed.
-
-**Work item:** #326
 
 **What the closure got right — the mechanism as originally stated is REFUTED.** It assumed the first
 classic→modern switch is the page's first enabled window (`false → true`). It is not: `use-settings.ts`'s
@@ -39070,6 +39075,8 @@ a page whose persisted settings resolve to `layout: "classic"` never reaches an 
 no-persisted-settings path), `useHashView` does nothing while it is false, and hydration lands on
 `"classic"` before anything ever applies. That half stays fixed; see the commits and mutation notes
 below.
+
+*Superseded by the closure above — the paragraph below is the pre-fix record of the mid-session path.*
 
 **What is still open, and is now the ONLY reachable path to the original symptom: the MID-SESSION
 switch.** A page that hydrates into (or stays in) classic layout runs its whole classic stretch with
@@ -40071,7 +40078,7 @@ It does NOT see a bounded `[^>]{0,N}`, such as `html-extract.ts`'s `TAG_STRIP_RE
 string concatenation. It does not see other backtracking shapes either, such as a leading `\s*`. It
 returns no hits in the four extractors (`docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts`,
 `html-extract.ts`) or in `office-xml.ts`. Quadratic regexes outside the four OOXML extractors are
-out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open)). The
+out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02)). The
 point of the command is that it can SEE them. The earlier one could not.
 
 ★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
@@ -40901,9 +40908,28 @@ started), or (3) both — compare to-date budget vs to-date actual for the breac
 surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
 that is still worth flagging.
 
-## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
+## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
+**Status:** CLOSED 2026-10-02 — fixed by `b9099bd23`, `4a66f896c` and `1c86cae3e`, one per site: `htmlToPlainText`'s
+`<li>` and catch-all passes and `isNarrativeEmpty`'s tag strip now go through `replaceOpenTags` (a linear
+`forEachOpenTag` walk in `tag-pair-walk.ts`); `buildEscalationEntry` caps `recipient.name` with the load path's
+`stripBreakTagsWithin` at `RAID_ESCALATION_NAME_MAX` before stripping; the eleven fenced-json reads in
+`markdown-codecs-core.ts` share one forward-scanning `readFencedJsonSection` (`markdown-fenced-json.ts`). Output is
+unchanged for html-to-text, narrative-html and the markdown reads. Each test file keeps the old regex as a differential
+oracle (hand-picked cases plus a seeded fast-check property; for the markdown reader, a structured section property, added in `f4295caff`), and the golden fixtures are
+byte-identical. The RAID write path is unchanged within the cap only: a name over `RAID_ESCALATION_NAME_MAX` is now
+truncated at write, exactly as every reload already truncated it in `sanitizeEntry`. One consequence: a name with more
+than 200 leading whitespace or `<br>` characters before its text now writes no `toName`. Each site has an
+`expectLinearScaling` guard (`html-to-text.test.ts`, `narrative-html.test.ts`, `action-escalate.test.ts`,
+`markdown-fenced-json.test.ts`). Three of the four measure through the real call site (`htmlToPlainText`,
+`isNarrativeEmpty`, `buildEscalationEntry`). The markdown guard calls `readFencedJsonSection` directly, and each of the
+eleven readers is a single call to it.
+Mutation-checked one site at a time on 2026-10-02 by restoring the old code: the `<li>` regex gave a ratio of 15.76 and
+`<[^>]+>` 15.87 (same fixture), `<[^>]*>` 16.15 (15.81 on the cheaper-to-calibrate `<&` fixture from `f4295caff`), the uncapped `stripBreakTags` 16.83, and the old fenced regex 16.00,
+each against the limit of 8. The `project-ingest.ts` "bound the input before the HTML pass" item in the fix shape was not
+done. With `htmlToPlainText` linear it is no longer needed to avoid the quadratic cost.
+
+**Original status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
 extractors. `fe253f4f` (committed before this entry was filed) bounded one of them, the RAID
 `BREAK_TAG` LOAD path; the rest — `html-to-text.ts`, `narrative-html.ts`, the RAID WRITE path and the
 eleven `markdown-codecs-core.ts` fenced-block reads — remain open. Established by
@@ -40912,8 +40938,6 @@ and by `grep -cF '\s*\n+```json' src/app/markdown-codecs-core.ts` (prints 11). T
 regexes with `node -e` one-liners, for example
 `node -e "for(const n of [20000,40000,80000]){const s='<li '.repeat(n),t=performance.now();s.replace(/<\s*li[^>]*>/gi,'');console.log(n,Math.round(performance.now()-t))}"`
 (printed 496 / 1970 / 8357 ms). **Never measured end to end through a real call site.**
-
-**Work item:** #363
 
 §558's sweep found the lazy-pair regex shape and greedy `[^>]*` in the OOXML extractors. Widened to
 catch `[^>]*` and `[^>]+`, it also hits four modules outside those extractors. Each is quadratic on
@@ -41883,14 +41907,14 @@ query-stripped path — never the raw error object — so it was never in scope.
 
 Related: §566.
 
-## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN
+## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
+**Status:** CLOSED 2026-10-02 — fixed by `1242e71a2`, `464c9081a`, `28eecf574` and `7a1626585`: `redactFields` scrubs only a bounded prefix, `SCRUB_WINDOW` (`FIELD_MAX + 512`), so the quadratic patterns never see more than 1012 chars. Redaction shrinks text, so the output can reach original positions past `FIELD_MAX`; `boundScrubInput` therefore moves the cut back to the start of the run of pattern-alphabet characters it would split (`TOKEN_CHAR`, the union of what `SECRET_VALUE_PATTERNS` can match; whitespace alone left whitespace-free JSON bodies leaking a raw prefix). When that run starts before `FIELD_MAX` it is at least 512 token chars long, and only matching the whole run could judge it, which is the cost removed here, so it is replaced outright by the redaction marker instead of being handed to the patterns (otherwise a `+` or padding past the window could not fire §606). Pinned in `diagnostics-redact.test.ts` by a straddle test, a 64k scaling-ratio guard (`f60a65a31`, replacing a 500 ms ceiling), a swept JSON-body test over five token shapes and a long-base64-with-late-`+` test; mutation-checked by removing the pre-slice (ratio guard red), reverting to a whitespace walk (JSON sweep red) and removing the straddle redaction (late-`+` test red). Cost, accepted: a long non-secret run of 512 or more token chars starting before `FIELD_MAX`, such as a URL with no separator, is redacted in diagnostics. No known leak residual remains.
+
+**Original status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
 regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
 by `grep -n "SECRET_VALUE_PATTERNS: RegExp\[\]" -A 35 src/app/diagnostics-redact.ts`, which shows the
 §606 pattern before the §564 catch-all in the array.
-
-**Work item:** #389
 
 `redactFields` (`diagnostics-redact.ts`) calls `scrubSecretValues`, which runs every pattern in
 `SECRET_VALUE_PATTERNS` over the FULL field value in array order — and only afterwards does
@@ -41921,7 +41945,9 @@ one truncated whole and never scrubbed at all. A fix has to keep the whole value
 patterns while bounding their cost, which the current `.replace` loop over `SECRET_VALUE_PATTERNS`
 does not do.
 
-Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open),
+**Resolution of the above:** the shipped fix pre-caps to a window wider than `FIELD_MAX` and trims the cut back to a token boundary, so the fragment this paragraph warns about is closed for every token the patterns can match; a run that starts before `FIELD_MAX` and reaches the cut is redacted outright, at the cost listed in the Status line, and a run that starts at or after `FIELD_MAX` is dropped from the scrubbed text.
+
+Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--closed-2026-10-02),
 the catalogue of backtracking-quadratic regexes elsewhere in `src` — this pattern sits in
 `diagnostics-redact.ts`, outside that sweep's scope, and could be folded into it rather than tracked as
 a fifth site of its own. Found reviewing [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21)

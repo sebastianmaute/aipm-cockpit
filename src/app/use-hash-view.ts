@@ -47,7 +47,8 @@ export function isAuthResponseHash(raw: string): boolean {
  * the view stays, nothing is routed or opened, and the URL is rewritten to
  * the bare current view. Only the first enabled window of the PAGE LOAD
  * applies the cold rule (a view-only hash is stale residue → Dashboard; an
- * item-bearing hash is a deep link). See docs/open-followups.md §478.
+ * item-bearing hash is a deep link) — and a SETTLED disabled run (see
+ * `options.settled` below) also consumes that window. See docs/open-followups.md §478.
  * `features` gates navigation to disabled-module views — if the hash points at
  * a view whose module is off, the hash is ignored (the redirect effect keeps
  * the user on a valid view and will rewrite the hash).
@@ -70,12 +71,26 @@ export function isAuthResponseHash(raw: string): boolean {
  * same document; `replaceState` creates no new entry and traverses nowhere. So
  * neither listener can re-enter from our own write, while real back/forward
  * still fires `popstate` and is still handled by `apply`.
+ *
+ * `options.settled` tells the hook that `enabled` is now FINAL rather than a
+ * pre-hydration placeholder — the call site passes `hydrated`. A settled run
+ * that is still disabled (a page that hydrated into Classic) CONSUMES the
+ * page's cold window, so a later Classic→Modern switch is a §478 re-entry and
+ * never a cold apply against a hash left stale during Classic (§536). Before
+ * settling, a disabled run consumes nothing: the first enabled window after
+ * hydration is still the page's cold load.
  */
-export function useHashView(enabled: boolean = true, features?: readonly FeatureModuleId[]): void {
+export function useHashView(
+  enabled: boolean = true,
+  features?: readonly FeatureModuleId[],
+  { settled = false }: { settled?: boolean } = {},
+): void {
   const { activeTab, setActiveTab, isPopout, requestOpen } = useWorkspaceTab();
   // ★★ TWO pieces of state, not one (docs/open-followups.md §478, option (c)):
-  //    - `pageColdDoneRef` — has THIS PAGE LOAD's first enabled window run yet?
-  //      Set once, NEVER reset (not by the disabled branch, not by a cleanup).
+  //    - `pageColdDoneRef` — has THIS PAGE LOAD's cold window been used up? True
+  //      after the first enabled window runs, OR after a SETTLED disabled run
+  //      consumed it (a page that hydrated into Classic, §536). Set once, NEVER
+  //      reset (not by the disabled branch, not by a cleanup).
   //    - `windowActiveRef` — are we inside a contiguous enabled window? Reset
   //      ONLY by the disabled branch, so an effect CLEANUP (a dep change, or
   //      StrictMode's mount → unmount → remount) does not end the window.
@@ -128,6 +143,15 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       //    item). So only the WINDOW flag is cleared here — the page-load flag
       //    stays set, and the next enabled run is a RE-ENTRY, which does not
       //    route at all (§478).
+      // ★★ A SETTLED disabled run is the page's cold window, spent in Classic
+      //    (§536). Without this, a page that hydrated into Classic never set
+      //    the page-load flag, so its first switch to Modern ran COLD against
+      //    whatever hash Classic left behind — reopening a stale `#raid/123`,
+      //    or sending a view-only hash to the Dashboard. Gated on `settled`
+      //    so the pre-hydration disabled stretch, which EVERY load has, still
+      //    leaves the cold rule to the first enabled run. A classic popout may
+      //    set it too, harmlessly: `isPopout` holds every run on this branch.
+      if (settled && !enabled) pageColdDoneRef.current = true;
       windowActiveRef.current = false;
       reentryRepairRef.current = false;
       pendingApplyRef.current = null;
@@ -200,8 +224,9 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
     //    snap the user off whatever view they had navigated to. A re-run INSIDE
     //    the same enabled window is therefore a warm apply, exactly as before.
     // ★ The refs are set HERE, not at render time: the early return above means
-    //   the first EXECUTED run need not be the first render (a page that loads
-    //   in Classic returns early), and that run IS the page's cold load.
+    //   the first EXECUTED run need not be the first render (every load returns
+    //   early until settings hydrate), and that run IS the page's cold load —
+    //   unless a SETTLED disabled run already spent it in Classic (§536).
     // ★★ STRICTMODE: the dev double-invoke is mount → CLEANUP → mount, and the
     //    cleanup below touches neither ref, so the second invoke sees the
     //    window still active and takes the warm branch — it can never be
@@ -229,7 +254,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       window.removeEventListener("hashchange", onEvent);
       window.removeEventListener("popstate", onEvent);
     };
-  }, [enabled, isPopout, features, setActiveTab, requestOpen]);
+  }, [enabled, settled, isPopout, features, setActiveTab, requestOpen]);
 
   // View change: write the hash, but only when the BASE view differs — so an
   // existing "#raid/123" is not clobbered while we stay on RAID.

@@ -134,6 +134,52 @@ describe("useColumnResize", () => {
     expect(result.current.sizedWidths.a).toBe(333);
   });
 
+  // §52: a v1 blob is a defaults snapshot plus drags, so a key equal to the
+  // CURRENT default is not user-set and must follow a later default change.
+  it("treats a v1 key equal to the current default as not user-set (§52)", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem(KEY("t11"), JSON.stringify({ a: DEFAULTS.a, b: 333 }));
+    const changed = { a: 150, b: 200 } as const;
+    const { result } = renderHook(() => useColumnResize("t11", DEFAULTS));
+    expect(result.current.sizedWidths).toEqual({ b: 333 });
+
+    // The v2 write that follows persists only the drag.
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(JSON.parse(localStorage.getItem(KEY("t11")) as string)).toEqual({ v: 2, widths: { b: 333 } });
+
+    // The default for `a` changes in a later release: `a` follows it, `b` keeps the drag.
+    const later = renderHook(() => useColumnResize("t11", changed));
+    expect(later.result.current.colWidths).toEqual({ a: 150, b: 333 });
+  });
+
+  // §52: v2 shipped with the same defaults snapshot stored as if dragged, so the
+  // filter must heal v2 blobs too, not only v1.
+  it("treats a v2 key equal to the current default as not user-set (§52)", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem(KEY("t12"), JSON.stringify({ v: 2, widths: { a: DEFAULTS.a, b: 333 } }));
+    const changed = { a: 150, b: 200 } as const;
+    const { result } = renderHook(() => useColumnResize("t12", DEFAULTS));
+    expect(result.current.sizedWidths).toEqual({ b: 333 });
+
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(JSON.parse(localStorage.getItem(KEY("t12")) as string)).toEqual({ v: 2, widths: { b: 333 } });
+
+    const later = renderHook(() => useColumnResize("t12", changed));
+    expect(later.result.current.colWidths).toEqual({ a: 150, b: 333 });
+  });
+
+  // §52 documented RESIDUAL, pinned so it is not mistaken for a bug: a key whose default changed
+  // between the user's first display and now still holds the OLD default, differs from today's,
+  // and reads as a drag — it survives as user-set and keeps the old value.
+  it("keeps a stored width equal to an OLD default as user-set once the default has changed (§52 residual)", async () => {
+    localStorage.setItem(KEY("t13"), JSON.stringify({ v: 2, widths: { a: DEFAULTS.a, b: 333 } }));
+    const changed = { a: 150, b: 200 } as const;
+    const { result } = renderHook(() => useColumnResize("t13", changed));
+
+    expect(result.current.sizedWidths).toEqual({ a: DEFAULTS.a, b: 333 });
+    expect(result.current.colWidths).toEqual({ a: DEFAULTS.a, b: 333 });
+  });
+
   // ★ The payload is NOT durably removed: the debounced effect re-runs on the
   //   state change and writes `{v:2,widths:{}}` back 250ms later. Asserting only
   //   the null would pin a transient state. Both are checked here, so the test

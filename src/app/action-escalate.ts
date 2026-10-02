@@ -9,7 +9,7 @@ import { addNote } from "./note-log";
 import { plainToHtml } from "./sanitize-html";
 import { severityLabel } from "./raid-labels";
 import { resourceDisplayName } from "./resource-foundation";
-import { stripBreakTags } from "./raid-escalation";
+import { RAID_ESCALATION_NAME_MAX, stripBreakTagsWithin } from "./raid-escalation";
 
 export type EscalationPlan = {
   raisesSeverity: boolean;
@@ -76,8 +76,10 @@ export function buildEscalationEntry(
   recipient: EscalationRecipient,
   at: string,
 ): RaidEscalation {
-  // `stripBreakTags` also cleans the note echo, which `describeEscalation` builds from this entry.
-  const name = stripBreakTags(recipient.name);
+  // Stripping also cleans the note echo, which `describeEscalation` builds from this entry.
+  // ★ §578: capped BEFORE stripping, as the load path does — `BREAK_TAG` backtracks
+  // to the end of the value from every start, so an uncapped huge name took seconds.
+  const name = stripBreakTagsWithin(recipient.name, RAID_ESCALATION_NAME_MAX);
   return {
     at,
     ...(name ? { toName: name } : {}),
