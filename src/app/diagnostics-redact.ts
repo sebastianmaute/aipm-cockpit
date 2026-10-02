@@ -10,10 +10,27 @@ const SECRET_KEY_PARTS = [
 const FIELD_MAX = 500;
 // §608: scrub only a bounded prefix, never the full field. Several patterns backtrack
 // quadratically on a long run that fails them (64k mixed-case ~12 s), so the input is cut
-// BEFORE scrubbing. Safe because every pattern needs a run of >= 32 chars and none looks
-// beyond its own run: a run that starts inside the first FIELD_MAX chars keeps >= 512 chars
-// before this cut, so it still matches and is redacted, and nothing past FIELD_MAX is output.
+// BEFORE scrubbing. Minimum match lengths differ per pattern (sk-ant- ~8, Bearer ~8, Basic 22,
+// eyJ 23, ATATT 6, key=value ~7, the two base64 rules 32), all far under 512, and none looks
+// beyond its own run: a token that starts inside the first FIELD_MAX chars keeps >= 512 chars
+// before the cut, so it still matches.
+// ★ Redaction SHRINKS text, so the first FIELD_MAX chars of the OUTPUT can reach original
+// positions past FIELD_MAX. A token that starts there and is cut by the window with too few
+// chars kept would survive as a raw fragment, so `boundScrubInput` moves the cut back to the
+// start of the trailing whitespace-delimited token (a linear backward scan, no regex).
 export const SCRUB_WINDOW = FIELD_MAX + 512;
+
+function boundScrubInput(value: string): string {
+  if (value.length <= SCRUB_WINDOW) return value;
+  // The cut lands between two non-whitespace chars only when it splits a token.
+  if (/\s/.test(value[SCRUB_WINDOW - 1]) || /\s/.test(value[SCRUB_WINDOW])) {
+    return value.slice(0, SCRUB_WINDOW);
+  }
+  let start = SCRUB_WINDOW;
+  while (start > 0 && !/\s/.test(value[start - 1])) start--;
+  // A token starting inside FIELD_MAX keeps >= 512 chars, so its pattern still matches.
+  return value.slice(0, start < FIELD_MAX ? SCRUB_WINDOW : start);
+}
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /sk-ant-[A-Za-z0-9_-]+/g,                 // Anthropic API keys
@@ -73,7 +90,7 @@ export function redactFields(
     if (typeof value === "number" || typeof value === "boolean") {
       out[key] = value;
     } else if (typeof value === "string") {
-      const scrubbed = scrubSecretValues(value.slice(0, SCRUB_WINDOW));
+      const scrubbed = scrubSecretValues(boundScrubInput(value));
       out[key] = scrubbed.length > FIELD_MAX ? scrubbed.slice(0, FIELD_MAX) : scrubbed;
     }
     // objects/arrays/functions/undefined -> dropped
