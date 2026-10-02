@@ -354,6 +354,11 @@ export const MODAL_HELP = {
   // notes badge, the self-stamped author, the save-as-you-go — not because its
   // title happens to say "notes". That body names all three registers.
   notesWindow: "feature-rich-text",
+  // ★ No blockers CONCEPT exists. `feature-add` is the task editor's own entry,
+  // and its body (`helpSecAddBody`) is the one that describes this window: the
+  // editor's Blockers button, add / resolve / reopen / delete, resolved entries
+  // kept as history, and the Open Points badge that opens the same window.
+  blockersWindow: "feature-add",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
   // ★ Renames the DOCUMENT's title, not an image, so it stays on the entry for

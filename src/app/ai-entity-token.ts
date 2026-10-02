@@ -98,6 +98,14 @@ export type TokenEntity =
  *    inquiriesSent    a counter bumped by sending a status inquiry
  *    noteLog          a dated append; adding a note does not invalidate an
  *                     edit to other fields
+ *    blockerLog       (task only) owned by the blocker-log mutators. The
+ *                     model writes blockers ONLY through `update_task.blockers`
+ *                     → `setBlockersText`; a change to the OPEN entries still
+ *                     moves the token through the derived, covered `blockers`
+ *                     text, so only a history-only edit (resolve/reopen order,
+ *                     edit of a resolved entry) is invisible to it. Neither
+ *                     task tool can write it: `create_task` and `buildPatch`
+ *                     are allowlists that do not name it.
  *
  *  ★★★ THREE CONSUMERS ASK THREE DIFFERENT QUESTIONS OF THIS ONE LIST, AND THEY
  *  AGREE ON MEMBERSHIP ONLY BY COINCIDENCE OF TODAY'S FACTS:
@@ -120,7 +128,7 @@ export type TokenEntity =
  *  widening it — a consumer reading the wrong question off a shared constant
  *  fails silently at whichever end was not considered. */
 export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = {
-  task: ["localModifiedAt", "lastSyncedAt", "outlookEventId", "calendarOptOut", "inquiriesSent", "noteLog"],
+  task: ["localModifiedAt", "lastSyncedAt", "outlookEventId", "calendarOptOut", "inquiriesSent", "noteLog", "blockerLog"],
   raid: ["localModifiedAt", "outlookEventId", "calendarOptOut", "inquiriesSent", "noteLog"],
   milestone: ["localModifiedAt", "outlookEventId", "calendarOptOut"],
   change: ["localModifiedAt", "outlookEventId", "calendarOptOut", "noteLog"],

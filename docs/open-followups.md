@@ -8616,6 +8616,11 @@ would collide with §106.
 `blockers` is a `<textarea>` in `task-form-fields.tsx`, an inline textarea in
 `task-row.tsx` (`renderInlineTextarea`), and an AI-writable field via
 `use-chat-dispatcher.ts`. Pressing Enter is sufficient.
+★ **Updated 2026-10-02 (blocker log):** both textareas named above are gone — the editor has a
+Blockers button and the table cell is a badge, each opening the blocker window, and
+`renderInlineTextarea` was removed. `blockers` is still reachable with a newline: it is derived
+from the open log entries joined by newlines, and the window, bulk edit and the AI all write
+multi-line text.
 
 **Pinned:** `codec-roundtrip.property.test.ts` holds the property this satisfies, live and
 unskipped since `0771510e`, alongside a losslessness property and a no-line-ends-mid-quote

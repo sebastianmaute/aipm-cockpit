@@ -12,8 +12,11 @@
 //
 // Scope, deliberately narrow (depth over breadth): TASKS only, and within a
 // task only the five fields whose CSV/MD decode is the IDENTITY on the parsed
-// cell string — `taskName`, `assignee`, `assigneeEmail`, `blockers`,
-// `description` (each is `obj.X ?? ""` in `buildTaskFromObj`). Every other task
+// cell string — `taskName`, `assignee`, `assigneeEmail`, `dueDate`,
+// `description` (each is `obj.X ?? ""` in `buildTaskFromObj`). `dueDate` took
+// the fifth slot from `blockers` when the blocker log made `blockers` a value
+// DERIVED on load (exclusion (i)); it is a free string to the codec, and no
+// load step reads or rewrites it. Every other task
 // field is held at a fixed valid value by the arbitrary, so a failure here can
 // only be a codec-layer defect, never a sanitizer decision. The full list of
 // what is excluded and why is in EXCLUSIONS below.
@@ -61,6 +64,9 @@ import { quoteStep, splitCsvLines } from "./csv-line-scan";
  *     negatives). Held at 0 / absent.
  * (h) `id` IS asserted (it is the row key) but is generated as a small unique
  *     positive integer, since `buildTaskFromObj` drops any row without one.
+ * (i) `blockers` / `blockerLog` — `migrateTask` runs `migrateLoadedBlockers`,
+ *     which turns legacy text into a one-entry log and re-derives `blockers`
+ *     from it (CRLF → LF, control characters stripped, trimmed). Held at "".
  *
  * Beyond the field level, each codec applies normalisation to a cell's TEXT,
  * and those are asserted rather than excluded:
@@ -266,7 +272,7 @@ type VariedFields = {
   taskName: string;
   assignee: string;
   assigneeEmail: string;
-  blockers: string;
+  dueDate: string;
   description: string;
 };
 
@@ -277,12 +283,12 @@ function makeTask(id: number, f: VariedFields): Task {
     assignee: f.assignee,
     assigneeEmail: f.assigneeEmail,
     startDate: "2026-01-05",
-    dueDate: "2026-02-01",
+    dueDate: f.dueDate,
     lastUpdateDate: "2026-01-15",
     createdDate: "2026-01-01",
     priority: "Medium",
     status: "To Do",
-    blockers: f.blockers,
+    blockers: "",
     description: f.description,
     inquiriesSent: 0,
     group: "",
@@ -305,7 +311,7 @@ function variedArb(str: fc.Arbitrary<string>): fc.Arbitrary<VariedFields> {
     // unit-shuffled on one PR). A letter in their place cannot move whitespace
     // to an edge, so the filter's guarantee survives the map.
     assigneeEmail: str.map((s) => s.replace(/[<>]/g, "x")),
-    blockers: str,
+    dueDate: str,
     description: str,
   });
 }
@@ -327,7 +333,7 @@ function varied(t: Task) {
     taskName: t.taskName,
     assignee: t.assignee,
     assigneeEmail: t.assigneeEmail,
-    blockers: t.blockers,
+    dueDate: t.dueDate,
     description: t.description,
   };
 }
@@ -364,7 +370,7 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
       t.taskName,
       t.assignee,
       t.assigneeEmail,
-      t.blockers,
+      t.dueDate,
       t.description,
     ]) {
       // The SAME predicates the hazard pools are derived from, so a class the
@@ -468,18 +474,20 @@ const csvRound = (tasks: readonly Task[]): readonly Task[] =>
 const mdRound = (tasks: readonly Task[]): readonly Task[] =>
   markdownToWorkspace(workspaceToMarkdown({ ...emptyWorkspace(), tasks })).tasks;
 
-/** Round-trips ONE field of ONE task through Markdown and returns it. Used by
- *  the deterministic blocks, where a property would only obscure the case. */
-const oneBlockers = (blockers: string): string =>
+/** Round-trips ONE identity-decoded field of ONE task through Markdown and
+ *  returns it. Used by the deterministic blocks, where a property would only
+ *  obscure the case. (It rode `blockers` until the blocker log made that field
+ *  normalised on load — exclusion (i).) */
+const oneCell = (taskName: string): string =>
   mdRound([
     makeTask(1, {
-      taskName: "T",
+      taskName,
       assignee: "",
       assigneeEmail: "",
-      blockers,
+      dueDate: "",
       description: "",
     }),
-  ])[0].blockers;
+  ])[0].taskName;
 
 // --- CSV -------------------------------------------------------------------
 
@@ -514,7 +522,7 @@ describe("CSV workspace codec — task round-trip", () => {
               taskName: csvNewlines(v.taskName),
               assignee: csvNewlines(v.assignee),
               assigneeEmail: csvNewlines(v.assigneeEmail),
-              blockers: csvNewlines(v.blockers),
+              dueDate: csvNewlines(v.dueDate),
               description: csvNewlines(v.description),
             };
           }),
@@ -642,8 +650,8 @@ describe("Markdown codec — the two documented lossy transforms", () => {
   it("trims leading/trailing whitespace from every cell", () => {
     // `splitMdRow` trims each cell because the encoder pads with " | ", and the
     // padding is indistinguishable from the value's own edge whitespace.
-    expect(oneBlockers("  x  ")).toBe("x");
-    expect(oneBlockers("\tx\t")).toBe("x");
+    expect(oneCell("  x  ")).toBe("x");
+    expect(oneCell("\tx\t")).toBe("x");
   });
 
   it("collapses CRLF, and trims a bare CR only at a cell edge", () => {
@@ -651,10 +659,10 @@ describe("Markdown codec — the two documented lossy transforms", () => {
     // before an LF (§106) — returns as LF. A BARE CR is
     // not matched at all: it survives inside a cell, and disappears at an edge
     // through the trim above (CR is whitespace), not through any newline rule.
-    expect(oneBlockers("a\r\nb")).toBe("a\nb");
-    expect(oneBlockers("a\r\r\r\nb")).toBe("a\nb");
-    expect(oneBlockers("a\rb")).toBe("a\rb");
-    expect(oneBlockers("\ra")).toBe("a");
+    expect(oneCell("a\r\nb")).toBe("a\nb");
+    expect(oneCell("a\r\r\r\nb")).toBe("a\nb");
+    expect(oneCell("a\rb")).toBe("a\rb");
+    expect(oneCell("\ra")).toBe("a");
   });
 
   // FIXED DEFECT: `mdEscape` used to leave a literal "<br>" unescaped, so
@@ -664,17 +672,17 @@ describe("Markdown codec — the two documented lossy transforms", () => {
   // wiped the whole column. `mdEscape` now escapes the `<` so a literal tag
   // round-trips verbatim instead of collapsing.
   it("preserves a literal <br> instead of absorbing it into a newline", () => {
-    expect(oneBlockers("a<br>b")).toBe("a<br>b");
-    expect(oneBlockers("a<BR />b")).toBe("a<BR />b");
+    expect(oneCell("a<br>b")).toBe("a<br>b");
+    expect(oneCell("a<BR />b")).toBe("a<BR />b");
   });
 
   it("preserves an interior newline, pipe and backslash exactly", () => {
     // The positive control for the tests above: without it they would all
     // still pass against a codec that simply threw every cell away.
-    expect(oneBlockers("a\nb")).toBe("a\nb");
-    expect(oneBlockers("a|b")).toBe("a|b");
-    expect(oneBlockers("a\\|b")).toBe("a\\|b");
-    expect(oneBlockers("a\\\\b")).toBe("a\\\\b");
+    expect(oneCell("a\nb")).toBe("a\nb");
+    expect(oneCell("a|b")).toBe("a|b");
+    expect(oneCell("a\\|b")).toBe("a\\|b");
+    expect(oneCell("a\\\\b")).toBe("a\\\\b");
   });
 });
 
@@ -710,12 +718,12 @@ describe("CSV codec — section markers must not be matched inside a quoted cell
         taskName: "T",
         assignee: "",
         assigneeEmail: "",
-        blockers: "step one\n# RAID\nstep two",
+        dueDate: "step one\n# RAID\nstep two",
         description: "",
       }),
     ];
     expect(csvRound(tasks).map(varied)).toEqual(
-      tasks.map((t) => ({ ...varied(t), blockers: csvNewlines(t.blockers) })),
+      tasks.map((t) => ({ ...varied(t), dueDate: csvNewlines(t.dueDate) })),
     );
   });
 });
@@ -756,9 +764,9 @@ describe("Markdown codec — one pass must be a fixed point on any string", () =
   });
 
   it("does not erode a CR run on each successive save", () => {
-    const first = oneBlockers("a\r\r\r\nb");
+    const first = oneCell("a\r\r\r\nb");
     expect(first).toBe("a\nb");
-    expect(oneBlockers(first)).toBe(first);
+    expect(oneCell(first)).toBe(first);
   });
 });
 

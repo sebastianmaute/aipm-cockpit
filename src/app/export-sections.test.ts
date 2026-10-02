@@ -10,6 +10,7 @@ import {
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   RAID_EXPORT_COLUMNS,
+  TASK_EXPORT_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
@@ -234,12 +235,16 @@ describe("buildExportSections", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const taskSec = sections.find((s) => s.key === "tasks")!;
 
-    // Column headers are the labels of the same list workspaceToCsv uses (§304)
-    expect(taskSec.columns).toEqual(exportColumnLabels("tasks", CSV_COLUMNS, "en-US"));
+    // Column headers are the labels of the list workspaceToCsv uses (§304),
+    // minus the structured blockerLog JSON: the open blockers are exported as
+    // the derived `blockers` text.
+    expect(taskSec.columns).toEqual(exportColumnLabels("tasks", TASK_EXPORT_COLUMNS, "en-US"));
+    expect(TASK_EXPORT_COLUMNS).not.toContain("blockerLog");
+    expect(TASK_EXPORT_COLUMNS).toHaveLength(CSV_COLUMNS.length - 1);
 
     // Each row must equal what fieldToString produces for the same task
     tasks.forEach((task, idx) => {
-      const expectedRow = CSV_COLUMNS.map((c) => fieldToString(task, c));
+      const expectedRow = TASK_EXPORT_COLUMNS.map((c) => fieldToString(task, c));
       expect(taskSec.rows[idx].map(flatCell)).toEqual(expectedRow);
     });
   });

@@ -1,6 +1,8 @@
 // src/app/use-task-submit.test.ts
 import { act, renderHook } from "@testing-library/react";
+import { useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { useUndoStack } from "./undo/use-undo-stack";
 import type { RaidItem } from "./types";
 import { __resetMintStateForTests } from "./id-mint-session";
 
@@ -43,7 +45,6 @@ function validForm(): TaskFormDraft {
     lastUpdateDate: "2030-01-01",
     priority: "Medium" as const,
     status: "To Do" as const,
-    blockers: "",
     description: "",
     group: "",
     labels: [],
@@ -329,6 +330,83 @@ describe("useTaskSubmit — calendarOptOut (§486)", () => {
     expect(setForm.mock.calls.at(-1)![0]).toMatchObject({ calendarOptOut: true });
     act(() => result.current.openEditModal(makeTask()));
     expect(setForm.mock.calls.at(-1)![0]).toMatchObject({ calendarOptOut: false });
+  });
+});
+
+describe("useTaskSubmit — the blocker pair is carried from the STORED row", () => {
+  const RESOLVED = { id: 1, text: "Old", createdAt: "2030-01-01T00:00:00.000Z", resolvedAt: "2030-01-02T00:00:00.000Z" };
+  const A = { id: 2, text: "Waiting A", createdAt: "2030-01-03T00:00:00.000Z" };
+  const B = { id: 3, text: "Waiting B", createdAt: "2030-01-04T00:00:00.000Z" };
+
+  // The editor has no blockers field any more (the Blockers button opens the
+  // window), so a save carries `blockers` and `blockerLog` from the stored row.
+  it("editor save keeps a log written by the window after the editor opened", () => {
+    const atOpen = makeTask({ blockerLog: [RESOLVED, A], blockers: "Waiting A" });
+    // The blockers window adds B to the stored row while the editor is open.
+    const storedNow = makeTask({ blockerLog: [RESOLVED, A, B], blockers: "Waiting A\nWaiting B" });
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [storedNow], tasksRef: { current: [storedNow] },
+        form: { ...validForm(), taskName: "Renamed" },
+      })),
+    );
+    act(() => result.current.openEditModal(atOpen));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [saved] = updater([storedNow]);
+    expect(saved.taskName).toBe("Renamed");
+    expect(saved.blockerLog).toBe(storedNow.blockerLog);
+    expect(saved.blockers).toBe("Waiting A\nWaiting B");
+  });
+
+  it("openEditModal hydrates no blockers into the form draft", () => {
+    const setForm = vi.fn();
+    const { result } = renderHook(() => useTaskSubmit(makeArgs({ setForm })));
+    act(() => result.current.openEditModal(makeTask({ blockerLog: [A], blockers: "Waiting A" })));
+    const draft = setForm.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(draft.taskName).toBe("Test task");
+    expect("blockers" in draft).toBe(false);
+    expect("blockerLog" in draft).toBe(false);
+  });
+
+  it("an editor save pushes an undo entry for its own field only and leaves the blocker pair alone", () => {
+    const stored = makeTask({
+      group: "", labels: [], dependencies: [], knowledgeLinks: [], description: "", completedDate: "",
+      blockerLog: [RESOLVED, A], blockers: "Waiting A",
+    });
+    const { result } = renderHook(() => {
+      const [tasks, setTasks] = useState<readonly Task[]>([stored]);
+      const undoApi = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      const submit = useTaskSubmit(makeArgs({
+        tasks, setTasks, tasksRef: { current: tasks }, editingId: 1,
+        form: {
+          ...validForm(),
+          taskName: stored.taskName, assignee: stored.assignee, assigneeEmail: stored.assigneeEmail ?? "",
+          dueDate: stored.dueDate, lastUpdateDate: stored.lastUpdateDate, priority: "Urgent",
+        },
+        captureFieldEdit: undoApi.captureFieldEdit,
+      }));
+      return { tasks, submit, undoApi };
+    });
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    expect(result.current.tasks[0].priority).toBe("Urgent");
+    expect(result.current.undoApi.stack).toHaveLength(1);
+    act(() => result.current.undoApi.undo());
+    expect(result.current.tasks[0].priority).toBe("Medium");
+    expect(result.current.tasks[0].blockers).toBe("Waiting A");
+    expect(result.current.tasks[0].blockerLog).toEqual([RESOLVED, A]);
+  });
+
+  it("a new task starts with no blockers and no log", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() => useTaskSubmit(makeArgs({ setTasks })));
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const next = setTasks.mock.calls[0][0] as Task[];
+    const created = next[next.length - 1];
+    expect(created.taskName).toBe("Valid Task");
+    expect(created.blockers).toBe("");
+    expect(created.blockerLog).toBeUndefined();
   });
 });
 

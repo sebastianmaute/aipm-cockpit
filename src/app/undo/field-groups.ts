@@ -69,11 +69,14 @@ export function changedFieldGroups<T extends { id: number }>(
   return out;
 }
 
-/** status⟺completedDate invariant; assignee identity is written as one unit. */
+/** status⟺completedDate invariant; assignee identity is written as one unit.
+ *  ★ No blockers group: `blockers` + `blockerLog` are write-through and never
+ *  captured (write-through-fields.ts), so a group for them would be dead. */
 export const TASK_UNDO_GROUPS: readonly FieldGroup<Task>[] = [
   ["status", "completedDate"],
   ["assignee", "assigneeEmail", "resourceId"],
 ];
+
 /** A change's status transition auto-fills/clears decisionDate together. */
 export const CHANGE_UNDO_GROUPS: readonly FieldGroup<ChangeItem>[] = [
   ["status", "decisionDate"],

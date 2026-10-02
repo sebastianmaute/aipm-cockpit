@@ -17,7 +17,8 @@ import { RichTextEditor } from "./rich-text-editor-lazy";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input, Select, Textarea } from "./form-controls";
+import { Input, Select } from "./form-controls";
+import { openBlockerCount } from "./blocker-log";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -34,7 +35,6 @@ import {
   GROUP_MAX,
   sanitizeLoadedEmail,
   TASK_NAME_MAX,
-  TEXTAREA_MAX,
 } from "./sanitize";
 import { describeTextCap } from "./sanitize-report";
 import { TaskTimeTrackingButton } from "./task-time-tracking-button";
@@ -45,6 +45,9 @@ import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
+
+/** The Notes and Blockers launcher buttons share one look (they sit together). */
+const LOG_LAUNCHER_CLASS = `inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`;
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -70,6 +73,9 @@ export interface TaskFormFieldsProps {
   /** Opens the floating note-log window (wired by the host in Task E2). Optional
    *  so this component still compiles/renders standalone before that wiring. */
   onOpenNotes?: () => void;
+  /** Opens the floating blocker window for the edited task. Absent (an unsaved
+   *  new task, as for `onOpenNotes`) → the Blockers button is disabled. */
+  onOpenBlockers?: () => void;
   /** Live note-log panel props for the edited task. Present → the log renders
    *  INLINE here and writes straight through to the workspace; absent (an
    *  unsaved new task) → the disabled launcher button above is used instead.
@@ -101,6 +107,7 @@ export function TaskFormFields({
   jiraDefaultIssueType,
   onAddAssigneeToAddressBook,
   onOpenNotes,
+  onOpenBlockers,
   taskNotePanel,
   budgetLink,
 }: TaskFormFieldsProps) {
@@ -109,6 +116,10 @@ export function TaskFormFields({
   // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + cap) — never the raw typed string.
   const storedAssigneeEmail = sanitizeLoadedEmail(form.assigneeEmail);
   const isEditing = editingId !== null;
+  // The STORED row of the edited task. The form draft carries no blockers (the
+  // blocker log is write-through, like notes), so the health preview and the
+  // Blockers button's open count read the live row instead of a stale copy.
+  const storedTask = isEditing ? tasksForDeps.find((tk) => tk.id === editingId) : undefined;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
   // Description is rich HTML but dictation yields plain text — appendDictationToHtml
@@ -421,7 +432,7 @@ export function TaskFormFields({
               priority: form.priority,
               // Preview-only object for health derivation; status is not displayed, so a fixed seed is fine.
               status: "To Do",
-              blockers: form.blockers,
+              blockers: storedTask?.blockers ?? "",
               description: form.description,
               group: form.group,
               labels: form.labels,
@@ -559,7 +570,7 @@ export function TaskFormFields({
               onClick={onOpenNotes}
               disabled={!onOpenNotes}
               title={t(lang, "noteLogOpenHint")}
-              className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
+              className={LOG_LAUNCHER_CLASS}
             >
               {/* No count: this branch renders only for an UNSAVED task, which has
                   no id for the write-through path to append to. A hardcoded 0 would
@@ -567,6 +578,28 @@ export function TaskFormFields({
                   `editingId !== null`), not by construction — so show no number at
                   all rather than one a future caller could falsify. */}
               {t(lang, "noteLogTitle")}
+            </button>
+          </div>
+        )}
+
+        {/* Blocker log launcher, beside the Notes control. The blockers text is
+            DERIVED from the log and written only through the floating blocker
+            window (write-through, like notes), so the editor holds no draft of
+            it. The count is the STORED row's open entries; for an unsaved task
+            the button is disabled with no count — exactly what Notes does
+            there, since a new draft has no id for the window to write to. */}
+        {isVisible("blockers") && (
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              onClick={onOpenBlockers}
+              disabled={!onOpenBlockers}
+              title={t(lang, "taskHintBlockers")}
+              className={LOG_LAUNCHER_CLASS}
+            >
+              {storedTask
+                ? t(lang, "blockerLogButton", openBlockerCount(storedTask.blockerLog))
+                : t(lang, "blockerLogTitle")}
             </button>
           </div>
         )}
@@ -696,13 +729,12 @@ export function TaskFormFields({
         )}
       </TaskFormSection>
 
-      {/* ★ The budgetBucket disjunct went with the field itself. Leaving it
-          would render an EMPTY Relationships section for a user who has
-          dependencies and blockers hidden but budget bucket shown. */}
-      {(isVisible("dependencies") || isVisible("blockers")) && (
+      {/* ★ The budgetBucket disjunct went with the field itself, and the
+          blockers one went when the Blockers control moved beside Notes.
+          Leaving either would render an EMPTY Relationships section for a user
+          who has dependencies hidden. */}
+      {isVisible("dependencies") && (
       <TaskFormSection index={5} title={t(lang, "taskFormSectionRelationships")}>
-        {isVisible("dependencies") && (
-        <>
         {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
             the first labelable element inside the Field, so a plain <label>
             caption would adopt it and clicking the caption would fire a
@@ -747,25 +779,6 @@ export function TaskFormFields({
             now instantiated twice, and printing the type legend twice on one
             modal is noise. */}
         <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
-        </>
-        )}
-
-        {isVisible("blockers") && (
-        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
-          <Textarea
-            rows={2}
-            value={form.blockers}
-            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
-            onBlur={(e) =>
-              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
-            }
-            placeholder={t(lang, "placeholderBlockers")}
-            aria-describedby="blockers-counter"
-            className="w-full"
-          />
-          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
-        </Field>
-        )}
       </TaskFormSection>
       )}
     </>

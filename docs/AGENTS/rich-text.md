@@ -169,6 +169,48 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
+- **Blocker log (tasks only) — `Task.blockerLog` beside the note log, but PLAIN text, not rich HTML.**
+  `BlockerEntry[]` (`{id;text;createdAt;authorResourceId?;authorName?;editedAt?;resolvedAt?}`), pure model in
+  `blocker-log.ts`. Surfaced by the floating `BlockersWindow` (`blockers-window.tsx` over
+  `BlockerLogPanel`, sharing the `FloatingLogWindow` chrome with `NotesWindow`), owned above every
+  panel by `useBlockersWindow` and mounted `{!isPopout && …}` beside the notes window in
+  `task-manager.tsx`. Opened from the Open Points `BlockersBadgeButton` (open count, red tier dot,
+  muted with no number at 0) and the task editor's Blockers button (disabled with no count on an
+  unsaved task, exactly as Notes).
+  ★★★ **`Task.blockers` IS DERIVED TEXT.** It is `blockersText(blockerLog)` — the OPEN entries, oldest
+  first, joined by newlines — and every reader (health, next actions, insights, Gantt, Kanban,
+  exports, search, the AI) keeps reading it. **`withBlockerLog` is the ONLY writer of the pair (apart from create sites seeding an empty pair)**: it
+  sets the log and the text together. Everything else reaches it through `setBlockersText` (the
+  replace rule: a text agreeing with the derived one is a no-op, empty resolves every open entry;
+  otherwise an open entry whose text is still present as a contiguous block of whole lines stays
+  open, the others are resolved, and the remaining lines become ONE new entry), `applyTaskPatch` (a
+  patch spread over the STORED row, its `blockers` routed through `setBlockersText`, a patch's
+  `blockerLog` ignored as stale), the window mutators, or the load repair `migrateLoadedBlockers` →
+  `migrateBlockers` (sanitise the log; a text that disagrees with it was written by something unaware
+  of the log, so the replace rule runs against the log, stamped from `lastUpdateDate`, never the
+  clock; legacy text with no log becomes one open entry). ★★ "Agrees" includes the derived text CUT
+  at `TEXTAREA_MAX`: open entries can join past the cap and `sanitizeBlockers` stores a prefix, so
+  without that every load would mint an entry. ★★ An OLDER client saving to Turso drops the
+  `blockerLog` column, so the history collapses to one entry on its next save — the same exposure
+  as `noteLog` (a newer build then loads the text as legacy: one open entry, the resolved history
+  gone). Writers today: the window (`use-blockers-window.ts`), AI create/update
+  (`use-chat-dispatcher.ts`), bulk edit (`use-bulk-operations.ts`), Clear-blocker
+  (`use-action-center-handlers.ts`), templates (`templates.ts`, via `sanitizeBlockerLog`), and the
+  load funnels. Re-derive the list before relying on it:
+  `git grep -n "withBlockerLog\|setBlockersText\|applyTaskPatch" -- src ':!*.test.*'`.
+  ★★ **THE STORED-ROW CARRY.** Any path that rebuilds a task from a patch carries `blockerLog` (and
+  `blockers`) from the STORED row, never from a stale copy — the same rule as `noteLog`. The task
+  editor has NO blockers field: `emptyForm` carries none and `use-task-submit.ts` leaves both keys
+  out of its payload, so an edit save keeps whatever the window wrote while the editor was open. The
+  Open Points cell is a badge, not an inline editor, and `sanitizeInlinePatch` drops the key, so the
+  inline path cannot write the pair at all. A writer that spreads a stored row carries it for free.
+  ★★ **WRITE-THROUGH, NEVER UNDOABLE.** Both keys are in `WRITE_THROUGH_FIELDS`, so a whole-row undo
+  keeps the live pair and a bulk patch never captures it; the AI `update_task` site skips its capture
+  when nothing but write-through keys changed. Detail in [undo.md](undo.md).
+  ★ `blockerLog` is in `TOKEN_EXCLUDED.task` (`ai-entity-token.ts`): the model writes blockers only
+  as text through `update_task.blockers`, so a model-supplied log is stripped and a resolved-only
+  change does not raise an edit conflict. Entry text is trimmed and capped at `TEXTAREA_MAX`; the
+  load sanitiser caps the list at `MAX_NOTE_ENTRIES`. Blockers are local-only — never pushed to Jira.
 - **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
   as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
   `resolutionNotes`, Milestone `description`. Same `RichTextEditor`, same `sanitizeRichHtml`

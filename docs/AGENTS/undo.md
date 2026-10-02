@@ -99,6 +99,15 @@ excludes them from a patch through the derived `WRITE_THROUGH_KEYS`. Membership 
 there iff a writer other than the entity's own save handler can change it on a row nobody is editing.
 A new such field that is not added there is silently reverted by a whole-row undo. The remaining
 whole-row paths are §177.
+★★ **The task blocker pair (`blockers` + `blockerLog`) is a member AND is never undoable from any
+writer** (spec: no undo for blocker writes, like notes). The single-row capture paths never see the
+pair change: the task editor has no blockers field and its submit carries the pair from the STORED
+row (`use-task-submit.ts`), and the inline cell cannot write it (`sanitizeInlinePatch` drops the
+key). The AI `update_task` site (`use-chat-dispatcher.ts`) captures a whole row, so undo keeps the
+live pair, and it skips the capture outright when only write-through keys (plus `localModifiedAt`)
+changed — otherwise Ctrl+Z would spend a step reverting nothing. ★ That skip also covers an AI update that changes nothing at all (deliberate: an identical-row undo step is equally dead). ★ The bulk edit derives its WRITE
+set from `rowChanged`, not from the captured patches, because a row whose only change is its
+blockers yields no patch and must still be written.
 ★★ **THE SINGLE-ROW PATH IS NOT THE THREE-WAY MERGE.** `mergeFieldPatch`'s docstring says it
 "Replaces the `{ ...row, ...patch }` spread the undo runner used to do" — true for `captureFieldPart`,
 the only caller (`grep -rn "mergeFieldPatch(" src/app --include=*.ts | grep -v "\.test\."`).

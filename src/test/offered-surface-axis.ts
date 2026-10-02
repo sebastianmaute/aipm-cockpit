@@ -243,7 +243,9 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
   // §486 — `calendarOptOut` joined the task, raid, change, milestone and absence
   //  CSV columns undeclared by any tool schema (+1 undeclared on each of the five).
-  task: { declared: 11, undeclared: 18 },
+  //  Blocker log — `blockerLog` joined CSV_COLUMNS undeclared by any tool schema
+  //  (18 → 19); the model reaches blockers through `update_task.blockers` only.
+  task: { declared: 11, undeclared: 19 },
   // §515 — `escalations` joined RAID_CSV_COLUMNS undeclared by any tool schema (6 → 7).
   raid: { declared: 16, undeclared: 8 },
   change: { declared: 15, undeclared: 6 },

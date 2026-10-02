@@ -37,7 +37,7 @@ export const INSIGHT_EXPORT_FIELDS = ["type", "severity", "status", "data", "occ
 /** ★ "first occurrence" is a computed column, not a CalendarEvent field. */
 export const CALENDAR_EVENT_EXPORT_FIELDS = ["title", "first occurrence", "recurs", "location"] as const;
 
-const TASK_LABELS: LabelsFor<typeof CSV_COLUMNS> = {
+const TASK_LABELS: Readonly<Record<Exclude<(typeof CSV_COLUMNS)[number], "blockerLog">, TranslationKey>> = {
   id: "id", taskName: "task", assignee: "assignee", assigneeEmail: "fieldAssigneeEmail",
   startDate: "start", dueDate: "due", lastUpdateDate: "lastUpdate", createdDate: "colCreatedDate",
   priority: "priority", status: "colTaskStatus", blockers: "blockers", description: "description",

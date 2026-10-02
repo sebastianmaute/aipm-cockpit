@@ -968,6 +968,87 @@ describe("useChatDispatcher", () => {
   });
 });
 
+describe("useChatDispatcher – blockers write through the blocker log", () => {
+  const RESOLVED = { id: 1, text: "Old", createdAt: "2026-05-01T00:00:00.000Z", resolvedAt: "2026-05-02T00:00:00.000Z" };
+  const OPEN = { id: 2, text: "Waiting on DBA", createdAt: "2026-05-03T00:00:00.000Z" };
+  function seededWithLog(): Task[] {
+    const [first, ...rest] = seedTasks();
+    return [{ ...first, blockerLog: [RESOLVED, OPEN], blockers: "Waiting on DBA" }, ...rest];
+  }
+
+  it("AI update_task blockers replaces the open blockers and keeps the history", () => {
+    const { result } = renderDispatcher(seededWithLog());
+    let updated: Task | null = null;
+    act(() => {
+      updated = result.current.updateTask(1, { blockers: "Vendor contract" });
+    });
+    const stored = result.current.getTask(1);
+    expect(updated).toEqual(stored);
+    expect(stored?.blockers).toBe("Vendor contract");
+    const log = stored?.blockerLog ?? [];
+    expect(log).toHaveLength(3);
+    expect(log[0]).toEqual(RESOLVED);
+    expect(log[1]).toMatchObject({ id: 2, text: "Waiting on DBA" });
+    expect(log[1].resolvedAt).toEqual(expect.any(String));
+    expect(log[2]).toMatchObject({ id: 3, text: "Vendor contract", authorName: "AI created" });
+    expect(log[2].resolvedAt).toBeUndefined();
+  });
+
+  it("AI update_task keeps an open blocker its text still carries and adds only the rest", () => {
+    const { result } = renderDispatcher(seededWithLog());
+    act(() => {
+      result.current.updateTask(1, { blockers: "Waiting on DBA\nVendor contract" });
+    });
+    const stored = result.current.getTask(1);
+    expect(stored?.blockers).toBe("Waiting on DBA\nVendor contract");
+    const log = stored?.blockerLog ?? [];
+    expect(log).toHaveLength(3);
+    expect(log[0]).toEqual(RESOLVED);
+    expect(log[1]).toEqual(OPEN);
+    expect(log[2]).toMatchObject({ id: 3, text: "Vendor contract", authorName: "AI created" });
+    expect(log[2].resolvedAt).toBeUndefined();
+  });
+
+  it("AI update_task with an empty blockers string resolves every open entry", () => {
+    const { result } = renderDispatcher(seededWithLog());
+    act(() => {
+      result.current.updateTask(1, { blockers: "" });
+    });
+    const stored = result.current.getTask(1);
+    expect(stored?.blockers).toBe("");
+    expect(stored?.blockerLog).toHaveLength(2);
+    expect(stored?.blockerLog?.every((e) => e.resolvedAt !== undefined)).toBe(true);
+  });
+
+  it("AI update_task without blockers leaves the log untouched", () => {
+    const { result } = renderDispatcher(seededWithLog());
+    act(() => {
+      result.current.updateTask(1, { priority: "Urgent" });
+    });
+    const stored = result.current.getTask(1);
+    expect(stored?.priority).toBe("Urgent");
+    expect(stored?.blockerLog).toEqual([RESOLVED, OPEN]);
+    expect(stored?.blockers).toBe("Waiting on DBA");
+  });
+
+  it("AI create_task with blockers text starts a log with one open entry", () => {
+    const { result } = renderDispatcher([]);
+    let created: Task | null = null;
+    act(() => {
+      created = result.current.createTask({
+        taskName: "Gamma",
+        assignee: "Gina",
+        dueDate: "2026-06-03",
+        blockers: "Needs sign-off",
+      });
+    });
+    const stored = result.current.getTask((created as Task | null)?.id ?? -1);
+    expect(stored?.blockers).toBe("Needs sign-off");
+    expect(stored?.blockerLog).toHaveLength(1);
+    expect(stored?.blockerLog?.[0]).toMatchObject({ id: 1, text: "Needs sign-off", authorName: "AI created" });
+  });
+});
+
 describe("useChatDispatcher – read-only (popout) mode", () => {
   it("refuses createTask in read-only mode and does not mutate", () => {
     const { result } = renderDispatcher([], true);

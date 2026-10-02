@@ -17,7 +17,10 @@
 // NOT run each entity's per-entity sanitizeX validator, so it would not catch a
 // sanitizer that stripped the field on the save path — the sanitizer suites
 // (sanitize-*.test.ts) cover that. Here we guard only the CSV/MD/Turso columns.
+import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
+import { BrowserBackend } from "./browser-backend";
 import {
   emptyWorkspace,
   workspaceToCsv,
@@ -39,10 +42,15 @@ import {
 } from "./csv-codecs-core";
 import { DOCUMENT_ASSETS_CSV_COLUMNS } from "./csv-codecs";
 import { sanitizeRaidEscalations } from "./raid-escalation";
-import { ENTITY_SPECS, SCHEMA_DDL } from "./turso-schema";
-import { tenantSchemaDdl } from "./turso-tenant-schema";
+import { blockersText } from "./blocker-log";
+import { sanitizeBlockers, TEXTAREA_MAX } from "./sanitize-core";
+import {
+  ENTITY_SPECS, SCHEMA_DDL, TABLE_NAMES, rowsToWorkspace, workspaceToStatements,
+  type PipelineResultLike, type SqlStmt,
+} from "./turso-schema";
+import { tenantSchemaDdl, tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import type { Workspace } from "./workspace";
-import type { RaidEscalation } from "./types";
+import type { BlockerEntry, RaidEscalation, Task } from "./types";
 import type { DocumentAsset } from "./document-asset";
 import { recordBudgetChange } from "./budget-history";
 import {
@@ -791,5 +799,170 @@ describe("entity persistence registry — a non-literal calendarOptOut loads as 
     const ws = calendarOptOutWorkspace();
     const withFalse: Workspace = { ...ws, tasks: [...ws.tasks, { ...ws.tasks[1], id: 3, calendarOptOut: false }] };
     expect(workspaceToCsv(withFalse)).not.toMatch(/,false(,|\r?\n)/);
+  });
+});
+
+// Blocker log (Task.blockerLog) — all SIX write paths, each through its REAL
+// encoder and decoder. CSV + Markdown go through the workspace codecs; JSON
+// through workspaceToJson/jsonToWorkspace; the two Turso layouts through their
+// real statement builders, with the INSERT args fed back into the shared
+// `rowsToWorkspace` decoder as a SELECT result (no SQL engine — the column set
+// and the cell codec are what is under test); IndexedDB through BrowserBackend
+// on fake-indexeddb. Every load must hand back `blockers === blockersText(log)`.
+describe("entity persistence registry — Task.blockerLog across all six write paths", () => {
+  // Awkward on purpose: the log rides as JSON inside a CSV / Markdown cell, so
+  // its text carries every delimiter of both (quote, comma, pipe), a newline,
+  // and a backslash that the JSON escaping itself doubles.
+  const AWKWARD = 'Waiting on "vendor", ACME | EU\nsecond line \\ done';
+  const LOG: BlockerEntry[] = [
+    { id: 1, text: AWKWARD, createdAt: "2026-07-01T09:00:00.000Z", authorName: "Ann" },
+    {
+      id: 2, text: "Legal sign-off", createdAt: "2026-06-20T09:00:00.000Z", authorResourceId: 3,
+      editedAt: "2026-06-21T09:00:00.000Z", resolvedAt: "2026-06-25T09:00:00.000Z",
+    },
+  ];
+  const seed = (over: Partial<Task>): Workspace => ({
+    ...emptyWorkspace(),
+    tasks: [{
+      id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
+      dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", createdDate: "2026-01-10",
+      priority: "Medium", status: "To Do", blockers: "", description: "",
+      ...over,
+    }],
+  });
+
+  /** Feed the tasks INSERTs of a Turso save back to `rowsToWorkspace` as the
+   *  tasks SELECT result; every other table comes back empty. */
+  function tursoRoundTrip(stmts: SqlStmt[]): Workspace {
+    const empty: PipelineResultLike = { type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } };
+    const inserts = stmts.filter((s) => s.sql.startsWith("INSERT INTO tasks ("));
+    const cols = inserts.length ? [...inserts[0].sql.matchAll(/"([^"]+)"/g)].map((m) => m[1]) : [];
+    const tasks: PipelineResultLike = {
+      type: "ok",
+      response: {
+        type: "execute",
+        result: { cols: cols.map((name) => ({ name })), rows: inserts.map((s) => (s.args ?? []).map((a) => ({ value: a.value }))) },
+      },
+    };
+    return rowsToWorkspace(TABLE_NAMES.map((t) => (t === "tasks" ? tasks : empty)));
+  }
+
+  async function idbRoundTrip(ws: Workspace): Promise<Workspace> {
+    globalThis.indexedDB = new IDBFactory();
+    const writer = new BrowserBackend();
+    writer.forceNextSave();
+    await writer.save(ws);
+    return new BrowserBackend().load();
+  }
+
+  const PATHS: ReadonlyArray<[string, (ws: Workspace) => Workspace | Promise<Workspace>]> = [
+    ["CSV", (ws) => csvToWorkspace(workspaceToCsv(ws))],
+    ["Markdown", (ws) => markdownToWorkspace(workspaceToMarkdown(ws))],
+    ["JSON", (ws) => jsonToWorkspace(workspaceToJson(ws))],
+    ["Turso single", (ws) => tursoRoundTrip(workspaceToStatements(ws))],
+    ["Turso tenant", (ws) => tursoRoundTrip(tenantWorkspaceToStatements(ws, "proj-blockers"))],
+    ["IndexedDB", idbRoundTrip],
+  ];
+
+  it("blockerLog is in the Task CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(CSV_COLUMNS as readonly string[]).toContain("blockerLog");
+  });
+
+  it("blockerLog round-trips through CSV, Markdown, JSON, Turso single, Turso tenant and IndexedDB", async () => {
+    const seen: string[] = [];
+    for (const [name, roundTrip] of PATHS) {
+      const back = (await roundTrip(seed({ blockerLog: LOG, blockers: AWKWARD }))).tasks[0];
+      expect(back?.blockerLog, name).toEqual(LOG);
+      expect(back?.blockers, name).toBe(AWKWARD);
+      seen.push(name);
+    }
+    expect(seen).toHaveLength(6);
+  });
+
+  it("a legacy text-only task loads with one open entry on every path", async () => {
+    const seen: string[] = [];
+    for (const [name, roundTrip] of PATHS) {
+      const back = (await roundTrip(seed({ blockers: "Waiting on vendor" }))).tasks[0];
+      expect(back?.blockerLog, name).toHaveLength(1);
+      expect(back?.blockerLog?.[0], name).toMatchObject({ id: 1, text: "Waiting on vendor", createdAt: "2026-01-10T00:00:00.000Z" });
+      expect(back?.blockerLog?.[0]?.resolvedAt, name).toBeUndefined();
+      expect(back?.blockers, name).toBe("Waiting on vendor");
+      seen.push(name);
+    }
+    expect(seen).toHaveLength(6);
+  });
+
+  it("a task with no blockers gains no blockerLog on any path", async () => {
+    for (const [name, roundTrip] of PATHS) {
+      const back = (await roundTrip(seed({}))).tasks[0];
+      expect(back, name).toBeDefined();
+      expect(back?.blockerLog, name).toBeUndefined();
+      expect(back?.blockers, name).toBe("");
+    }
+  });
+
+  it("an untrusted blockerLog is sanitised on the whole-object JSON and IndexedDB loads", async () => {
+    const hostile = [
+      { id: 1, text: "Kept\r\nline\u0007", createdAt: "2026-07-01T09:00:00.000Z" },
+      { id: 1, text: "duplicate id", createdAt: "2026-07-01T09:00:00.000Z" },
+      { id: "x", text: "bad id", createdAt: "2026-07-01T09:00:00.000Z" },
+      "not an object",
+    ] as unknown as BlockerEntry[];
+    // The text agrees with what survives sanitising (CRLF aside), so the load
+    // rule mints no entry and only the sanitiser is under test here.
+    const ws = seed({ blockerLog: hostile, blockers: "Kept\r\nline" });
+    for (const [name, back] of [
+      ["JSON", jsonToWorkspace(JSON.stringify(ws))],
+      ["IndexedDB", await idbRoundTrip(ws)],
+    ] as const) {
+      expect(back.tasks[0]?.blockerLog, name).toEqual([{ id: 1, text: "Kept\nline", createdAt: "2026-07-01T09:00:00.000Z" }]);
+      expect(back.tasks[0]?.blockers, name).toBe("Kept\nline");
+    }
+  });
+
+  // ★ Open entries can join to more than TEXTAREA_MAX; a text cut at the cap
+  //  must still AGREE with the log on load, or every load would mint an entry.
+  it("open entries joining past the text cap round-trip with no new entry, capped or not", async () => {
+    const long: BlockerEntry[] = [
+      { id: 1, text: "a".repeat(TEXTAREA_MAX - 10), createdAt: "2026-07-01T09:00:00.000Z" },
+      { id: 2, text: "b".repeat(300), createdAt: "2026-07-02T09:00:00.000Z" },
+    ];
+    const derived = blockersText(long);
+    expect(derived.length).toBeGreaterThan(TEXTAREA_MAX);
+    const seen: string[] = [];
+    for (const blockers of [derived, sanitizeBlockers(derived)]) {
+      for (const [name, roundTrip] of PATHS) {
+        const back = (await roundTrip(seed({ blockerLog: long, blockers }))).tasks[0];
+        expect(back?.blockerLog, name).toEqual(long);
+        expect(back?.blockers, name).toBe(derived);
+        seen.push(name);
+      }
+    }
+    expect(seen).toHaveLength(12);
+  });
+
+  it("a text an older client wrote beside the log loads as a new entry on every path", async () => {
+    const seen: string[] = [];
+    for (const [name, roundTrip] of PATHS) {
+      const back = (await roundTrip(seed({ blockerLog: LOG, blockers: "Hand-edited" }))).tasks[0];
+      expect(back?.blockerLog, name).toEqual([
+        // The stamp is clamped to the log's newest time (LOG[0].createdAt), so
+        // nothing minted on load sorts before, or resolves before, an entry.
+        { ...LOG[0], resolvedAt: "2026-07-01T09:00:00.000Z" },
+        LOG[1],
+        { id: 3, text: "Hand-edited", createdAt: "2026-07-01T09:00:00.000Z" },
+      ]);
+      expect(back?.blockers, name).toBe("Hand-edited");
+      seen.push(name);
+    }
+    expect(seen).toHaveLength(6);
+  });
+
+  it("a blockerLog the sanitiser empties falls back to the legacy text", () => {
+    const ws = seed({ blockerLog: ["junk"] as unknown as BlockerEntry[], blockers: "Waiting on vendor" });
+    const back = jsonToWorkspace(JSON.stringify(ws)).tasks[0];
+    expect(back?.blockerLog).toHaveLength(1);
+    expect(back?.blockerLog?.[0]).toMatchObject({ id: 1, text: "Waiting on vendor" });
+    expect(back?.blockers).toBe("Waiting on vendor");
   });
 });

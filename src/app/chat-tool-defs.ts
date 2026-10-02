@@ -257,7 +257,11 @@ const taskFields = {
     description:
       "Task status: To Do, In Progress, On Hold, In Review, Cancelled, or Done. Defaults to To Do on create. Cannot be changed for Jira-synced tasks.",
   },
-  blockers: { type: "string" as const, description: "What's blocking progress" },
+  blockers: {
+    type: "string" as const,
+    description:
+      "Replaces the task's open blockers with this text: lines that match an existing open blocker keep it open, open blockers left out are marked resolved, and any other text is added as one new blocker. An empty string resolves them all.",
+  },
   description: {
     type: "string" as const,
     description: "Free-form task description (plain text; formatting applied automatically)",
@@ -304,7 +308,15 @@ export const TOOL_DEFS = [
       "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly.",
     input_schema: {
       type: "object",
-      properties: taskFields,
+      // ★ Own `blockers` wording: the shared one describes REPLACING open
+      // blockers, which only an update does.
+      properties: {
+        ...taskFields,
+        blockers: {
+          type: "string" as const,
+          description: "Initial blockers for the new task, as text. Leave empty if none.",
+        },
+      },
       required: ["taskName", "assignee", "dueDate"],
     },
   },

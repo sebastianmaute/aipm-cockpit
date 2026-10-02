@@ -24,7 +24,8 @@ import { mintId } from "./id-mint-session";
 import { effectivePersonEmail, splitName } from "./resource-foundation";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
-import { t } from "./i18n";
+import { t, type Lang } from "./i18n";
+import { applyTaskPatch, setBlockersText, type BlockerActor } from "./blocker-log";
 import {
   sanitizeAssignee,
   sanitizeBlockers,
@@ -45,6 +46,8 @@ import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange, isTaskStatus, statusActivityKind } from "./task-status";
 import { capturePart } from "./undo/use-undo-stack";
+import { differs } from "./undo/field-groups";
+import { WRITE_THROUGH_KEYS } from "./undo/write-through-fields";
 import { commitResourceEmailCorrection } from "./resource-email-propagation-commit";
 import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
@@ -57,6 +60,33 @@ export type { ChatDispatcherArgs };
 function emailsRefusalText(address: string): string {
   const reason = emailWriteRefusal(address, undefined) === "invalid" ? "emails is invalid" : 'emails must not contain "," or ";"';
   return `${reason} (${JSON.stringify(address)})`;
+}
+
+/** The author of a blocker entry the AI writes: the same "AI created" label the
+ *  Escalate note echo uses (`aiEscalationNoteAuthor`), translated once at write
+ *  time, and NO resource id — crediting `settings.selfResourceId` would
+ *  attribute the model's line to the user. */
+function aiBlockerActor(lang: Lang): BlockerActor {
+  return { name: t(lang, "raidNoteAuthorAi") };
+}
+
+/** True when `next` differs from `prev` in nothing but write-through keys
+ *  (`WRITE_THROUGH_KEYS`, e.g. the blocker pair) and the `localModifiedAt`
+ *  stamp. A whole-row undo keeps the LIVE value of every write-through key, so
+ *  an entry for such a write would revert nothing — a dead Ctrl+Z step.
+ *
+ *  ★ DELIBERATE: it also returns true when NOTHING changed at all (an AI update
+ *  that re-sends the stored values), and that skip is intended — an undo step
+ *  that restores an identical row is as dead as one that reverts nothing. */
+function changedOnlyWriteThrough(prev: Task, next: Task): boolean {
+  const before = prev as unknown as Record<string, unknown>;
+  const after = next as unknown as Record<string, unknown>;
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const k of keys) {
+    if (k === "localModifiedAt" || WRITE_THROUGH_KEYS.has(k)) continue;
+    if (differs(before[k], after[k])) return false;
+  }
+  return true;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -315,7 +345,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             sanitizeIsoDate(input.lastUpdateDate) || clockRef.current.today,
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
-          blockers: sanitizeBlockers(input.blockers),
+          // Text goes in through the blocker log below, never as a bare string.
+          blockers: "",
           // ★★★ Upgrade-aware, NOT plainToHtml — see the update boundary.
           description: sanitizeAiRichText(input.description ?? input.notes),
           inquiriesSent: 0,
@@ -325,9 +356,16 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // A model-supplied status routes through applyStatusChange (it keeps
         // the Done/completedDate invariant) so e.g. Done stamps completedDate.
         // An invalid value falls back to the default.
+        // Blocker text opens the log with one entry attributed to the AI.
+        const withBlockers = setBlockersText(
+          baseTask,
+          sanitizeBlockers(input.blockers),
+          aiBlockerActor(settingsRef.current.language),
+          new Date().toISOString(),
+        );
         const newTask = isTaskStatus(input.status)
-          ? applyStatusChange(baseTask, input.status, clockRef.current.today)
-          : baseTask;
+          ? applyStatusChange(withBlockers, input.status, clockRef.current.today)
+          : withBlockers;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         // ★★★ NO UNDO CAPTURE HERE, AND THAT IS THE DESIGN. `UndoOp` is
@@ -351,11 +389,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         assertJiraManagedUnchanged(existing, patch);
         const cleanPatch = buildTaskCleanPatch(patch, existing);
+        const stamp = new Date().toISOString();
+        // `blockers` replaces the STORED row's open blockers through its log
+        // (left-out ones are resolved, not dropped); every other key is a
+        // plain spread.
         const mergedBase: Task = {
-          ...existing,
-          ...cleanPatch,
+          ...applyTaskPatch(existing, cleanPatch, aiBlockerActor(settingsRef.current.language), stamp),
           id: existing.id,
-          localModifiedAt: new Date().toISOString(),
+          localModifiedAt: stamp,
         };
         // A valid status change routes through applyStatusChange, which keeps
         // the Done/completedDate invariant. Invalid values are ignored
@@ -376,18 +417,22 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   pre- and post-op arrays and `buildBeforeImages` resolves the same
         //   number either way. The pre-op array is used regardless, because
         //   that is the contract `buildBeforeImages` documents.
-        undoRef.current?.captureComposite({
-          kind: "task.updated",
-          primaryCount: 1,
-          parts: [capturePart({
-            setter: setTasks,
-            edited: [existing],
-            fromArray: tasksRef.current,
-            isPrimary: true,
-          })],
-          name: existing.taskName,
-          entityKey: "task",
-        });
+        // ★ Skipped when only write-through keys changed (a blockers-only
+        //   update): undo would keep the live pair and revert nothing.
+        if (!changedOnlyWriteThrough(existing, merged)) {
+          undoRef.current?.captureComposite({
+            kind: "task.updated",
+            primaryCount: 1,
+            parts: [capturePart({
+              setter: setTasks,
+              edited: [existing],
+              fromArray: tasksRef.current,
+              isPrimary: true,
+            })],
+            name: existing.taskName,
+            entityKey: "task",
+          });
+        }
         tasksRef.current = next;
         setTasks(next);
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);

@@ -768,6 +768,29 @@ describe("AI writes round-trip through the real undo stack", () => {
     },
   );
 
+  // ★ The blocker pair is WRITE-THROUGH (`WRITE_THROUGH_FIELDS`): a whole-row
+  //   undo keeps the live value, so an entry for a blockers-only AI write would
+  //   revert nothing — a dead Ctrl+Z step. The site captures nothing then.
+  test("an AI updateTask that changes only blockers pushes NO undo entry", () => {
+    const { result } = renderRealUndo(SEED);
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    act(() => {
+      result.current.dispatcher.updateTask(2, { blockers: "Vendor delay" });
+    });
+
+    // Positive observable: the write landed, through the blocker log.
+    expect(result.current.dispatcher.getTask(2)?.blockers).toBe("Vendor delay");
+    expect(result.current.dispatcher.getTask(2)?.blockerLog).toHaveLength(1);
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    // Control: the same write plus a real field DOES push one entry.
+    act(() => {
+      result.current.dispatcher.updateTask(2, { blockers: "Legal review", priority: "High" });
+    });
+    expect(result.current.undo.stack).toHaveLength(1);
+  });
+
   test("undoing an AI updateTask restores the ORIGINAL field values in place", () => {
     const { result } = renderRealUndo(SEED);
     // Depth BEFORE, so the assertion below is "grew by exactly 1" rather than

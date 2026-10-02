@@ -27,7 +27,10 @@ export function emptyForm() {
     lastUpdateDate: todayISO(),
     priority: "Medium" as Priority,
     status: "To Do" as TaskStatus,
-    blockers: "",
+    // ★★ No `blockers` field: the text is DERIVED from the task's blocker log,
+    // which only the floating blocker window writes (write-through, like
+    // `noteLog`). A draft copy would go stale the moment the window wrote, and
+    // the submit carries the pair from the STORED row instead.
     // Rich HTML task description (was `notes`; edited via the NoteEditor).
     description: "",
     group: "",

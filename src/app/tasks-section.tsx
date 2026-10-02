@@ -112,6 +112,8 @@ export interface TasksSectionProps {
   onToggleSelect: (id: number) => void;
   /** Open the floating notes window for a task (running note log). */
   onOpenNotes: (id: number) => void;
+  /** Open the floating blocker window for a task (blocker log). */
+  onOpenBlockers: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
@@ -217,6 +219,7 @@ export function TasksSection({
   jiraExtraProjects,
   onToggleSelect,
   onOpenNotes,
+  onOpenBlockers,
   onJumpToRaid,
   onSendInquiry,
   onPushToJira,
@@ -504,6 +507,9 @@ export function TasksSection({
       };
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      // ★ `clean` never carries `blockers`/`blockerLog` (`sanitizeInlinePatch`
+      // drops them): the blockers cell is a badge opening the blocker window,
+      // which is the only writer of the log, so a plain spread is safe here.
       const clean = sanitizeInlinePatch(patch, patchCtx);
       setTasks((prev) =>
         prev.map((row) =>
@@ -544,6 +550,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -567,6 +574,7 @@ export function TasksSection({
       hiddenCols,
       onToggleSelect,
       onOpenNotes,
+      onOpenBlockers,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,

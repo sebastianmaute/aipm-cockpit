@@ -11,6 +11,7 @@ import {
   STALE_DAYS,
 } from "./detect";
 import { sanitizeInsights } from "./sanitize-insights";
+import { withBlockerLog } from "../blocker-log";
 
 const TODAY = "2026-06-15";
 
@@ -128,6 +129,18 @@ describe("stalledWork", () => {
     const tasks = Array.from({ length: STALLED_WORK_MIN }, (_, i) =>
       task({ id: i + 1, lastUpdateDate: "2026-06-01" }));
     expect(detect({ tasks }).filter((i) => i.type === "stalledWork")).toHaveLength(1);
+  });
+
+  it("a resolved-only log is not blocked", () => {
+    const resolvedOnly = (id: number) => withBlockerLog(task({ id, lastUpdateDate: TODAY }), [
+      { id: 1, text: "waiting on vendor", createdAt: "2026-06-01T00:00:00.000Z", resolvedAt: "2026-06-02T00:00:00.000Z" },
+    ]);
+    const tasks = Array.from({ length: STALLED_WORK_MIN }, (_, i) => resolvedOnly(i + 1));
+    expect(tasks[0].blockerLog).toHaveLength(1);
+    expect(detect({ tasks }).filter((i) => i.type === "stalledWork")).toHaveLength(0);
+    // Control: the same entries left open do fire.
+    const open = tasks.map((tk) => withBlockerLog(tk, [{ id: 1, text: "waiting on vendor", createdAt: "2026-06-01T00:00:00.000Z" }]));
+    expect(detect({ tasks: open }).filter((i) => i.type === "stalledWork")).toHaveLength(1);
   });
 
   it("does not fire below the threshold", () => {

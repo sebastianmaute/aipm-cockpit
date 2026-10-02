@@ -272,3 +272,45 @@ describe("the projection is injective", () => {
       .not.toBe(entityToken("task", { id: 1, taskName: "xassignee ", assignee: "y" }));
   });
 });
+
+// Task.blockerLog is written ONLY by the blocker-log mutators; the model reaches
+// blockers through `update_task.blockers` alone. Both task tools are allowlists,
+// so a model-supplied log must arrive at NEITHER dispatcher method — pinned
+// here directly, because the derived "ACCEPTS no excluded field" case above
+// injects a string, not a real log shape.
+describe("the model cannot write Task.blockerLog", () => {
+  const LOG = [{ id: 1, text: "model blocker", createdAt: "2026-01-01T00:00:00.000Z" }];
+
+  it("update_task drops a model-supplied blockerLog but keeps blockers", async () => {
+    const spy = vi.fn((id: number, patch: Record<string, unknown>) => ({ id, patch }));
+    const current = task();
+    const dispatcher = { updateTask: spy, getTask: vi.fn(() => current) } as unknown as ToolDispatcher;
+    await runTool(dispatcher, "update_task", {
+      id: 1, expectedToken: entityToken("task", current), blockers: "typed", blockerLog: LOG,
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    const patch = spy.mock.calls[0][1];
+    expect("blockerLog" in patch).toBe(false);
+    expect(patch.blockers).toBe("typed");
+  });
+
+  it("create_task drops a model-supplied blockerLog", async () => {
+    const spy = vi.fn((input: Record<string, unknown>) => ({ id: 9, ...input }));
+    const dispatcher = { createTask: spy } as unknown as ToolDispatcher;
+    await runTool(dispatcher, "create_task", {
+      taskName: "T", assignee: "A", dueDate: "2030-01-01", blockers: "typed", blockerLog: LOG,
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect("blockerLog" in spy.mock.calls[0][0]).toBe(false);
+    expect(spy.mock.calls[0][0].blockers).toBe("typed");
+  });
+
+  it("a history-only log change does not move the token; an open-entry change does", () => {
+    const resolved = [{ ...LOG[0], resolvedAt: "2026-01-02T00:00:00.000Z" }];
+    const base = task({ blockers: "", blockerLog: resolved });
+    expect(entityToken("task", task({ blockers: "", blockerLog: [{ ...resolved[0], text: "edited" }] })))
+      .toBe(entityToken("task", base));
+    expect(entityToken("task", task({ blockers: "model blocker", blockerLog: LOG })))
+      .not.toBe(entityToken("task", base));
+  });
+});

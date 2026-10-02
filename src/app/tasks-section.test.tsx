@@ -221,6 +221,7 @@ function makeProps(): TasksSectionProps {
     jiraExtraProjects: [],
     onToggleSelect: vi.fn(),
     onOpenNotes: vi.fn(),
+    onOpenBlockers: vi.fn(),
     onJumpToRaid: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
@@ -1220,8 +1221,18 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("captures a field-level undo entry for an inline cell edit (blockers)", () => {
-    const task = { id: 1, taskName: "T1", blockers: "old note" };
+  it("threads onOpenBlockers into the row context, as onOpenNotes is", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const onOpenBlockers = vi.fn();
+    render(<TasksSection {...makeProps()} onOpenBlockers={onOpenBlockers} />);
+    const ctx = capturedRowContext.current as { onOpenBlockers: (id: number) => void };
+    ctx.onOpenBlockers(1);
+    expect(onOpenBlockers).toHaveBeenCalledWith(1);
+  });
+
+  it("captures a field-level undo entry for an inline cell edit", () => {
+    const task = { id: 1, taskName: "T1" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -1246,27 +1257,32 @@ describe("TasksSection", () => {
 
     // TaskRow is stubbed (renders no interactive cells) — invoke the pane's
     // onInlinePatch directly via the captured RowContextProvider `value`,
-    // the closest reliable seam to the real double-click-cell → blur flow
-    // covered end-to-end by task-row.test.tsx.
+    // the closest reliable seam to the real cell → blur flow covered
+    // end-to-end by task-row.test.tsx.
     const ctx = capturedRowContext.current as {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { blockers: "new note" });
+      ctx.onInlinePatch(1, { taskName: "T2" });
     });
 
-    expect(captureFieldEdit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "task.updated",
-        id: 1,
-        before: { blockers: "old note" },
-        after: { blockers: "new note" },
-      }),
-    );
+    expect((currentTasks[0] as { taskName: string }).taskName).toBe("T2");
+    expect(captureFieldEdit).toHaveBeenCalledTimes(1);
+    expect(captureFieldEdit.mock.calls[0][0]).toMatchObject({
+      kind: "task.updated",
+      id: 1,
+      before: { taskName: "T1" },
+      after: { taskName: "T2" },
+      stampField: "localModifiedAt",
+    });
   });
 
-  it("does not capture an undo entry for a Jira-synced task's inline edit (no-op)", () => {
-    const task = { id: 1, taskName: "T1", blockers: "old note", jiraKey: "LOP-1" };
+  // The blockers cell is a badge opening the blocker window now; the inline
+  // path no longer accepts the text, so a stray `blockers` patch is dropped
+  // and the stored blocker pair is left exactly as it was.
+  it("an inline blockers patch is dropped: the blocker pair is untouched and nothing is captured", () => {
+    const open = { id: 2, text: "Open", createdAt: "2026-05-03T00:00:00.000Z" };
+    const task = { id: 1, taskName: "T1", blockers: "Open", blockerLog: [open] };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -1289,18 +1305,63 @@ describe("TasksSection", () => {
     const captureFieldEdit = vi.fn();
     render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
 
+    // TaskRow is stubbed (renders no interactive cells) — invoke the pane's
+    // onInlinePatch directly via the captured RowContextProvider `value`,
+    // the closest reliable seam to the real cell → blur flow covered
+    // end-to-end by task-row.test.tsx.
     const ctx = capturedRowContext.current as {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { blockers: "new note" });
+      ctx.onInlinePatch(1, { blockers: "New" });
+    });
+
+    const [saved] = currentTasks as { blockers: string; blockerLog: unknown[] }[];
+    expect(saved.blockers).toBe("Open");
+    expect(saved.blockerLog).toBe(task.blockerLog);
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  it("does not capture an undo entry for a Jira-synced task's inline edit (no-op)", () => {
+    const task = { id: 1, taskName: "T1", jiraKey: "LOP-1" };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    const captureFieldEdit = vi.fn();
+    render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
+
+    // TaskRow is stubbed (renders no interactive cells) — invoke the pane's
+    // onInlinePatch directly via the captured RowContextProvider `value`,
+    // the closest reliable seam to the real cell → blur flow covered
+    // end-to-end by task-row.test.tsx.
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { taskName: "T2" });
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
   });
 
   it("does not capture an undo entry when the inline patch value is unchanged (no-op)", () => {
-    const task = { id: 1, taskName: "T1", blockers: "same note" };
+    const task = { id: 1, taskName: "T1" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -1323,11 +1384,15 @@ describe("TasksSection", () => {
     const captureFieldEdit = vi.fn();
     render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
 
+    // TaskRow is stubbed (renders no interactive cells) — invoke the pane's
+    // onInlinePatch directly via the captured RowContextProvider `value`,
+    // the closest reliable seam to the real cell → blur flow covered
+    // end-to-end by task-row.test.tsx.
     const ctx = capturedRowContext.current as {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { blockers: "same note" });
+      ctx.onInlinePatch(1, { taskName: "T1" });
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
