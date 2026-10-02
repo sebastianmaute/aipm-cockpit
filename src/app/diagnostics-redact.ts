@@ -44,7 +44,7 @@ function boundScrubInput(value: string): string {
   }
   let start = SCRUB_WINDOW;
   while (start > 0 && TOKEN_CHAR.test(value[start - 1])) start--;
-  return start < FIELD_MAX ? value.slice(0, start) + REDACTED + value.slice(start, start + 60) :value.slice(0, start);
+  return start < FIELD_MAX ? value.slice(0, start) + REDACTED : value.slice(0, start);
 }
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
