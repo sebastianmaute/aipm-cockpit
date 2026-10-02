@@ -85,7 +85,7 @@ describe("MODAL_HELP", () => {
     // trivially. This floor is the positive observable -- it fails if the map
     // is emptied, and it is the reason a "0 unresolvable" result means
     // anything at all.
-    expect(entries.length).toBe(23);
+    expect(entries.length).toBe(24);
 
     const unresolvable = entries.filter(([, id]) => !known.has(id));
     expect(unresolvable).toEqual([]);

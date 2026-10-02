@@ -1,0 +1,134 @@
+import { describe, it, expect, vi } from "vitest";
+import { useState } from "react";
+import { act, renderHook } from "@testing-library/react";
+import { useBlockersWindow } from "./use-blockers-window";
+import type { Resource, Task } from "./types";
+
+const RESOURCES: Resource[] = [
+  { id: 1, firstName: "Alice", lastName: "Anders", roleId: null, utilizationMode: "percent", utilization: {} },
+];
+
+// Cast-built: only the fields this hook reads matter.
+const TASKS = [
+  { id: 7, taskName: "Draft charter", blockers: "" },
+  { id: 8, taskName: "Other task", blockers: "" },
+] as unknown as Task[];
+
+/** The hook over REAL state, so functional updates chain exactly as they do in
+ *  the app — a `vi.fn()` setter could not show two adds in one tick landing. */
+function setup(selfResourceId: number | null = 1) {
+  const logActivity = vi.fn();
+  const { result } = renderHook(() => {
+    const [tasks, setTasks] = useState<readonly Task[]>(TASKS);
+    const win = useBlockersWindow({ tasks, setTasks, selfResourceId, resources: RESOURCES, lang: "en-US", logActivity });
+    return { tasks, setTasks, win };
+  });
+  return { result, logActivity };
+}
+
+const task7 = (tasks: readonly Task[]) => tasks.find((tk) => tk.id === 7)!;
+
+describe("useBlockersWindow", () => {
+  it("is closed until a task is opened, then targets that task", () => {
+    const { result } = setup();
+    expect(result.current.win.blockersWindowProps.open).toBe(false);
+    act(() => result.current.win.openTaskBlockers(7));
+    expect(result.current.win.blockersWindowProps.open).toBe(true);
+    expect(result.current.win.blockersWindowProps.entityLabel).toBe("Draft charter");
+    act(() => result.current.win.blockersWindowProps.onClose());
+    expect(result.current.win.blockersWindowProps.open).toBe(false);
+  });
+
+  it("two quick adds get distinct ids and both land", () => {
+    const { result } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    act(() => {
+      result.current.win.blockersWindowProps.onAdd("First");
+      result.current.win.blockersWindowProps.onAdd("Second");
+    });
+    const log = task7(result.current.tasks).blockerLog ?? [];
+    expect(log.map((e) => [e.id, e.text])).toEqual([
+      [1, "First"],
+      [2, "Second"],
+    ]);
+    expect(task7(result.current.tasks).blockers).toBe("First\nSecond");
+    expect(result.current.win.blockersWindowProps.entries).toHaveLength(2);
+  });
+
+  it("stamps the self resource as the author", () => {
+    const { result } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    act(() => result.current.win.blockersWindowProps.onAdd("Mine"));
+    expect(task7(result.current.tasks).blockerLog?.[0]).toMatchObject({
+      authorResourceId: 1,
+      authorName: "Alice Anders",
+    });
+  });
+
+  it("adds with no author when no self resource is set", () => {
+    const { result } = setup(null);
+    act(() => result.current.win.openTaskBlockers(7));
+    act(() => result.current.win.blockersWindowProps.onAdd("Anon"));
+    const entry = task7(result.current.tasks).blockerLog?.[0];
+    expect(entry?.text).toBe("Anon");
+    expect(entry && "authorResourceId" in entry).toBe(false);
+    expect(entry && "authorName" in entry).toBe(false);
+  });
+
+  it("a write targets the stored row", () => {
+    const { result } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    // A concurrent writer changes the row after the window opened.
+    act(() =>
+      result.current.setTasks((prev) =>
+        prev.map((tk) => (tk.id === 7 ? { ...tk, taskName: "Renamed", priority: "High" } : tk)),
+      ),
+    );
+    act(() => result.current.win.blockersWindowProps.onAdd("Waiting"));
+    const row = task7(result.current.tasks);
+    expect(row.taskName).toBe("Renamed");
+    expect(row.priority).toBe("High");
+    expect(row.blockerLog?.map((e) => e.text)).toEqual(["Waiting"]);
+    // The other task is untouched (same reference).
+    expect(result.current.tasks.find((tk) => tk.id === 8)).toBe(TASKS[1]);
+  });
+
+  it("each action logs task.updated with the task id", () => {
+    const { result, logActivity } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    const props = () => result.current.win.blockersWindowProps;
+    act(() => props().onAdd("One"));
+    act(() => props().onEdit(1, "One edited"));
+    act(() => props().onResolve(1));
+    act(() => props().onReopen(1));
+    act(() => props().onDelete(1));
+
+    expect(logActivity).toHaveBeenCalledTimes(5);
+    for (const call of logActivity.mock.calls) {
+      expect(call).toEqual(["task.updated", 7, "Draft charter"]);
+    }
+    expect(task7(result.current.tasks).blockerLog).toEqual([]);
+  });
+
+  it("edit, resolve and reopen change the stored entry", () => {
+    const { result } = setup();
+    act(() => result.current.win.openTaskBlockers(7));
+    const props = () => result.current.win.blockersWindowProps;
+    act(() => props().onAdd("One"));
+    act(() => props().onEdit(1, "One edited"));
+    expect(task7(result.current.tasks).blockers).toBe("One edited");
+    act(() => props().onResolve(1));
+    expect(task7(result.current.tasks).blockerLog?.[0].resolvedAt).toEqual(expect.any(String));
+    expect(task7(result.current.tasks).blockers).toBe("");
+    act(() => props().onReopen(1));
+    expect(task7(result.current.tasks).blockerLog?.[0].resolvedAt).toBeUndefined();
+    expect(task7(result.current.tasks).blockers).toBe("One edited");
+  });
+
+  it("writes nothing while the window is closed", () => {
+    const { result, logActivity } = setup();
+    act(() => result.current.win.blockersWindowProps.onAdd("Ignored"));
+    expect(task7(result.current.tasks).blockerLog).toBeUndefined();
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+});
