@@ -64,6 +64,7 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
+import { TOUR_ANCHORS } from "./app-tour";
 import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
@@ -709,6 +710,7 @@ export function TasksSection({
           ]}
           onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}
+          dataTourId={TOUR_ANCHORS.tasksViewMode}
         />
         {tasksViewMode === "swimlane" && (
           <TaskSwimlaneToolbar
@@ -803,7 +805,12 @@ export function TasksSection({
             })
           }
         />
-        <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
+        <SavedViewsControl
+          lang={lang}
+          hiddenCols={hiddenCols}
+          setHiddenCols={setHiddenCols}
+          dataTourId={TOUR_ANCHORS.savedViews}
+        />
         <CalendarSyncControls
           lang={lang}
           entityLabelKey="calendarSyncEntityTask"
@@ -1005,6 +1012,7 @@ export function TasksSection({
                     checked={allVisibleSelected}
                     onChange={toggleSelectAllVisible}
                     aria-label={t(lang, "selectAllVisible")}
+                    data-tour-id={TOUR_ANCHORS.selectAll}
                     className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                 </Th>

@@ -23,6 +23,19 @@ function renderUndo(onUndoThrough = vi.fn(), onUndo = vi.fn()) {
   return { onUndoThrough, onUndo };
 }
 
+describe("UndoControl tour anchor", () => {
+  it("puts dataTourId on one element, and on none when the stack is empty", () => {
+    const { container, rerender } = render(
+      <UndoControl lang="en-US" entries={STACK} onUndo={() => {}} onUndoThrough={() => {}} dataTourId="tour-undo" />,
+    );
+    expect(container.querySelectorAll('[data-tour-id="tour-undo"]')).toHaveLength(1);
+    rerender(
+      <UndoControl lang="en-US" entries={[]} onUndo={() => {}} onUndoThrough={() => {}} dataTourId="tour-undo" />,
+    );
+    expect(container.querySelectorAll('[data-tour-id="tour-undo"]')).toHaveLength(0);
+  });
+});
+
 describe("UndoControl", () => {
   it("renders nothing when the stack is empty", () => {
     const { container } = render(

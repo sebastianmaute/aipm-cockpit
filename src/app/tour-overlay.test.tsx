@@ -94,4 +94,24 @@ describe("TourOverlay", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "tourStepTasksTitle"))).toBeInTheDocument();
   });
+  it("re-measures when the active view changes under an unchanged step (Show me)", async () => {
+    const h = handlers();
+    const step = TOUR_STEPS[2];
+    const flushFrame = () => act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    const { rerender } = render(<TourOverlay lang="en-US" steps={TOUR_STEPS} index={2} activeView="help" {...h} />);
+    await flushFrame();
+    expect(screen.getByRole("dialog").style.transform).toContain("translate(-50%");
+    // The anchor mounts only once "Show me" has switched the view.
+    const anchor = document.createElement("div");
+    anchor.setAttribute("data-tour-id", step.anchorId!);
+    anchor.getBoundingClientRect = () => ({ top: 100, left: 100, width: 200, height: 40, right: 300, bottom: 140, x: 100, y: 100, toJSON: () => ({}) });
+    document.body.appendChild(anchor);
+    try {
+      rerender(<TourOverlay lang="en-US" steps={TOUR_STEPS} index={2} activeView="open-points" {...h} />);
+      await flushFrame();
+      expect(screen.getByRole("dialog").style.transform).toBe("");
+    } finally {
+      anchor.remove();
+    }
+  });
 });

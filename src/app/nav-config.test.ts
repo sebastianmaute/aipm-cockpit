@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews, subTabsFor,
-  filterNavGroups,
+  filterNavGroups, isViewReachable, TURSO_ONLY_VIEWS,
   parseHash, buildHash,
   type AppView,
 } from "./nav-config";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 describe("nav-config", () => {
   it("every nav item has a unique slug", () => {
@@ -164,6 +165,35 @@ describe("filterNavGroups", () => {
     const item = groups.flatMap((g) => g.items).find((i) => i.view === "stakeholders");
     expect(item).toBeTruthy();
     expect((item?.children ?? []).map((c) => c.view)).toEqual(["raci", "stakeholder-map"]);
+  });
+});
+
+describe("isViewReachable", () => {
+  it("agrees with filterNavGroups for every view, backend and module set", () => {
+    const flat = (groups: ReturnType<typeof filterNavGroups>) =>
+      groups.flatMap((g) => g.items.flatMap((i) => [i.view, ...(i.children ?? []).map((c) => c.view)]));
+    for (const features of [[...ALL_MODULE_IDS], []] as const)
+      for (const kind of ["turso", "local-json", undefined] as const) {
+        const shown = new Set(flat(filterNavGroups(features, kind)));
+        for (const view of allNavViews()) {
+          expect(isViewReachable(view, features, kind), `${view}/${kind}`).toBe(shown.has(view));
+        }
+      }
+  });
+  it("isViewReachable hides a child whose parent is hidden", () => {
+    expect(isViewReachable("insights", [], "turso")).toBe(false);
+    expect(isViewReachable("insights", [...ALL_MODULE_IDS], "turso")).toBe(true);
+    expect(isViewReachable("open-points", [], "local-json")).toBe(true);
+  });
+  it("keeps a view outside the nav that belongs to no module reachable", () => {
+    expect(isViewReachable("learning-insights", [], "local-json")).toBe(true);
+  });
+  it("hides Turso-only views off Turso", () => {
+    for (const v of TURSO_ONLY_VIEWS) {
+      expect(isViewReachable(v, ALL_MODULE_IDS, "turso")).toBe(true);
+      expect(isViewReachable(v, ALL_MODULE_IDS, "local-json")).toBe(false);
+      expect(isViewReachable(v, ALL_MODULE_IDS)).toBe(false);
+    }
   });
 });
 

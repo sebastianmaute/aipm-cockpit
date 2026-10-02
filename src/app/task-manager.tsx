@@ -1436,7 +1436,8 @@ function TaskManagerInner() {
   // view so it survives the view remount that the modern shell performs.
   const tour = useTour({
     layout: settings.layout, isPopout, hydrated, tourSeen: settings.tourSeen,
-    completedTours: settings.completedTours, features: settings.features, setSettings,
+    completedTours: settings.completedTours, features: settings.features,
+    storageKind: settings.storageConfig.kind, setSettings,
   });
   const startTour = tour.start;
 
@@ -2962,6 +2963,7 @@ function TaskManagerInner() {
   const undoControlEl = isPopout ? null : (
     <>
       <UndoControl
+        dataTourId={TOUR_ANCHORS.undo}
         lang={lang}
         entries={undoApi.stack}
         onUndo={undoApi.undo}
@@ -3309,6 +3311,7 @@ function TaskManagerInner() {
           onSkip={tour.skip}
           onDone={tour.done}
           onShowMe={(step) => tour.showMe(step, setActiveTab)}
+          activeView={activeTab}
         />
       )}
       {modalsBlock}

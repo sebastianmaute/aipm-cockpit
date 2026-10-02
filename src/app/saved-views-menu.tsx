@@ -24,6 +24,8 @@ interface SavedViewsMenuProps {
   /** Persist the current filter/sort state under a (trimmed, non-empty) name. */
   onSaveView: (name: string) => void;
   onDeleteView: (id: number) => void;
+  /** Optional guided-tour anchor, put on the root so no empty wrapper is needed. */
+  dataTourId?: string;
 }
 
 const BTN_CLASS =
@@ -35,7 +37,7 @@ const BTN_CLASS =
  * Owns only the local UI state (selection, save-name draft); the divergent
  * store apply/capture/delete logic stays in each wrapper via the callbacks.
  */
-export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteView }: SavedViewsMenuProps) {
+export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteView, dataTourId }: SavedViewsMenuProps) {
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -47,7 +49,7 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
   const selectValue = selectionValid ? String(selectedId) : "";
 
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className="inline-flex items-center gap-1" data-tour-id={dataTourId}>
       <Select
         size="xs"
         aria-label={t(lang, "savedViewsApply")}

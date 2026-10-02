@@ -152,11 +152,12 @@
   ⇒ standalone `help-view.test.tsx` unchanged), wired `workspace-section` → `setActiveTab(v)`. Help is NOT in axe
   `A11Y_VIEWS` (map keyboard-focus/contrast + SVG positioning EYE-verified; jsdom rect=0 so tests assert
   structure/handlers/`data-active`, not pixels). i18n EN+DE; `helpRelationsGoToView` uses positional `{0}`.
-  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of 6 themed
-  tours (`getting-started` · `raid` · `reporting` · `planning` · `stakeholders` · `ai`). Pure engine
+  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of themed
+  tours (the tour list, step filtering and storage rules live in
+  [features.md](features.md) "Guided tour + demo"). Pure engine
   `app-tour.ts` gained `TourDefinition`/`TourCatalogEntry`/`TOURS`/`findTour`; the old flat `TOUR_STEPS`
   is KEPT as an export (= `getting-started`'s steps; `tour-overlay.test` imports it). `visibleSteps`
-  is now `(steps, features)` (was `(features)`) — drops a step whose `view` is a disabled module.
+  takes the step list rather than reading a fixed one (signature and filter rule: features.md).
   `use-tour.ts` tracks `activeTourId` (`start(tourId?)` defaults `getting-started`, preserving
   auto-launch + HelpMenu), exposes `catalogTours` (tours with ≥1 visible step) + `completedTours` +
   `activeTourTitleKey`; `done()` appends the active id to `settings.completedTours` (functional

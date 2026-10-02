@@ -13,9 +13,11 @@ interface SavedViewsControlProps {
   lang: Lang;
   hiddenCols: Set<string>;
   setHiddenCols: React.Dispatch<React.SetStateAction<Set<string>>>;
+  /** Guided-tour anchor, rendered only while the control itself renders. */
+  dataTourId?: string;
 }
 
-export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedViewsControlProps) {
+export function SavedViewsControl({ lang, hiddenCols, setHiddenCols, dataTourId }: SavedViewsControlProps) {
   const { settings } = useSettings();
   const f = useFilters();
   const { views, addView, removeView } = useSavedViews();
@@ -55,6 +57,7 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
   return (
     <SavedViewsMenu
       lang={lang}
+      dataTourId={dataTourId}
       views={views}
       onApplyView={(id) => {
         const v = views.find((x) => x.id === id);

@@ -13,7 +13,7 @@ explains, never a step that waits for the user to act or changes data.
 
 ## What exists today
 
-`src/app/app-tour.ts` holds six tours (getting started, RAID, reporting,
+`src/app/app-tour.ts` held six tours before this work (getting started, RAID, reporting,
 planning, stakeholders, AI). Four steps are spotlights on a `data-tour-id`
 anchor (sidebar tasks and actions, Ask Claude, the project switcher); the rest
 are centred cards. `tour-overlay.tsx` falls back to a centred card when a
@@ -44,13 +44,14 @@ Reproduce the current counts rather than trusting prose:
 ## Engine change
 
 - New pure helper in `nav-config.ts`:
-  `isViewReachable(view: AppView, features: readonly FeatureModuleId[], storageKind?: string): boolean`
+  `isViewReachable(view: AppView, features: readonly FeatureModuleId[], storageKind?: StorageKind): boolean`
   — true when the view's module is enabled and (`storageKind === "turso"` or the
-  view is not in `TURSO_ONLY_VIEWS`). `filterNavGroups` uses it for its own
+  view is not in `TURSO_ONLY_VIEWS`) and, for a child view in `NAV_GROUPS`, its
+  parent item is reachable too. `filterNavGroups` uses it for its own
   predicate, so the sidebar and the tour cannot disagree.
 - `visibleSteps(steps, features, storageKind?)` keeps a step when it has no
   `view` or `isViewReachable(step.view, features, storageKind)`.
-- `useTour` takes `storageKind?: string`; its only caller, `task-manager.tsx`,
+- `useTour` takes `storageKind?: StorageKind`; its only caller, `task-manager.tsx`,
   passes `settings.storageConfig.kind`. The catalog's step counts use the same
   filter.
 - A tour with zero visible steps is not offered in the catalog. If the current
@@ -62,7 +63,7 @@ Added to `TOUR_ANCHORS` and placed as `data-tour-id`:
 
 | Anchor key | Element | Present when |
 |---|---|---|
-| `undo` | a span wrapping the undo and redo controls in `task-manager.tsx` | once the undo stack has an entry (`UndoControl` renders nothing on an empty stack; the empty span has no size, which the overlay treats as missing) |
+| `undo` | the `dataTourId` prop on `UndoControl`'s root element, passed as `TOUR_ANCHORS.undo` from `task-manager.tsx` | once the undo stack has an entry (`UndoControl` renders nothing on an empty stack, so the anchor is absent, which the overlay treats like a zero-size one) |
 | `globalSearch` | the search box (`global-search-box.tsx`) | always |
 | `tasksViewMode` | the Table / Board / Swimlane control (`tasks-section.tsx`) | on Open Points |
 | `selectAll` | the "select all visible" header checkbox | table mode only |
@@ -70,8 +71,10 @@ Added to `TOUR_ANCHORS` and placed as `data-tour-id`:
 | `navResources`, `navBudget`, `navChanges`, `navDocuments` | sidebar entries, via the existing `NAV_TOUR_ID` map | the module is enabled and the entry is rendered |
 
 A missing anchor (board mode for `selectAll`, a collapsed sidebar parent for a
-child entry) falls back to the centred card. That is the designed behaviour,
-not a defect. Tours are modern-only, so a top-bar anchor is wired in the
+child entry) falls back to the centred card. On the collapsed rail the
+Resources entry is a parent with children, rendered by `CollapsedNavFlyout`,
+which forwards the same `NAV_TOUR_ID` anchor to its trigger button, so
+`res-directory` spotlights that button there too. Tours are modern-only, so a top-bar anchor is wired in the
 `ModernShell` slot only.
 
 ## Steps
@@ -155,10 +158,10 @@ Each test names the mutant that must turn it red.
 
 | Test | File | Pins | Mutant |
 |---|---|---|---|
-| storage filter | `app-tour.test.ts` | trends/history steps kept for `"turso"`, dropped for `"file"` and `undefined`; a step with no `view` always kept | drop the storage condition |
-| sidebar parity | `nav-config.test.ts` | for every `AppView` × {turso, file} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` | invert the Turso check in one of the two |
+| storage filter | `app-tour.test.ts` | trends/history steps kept for `"turso"`, dropped for `"local-json"` and `undefined`; a step with no `view` always kept | drop the storage condition |
+| sidebar parity | `nav-config.test.ts` | for every view in `NAV_GROUPS` × {turso, local-json, undefined} × {all modules, none}, `isViewReachable` equals membership in `filterNavGroups` (children included, so the parent rule is covered). A view outside the nav (e.g. `learning-insights`) gets only the module rule, and a view in no module is core, so it is reachable | invert the Turso check in one of the two |
 | anchors resolve | `app-tour.test.ts` | every step `anchorId` is a `TOUR_ANCHORS` value and every value is used by a step | rename an anchor on one side |
-| anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; the undo wrapper by a source check on `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
+| anchors placed | component tests for global-search-box, tasks-section, sidebar-nav; `undo-control.test.tsx` (anchor present with entries, absent when empty) plus a source check for `dataTourId={TOUR_ANCHORS.undo}` in `task-manager.tsx` | the element carries its `data-tour-id` | delete the attribute |
 | hook threads storage | `use-tour.test.tsx` | the reporting tour's `steps.length` and its catalog `stepCount` differ between turso and file | ignore `storageKind` |
 | empty tour hidden | `use-tour.test.tsx` | a tour whose steps are all filtered out is absent from the catalog | remove the hide |
 | done state kept | `app-tour.test.ts` | the six existing tour ids and their step ids are still present | rename an existing id |

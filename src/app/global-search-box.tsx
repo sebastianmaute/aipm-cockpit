@@ -16,6 +16,7 @@ import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useWorkspace } from "./workspace-context";
+import { TOUR_ANCHORS } from "./app-tour";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
 // --- Hydration-safe platform detection for the decorative shortcut hint ---
@@ -224,7 +225,7 @@ export function GlobalSearchBox({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} data-tour-id={TOUR_ANCHORS.globalSearch} className="relative">
       {/* Only the field is wrapped: the outer `relative` root above still
           anchors the ⌘K hint and the listbox. The ✕ and that hint can never
           collide — the hint renders only while the query is EMPTY and focused,

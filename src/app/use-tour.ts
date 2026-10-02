@@ -8,6 +8,7 @@ import type { TranslationKey } from "./i18n";
 import { clampStep, visibleSteps, findTour, TOURS, type TourStep, type TourCatalogEntry } from "./app-tour";
 import type { FeatureModuleId } from "./feature-modules";
 import type { Settings } from "./settings-types";
+import type { StorageKind } from "./workspace";
 
 const DEFAULT_TOUR_ID = "getting-started";
 
@@ -18,6 +19,7 @@ interface UseTourArgs {
   tourSeen: boolean | undefined;
   completedTours: readonly string[] | undefined;
   features: readonly FeatureModuleId[];
+  storageKind?: StorageKind;
   setSettings: Dispatch<SetStateAction<Settings>>;
 }
 
@@ -36,18 +38,18 @@ export interface UseTour {
   showMe: (step: TourStep, navigate: (view: NonNullable<TourStep["view"]>) => void) => void;
 }
 
-export function useTour({ layout, isPopout, hydrated, tourSeen, completedTours, features, setSettings }: UseTourArgs): UseTour {
+export function useTour({ layout, isPopout, hydrated, tourSeen, completedTours, features, storageKind, setSettings }: UseTourArgs): UseTour {
   const [isOpen, setIsOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [activeTourId, setActiveTourId] = useState<string>(DEFAULT_TOUR_ID);
   const [autoHandled, setAutoHandled] = useState(false);
 
   const activeTour = findTour(activeTourId) ?? TOURS[0];
-  const steps = useMemo(() => visibleSteps(activeTour.steps, features), [activeTour, features]);
+  const steps = useMemo(() => visibleSteps(activeTour.steps, features, storageKind), [activeTour, features, storageKind]);
 
   const catalogTours = useMemo<TourCatalogEntry[]>(
     () =>
-      TOURS.map((t) => ({ t, vis: visibleSteps(t.steps, features) }))
+      TOURS.map((t) => ({ t, vis: visibleSteps(t.steps, features, storageKind) }))
         .filter(({ vis }) => vis.length > 0)
         .map(({ t, vis }) => ({
           id: t.id,
@@ -56,7 +58,7 @@ export function useTour({ layout, isPopout, hydrated, tourSeen, completedTours, 
           stepCount: vis.length,
           iconView: t.iconView,
         })),
-    [features],
+    [features, storageKind],
   );
 
   // Render-time auto-launch (guarded; runs once). NOT a useEffect. Launches the

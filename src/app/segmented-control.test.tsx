@@ -11,6 +11,12 @@ const PRIORITIES = [
 ] as const;
 
 describe("SegmentedControl", () => {
+  test("puts dataTourId on the radiogroup root", () => {
+    render(
+      <SegmentedControl value="Low" options={PRIORITIES} onChange={() => {}} ariaLabel="Priority" dataTourId="tour-x" />,
+    );
+    expect(screen.getByRole("radiogroup", { name: "Priority" })).toHaveAttribute("data-tour-id", "tour-x");
+  });
   test("renders a radiogroup with the current value marked as selected", () => {
     render(
       <SegmentedControl

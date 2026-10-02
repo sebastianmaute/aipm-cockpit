@@ -36,6 +36,25 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
+describe("GlobalSearchBox tour anchor", () => {
+  it("carries the tour anchor on its root element", () => {
+    const { container } = render(
+      <GlobalSearchBox
+        lang="en-US"
+        tasks={tasks}
+        raid={raid}
+        changes={changes}
+        milestones={milestones}
+        stakeholders={stakeholders}
+        budgets={budgets}
+        resources={resources}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(container.querySelectorAll('[data-tour-id="tour-global-search"]')).toHaveLength(1);
+  });
+});
+
 function renderBox(onSelect = vi.fn()) {
   render(
     <GlobalSearchBox

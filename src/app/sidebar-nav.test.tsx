@@ -4,6 +4,18 @@ import { SidebarNav } from "./sidebar-nav";
 import { filterNavGroups } from "./nav-config";
 
 describe("SidebarNav", () => {
+  it("places each tour anchor on exactly one expanded nav entry", () => {
+    const { container } = render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} />);
+    for (const id of ["tour-nav-resources", "tour-nav-budget", "tour-nav-changes", "tour-nav-documents"]) {
+      expect(container.querySelectorAll(`[data-tour-id="${id}"]`)).toHaveLength(1);
+    }
+  });
+
+  it("keeps the Resources tour anchor on the collapsed rail's flyout trigger", () => {
+    const { container } = render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+    expect(container.querySelectorAll('[data-tour-id="tour-nav-resources"]')).toHaveLength(1);
+  });
+
   it("renders group headers and a top-level item", () => {
     render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} />);
     expect(screen.getByText("OVERVIEW")).toBeTruthy();
