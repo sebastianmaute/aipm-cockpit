@@ -10,20 +10,20 @@ const KEY_PREFIX = "aipm-cockpit:col-widths";
  *  v2 is `{ v: 2, widths }` where `widths` holds only columns the user actually
  *  dragged — so a later change to a DEFAULT still reaches them. v1 is a bare
  *  object written when the hook persisted the whole merged map; it cannot tell
- *  dragged from default, so every key in it counts as user-set. That direction
- *  is deliberate: it preserves widths rather than silently discarding them.
+ *  dragged from default.
  *
- *  ★★ BUT DO NOT READ "v1 blob" AS "the user's drags". The pre-v2 persist effect
+ *  ★★ DO NOT READ "v1 blob" AS "the user's drags". The pre-v2 persist effect
  *  had no first-run guard, so it fired ~250ms after MOUNT and wrote the whole
  *  MERGED map. Any table a user has simply LOOKED AT therefore holds a full
- *  defaults snapshot, and this function promotes every key of it to user-set.
- *  Consequence: for an existing user the v2 benefit ("a DEFAULT change now
- *  reaches them") does NOT apply to a table carrying a v1 blob — only to fresh
- *  installs, to anyone who clicks reset, and to a table whose id was bumped
- *  (which is exactly why Open Points moved to `open-points-v2`). Dropping v1
- *  keys whose value already equals the default would recover it; that is a
- *  behaviour change for the 37 other tables (37 call sites across 17 files — count
- *  invocations, not files) and is deliberately NOT done here.
+ *  defaults snapshot. So a v1 key whose stored width EQUALS the current default
+ *  for that column is treated as NOT user-set and userSet; only differing widths
+ *  survive as drags. A key with no entry in `defaults` is kept as before (there
+ *  is nothing to compare it with). The only loss is a user who dragged to
+ *  exactly the default width, who keeps seeing that width until the default
+ *  changes. HONEST RESIDUAL: a v1 snapshot holding an OLD default that has
+ *  since changed still differs from today's default, so it reads as a drag and
+ *  keeps that old value. And once a v1 blob has been read and written back as v2
+ *  it is no longer identifiable, so this only helps a blob not yet migrated.
  *
  *  ★ An unrecognised VERSION reads as "no user widths" rather than falling
  *  through to the v1 branch — otherwise a future `{v:3,widths:{…}}` would be
@@ -48,7 +48,10 @@ function usableWidths<TId extends string>(obj: object): Partial<Record<TId, numb
   return out as Partial<Record<TId, number>>;
 }
 
-function readSized<TId extends string>(storageKey: string): Partial<Record<TId, number>> {
+function readSized<TId extends string>(
+  storageKey: string,
+  defaults: Readonly<Record<TId, number>>,
+): Partial<Record<TId, number>> {
   try {
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) return {};
@@ -61,7 +64,11 @@ function readSized<TId extends string>(storageKey: string): Partial<Record<TId, 
       return {};
     }
     if (v2.v !== undefined) return {};
-    return usableWidths<TId>(parsed);
+    const userSet: Record<string, number> = {};
+    for (const [k, w] of Object.entries(usableWidths<TId>(parsed))) {
+      if (w !== (defaults as Record<string, number>)[k]) userSet[k] = w as number;
+    }
+    return userSet as Partial<Record<TId, number>>;
   } catch {
     return {};
   }
@@ -80,7 +87,7 @@ export function useColumnResize<TId extends string>(
   resetColWidths: () => void;
 } {
   const storageKey = `${KEY_PREFIX}:${tableId}`;
-  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => readSized<TId>(storageKey));
+  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => readSized<TId>(storageKey, defaults));
 
   const colWidths = useMemo(
     () => ({ ...defaults, ...sizedWidths }) as Record<TId, number>,
