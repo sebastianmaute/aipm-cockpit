@@ -5,7 +5,7 @@ import type { EditPlan } from "../inline-ai-edit/plan";
 
 const planWithChanges: EditPlan = {
   updates: [{ entity: "task", field: "status", before: "To Do", after: "Done" }],
-  creates: [{ entity: "raid", title: "New risk", toolName: "create_raid_item", input: {} }],
+  creates: [{ entity: "raid", title: "New risk", toolName: "create_raid_item", input: {}, fields: [] }],
   deletes: [{ entity: "task", label: "Old task", toolName: "delete_task", id: 3 }],
   rejected: [],
   links: [],

@@ -1003,11 +1003,16 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //   the landing branch (product code = main at fe82d1db): 1 failed / 73, the
   //   absence create case only; the absence update case stays green.
   //
-  //  ★★ SO THE DETECTOR RESTS ON A MISSING FEATURE. If the create card ever
-  //   gains a refusal channel (§440), a narrowed allowlist row becomes a
-  //   disclosed refusal on this arm too, and §436 has no detector left in this
-  //   file — unless a "refused a valid probe" kind is added to `FINDING_KINDS`
-  //   in the same change. Close §440 without that and this goes quietly green.
+  //  ★★ THE CREATE CARD GAINED A REFUSAL CHANNEL (§440, 2026-10-02) AND THIS
+  //   DETECTOR SURVIVED IT, because this arm never reads the plan: it calls the
+  //   real create and compares what LANDED, so a narrowed allow-list row still
+  //   reads `dropped` here whether or not the card disclosed it. The warning
+  //   that stood here ("a narrowed row becomes a disclosed refusal on this arm
+  //   too") holds only for an arm that counts the PREVIEW's refusal as
+  //   agreement, which is what the UPDATE arm does. ★★★ So do NOT teach this arm
+  //   to accept a disclosed create refusal the way the update arm does, unless
+  //   the same change adds a "refused a valid probe" kind to `FINDING_KINDS` —
+  //   that is the move that would leave §436 with no detector.
   //
   //  ★★★ SO EVERY PROBE IS ADMITTED BEFORE IT IS JUDGED. `probeFor` puts the
   //   probe through this entity's create-writer sanitizer first

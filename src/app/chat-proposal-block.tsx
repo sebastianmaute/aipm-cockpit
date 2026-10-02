@@ -45,6 +45,7 @@ import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
+import { CreateFieldsList } from "./create-fields-list";
 import { TOOL_ENTITY } from "./chat-proposal-describe";
 
 /** Rows shown before the disclosure collapses the rest. */
@@ -207,7 +208,7 @@ function PlanDetail({
         </li>
       ))}
       {plan.creates.map((c, i) => (
-        <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>
+        <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}<CreateFieldsList lang={lang} item={c} /></li>
       ))}
       {plan.deletes.map((del, i) => (
         <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>
