@@ -8,6 +8,7 @@ const SECRET_KEY_PARTS = [
   "password", "secret", "authorization", "bearer",
 ];
 const FIELD_MAX = 500;
+const REDACTED = "[redacted]";
 // §608: scrub only a bounded prefix, never the full field. Several patterns backtrack
 // quadratically on a long run that fails them (64k mixed-case ~12 s), so the input is cut
 // BEFORE scrubbing. Minimum match lengths differ per pattern (sk-ant- ~8, Bearer ~8, Basic 22,
@@ -19,6 +20,11 @@ const FIELD_MAX = 500;
 // a token that starts there and is cut by the window with too few chars kept would survive as a
 // raw fragment. `boundScrubInput` therefore moves the cut back to the start of the token-
 // alphabet run it would split (a linear backward scan, no regex over the window).
+// ★ A run that starts BEFORE FIELD_MAX and reaches the cut is at least 512 token chars long: never
+// readable log text, and only matching the WHOLE run could judge it, which is the quadratic cost
+// this removes. Handing the partial run to the patterns would let §606 miss a `+` or `=` padding
+// that lies past the window, so that run is redacted outright. COST: a long non-secret run, such as
+// a URL over 512 chars with no separator, is redacted in diagnostics.
 export const SCRUB_WINDOW = FIELD_MAX + 512;
 
 // The union of every character a SECRET_VALUE_PATTERNS match can be made of, read off the
@@ -38,8 +44,7 @@ function boundScrubInput(value: string): string {
   }
   let start = SCRUB_WINDOW;
   while (start > 0 && TOKEN_CHAR.test(value[start - 1])) start--;
-  // A run starting inside FIELD_MAX keeps >= 512 chars, so its pattern still matches.
-  return value.slice(0, start < FIELD_MAX ? SCRUB_WINDOW : start);
+  return start < FIELD_MAX ? value.slice(0, start) + REDACTED : value.slice(0, start);
 }
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
@@ -83,7 +88,7 @@ function isSecretKey(key: string): boolean {
 
 function scrubSecretValues(s: string): string {
   let out = s;
-  for (const re of SECRET_VALUE_PATTERNS) out = out.replace(re, "[redacted]");
+  for (const re of SECRET_VALUE_PATTERNS) out = out.replace(re, REDACTED);
   return out;
 }
 
@@ -94,7 +99,7 @@ export function redactFields(
   const out: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(fields)) {
     if (isSecretKey(key)) {
-      out[key] = "[redacted]";
+      out[key] = REDACTED;
       continue;
     }
     if (typeof value === "number" || typeof value === "boolean") {

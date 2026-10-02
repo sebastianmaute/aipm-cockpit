@@ -208,4 +208,16 @@ describe("§608: the scrub window bounds backtracking without leaking a cut toke
     expect(out?.message).not.toContain("Zq8Lm2Xv9");
     expect(out?.message).toBe("[redacted] ");
   });
-});
+});  // A run that starts before the cap and reaches the window's cut is never handed to the patterns:
+  // its only `+` lies past the window, where the §606 rule would have needed it, so the whole run is
+  // redacted instead of leaving short `/`-separated pieces visible.
+  it("redacts a long base64 run whose only + lies past the window, leaving no raw piece", () => {
+    const piece = (n: number) => `Ab3${String(n).padStart(4, "0")}xYzQ`; // 11 chars, mixed case + digits
+    let run = "";
+    for (let n = 0; run.length < 1100; n++) run += piece(n) + (n % 2 === 1 ? "/" : "");
+    const out = redactFields({ message: `k${run}+Zz9` })?.message as string;
+    expect(out).toContain("[redacted]");
+    expect(out).not.toMatch(/Ab3d{4}x/);
+  });
+
+
