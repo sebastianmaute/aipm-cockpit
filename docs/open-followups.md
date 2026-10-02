@@ -458,7 +458,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§224](#224-timelog-bookings-are-fetched-only-on-demand--no-interval-job-and-no-delta-notice) | Timelog bookings are fetched only on demand — no interval job, and no delta notice | — | — | open |
 | [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | open |
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
-| [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | open |
+| [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair--closed-2026-10-02) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | **CLOSED** 2026-10-02 |
 | [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
 | [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet--closed-2026-08-29) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | **CLOSED** 2026-08-29 |
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
@@ -675,7 +675,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--open) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | open |
 | [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `5383186a` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
 | [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach | found 2026-09-09 while closing §442, on a branch that forked before `c5d528e5`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
-| [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--open) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | open |
+| [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--closed-2026-10-02) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | **CLOSED** 2026-10-02 |
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--closed-2026-09-14) | sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **CLOSED** 2026-09-14 |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
@@ -700,7 +700,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
-| [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
+| [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--closed-2026-10-02) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | **CLOSED** 2026-10-02 |
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
@@ -11386,7 +11386,7 @@ composite has no cascade to remap.
 
 ## 135. A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI
 
-**Status:** open — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — POSTPONED by the product owner 2026-10-02: asked to choose between one link per task pair, several types per pair, or accepting the display-only gap, they chose to revisit the model later. Do not implement either direction until then. — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #152
 
@@ -19591,15 +19591,15 @@ and may well be deliberate; it is also the precondition the category comparison 
 accommodate, since without it a synced task could never carry `On Hold`/`In Review`/`Cancelled` to
 begin with.
 
-## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair
+## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair — CLOSED 2026-10-02
 
-**Status:** open, NARROWED 2026-08-24 — identified while reviewing the §183 fix, and deliberately
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: LEAVE AS IS — the "Against" argument below wins. Picking "keep my local value" changes only the field the user arbitrated; `status` is not a `ConflictFieldKey` and is not silently repaired. Both live consequences were already closed (the two `transitionIssueTo` call sites read `status`), the stored split self-heals on the next pull in which the issue changes, and `countSplitTaskPairs` keeps reporting how many such rows exist in Settings → Diagnostics. The prohibition on routing either Jira path through `reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands. No code change. The history below is kept as written.
+
+**Previously:** open, NARROWED 2026-08-24 — identified while reviewing the §183 fix, and deliberately
 NOT fixed in the same round. **Severity:** low (no NEW split pair is created from consistent input;
 an existing one is propagated into storage. The second-order Jira-write consequence this entry
 originally carried is now fixed at both transition sites — see below — so what remains is a
 stored-data staleness, not a live write against the wrong Jira status). Never machine-verified by a committed probe.
-
-**Work item:** #199
 
 §183 made `handleResolveConflicts` (`use-jira-sync.ts`) write `status` beside `completedDate`, both
 from the side the user picked. That closed the case where the two halves came from DIFFERENT sides.
@@ -35349,16 +35349,16 @@ derivation it checks. The register closes an entry on its headline claim, and th
 Closing it is still the decision above — give `propose_project` a relation of its own, or affirm the
 filter as the whole answer and record why — now taken with a working filter already in place.
 
-## 446. `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN
+## 446. `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-09 — established by reading both ends of the path; reported independently by
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: `decisionBy` is a FREE ANNOTATION, valid at any status — option three below ("accepting the field as free annotation and saying so"). Nothing is cleared, refused or coupled to `status`, so neither the modal nor the model needs a guard row. "Saying so" is the change: the modal label is now "Decision maker" / "Entscheidungsträger" (it was "Decided by" / "Entschieden von", which implied a decision had been taken), its hint now reads that the person can be named before the decision is made, and the `changeFields` tool description tells the model the same, so a decider on an undecided change is a documented meaning rather than an inconsistency. The history below is kept as written.
+
+**Previously:** OPEN 2026-09-09 — established by reading both ends of the path; reported independently by
 two agents before it was filed, and fixed by neither. Presence witnesses re-run 2026-09-11:
 `grep -n "decisionBy" src/app/chat-tool-defs.ts` (one schema property, on the bag both change tools
 share), `grep -n "decisionBy" src/app/sanitize-records.ts` (ONE line — the store, with no `status`
 term, and no `CHANGE_FIELD_GUARDS` row) and `grep -c "decisionBy" src/app/change-log.ts` (→ **0**, so
 no status transition owns it).
-
-**Work item:** #285
 
 `changeFields` offers `decisionBy` as a free-text "Decision maker", and because that bag is the entire
 `properties` of BOTH `create_change` and `update_change`, it is offered on each. `sanitizeChangeItem`
@@ -37080,9 +37080,11 @@ Size S–M: rename the fixture and let the existing assertion run against a real
 contract amount over the bucket window" and "exclude fixed-price buckets from the value series and
 chart hours only" are both defensible, and that decision is the work, not the test.
 
-## 473. Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN
+## 473. Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — CLOSED 2026-10-02
 
-**Status:** OPEN 2026-09-12 — established by reading the engine, the type and the display sites, by
+**Status:** CLOSED 2026-10-02. DECIDED by the product owner 2026-10-02: role rates (and per-bucket rate overrides) are in the PLAN currency — the opposite of the "narrow `plan.currency` to EUR" recommendation below, which is therefore superseded. Built: `planCurrencyPerEur` (`fx.ts`) gives units of plan currency per 1 EUR, reusing the BUCKET's own resolution (override included) when the bucket shares the plan currency and the cached ECB rate otherwise; `bucketRateRows` (`budget-report.ts`) takes it as a divisor, so cost, T&M revenue, budget value and budget cost — and the burndown, rate-mix and forecast figures built from the same rows — are EUR. Face 2 is fixed: a same-currency fixed-price bucket's margin is now the contract-currency margin, converted (the rejected "convert only when currencies differ" design is NOT what this does — both terms always convert). Face 1 resolves by the decision itself: Resources formats rate-derived money in `plan.currency` because that IS its currency, and Budget formats EUR because the engine converted it. The EVM money tiles (`budget-report-panel.tsx`), the one rate consumer outside `bucketRateRows`, divide their blended rate the same way. An EUR plan divides by 1, so every existing test and the golden suite are unchanged. Pinned by `budget-report.test.ts` → "plan-currency role rates convert to EUR (§473)" (the same-currency fixed-price margin, a T&M bucket at a cached rate, the EUR identity; skipping the divisor reddens two) and `fx.test.ts` → "planCurrencyPerEur". ★ Residual, recorded in `docs/AGENTS/budget.md`: a non-EUR plan with NO cached rate converts at par and no notice counts it; no UI control sets a non-EUR plan today (conjunct 1 below). The history below is kept as written.
+
+**Previously:** OPEN 2026-09-12 — established by reading the engine, the type and the display sites, by
 diffing the branch base, and by inspecting the shipped sample; the arithmetic face is REASONED from
 the code, NOT reproduced on a screen, and neither face is pinned by any test. Presence witnesses run
 2026-09-12: `grep -c "role.internalRate\|role.externalRate" src/app/resource-cost.ts` → 2 (the two
@@ -37104,8 +37106,6 @@ figures built from `revenue - cost` — plus a SECOND `const revenue` and a seco
 `contributionMargin: {` for the project rollup, which repeats the bucket arithmetic over summed
 rows. Count six, or the extra pair reads as a broken witness. And
 `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members.
-
-**Work item:** #79
 
 **Nothing in the system decides what currency a role rate is in**, and the two faces below are that
 one gap seen from two directions. They are filed together deliberately: split apart, one could be

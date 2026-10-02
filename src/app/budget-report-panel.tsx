@@ -19,7 +19,7 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { resolveRate, resolveRateSource, type RateSource } from "./fx";
+import { planCurrencyPerEur, resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
@@ -95,9 +95,14 @@ export function BudgetReportPanel({
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, [], fxRates),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, fxRates],
   );
+  const planCurrency = plan.currency;
   const evm = useMemo(
-    () => computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(roles) }),
-    [tasks, today, roles],
+    // §473 — the blended rate is in the PLAN currency; the EVM money tiles are
+    // formatted as EUR by `money` below, so convert it the way the engine does.
+    () => computeEvm(tasks, today, {
+      blendedRate: projectBlendedInternalRate(roles) / planCurrencyPerEur(planCurrency, { currency: planCurrency }, fxRates),
+    }),
+    [tasks, today, roles, planCurrency, fxRates],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const planStart = plan.startDate;

@@ -3,7 +3,7 @@ import {
   bucketActivePeriods, allocationPlannedHours, computeBudgetReport, computeBucketReport,
   costIsKnowable, ratesMissing, type CostUnknownReason,
 } from "./budget-report";
-import type { ResourcePlan, Resource, BudgetBucket, Role, Task } from "./types";
+import type { ResourcePlan, Resource, BudgetBucket, FxRates, Role, Task } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" };
 const noHolidays = new Set<string>();
@@ -1021,5 +1021,43 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
     const report = computeBudgetReport([bucket40pct(), unknownProgress], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.project.earnedValue).toBeNull();
     expect(report.project.costPerformanceIndex).toBeNull();
+  });
+});
+
+// §473 — role rates are in the PLAN currency (decided 2026-10-02) and every
+// budget figure is EUR, so `bucketRateRows` converts rate-derived money with
+// `planCurrencyPerEur`. Before this, a USD plan's rates were read as EUR while
+// its USD fixed-price contract was converted, and the margin was wrong.
+describe("plan-currency role rates convert to EUR (§473)", () => {
+  const usdPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "USD" };
+  const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 50, externalRate: 80 }];
+  const alloc = [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }];
+  const bucket = (over: Partial<BudgetBucket>): BudgetBucket => ({
+    id: 1, name: "b", type: "tm", currency: "USD", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: alloc, ...over,
+  });
+
+  test("a same-currency fixed-price margin is the USD margin, converted at the bucket's own rate", () => {
+    // Contract 1100 USD, cost 10 h × 50 USD = 500 USD, override 1.1 USD per EUR.
+    const rep = computeBucketReport(
+      bucket({ type: "fixed", fixedPriceAmount: 1100, fxRateOverride: 1.1 }), usdPlan, roles, [], 8, noHolidays, 0, 0, [], [], null,
+    );
+    expect(rep.revenue).toBeCloseTo(1000, 6);
+    expect(rep.cost).toBeCloseTo(500 / 1.1, 6);
+    // The pre-§473 engine reported 1000 − 500 = 500 here.
+    expect(rep.winLossValue).toBeCloseTo((1100 - 500) / 1.1, 6);
+  });
+
+  test("T&M money converts from the plan currency at the cached rate, even in an EUR bucket", () => {
+    const fx: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00.000Z", rates: { USD: 2 } };
+    const rep = computeBucketReport(bucket({ currency: "EUR" }), usdPlan, roles, [], 8, noHolidays, 0, 0, [], [], fx);
+    expect(rep.cost).toBeCloseTo((10 * 50) / 2, 6);
+    expect(rep.revenue).toBeCloseTo((10 * 80) / 2, 6);
+  });
+
+  test("an EUR plan is unchanged (divisor 1)", () => {
+    const rep = computeBucketReport(bucket({ currency: "EUR" }), { ...usdPlan, currency: "EUR" }, roles, [], 8, noHolidays, 0, 0, [], [], null);
+    expect(rep.cost).toBe(500);
+    expect(rep.revenue).toBe(800);
   });
 });

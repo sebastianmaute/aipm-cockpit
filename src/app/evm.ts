@@ -15,7 +15,9 @@ export type EvmMetrics = {
 
 const MIN_PER_HOUR = 60;
 
-/** Arithmetic mean of role internal rates (EUR/h); 0 when there are no roles. */
+/** Arithmetic mean of role internal rates, in the PLAN currency per hour (§473 —
+ *  a caller formatting money as EUR divides by `planCurrencyPerEur`); 0 when
+ *  there are no roles. */
 export function projectBlendedInternalRate(roles: readonly Role[]): number {
   if (roles.length === 0) return 0;
   const sum = roles.reduce((acc, r) => acc + (r.internalRate ?? 0), 0);

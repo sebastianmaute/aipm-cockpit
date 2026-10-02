@@ -8,7 +8,7 @@
 
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
-import { currencyToEur } from "./fx";
+import { currencyToEur, planCurrencyPerEur } from "./fx";
 import { actualHoursIn } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 
@@ -80,7 +80,7 @@ export function computeBurndownSeries(
   const actualV = new Array<number>(n).fill(0);
 
   for (const b of buckets) {
-    const rows = bucketRateRows(b, roles);
+    const rows = bucketRateRows(b, roles, planCurrencyPerEur(plan.currency, b, fxRates)); // §473 — rates to EUR
     // Scope to the bucket's active periods and pass them as canonicalPeriods —
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);

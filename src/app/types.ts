@@ -599,14 +599,11 @@ export type ResourcePlan = {
   endDate: string; // "YYYY-MM-DD"
   granularity: PlanGranularity; // canonical (editable) granularity
   /** Plan base currency. Role rates and per-bucket rate overrides are
-   *  denominated in it, and the budget engine treats those as EUR.
-   *  ★★ The union does NOT reconcile those two claims — it bounds the value
-   *  set, so display sites and `sanitizePlan` can be exhaustive over three
-   *  known codes instead of arbitrary text. `USD`/`GBP` are type-legal, and a
-   *  plan set to either still has its rates read as EUR by the engine. Nothing
-   *  enforces "all money is EUR"; see `docs/open-followups.md` §473 and the
-   *  `BucketReport.budgetValue` docstring in `budget-report.ts`, which states
-   *  the same unenforced assumption outright. */
+   *  denominated in it — decided §473 — so the Resources views format
+   *  rate-derived money in this currency. The budget engine's unit is EUR:
+   *  `bucketRateRows` divides every rate by `planCurrencyPerEur` (`fx.ts`)
+   *  before any budget figure is built, exactly as a fixed-price contract
+   *  amount is divided by its bucket's rate. An EUR plan divides by 1. */
   currency: BudgetCurrency;
   /** When true, budget-hours cells for allocations WITH assigned resources
    *  mirror planned capacity (read-only). Absent ⇒ false (manual entry). */

@@ -55,8 +55,9 @@ export function resolveRateSource(bucket: Pick<BudgetBucket, "currency" | "fxRat
  * ★ Only a FIXED-PRICE bucket qualifies: its contract amount is the one
  * figure that passes through `currencyToEur` (`computeBucketReport`,
  * `computeBurndownSeries`), so it alone is summed 1:1 when the rate is
- * unresolved. A T&M bucket's money is hours × EUR role rates and is converted
- * nowhere, so its missing rate changes none of the figures it contributes —
+ * unresolved. A T&M bucket's money is hours × role rates, which convert from
+ * the PLAN currency (§473, `planCurrencyPerEur`), not the bucket's — so the
+ * bucket's own missing rate changes none of the figures it contributes, and
  * counting it would disclose a par conversion that never happened.
  * Reads `resolveRateSource` directly so the source test cannot disagree with
  * the per-bucket currency-label marker.
@@ -82,4 +83,24 @@ export function currencyToEur(amount: number, bucket: Pick<BudgetBucket, "curren
   // rate are both guarded `> 0`, otherwise it falls back to 1), so the division
   // is never by zero — no zero-rate special case is reachable.
   return amount / resolveRate(bucket, fxRates);
+}
+
+/**
+ * §473 — units of the PLAN currency per 1 EUR: the divisor that turns a
+ * rate-derived amount (role rates and per-bucket rate overrides are
+ * denominated in `plan.currency`) into EUR, the unit every budget figure is in.
+ * An EUR plan returns 1, so nothing moves for it.
+ * ★ When the bucket shares the plan's currency, the BUCKET's own resolution is
+ * used — its manual `fxRateOverride` included — because that is the rate its
+ * fixed-price contract amount is converted at; contract and cost then divide
+ * by the same number and a same-currency margin is exact. Otherwise the plan
+ * currency has no override of its own and resolves from the cached ECB rate
+ * (1, i.e. at par, when none is cached — the same fallback a bucket gets).
+ */
+export function planCurrencyPerEur(
+  planCurrency: BudgetBucket["currency"],
+  bucket: Pick<BudgetBucket, "currency" | "fxRateOverride">,
+  fxRates: FxRates | null,
+): number {
+  return resolveRate(planCurrency === bucket.currency ? bucket : { currency: planCurrency }, fxRates);
 }

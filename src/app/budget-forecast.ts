@@ -14,7 +14,7 @@ import { computeBudgetReport, bucketActivePeriods, bucketRateRows, type BudgetRe
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
 import { bucketPercentComplete } from "./budget-earned-value";
-import { currencyToEur } from "./fx";
+import { currencyToEur, planCurrencyPerEur } from "./fx";
 import { periodKeyForDate } from "./resource-capacity";
 import { isDayKey, granularityOfPeriodKey } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
@@ -263,7 +263,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
       }
     }
     const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
-    for (const row of bucketRateRows(bucket, roles)) {
+    for (const row of bucketRateRows(bucket, roles, planCurrencyPerEur(plan.currency, bucket, fxRates))) { // §473
       const perHour = isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
         // Ruling 4: hours ≤ 0 carry no booking date at all — a negative hand

@@ -10,12 +10,15 @@ Does NOT own the dashboard's budget tiles ([`dashboard.md`](dashboard.md)), the 
 ([`platform.md`](platform.md) "Rate card = DAY rates"), the six-write-paths rule (`AGENTS.md`), or
 the shared table header `SortResizeTh` ([`ui-shell.md`](ui-shell.md)). One fact, one doc.
 
-★★★ **THE BUDGET ENGINE TREATS EVERY FIGURE AS EUR, AND EXACTLY ONE STORED FIELD IS CONVERTED.** Role
-rates are TREATED as EUR and converted nowhere. Nothing enforces that: nothing decides what currency
-a role rate is in, and the `ResourcePlan.currency` docstring says they are in the plan currency
-(§473, below). `BudgetBucket.fixedPriceAmount` is stored in the BUCKET's currency and is the one
-figure that passes through `currencyToEur`. A new money term is EUR unless it reads that field;
-converting anything else is a second conversion.
+★★★ **EVERY BUDGET FIGURE IS EUR, AND THERE ARE EXACTLY TWO CONVERSION POINTS.** Role rates and
+per-bucket rate overrides are in the PLAN currency (decided §473, 2026-10-02); `bucketRateRows`
+divides them by `planCurrencyPerEur` (`fx.ts`) at the one place every money consumer reads them —
+report, burndown, rate mix, forecast. `BudgetBucket.fixedPriceAmount` is stored in the BUCKET's
+currency and passes through `currencyToEur`. A new money term built from `bucketRateRows` or from
+`fixedPriceAmount` is EUR already; converting it again is a second conversion. A term built from
+role rates ANY OTHER WAY is plan currency and must divide by `planCurrencyPerEur` itself — the EVM
+tiles' blended rate (`budget-report-panel.tsx`) is the one such site today. The Resources views
+format rate-derived money in `plan.currency`, which is now correct rather than a contradiction.
 
 ## The FX boundary (`fx.ts`)
 
@@ -33,8 +36,10 @@ converting anything else is a second conversion.
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
   surfaces decide the `(×rate)` / no-rate marker from the SOURCE (§474, closed).
-- ★ **Only a FIXED-PRICE bucket can be summed at par.** A T&M bucket's money is hours × role rates
-  (treated as EUR) and is never converted, so a missing rate changes none of its figures.
+- ★ **Only a FIXED-PRICE bucket's OWN rate can put it at par.** A T&M bucket's money is hours × role
+  rates, which convert from the PLAN currency, so the bucket's own missing rate changes none of its
+  figures. ★ A non-EUR plan with no cached rate converts its rates at par instead, and no notice
+  counts that today — an EUR plan (every shipped sample) never reaches it.
   `countUnresolvedBuckets` counts fixed-price buckets only, and `BudgetFxRollupNotice` renders that
   count under the EUR project rollup. The report's detail table (`detailRowRateSource` and the
   `currencyLabel` in `BucketDetailTable`) renders an UNRESOLVED T&M row bare for the same reason; a
@@ -83,11 +88,12 @@ converting anything else is a second conversion.
   window on an unparseable date, swap reversed dates, and drop an explicit
   `budgetFollowsPlan: false`. The comment beside the coercion records which of the four the suite
   pins (two). That gap is open as §470.
-- ★★★ **A NON-EUR PLAN IS UNSUPPORTED, AND ONE CASE GOT WORSE IN 1.0.2.** Nothing decides what
-  currency a role rate is in. When the plan and a fixed-price bucket share one non-EUR currency, the
-  contract and the rates are already in one unit, so the engine's conversion is unwarranted and the
-  margin is wrong. The Resources surfaces still label money with `plan.currency`
-  (`resources-report.tsx`, `resources-panel-rows.tsx`). Open as §473. A configurable baseline currency is §476.
+- ★★ **A NON-EUR PLAN: RATES ARE IN ITS CURRENCY (§473, closed 2026-10-02).** When the plan and a
+  fixed-price bucket share one non-EUR currency, `planCurrencyPerEur` reuses the BUCKET's rate
+  resolution (its `fxRateOverride` included), so the contract and the cost divide by the same number
+  and the margin is the contract-currency margin, converted — it was wrong from 1.0.2 until then.
+  Otherwise the plan currency resolves from the cached ECB rate (it has no override of its own).
+  A configurable baseline currency is §476.
 
 ## Budget follows plan
 
