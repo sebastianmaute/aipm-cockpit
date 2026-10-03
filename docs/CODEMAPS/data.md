@@ -99,8 +99,9 @@ JSDOM before importing `src/app` (`docs/open-followups.md` §151). A source-scan
 fine; calling is not).
 
 ★ Tag matching outside a DOM goes through `tag-pair-walk.ts` — `forEachTagPair` / `replaceTagPairs`
-in the attachment extractors (`html-extract.ts`, `office-xml.ts`) and `replaceOpenTags` in
-`html-to-text.ts` and `narrative-html.ts` — the linear walk that replaced lazy pair regexes which
+in the attachment extractors (`html-extract.ts`, `office-xml.ts`, `docx-extract.ts`,
+`pptx-extract.ts`, `xlsx-extract.ts`) and `replaceOpenTags` in `html-to-text.ts` and
+`narrative-html.ts` (`git grep -l tag-pair-walk src` lists every importer) — the linear walk that replaced lazy pair regexes which
 went quadratic on repetitive unclosed markup (§578). Reuse it rather than writing a new pair regex.
 
 ★★ **Two projections, and the FLAT export paths use the second.** `descriptionText` collapses a block
