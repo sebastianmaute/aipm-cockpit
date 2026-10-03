@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetLibrary } from "./asset-library";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -637,5 +637,92 @@ describe("AssetLibrary — the upload empty-state box", () => {
     expect(inputs).toHaveLength(2);
     expect(inputs[1].accept).toBe(inputs[0].accept);
     expect(inputs[0].accept).not.toBe("");
+  });
+});
+
+// §482 — a small image beside each row's name. Lazy (IntersectionObserver), so
+// this describe swaps in an observer it controls; the shared setup's stub never
+// reports a row visible, which is what keeps every test above from loading
+// thumbnails at mount (and keeps the preview tests' loader assertions honest).
+describe("AssetLibrary — row thumbnails", () => {
+  const TINY_PNG = "iVBORw0KGgo=";
+  let observers: { cb: IntersectionObserverCallback; targets: Element[] }[] = [];
+  class ControlledIO {
+    private entry: { cb: IntersectionObserverCallback; targets: Element[] };
+    constructor(cb: IntersectionObserverCallback) {
+      this.entry = { cb, targets: [] };
+      observers.push(this.entry);
+    }
+    observe(el: Element) { this.entry.targets.push(el); }
+    unobserve() {}
+    disconnect() { this.entry.targets = []; }
+    takeRecords() { return []; }
+  }
+  function scrollAllIntoView() {
+    act(() => {
+      for (const o of observers) {
+        o.cb(o.targets.map((target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry), {} as IntersectionObserver);
+      }
+    });
+  }
+
+  beforeEach(() => {
+    observers = [];
+    let n = 0;
+    vi.stubGlobal("IntersectionObserver", ControlledIO);
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => `blob:lib-${++n}`),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows each row's own image once the rows are in view", async () => {
+    const loadImage = vi.fn(async () => TINY_PNG);
+    render(<AssetLibrary {...base} loadImage={loadImage} />);
+    expect(loadImage).not.toHaveBeenCalled();
+    scrollAllIntoView();
+    await waitFor(() => {
+      expect(rowFor("a1").querySelector("img")).not.toBeNull();
+      expect(rowFor("a2").querySelector("img")).not.toBeNull();
+    });
+    expect(loadImage.mock.calls.map((c) => c[0]).sort()).toEqual(["a1", "a2"]);
+  });
+
+  it("adds no control or name to the row", async () => {
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_PNG)} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(rowFor("a1").querySelector("img")).not.toBeNull());
+    // Decorative: hidden from assistive tech, so the row's accessible content
+    // is exactly what it was before the image existed.
+    expect(within(rowFor("a1")).queryByRole("img")).toBeNull();
+  });
+
+  it("does not fetch a dangling row's bytes", async () => {
+    const loadImage = vi.fn(async () => TINY_PNG);
+    render(<AssetLibrary {...base} danglingIds={new Set(["a2"])} loadImage={loadImage} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(rowFor("a1").querySelector("img")).not.toBeNull());
+    expect(loadImage).not.toHaveBeenCalledWith("a2");
+    expect(rowFor("a2").querySelector("img")).toBeNull();
+  });
+
+  // The cap is what stops a screenful of rows firing one full-size fetch each.
+  it("loads at most three thumbnails at once", async () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({ ...assets[0], id: `m${i}`, hash: `hm${i}` }));
+    const loadImage = vi.fn(() => new Promise<string | null>(() => {}));
+    render(<AssetLibrary {...base} assets={many} usage={{}} loadImage={loadImage} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(3));
+    await act(async () => {});
+    expect(loadImage).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders no thumbnail when no loader is supplied", () => {
+    render(<AssetLibrary {...base} />);
+    scrollAllIntoView();
+    expect(screen.getByRole("table").querySelector("img")).toBeNull();
+    expect(observers).toHaveLength(0);
   });
 });

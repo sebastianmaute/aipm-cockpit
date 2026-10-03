@@ -15,6 +15,10 @@ longer carries its own changelog comment.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
+- **The image library shows thumbnails (§482).** Each image in a document's image library now
+  shows a small preview beside its name. Thumbnails load as their rows scroll into view, a few at a
+  time, so a long library does not fetch every image at once. Images whose data is missing or whose
+  format is no longer supported show an empty box.
 
 ### Fixed
 

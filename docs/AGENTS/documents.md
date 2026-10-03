@@ -1006,6 +1006,19 @@ hard-constraint bullet), so even a hypothetical future scan could not catch a ro
 here. `asset-library.test.tsx`'s ≥2-row unique-name test is the only detector this surface will
 ever have (§203).
 
+★★ **Row thumbnails (§482) fetch FULL bytes, so they are lazy and capped.** `AssetThumbnail`
+(`asset-thumbnail.tsx`) goes through the same injected `loadImage` and `assetBytesToObjectUrl` as the
+preview lightbox — there is no thumbnail-sized copy at rest, by choice (a stored one would be a new
+field on all six write paths, plus a backfill for every existing asset). A row loads only once an
+`IntersectionObserver` reports it in view, and every load queues through the library's
+`createLoadLimiter` (`asset-load-limiter.ts`, three at a time). Dangling rows and refused mimes are never
+fetched. The image is decorative (`alt=""`, box `aria-hidden`), so it adds no control or name to a row.
+★ TEST CONSEQUENCE: `vitest.setup.ts`'s `IntersectionObserver` stub never reports anything, so no
+thumbnail loads in any test that does not install its own observer — which is what keeps the preview
+tests' `loadImage` assertions meaningful. A test that wants thumbnails swaps in a controllable observer
+(see `asset-thumbnail.test.tsx`). And because the limiter starts a task on a microtask, a
+"loader not called" assertion must settle pending work first or it passes vacuously.
+
 ★★★ **ROW LABELS CARRY AN OCCURRENCE INDEX ONLY WHEN A NAME IS AMBIGUOUS, AND THE ESCALATION LOOP
 IS LOAD-BEARING.** Asset names are NOT unique and cannot be made so: upload takes `file.name`
 verbatim and Chrome names EVERY pasted clipboard image `image.png`; `findDuplicate` is hash-only,
