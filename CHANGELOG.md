@@ -118,8 +118,9 @@ Notes.
 - **AI eval robustness (§455).** The evaluation tooling tolerates unexpected block types and
   cuts error details without splitting a character.
 - **Jira module download.** A failed download of the Jira module no longer leaves Jira settings
-  and sync broken until reload; it retries on the next use. Jira settings show a message that
-  says the module could not be loaded instead of the raw browser error, and a user-search
+  and sync broken until reload; it retries on the next use. Jira settings, a sync and resolving
+  sync conflicts show a message that says the module could not be loaded (settings used to show
+  the raw browser error; sync showed nothing), and a user-search
   response can no longer overwrite a newer search or refill the list after the search ended.
 - **Push to Jira.** A failed download of the Jira module during "Push to Jira" no longer leaves
   that task stuck as pushing until reload; it shows a message and the next push tries again.
