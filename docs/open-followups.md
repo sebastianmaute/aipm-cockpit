@@ -8906,7 +8906,7 @@ next real sanitize pass) as an actual, usually-empty element.
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
 
-**Status:** open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
+**Status:** **Update 2026-10-03:** the budget hours inputs' machine-hook names (`budget-${…}` / `actual-${…}` in `budget-panel-totals.tsx`) are replaced by translated, row-unique names — "Budget|Actual – <bucket> – <role or discipline> – <period>" — pinned by `budget-panel-edit.test.tsx` (two buckets sharing a role) and `budget-panel-actual-readonly.test.tsx` (DE "Ist"); both mutants (machine label restored, bucket token dropped) turn the first red. `task-editor-raid-mini.tsx`'s "RAID …" prefix is left as decided (RAID is a proper noun). Still owed: **B1** (the settings cog in classic `AppHeader`, a product decision on whether the modern shell's Settings route makes a tooltip moot), the tooltip ratchet, and an inventory re-measure. open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
 embedded in `docs/tooltip-inventory.md` — untitled icon-only surface **31**, of which the real-control
 count is unchanged in substance. What remains open is **B1**, the **four** untranslated names that are
 judgement calls rather than defects, and the ratchet itself. The one name defect
@@ -39641,7 +39641,7 @@ separately on another branch. Related: §542.
 
 ## 545. The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN
 
-**Status:** OPEN 2026-09-15 — deferred by `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §9;
+**Status:** **Update 2026-10-03:** the SNAPSHOT half is done — `get_dashboard_snapshot` now carries `forecast` (the € and hours forecasts as `computeForecastBundle` returns them, a rate-mix summary by its driver row, and the budget history capped at the latest 20 changes plus `changeCount`; the EV history series is deliberately left out), and `evm.spi` / `evm.cpi` keep their keys by owner decision but are documented in the type and the tool description as task-effort indices in hours. Pinned by the "budget forecast (open-followups §545)" describe in `ai-dashboard-snapshot.test.ts` (forecast dropped, cap removed, oldest-twenty instead of latest each turn it red). Still owed: the EXPORTS half (CSV/Markdown/JSON/report exports carry no forecast figure) — scope it as its own slice, minding the byte-stable serializers. OPEN 2026-09-15 — deferred by `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §9;
 the forecast itself ships in MR 2 of that slice. `grep -n -i "forecast" src/app/ai-dashboard-snapshot.ts`
 prints nothing today.
 
