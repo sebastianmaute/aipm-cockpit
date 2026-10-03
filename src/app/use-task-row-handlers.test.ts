@@ -542,6 +542,34 @@ describe("useTaskRowHandlers — onPushToJira", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
+  it("clears the pushing state and reports it when the Jira module fails to load, so a retry can run", async () => {
+    const raw = "Failed to fetch dynamically imported module: https://app.example/_next/static/chunks/jira.js";
+    loadJiraApiMock.mockRejectedValueOnce(new Error(raw));
+    const createIssue = vi.fn(async () => ({ key: "LOP-43" }));
+    const showToast = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1 })] };
+    const settings = { jira: jiraEnabled() } as Parameters<typeof useTaskRowHandlers>[0]["settings"];
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, settings, showToast })),
+    );
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.onPushToJira(1);
+    });
+    expect(ok).toBe(false);
+    expect(result.current.pushingIds.has(1)).toBe(false);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "jiraModuleLoadFailed"));
+    expect(showToast.mock.calls.some(([, text]) => String(text).includes("_next/static"))).toBe(false);
+
+    // The next push on the same task is not refused as "already pushing".
+    apiStub(createIssue);
+    await act(async () => {
+      ok = await result.current.onPushToJira(1);
+    });
+    expect(ok).toBe(true);
+    expect(createIssue).toHaveBeenCalledTimes(1);
+  });
+
   it("reports an error when the created issue has no key", async () => {
     apiStub(vi.fn(async () => ({})));
     const showToast = vi.fn();
