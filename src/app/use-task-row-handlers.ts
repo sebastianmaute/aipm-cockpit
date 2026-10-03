@@ -9,8 +9,7 @@ import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates"
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
-import { loadJiraApi } from "./use-jira-sync";
-import { logDiag } from "./diagnostics";
+import { loadJiraApi, reportModuleLoadFailed } from "./use-jira-sync";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { laneKeyOf, type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
@@ -225,10 +224,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       } catch (err) {
         if (!api) {
           // The raw browser message can carry a chunk URL: keep it in diagnostics only.
-          logDiag("error", "jira.moduleLoadFailed", {
-            message: err instanceof Error ? err.message : String(err),
-          });
-          showToastRef.current("error", t(lang, "jiraModuleLoadFailed"));
+          showToastRef.current("error", reportModuleLoadFailed(lang, err));
           return false;
         }
         showToastRef.current(

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { t } from "./i18n";
 import { loadJiraApi } from "./use-jira-sync";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { Task, Resource } from "./types";
 
@@ -16,7 +17,11 @@ vi.mock("./workspace-tab-context", () => ({
   })),
 }));
 
-vi.mock("./use-jira-sync", () => ({ loadJiraApi: vi.fn() }));
+// The loader is stubbed per test; the module-load failure report stays real.
+vi.mock("./use-jira-sync", async (importActual) => ({
+  reportModuleLoadFailed: (await importActual<typeof import("./use-jira-sync")>()).reportModuleLoadFailed,
+  loadJiraApi: vi.fn(),
+}));
 
 /** A mutable Settings.jira that satisfies onPushToJira's prerequisites. */
 function jiraEnabled() {
@@ -544,6 +549,7 @@ describe("useTaskRowHandlers — onPushToJira", () => {
 
   it("clears the pushing state and reports it when the Jira module fails to load, so a retry can run", async () => {
     const raw = "Failed to fetch dynamically imported module: https://app.example/_next/static/chunks/jira.js";
+    clearDiagLog();
     loadJiraApiMock.mockRejectedValueOnce(new Error(raw));
     const createIssue = vi.fn(async () => ({ key: "LOP-43" }));
     const showToast = vi.fn();
@@ -560,6 +566,7 @@ describe("useTaskRowHandlers — onPushToJira", () => {
     expect(result.current.pushingIds.has(1)).toBe(false);
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "jiraModuleLoadFailed"));
     expect(showToast.mock.calls.some(([, text]) => String(text).includes("_next/static"))).toBe(false);
+    expect(readDiagLog().some((ev) => ev.code === "jira.moduleLoadFailed")).toBe(true);
 
     // The next push on the same task is not refused as "already pushing".
     apiStub(createIssue);

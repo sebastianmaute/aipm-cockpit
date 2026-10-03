@@ -23,15 +23,13 @@ export function loadJiraApi(): Promise<JiraApiModule> {
   return loadJiraApiOnce();
 }
 
-// The jira-api chunk failed to download. The raw browser message can carry a chunk URL, so it
-// goes to diagnostics only; the user gets a translated message and the next use retries.
-function reportModuleLoadFailed(
-  showToast: UseJiraSyncArgs["showToast"],
-  lang: Lang,
-  err: unknown,
-): void {
+/** The jira-api chunk failed to download. The raw browser message can carry a chunk URL, so it
+ *  goes to diagnostics only; the caller shows the returned translated message however its
+ *  surface reports errors (toast, status line). The next `loadJiraApi()` retries. One helper
+ *  for every load site (settings, Push to Jira, sync, conflict resolution). */
+export function reportModuleLoadFailed(lang: Lang, err: unknown): string {
   logDiag("error", "jira.moduleLoadFailed", { message: err instanceof Error ? err.message : String(err) });
-  showToast("error", t(lang, "jiraModuleLoadFailed"));
+  return t(lang, "jiraModuleLoadFailed");
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -94,7 +92,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     try {
       api = await loadJiraApi();
     } catch (err) {
-      reportModuleLoadFailed(args.showToast, langRef.current, err);
+      args.showToast("error", reportModuleLoadFailed(langRef.current, err));
       return;
     }
     const {
@@ -415,7 +413,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     try {
       api = await loadJiraApi();
     } catch (err) {
-      reportModuleLoadFailed(args.showToast, langRef.current, err);
+      args.showToast("error", reportModuleLoadFailed(langRef.current, err));
       return;
     }
     const {

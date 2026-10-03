@@ -12,7 +12,7 @@ import { ClearableSearchInput } from "./clearable-search-input";
 // in zod (§7 B4); a value import here put zod in the startup chunk, against CONTRIBUTING's
 // "Lazy loading" rule for a heavy dependency.
 import type { JiraIssueType, JiraProject, JiraUser } from "./jira-api";
-import { loadJiraApi } from "./use-jira-sync";
+import { loadJiraApi, reportModuleLoadFailed } from "./use-jira-sync";
 import {
   type JiraAssigneeMode,
   type JiraConfig,
@@ -27,7 +27,6 @@ import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { reportSilentFailure } from "./guard-feedback";
-import { logDiag } from "./diagnostics";
 import { useToastContext } from "./toast-context";
 
 // Canonical field shell, single-sourced from the shared primitive (was a
@@ -187,8 +186,7 @@ export function JiraSettingsSection({
     } catch (err) {
       if (!api) {
         // The raw browser message can carry a chunk URL: keep it in diagnostics, show a translated one.
-        logDiag("error", "jira.moduleLoadFailed", { message: err instanceof Error ? err.message : String(err) });
-        setStatus({ kind: "err", message: t(lang, "jiraModuleLoadFailed") });
+        setStatus({ kind: "err", message: reportModuleLoadFailed(lang, err) });
         return;
       }
       setStatus({ kind: "err", message: api.formatJiraError(err) });
