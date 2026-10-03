@@ -9757,7 +9757,7 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) pinned by a guard test — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — (a) and (b) were already fixed; (c) was an inert prerequisite (no `src` on the document allow-list), now pinned: a `sanitize-html.test.ts` test feeds `data:image/svg+xml`, `data:text/html` and `data:image/png` image sources through `sanitizeDocumentHtml` and asserts no `src=` survives while `data-asset-id` does. Mutation-checked: adding `src` to `DOCUMENT_ALLOWED_ATTR` turns it red (and the existing https-src test with it); restored. Whoever ships image `src` must constrain `DATA_URI_TAGS`/`FORBID_ATTR` and will have to change that test deliberately.
+**Status:** CLOSED 2026-10-03 — (a) and (b) were already fixed; (c) was an inert prerequisite (no `src` on the document allow-list), now pinned: a `sanitize-html.test.ts` test feeds `data:image/svg+xml`, `data:text/html` and `data:image/png` image sources through `sanitizeDocumentHtml` and asserts no `src=` survives while `data-asset-id` does. Mutation-checked: adding `src` to `DOCUMENT_ALLOWED_ATTR` turns it red (and the existing https-src test with it); restored. Whoever ships image `src` must constrain `DATA_URI_TAGS`/`FORBID_ATTR` and will have to change that test deliberately. The commit message of `539cd4ce9` still says the mutation check was pending; this closure supersedes it.
 
 **Original status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
 
@@ -16064,7 +16064,7 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 
 ## 187. `useDocumentTools` has no test file, and one guard there is unpinned — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — `src/app/use-document-tools.test.ts` now exists: with a `mutateDocuments` spy it asserts `expect` is stripped from AI `delete`, `replace` and `replaceAll` ops, and that `useDocumentEditor.commitBlock` still threads `expect` into its guarded `replace`. Mutation-checked: replacing the strip in `keepOp` with a no-op turns 3 of the 4 tests red (the `expect` key is still present); restored.
+**Status:** CLOSED 2026-10-03 — `src/app/use-document-tools.test.ts` now exists: with a `mutateDocuments` spy it asserts `expect` is stripped from AI `delete`, `replace` and `replaceAll` ops, and that `useDocumentEditor.commitBlock` still threads `expect` into its guarded `replace`. Mutation-checked: replacing the strip in `keepOp` with a no-op turns 3 of the 4 tests red (the `expect` key is still present); restored. The commit message of `df42ebb18` still says the mutation check was pending; this closure supersedes it.
 
 **Original status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round. Status recorded 2026-08-28; never machine-verified by a committed probe.
