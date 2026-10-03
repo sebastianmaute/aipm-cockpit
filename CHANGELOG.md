@@ -20,8 +20,8 @@ longer carries its own changelog comment.
 - **Sync during a conflict resolution.** "Sync with Jira" and "Apply choices" in the sync
   conflicts window no longer run at the same time: whichever starts second does nothing. Before, a
   sync started during a resolution could have its new conflicts cleared when the resolution
-  finished. While a resolution runs, the conflicts window cannot be closed and its "Defer (resolve
-  later)" button is disabled.
+  finished. While a resolution runs, the conflicts window cannot be closed, and its close button,
+  "Defer (resolve later)" and "Apply choices" are disabled.
 - **Sync progress during the module download.** Both "Sync with Jira" buttons show "Syncing…" and
   are disabled from the click, including while the Jira module is still downloading. A failed
   download still turns them back on.
