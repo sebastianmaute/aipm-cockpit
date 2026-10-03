@@ -5,6 +5,7 @@ import { fireEvent } from "@testing-library/react";
 import { JiraSettingsSection } from "./jira-settings";
 import { defaultJiraConfig, type JiraConfig } from "./settings-types";
 import { listIssueTypes, listProjects } from "./jira-api";
+import { loadJiraApi } from "./use-jira-sync";
 import { ToastProvider } from "./toast-context";
 import { readDiagLog, clearDiagLog } from "./diagnostics";
 import { t } from "./i18n";
@@ -24,6 +25,11 @@ vi.mock("./secrets-store", async (importActual) => ({
   ...(await importActual<object>()),
   removeSealed: vi.fn(),
 }));
+// Real loader by default; a test makes ONE call reject to simulate a failed chunk download.
+vi.mock("./use-jira-sync", async (importActual) => {
+  const actual = await importActual<typeof import("./use-jira-sync")>();
+  return { ...actual, loadJiraApi: vi.fn(actual.loadJiraApi) };
+});
 import * as secrets from "./use-secrets";
 import * as secretsStore from "./secrets-store";
 
@@ -348,5 +354,33 @@ describe("JiraSettingsSection — email draft persists only a valid value", () =
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "grace@x.com" }));
     fireEvent.change(input, { target: { value: "" } });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "" }));
+  });
+});
+
+describe("JiraSettingsSection — jira module chunk fails to load", () => {
+  beforeEach(() => {
+    clearDiagLog();
+  });
+
+  it("shows a translated message, keeps the raw error out of the UI and leaves the loading state", async () => {
+    const raw = "Failed to fetch dynamically imported module: https://app.example/_next/static/chunks/jira.js";
+    vi.mocked(loadJiraApi).mockRejectedValueOnce(new Error(raw));
+    const onChange = vi.fn();
+    const config: JiraConfig = {
+      ...defaultJiraConfig,
+      enabled: true,
+      siteUrl: "https://acme.atlassian.net",
+      email: "pm@acme.com",
+      apiToken: "ATATT-token",
+    };
+    render(<JiraSettingsSection lang="en-US" config={config} onChange={onChange} alwaysOpen />);
+    fireEvent.click(screen.getByRole("button", { name: /test connection/i }));
+
+    expect(await screen.findByText((content) => content.includes(t("en-US", "jiraSyncUnreachable")))).toBeInTheDocument();
+    expect(screen.queryByText(/dynamically imported module/i)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("_next/static");
+    expect(screen.getByRole("button", { name: /test connection/i })).toBeEnabled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(readDiagLog().some((ev) => ev.code === "jira.moduleLoadFailed")).toBe(true);
   });
 });
