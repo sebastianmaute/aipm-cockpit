@@ -7,6 +7,7 @@ import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
 import { APP_VERSION } from "./version";
+import { checkoutToken } from "./checkout-token";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -44,6 +45,11 @@ export default async function RootLayout({
       // on the client recomputes or rewrites this attribute, so it is always the
       // serving process's own version.
       data-app-version={APP_VERSION}
+      // Names the CHECKOUT serving this page, so the same e2e guard can tell two
+      // worktrees on the same version apart: a 12-hex sha-256 of this process's
+      // cwd. Dev only — undefined in production, so React omits the attribute
+      // and no path-derived value ships (open-followups §58).
+      data-checkout={checkoutToken(process.env.NODE_ENV, () => process.cwd())}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">

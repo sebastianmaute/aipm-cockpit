@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { runStartsDevServer } from "./src/app/checkout-token";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -89,7 +90,9 @@ export default defineConfig({
   // measured, the app's own port was free while :3000 was not listening at
   // all). PLAYWRIGHT_NO_WEBSERVER=1 turns it off; `npm run e2e:desktop` sets
   // it. Left ON by default so every browser project keeps today's behaviour.
-  webServer: process.env.PLAYWRIGHT_NO_WEBSERVER
+  // The condition is `runStartsDevServer` (checkout-token.ts), the same predicate the axe
+  // guard in e2e/a11y.spec.ts uses to decide whether the served app must be this checkout.
+  webServer: !runStartsDevServer(process.env)
     ? undefined
     : {
         command: "npm run dev",
