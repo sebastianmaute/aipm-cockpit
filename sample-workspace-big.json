@@ -178,6 +178,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -231,6 +238,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -736,6 +760,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -789,6 +820,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -1294,6 +1342,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -1347,6 +1402,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -3719,6 +3791,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 8,
+      "name": "India Region Rollout (end-to-end, INR)",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 100001,
       "name": "Identity Platform – T&M — Payments",
       "type": "tm",
@@ -4106,6 +4205,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 100008,
+      "name": "India Region Rollout (end-to-end, INR) — Payments",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 200001,
       "name": "Identity Platform – T&M — Mobile App",
       "type": "tm",
@@ -4491,6 +4617,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 200008,
+      "name": "India Region Rollout (end-to-end, INR) — Mobile App",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     }
   ],
   "fxRates": {
@@ -4500,7 +4653,8 @@
     "rates": {
       "EUR": 1,
       "USD": 1.1,
-      "GBP": 0.85
+      "GBP": 0.85,
+      "INR": 96.5
     }
   },
   "status": {
@@ -5145,12 +5299,14 @@
       {
         "name": "David Okoro",
         "email": "liam.okoro@northwind.example",
-        "synced": false
+        "synced": false,
+        "id": 1
       },
       {
         "name": "Sofia Ramirez",
         "email": "sofia.ramirez@example.com",
-        "synced": true
+        "synced": true,
+        "id": 2
       }
     ],
     "regulatory": [
