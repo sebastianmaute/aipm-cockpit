@@ -457,6 +457,20 @@ describe("RaidPanel — document links", () => {
   });
 });
 
+// The task-backlink chip ("#7 ×") clears the task filter only. It used to carry
+// title="Reset filters", which a screen reader announced as its description.
+describe("RaidPanel — task backlink chip", () => {
+  it("names the chip by its task id and the clear action, with no misleading title", () => {
+    const onClearTaskFilter = vi.fn();
+    renderPanel(makeProps({ filterTaskId: 7, onClearTaskFilter }));
+    const chip = screen.getByRole("button", { name: `#7 – ${t("en-US", "clear")}` });
+    expect(chip).toHaveTextContent("#7 ×");
+    expect(chip).not.toHaveAttribute("title");
+    fireEvent.click(chip);
+    expect(onClearTaskFilter).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("RAID column visibility", () => {
   it("hides the Owner column (header + cell) when unticked in the column config popover", () => {
     const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Priya Nadkarni" })];

@@ -3989,6 +3989,7 @@ const enUS = {
   // the pairing test in `i18n-plural.test.ts`, which counts the `…One` keys
   // from source itself.
   taskRowChangesBadgeOne: "1 change",
+  taskRowChangesBadgeJump: "Show the linked changes",
 
   navStakeholders: "Stakeholders",
   stakeholderRaciTitle: "RACI Matrix",
