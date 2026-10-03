@@ -11,6 +11,7 @@ import { daysUntil } from "./jira-token-status";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
 import { lazyRetryOnReject } from "./lazy-retry";
+import { logDiag } from "./diagnostics";
 import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
@@ -20,6 +21,17 @@ type JiraApiModule = typeof import("./jira-api");
 const loadJiraApiOnce = lazyRetryOnReject<JiraApiModule>(() => import("./jira-api"));
 export function loadJiraApi(): Promise<JiraApiModule> {
   return loadJiraApiOnce();
+}
+
+// The jira-api chunk failed to download. The raw browser message can carry a chunk URL, so it
+// goes to diagnostics only; the user gets a translated message and the next use retries.
+function reportModuleLoadFailed(
+  showToast: UseJiraSyncArgs["showToast"],
+  lang: Lang,
+  err: unknown,
+): void {
+  logDiag("error", "jira.moduleLoadFailed", { message: err instanceof Error ? err.message : String(err) });
+  showToast("error", t(lang, "jiraModuleLoadFailed"));
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -77,6 +89,14 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         return;
       }
     }
+    // Loaded before the syncing flag is set, so a failed download has no state to undo.
+    let api: JiraApiModule;
+    try {
+      api = await loadJiraApi();
+    } catch (err) {
+      reportModuleLoadFailed(args.showToast, langRef.current, err);
+      return;
+    }
     const {
       buildJql,
       searchAllIssues,
@@ -88,7 +108,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       transitionIssueTo,
       formatJiraError,
       classifyJiraError,
-    } = await loadJiraApi();
+    } = api;
     const jql = buildJql(jiraCfg);
     if (!jql) {
       args.showToast("error", t(langRef.current, "jiraSyncNoScope"));
@@ -390,12 +410,20 @@ export function useJiraSync(args: UseJiraSyncArgs) {
 
   const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
     const jiraCfg = settingsRef.current.jira;
+    // On a failed download nothing has been written and the conflicts stay, so the user can retry.
+    let api: JiraApiModule;
+    try {
+      api = await loadJiraApi();
+    } catch (err) {
+      reportModuleLoadFailed(args.showToast, langRef.current, err);
+      return;
+    }
     const {
       updateIssue,
       taskFieldsToJiraFields,
       transitionIssueTo,
       formatJiraError,
-    } = await loadJiraApi();
+    } = api;
     const creds = {
       siteUrl: jiraCfg.siteUrl,
       email: jiraCfg.email,

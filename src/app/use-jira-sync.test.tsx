@@ -8,6 +8,8 @@ import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
+import { t } from "./i18n";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 
 // New Jira tasks draw ids from the session-scoped minter. Clear its high-water
 // state before every test so created-id assertions stay deterministic and the
@@ -50,6 +52,28 @@ vi.mock("./jira-api", () => ({
   },
 }));
 import * as jiraApi from "./jira-api";
+
+// The loader lives in the module under test, so a failed chunk download is simulated one level
+// down: the real lazyRetryOnReject wraps the import, and `failNextLoads` rejects ahead of it.
+const loaderGate = vi.hoisted(() => ({ failNextLoads: 0 }));
+vi.mock("./lazy-retry", async (importActual) => {
+  const actual = await importActual<typeof import("./lazy-retry")>();
+  return {
+    ...actual,
+    lazyRetryOnReject: <T,>(importer: () => Promise<T>) => {
+      const load = actual.lazyRetryOnReject(importer);
+      return () => {
+        if (loaderGate.failNextLoads > 0) {
+          loaderGate.failNextLoads -= 1;
+          return Promise.reject(
+            new Error("Failed to fetch dynamically imported module: https://app.example/_next/static/chunks/jira.js"),
+          );
+        }
+        return load();
+      };
+    },
+  };
+});
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 const showToast = vi.fn();
@@ -1276,5 +1300,51 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
     await act(async () => { await result.current.handleJiraSync(); });
 
     expect(onJiraAuthResult).toHaveBeenCalledWith(true);
+  });
+});
+
+describe("useJiraSync — the Jira module fails to download", () => {
+  const moduleMessage = () => t("en-US", "jiraModuleLoadFailed");
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearDiagLog();
+    loaderGate.failNextLoads = 0;
+  });
+
+  it("handleJiraSync settles, shows the module message, leaves syncing off, and the next sync retries", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValue("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    loaderGate.failNextLoads = 1;
+    const { result } = renderSync([]);
+
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", moduleMessage());
+    expect(showToast.mock.calls.some(([, text]) => String(text).includes("_next/static"))).toBe(false);
+    expect(readDiagLog().some((ev) => ev.code === "jira.moduleLoadFailed")).toBe(true);
+    expect(result.current.jiraSyncing).toBe(false);
+    expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1);
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
+  });
+
+  it("handleResolveConflicts settles, shows the module message and reports no resolution", async () => {
+    loaderGate.failNextLoads = 1;
+    const { result } = renderSync([]);
+
+    await act(async () => { await result.current.handleResolveConflicts([]); });
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", moduleMessage());
+    expect(readDiagLog().some((ev) => ev.code === "jira.moduleLoadFailed")).toBe(true);
+
+    // The next attempt loads and completes (the "resolved" summary is the second toast).
+    await act(async () => { await result.current.handleResolveConflicts([]); });
+    expect(showToast).toHaveBeenCalledTimes(2);
+    expect(showToast).toHaveBeenLastCalledWith("info", expect.any(String));
   });
 });
