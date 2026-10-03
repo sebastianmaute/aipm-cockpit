@@ -668,9 +668,9 @@ function ChangePanelBody({
 // memo as the reason anything is fast.
 //
 // ★ Memoizing `guardEdit` is not the fix on its own — it is one unstable family
-// among several, the same finding AGENTS.md records for the `ResourcesPanel` memo,
-// which is honestly labelled aspirational. Either stabilise every handler prop
-// (measure first) or delete the memo. docs/open-followups.md §170.
+// among several. `ResourcesPanel` had the same finding and was fixed at its call
+// site by routing every handler through `useStableHandlers` (open-followups §1);
+// that is the pattern to reach for here too. docs/open-followups.md §170.
 const ChangePanelMemo = memo(ChangePanelBody);
 
 export function ChangePanel(props: ChangePanelProps) {

@@ -240,7 +240,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
-| [§1](#1-two-dead-memos-in-the-resources-subtree--fork-open) | Two dead `memo()`s in the Resources subtree — **fork open** | R5 (0.202.0) | S–M | open |
+| [§1](#1-two-dead-memos-in-the-resources-subtree--closed-2026-10-02) | Two dead `memo()`s in the Resources subtree | R5 (0.202.0) | S–M | **CLOSED** 2026-10-02 |
 | [§2](#2-use-resource-plannerts-is-30-over-the-800-line-ceiling--closed-post-02120) | ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED** post-0.212.0 |
 | [§3](#3-optimize_wbs-never-built--owed-from-r4) | `optimize_wbs` never built — owed from R4 | R4 (0.201.0) | ? | open |
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
@@ -292,7 +292,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c-and-d) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d) | post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--closed-2026-09-30) | Two reference-data handlers have no production consumer | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-09-30 |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
@@ -365,9 +365,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
 | [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--closed-2026-10-02) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word | — | — | **CLOSED** 2026-10-02 |
 | [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
-| [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--open-latent-measured) | ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured | — | — | open |
+| [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--closed-2026-10-02) | ONE `captureComposite` caller flags no primary and rides the positional fallback | — | — | **CLOSED** 2026-10-02 |
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--open-ui) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI | — | — | open |
-| [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--open-dead-code) | The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code | — | — | open |
+| [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--closed-2026-10-02) | The `dependencies` branch of `sanitizeInlinePatch` has no caller | — | — | **CLOSED** 2026-10-02 |
 | [§137](#137-the-seven-rich-entity-fields-editor-cannot-represent-three-tags-their-storage-permits--closed-2026-08-11) | The seven rich entity fields' editor cannot represent three tags their storage permits | — | — | **CLOSED** 2026-08-11 |
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
@@ -591,7 +591,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--closed-2026-10-01) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-10-01 |
-| [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--closed-2026-10-02) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-10-02 |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
@@ -952,11 +952,11 @@ to this register.
 
 ---
 
-## 1. Two dead `memo()`s in the Resources subtree — **fork open**
+## 1. Two dead `memo()`s in the Resources subtree — CLOSED 2026-10-02
 
-**Status:** open — a memo that cannot bail while unstable handler props are threaded. Reproduced 2026-08-28 by `grep -n "export const ResourcesPanel = memo" src/app/resources-panel.tsx`.
+**Status:** CLOSED 2026-10-02 by owner decision: stabilise both — fork C's outcome, reached without its `useCallback` sweep. `workspace-section.tsx` passes every `ResourcesPanel` function prop through the new `useStableHandlers` (`use-stable-handlers.ts`): each wrapper keeps one identity and forwards to the handler from the LATEST render, so the deps-object handlers stay live and the stale-closure risk the fork table names does not arise. The panel's non-function props are workspace state or primitives. Inside, `onMoveOccurrence` is now a `useMemo`, and the omitted-`calendarEvents` default is a shared constant instead of a fresh `[]`. Pinned by the "§1" describe in `workspace-section.test.tsx` (identities survive fresh parent handlers; a held wrapper calls the latest one) and `resources-panel.memo.test.tsx` (every `ResourceCalendar` prop is `Object.is`-equal across an unrelated panel re-render). Mutation-checked: passing one handler raw, wrapping `onMoveOccurrence` inline, or restoring the `= []` default each turns them red. Still not profiled — see the caveat below.
 
-**Work item:** #84
+**Original status:** open — a memo that cannot bail while unstable handler props are threaded. Reproduced 2026-08-28 by `grep -n "export const ResourcesPanel = memo" src/app/resources-panel.tsx`.
 
 Originally filed as R5 §3, "`ResourcesPanel`'s memo never bails". Re-opened and re-derived
 2026-07-27; the original write-up was right about the symptom and wrong about the cause, and it
@@ -4787,9 +4787,9 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d)
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c)
 
-**Status:** open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open, narrowed 2026-10-02. (d) is DONE by owner decision: the four RAID handlers moved, bodies and dependency arrays unchanged, into `use-raid-items.ts` (`useRaidItems`), which the planner calls and spreads into its return, so every consumer keeps its names. `handleCreateMitigationTaskFromRaid` stayed in the planner because it writes tasks. That move is the "third extraction" (c) predicted: `npm run dup:check` now reports one 10-line, 69-token clone between `use-raid-items.ts` and `use-resource-planner.ts` — the `captureRef`/`allowDestructiveRef` pair — and the gate still passes on its total line percentage (1.17% on 2026-10-02). (c) stays open. Previously: open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #115
 
@@ -11355,11 +11355,16 @@ enclosing workspace decoder where the dangling pass runs.
 and a missing id renders nothing. It is recorded because a code comment stated flatly that it self-heals on
 the next load, which is false exactly where most users are.
 
-## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured
+## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — CLOSED 2026-10-02
 
-**Status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-02. The hazard this entry exists for, a cascade silently pointed at stale ids, can no longer pass silently.
+- Every `CompositeFragment` now reports `followsPrimary`: true when it reads the primary's id-remap (`fkRemapField`, or `captureFieldPart`'s `remapBefore`).
+- `primaryIndexOf` (`undo/use-undo-stack.ts`) owns the choice the runner made inline. It takes the flagged fragment; with none flagged, it keeps the positional fallback only while no fragment follows the remap. Otherwise the composite is a programming error: it throws outside production, where a test meets it at capture, and logs `undo.compositeUnflaggedPrimary` in production, where the user's action still goes through.
+- `use-task-submit.ts`, the one unflagged caller, follows no remap, so it is unaffected.
+- Four `use-undo-stack.test.tsx` composites relied on the fallback with an `fkRemapField` cascade; they now flag their primary.
+- Pinned by "refuses a composite whose cascade follows the remap when no fragment is flagged primary" and its harmless-fallback sibling. Removing the throw turns the first red. The full suite shows no production composite of the refused shape.
 
-**Work item:** #151
+**Original status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
 composite silently nominates fragment 0. Of the SEVEN call sites, **six** flag one; only
@@ -11451,11 +11456,11 @@ removal by index) as the thing that was traded away, not as a regression. Settle
 recorded as an accepted cost in source. Left open here because the design question above is real and
 this rewrite is not a triage pass.
 
-## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
+## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — CLOSED 2026-10-02
 
-**Status:** open — an unreachable patch branch left in place deliberately. Reproduced 2026-08-28 by `grep -n "sanitizeDependencies" src/app/task-inline-patch.ts`.
+**Status:** CLOSED 2026-10-02 by owner decision: KEEP the branch, pinned. It is the guard a future inline dependencies edit would need, and it is not dead in the sense that matters: `task-inline-patch.test.ts` already drives three `dependencies` patches through `sanitizeInlinePatch` (self-link, unknown id, valid link). Measured: replacing the `sanitizeDependencies` call with a pass-through turns two of them red. A comment at the branch now says why it stays, so a dead-code sweep does not delete it.
 
-**Work item:** #153
+**Original status:** open — an unreachable patch branch left in place deliberately. Reproduced 2026-08-28 by `grep -n "sanitizeDependencies" src/app/task-inline-patch.ts`.
 
 Removing the Open Points inline relations pencil (0.228.0) left the `dependencies` branch of
 `sanitizeInlinePatch`, and its `sanitizeDependencies` call, unreachable: no `onInlinePatch` call site passes
@@ -29600,9 +29605,11 @@ the unimplemented batch ceiling is more reachable than it was the day before.
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
 
-## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — OPEN
+## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — CLOSED 2026-10-02
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
+**Status:** CLOSED 2026-10-02 by owner decision: add the arm. `resolveInsightEntity` (`use-insight-recommendations.ts`) now resolves `view: "resources"` through `resourcesById` to a five-field profile digest — job title, department, company, external, active. It deliberately leaves out `notes`: free text about a person can hold personal details, and this text rides a billed prompt. A dangling id still yields no digest. Pinned by the "§360" describe in `use-insight-recommendations.test.tsx`, which asserts the fields, the absence of a notes marker and the dangling-id fallback; renaming the arm's view string turns it red (mutation-checked). Verify with `grep -n 'ref.view ===' src/app/use-insight-recommendations.ts`, which now returns three lines.
+
+**Original status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
 `grep -n 'ref.view ===' src/app/use-insight-recommendations.ts` returns exactly two lines,
 `"milestones"` and `"raid"`, so `resources` falls through to undefined.
 ★ The command originally cited here was `grep -n "resolveInsightEntity" ...`, which RUNS and
@@ -29610,8 +29617,6 @@ returns three lines — the declaration, the call and a dep-array entry — none
 arm. It answered a different question than the claim it was attached to, which is the failure shape
 this register's own Status rule exists to prevent: a command that runs and returns something
 plausible reads as verification.
-
-**Work item:** #257
 
 `detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
 a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —

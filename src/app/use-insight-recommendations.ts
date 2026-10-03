@@ -44,7 +44,7 @@ import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { stampRecommendationTokens } from "./insights/recommend-tokens";
 import { descriptionText } from "./rich-text-projection";
-import { effectivePersonName } from "./resource-foundation";
+import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
 import type { LogActivityAsFn } from "./activity-log-context";
 
@@ -123,15 +123,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     [tasks, raid, milestones, changes, stakeholders],
   );
   // Resolve an insight's entityRef to a compact title + field digest for the
-  // recommendation context. Resolvers exist for the `milestones` and `raid`
-  // views ONLY, so an insight gets a digest exactly when its ref points at one
-  // of those. Everything else falls through to undefined and is recommended on
-  // `insight.data` alone: a portfolio-level detection carries no ref, and the
-  // TimeLog guardrails DO carry one — view `resources` — for which there is no
-  // resolver here. That is a gap, not a category: the guardrail sentence
-  // already names the person and the numbers, so the digest would add little,
-  // and adding a `resources` arm is the way to close it if it ever earns its
-  // place on a billed prompt. Bounded: a short fixed field list per view, never
+  // recommendation context. Resolvers exist for the `milestones`, `raid` and
+  // `resources` views, so an insight gets a digest exactly when its ref points at
+  // one of those. Everything else falls through to undefined and is recommended on
+  // `insight.data` alone: a portfolio-level detection carries no ref. The
+  // `resources` arm (§360, by owner decision) serves the TimeLog guardrails,
+  // whose sentence names the person and the numbers but not who they are in the
+  // organisation. Bounded: a short fixed field list per view, never
   // the whole row, and free text is capped — this text rides that prompt. The
   // fields chosen EXCLUDE what `insight.data` already carries (name/date/
   // daysOverdue, title/targetDate/daysSinceUpdate) so the digest adds signal
@@ -172,6 +170,26 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
             // Worth the extra field despite the free text: it tells the model what
             // has ALREADY been tried, so it stops re-proposing the existing plan.
             `mitigation: ${descriptionText(r.mitigation).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+          ].join("\n"),
+        };
+      }
+      // §360 — the TimeLog guardrails carry `view: "resources"`. The three text fields are capped like
+      // every other digest field: load trims them but bounds nothing (`optText`). Their sentence already names the person
+      // and the numbers, so the digest carries only what it lacks: role-adjacent profile fields. NOT
+      // `notes`: free text about a person can hold personal details that must not ride a billed prompt.
+      if (ref.view === "resources") {
+        const p = resourcesById.get(ref.id);
+        if (!p) return undefined;
+        return {
+          view: ref.view,
+          id: p.id,
+          title: resourceDisplayName(p),
+          fields: [
+            `jobTitle: ${p.title?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
+            `department: ${p.department?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
+            `company: ${p.company?.trim().slice(0, ENTITY_DIGEST_TEXT_CAP) || "(unset)"}`,
+            `external: ${p.isExternal ? "yes" : "no"}`,
+            `active: ${p.active === false ? "no" : "yes"}`,
           ].join("\n"),
         };
       }

@@ -234,7 +234,7 @@ export function RaidEditModal({
     // ★★★ This is the cap the HUMAN SEES, at save. Storage enforces the same two
     // limits only at the next LOAD: since §37 `capRaidStoredText` runs on both
     // load funnels (`jsonToWorkspace` and `buildRaidItemFromObj`), but
-    // `use-resource-planner.ts` still stores the item directly, so without this
+    // `use-raid-items.ts` still stores the item directly, so without this
     // an over-long title would sit in memory and be written out uncapped until a
     // reload clipped it — silently, with no notice. `sanitizeRaidItem` is still
     // on no save or load path; the load cap deliberately is NOT it (it would

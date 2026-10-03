@@ -100,7 +100,7 @@ register's fix to another is how two of them broke. Read the note that names you
   workspace `raid` array the snapshot never sees, and the save is a full row REPLACE — so open RAID
   editor → Notes → add a note → Save destroyed it (fixed 0.211.1, `docs/open-followups.md` §48).
   ★★ The task fix (OMIT the field from the payload) would be WORSE here: because the RAID save
-  REPLACES the row, a payload without `noteLog` erases the log outright. `use-resource-planner.ts`
+  REPLACES the row, a payload without `noteLog` erases the log outright. `use-raid-items.ts`
   instead builds `withStamp` with `noteLog` taken from the STORED row (`previous`), never the payload.
   ★★ `escalations` rides the SAME carry (§515): the Next-actions Escalate CTA (`handleEscalate`) and the AI
   `escalate_raid_item` tool (`escalateRaid`) are write-through RAID writers — each one functional `setRaid`

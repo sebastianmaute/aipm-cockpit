@@ -88,6 +88,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import { bucketOverlay } from "./timelog-actuals";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
+import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
@@ -310,6 +311,35 @@ export function WorkspaceSection({
   // `chatTursoConfig !== null` — mirrors task-manager.tsx's `trendsActive`,
   // which reads storageConfig.kind unguarded; storageConfig is non-optional.
   const chatTursoMode = (settings.storageConfig.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
+  // §1 — ResourcesPanel is memo()'d, but task-manager hands it fresh handler identities every
+  // render (each `guardEdit(handler)` mints one), so the memo never bailed. Stable wrappers that
+  // forward to the LATEST handler let it bail without the stale closures a useCallback sweep
+  // over the deps-object hooks would bring. Its non-function props are state or primitives.
+  const resourcesHandlers = useStableHandlers({
+    onAddAbsence: handleOpenAddAbsence,
+    onEditAbsence: handleEditAbsence,
+    onMoveAbsence: handleMoveAbsence,
+    onAddCalendarEvent: handleOpenAddCalendarEvent,
+    onEditCalendarEvent: handleEditCalendarEvent,
+    onSaveCalendarEvent: handleSaveCalendarEvent,
+    onEditShift: handleOpenShiftEditor,
+    onSetUtilization,
+    onReassignTask,
+    onRescheduleTask,
+    onClearUnlinked,
+    onSetAllUtilizationMode,
+    onSetAbsenceOverride,
+    onSetPlanWindow,
+    onEditResource,
+    onAddResource,
+    onImportOutlookCalendar,
+    onToggleCalendar: absenceCalendar?.onToggle,
+    onPushCalendar: absenceCalendar?.onPush,
+    onPullCalendar: absenceCalendar?.onPull,
+    onLearnMore: requestHelpConcept,
+    onCaptureUndo,
+    logActivityAs,
+  });
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
@@ -567,6 +597,7 @@ export function WorkspaceSection({
               <TzClockStrip lang={lang} defaultTz={effectiveTz} zones={effectiveSettings.additionalTimezones ?? []} />
             )}
             <ResourcesPanel
+              {...resourcesHandlers}
               view={activeTab}
               lang={lang}
               tasks={tasks}
@@ -577,43 +608,20 @@ export function WorkspaceSection({
               resources={resources}
               today={today}
               holidaySet={holidaySet}
-              onAddAbsence={handleOpenAddAbsence}
-              onEditAbsence={handleEditAbsence}
-              onMoveAbsence={handleMoveAbsence}
               calendarEvents={calendarEvents}
-              onAddCalendarEvent={handleOpenAddCalendarEvent}
-              onEditCalendarEvent={handleEditCalendarEvent}
-              onSaveCalendarEvent={handleSaveCalendarEvent}
-              onEditShift={handleOpenShiftEditor}
               roles={roles}
               disciplines={disciplines}
               grades={grades}
               setResources={setResources}
               plan={plan}
               workdayHours={settings.resources.workdayHours}
-              onSetUtilization={onSetUtilization}
               overAllocatedPct={overAllocatedPct}
-              onReassignTask={onReassignTask}
-              onRescheduleTask={onRescheduleTask}
-              onClearUnlinked={onClearUnlinked}
-              onSetAllUtilizationMode={onSetAllUtilizationMode}
-              onSetAbsenceOverride={onSetAbsenceOverride}
-              onSetPlanWindow={onSetPlanWindow}
-              onEditResource={onEditResource}
-              onAddResource={onAddResource}
-              onImportOutlookCalendar={onImportOutlookCalendar}
               m365Configured={m365Configured}
               calendarEnabled={absenceCalendar?.enabled}
-              onToggleCalendar={absenceCalendar?.onToggle}
-              onPushCalendar={absenceCalendar?.onPush}
               calendarPushBusy={absenceCalendar?.pushBusy}
-              onPullCalendar={absenceCalendar?.onPull}
               calendarPullBusy={absenceCalendar?.pullBusy}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
-              onLearnMore={requestHelpConcept}
-              onCaptureUndo={onCaptureUndo}
-              logActivityAs={logActivityAs}
             />
           </div>
         )}

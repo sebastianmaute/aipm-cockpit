@@ -1715,7 +1715,7 @@ function TaskManagerInner() {
       const next = [...raidRef.current, clean];
       raidRef.current = next; // keep back-to-back flushes minting distinct ids
       setRaid(next);
-      // ★★ THREE ARGS, ORDER (id, category, title) — matching `use-resource-planner.ts`. `activityRaidCreated` is "RAID #{0} created ({1}): {2}" and `logActivityUser` ends in `...args`, so a two-arg call typechecks; it shipped, putting the title in the CATEGORY slot and rendering a literal "{2}" to the user and (since search_history) to the model. Read the SANITIZED row, not `spec` — `sanitizeRaidItem` decides what was stored. ★★ THE ARITY HERE IS UNPINNED: no harness reaches this call site, so DELETING `clean.category` re-creates the defect and ships GREEN. `use-notes-window.test.tsx` pins only the sibling `raid.updated` sites, and `use-resource-planner.test.tsx` only its own `handleSaveRaidItem` — neither reaches here.
+      // ★★ THREE ARGS, ORDER (id, category, title) — matching `use-raid-items.ts`. `activityRaidCreated` is "RAID #{0} created ({1}): {2}" and `logActivityUser` ends in `...args`, so a two-arg call typechecks; it shipped, putting the title in the CATEGORY slot and rendering a literal "{2}" to the user and (since search_history) to the model. Read the SANITIZED row, not `spec` — `sanitizeRaidItem` decides what was stored. ★★ THE ARITY HERE IS UNPINNED: no harness reaches this call site, so DELETING `clean.category` re-creates the defect and ships GREEN. `use-notes-window.test.tsx` pins only the sibling `raid.updated` sites, and `use-resource-planner.test.tsx` only its own `handleSaveRaidItem` — neither reaches here.
       logActivityUser("raid.created", clean.id, clean.category, clean.title);
     },
     [setRaid, today, logActivityUser],

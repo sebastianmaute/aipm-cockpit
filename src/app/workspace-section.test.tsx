@@ -59,7 +59,14 @@ vi.mock("./chat-panel", () => ({
 vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
 vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
-vi.mock("./resources-panel", () => ({ ResourcesPanel: () => <div data-testid="resources-panel" /> }));
+// Captures its props for the §1 handler-identity tests; same stub div as before.
+const resourcesPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./resources-panel", () => ({
+  ResourcesPanel: (p: Record<string, unknown>) => {
+    resourcesPanelMock.props.push(p);
+    return <div data-testid="resources-panel" />;
+  },
+}));
 vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testid="activity-panel" /> }));
 // Records the props it was handed so the Timelog-cache wiring below can be
 // asserted end to end. `vi.hoisted` because `vi.mock` factories are hoisted
@@ -1034,5 +1041,70 @@ describe("WorkspaceSection — suggested-actions strip", () => {
     const labels = within(group!).getAllByRole("button").map((b) => b.textContent);
     expect(labels).toHaveLength(1);
     expect(labels[0]).toContain("item");
+  });
+});
+
+// §1 — ResourcesPanel is memo()'d, and task-manager hands WorkspaceSection fresh handler
+// identities on every render. The handlers must reach the panel with STABLE identities (or the
+// memo can never bail) and must still call the LATEST handler (or a stale closure writes).
+describe("§1 — ResourcesPanel receives stable handler identities", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-calendar" onClick={() => setActiveTab("calendar")} />;
+  }
+
+  function handlers() {
+    return {
+      handleOpenAddAbsence: vi.fn(),
+      onReassignTask: vi.fn(),
+      handleSaveCalendarEvent: vi.fn(),
+    };
+  }
+
+  async function renderAtCalendar(h: ReturnType<typeof handlers>) {
+    const view = render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps(h as Partial<WorkspaceSectionProps>)} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-calendar"));
+    await screen.findByTestId("resources-panel"); // the panel is lazy-loaded
+    return view;
+  }
+
+  it("keeps every function prop's identity when the parent passes fresh handlers", async () => {
+    resourcesPanelMock.props.length = 0;
+    const { rerender } = await renderAtCalendar(handlers());
+    const before = resourcesPanelMock.props.at(-1)!;
+    rerender(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps(handlers() as Partial<WorkspaceSectionProps>)} />
+      </>,
+    );
+    const after = resourcesPanelMock.props.at(-1)!;
+    expect(after).not.toBe(before); // anti-vacuity: the panel really was handed props again
+    const fnKeys = Object.keys(after).filter((k) => typeof after[k] === "function");
+    expect(fnKeys).toEqual(expect.arrayContaining(["onAddAbsence", "onReassignTask", "onSaveCalendarEvent"]));
+    for (const k of fnKeys) expect(after[k], k).toBe(before[k]);
+  });
+
+  it("forwards a held handler to the parent's LATEST handler", async () => {
+    resourcesPanelMock.props.length = 0;
+    const first = handlers();
+    const { rerender } = await renderAtCalendar(first);
+    const held = resourcesPanelMock.props.at(-1)!.onReassignTask as (id: number, r: null) => void;
+    const second = handlers();
+    rerender(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps(second as Partial<WorkspaceSectionProps>)} />
+      </>,
+    );
+    held(7, null);
+    expect(second.onReassignTask).toHaveBeenCalledWith(7, null);
+    expect(first.onReassignTask).not.toHaveBeenCalled();
   });
 });

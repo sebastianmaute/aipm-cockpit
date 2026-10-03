@@ -299,7 +299,7 @@ describe("useUndoStack", () => {
         kind: "role.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore, isPrimary: true }),
           capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
         ],
       });
@@ -375,6 +375,45 @@ describe("useUndoStack", () => {
     expect(remapBefore).not.toHaveBeenCalled(); // never called with an empty remap
   });
 
+  // §134 — a cascade that FOLLOWS the primary's id-remap needs a flagged primary. With none flagged the
+  // runner used to nominate fragment 0 in silence; a field patch there publishes no remap, so the cascade
+  // restored stale ids with no error. Outside production that composite now throws at capture.
+  it("refuses a composite whose cascade follows the remap when no fragment is flagged primary", () => {
+    type Ref = { id: number; roleId: number | null };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    expect(() => act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          captureFieldPart<Ref>({ setter: setRefs, edits: [{ id: 1, before: { roleId: 7 }, after: { roleId: null } }] }),
+          capturePart({ setter: setRefs, edited: refs, fromArray: refs, fkRemapField: "roleId" }),
+        ],
+      });
+    })).toThrow(/no fragment is flagged isPrimary/);
+  });
+
+  it("still accepts an unflagged composite whose fragments read no remap (the positional fallback is harmless there)", () => {
+    type Ref = { id: number; roleId: number | null };
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    refs = [{ id: 1, roleId: null }];
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.updated",
+        primaryCount: 1,
+        parts: [captureFieldPart<Ref>({ setter: setRefs, edits: [{ id: 1, before: { roleId: 7 }, after: { roleId: null } }] })],
+      });
+    });
+    act(() => result.current.undo());
+    expect(refs).toEqual([{ id: 1, roleId: 7 }]);
+  });
+
   it("composite cascade FK restores to the ORIGINAL id when no re-mint happens", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));
@@ -392,7 +431,7 @@ describe("useUndoStack", () => {
         kind: "role.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore, isPrimary: true }),
           capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
         ],
       });
@@ -420,7 +459,7 @@ describe("useUndoStack", () => {
         kind: "role.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore, isPrimary: true }),
           capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
         ],
       });
@@ -571,7 +610,7 @@ describe("useUndoStack", () => {
         kind: "role.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: result.current.setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: result.current.setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore, isPrimary: true }),
           capturePart({ setter: result.current.setRefs, edited: refsBefore, fromArray: refsBefore, fkRemapField: "roleId" }),
         ],
       });

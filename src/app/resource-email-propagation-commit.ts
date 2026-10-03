@@ -48,6 +48,7 @@ export function contactPersonsFragment(
   const redo = () => write((rows) => retargetContactPersonEmails(rows, change).next);
   return {
     isPrimary: false,
+    followsPrimary: false, // keyed by email, not by an id a re-mint could move
     restore: () => {
       write((rows) => restoreContactPersonEmails(rows, change, originals));
       return redo;
