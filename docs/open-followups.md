@@ -36030,7 +36030,7 @@ repair of the current arrangement.
 
 ## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — all three fixed on `fix/defect-batch-2026-10b` in `scripts/ai-eval.ts`, each with a test in `scripts/ai-eval.test.ts` and mutation-checked. (1) Both `.filter()` calls in `parseAnthropicBody` use `b?.type`; reverting one turns the null-entry test red with a TypeError. (2) The per-reply census and the run-level aggregate are prototype-free objects, so `__proto__`, `constructor` and `toString` block types are each counted exactly; restoring `{}` turns the test red. (3) The error detail is clipped by a helper that backs off one UTF-16 code unit when the 500-unit cut would end on a high surrogate (the limit still counts code units, so the message may be 499 units long); a plain `.slice` turns the emoji-straddle test red.
+**Status:** CLOSED 2026-10-03 — all three fixed on `fix/defect-batch-2026-10b` in `scripts/ai-eval.ts`, each with a test in `scripts/ai-eval.test.ts` and mutation-checked. (1) Both `.filter()` calls in `parseAnthropicBody` use `b?.type`; reverting one turns the null-entry test red with a TypeError. (2) The per-reply census and the run-level aggregate are prototype-free objects, so `__proto__`, `constructor` and `toString` block types are each counted exactly; restoring `{}` turns the test red. (3) The error detail is clipped by a helper that backs off one UTF-16 code unit only when the 500-unit cut really splits a pair, i.e. a high surrogate followed by a low one (the limit still counts code units, so the message may be 499 units long); a lone high surrogate already in the input is kept on purpose; a plain `.slice` turns the emoji-straddle test red.
 
 **Original status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduced. The
 guarded-then-unguarded inconsistency behind (1) is visible directly:
@@ -37976,7 +37976,7 @@ is modelled.
 
 ## 489. The floating HelpMenu has no deep-link input, and nothing calls for one yet — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — built by owner decision: `HelpMenu` now takes the optional `pendingHelpConcept`/`onHelpConceptConsumed` pair `HelpView` already used, with the same sentinel-seeded render-time reconcile; a request opens the panel, clears its query and scrolls to the entry's section found inside the panel. No production caller passes it yet, so the input is pinned by `help-menu.test.tsx` alone (opens at the entry, unchanged without a request, no re-fire after a consumed request and a remount).
+**Status:** CLOSED 2026-10-03 — built by owner decision: `HelpMenu` now takes the optional `pendingHelpConcept`/`onHelpConceptConsumed` pair `HelpView` already used, with the same sentinel-seeded render-time reconcile; a request opens the panel, clears its query and scrolls to the entry's section found inside the panel. No production caller passes it yet, so the input is pinned by `help-menu.test.tsx` alone (opens at the entry, unchanged without a request, a still-pending request is honoured by a fresh mount, and a close/reopen does not re-fire a handled request).
 
 **Original status:** OPEN 2026-09-13 — a deferred want with no caller, not a defect. Reproduced by
 `grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature takes `{ lang }` only.
