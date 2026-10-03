@@ -374,7 +374,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
 | [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open--closed-2026-10-02) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | **CLOSED** 2026-10-02 |
 | [§142](#142-notelogpanels-labelsuffix-is-honour-system-and-unguarded--a-third-mount-site-collides-silently--closed-2026-08-12) | `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently | — | — | **CLOSED** 2026-08-12 |
-| [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
+| [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--closed-2026-10-03) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | **CLOSED** 2026-10-03 |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
 | [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ | — | — | **CLOSED** 2026-08-30 |
@@ -12392,16 +12392,16 @@ mistake "required" for "collision-proof".
 
 ---
 
-## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open
+## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CLOSED 2026-10-03
 
-**Status:** open — PARTLY FIXED, the type-level guard is open and every call site is converted. Reproduced 2026-08-28 by `grep -rn "RichTextSink" src/app --include=*.ts`.
+**Status:** CLOSED 2026-10-03 — by owner decision 2026-10-03, option (3) of "Closing it" ("accept it and say so"), no code. Re-measured today with this entry's own commands: raw sink literals at production call sites → **0**; constant uses outside definitions and imports → **50**. `RichTextSink` is still the plain union `DerivedSink | "render"` (`html-start.ts`). Why not brand it: the conversion already removed every hand-written literal, and a brand would only stop a NEW literal — it cannot stop importing the wrong constant, which is the swap this entry measured (`RICH_SINK` vs `DOCUMENT_SINK`), so the residual risk is unchanged while the change touches ~60 call sites. The guards that remain: the zero-literal count, `html-start.test.ts`'s per-sink map tests, and the sink-regression describes in `narrative-html.test.ts` and `sanitize-records.test.ts`, which pin the right sink at the narrative site and the six entity sites this entry singled out. Reopen if a fourth sink is added or `RICH_ALLOWED_TAGS` and `DOCUMENT_ALLOWED_TAGS` diverge further.
+
+**Original status:** open — PARTLY FIXED, the type-level guard is open and every call site is converted. Reproduced 2026-08-28 by `grep -rn "RichTextSink" src/app --include=*.ts`.
 
 ★ Narrowed 2026-09-28 (register sweep): the entry's own "converted to constants" command now returns
 **49** lines, not 35: 38 call sites plus 11 comment mentions, since unlike the raw-literal command it does
 not exclude comments. "Still raw literals" is still **0**. `RichTextSink` is unchanged (`DerivedSink | "render"`,
 `html-start.ts`), so the type-level guard is still the open item.
-
-**Work item:** #157
 
 Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
 slice's design centre: one classifier per sink, each DERIVED from the allow-list its sink sanitizes
