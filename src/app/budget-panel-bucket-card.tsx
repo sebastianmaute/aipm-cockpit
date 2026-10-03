@@ -329,7 +329,7 @@ export function BudgetBucketCard({
                 {periods.map((p, pi) => (
                   <HoursTd
                     key={p.key}
-                    ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
+                    cellName={rowLabel(rowLabel(bucketToken, roleToken), p.key)}
                     budget={totals.budgetAt(a, pi)}
                     actual={actualHoursAt(a.actualHours, p.key)}
                     actualReadOnlyReason={hasDayKeysIn(a.actualHours, p.key) ? t(lang, "budgetActualFromTimelog") : undefined}
@@ -367,16 +367,19 @@ export function BudgetBucketCard({
               // resourceIds, and allocationPlannedHours already sums over them —
               // so the mirror rule is identical to the role rows.
               const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
+              // One allocation per discipline per bucket, so with the bucket token
+              // this name is unique across the panel (§109).
+              const disciplineName = disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`;
               return (
               <tr key={a.disciplineId} className={ROW_RULE_CLASS}>
                 <BucketRowLeadCells
-                  label={disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}
+                  label={disciplineName}
                   budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
                 />
                 {periods.map((p, pi) => (
                   <HoursTd
                     key={p.key}
-                    ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
+                    cellName={rowLabel(rowLabel(bucketToken, disciplineName), p.key)}
                     budget={totals.budgetAt(a, pi)}
                     actual={actualHoursAt(a.actualHours, p.key)}
                     actualReadOnlyReason={hasDayKeysIn(a.actualHours, p.key) ? t(lang, "budgetActualFromTimelog") : undefined}

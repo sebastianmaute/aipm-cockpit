@@ -2,19 +2,38 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HoursTd } from "./budget-panel-totals";
+import { loadI18n, t } from "./i18n";
 
 function renderCell(actualReadOnlyReason?: string) {
   const onActual = vi.fn();
   render(
     <table><tbody><tr>
       <HoursTd
-        ariaPrefix="1-3-2026-06" budget={10} actual={6} onBudget={vi.fn()} onActual={onActual}
+        cellName="PAM – Consulting Senior – 2026-06" budget={10} actual={6} onBudget={vi.fn()} onActual={onActual}
         lang="en-US" periodEnd="2026-06-30" today="2026-07-15" actualReadOnlyReason={actualReadOnlyReason}
       />
     </tr></tbody></table>,
   );
-  return { onActual, input: screen.getByLabelText("actual-1-3-2026-06") as HTMLInputElement };
+  return { onActual, input: screen.getByLabelText(/^Actual – .+ – 2026-06$/) as HTMLInputElement };
 }
+
+// §109 — the names are translated: German says "Ist", not "Actual".
+describe("HoursTd input names", () => {
+  it("leads each name with the translated label, then the cell name", async () => {
+    await loadI18n("de");
+    render(
+      <table><tbody><tr>
+        <HoursTd
+          cellName="PAM – Consulting Senior – 2026-06" budget={10} actual={6} onBudget={vi.fn()} onActual={vi.fn()}
+          lang="de" periodEnd="2026-06-30" today="2026-07-15"
+        />
+      </tr></tbody></table>,
+    );
+    expect(screen.getByLabelText(`${t("de", "budgetCellBudget")} – PAM – Consulting Senior – 2026-06`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`${t("de", "budgetCellActual")} – PAM – Consulting Senior – 2026-06`)).toBeInTheDocument();
+    expect(t("de", "budgetCellActual")).toBe("Ist");
+  });
+});
 
 describe("HoursTd actual input read-only state", () => {
   it("is read-only, titled and described when a reason is given", async () => {
