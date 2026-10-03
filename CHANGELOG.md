@@ -38,6 +38,8 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Generated samples are checked (§238).** `sample-workspace-big.json` and `-huge.json` are now
+  compared against a fresh regeneration from `sample-workspace-small.json` by a unit test.
 - **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or
   `circle`) and a fixed 20px `xs` size, so a round or compact control no longer has to be
   hand-rolled.
