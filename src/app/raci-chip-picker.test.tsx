@@ -32,6 +32,22 @@ describe("RaciChipPicker", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
+  // ★ Pins the CALL SITE (§110), not the primitive: `icon-button.test.tsx`
+  // covers what `size="xs"` and `shape="circle"` render, and stays green if
+  // this picker stops passing them. Reverting either prop here turns this red:
+  // the primitive's defaults are `p-1` and `rounded-md`. Asserted on classList
+  // tokens, never substrings, for the reason the ring test below gives.
+  it("renders the clear chip as the same 20px circle as the role chips", () => {
+    render(<RaciChipPicker value="R" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    const clear = screen.getByRole("button", { name: /clear/i }).classList;
+    expect(clear.contains("h-5")).toBe(true);
+    expect(clear.contains("w-5")).toBe(true);
+    expect(clear.contains("rounded-full")).toBe(true);
+    expect(clear.contains("rounded-md")).toBe(false);
+    expect(clear.contains("p-1")).toBe(false);
+  });
+
   // ★★ SC 1.4.1: the selected chip is marked by a RING (a shape cue), not by
   // the brand fill alone — R measures 1.10-1.31:1 and I 2.70-2.84:1 against
   // --surface in the three dark schemes. Pinned in BOTH states: an on-state-only

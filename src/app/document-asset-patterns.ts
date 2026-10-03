@@ -27,8 +27,8 @@
 // depends on this module, so a DOMPurify or `document.`/`window` reference here
 // would break that contract for every DOM-free importer (NOT the sample
 // generator, which installs JSDOM first — open-followups §151), and an import here could
-// grow the `settings-types` ⇄ `workspace` ⇄ `document-model` cycle
-// open-followups §92 records. Both properties are source scans in this module's
+// rebuild the `settings-types` ⇄ `workspace` ⇄ `document-model` cycle that
+// open-followups §92 records and removed. Both properties are source scans in this module's
 // test, over the shared parser-backed stripper (`src/test/strip-comments.ts`) —
 // ★★ never a local regex pair, which cannot tell a regex literal from a comment
 // delimiter and silently blanks real code in a module made of regex literals.

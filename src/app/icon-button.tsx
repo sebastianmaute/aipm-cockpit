@@ -10,13 +10,25 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 
-export type IconButtonSize = "sm" | "md";
+export type IconButtonSize = "xs" | "sm" | "md";
+export type IconButtonShape = "square" | "circle";
 export type IconButtonVariant = "ghost" | "danger" | "bordered" | "dangerBordered";
 
-// Square padding by size (the icon sets its own dimensions).
+// Box by size. `sm`/`md` pad around the icon, which sets its own dimensions.
+// ★ `xs` is a FIXED 20px box with no padding (open-followups §110): it exists so a
+// control that must match a row of 20px chips (the RACI picker's clear ✕) can be an
+// IconButton. A caller `className` cannot do this instead — Tailwind resolves a
+// conflict by stylesheet source order, so a caller's `p-0` loses to `p-1` outright.
 const SIZE_CLASS: Record<IconButtonSize, string> = {
+  xs: "h-5 w-5",
   sm: "p-1",
   md: "p-1.5",
+};
+
+// Corner by shape, kept out of BASE_CLASS for the same source-order reason.
+const SHAPE_CLASS: Record<IconButtonShape, string> = {
+  square: "rounded-md",
+  circle: "rounded-full",
 };
 
 const VARIANT_CLASS: Record<IconButtonVariant, string> = {
@@ -37,7 +49,7 @@ const VARIANT_CLASS: Record<IconButtonVariant, string> = {
 };
 
 const BASE_CLASS =
-  "inline-flex cursor-pointer items-center justify-center rounded-md disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex cursor-pointer items-center justify-center disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> {
@@ -46,6 +58,8 @@ export interface IconButtonProps
   /** The visible glyph/SVG (rendered as-is; pass an aria-hidden icon). */
   children: ReactNode;
   size?: IconButtonSize;
+  /** Corner shape. Defaults to `square` (`rounded-md`). */
+  shape?: IconButtonShape;
   variant?: IconButtonVariant;
   ref?: Ref<HTMLButtonElement>;
 }
@@ -57,13 +71,14 @@ export function IconButton({
   label,
   children,
   size = "sm",
+  shape = "square",
   variant = "ghost",
   type = "button",
   className,
   ref,
   ...props
 }: IconButtonProps) {
-  const classes = `${BASE_CLASS} ${SIZE_CLASS[size]} ${VARIANT_CLASS[variant]} ${INTERACTIVE}${
+  const classes = `${BASE_CLASS} ${SIZE_CLASS[size]} ${SHAPE_CLASS[shape]} ${VARIANT_CLASS[variant]} ${INTERACTIVE}${
     className ? ` ${className}` : ""
   }`;
   return (

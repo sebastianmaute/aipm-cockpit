@@ -34,7 +34,7 @@ lists a few UI files (`storage-config.tsx`, `turso-project-picker.tsx`) this tab
 | Module | What it does |
 |---|---|
 | `storage.ts` | The facade: `createBackend` maps a `StorageConfig` kind to a backend, plus the file pick/open/handle helpers. Re-exports `workspace.ts`, `fs-access.ts`, the two codec barrels and the browser and local-file backends. |
-| `workspace.ts` | The `Workspace` type, the `migrateWorkspaceV5`…`V10` chain, `StorageKind` / `StorageConfig`, the `StorageBackend` interface, and the JSON codec `workspaceToJson` / `jsonToWorkspace`. |
+| `workspace.ts` | The `Workspace` type, the `migrateWorkspaceV5`…`V10` chain, `StorageKind`, the `StorageBackend` interface, and the JSON codec `workspaceToJson` / `jsonToWorkspace`. Re-exports `StorageConfig` and `defaultStorageConfig`, which live in the import-free leaf `storage-config-kind.ts` (§92). |
 | `browser-backend.ts` | `BrowserBackend`, kind `browser` (the default, `defaultStorageConfig`). IndexedDB record stores for the id-keyed entities plus KV slots for the rest; saves diff against an in-memory baseline. |
 | `idb.ts` | IndexedDB open/upgrade and the store and KV key constants. Database name `aipm-cockpit` (`grep -n "IDB_NAME =" src/app/idb.ts`). |
 | `local-file-backend.ts` | `LocalFileBackend`, kinds `local-json` / `local-csv` / `local-md`, through the File System Access API. Keeps the picked handle in the IDB kv store. |

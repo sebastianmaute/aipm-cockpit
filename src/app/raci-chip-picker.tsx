@@ -5,6 +5,8 @@ import { PopoverPanel } from "./popover-panel";
 import { RACI_ROLES, type RaciRole } from "./types";
 import { handleRovingFocusKeyDown } from "./radio-group-keys";
 import { XMarkIcon } from "./icons";
+import { IconButton } from "./icon-button";
+import { PRESS } from "./interaction-styles";
 
 interface RaciChipPickerProps {
   value: RaciRole | "";
@@ -30,7 +32,7 @@ export const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
 };
 
 const CHIP_BASE =
-  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ui-green";
+  `flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ui-green ${PRESS}`;
 
 // ★★★ SC 1.4.1 — the SELECTED chip is marked by a RING (a shape cue), never by
 // the brand fill alone. Measured against `--surface` across the seven built-in
@@ -279,29 +281,36 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
             );
           })}
         </div>
-        <button
-          type="button"
-          aria-label={t(lang, "raciClear")}
+        {/* ★ The 5th of five chips that must render identically (R/A/C/I + clear):
+            a 20px circle. It is an `IconButton` since §110 gave the primitive an
+            `xs` fixed box and a `circle` shape — before that it hard-coded
+            `rounded-md` + `p-1`, and a caller `className` could not win either
+            (Tailwind resolves a conflict by stylesheet source order).
+            SELECTED_RING is correctly absent, because clear is not a role and is
+            never the selected value. `CHIP_BASE` carries `PRESS`, so all six
+            controls here (the collapsed trigger, R/A/C/I and clear) share the
+            press nudge `IconButton` brings.
+            ★ It does NOT match the role chips in every respect, deliberately.
+            `bordered` gives it a neutral `border-line` ring and a muted glyph
+            that darkens on hover, plus the primitive's `cursor-pointer`; the
+            role chips are outlined in their own role colour, keep their letter
+            colour on hover, and use the browser's default cursor. Clear is not
+            a role, so it takes the house icon-button affordance rather than a
+            role's; matching the role chips would mean overriding the primitive
+            per call site, which is what §110 removed. */}
+        <IconButton
+          label={t(lang, "raciClear")}
           title={t(lang, "raciClearHint")}
+          size="xs"
+          shape="circle"
+          variant="bordered"
           onClick={(e) => {
             e.stopPropagation();
             pick("");
           }}
-          className={`${CHIP_BASE} border-line text-muted-foreground hover:bg-surface-muted`}
         >
-          {/* ★ NOT an `IconButton`. This is the 5th of five chips that must
-              render identically (R/A/C/I + clear), and `CHIP_BASE` pins them
-              to a 20px `rounded-full` box. Still true under SELECTED_RING: a
-              ring is a box-shadow, so it adds no layout and the five stay one
-              size — and it is correctly absent HERE, because clear is not a
-              role and is never the selected value. `IconButton` hard-codes
-              `rounded-md` + `p-1`; a caller `className` cannot reliably win
-              either, because Tailwind resolves conflicting utilities by
-              stylesheet source order, not class-attribute order — and `p-1`
-              sorts AFTER `p-0`, so the padding override loses outright.
-              Glyph-only conversion here; the wrapper stays hand-rolled. */}
           <XMarkIcon aria-hidden="true" className="h-3 w-3" />
-        </button>
+        </IconButton>
       </PopoverPanel>
     </span>
   );

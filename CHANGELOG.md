@@ -10,6 +10,12 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
+  chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
+  clear chip is now a shared `IconButton` and still renders as the same 20px circle.
+
 ### Fixed
 
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
@@ -29,6 +35,15 @@ longer carries its own changelog comment.
   ends the sync with an error message instead of an unhandled error and no message. This changed
   in 1.15.0 without a note. The message shown is the "Couldn't reach Jira" one, which names the
   connection rather than the settings.
+
+### Development
+
+- **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or
+  `circle`) and a fixed 20px `xs` size, so a round or compact control no longer has to be
+  hand-rolled.
+- **Import cycle removed (§92).** `StorageConfig` and `defaultStorageConfig` move to a leaf
+  module, `storage-config-kind.ts`, which breaks the `settings-types` ⇄ `workspace` ⇄
+  `document-model` cycle. `workspace.ts` re-exports both, so no import path changes.
 
 ## [1.15.0] - 2026-10-03 "Cornwell"
 

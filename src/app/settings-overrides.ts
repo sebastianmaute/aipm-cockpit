@@ -7,8 +7,9 @@
 //
 // Runtime reuse: nextActions clamping routes through the SINGLE source of truth
 // NEXT_ACTIONS_FIELD_COERCE (settings-types); timezone strings are validated via
-// isValidTimeZone (timezone.ts). Cross-refs are function-local (call-time), so
-// the settings-types <-> workspace import cycle stays init-safe.
+// isValidTimeZone (timezone.ts). Cross-refs are function-local (call-time). That
+// once kept a settings-types -> workspace -> settings-overrides cycle init-safe;
+// the cycle went with open-followups §92, and the call-time reads stay harmless.
 
 import {
   NEXT_ACTIONS_FIELD_COERCE,
@@ -51,8 +52,9 @@ type Quadrant = keyof NotificationsConfig["stakeholderCommsLeadDays"];
 /** The nested per-quadrant lead-days record is a FULL record in the type, so it
  *  is emitted only when every quadrant is provided and valid; otherwise dropped
  *  (nested-partial overrides are out of scope for this phase). The quadrant keys
- *  are derived from the default config at CALL time (never module top-level) so
- *  the settings-types <-> workspace import cycle stays init-safe. */
+ *  are derived from the default config at CALL time (never module top-level),
+ *  which kept the former settings-types <-> workspace cycle init-safe (gone since
+ *  open-followups §92). */
 function commsLeadDaysOverride(
   v: unknown,
 ): NotificationsConfig["stakeholderCommsLeadDays"] | undefined {

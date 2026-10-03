@@ -71,10 +71,13 @@ export type ProjectDocument = {
 /** ★★★ READ THE REGISTRY AT CALL TIME, NEVER AT MODULE-EVAL — and do not
  *  "optimize" this back into a module-level `new Set(EXPORT_SECTION_KEYS)`.
  *
- *  There is a runtime import cycle around this module: settings-types.ts imports
+ *  There WAS a runtime import cycle around this module: settings-types.ts imported
  *  the VALUE `defaultStorageConfig` from ./workspace, workspace.ts imports this
  *  file, and this file imports EXPORT_SECTION_KEYS back from ./settings-types.
- *  Entered through ./storage (i.e. how the app actually loads), this module
+ *  ★ §92 broke it on 2026-10-03 by moving that value to the leaf
+ *  `storage-config-kind.ts`. The call-time read stays anyway: it costs nothing,
+ *  and one new value import into settings-types would bring the cycle back.
+ *  While the cycle stood, entered through ./storage (how the app loads), this module
  *  evaluates while settings-types is still mid-evaluation, so an eval-time
  *  snapshot captured an EMPTY set and froze it for the life of the process —
  *  silently dropping every dataSection block, the one block type that embeds

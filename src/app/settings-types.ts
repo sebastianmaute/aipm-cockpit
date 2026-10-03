@@ -14,10 +14,8 @@ import type { Lang } from "./i18n";
 import type { HelpReadingLevel } from "./help-content";
 import type { SnapshotCadence } from "./snapshot";
 import type { ProjectTemplate } from "./templates";
-import {
-  type StorageConfig,
-  defaultStorageConfig,
-} from "./workspace";
+// ★★ From the LEAF, never from ./workspace — that value import closed the §92 cycle.
+import { type StorageConfig, defaultStorageConfig } from "./storage-config-kind";
 import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
 
 /** Single source of truth for the selectable AI models. Add/replace ONE entry
