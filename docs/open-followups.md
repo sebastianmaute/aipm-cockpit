@@ -469,7 +469,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | **CLOSED** 2026-08-30 |
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
-| [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
+| [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate--closed-2026-10-03) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | **CLOSED** 2026-10-03 |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--closed-2026-09-27) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | **CLOSED** 2026-09-27 |
@@ -20744,12 +20744,12 @@ about it" and "a portfolio question can be answered" get conflated, and only the
 
 ---
 
-## 238. `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate
+## 238. `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate — CLOSED 2026-10-03
 
-**Status:** open — a HAZARD. Both are in sync with the master today (all three last moved in one
+**Status:** CLOSED 2026-10-03 — gated: `sample-workspace-variants.test.ts` regenerates both files in memory through the generator's own shared functions (`decodeSampleMaster`, `scaleSample`) and fails, naming the regenerate command, when either differs from the committed bytes (EOL normalised, since the working tree is CRLF and the generator writes LF). Green on the tree before any change; red on a one-character edit of the huge file and on a changed id offset. The "nothing reads them" claim below is also stale: `local-file-backend.test.ts` and `unload-journal.test.ts` decode the big file, though neither compares it with the master.
+
+**Original status:** open — a HAZARD. Both are in sync with the master today (all three last moved in one
 commit), and nothing would say so if they were not. Reproduced 2026-08-28 by `grep -rn "sample-workspace-big" src scripts e2e`.
-
-**Work item:** #204
 
 ★★ **THE REGENERATION TRIGGER IS WIDER THAN "THE MASTER CHANGED", and that is the part that gets
 missed.** `scripts/generate-sample-workspace.ts` does not copy the master — it decodes it with the
