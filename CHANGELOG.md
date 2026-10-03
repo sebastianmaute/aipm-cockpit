@@ -10,6 +10,13 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-03 "Cornwell"
+
+A feature release. Indian rupee (INR) is now a supported budget and plan currency, and the AI
+assistant's `list_allocations` tool can be scoped to chosen resources and a period. Projects that
+use INR or the end-to-end contract type should only be opened in this release or later; see
+Notes.
+
 ### Added
 
 - **INR budget currency (§477).** Indian rupee is now a supported budget and plan currency
