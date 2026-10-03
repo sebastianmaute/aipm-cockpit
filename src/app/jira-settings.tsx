@@ -64,7 +64,8 @@ export function JiraSettingsSection({
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState<JiraUser[]>([]);
   const userSearchTimer = useRef<number | null>(null);
-  // Monotonic id so a slower earlier search response cannot overwrite a later one.
+  // Monotonic id so a slower earlier search response cannot overwrite a later one. The
+  // effect cleanup bumps it too, so nothing answers into a search that has ended.
   const userSearchSeq = useRef(0);
 
   // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
@@ -148,6 +149,9 @@ export function JiraSettingsSection({
       if (userSearchTimer.current !== null) {
         window.clearTimeout(userSearchTimer.current);
       }
+      // Invalidate an in-flight search: a response landing after the query changed, the
+      // search was disabled, or the section unmounted must not repopulate the results.
+      userSearchSeq.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

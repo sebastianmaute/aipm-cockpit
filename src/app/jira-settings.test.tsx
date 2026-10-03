@@ -1,10 +1,11 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { JiraSettingsSection } from "./jira-settings";
 import { defaultJiraConfig, type JiraConfig } from "./settings-types";
-import { listIssueTypes, listProjects } from "./jira-api";
+import * as jiraApi from "./jira-api";
+import { listIssueTypes, listProjects, searchUsers } from "./jira-api";
 import { loadJiraApi } from "./use-jira-sync";
 import { ToastProvider } from "./toast-context";
 import { readDiagLog, clearDiagLog } from "./diagnostics";
@@ -331,6 +332,101 @@ describe("JiraSettingsSection — user-search field", () => {
     );
     expect(field.value).toBe("");
   });
+});
+
+// A user-search response must only land in the search that asked for it: one that answers after
+// the query changed (even inside the next debounce) or after the search was switched off is dropped.
+describe("JiraSettingsSection — user-search responses after the search ended", () => {
+  const specificConfig: JiraConfig = {
+    ...defaultJiraConfig,
+    enabled: true,
+    siteUrl: "https://acme.atlassian.net",
+    email: "pm@acme.com",
+    apiToken: "ATATT-token",
+    projectKey: "LOP",
+    projectName: "LOP",
+    assigneeMode: "specific",
+  };
+  const pending = new Map<string, (users: jiraApi.JiraUser[]) => void>();
+  const user = (name: string): jiraApi.JiraUser => ({ accountId: `id-${name}`, displayName: name });
+  let actualLoad: typeof loadJiraApi;
+
+  beforeAll(async () => {
+    actualLoad = (await vi.importActual<typeof import("./use-jira-sync")>("./use-jira-sync")).loadJiraApi;
+  });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    pending.clear();
+    // Resolve the loader at once so only the debounce and the search promises are in play.
+    vi.mocked(loadJiraApi).mockImplementation(() => Promise.resolve(jiraApi as never));
+    vi.mocked(searchUsers).mockImplementation(
+      (_creds, _project, query) =>
+        new Promise<jiraApi.JiraUser[]>((resolve) => {
+          pending.set(query, resolve);
+        }),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(loadJiraApi).mockImplementation(actualLoad);
+    vi.mocked(searchUsers).mockImplementation(() => Promise.resolve([]));
+  });
+
+  async function fireDebounce() {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+  }
+  async function answer(query: string, users: jiraApi.JiraUser[]) {
+    const resolve = pending.get(query);
+    if (!resolve) throw new Error(`no search in flight for "${query}"`);
+    await act(async () => {
+      resolve(users);
+      await Promise.resolve();
+    });
+  }
+  function renderSpecific(config: JiraConfig = specificConfig) {
+    return render(<JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />);
+  }
+
+  it("shows the newer search's users when the older search answers last", async () => {
+    renderSpecific();
+    const field = screen.getByLabelText("Type to search users…");
+    fireEvent.change(field, { target: { value: "a" } });
+    await fireDebounce();
+    fireEvent.change(field, { target: { value: "ab" } });
+    await fireDebounce();
+    await answer("ab", [user("Abby")]);
+    await answer("a", [user("Alice")]);
+    expect(screen.getByRole("button", { name: "Abby" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
+  });
+
+  it("drops an answer that lands while the next query is still debouncing", async () => {
+    renderSpecific();
+    const field = screen.getByLabelText("Type to search users…");
+    fireEvent.change(field, { target: { value: "a" } });
+    await fireDebounce();
+    fireEvent.change(field, { target: { value: "ab" } });
+    await answer("a", [user("Alice")]);
+    expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
+  });
+
+  it("drops an answer that lands after the search was switched off", async () => {
+    const view = renderSpecific();
+    fireEvent.change(screen.getByLabelText("Type to search users…"), { target: { value: "a" } });
+    await fireDebounce();
+    view.rerender(
+      <JiraSettingsSection lang="en-US" config={{ ...specificConfig, assigneeMode: "currentUser" }} onChange={vi.fn()} alwaysOpen />,
+    );
+    await answer("a", [user("Alice")]);
+    // Switch back WITHOUT letting the new debounce fire: only a stale answer could show a user now.
+    view.rerender(<JiraSettingsSection lang="en-US" config={specificConfig} onChange={vi.fn()} alwaysOpen />);
+    expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
+  });
+  // No unmount-then-answer case: React drops a state update on an unmounted component without a
+  // trace, so such a test would pass with or without the guard. The switch-off case above runs the
+  // same effect cleanup and has a screen to look at.
 });
 
 describe("JiraSettingsSection — email draft persists only a valid value", () => {
