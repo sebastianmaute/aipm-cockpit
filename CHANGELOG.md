@@ -26,6 +26,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A withheld deletion can be discarded (§629).** When saving pauses because a large deletion
+  was withheld, the banner now offers "Discard this deletion", which reloads the project from
+  storage after asking. Its messages used to say "reload the page", which did not help when the
+  deletion came from unsaved changes restored after a reload: the page reload restored them
+  again and saving paused again. The messages now point to Discard.
 - **Budget hours cells read out a code (§109).** Screen readers announced each Budget and Actual
   hours box in the Budget view by an internal code such as "budget-1-3-2026-01". They now hear
   the label, the bucket, the role and the period, for example "Actual – PAM – Consulting Senior –

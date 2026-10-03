@@ -345,6 +345,20 @@ describe("task-manager → destructive-refusal banner mount", () => {
     expect(destructiveBanner()).not.toBeNull();
   }, 45000);
 
+  // §629 — Discard is the exit a page reload is not: it reloads the project
+  // from storage, which also drops a restored unload journal.
+  it("wires Discard to reloadCurrentProject, after its own confirmation, and never saves", async () => {
+    const reload = vi.fn(async () => {});
+    override.value = { ...override.value, reloadCurrentProject: reload };
+    await mountApp();
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: "Discard this deletion" }));
+    await screen.findByText("Discard this deletion?");
+    expect(reload).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Discard this deletion?" })).getByRole("button", { name: "Discard and reload" }));
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(allowAnyway).not.toHaveBeenCalled();
+  }, 45000);
+
   it("forwards fullWipe, so a refused FULL WIPE reaches the HEAVY type-to-confirm tier", async () => {
     // ★★★ THIS PINS THE FLAG'S HOP, NOT THE TIER SELECTION. `notifications.test.tsx`
     // already pins the selection: it hands `fullWipe` straight to the component as a
