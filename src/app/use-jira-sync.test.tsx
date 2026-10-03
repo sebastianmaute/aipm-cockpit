@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task, TaskStatus } from "./types";
 import type { JiraIssue } from "./jira-api";
 import { JiraApiError } from "./jira-api";
@@ -1310,6 +1310,13 @@ describe("useJiraSync — the Jira module fails to download", () => {
     clearDiagLog();
     loaderGate.failNextLoads = 0;
   });
+  // In afterEach, not the test's last lines: a failing assertion must not leave these stubs set
+  // for whichever test the shuffled run picks next.
+  afterEach(() => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
+    loaderGate.failNextLoads = 0;
+  });
 
   it("handleJiraSync settles, shows the module message, leaves syncing off, and the next sync retries", async () => {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValue("project = TEST");
@@ -1328,8 +1335,6 @@ describe("useJiraSync — the Jira module fails to download", () => {
 
     await act(async () => { await result.current.handleJiraSync(); });
     expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1);
-    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
-    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
   });
 
   it("handleResolveConflicts settles, shows the module message and reports no resolution", async () => {
