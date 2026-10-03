@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import { useState } from "react";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 import { loadI18n, t } from "./i18n";
@@ -211,23 +210,6 @@ describe("HelpMenu deep-link (§489)", () => {
     return spy.mock.contexts as Element[];
   }
 
-  /** A parent that owns the request and clears it on consume, like the
-   *  `workspace-tab-context` channel does for `HelpView`. `key` forces a remount. */
-  function Harness({ initial, mountKey, onConsumed }: { initial: string | null; mountKey: number; onConsumed: () => void }) {
-    const [pending, setPending] = useState<string | null>(initial);
-    return (
-      <HelpMenu
-        key={mountKey}
-        lang="en-US"
-        pendingHelpConcept={pending}
-        onHelpConceptConsumed={() => {
-          onConsumed();
-          setPending(null);
-        }}
-      />
-    );
-  }
-
   it("opens the panel and scrolls to the requested entry inside it", () => {
     // A same-id section OUTSIDE the panel, as the in-pane Help view renders —
     // the scroll must land on the panel's own copy.
@@ -282,18 +264,20 @@ describe("HelpMenu deep-link (§489)", () => {
     }
   });
 
-  it("a remount after the parent consumed the request does not re-fire it", () => {
+  it("a fresh mount that already sees a still-pending request honours it (no remount-swallow)", () => {
     const spy = vi.spyOn(Element.prototype, "scrollIntoView");
     try {
       const consumed = vi.fn();
-      const { rerender } = render(<Harness initial={TARGET} mountKey={1} onConsumed={consumed} />);
-      expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+      // The parent never clears the request here, so the remounted menu
+      // (new `key`) sees the SAME pending id on its first render. Seeding the
+      // handled-id from the live prop would swallow it and leave the panel closed.
+      const { rerender } = render(<HelpMenu key={1} lang="en-US" pendingHelpConcept={TARGET} onHelpConceptConsumed={consumed} />);
       expect(consumed).toHaveBeenCalledOnce();
 
-      rerender(<Harness initial={TARGET} mountKey={2} onConsumed={consumed} />);
-      expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
-      expect(consumed).toHaveBeenCalledOnce();
-      expect(scrolledElements(spy)).toHaveLength(1);
+      rerender(<HelpMenu key={2} lang="en-US" pendingHelpConcept={TARGET} onHelpConceptConsumed={consumed} />);
+      expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+      expect(consumed).toHaveBeenCalledTimes(2);
+      expect(scrolledElements(spy)).toHaveLength(2);
     } finally {
       spy.mockRestore();
     }
