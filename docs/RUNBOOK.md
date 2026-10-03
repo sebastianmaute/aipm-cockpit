@@ -331,6 +331,27 @@ If a single user is hammering Sync, they will see 429 responses bubble up as
 a generic sync error. There is no monitoring of this — only the user
 reporting it.
 
+### "Jira shows 'Malformed Jira response'" or a synced issue is missing
+Since 1.15.0 the browser checks every Jira response against the schemas in
+`src/app/jira-schemas.ts` before using it. A response whose envelope does not
+match (an Atlassian API change, or something between the proxy and Atlassian
+rewriting the body) is refused with "Malformed Jira response"; it is classified as
+an ordinary error, never a network one, so sync does not treat it as transient. A single malformed issue,
+project, issue type or user inside an otherwise valid list is dropped and the
+rest are used. Both cases are recorded in Settings → Diagnostics
+(`jira.malformedResponse` / `jira.malformedItems`, with the route path; the
+payload is never logged). Ask the user for that entry, then compare the route's
+JSON in the browser Network tab with the schema.
+
+### "Jira settings say they couldn't reach Jira, but the network is fine"
+The Jira code is a separate download, fetched on first use. If that download
+fails, Settings → Jira shows the translated "Couldn't reach Jira" message and
+the browser's own error goes to Settings → Diagnostics as
+`jira.moduleLoadFailed`. The failed load is not cached: the next Jira action
+retries the download, so a reload is not needed once the connection is back. A
+failure that repeats on a good connection points at a stale deployment (the
+page references a chunk the server no longer has) — reload the page.
+
 ### "Claude chat returns 401 / 403"
 The Anthropic key the user saved in Settings → AI (held encrypted in the browser) is invalid, expired, revoked, or
 rate-limited. Users must regenerate at
