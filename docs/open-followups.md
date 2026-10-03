@@ -589,7 +589,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
 | [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--closed-2026-09-04) | ~~Three cfbf guard assertions do not discriminate the guard they name~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (two now discriminate; the 64 MB ceiling is unpinnable by arithmetic and the `chain()` offset bound is dominated by the length bound one line above it — both recorded, neither an open action) |
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
-| [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
+| [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--closed-2026-10-03) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | **CLOSED** 2026-10-03 |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--closed-2026-10-01) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-10-01 |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--closed-2026-10-02) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-10-02 |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
@@ -678,7 +678,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--closed-2026-10-02) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | **CLOSED** 2026-10-02 |
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--closed-2026-09-14) | sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **CLOSED** 2026-09-14 |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--closed-2026-10-02) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **CLOSED** 2026-10-02 |
-| [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
+| [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--closed-2026-10-03) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **CLOSED** 2026-10-03 |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
 | [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--closed-2026-09-28) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | **CLOSED** 2026-09-28 |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
@@ -722,7 +722,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
 | [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--closed-2026-09-25) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | closed |
 | [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--closed-2026-10-03) | TypeScript 7 has been published and nothing has been run against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | **CLOSED** 2026-10-03 |
-| [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--open) | jsdom 30 has been published and the layout-stub suites have not been checked against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | open |
+| [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--closed-2026-10-03) | jsdom 30 has been published and the layout-stub suites have not been checked against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | **CLOSED** 2026-10-03 |
 | [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--closed-2026-09-25) | @testing-library/jest-dom 7 has been published and is unassessed | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | closed |
 | [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--closed-2026-09-25) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | closed |
 | [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
@@ -29556,9 +29556,11 @@ now, and the ★★ above says why the fixture could never have. The de-encapsul
 tests were deliberately written with a delimiter after the preceding control word so they exercise
 the matcher rather than this quirk; that choice is recorded in their comments.
 
-## 358. The ingest-breadth plan document contradicts the shipped code in roughly 23 places — OPEN
+## 358. The ingest-breadth plan document contradicts the shipped code in roughly 23 places — CLOSED 2026-10-03
 
-**Status:** OPEN. Filed 2026-09-03. A reviewer enumerated the contradictions with line references
+**Status:** CLOSED 2026-10-03 by owner decision, banner plus the four headline fixes only. `docs/superpowers/plans/2026-09-03-ingest-breadth.md` now opens with a dated SUPERSEDED banner (the shipped code and its tests are the record; read the code first), and the four contradictions listed below are each corrected in place with a "shipped behaviour" note checked against `attachment-ingest.ts`: the Task 10 recursion no longer clones the budget per child, no longer double-charges the child's block, `cap()` now slices short of `room` by the note's length and deducts what it returns, and the Task 12 claim that the real fixture closes the DIFAT gap now says it does not (`msg-integration.test.ts` records the surviving mutant). The remaining roughly 19 stale items (expected test counts, names and signatures, fixtures, the LIMIT figure) are intentionally left uncorrected. Verify the headline pair: `grep -c "charsRemaining: Math.min" docs/superpowers/plans/2026-09-03-ingest-breadth.md` now returns 0.
+
+**Original status:** OPEN. Filed 2026-09-03. A reviewer enumerated the contradictions with line references
 against `docs/superpowers/plans/2026-09-03-ingest-breadth.md`, which was written before
 implementation and never corrected as the defects in it were discovered and worked around during
 execution. The **full list is not machine-verified**; the headline contradiction is, and each side
@@ -29568,8 +29570,6 @@ cloning the budget) against `grep -c "NEVER cloned per child" src/app/attachment
 shipped code forbidding it), plus
 `grep -c "this is the gap the real fixture in Task 16 closes" docs/superpowers/plans/2026-09-03-ingest-breadth.md`
 for the DIFAT claim.
-
-**Work item:** #255
 
 ★★★ **The four that would cost a day**, because a reader copying them reintroduces a fixed bug:
 - The Task 10 reference recursion **clones the budget per child**. `attachment-ingest.ts` now
@@ -35587,14 +35587,14 @@ say so. M-L, and the German half needs translation judgement per string, so it i
 ★ Do NOT convert on the strength of a grep alone: a key whose count cannot be 1 in practice needs no
 singular, and authoring one that never renders is §415 exception B in reverse.
 
-## 451. A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure — OPEN
+## 451. A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure — CLOSED 2026-10-03
 
-**Status:** 2026-09-08 — measured, not inferred. `npx vitest run --maxWorkers=1 src/app/i18n-plural.test.ts`
+**Status:** CLOSED 2026-10-03 by fix (1) of this entry, already in the tree: `i18n-plural.test.ts` builds the per-base matchers once, in a `matchers` array above the file loop, instead of a fresh RegExp per line per base (its comment records the pre-hoist timing and the "★★ IT READ AS A FLAKE AND WAS NOT ONE" history), and the global `testTimeout` in `vitest.config.ts` is still 20000, as this entry required. Re-measured today with `npx vitest run src/app/i18n-plural.test.ts --maxWorkers=1`: EXIT=0, 1 file and 12 tests passed, `Duration 65.63s (environment 74%, setup 19%, tests 7%)`. The 65.63s is cold environment and setup on a busy machine; the tests phase is 7% of it, about 4.6s, against the ~25s this entry measured, and the test no longer reaches the 20s timeout. The file's positive controls, which prove each hoisted matcher can still fire, passed in that run; the 19-hit count this entry quoted was not re-measured.
+
+**Original status:** 2026-09-08 — measured, not inferred. `npx vitest run --maxWorkers=1 src/app/i18n-plural.test.ts`
 FAILS with `Test timed out in 20000ms`; the same command with `--testTimeout=180000` PASSES and reports
 `Duration 29.51s (… tests 24.77s)`. Both runs were on an otherwise-idle worktree at one worker, so this
 is not the contention shape.
-
-**Work item:** #287
 
 Found 2026-09-08 during the pre-merge gate run for the §415 exception B fix. `i18n-plural.test.ts`'s
 "routes every paired base key through tPlural, outside a documented exception" walks `src/app`
@@ -38115,12 +38115,12 @@ Size S to assess.
 
 **Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `typescript` row)
 
-## 495. jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN
+## 495. jsdom 30 has been published and the layout-stub suites have not been checked against it — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — `grep -n '"jsdom"' package.json` → `^29.1.1`, and `npm view jsdom version` →
+**Status:** CLOSED 2026-10-03 by PR #552 (merge commit `5680bdf11`): `grep -n '"jsdom"\|"vitest"' package.json` → `^30.1.1` and `^5.0.3`. That PR's CI passed all eight required checks, including `unit` and `unit-shuffled`, so every layout-stub suite ran on jsdom 30 and was green. Layout-stub suites it covered, found with `grep -rlE "getBoundingClientRect|offsetWidth|ResizeObserver" src --include=*.test.tsx` (25 files today): `use-resizable.test.tsx`, `use-measured-heights.test.tsx`, `use-narrow-element.test.tsx` and `popover-panel.test.tsx`, each of which stubs the geometry jsdom answers with 0. The suites were not re-run locally for this closure and no individual assertion was inspected against jsdom 30, so "checked by name" here means the named suites ran green in that CI, not a per-assertion review.
+
+**Original status:** OPEN 2026-09-13 — `grep -n '"jsdom"' package.json` → `^29.1.1`, and `npm view jsdom version` →
 `30.0.1`. Never machine-verified against 30.
-
-**Work item:** #316
 
 jsdom 29 landed on 2026-07-03 with the note that the "layout-stub landmines hold". Those landmines are
 the risk surface: jsdom has no layout, and several suites here are written around that fact. After a
