@@ -44,7 +44,7 @@ describe("useDocumentTools — updateDocument strips the hand editor's `expect`"
   it("strips it from a block-less op (delete)", () => {
     const { result } = renderHook(() => useDocumentTools(false));
     const op = { op: "delete", index: 0, expect: baseline } as unknown as DocOp;
-    result.current.updateDocument(1, [op]);
+    result.current.updateDocument(1, [op], undefined);
     expect(sentOps()).toEqual([{ op: "delete", index: 0 }]);
     expect("expect" in sentOps()[0]).toBe(false);
   });
@@ -57,7 +57,7 @@ describe("useDocumentTools — updateDocument strips the hand editor's `expect`"
       block: { type: "heading", level: 2, text: "New" },
       expect: baseline,
     } as unknown as DocOp;
-    result.current.updateDocument(1, [op]);
+    result.current.updateDocument(1, [op], undefined);
     expect(sentOps()).toHaveLength(1);
     expect(sentOps()[0]).toMatchObject({ op: "replace", index: 0, block: { type: "heading", text: "New" } });
     expect("expect" in sentOps()[0]).toBe(false);
@@ -70,7 +70,7 @@ describe("useDocumentTools — updateDocument strips the hand editor's `expect`"
       blocks: [{ type: "heading", level: 1, text: "Fresh" }],
       expect: baseline,
     } as unknown as DocOp;
-    result.current.updateDocument(1, [op]);
+    result.current.updateDocument(1, [op], undefined);
     expect(sentOps()).toHaveLength(1);
     expect(sentOps()[0].op).toBe("replaceAll");
     expect("expect" in sentOps()[0]).toBe(false);
