@@ -12,28 +12,131 @@ longer carries its own changelog comment.
 
 ## [1.15.0] - 2026-10-03 "Cornwell"
 
-A feature release. Indian rupee (INR) is now a supported budget and plan currency, and the AI
-assistant's `list_allocations` tool can be scoped to chosen resources and a period. Projects that
-use INR or the end-to-end contract type should only be opened in this release or later; see
+A feature release. Indian rupee (INR) is now a supported budget and plan currency, a task's
+blockers become a dated log with a counting badge, the guided tour grows from a few tours to a
+full catalogue, and the AI assistant's `list_allocations` tool can be scoped to chosen resources
+and a period. Jira responses are now validated before they are used, and a large batch of
+defect fixes covers saving between windows, undo, exports, translations and documents. Projects
+that use INR or the end-to-end contract type should only be opened in this release or later; see
 Notes.
 
 ### Added
 
 - **INR budget currency (§477).** Indian rupee is now a supported budget and plan currency
   alongside EUR, USD and GBP.
+- **End-to-end contract type (§488).** A budget bucket can be "end-to-end": a fixed-price
+  contract under end-to-end responsibility. See Notes for older builds.
+- **Blocker log.** A task's blockers are no longer one free-text field. They are a dated list of
+  entries, opened from a badge with a counter in Open Points (or from a "Blockers" button in the
+  task editor) and edited in a floating window, the same way the note log works. Entries can be
+  added, edited, resolved, reopened and deleted, and resolved blockers are kept as history. Text
+  written elsewhere (the AI assistant, bulk edit, Clear blocker, templates) goes through the log,
+  and older blocker text loads as one open entry. Blocker changes are not undoable, like notes.
+  The log is saved on every storage backend; an older build drops it when it saves (see Notes).
+- **Guided tour expansion.** Five new tours (Working faster, Resources, Budget and changes,
+  Documents, Help yourself) and fuller existing ones: Getting started points to the other tours,
+  Planning opens the real Gantt view, Stakeholders gains RACI and map steps, and Reporting gains
+  insights, learning, activity, trends and history. A tour now skips views the current storage
+  backend cannot show, such as the Turso-only ones on a file project, and the spotlight follows
+  the control after "Show me".
 - **Scoped `list_allocations` in the AI assistant (§12).** The tool takes optional `resourceIds`,
   `periodFrom` and `periodTo` filters, applied before the 200-cell cap, and echoes the scope it
   applied in its answer.
+- **Linked-task search in the milestone editor.** The list of tasks linked to a milestone can be
+  filtered by `#id name`; a ticked task hidden by the search stays linked.
+- **Calendar keyboard moves (§10).** Moving a meeting with the keyboard now previews where it
+  will land.
+- **Contact persons (§537).** A project's contact persons have ids and can be edited in place.
+- **AI recommendations for resource insights (§360).** An insight about a resource now gets an
+  AI recommendation. It sees the person's job title, department, company, external flag and
+  active flag; free-text notes about a person are not sent.
+- **Scrolling update notes in the desktop app.** "Update available" is now a small window with
+  the release notes in a scrolling box, the same three choices, and a fallback to the native box.
+- **Screenshots in the README.** A gallery of sixteen screenshots of the demo project.
+
+### Changed
+
+- **Jira responses are validated (§7 B4).** Every response from Jira is checked with `zod`
+  schemas. A malformed response envelope shows "Malformed Jira response". A malformed issue in a
+  list is dropped and logged, so one bad issue cannot stop a sync or unlink any task.
+- **Plural wording (§450, §415).** Messages that said "1 tasks" or used "(s)" now use a proper
+  singular in both languages, and the activity log and the view digest sent to the AI follow
+  suit. A test keeps "(s)" plurals out of both dictionaries.
+- **Undo labels (§132).** An edit of several unnamed rows is labelled "Edit 3 tasks" rather than
+  "Edited 3 items".
+- **Dark-theme text (§40).** Text colours that had a single mode now have dark companions.
+
+### Fixed
+
+- **Saving between windows (§656, §666, §659, §28, §37, §211, §133).** Two windows that derive
+  the same content save it once instead of pausing. A change from another window that arrives
+  while a save is queued or running is deferred, not ignored. A window's project switch compares
+  against its own file binding. Rich fields are sanitised after a CSV, Markdown or Turso load,
+  RAID text gets length caps, an older `document_assets` table in Turso is rebuilt, and a
+  dependency left dangling by a redo is repaired.
+- **Undo (§177, §299, §173, §198, §134).** More whole-row edits now undo field by field, undo and
+  redo rows carry the delivered state they reverse, a composite undo with an unflagged primary is
+  refused, and a task delete's undo restores links to a re-numbered task correctly.
+- **Notes and blocker windows (§662, §664).** They close when their task, RAID item or project is
+  gone, and legacy blocker text gets the same date on every load.
+- **Block editor and rich text (§188, §186, §190, §158, §16, §38).** The refusal notice clears on
+  a new edit, and dictation into a rich field keeps its formatting, among other editor fixes.
+- **Exports (§156, §157, §94, §153, §222, §155, §217).** Lists keep their numbers and indentation
+  around quotes, code blocks and headings, PowerPoint budgets slides by wrapped lines with compact
+  summary and paginated detail slides, images scale to fit, Word tables no longer name an
+  undeclared style, and an image used many times is stored once in Word and PowerPoint files.
+- **Budget (§473, §665).** Rates follow the plan currency, and the cumulative burn-down's join
+  label no longer overprints the baseline label.
+- **Column widths (§52).** A stored width equal to the current default is no longer treated as a
+  manual drag, so tables follow later default changes. A migrated Open Points name column stuck at
+  200 flexes again.
+- **Deep links (§536).** A link opened in classic layout is no longer honoured on a later
+  switch to the modern layout, so the current view stays.
+- **IndexedDB plans (§470).** A stored plan with an out-of-range granularity or one unreadable
+  date is coerced field by field on load.
+- **AI assistant (§440, §350).** Create cards list every field and say which were refused.
+- **Accessibility (§331).** One-of-N groups have real radio semantics.
+- **Suggested actions.** Chips that open nothing are no longer shown.
+- **Note log beside an editor.** The notes window stays usable next to an open editor, and a
+  click on it no longer closes the editor.
+- **Operating-guide warning.** A fresh install no longer shows the size warning.
+- **AI eval robustness (§455).** The evaluation tooling tolerates unexpected block types and
+  cuts error details without splitting a character.
+
+### Security
+
+- **Diagnostics redaction (§608).** A long run can no longer backtrack quadratically, and a
+  token cut at the scrub window is redacted whole.
+- **Linear parsing (§578).** HTML-to-text, narrative checks, RAID escalation text and the
+  fenced-JSON reads in Markdown files no longer use patterns that can backtrack quadratically.
+- **Control characters (§201).** A raw control byte in Jira array joins is written as an escape,
+  and a test now rejects any such byte in the tree.
+
+### Development
+
+- **Internal refactors, no behaviour change.** The task and project forms share one `Field`
+  (§7 A1); the three-way column-reset chains are one `useResetAllColumnWidths` (§7 A3); report
+  sort callbacks use a typed `sortValueGetter` (§7 A4); the budget bucket card leaves
+  `BudgetPanel` (§274); RAID handlers move out of `useResourcePlanner` (§61); and the Resources
+  panel memos can now skip re-renders (§1). The three project-form tooltip triggers are named
+  by their own hints.
+- **Dependencies.** `zod` is now a runtime dependency, loaded lazily so it stays out of the
+  startup chunk; electron-builder 26.17.0 and a CodeQL action bump.
+- **Register.** Many follow-up entries were closed, many as already fixed, on CI history or
+  by owner ruling. New guards and tests pin the closed defects.
 
 ### Notes
 
 - **INR budget currency (§477).** An older build (1.14.3 or earlier) does not know INR. It loads
   an INR bucket or plan as EUR with the same number, and its next save stores it that way. Update
   every client that shares a project, especially a Turso one, before using INR.
-- **End-to-end contract type (§488).** A budget bucket can now be "end-to-end": a fixed-price
-  contract under end-to-end responsibility. An older build does not know the type and reads such
+- **End-to-end contract type (§488).** An older build does not know the type and reads such
   a bucket as time-and-material, and its next save stores it that way. Open a project that uses
   it only in this release or later.
+- **Blocker log.** An older build does not know the log. Turso (both layouts), CSV and Markdown
+  files predate it, so an older build's save drops the entries and keeps only the blocker text.
+- **Owed checks.** A package that reuses one image should be opened in Word, PowerPoint and
+  Pages (§219).
 
 ## [1.14.3] - 2026-10-01 "Deaver"
 
