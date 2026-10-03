@@ -35,6 +35,7 @@ export interface UseTaskRowHandlersArgs {
   openEditModal: (task: Task) => void;
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaidFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
+  setChangeFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
@@ -62,6 +63,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     openEditModal,
     setTasks,
     setRaidFilterTaskId,
+    setChangeFilterTaskId,
     setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
@@ -98,6 +100,16 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       setWorkspaceCollapsed((prev) => (prev ? false : prev));
     },
     [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed],
+  );
+
+  // Twin of onJumpToRaid for the task-row "N changes" badge (open-followups §481).
+  const onJumpToChanges = useCallback(
+    (id: number) => {
+      setChangeFilterTaskId(id);
+      setActiveTab("changes");
+      setWorkspaceCollapsed((prev) => (prev ? false : prev));
+    },
+    [setChangeFilterTaskId, setActiveTab, setWorkspaceCollapsed],
   );
 
   const onSendInquiry = useCallback(
@@ -439,6 +451,10 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     setRaidFilterTaskId(null);
   }, [setRaidFilterTaskId]);
 
+  const handleClearChangeTaskFilter = useCallback(() => {
+    setChangeFilterTaskId(null);
+  }, [setChangeFilterTaskId]);
+
   const handleJumpToTaskFromRaid = useCallback(
     (taskId: number) => {
       const task = tasksRef.current.find((tk) => tk.id === taskId);
@@ -451,6 +467,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     pushingIds,
     setPushingIds,
     onJumpToRaid,
+    onJumpToChanges,
     onSendInquiry,
     onPushToJira,
     onStatusChange,
@@ -458,6 +475,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,
+    handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
   };
 }

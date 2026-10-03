@@ -49,6 +49,8 @@ interface FiltersValue {
   sortKey: SortKey;
   sortDir: SortDir;
   raidFilterTaskId: number | null;
+  /** The Changes view's task filter, armed by the task-row "N changes" badge (open-followups §481). */
+  changeFilterTaskId: number | null;
 
   // React.Dispatch<SetStateAction<...>> so callers can use either the
   // direct-value form (setX(value)) or the updater form (setX(prev =>
@@ -66,6 +68,7 @@ interface FiltersValue {
   setSortKey: Dispatch<SetStateAction<SortKey>>;
   setSortDir: Dispatch<SetStateAction<SortDir>>;
   setRaidFilterTaskId: Dispatch<SetStateAction<number | null>>;
+  setChangeFilterTaskId: Dispatch<SetStateAction<number | null>>;
 
   /** Clears exactly the row-HIDING state (search + the five filters + the RAID
    *  backlink) and LEAVES the sort alone. For callers that are about to apply a
@@ -107,6 +110,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
+  const [changeFilterTaskId, setChangeFilterTaskId] = useState<number | null>(null);
 
   const resetFilterValues = useCallback(() => {
     setSearch("");
@@ -117,6 +121,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setLabelFilter("All");
     setHealthFilter("all");
     setRaidFilterTaskId(null);
+    setChangeFilterTaskId(null);
   }, []);
 
   // Delegates rather than repeating the setter list, so the two resets cannot
@@ -142,6 +147,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       sortKey,
       sortDir,
       raidFilterTaskId,
+      changeFilterTaskId,
       setSearch,
       setSearchImmediate,
       setPriorityFilter,
@@ -152,6 +158,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       setSortKey,
       setSortDir,
       setRaidFilterTaskId,
+      setChangeFilterTaskId,
       resetFilterValues,
       resetFilters,
     }),
@@ -166,6 +173,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       sortKey,
       sortDir,
       raidFilterTaskId,
+      changeFilterTaskId,
       setSearchImmediate,
       resetFilterValues,
       resetFilters,

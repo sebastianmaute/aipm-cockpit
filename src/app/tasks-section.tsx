@@ -144,6 +144,8 @@ export interface TasksSectionProps {
   documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
   /** Deep-link to the Documents pane, filtered to this task. */
   onOpenDocuments: (taskId: number) => void;
+  /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
+  onJumpToChanges?: (taskId: number) => void;
   // jira
   jiraEnabled: boolean;
   jiraSyncing: boolean;
@@ -240,6 +242,7 @@ export function TasksSection({
   changeByTask,
   documentsByEntity,
   onOpenDocuments,
+  onJumpToChanges,
   jiraEnabled,
   jiraSyncing,
   jiraProjectKey,
@@ -932,6 +935,7 @@ export function TasksSection({
           changeByTask={changeByTask}
           documentsByEntity={documentsByEntity}
           onOpenDocuments={onOpenDocuments}
+          onJumpToChanges={onJumpToChanges}
           onSwimlaneDrop={onSwimlaneDrop}
           assignableResources={assignableResources}
           onAssign={onAssignFromCard}
@@ -961,6 +965,7 @@ export function TasksSection({
           changeByTask={changeByTask}
           documentsByEntity={documentsByEntity}
           onOpenDocuments={onOpenDocuments}
+          onJumpToChanges={onJumpToChanges}
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onJumpToRaid={onJumpToRaid}
@@ -1062,6 +1067,7 @@ export function TasksSection({
                   changeRefs={changeByTask.get(task.id)}
                   documentsByEntity={documentsByEntity}
                   onOpenDocuments={onOpenDocuments}
+                  onJumpToChanges={onJumpToChanges}
                   isStriped={i % 2 === 1}
                   isFlashed={flashId === task.id}
                 />

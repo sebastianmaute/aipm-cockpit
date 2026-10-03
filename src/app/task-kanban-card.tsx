@@ -4,7 +4,7 @@
 // Jira/RAID/change badges) but laid out for a narrow column. The status
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
 import { SparklesIcon } from "./icons";
-import { type Lang, priorityLabel, t, tPlural } from "./i18n";
+import { type Lang, priorityLabel, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
@@ -13,6 +13,7 @@ import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { isJiraSynced } from "./jira-status-map";
 import { RaidBadge } from "./task-raid-badge";
+import { ChangesBadge } from "./task-changes-badge";
 import { DocumentBadge } from "./document-badge";
 import { refKey } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
@@ -24,6 +25,8 @@ import { rowLabel } from "./row-tokens";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
+/** Stable fallback when no Changes jump is threaded, so the memo'd badge keeps one handler identity. */
+const NOOP_JUMP_TO_CHANGES: (taskId: number) => void = () => {};
 
 interface TaskKanbanCardProps {
   lang: Lang;
@@ -44,6 +47,8 @@ interface TaskKanbanCardProps {
    *  callers/tests can omit them — no badge renders then. */
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
   onOpenDocuments?: (taskId: number) => void;
+  /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
+  onJumpToChanges?: (taskId: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onJumpToRaid: (taskId: number) => void;
@@ -69,6 +74,7 @@ export function TaskKanbanCard({
   changeRefs,
   documentsByEntity,
   onOpenDocuments,
+  onJumpToChanges,
   onStatusChange,
   onEdit,
   onJumpToRaid,
@@ -87,10 +93,6 @@ export function TaskKanbanCard({
   // Legacy/partial tasks may carry an unset priority; fall back to the Medium
   // style rather than emitting an `undefined` class.
   const priorityClass = priorityStyle[task.priority] ?? priorityStyle.Medium;
-  const changesLabel =
-    changeRefs && changeRefs.length > 0
-      ? tPlural(lang, "taskRowChangesBadge", changeRefs.length, changeRefs.length)
-      : "";
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -126,13 +128,13 @@ export function TaskKanbanCard({
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
-          <span
-            title={changesLabel}
-            aria-label={changesLabel}
-            className="inline-flex items-center rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
-          >
-            {changesLabel}
-          </span>
+          <ChangesBadge
+            taskId={task.id}
+            count={changeRefs.length}
+            lang={lang}
+            rowToken={rowToken}
+            onJumpToChanges={onJumpToChanges ?? NOOP_JUMP_TO_CHANGES}
+          />
         )}
       </div>
 

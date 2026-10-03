@@ -5,7 +5,7 @@ import { EnvelopeIcon, SparklesIcon } from "./icons";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { descriptionText } from "./rich-text-projection";
-import { priorityLabel, t, tPlural } from "./i18n";
+import { priorityLabel, t } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
 import { Badge } from "./badge";
@@ -14,6 +14,7 @@ import { NotesBadgeButton } from "./notes-badge-button";
 import { BlockersBadgeButton } from "./blockers-badge-button";
 import { openBlockerCount } from "./blocker-log";
 import { RaidBadge } from "./task-raid-badge";
+import { ChangesBadge } from "./task-changes-badge";
 import { DocumentBadge } from "./document-badge";
 import { refKey } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
@@ -42,6 +43,10 @@ export { RowContextProvider, useTaskRowContext, useTaskLookup, type RowContextVa
 /** Inline assignee picker suggests directory resources + free text only — no
  *  contacts are threaded into the row, so a stable empty list is passed. */
 const EMPTY_CONTACTS: Contact[] = [];
+
+/** Stable fallback when no Changes jump is threaded (lightweight callers/tests),
+ *  so the memo'd badge does not see a new handler identity every render. */
+const NOOP_JUMP_TO_CHANGES: (taskId: number) => void = () => {};
 
 // Marker re-export so TaskRow consumers can pass a typed `RaidItem[]` prop
 // without importing from `./types` separately.
@@ -99,6 +104,8 @@ interface TaskRowProps {
    *  lightweight callers/tests can omit them; no badge renders then. */
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
   onOpenDocuments?: (taskId: number) => void;
+  /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
+  onJumpToChanges?: (taskId: number) => void;
   isStriped?: boolean;
   isFlashed?: boolean;
 }
@@ -113,6 +120,7 @@ function TaskRowImpl({
   changeRefs,
   documentsByEntity,
   onOpenDocuments,
+  onJumpToChanges,
   isStriped = false,
   isFlashed = false,
 }: TaskRowProps) {
@@ -250,17 +258,6 @@ function TaskRowImpl({
     ? t(lang, "completedOn", task.completedDate!)
     : formatHealthTooltip(health, lang);
 
-  // ★ Hoisted because the badge below uses it three times (title, aria-label,
-  // visible text) and all three must agree — WCAG 2.5.3 needs the accessible
-  // name to CONTAIN the visible text, which one shared string guarantees by
-  // construction. The `*One` sibling is selected by `tPlural`, never by a
-  // ternary here: German re-words noun, adjective and verb together, so a
-  // singular is a different authored sentence rather than a suffix swap
-  // (open-followups §407). An earlier revision of this comment called the
-  // call-site ternary the house idiom and forbade a helper — that rule moved
-  // into `tPlural`'s docblock; only the count test's LOCATION changed.
-  const changesBadgeLabel = tPlural(lang, "taskRowChangesBadge", changeRefs?.length ?? 0, changeRefs?.length ?? 0);
-
   // Precedence: editing > selected > completed > zebra stripe. The selected
   // branch intentionally drops the stripe — full-opacity bg-surface-muted
   // already covers the /40 tint.
@@ -348,13 +345,13 @@ function TaskRowImpl({
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
-          <span
-            title={changesBadgeLabel}
-            aria-label={changesBadgeLabel}
-            className="ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
-          >
-            {changesBadgeLabel}
-          </span>
+          <ChangesBadge
+            taskId={task.id}
+            count={changeRefs.length}
+            lang={lang}
+            rowToken={rowToken}
+            onJumpToChanges={onJumpToChanges ?? NOOP_JUMP_TO_CHANGES}
+          />
         )}
       </Td>}
       <Td

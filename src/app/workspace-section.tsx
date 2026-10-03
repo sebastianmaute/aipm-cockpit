@@ -113,6 +113,7 @@ export function WorkspaceSection({
   contactsList,
   onCreateResource,
   handleClearRaidTaskFilter,
+  handleClearChangeTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
   onSendRaidInquiry,
@@ -256,7 +257,7 @@ export function WorkspaceSection({
   // `settings` stays device for non-overridable reads.
   const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
-  const { raidFilterTaskId } = useFilters();
+  const { raidFilterTaskId, changeFilterTaskId } = useFilters();
   // Directory map for resolving a linked owner/assignee's LIVE name in the
   // panels routed here (e.g. the standalone RAID By-Owner report) — the stored
   // owner/assignee string is only a stale-able cache.
@@ -674,6 +675,8 @@ export function WorkspaceSection({
               raid={raidEnabledForChanges ? raid : []}
               changes={changes}
               documentsByEntity={documentsByEntity}
+              filterTaskId={changeFilterTaskId}
+              onClearTaskFilter={handleClearChangeTaskFilter}
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}

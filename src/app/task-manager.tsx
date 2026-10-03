@@ -287,7 +287,7 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const { setRaidFilterTaskId, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
+  const { setRaidFilterTaskId, setChangeFilterTaskId, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -1871,6 +1871,7 @@ function TaskManagerInner() {
   const {
     pushingIds,
     onJumpToRaid,
+    onJumpToChanges,
     onSendInquiry,
     onPushToJira,
     onStatusChange,
@@ -1878,6 +1879,7 @@ function TaskManagerInner() {
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,
+    handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
   } = useTaskRowHandlers({
     tasksRef,
@@ -1890,6 +1892,7 @@ function TaskManagerInner() {
     openEditModal,
     setTasks,
     setRaidFilterTaskId,
+    setChangeFilterTaskId,
     setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
@@ -2490,6 +2493,7 @@ function TaskManagerInner() {
     contactsList,
     onCreateResource: isPopout ? undefined : handleCreateResource,
     handleClearRaidTaskFilter,
+    handleClearChangeTaskFilter,
     onOpenNotes: openRaidNotes,
     onOpenChangeNotes: openChangeNotes,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
@@ -2776,6 +2780,7 @@ function TaskManagerInner() {
       changeByTask={changeByTask}
       documentsByEntity={documentsByEntity}
       onOpenDocuments={onOpenDocuments}
+      onJumpToChanges={onJumpToChanges}
       jiraEnabled={settings.jira.enabled}
       jiraSyncing={jiraSyncing}
       jiraProjectKey={settings.jira.projectKey}

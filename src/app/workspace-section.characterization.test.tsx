@@ -84,6 +84,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     contactsList: [],
     onCreateResource: vi.fn(() => 1),
     handleClearRaidTaskFilter: vi.fn(),
+    handleClearChangeTaskFilter: vi.fn(),
     handleSaveRaidItem: vi.fn(),
     handleDeleteRaidItem: vi.fn(),
     changes: [],

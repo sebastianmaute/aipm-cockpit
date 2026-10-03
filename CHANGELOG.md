@@ -15,6 +15,11 @@ longer carries its own changelog comment.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
+- **The "N changes" badge on a task opens its changes (§481).** Clicking the badge on a task
+  row or Kanban card now opens the Changes view showing only the change requests linked to that
+  task, the way the RAID badge beside it already opens RAID. A `#id ×` chip in the Changes
+  toolbar shows the filter and clears it; Reset clears it too. Screen readers now hear the task
+  name with the count, so two tasks with the same number of changes no longer sound identical.
 
 ### Fixed
 

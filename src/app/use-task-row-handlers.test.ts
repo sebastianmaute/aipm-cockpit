@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { loadJiraApi } from "./use-jira-sync";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack } from "./undo/use-undo-stack";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import type { Task, Resource } from "./types";
 
 vi.mock("./workspace-tab-context", () => ({
@@ -76,6 +77,9 @@ function makeArgs(
     setRaidFilterTaskId: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["setRaidFilterTaskId"],
+    setChangeFilterTaskId: vi.fn() as Parameters<
+      typeof useTaskRowHandlers
+    >[0]["setChangeFilterTaskId"],
     setWorkspaceCollapsed: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["setWorkspaceCollapsed"],
@@ -190,6 +194,37 @@ describe("useTaskRowHandlers", () => {
     );
     act(() => result.current.handleClearRaidTaskFilter());
     expect(setRaidFilterTaskId).toHaveBeenCalledWith(null);
+  });
+
+  // The task-row "N changes" badge (open-followups §481): arm the Changes
+  // view's task filter, switch to it, and expand a collapsed workspace.
+  it("onJumpToChanges arms the change filter, opens the Changes tab and expands the workspace", () => {
+    const setActiveTab = vi.fn();
+    vi.mocked(useWorkspaceTab).mockReturnValue({
+      activeTab: "chat",
+      setActiveTab,
+      isPopout: false,
+    } as unknown as ReturnType<typeof useWorkspaceTab>);
+    const setChangeFilterTaskId = vi.fn();
+    const setWorkspaceCollapsed = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setChangeFilterTaskId, setWorkspaceCollapsed })),
+    );
+    act(() => result.current.onJumpToChanges(5));
+    expect(setChangeFilterTaskId).toHaveBeenCalledWith(5);
+    expect(setActiveTab).toHaveBeenCalledWith("changes");
+    const updater = setWorkspaceCollapsed.mock.calls[0][0] as (prev: boolean) => boolean;
+    expect(updater(true)).toBe(false);
+    expect(updater(false)).toBe(false);
+  });
+
+  it("handleClearChangeTaskFilter calls setChangeFilterTaskId with null", () => {
+    const setChangeFilterTaskId = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setChangeFilterTaskId })),
+    );
+    act(() => result.current.handleClearChangeTaskFilter());
+    expect(setChangeFilterTaskId).toHaveBeenCalledWith(null);
   });
 });
 

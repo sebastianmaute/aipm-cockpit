@@ -6,7 +6,7 @@ import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
-import { FiltersProvider } from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
@@ -128,6 +128,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     contactsList: [],
     onCreateResource: vi.fn(() => 1),
     handleClearRaidTaskFilter: vi.fn(),
+    handleClearChangeTaskFilter: vi.fn(),
     handleSaveRaidItem: vi.fn(),
     handleDeleteRaidItem: vi.fn(),
     changes: [],
@@ -261,6 +262,42 @@ describe("WorkspaceSection — documents tab routing", () => {
     // unconditionally, that assertion would pass with the routing broken.
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
     expect(document.getElementById("panel-documents")).toBeNull();
+  });
+});
+
+// The task-row "N changes" badge (open-followups §481) arms `changeFilterTaskId`
+// in FiltersProvider and switches to the Changes view. This pins the SEAM: the
+// section must hand that filter and its clear handler to ChangePanel, which
+// mounts fresh on the visit and so can only learn the filter from its parent.
+describe("WorkspaceSection — Changes task filter wiring", () => {
+  function JumpProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    const { setChangeFilterTaskId } = useFilters();
+    return (
+      <button
+        data-testid="jump-to-changes"
+        onClick={() => {
+          setChangeFilterTaskId(7);
+          setActiveTab("changes");
+        }}
+      />
+    );
+  }
+
+  it("passes the armed task filter and its clear handler to the Changes panel", async () => {
+    const handleClearChangeTaskFilter = vi.fn();
+    render(
+      <>
+        <JumpProbe />
+        <WorkspaceSection {...makeProps({ handleClearChangeTaskFilter })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("jump-to-changes"));
+    // ChangePanel is a lazy panel — the tabpanel mounts empty until it resolves.
+    const chip = await screen.findByRole("button", { name: `#7 – ${t("en-US", "clear")}` });
+    fireEvent.click(chip);
+    expect(handleClearChangeTaskFilter).toHaveBeenCalledTimes(1);
   });
 });
 
