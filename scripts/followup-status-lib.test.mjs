@@ -195,6 +195,33 @@ describe("closed-entry gate (§429)", () => {
     expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
   });
 
+  // The marker must OPEN the closure's reason (after "CLOSED <date> — ") and carry a real date.
+  const withReason = (reason) =>
+    entryViolations(titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — " + reason));
+
+  it("control: the lead-ins and the colon form of the marker pass", () => {
+    expect(withReason("owner decision 2026-10-04: not built.")).toEqual([]);
+    expect(withReason("Owner ruling: 2026-10-04 — not built.")).toEqual([]);
+    expect(withReason("by owner ruling: 2026-10-04 not built.")).toEqual([]);
+    expect(withReason("accepted by owner decision 2026-10-04.")).toEqual([]);
+    const en = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 – owner decision 2026-10-04: x.");
+    expect(entryViolations(en)).toEqual([]);
+  });
+
+  it("flags the marker when it is not the lead of the closure's reason", () => {
+    expect(withReason("awaiting owner decision 2026-10-09")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("not an owner decision 2026-10-04 at all")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("co-owner decision 2026-10-04")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("done; later an owner decision 2026-10-04")).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("flags an impossible calendar date and a marker with no date", () => {
+    expect(withReason("owner decision 2026-13-45: x.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision 2026-02-30: x.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision: not built.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision 2026-02-28: x.")).toEqual([]);
+  });
+
   it("every gated closure in the real register conforms", () => {
     const gated = parseEntries(register()).filter((e) => isGatedClosed(e.title));
     expect(gated.filter((e) => entryViolations(e).length > 0).map((e) => e.n)).toEqual([]);

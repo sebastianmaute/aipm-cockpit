@@ -50,8 +50,9 @@ named none.
 ` — CLOSED <date>` with a date on or after `CLOSED_CUTOFF` must have a Status that opens with
 `**Status:** CLOSED <date>` and carries an ISO date. It must also name the command run to verify the
 closure: `npx vitest run <file>` for a closure pinned by a test, or the `grep` or other command that
-shows the shipped state. A decision closure with nothing to run says `owner decision <date>` (or
-`owner ruling <date>`) instead, with the date straight after the phrase. `never machine-verified`
+shows the shipped state. A decision closure with nothing to run instead OPENS its reason with the marker:
+`CLOSED <date> — owner decision <date>` (or `owner ruling`, optionally led by `by ` or `accepted by `,
+colon allowed), the date being a real calendar date. The marker anywhere else in the Status does not count. `never machine-verified`
 is refused for a closure. Earlier closures stay ungated by design. Never add a token command just to
 pass: a closure with no honest command is a decision closure and says so.
 

@@ -90,11 +90,22 @@ export function isGatedClosed(title, cutoff = CLOSED_CUTOFF) {
  *  ruling 2026-10-03): `owner decision <ISO date>` or `owner ruling <ISO date>`. Without it,
  *  closing an accepted-risk or decided-not-to-build entry would push the author toward a token
  *  `grep` added only to pass, the fabrication this gate exists to prevent.
- *  ★ NARROW ON PURPOSE. The date must FOLLOW the phrase directly: the house form "accepted by
- *  owner ruling: …" names no date of its own and does not pass, and neither does a bare
- *  "owner" or "decided by the owner". Case-sensitive except the first letter, which may be
- *  capitalised at a sentence start ("Owner decision 2026-09-23" is already in the register). */
-const OWNER_DECISION_RE = /\b[Oo]wner (?:decision|ruling) 20\d\d-\d\d-\d\d\b/;
+ *  ★ NARROW ON PURPOSE, AND ANCHORED. The marker must OPEN the closure's reason: directly after
+ *  the Status's leading `CLOSED <date> — ` (any of the dash forms), optionally led by `by ` or
+ *  `accepted by `, then `owner decision` / `owner ruling` (first letter may be capital), an
+ *  optional colon, and an ISO date that is a REAL calendar date. So "awaiting owner decision …",
+ *  "not an owner decision …" and "co-owner decision …" do not pass wherever they sit, and neither
+ *  does 2026-13-45. The house form "accepted by owner ruling: …" with no date of its own fails. */
+const OWNER_DECISION_RE = /^\*\*Status:\*\*\s*CLOSED\s+\S+\s+[\u2013\u2014-]+\s*(?:(?:accepted )?by )?[Oo]wner (?:decision|ruling):?\s+(20\d\d)-(\d\d)-(\d\d)\b/;
+
+/** True when the Status block opens its closure with the owner-decision marker and a real date. */
+export function hasOwnerDecisionMarker(block) {
+  const m = OWNER_DECISION_RE.exec(block);
+  if (m === null) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
 
 /** The contract for a gated CLOSED entry. Per universe: `SAYS_CLOSED` INVERTS (the Status
  *  must open with CLOSED, so a closure cannot hide behind an open-style note), `NO_DATE` means
@@ -108,7 +119,7 @@ export function closedStatusViolations(entry) {
   const out = [];
   if (!/^\*\*Status:\*\*\s*CLOSED\b/.test(block)) out.push("NOT_SAYS_CLOSED");
   if (!/\b20\d\d-\d\d-\d\d\b/.test(block)) out.push("NO_DATE");
-  if (!VERIFICATION_RE.test(block) && !OWNER_DECISION_RE.test(block)) {
+  if (!VERIFICATION_RE.test(block) && !hasOwnerDecisionMarker(block)) {
     out.push("NO_VERIFICATION");
   }
   return out;
