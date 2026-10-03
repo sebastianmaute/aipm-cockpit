@@ -33,6 +33,23 @@ describe("IconButton", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  // §110 — the shape and the fixed box are the primitive's, never a caller override.
+  it("is a padded square by default", () => {
+    render(<IconButton label="X">x</IconButton>);
+    const cls = screen.getByRole("button", { name: "X" }).className.split(" ");
+    expect(cls).toEqual(expect.arrayContaining(["rounded-md", "p-1"]));
+    expect(cls).not.toContain("rounded-full");
+  });
+
+  it("renders a 20px circle with no padding at size xs, shape circle", () => {
+    render(<IconButton label="X" size="xs" shape="circle">x</IconButton>);
+    const cls = screen.getByRole("button", { name: "X" }).className.split(" ");
+    expect(cls).toEqual(expect.arrayContaining(["h-5", "w-5", "rounded-full"]));
+    // Neither conflicting utility may survive: Tailwind would pick by source order.
+    expect(cls).not.toContain("rounded-md");
+    expect(cls.some((c) => /^p-/.test(c))).toBe(false);
+  });
+
   it("appends caller className after the base", () => {
     render(<IconButton label="X" className="shrink-0">x</IconButton>);
     expect(screen.getByRole("button", { name: "X" }).className).toContain("shrink-0");

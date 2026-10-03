@@ -341,7 +341,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
-| [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
+| [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--closed-2026-10-03) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | **CLOSED** 2026-10-03 |
 | [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--closed-2026-10-02) | Document row controls are named by a title that is NOT unique, and the comment says it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | **CLOSED** 2026-10-02 |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
 | [§113](#113-the-documents-roadmap--block-editor-entity-attachment-images-ooxml-media--all-six-slices-shipped-kept-as-the-decision-record) | The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open |
@@ -9054,11 +9054,11 @@ A/B judgement is not automatable and the inventory records every borderline call
 
 ---
 
-## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
+## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — CLOSED 2026-10-03
 
-**Status:** open — a primitive with no shape opt-out, so one chip stays hand-rolled. Reproduced 2026-08-28 by `grep -n "SIZE_CLASS" src/app/icon-button.tsx`.
+**Status:** CLOSED 2026-10-03. `IconButton` gained `shape` (`square` | `circle`) and an `xs` size, a fixed 20px box with no padding. Both live in the primitive's own class maps, and `rounded-md` left `BASE_CLASS`, so no caller override has to beat Tailwind's source order. `disabled` stays a real attribute and `label` stays required. The RACI picker's clear ✕ is now `<IconButton size="xs" shape="circle" variant="bordered">`, and `CHIP_BASE` gained `PRESS`, so all five chips share the press nudge `IconButton` brings. Eye-verified in Chromium with a throwaway spec (not committed): before and after, the ✕ measures 20×20 on the same row as its siblings and the two screenshots match. Pinned by two `icon-button.test.tsx` cases, which also assert that no `rounded-md` or `p-*` class survives beside `circle` / `xs`. The `knowledge-panel.tsx` glyph item named at the end stays where the entry left it, in `docs/handrolled-ui-inventory.md`.
 
-**Work item:** #142
+**Original status:** open — a primitive with no shape opt-out, so one chip stays hand-rolled. Reproduced 2026-08-28 by `grep -n "SIZE_CLASS" src/app/icon-button.tsx`.
 
 ★ **Filed as §104** — see the renumbering note at the head of §109.
 
