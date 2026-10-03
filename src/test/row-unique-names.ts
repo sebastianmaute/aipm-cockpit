@@ -48,15 +48,11 @@
 // ★ SCOPE CHOICE: default to whole-container scope. Narrow to a sub-tree only
 // when a specific, named collision with unrelated chrome has been confirmed
 // in that panel — and say which one, in a comment at the narrowing.
-// ★★ WORKED EXAMPLE: `project-form-fields.test.tsx` narrows its
-// `IdentityPeopleFields` scan to the contacts list (its `contactsList`
-// helper), and the comment above that helper names the collision. `Field`
-// passes `label={t(lang, "infoMore")}` to `InfoTooltip`, which sets
-// `aria-label={label ?? text}`, so the three tooltip-bearing `Field`s in that
-// section (project name, code, manager) are all named "More information".
-// A whole-container scan is therefore red on chrome, and the same collision
-// would satisfy `requireCollisionSeed` on its own, masking a fixture that
-// stopped seeding a contact collision.
+// ★★ THERE IS NO LIVE WORKED EXAMPLE TODAY. The last one was
+// `project-form-fields.test.tsx`, which narrowed its contacts scan because three
+// project-form tooltip triggers were all named "More information". The shared
+// `Field` (open-followups §7, A1) names each trigger by its hint, the collision
+// went with it, and that scan is back at whole-container scope.
 // `change-panel.test.tsx` also narrows (to `tbody`) but is NOT an example of
 // this rule. It once was — that panel reused one translation string across a
 // toolbar filter select and a sortable-header button — but §261 gave the two

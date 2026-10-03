@@ -15,6 +15,11 @@ import {
   sanitizeTaskName,
 } from "./sanitize";
 import { logDiag } from "./diagnostics";
+import {
+  jiraCreatedIssueSchema, jiraIssueSchema, jiraIssueTypeSchema, jiraIssueTypesEnvelope, jiraProjectSchema,
+  jiraProjectsEnvelope, jiraSearchEnvelope, jiraUserSchema, jiraUsersEnvelope, parseJiraList,
+} from "./jira-schemas";
+import type { z } from "zod";
 import { plainToHtml } from "./sanitize-html";
 import { descriptionText } from "./rich-text-projection";
 import type { JiraConfig } from "./settings-types";
@@ -51,7 +56,10 @@ export class JiraApiError extends Error {
   }
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+/** The `error` a malformed (but HTTP-successful) response is reported with; `formatJiraError` shows it. */
+export const JIRA_MALFORMED_RESPONSE = "Malformed Jira response";
+
+async function post(path: string, body: unknown): Promise<unknown> {
   const res = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -61,29 +69,45 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     throw new JiraApiError(res.status, data);
   }
-  return data as T;
+  return data;
 }
 
-export function testConnection(creds: JiraCreds): Promise<JiraUser> {
-  return post<JiraUser>("/api/jira/test", creds);
+// §7 B4 — every response is untrusted external data, checked against `jira-schemas.ts` here. A
+// response whose envelope does not match throws a `JiraApiError` that classifies as "other", never
+// "network", so sync does not treat it as transient. The path is logged; the payload never is.
+function parseResponse<T>(schema: z.ZodType<T>, data: unknown, path: string): T {
+  const r = schema.safeParse(data);
+  if (r.success) return r.data;
+  logDiag("warn", "jira.malformedResponse", { path });
+  // 200: the request succeeded; only the body is unusable.
+  throw new JiraApiError(200, { error: JIRA_MALFORMED_RESPONSE });
 }
 
-type ProjectsResponse = { values: JiraProject[] };
+/** Keeps the valid items of a list response and logs how many were dropped. */
+function keepValid<T>(schema: z.ZodType<T>, items: readonly unknown[], path: string): T[] {
+  const { items: ok, dropped } = parseJiraList(schema, items);
+  if (dropped > 0) logDiag("warn", "jira.malformedItems", { path, dropped });
+  return ok;
+}
+
+export async function testConnection(creds: JiraCreds): Promise<JiraUser> {
+  const path = "/api/jira/test";
+  return parseResponse(jiraUserSchema, await post(path, creds), path);
+}
+
 export async function listProjects(creds: JiraCreds): Promise<JiraProject[]> {
-  const r = await post<ProjectsResponse>("/api/jira/projects", creds);
-  return Array.isArray(r.values) ? r.values : [];
+  const path = "/api/jira/projects";
+  const r = parseResponse(jiraProjectsEnvelope, await post(path, creds), path);
+  return keepValid(jiraProjectSchema, r.values, path);
 }
 
-type IssueTypesResponse = { issueTypes?: JiraIssueType[] };
 export async function listIssueTypes(
   creds: JiraCreds,
   projectKey: string,
 ): Promise<JiraIssueType[]> {
-  const r = await post<IssueTypesResponse>("/api/jira/issue-types", {
-    ...creds,
-    projectKey,
-  });
-  return Array.isArray(r.issueTypes) ? r.issueTypes : [];
+  const path = "/api/jira/issue-types";
+  const r = parseResponse(jiraIssueTypesEnvelope, await post(path, { ...creds, projectKey }), path);
+  return keepValid(jiraIssueTypeSchema, r.issueTypes ?? [], path);
 }
 
 export async function searchUsers(
@@ -91,12 +115,9 @@ export async function searchUsers(
   projectKey: string,
   query: string,
 ): Promise<JiraUser[]> {
-  const r = await post<JiraUser[]>("/api/jira/users", {
-    ...creds,
-    projectKey,
-    query,
-  });
-  return Array.isArray(r) ? r : [];
+  const path = "/api/jira/users";
+  const r = parseResponse(jiraUsersEnvelope, await post(path, { ...creds, projectKey, query }), path);
+  return keepValid(jiraUserSchema, r, path);
 }
 
 // --- JQL search + issue mapping --------------------------------------------
@@ -122,12 +143,6 @@ export type JiraIssue = {
   };
 };
 
-type SearchResponse = {
-  issues?: JiraIssue[];
-  nextPageToken?: string;
-  isLast?: boolean;
-};
-
 /**
  * Page through every issue matching the JQL. Caps at 2000 to avoid runaway loops;
  * raise if your project regularly exceeds that.
@@ -140,12 +155,9 @@ export async function searchAllIssues(
   const all: JiraIssue[] = [];
   let nextPageToken: string | undefined;
   while (all.length < hardCap) {
-    const r = await post<SearchResponse>("/api/jira/search", {
-      ...creds,
-      jql,
-      nextPageToken,
-    });
-    if (Array.isArray(r.issues)) all.push(...r.issues);
+    const path = "/api/jira/search";
+    const r = parseResponse(jiraSearchEnvelope, await post(path, { ...creds, jql, nextPageToken }), path);
+    all.push(...keepValid<JiraIssue>(jiraIssueSchema, r.issues ?? [], path));
     if (r.isLast || !r.nextPageToken) break;
     nextPageToken = r.nextPageToken;
   }
@@ -281,7 +293,7 @@ export async function updateIssue(
   key: string,
   fields: Record<string, unknown>,
 ): Promise<void> {
-  await post<{ ok?: boolean }>("/api/jira/update-issue", {
+  await post("/api/jira/update-issue", {
     ...creds,
     key,
     fields,
@@ -302,12 +314,8 @@ export async function createIssue(
   issueType: string,
   fields: Record<string, unknown>,
 ): Promise<CreatedIssue> {
-  return post<CreatedIssue>("/api/jira/create-issue", {
-    ...creds,
-    projectKey,
-    issueType,
-    fields,
-  });
+  const path = "/api/jira/create-issue";
+  return parseResponse(jiraCreatedIssueSchema, await post(path, { ...creds, projectKey, issueType, fields }), path);
 }
 
 /** Pick the default issue type for newly-pushed local tasks. */
@@ -322,7 +330,7 @@ export async function transitionIssueTo(
   key: string,
   targetCategory: TransitionCategory,
 ): Promise<void> {
-  await post<{ ok?: boolean }>("/api/jira/transition-issue", {
+  await post("/api/jira/transition-issue", {
     ...creds,
     key,
     targetCategory,

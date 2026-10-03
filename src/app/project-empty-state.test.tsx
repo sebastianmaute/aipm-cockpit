@@ -49,7 +49,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
  *  Mirrors the minimal fill used in project-form.test.tsx. */
 function fillRequired() {
   function setText(label: string, value: string) {
-    fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+    fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
       target: { value },
     });
   }
@@ -58,11 +58,11 @@ function fillRequired() {
   setText("Project code", "APL-1");
   setText("Project manager", "Dana PM");
   setText("Customer", "ACME Corp");
-  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "C" },
   });
   setText("Products", "Widget");
-  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "Cloud" },
   });
   setText("Start date", "2026-01-01");
@@ -198,14 +198,14 @@ describe("ProjectEmptyState", () => {
     const { onCreate } = setup();
 
     // Initially the form is NOT shown.
-    expect(screen.queryByLabelText("Project name", { exact: false })).toBeNull();
+    expect(screen.queryByLabelText("Project name", { exact: false, selector: "input, select, textarea" })).toBeNull();
 
     // Open the create wizard.
     fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
 
     // Step 1 (Details) form is now visible.
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toBeInTheDocument();
 
     // The Step-1 submit button label is "Next" (wizard overrides the default "New project").
@@ -328,7 +328,7 @@ describe("ProjectEmptyState", () => {
     expect(screen.queryByRole("combobox", { name: /file format/i })).toBeNull();
     // The form itself still renders.
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toBeInTheDocument();
   });
 

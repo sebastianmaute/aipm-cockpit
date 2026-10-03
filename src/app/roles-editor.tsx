@@ -34,7 +34,7 @@ import { useCommitOnPageHide } from "./use-commit-on-page-hide";
  *  radiogroup that handles the same keys and does not stop propagation, so ONE
  *  ArrowDown wrote the basis AND reordered the row) and the RefList rename
  *  input's caret movement. Only `itemProps` (the drop target) goes on the
- *  container. Same split as `reports.tsx` and `budget-panel.tsx`. */
+ *  container. Same split as `reports.tsx` and `budget-panel-bucket-card.tsx`. */
 const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
 
 export const ROLES_COL_WIDTHS = {

@@ -71,7 +71,7 @@ describe("TaskFormFields dictation", () => {
     //   because a <label> with no `for` binds to its first labelable
     //   descendant, and a button is labelable, so a mic inside the default
     //   <label> branch would make clicking the words "Task name" start
-    //   dictation. `task-form-layout.test.tsx` mutation-proves that forcing.
+    //   dictation. `form-field.test.tsx` mutation-proves that forcing.
     render(<Harness />, { wrapper: TestProviders });
     const taskNameInput = screen.getByPlaceholderText("What needs to happen?");
     const group = screen.getByRole("group", { name: "Task name" });

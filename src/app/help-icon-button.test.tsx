@@ -17,7 +17,7 @@
 // `modal-header.test.tsx` drives six presses through `ModalHeader`; the one
 // here drives twelve against this component directly.
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelpIconButton } from "./help-icon-button";
 import { HELP_ENTRIES, MODAL_HELP, type HelpEntryId } from "./help-content";
@@ -104,7 +104,15 @@ describe("HelpIconButton", () => {
     );
     const entry = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.raciSuggest)!;
     const popoverClose = `${t("en-US", "alertModalClose")} – ${t("en-US", entry.titleKey)}`;
-    await user.click(screen.getByRole("button", { name: "Help – Suggest RACI" }));
+    // ★★ WAIT FOR THE MODAL'S OWN INITIAL FOCUS FIRST. `Modal` moves focus
+    // into the dialog one animation frame after opening, onto its first
+    // focusable control — this help button. On a loaded runner that frame
+    // can fire DURING the first Tab below, after the popover has taken focus,
+    // and pull it back to the trigger — the same race CI hit in the twin test
+    // in `modal-header.test.tsx` (first press recorded on the help button).
+    const helpTrigger = screen.getByRole("button", { name: "Help – Suggest RACI" });
+    await waitFor(() => expect(helpTrigger).toHaveFocus());
+    await user.click(helpTrigger);
 
     const whileOpen: string[] = [];
     for (let i = 0; i < 12; i++) {

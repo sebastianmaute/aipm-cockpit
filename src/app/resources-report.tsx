@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { sortValueGetter } from "./sort-value-getter";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { computeResourceReport, type ReportGroupRow, type ReportPeriodRow, type ReportResourceRow } from "./resource-report";
 import { formatCurrency } from "./resource-cost";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
@@ -108,13 +109,7 @@ export function ResourcesReportPanel({
   const byCombo = useColumnResize<ResReportByComboCol>("resReportByCombo", RES_REPORT_BY_COMBO_WIDTHS);
   const byResource = useColumnResize<ResReportByResourceCol>("resReportByResource", RES_REPORT_BY_RESOURCE_WIDTHS);
 
-  const resetAllCols = useCallback(() => {
-    byPeriod.resetColWidths();
-    byDiscipline.resetColWidths();
-    byGrade.resetColWidths();
-    byCombo.resetColWidths();
-    byResource.resetColWidths();
-  }, [byPeriod, byDiscipline, byGrade, byCombo, byResource]);
+  const resetAllCols = useResetAllColumnWidths(byPeriod, byDiscipline, byGrade, byCombo, byResource);
 
   // Deep-link (§362): a guardrail insight for a resource arms pendingOpen with
   // view "resources" — this report is what actually mounts for that view, but
@@ -223,13 +218,16 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
 }) {
   const [sort, setSort] = useState<SortState<PeriodSortKey>>({ key: "name", dir: "asc" });
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.key })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: PeriodSortKey): string | number => {
-    if (k === "name") return r.key;
-    if (k === "days") return r.capacityHours;
-    if (k === "internal") return r.internal;
-    if (k === "external") return r.external;
-    return r.margin;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], PeriodSortKey>({
+      name: (r) => r.key,
+      days: (r) => r.capacityHours,
+      internal: (r) => r.internal,
+      external: (r) => r.external,
+      margin: (r) => r.margin,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -294,13 +292,16 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
   const [filter, setFilter] = useState("");
   // ReportGroupRow already has `label` — map that to `name` for useSortableFilter
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.label })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: GroupSortKey): string | number => {
-    if (k === "name") return r.label;
-    if (k === "headcount") return r.headcount;
-    if (k === "days") return r.capacityHours;
-    if (k === "internal") return r.internal;
-    return r.external;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], GroupSortKey>({
+      name: (r) => r.label,
+      headcount: (r) => r.headcount,
+      days: (r) => r.capacityHours,
+      internal: (r) => r.internal,
+      external: (r) => r.external,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
   const w = colResize.colWidths as Record<string, number>;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -361,14 +362,17 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
   const [sort, setSort] = useState<SortState<ResourceSortKey>>({ key: "name", dir: "asc" });
   const [filter, setFilter] = useState("");
   // ReportResourceRow already has `name` — no remapping needed
-  const getValue = useCallback((r: ReportResourceRow, k: ResourceSortKey): string | number => {
-    if (k === "name") return r.name;
-    if (k === "role") return r.roleLabel;
-    if (k === "avgUtil") return r.avgUtilization;
-    if (k === "capDays") return r.capacityHours;
-    if (k === "internal") return r.internal;
-    return r.external;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<ReportResourceRow, ResourceSortKey>({
+      name: (r) => r.name,
+      role: (r) => r.roleLabel,
+      avgUtil: (r) => r.avgUtilization,
+      capDays: (r) => r.capacityHours,
+      internal: (r) => r.internal,
+      external: (r) => r.external,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;

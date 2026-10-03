@@ -64,7 +64,7 @@ function saveButton(): HTMLButtonElement {
 }
 
 function setText(label: string, value: string) {
-  fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+  fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
     target: { value },
   });
 }
@@ -75,11 +75,11 @@ function fillRequired() {
   setText("Project code", "APL-1");
   setText("Project manager", "Dana PM");
   setText("Customer", "ACME Corp");
-  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "C" },
   });
   setText("Products", "Widget");
-  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "Cloud" },
   });
   setText("Start date", "2026-01-01");
@@ -158,7 +158,7 @@ describe("ProjectForm", () => {
     setup();
     fillRequired();
     setText("End date", "2025-01-01"); // before start
-    const endInput = screen.getByLabelText("End date", { exact: false });
+    const endInput = screen.getByLabelText("End date", { exact: false, selector: "input, select, textarea" });
     fireEvent.blur(endInput);
 
     expect(screen.getByText("End date must be after start date.")).toBeInTheDocument();
@@ -284,14 +284,14 @@ describe("ProjectForm operating timezone", () => {
       operatingTimezone: "Europe/Berlin",
     } as unknown as ProjectMeta;
     setup({ initial });
-    const select = screen.getByLabelText("Operating timezone", { exact: false }) as HTMLSelectElement;
+    const select = screen.getByLabelText("Operating timezone", { exact: false, selector: "input, select, textarea" }) as HTMLSelectElement;
     expect(select.value).toBe("Europe/Berlin");
   });
 
   it("submits the selected operating timezone", () => {
     const { onSubmit } = setup();
     fillRequired();
-    fireEvent.change(screen.getByLabelText("Operating timezone", { exact: false }), {
+    fireEvent.change(screen.getByLabelText("Operating timezone", { exact: false, selector: "input, select, textarea" }), {
       target: { value: "Europe/Berlin" },
     });
     fireEvent.click(saveButton());

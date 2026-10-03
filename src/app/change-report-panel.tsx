@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { sortValueGetter } from "./sort-value-getter";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { RagDot } from "./rag-dot";
 import {
@@ -122,13 +123,7 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
   const requestorCols = useColumnResize<RequestorCol>("changeReportRequestor", REQUESTOR_COL_WIDTHS);
   const topPendingCols = useColumnResize<TopPendingCol>("changeReportTopPending", TOP_PENDING_COL_WIDTHS);
 
-  const resetAllCols = useCallback(() => {
-    typeCols.resetColWidths();
-    statusCols.resetColWidths();
-    impactCols.resetColWidths();
-    requestorCols.resetColWidths();
-    topPendingCols.resetColWidths();
-  }, [typeCols, statusCols, impactCols, requestorCols, topPendingCols]);
+  const resetAllCols = useResetAllColumnWidths(typeCols, statusCols, impactCols, requestorCols, topPendingCols);
 
   if (items.length === 0) {
     return (
@@ -385,12 +380,15 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
   const [sort, setSort] = useState<SortState<TopPendingSortKey>>({ key: "impact", dir: "desc" });
   const rows = useMemo(() => selectTopChanges(items, TOP_PENDING_LIMIT), [items]);
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.title })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: TopPendingSortKey): string | number => {
-    if (k === "name") return r.title;
-    if (k === "id") return r.id;
-    if (k === "raised") return r.raisedDate;
-    return r.impact ? RAID_SEVERITIES.indexOf(r.impact) : -1;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], TopPendingSortKey>({
+      name: (r) => r.title,
+      id: (r) => r.id,
+      impact: (r) => (r.impact ? RAID_SEVERITIES.indexOf(r.impact) : -1),
+      raised: (r) => r.raisedDate,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;

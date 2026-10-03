@@ -5,7 +5,7 @@ import { formatDuration, parseDuration } from "./duration";
 import { FieldNotice } from "./field-feedback";
 import { Input } from "./form-controls";
 import { type Lang, t } from "./i18n";
-import { Field } from "./task-form-layout";
+import { Field } from "./form-field";
 
 /** A duration text input over `parseDuration`/`formatDuration` (w/d/h/m).
  *
