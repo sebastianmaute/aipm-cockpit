@@ -7,9 +7,9 @@
 // it belongs with the hook that already owns the tasks ref.
 //
 // MOVE ONLY: every body and dependency array is the one it had in the planner. The
-// refs are re-derived here rather than threaded in, for the reason use-reference-data.ts's
-// header gives — exhaustive-deps only treats a value as stable when it can see the
-// useRef. `logUpdate` is threaded, as it is for both sibling hooks.
+// args are read through one `argsRef` derived here rather than threaded in, for the
+// reason use-reference-data.ts's header gives — exhaustive-deps only treats a value as
+// stable when it can see the useRef. `logUpdate` is threaded, as it is for both sibling hooks.
 
 import { useCallback, useEffect, useRef } from "react";
 import { type Lang, t } from "./i18n";
@@ -55,20 +55,8 @@ export function useRaidItems(args: UseRaidItemsArgs) {
   const { raid, setRaid, resources } = useWorkspace();
   const { today, logUpdate } = args;
 
-  const langRef = useRef(args.lang);
-  useEffect(() => { langRef.current = args.lang; }, [args.lang]);
-  const showToastRef = useRef(args.showToast);
-  useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
-  const logActivityRef = useRef(args.logActivity);
-  useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
-  const captureFieldEditRef = useRef(args.captureFieldEdit);
-  useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
-  const captureFieldRowsRef = useRef(args.captureFieldRows);
-  useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
-  const captureRef = useRef(args.capture);
-  useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
-  const allowDestructiveRef = useRef(args.allowDestructiveSave);
-  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
+  const argsRef = useRef(args);
+  useEffect(() => { argsRef.current = args; });
 
   // isNew carries the modal's create/edit intent so a create can't be misread as
   // an update and clobber a row committed since the modal opened (id-mint race).
@@ -106,7 +94,7 @@ export function useRaidItems(args: UseRaidItemsArgs) {
       // Editing a row a concurrent writer already deleted: the map-replace below
       // would silently no-op. Surface it instead of dropping the edit in silence.
       if (!create && !previous) {
-        reportSilentFailure(showToastRef.current, langRef.current, "raid.editVanished", "concurrent delete during edit", "guardEditVanished");
+        reportSilentFailure(argsRef.current.showToast, argsRef.current.lang, "raid.editVanished", "concurrent delete during edit", "guardEditVanished");
         return undefined;
       }
 
@@ -150,14 +138,14 @@ export function useRaidItems(args: UseRaidItemsArgs) {
         return autoIssue ? [...base, autoIssue] : base;
       });
       if (autoIssue) {
-        showToastRef.current(
+        argsRef.current.showToast(
           "info",
-          t(langRef.current, "raidAutoCreatedIssue", id, autoIssueId ?? 0),
+          t(argsRef.current.lang, "raidAutoCreatedIssue", id, autoIssueId ?? 0),
         );
       }
 
       if (!create && previous && !opts?.suppressFieldUndo) {
-        captureFieldChanges(captureFieldEditRef.current, {
+        captureFieldChanges(argsRef.current.captureFieldEdit, {
           setter: setRaid, kind: "raid.updated", id,
           prev: previous, next: withStamp, groups: RAID_UNDO_GROUPS,
           stampField: "localModifiedAt", name: item.title,
@@ -165,14 +153,14 @@ export function useRaidItems(args: UseRaidItemsArgs) {
       }
 
       if (create) {
-        logActivityRef.current("raid.created", id, item.category, item.title);
+        argsRef.current.logActivity("raid.created", id, item.category, item.title);
       } else if (previous && previous.status !== item.status) {
-        logActivityRef.current("raid.statusChanged", id, previous.status, item.status);
+        argsRef.current.logActivity("raid.statusChanged", id, previous.status, item.status);
       } else {
         logUpdate("raid.updated", previous, withStamp, id, item.category, item.title);
       }
       if (autoIssueId !== null) {
-        logActivityRef.current("raid.autoIssue", id, autoIssueId);
+        argsRef.current.logActivity("raid.autoIssue", id, autoIssueId);
       }
       // The COMMITTED id — re-minted by `resolveEntitySave` when the open-time id
       // was taken. "Log as RAID" links the insight to THIS, never to draft.id (§515).
@@ -184,11 +172,11 @@ export function useRaidItems(args: UseRaidItemsArgs) {
   const handleDeleteRaidItem = useCallback(
     (id: number) => {
       const removed = raid.find((r) => r.id === id);
-      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", removed: [removed], fromArray: raid, name: removed.title });
+      if (removed) argsRef.current.capture?.({ setter: setRaid, kind: "raid.deleted", removed: [removed], fromArray: raid, name: removed.title });
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
-        logActivityRef.current("raid.deleted", id, removed.category, removed.title);
-        allowDestructiveRef.current?.();
+        argsRef.current.logActivity("raid.deleted", id, removed.category, removed.title);
+        argsRef.current.allowDestructiveSave?.();
       }
     },
     [raid, setRaid],
@@ -200,7 +188,7 @@ export function useRaidItems(args: UseRaidItemsArgs) {
   // closure value would drop concurrent bumps).
   const handleSendRaidInquiry = useCallback(
     (item: RaidItem) => {
-      const lang = langRef.current;
+      const lang = argsRef.current.lang;
       const byId = new Map(resources.map((r) => [r.id, r]));
       let email = resolveRaidOwnerEmail(item, byId);
       if (!email && isWriteSafeEmail(item.owner ?? "")) email = (item.owner ?? "").trim();
@@ -244,7 +232,7 @@ export function useRaidItems(args: UseRaidItemsArgs) {
       // and the bulk capture alike. This comment used to record the opposite
       // ("milestones deliberately still does NOT stamp"), which was true when
       // §181 closed and became false without anything flagging it.
-      if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid", stampField: "localModifiedAt" });
+      if (edits.length) argsRef.current.captureFieldRows({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid", stampField: "localModifiedAt" });
     },
     [setRaid],
   );

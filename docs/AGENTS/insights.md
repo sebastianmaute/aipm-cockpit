@@ -201,4 +201,15 @@ types through the validator was weighed and rejected.
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
   (see the `timelog-policy.ts` header). ★ All four measure `count` (violating days), never `worstHours`.
+- **Changing a detector — sweep for the tests the change INVALIDATES, repo-wide (§598).** Before the
+  change, not after the first red pipeline, run
+  `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx` (it prints five files today —
+  re-run it, do not trust a count) and label each hit DELETE / MIGRATE / RECOMPUTE. ★★ A sweep scoped to
+  `insights/` finds nothing that matters: `sample-workspace-budget.test.ts` is a BUDGET test by name and
+  by describe, yet its curated-insight comparison reads the live detector, and it is the file that went
+  red when §577 changed `budgetVarianceInsight`. ★★ CURATED SAMPLE DATA IS PART OF THE CLASS: the
+  insight rows in `sample-workspace-small.json` encode the detector's ANSWER, so any change to what a
+  detector computes (the figure, the threshold, the severity, the skip rule) can invalidate them, and the
+  `-big`/`-huge` samples are generated from that master (§597). Re-derive the comparison rather than
+  hand-editing one figure. See §577, §597, §598, §599.
 

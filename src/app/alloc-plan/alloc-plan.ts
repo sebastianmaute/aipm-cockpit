@@ -24,6 +24,7 @@ import {
   absenceWorkdays,
   absencesForResource,
   generatePeriods,
+  periodKeyForDate,
   workdaysInRange,
 } from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
@@ -637,6 +638,51 @@ export interface AllocationsSnapshot {
    *  the snapshot — a summary flag. Check each resource's own `truncated`
    *  to find out which one(s). */
   truncated: boolean;
+  /** Present ONLY when the call asked for a scope (§12) — an unscoped call's
+   *  output carries no `scope` key at all, so it is exactly what it was before
+   *  the filters existed. Echoes what was APPLIED, which is what lets the model
+   *  tell "no load in this scope" from "my filter was dropped". */
+  scope?: AllocationsScopeEcho;
+}
+
+/** The raw, UNTRUSTED scope off a `list_allocations` tool call. Every field is
+ *  `unknown` on purpose: `resolveAllocationsScope` is the only place that
+ *  validates it, and it needs the plan's granularity to read a period bound. */
+export interface AllocationsScopeInput {
+  resourceIds?: unknown;
+  periodFrom?: unknown;
+  periodTo?: unknown;
+}
+
+/** Longest `resourceIds` list the tool will read. A longer one is dropped whole
+ *  and named in `ignored` — it is not a scope any narrow question needs, and
+ *  reading it would only cost time. */
+export const ALLOC_SCOPE_MAX_RESOURCE_IDS = 1000;
+/** How many ids each echo list repeats back. The cell cap bounds the grid, but
+ *  the echo sits outside it, so it needs a bound of its own; the overflow is
+ *  reported as a count (`*NotEchoed`), never silently cut. */
+export const ALLOC_SCOPE_ECHO_MAX_IDS = 50;
+
+export interface AllocationsScopeEcho {
+  /** The resource filter applied, deduplicated, in the order given — the first
+   *  `ALLOC_SCOPE_ECHO_MAX_IDS` of it; `resourceIdsNotEchoed` counts the rest. */
+  resourceIds?: number[];
+  resourceIdsNotEchoed?: number;
+  /** Entries of `resourceIds` dropped as malformed (not an integer id) while
+   *  others survived. The filter applies to the survivors only. */
+  droppedResourceIdCount?: number;
+  /** The bounds applied, as period keys of the plan's granularity — a date the
+   *  model passed is reported as the period it falls in. */
+  periodFrom?: string;
+  periodTo?: string;
+  /** Requested ids that name no resource in the directory. They stay in the
+   *  filter (so they match nothing) and are reported rather than silently
+   *  widening the answer to everyone. Capped like `resourceIds`. */
+  unknownResourceIds?: number[];
+  unknownResourceIdsNotEchoed?: number;
+  /** Names of parameters dropped as malformed. A dropped parameter does NOT
+   *  filter, so the answer is wider than asked for along that axis. */
+  ignored?: string[];
 }
 
 export interface AllocationsSnapshotArgs {
@@ -645,6 +691,149 @@ export interface AllocationsSnapshotArgs {
   absences: readonly Absence[];
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+  /** Optional §12 scope. Absent → the whole grid, byte-for-byte as before. */
+  scope?: AllocationsScopeInput;
+}
+
+/**
+ * Picks the three scope fields off a raw tool input, or `undefined` when none
+ * of them is present — the `undefined` is what keeps an argument-less call on
+ * the unscoped path, with no `scope` echo in its output.
+ */
+export function pickAllocationsScope(input: Record<string, unknown>): AllocationsScopeInput | undefined {
+  const { resourceIds, periodFrom, periodTo } = input;
+  if (resourceIds === undefined && periodFrom === undefined && periodTo === undefined) return undefined;
+  return { resourceIds, periodFrom, periodTo };
+}
+
+const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const WEEK_KEY_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A period bound as a period key of `granularity`, or null when it is not one.
+ * Accepts a key of the plan's OWN granularity, or a real YYYY-MM-DD date, which
+ * is read as the period containing it. A key of the OTHER granularity is
+ * rejected rather than guessed at: a month bound on a weekly plan has no single
+ * week it means. Keys of one granularity sort chronologically as strings
+ * (zero-padded, ISO week-year first), which is what the range filter relies on.
+ */
+function periodBound(raw: unknown, granularity: ResourcePlan["granularity"]): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if ((granularity === "month" ? MONTH_KEY_RE : WEEK_KEY_RE).test(s)) return s;
+  if (!ISO_DATE_RE.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  // Round-trip, so an impossible date (2026-02-30) is malformed, not rolled over.
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return null;
+  return periodKeyForDate(s, granularity);
+}
+
+interface ResolvedAllocationsScope {
+  resourceIds: ReadonlySet<number> | null;
+  periodFrom: string | null;
+  periodTo: string | null;
+  echo: AllocationsScopeEcho;
+}
+
+const DECIMAL_ID_RE = /^-?\d+$/;
+
+/**
+ * One resource id, parsed STRICTLY: a safe integer given as a number, or as a
+ * string of decimal digits (optional leading minus, surrounding blanks
+ * trimmed). `Number()` alone would also read "0x10" as 16, "1e0" as 1 and ""
+ * as 0 — each a real-looking id the model never meant. `-0` (number or "-0")
+ * is read as id 0: no normalisation is needed here, because the `Set` the
+ * caller builds stores -0 as +0 (SameValueZero), and the echo is read off it.
+ */
+function parseResourceId(v: unknown): number | null {
+  let n = Number.NaN;
+  if (typeof v === "number") n = v;
+  else if (typeof v === "string" && DECIMAL_ID_RE.test(v.trim())) n = Number(v.trim());
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+/** The first `ALLOC_SCOPE_ECHO_MAX_IDS` of `ids` into `echo[key]`, and the
+ *  count of the rest into `echo[overflowKey]`. */
+function echoIds(
+  echo: AllocationsScopeEcho,
+  key: "resourceIds" | "unknownResourceIds",
+  overflowKey: "resourceIdsNotEchoed" | "unknownResourceIdsNotEchoed",
+  ids: readonly number[],
+): void {
+  echo[key] = ids.slice(0, ALLOC_SCOPE_ECHO_MAX_IDS);
+  if (ids.length > ALLOC_SCOPE_ECHO_MAX_IDS) echo[overflowKey] = ids.length - ALLOC_SCOPE_ECHO_MAX_IDS;
+}
+
+/**
+ * The resource half of the scope. Returns the filter, or null for "no
+ * filter" — which is what a dropped parameter means, so every null path but
+ * an absent one is named in `ignored`. An EMPTY array is dropped too: read as
+ * a filter it would match nothing, read as no filter it would silently widen
+ * to everyone; naming it is the only reading that cannot mislead.
+ */
+function resolveResourceIds(
+  raw: unknown,
+  resources: readonly Resource[],
+  echo: AllocationsScopeEcho,
+  ignored: string[],
+): Set<number> | null {
+  if (raw === undefined) return null;
+  if (!Array.isArray(raw) || raw.length > ALLOC_SCOPE_MAX_RESOURCE_IDS) {
+    ignored.push("resourceIds");
+    return null;
+  }
+  const ids: number[] = [];
+  for (const v of raw) {
+    const id = parseResourceId(v);
+    if (id !== null) ids.push(id);
+  }
+  // An empty list lands here too, with nothing usable in it.
+  if (ids.length === 0) {
+    ignored.push("resourceIds");
+    return null;
+  }
+  if (ids.length < raw.length) echo.droppedResourceIdCount = raw.length - ids.length;
+  const filter = new Set(ids);
+  const applied = [...filter];
+  echoIds(echo, "resourceIds", "resourceIdsNotEchoed", applied);
+  const known = new Set(resources.map((r) => r.id));
+  const unknown = applied.filter((id) => !known.has(id));
+  if (unknown.length > 0) echoIds(echo, "unknownResourceIds", "unknownResourceIdsNotEchoed", unknown);
+  return filter;
+}
+
+/**
+ * Validates an untrusted scope. Coerce-or-drop like `search_history`: a
+ * malformed parameter never throws, it is dropped. UNLIKE `search_history`,
+ * which drops silently, a dropped parameter here is NAMED in `echo.ignored`
+ * (and dropped list entries are counted), so the model can tell a narrowed
+ * answer from a widened one. A reversed range is honoured as given and
+ * matches no period, as a reversed `search_history` range matches no event —
+ * never silently swapped.
+ */
+function resolveAllocationsScope(
+  scope: AllocationsScopeInput,
+  resources: readonly Resource[],
+  granularity: ResourcePlan["granularity"],
+): ResolvedAllocationsScope {
+  const echo: AllocationsScopeEcho = {};
+  const ignored: string[] = [];
+
+  const resourceIds = resolveResourceIds(scope.resourceIds, resources, echo, ignored);
+
+  const bound = (name: "periodFrom" | "periodTo"): string | null => {
+    if (scope[name] === undefined) return null;
+    const key = periodBound(scope[name], granularity);
+    if (key === null) ignored.push(name);
+    else echo[name] = key;
+    return key;
+  };
+  const periodFrom = bound("periodFrom");
+  const periodTo = bound("periodTo");
+
+  if (ignored.length > 0) echo.ignored = ignored;
+  return { resourceIds, periodFrom, periodTo, echo };
 }
 
 /**
@@ -668,15 +857,33 @@ export interface AllocationsSnapshotArgs {
  * `availableCapacityHours` (see its doc comment) — NEVER `periodCapacityHours`,
  * which multiplies by the resource's OWN stored utilization and would answer
  * "hours already allocated" instead of "hours available".
+ *
+ * With a `scope` (§12), "every resource" and "every period" mean every one IN
+ * SCOPE: `resources` and `periods` are both narrowed, so an empty `cells` with
+ * `truncated: false` means "no load in this scope", and the `scope` echo says
+ * what that scope was.
  */
 export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): AllocationsSnapshot {
   const { resources, plan, absences, workdayHours, holidaySet } = args;
-  const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+  const allPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+
+  // ★ The scope filters BEFORE the cell cap is spent (§12). That is the whole
+  //   point: a narrow question must not queue behind every other resource's
+  //   cells and come back `truncated` — it gets the full cap to itself.
+  const scope = args.scope ? resolveAllocationsScope(args.scope, resources, plan.granularity) : null;
+  const periods = scope
+    ? allPeriods.filter(
+        (p) =>
+          (scope.periodFrom === null || p.key >= scope.periodFrom) &&
+          (scope.periodTo === null || p.key <= scope.periodTo),
+      )
+    : allPeriods;
+  const scopedResources = scope?.resourceIds ? resources.filter((r) => scope.resourceIds?.has(r.id)) : resources;
 
   let emitted = 0;
   let truncated = false;
 
-  const snapshotResources: AllocationsSnapshotResource[] = resources.map((r) => {
+  const snapshotResources: AllocationsSnapshotResource[] = scopedResources.map((r) => {
     const resourceAbsences = absencesForResource(absences, r);
     const cells: AllocationsSnapshotCell[] = [];
     let resourceTruncated = false;
@@ -710,5 +917,20 @@ export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): Allocat
     periods: periods.map((p) => p.key),
     resources: snapshotResources,
     truncated,
+    ...(scope ? { scope: scope.echo } : {}),
   };
+}
+
+/**
+ * The `getAllocationsSnapshot` getter `task-manager.tsx` hands the chat
+ * dispatcher: live render-scope inputs bound, the tool call's scope forwarded.
+ * Extracted so the scope hop is pinned by a unit test — inlined in the
+ * orchestrator, dropping `scope` there type-checked and passed every test
+ * while turning every scoped call back into the full dump (§12). Build it
+ * per render, un-memoized, exactly as the inline arrow was.
+ */
+export function makeAllocationsSnapshotGetter(
+  inputs: Omit<AllocationsSnapshotArgs, "scope">,
+): (scope?: AllocationsScopeInput) => AllocationsSnapshot {
+  return (scope) => buildAllocationsSnapshot({ ...inputs, scope });
 }

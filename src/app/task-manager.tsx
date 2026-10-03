@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
-import { buildAllocationsSnapshot, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t, tPlural } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -215,9 +215,9 @@ function TaskManagerInner() {
   // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused, but the AI's entity update, delete and RAID-escalate tool writes DO capture (through the dispatcher's `undo` prop below); creates, document writes, `send_inquiry` (bumps `Task.inquiriesSent`) and `update_settings` / `set_language` / `set_filters` do not.
   // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
   // it does not exist at this call site. Forward it through a ref filled by the
-  // effect below — the same pattern `use-reference-data.ts` uses for THIS VERY
-  // callback (`allowDestructiveRef.current = args.allowDestructiveSave`, spent at
-  // `allowDestructiveRef.current?.()`), and `use-bulk-operations.ts` and
+  // effect below — the same shape `use-reference-data.ts` uses for THIS VERY
+  // callback (one `argsRef` mirroring its whole args bag after every commit,
+  // spent at `argsRef.current.allowDestructiveSave?.()`), and `use-bulk-operations.ts` and
   // `use-document-assets.ts` use for the same one. Moving the `useUndoStack` call
   // down instead would also move `useUndoHotkey`'s listener registration relative
   // to the other hotkey hooks.
@@ -2106,16 +2106,17 @@ function TaskManagerInner() {
     ).project;
   };
 
-  // Deliberately NOT memoized: this runs only when the assistant calls
-  // list_allocations, so an unused read tool costs nothing per render.
-  const getAllocationsSnapshot = (): AllocationsSnapshot =>
-    buildAllocationsSnapshot({
-      resources,
-      plan,
-      absences,
-      workdayHours: settings.resources.workdayHours,
-      holidaySet,
-    });
+  // Deliberately NOT memoized: the snapshot is built only when the assistant
+  // calls list_allocations, so an unused read tool costs nothing per render.
+  // The factory forwards the call's §12 scope — see its docstring for why it
+  // is not an inline arrow.
+  const getAllocationsSnapshot = makeAllocationsSnapshotGetter({
+    resources,
+    plan,
+    absences,
+    workdayHours: settings.resources.workdayHours,
+    holidaySet,
+  });
 
   const dispatcher = useChatDispatcher({
     settings,

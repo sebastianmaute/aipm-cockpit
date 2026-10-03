@@ -189,6 +189,28 @@ describe("sanitizeDocumentHtml", () => {
     expect(out).not.toContain("src=");
   });
 
+  it("drops a data: src on an img, which DOMPurify's DATA_URI_TAGS would otherwise keep (§117c)", () => {
+    // ★★★ THE GUARD FOR THE DAY SOMEONE ADDS `src` TO DOCUMENT_ALLOWED_ATTR. `img` is
+    // in DOMPurify's default DATA_URI_TAGS, whose short-circuit runs BEFORE
+    // ALLOWED_URI_REGEXP, so with `src` allow-listed a `data:image/svg+xml` (script
+    // capable) or `data:text/html` image survives while the identical `data:` on an
+    // `<a href>` is dropped. A https src is asserted above; the `data:` forms are
+    // the ones that bypass the URI allow-list and need their own pin. Widening
+    // ALLOWED_URI_REGEXP does nothing here — constrain DATA_URI_TAGS/FORBID_ATTR.
+    for (const src of [
+      "data:image/svg+xml;base64,PHN2Zy8+",
+      "data:text/html;base64,PHNjcmlwdD4=",
+      "data:image/png;base64,iVBORw0KGgo=",
+    ]) {
+      const out = sanitizeDocumentHtml(`<p><img data-asset-id="7" src="${src}" alt="a"></p>`);
+      expect(out, src).not.toContain("src=");
+      expect(out, src).not.toContain("data:");
+      // The control: the reference itself must still survive, or "no src" is
+      // satisfied by the whole image having been stripped.
+      expect(out, src).toContain('data-asset-id="7"');
+    }
+  });
+
   it("drops a data-* attribute that is not on the allow-list", () => {
     // ★★ The pin for ALLOW_DATA_ATTR:false. DOMPurify defaults that flag to TRUE
     // and its data-* branch short-circuits before the name test, so WITHOUT the

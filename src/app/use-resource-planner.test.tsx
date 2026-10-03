@@ -1796,3 +1796,58 @@ describe("handleSaveRaidItem — returns the committed id (§515)", () => {
     expect(showToast).toHaveBeenCalled();
   });
 });
+
+// §61 (c) — the planner and its three sub-hooks each read their args through ONE
+// `argsRef` mirrored after every commit, instead of a hand-rolled ref per arg. A
+// handler run after a re-render must reach the CURRENT callback, not the one the
+// hook mounted with — one handler per hook, so dropping any one mirror goes red.
+describe("argsRef mirrors the latest args after a re-render (§61 (c))", () => {
+  beforeEach(() => {
+    __resetMintStateForTests();
+  });
+
+  it("each hook logs through the logActivity passed on the LATEST render", () => {
+    const firstLog = vi.fn();
+    const latestLog = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ logActivity }: { logActivity: UseResourcePlannerArgs["logActivity"] }) => ({
+        planner: useResourcePlanner(makeArgs({ logActivity })),
+        workspace: useWorkspace(),
+      }),
+      {
+        initialProps: { logActivity: firstLog },
+        wrapper: ({ children }) => (
+          <FiltersProvider>
+            <WorkspaceProvider>{children}</WorkspaceProvider>
+          </FiltersProvider>
+        ),
+      },
+    );
+    rerender({ logActivity: latestLog });
+
+    // useResourcePlanner itself
+    act(() => { result.current.planner.handleSaveShift({ id: 1, assignee: "Bob", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0] }); });
+    // useResourceDirectory
+    act(() => {
+      result.current.planner.handleSaveResource({
+        id: 1, firstName: "Nora", lastName: "Ito", roleId: null, utilizationMode: "percent", utilization: {},
+      });
+    });
+    // useReferenceData
+    act(() => { result.current.planner.resolveOrCreateRole(1, 2); });
+    // useRaidItems
+    act(() => {
+      result.current.planner.handleSaveRaidItem({
+        id: 1, category: "R", title: "Budget risk", description: "May overspend",
+        severity: "High", status: "Open", owner: "Alice", ownerEmail: "alice@test.com",
+        mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+        raisedDate: "2026-05-20", targetDate: undefined, localModifiedAt: "2026-05-20T00:00:00.000Z",
+      });
+    });
+
+    expect(firstLog).not.toHaveBeenCalled();
+    expect(latestLog.mock.calls.map((c) => c[0])).toEqual([
+      "shift.created", "resource.created", "role.created", "raid.created",
+    ]);
+  });
+});

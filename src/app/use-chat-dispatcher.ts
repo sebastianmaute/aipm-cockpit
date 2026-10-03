@@ -936,7 +936,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           clockRef.current.today,
         ),
 
-      listAllocations: () => getAllocationsSnapshotRef.current(),
+      listAllocations: (scope) => getAllocationsSnapshotRef.current(scope),
 
       listKnowledgeItems: () => (knowledgeItemsRef.current ?? []).map(toKnowledgeSummary),
       // ★★ `listCalendarEvents` MOVED to use-register-tools.ts (reached through

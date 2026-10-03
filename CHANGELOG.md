@@ -10,8 +10,19 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **INR budget currency (§477).** Indian rupee is now a supported budget and plan currency
+  alongside EUR, USD and GBP.
+- **Scoped `list_allocations` in the AI assistant (§12).** The tool takes optional `resourceIds`,
+  `periodFrom` and `periodTo` filters, applied before the 200-cell cap, and echoes the scope it
+  applied in its answer.
+
 ### Notes
 
+- **INR budget currency (§477).** An older build (1.14.3 or earlier) does not know INR. It loads
+  an INR bucket or plan as EUR with the same number, and its next save stores it that way. Update
+  every client that shares a project, especially a Turso one, before using INR.
 - **End-to-end contract type (§488).** A budget bucket can now be "end-to-end": a fixed-price
   contract under end-to-end responsibility. An older build does not know the type and reads such
   a bucket as time-and-material, and its next save stores it that way. Open a project that uses

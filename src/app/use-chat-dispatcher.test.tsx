@@ -5,7 +5,7 @@ import { asTimeZoneForTests, createProjectClock } from "./timezone";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
-import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useChatDispatcher, type ChatDispatcherArgs } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
 import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
@@ -4303,5 +4303,62 @@ describe("the email write rule on AI writers (spec Part 1)", () => {
       result.current.d.updateAbsence(id, { assigneeEmail: "a,b@x.com", note: "updated" });
     });
     expect(result.current.d.getAbsenceRow(id)).toMatchObject({ note: "updated", assigneeEmail: "a,b@x.com" });
+  });
+});
+
+// ★★ §12 — the dispatcher hop of the scope. `getAllocationsSnapshot`'s `scope`
+// parameter is OPTIONAL, so a `listAllocations: () => ref.current()` drops it
+// with tsc green, and every other fixture in this file stubs the getter with a
+// throw, so nothing else here would notice. Driven through `runTool`, so the
+// handler hop is in the path too.
+describe("list_allocations scope reaches the snapshot getter (§12)", () => {
+  const snapshot: AllocationsSnapshot = {
+    planStartDate: "2026-08-01",
+    planEndDate: "2026-09-30",
+    granularity: "month",
+    periods: [],
+    resources: [],
+    truncated: false,
+  };
+
+  function renderWithGetter(getAllocationsSnapshot: ChatDispatcherArgs["getAllocationsSnapshot"]) {
+    const wrapper = ({ children }: { children: ReactNode }) => <TestProviders>{children}</TestProviders>;
+    return renderHook(
+      () =>
+        useChatDispatcher({
+          settings: makeSettings(),
+          clock: testClock("2026-05-19", "UTC"),
+          setSelectedIds: vi.fn(),
+          setSettings: vi.fn(),
+          isReadOnly: false,
+          currentView: "resources",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot, undo: stubUndo(),
+        }),
+      { wrapper },
+    );
+  }
+
+  it("forwards a scoped call's filters to getAllocationsSnapshot", async () => {
+    const getter = vi.fn(() => snapshot);
+    const { result } = renderWithGetter(getter);
+
+    await expect(
+      runTool(result.current, "list_allocations", { resourceIds: [3], periodFrom: "2026-08", periodTo: "2026-09" }),
+    ).resolves.toBe(snapshot);
+
+    expect(getter).toHaveBeenCalledTimes(1);
+    expect(getter).toHaveBeenCalledWith({ resourceIds: [3], periodFrom: "2026-08", periodTo: "2026-09" });
+  });
+
+  it("calls getAllocationsSnapshot with no scope for an argument-less call", async () => {
+    const getter = vi.fn(() => snapshot);
+    const { result } = renderWithGetter(getter);
+
+    await runTool(result.current, "list_allocations", {});
+
+    expect(getter).toHaveBeenCalledWith(undefined);
   });
 });

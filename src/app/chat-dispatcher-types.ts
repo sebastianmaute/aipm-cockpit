@@ -8,7 +8,7 @@ import type { ProjectClock } from "./timezone";
 import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
-import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import { type AllocationsScopeInput, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 
 export interface ChatDispatcherArgs {
@@ -74,8 +74,10 @@ export interface ChatDispatcherArgs {
    *  unused read tool costs nothing per render. */
   getBudgetRollup: () => ProjectReport | null;
   /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
-   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
-  getAllocationsSnapshot: () => AllocationsSnapshot;
+   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. `scope` is the
+   *  tool call's raw, unvalidated filter (§12); `buildAllocationsSnapshot`
+   *  validates it. */
+  getAllocationsSnapshot: (scope?: AllocationsScopeInput) => AllocationsSnapshot;
   /** Threaded from task-manager's `useActivityLog()`, NOT minted here — a second
    *  `useActivityLog()` call would be an independent state instance, so its rows
    *  would be written and never appear in the Activity panel (which renders

@@ -360,9 +360,7 @@ describe("document-asset-patterns — differential against a real HTML parser", 
  *   because `TAG` (`rich-text-plain.ts`) consumes the whole thing as a single
  *   match. That is what makes the quadratic reachable rather than theoretical,
  *   and a timing suite built only from `"<img".repeat(n)` would have said the
- *   shipped regression was fine. ("one huge tag" projects to zero as well, so
- *   the entries reachable THROUGH the short-circuit are the first and the
- *   last-but-one, not the first alone.)
+ *   shipped regression was fine.
  *  ★★★ READ THAT AS "WHICH FAMILY REACHES THE PREDICATE", NOT "WHICH FAMILY
  *   MATTERS" — the difference decides whether the other three look prunable,
  *   and they are not. Only `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE` run
@@ -388,7 +386,13 @@ const ADVERSARIAL: ReadonlyArray<
   ["<img alt= repeated", (n) => "<img alt=".repeat(Math.round(n / 9))],
   // ★★ 128 KB large for the same reason as "<img repeated".
   ["<a repeated", (n) => "<a".repeat(Math.round(n / 2)), 128 * 1024],
-  ["one huge tag", (n) => `<img alt="${"a".repeat(n)}" x=1>`],
+  // ★★ NO "one huge tag" ROW (`<img alt="aaa…" x=1>`) — it was deleted (§594)
+  // because no mutant could turn it red: the predicate widened to `[^>]*`,
+  // ANY_TAG's tag-name class widened, and IMG_TAG without its §253 guard all
+  // stayed linear on it (ratios 3.9–4.1 against a limit of 8), and no commit
+  // names a regression it was meant to catch. A guard that has never had a
+  // demonstrated kill certifies nothing. Do not restore it without a mutant
+  // that turns it red; the quadratic shapes that DO have one are the rows here.
   // ★★★ THE ONLY FAMILY THAT CARRIES THE ATTRIBUTE, AND THE ONLY ONE SIZED TO
   //  A CAP RATHER THAN TO `BYTES`. Every family above stresses the ANCHOR, so
   //  all three patterns bail at or near it and `IMG_TAG_ASSET_ID_RE`'s
@@ -472,10 +476,8 @@ describe("document-asset-patterns — complexity", () => {
   //     predicate mutant (loops 32)
   //   <a repeated  n 32 KB  green 3.83–3.99, 16.41 (44 s to fail) with the tag-name
   //     mutant (loops 512)
-  //   one huge tag  n 64 KB  green 3.96–4.04 (loops 128). ★★ NO
-  //     MUTANT TURNS THIS ROW RED: the three mutants above and IMG_TAG without
-  //     its §253 guard all stay linear on it. It is recorded as unproven rather
-  //     than claimed as covered.
+  //   (a "one huge tag" row sat here, green 3.96–4.04, and was deleted — §594;
+  //     see the note in ADVERSARIAL.)
   //   <img with N data-asset-id, unterminated  n 5,000  green 3.92–4.01,
   //     17.06 with IMG_TAG's §253 guard deleted (3faa3932b) (loops 1,024–2,048)
   const BYTES = 256 * 1024;
