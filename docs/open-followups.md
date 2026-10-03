@@ -348,7 +348,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
 | [§115](#115-one-of-the-two-sanitizers-admits-arbitrary-data---closed-2026-08-13-by-140) | One of the two sanitizers admits arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | **CLOSED** 2026-08-13 by §140 |
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
-| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
+| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-pinned-by-a-guard-test--closed-2026-10-03) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) pinned by a guard test | measured 2026-08-08 during the S3a review, all three inert today | M | **CLOSED** 2026-10-03 |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--closed-2026-09-01) | ~~`<a href>` is dropped by both OOXML renderers~~ | pre-existing, confirmed 2026-08-08 during the S3a review | S | **CLOSED** 2026-09-01 |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
@@ -418,7 +418,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
 | [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
-| [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
+| [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned--closed-2026-10-03) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | **CLOSED** 2026-10-03 |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes--closed-2026-10-02) | A block refusal notice outlives the attempt it describes | — | — | **CLOSED** 2026-10-02 |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
@@ -9755,11 +9755,11 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ---
 
-## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open
+## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) pinned by a guard test — CLOSED 2026-10-03
 
-**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
+**Status:** CLOSED 2026-10-03 — (a) and (b) were already fixed; (c) was an inert prerequisite (no `src` on the document allow-list), now pinned: a `sanitize-html.test.ts` test feeds `data:image/svg+xml`, `data:text/html` and `data:image/png` image sources through `sanitizeDocumentHtml` and asserts no `src=` survives while `data-asset-id` does. Mutation-checked: adding `src` to `DOCUMENT_ALLOWED_ATTR` turns it red (and the existing https-src test with it); restored. Whoever ships image `src` must constrain `DATA_URI_TAGS`/`FORBID_ATTR` and will have to change that test deliberately.
 
-**Work item:** #145
+**Original status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -16062,12 +16062,12 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names only the replace rejection. `applyOps` emits the same untranslated shape for delete and move too, so three strings reach that banner and a fix mapping only replace would leave two behind. Reproduced by `grep -rn "was changed by another writer" src/app --include=*.ts`.
 
-## 187. `useDocumentTools` has no test file, and one guard there is unpinned
+## 187. `useDocumentTools` has no test file, and one guard there is unpinned — CLOSED 2026-10-03
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-03 — `src/app/use-document-tools.test.ts` now exists: with a `mutateDocuments` spy it asserts `expect` is stripped from AI `delete`, `replace` and `replaceAll` ops, and that `useDocumentEditor.commitBlock` still threads `expect` into its guarded `replace`. Mutation-checked: replacing the strip in `keepOp` with a no-op turns 3 of the 4 tests red (the `expect` key is still present); restored.
+
+**Original status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #176
 
 ★ Correction 2026-08-21: `document_ops` never existed — `grep -rn "document_ops" src scripts e2e` finds
 nothing outside this entry. Earlier text here used that name as shorthand for the per-op item schema.
