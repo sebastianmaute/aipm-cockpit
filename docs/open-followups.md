@@ -38179,7 +38179,7 @@ Size S–M.
 
 ## 498. The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
+**Status:** **Update 2026-10-03:** the manual smoke is now documented — `docs/RUNBOOK.md` "Microsoft 365 sign-in smoke (manual)" (sign in, one Graph read, reload, sign out, console clean; browser AND packaged desktop), required on every `@azure/msal-browser` bump by CONTRIBUTING's Dependencies section. Still owed: a first real run against a tenant, recorded here (date, app version, msal version, browser or desktop); keep this entry open until then. A CI tenant with a gated e2e stays unscoped. OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
 and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms-auth.test.tsx`,
 `msal-redirect/page.test.tsx`). MSAL is exercised only in unit tests.
 
