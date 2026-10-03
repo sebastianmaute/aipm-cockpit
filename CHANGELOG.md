@@ -67,9 +67,9 @@ Notes.
 - **Undo labels (§132).** An edit of several unnamed rows is labelled "Edit 3 tasks" rather than
   "Edited 3 items".
 - **Dark-theme text (§40).** Text colours that had a single mode now have dark companions.
-- **Change decision maker (§446).** A change's "Decided by" field is now "Decision maker" and
-  can name the person at any status, before the decision is made. Its hint and the AI
-  assistant's tool description say so.
+- **Change decision maker (§446).** A change's "Decided by" field is now labelled "Decision
+  maker", and its hint and the AI assistant's tool description say it may be named at any
+  status, before the decision is made.
 
 ### Fixed
 
@@ -105,9 +105,10 @@ Notes.
   date is coerced field by field on load.
 - **AI assistant (§440, §350, §173, §174).** Create cards list every field and say which were
   refused. An insight recommendation snapshots the items it is based on, so an edit made while
-  the model answers is refused at confirm instead of being overwritten. While the chat history
-  is still loading, or after it failed to load, the assistant is told it cannot look rather
-  than that nothing was discussed.
+  the model answers is refused at confirm instead of being overwritten. After the chat history
+  failed to load, the assistant is no longer pointed at earlier conversations it cannot search
+  (§173). While the history is still loading, it is told it cannot look instead of being told
+  that nothing was discussed (§174).
 - **Accessibility (§331, §147).** One-of-N groups have real radio semantics, and read-only
   checklist items read as "checked" or "not checked" ("abgehakt" / "nicht abgehakt") to screen
   readers, in the app and in the standalone HTML and PDF export.
@@ -120,8 +121,8 @@ Notes.
 - **Jira module download.** A failed download of the Jira module no longer leaves Jira settings
   and sync broken until reload; it retries on the next use. Jira settings, a sync and resolving
   sync conflicts show a message that says the module could not be loaded (settings used to show
-  the raw browser error; sync showed nothing), and a user-search
-  response can no longer overwrite a newer search or refill the list after the search ended.
+  the raw browser error; sync showed nothing), and a user-search response can no longer
+  overwrite a newer search or refill the list after the search ended.
 - **Push to Jira.** A failed download of the Jira module during "Push to Jira" no longer leaves
   that task stuck as pushing until reload; it shows a message and the next push tries again.
 
