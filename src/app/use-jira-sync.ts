@@ -10,15 +10,16 @@ import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
+import { lazyRetryOnReject } from "./lazy-retry";
 import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
 type JiraApiModule = typeof import("./jira-api");
-let jiraApiPromise: Promise<JiraApiModule> | null = null;
+// A rejected import (chunk-download failure) is NOT cached — the next call retries.
+const loadJiraApiOnce = lazyRetryOnReject<JiraApiModule>(() => import("./jira-api"));
 export function loadJiraApi(): Promise<JiraApiModule> {
-  if (!jiraApiPromise) { jiraApiPromise = import("./jira-api"); }
-  return jiraApiPromise;
+  return loadJiraApiOnce();
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
