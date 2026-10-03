@@ -200,9 +200,9 @@ export function BudgetReportPanel({
                   `money` helper above already hardcodes EUR for the cost/EVM tiles,
                   which are rate-derived in exactly the same way — this chart was the
                   one figure in the file still labelled otherwise (open-followups
-                  §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
-                  convert EUR→bucket currency BEFORE labelling and so correctly use
-                  the bucket's own currency.
+                  §465). ★ Contrast the Budget view's per-bucket tiles
+                  (`budget-panel-bucket-card.tsx`), which convert EUR→bucket currency
+                  BEFORE labelling and so correctly use the bucket's own currency.
                   The change table is DETACHED: at 70% of even a wide viewport the
                   chart is near its 640px floor, so the panel's `2xl` side-by-side
                   placement is unreachable here, and the table goes full width

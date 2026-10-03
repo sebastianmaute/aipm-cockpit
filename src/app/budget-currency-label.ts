@@ -2,7 +2,7 @@ import { type Lang, t } from "./i18n";
 import type { RateSource } from "./fx";
 
 /**
- * The `(×rate)` suffix budget-panel.tsx and budget-report-panel.tsx both
+ * The `(×rate)` suffix budget-panel-bucket-card.tsx and budget-report-panel.tsx both
  * append after a bucket's currency code. Shared so the two surfaces cannot
  * disagree about when §474's UNRESOLVED marker fires — `rate !== 1` alone
  * cannot tell a genuinely resolved rate of 1 apart from a rateless non-EUR

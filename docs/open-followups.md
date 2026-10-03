@@ -505,7 +505,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-31 |
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
-| [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
+| [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting--closed-2026-10-03) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | **CLOSED** 2026-10-03 |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | **CLOSED** 2026-10-01 |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
@@ -5480,8 +5480,8 @@ occurrences in 6 files**, and all six render their tables through the marked she
 `timelog-people-table` · `timelog-projects-table`. Reproduce with
 `grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"` —
 deliberately no line numbers, because the first revision of this entry cited two that the very
-commit writing it had already invalidated (it named `budget-panel.tsx:567`/`:599`; the rows had moved
-to `:589`/`:621` before the commit landed, and they were `:654`/`:684` at its base). Only budget's two
+commit writing it had already invalidated (it named lines 567 and 599 of `budget-panel.tsx`; the rows had moved
+to 589 and 621 before the commit landed, and they were 654 and 684 at its base). Only budget's two
 were verified in a browser; the other six share the mechanism but were not individually confirmed.
 ★ `learning-insights.tsx:72` additionally sets an explicit `border-collapse` Tailwind utility on the
 table, which reads as if it opts back into the collapsed model — it does not, because the
@@ -10277,10 +10277,10 @@ divergence is created by giving them a source at all.
 Two numbers are now stacked vertically in the same table, both called booked/actual, and they come
 from different places:
 
-* **The role row** (`budget-panel.tsx:663`) renders `a.actualHours[p.key]` — PERSISTED workspace
+* **The role row** (the `HoursTd` cells in `BudgetBucketCard`, `budget-panel-bucket-card.tsx`) renders `a.actualHours[p.key]` — PERSISTED workspace
   data on the `BucketAllocation`. It is written only when a user runs Apply in the Timelog panel
   (`timelog-apply.ts:281` `applyActualsToBuckets`), and it is HAND-EDITABLE in the cell.
-* **The people rows beneath it** (`budget-panel.tsx:678` → `budget-bucket-people.ts:67`) render the
+* **The people rows beneath it** (`BucketRolePeople` in the same card → `budget-bucket-people.ts:67`) render the
   per-resource breakdown from the PER-DEVICE Timelog cache, read at
   `workspace-section.tsx:247` (`loadActualsCache(projectId)?.aggregates?.byBucket`) and written by
   every fetch (`use-timelog-sync.ts:219` `saveActualsCache`). Apply never touches it; nobody can
@@ -23610,13 +23610,13 @@ exactly the ones the user has already filtered or scrolled away from.
 of the code reaches it without finding this entry. That is deliberate — the register is the backup
 copy here, not the primary one.
 
-## 274. `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting
+## 274. `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting — CLOSED 2026-10-03
 
-**Status:** open. Filed 2026-08-28 while closing
+**Status:** CLOSED 2026-10-03. The map body is now `BudgetBucketCard` in `budget-panel-bucket-card.tsx`, and the panel renders one per visible bucket. The card is pure presentational: its roughly thirty inputs are explicit props, not the panel's props bag, and its edit handlers arrive as `on*` callbacks. The two token maps stay built in the panel, which holds the list (§262), and the card receives `bucketToken` and `roleTokens`. The moved body is unchanged apart from those renames, and `cpiCciValue` and `sumPeriods` moved with it. Measured with the reproduce below on 2026-10-03: the panel went from 843 lines to 495 and the card is 463. All 41 budget test files (817 tests) pass with no test edited. `docs/AGENTS/budget.md`'s module map and five source comments that named the panel as the home of the moved code now name the card.
+
+**Original status:** open. Filed 2026-08-28 while closing
 [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28), whose headroom objection was
 retired by `803b134f` (`budget-panel-cards.tsx`) without touching the largest block in the file. Never machine-verified by a committed probe.
-
-**Work item:** #215
 
 AGENTS.md's Phase-3 "Panel split (gantt pattern)" convention says a panel crossing ~700 lines splits
 into orchestrator + `*-rows` + `*-toolbar` (+ a `*-columns` leaf), rows and toolbar PURE
