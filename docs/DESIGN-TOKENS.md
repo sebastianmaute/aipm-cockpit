@@ -93,6 +93,11 @@ Components never reference a scheme's hex values directly — use the role.
   active/selected indicators, links, positive states.
 - **No drop shadows, no gradients.** Remove every `shadow-*` and
   `bg-gradient`/`from-`/`via-`/`to-`. Use `border border-line` for separation.
+- **One-mode text tokens need a dark companion.** `--ui-dark-blue` is near-black navy in every dark
+  scheme and `--ui-purple` sits under AA there, so `text-ui-dark-blue` takes `dark:text-ui-light-grey`
+  and `text-ui-purple` takes `dark:text-ui-purple-strong` — at the SAME variant level (`hover:` needs
+  `dark:hover:`), on the same line. `dark-companion.guard.test.ts` enforces it; the reasoning is in
+  [`docs/AGENTS/theming.md`](AGENTS/theming.md).
 - **Status mapping:** red→`ui-pink`, amber/warning/medium→`ui-purple`,
   info/vacation→`ui-blue`, holiday/differentiation→`ui-purple`,
   done/low→`ui-green`. Soft backgrounds use alpha tints (e.g. `bg-ui-pink/10`).
