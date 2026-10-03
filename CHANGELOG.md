@@ -10,6 +10,33 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-10-03 "Cornwell"
+
+A patch release for Jira sync. Switching project while a sync or a conflict resolution is still
+running no longer writes the previous project's tasks into the new one, sync and resolution can
+no longer run at the same time, and the sync buttons show progress while the Jira module
+downloads.
+
+### Fixed
+
+- **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
+  waiting on Jira when you switched project went on to write the previous project's tasks, status
+  changes and sync conflicts into the project you switched to. It now drops its result instead.
+  Conflicts left over from the previous project are dropped when you apply them, and nothing is
+  pushed to Jira for them.
+- **Sync during a conflict resolution.** "Sync with Jira" and "Apply choices" in the sync
+  conflicts window no longer run at the same time: whichever starts second does nothing. Before, a
+  sync started during a resolution could have its new conflicts cleared when the resolution
+  finished. While a resolution runs, the conflicts window cannot be closed and its "Defer (resolve
+  later)" button is disabled.
+- **Sync progress during the module download.** Both "Sync with Jira" buttons show "Syncing…" and
+  are disabled from the click, including while the Jira module is still downloading. A failed
+  download still turns them back on.
+- **A failing Jira query.** An error while building the Jira search query from the settings now
+  ends the sync with an error message instead of an unhandled error and no message. This changed
+  in 1.15.0 without a note. The message shown is the "Couldn't reach Jira" one, which names the
+  connection rather than the settings.
+
 ## [1.15.0] - 2026-10-03 "Cornwell"
 
 A feature release. Indian rupee (INR) is now a supported budget and plan currency, a task's

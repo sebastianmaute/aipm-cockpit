@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.15.0 "Cornwell" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.15.1 "Cornwell" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
