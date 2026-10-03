@@ -22,8 +22,8 @@
  *
  * ---------------------------------------------------------------------------
  * jsdom landmine (read before touching the import order below): decoding via
- * `jsonToWorkspace` (re-exported by ../src/app/storage from workspace.ts)
- * re-sanitizes every task/RAID noteLog + description through
+ * `jsonToWorkspace` (workspace.ts, reached through
+ * ../src/app/sample-workspace-variants, which imports it) re-sanitizes every task/RAID noteLog + description through
  * sanitizeNoteFields -> sanitizeRichHtml -> DOMPurify (sanitize-html.ts).
  * DOMPurify binds its `window` ONCE, at the moment the "dompurify" package
  * is first imported (module-eval time, not per-call) — under bare Node
@@ -33,7 +33,8 @@
  * JSON with no error.
  *
  * We avoid this by installing a minimal jsdom window/document as globals
- * BEFORE "../src/app/storage" (and its DOMPurify dependency) is first
+ * BEFORE "../src/app/sample-workspace-variants" (and, through workspace.ts,
+ * its DOMPurify dependency) is first
  * loaded. Because ordinary `import` statements are hoisted above any other
  * top-level code, that load is done via a `await import(...)` performed
  * AFTER the jsdom globals are installed, not a static import.
