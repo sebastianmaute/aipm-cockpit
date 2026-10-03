@@ -62,6 +62,7 @@ function makeProps(): AppModalsProps {
     isPopout: false,
     jiraConflicts: [],
     handleResolveConflicts: vi.fn(),
+    jiraResolving: false,
     clearConflicts: vi.fn(),
     editingAbsence: null,
     absenceKnownAssignees: [],

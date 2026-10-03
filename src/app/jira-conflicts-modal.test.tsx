@@ -99,6 +99,20 @@ describe("JiraConflictsModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // Cancel must not close the modal under a resolution that is still pushing.
+  it("Defer is disabled while a resolution is running, and enabled otherwise", () => {
+    const { onClose } = setup({ resolving: true });
+    const defer = screen.getByRole("button", { name: t("en-US", "jiraConflictDefer") });
+    expect(defer).toBeDisabled();
+    fireEvent.click(defer);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("Defer is enabled when no resolution is running", () => {
+    setup({ resolving: false });
+    expect(screen.getByRole("button", { name: t("en-US", "jiraConflictDefer") })).toBeEnabled();
+  });
+
   it("Apply choices button fires onResolve with current picks", () => {
     const { onResolve } = setup();
     fireEvent.click(screen.getByText(t("en-US", "jiraConflictApply")));

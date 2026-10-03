@@ -113,9 +113,16 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 // ── Composite probe hook so we can inspect workspace tasks ───────────────────
+type ProbeOverrides = {
+  today?: string;
+  onJiraAuthResult?: ReturnType<typeof vi.fn<(ok: boolean) => void>>;
+  /** The §548 scope epoch reader; a constant one (never stale) unless a test swaps the project. */
+  getScopeEpoch?: () => number;
+};
+
 function makeProbe(
   overrideSettings = baseSettings,
-  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn<(ok: boolean) => void>> } = {},
+  overrides: ProbeOverrides = {},
 ) {
   return function useProbe() {
     const sync = useJiraSync({
@@ -125,6 +132,7 @@ function makeProbe(
       showToast,
       logActivityAs,
       onJiraAuthResult: overrides.onJiraAuthResult,
+      getScopeEpoch: overrides.getScopeEpoch ?? (() => 0),
     });
     const { tasks } = useWorkspace();
     return { ...sync, currentTasks: tasks };
@@ -135,7 +143,7 @@ function makeProbe(
 function renderSync(
   initialTasks: Task[] = [],
   overrideSettings = baseSettings,
-  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn<(ok: boolean) => void>> } = {},
+  overrides: ProbeOverrides = {},
 ) {
   return renderHook(makeProbe(overrideSettings, overrides), {
     wrapper: ({ children }) => (
@@ -1390,6 +1398,20 @@ describe("useJiraSync — a second call while the Jira module is still loading",
     expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(2);
   });
 
+  it("handleJiraSync shows the syncing state during the download, not only once the module has loaded", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValue("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    const { result } = renderSync([]);
+
+    let pending: Promise<void> = Promise.resolve();
+    act(() => { pending = result.current.handleJiraSync(); });
+    expect(result.current.jiraSyncing).toBe(true);
+    expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+
+    await act(async () => { release(); await pending; });
+    expect(result.current.jiraSyncing).toBe(false);
+  });
+
   it("handleResolveConflicts: two clicks during the download run exactly one resolution", async () => {
     const { result } = renderSync([]);
 
@@ -1405,5 +1427,264 @@ describe("useJiraSync — a second call while the Jira module is still loading",
 
     await act(async () => { await result.current.handleResolveConflicts([]); });
     expect(showToast).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── §667 — the §548 scope epoch, and sync/resolution exclusion (1.15.1) ─────────
+const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
+/** The `at` field of every stale-scope drop logged for `writer`, oldest first. */
+function droppedAt(writer: string): unknown[] {
+  return readDiagLog()
+    .filter((ev) => ev.code === "storage.staleScopeWriteDropped" && ev.fields?.writer === writer)
+    .map((ev) => ev.fields?.at)
+    .reverse();
+}
+const allRemote = {
+  taskName: "remote", assignee: "remote", assigneeEmail: "remote", dueDate: "remote",
+  priority: "remote", labels: "remote", description: "remote", completedDate: "remote",
+} as const;
+const keepLocalName: import("./jira-conflicts-modal").ConflictResolution = {
+  taskId: 1,
+  jiraKey: "TEST-1",
+  picks: { ...allRemote, taskName: "local" },
+};
+/** Task 1 holds a taskName conflict with TEST-1 (both sides moved since the last sync). */
+const conflictedTask = () =>
+  makeTask({
+    id: 1, jiraKey: "TEST-1", taskName: "Local name",
+    lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+  });
+const conflictIssue = {
+  key: "TEST-1",
+  fields: { summary: "Remote name", updated: "2026-05-10T00:00:00" },
+} as unknown as JiraIssue;
+function mockConflictSync() {
+  asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+  asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([conflictIssue]);
+  asMock(jiraApi.isIssueDone).mockReturnValue(false);
+  asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Remote name", status: "To Do" });
+  asMock(jiraApi.diffTaskAgainstIssue).mockReturnValue([
+    { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
+  ]);
+}
+function resetJiraStubs() {
+  for (const fn of [
+    jiraApi.buildJql, jiraApi.searchAllIssues, jiraApi.issueToTaskFields, jiraApi.diffTaskAgainstIssue,
+    jiraApi.isIssueDone, jiraApi.updateIssue, jiraApi.transitionIssueTo,
+  ]) asMock(fn).mockReset();
+}
+
+describe("useJiraSync — §667 a project swap while a sync or resolution is in flight", () => {
+  let epoch = 0;
+  const getScopeEpoch = () => epoch;
+  beforeEach(() => { vi.clearAllMocks(); clearDiagLog(); epoch = 0; });
+  afterEach(() => { resetJiraStubs(); epoch = 0; });
+
+  it("sync: a swap during the search writes no task, queues no conflict, logs nothing, and releases the guard", async () => {
+    const initial = [
+      // Pull arm: remote moved, local did not, and the pull completes the task.
+      makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Local", lastSyncedAt: "2026-01-01T00:00:00" }),
+      // Conflict arm: both sides moved.
+      makeTask({ id: 2, jiraKey: "TEST-2", taskName: "Local 2", lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00" }),
+    ];
+    const issues = [
+      { key: "TEST-1", fields: { summary: "Remote", updated: "2026-05-10T00:00:00" } },
+      { key: "TEST-2", fields: { summary: "Remote 2", updated: "2026-05-10T00:00:00" } },
+      { key: "TEST-9", fields: { summary: "New", updated: "2026-05-10T00:00:00" } },
+    ] as unknown as JiraIssue[];
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Remote", status: "Done", completedDate: "2026-05-10" });
+    asMock(jiraApi.diffTaskAgainstIssue).mockReturnValue([{ key: "taskName", localValue: "Local 2", remoteValue: "Remote" }]);
+    asMock(jiraApi.searchAllIssues).mockImplementationOnce(async () => { epoch = 1; return issues; });
+    const { result } = renderSync(initial, baseSettings, { getScopeEpoch });
+
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(result.current.currentTasks).toEqual(initial);
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.jiraSyncing).toBe(false);
+    expect(droppedAt("useJiraSync.sync")).toEqual(["search"]);
+
+    // Positive control, and the guard was released: a sync that stays in scope writes.
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce(issues);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.currentTasks).toHaveLength(3);
+    expect(result.current.currentTasks[0].taskName).toBe("Remote");
+    expect(result.current.jiraConflicts).toHaveLength(1);
+    expect(droppedAt("useJiraSync.sync")).toEqual(["search"]);
+  });
+
+  it("sync: a swap during a push drops the whole batch, including the status transitions observed before it", async () => {
+    const initial = [
+      // Pull arm first, so its task.completed transition is observed BEFORE the push awaits.
+      makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Local", lastSyncedAt: "2026-01-01T00:00:00" }),
+      // Push arm: local moved, remote did not.
+      makeTask({ id: 2, jiraKey: "TEST-2", taskName: "Local 2", lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00" }),
+    ];
+    const issues = [
+      { key: "TEST-1", fields: { summary: "Remote", updated: "2026-05-10T00:00:00" } },
+      { key: "TEST-2", fields: { summary: "Local 2", updated: "2025-12-01T00:00:00" } },
+    ] as unknown as JiraIssue[];
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Remote", status: "Done", completedDate: "2026-05-10" });
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce(issues);
+    asMock(jiraApi.updateIssue).mockImplementationOnce(async () => { epoch = 1; });
+    const { result } = renderSync(initial, baseSettings, { getScopeEpoch });
+
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1);
+    expect(result.current.currentTasks).toEqual(initial);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.jiraSyncing).toBe(false);
+    expect(droppedAt("useJiraSync.sync")).toEqual(["commit"]);
+  });
+
+  it("sync: with the scope unchanged the buffered transition is logged after the commit, before the summary", async () => {
+    const initial = [makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Local", lastSyncedAt: "2026-01-01T00:00:00" })];
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Remote", status: "Done", completedDate: "2026-05-10" });
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([
+      { key: "TEST-1", fields: { summary: "Remote", updated: "2026-05-10T00:00:00" } },
+    ] as unknown as JiraIssue[]);
+    const { result } = renderSync(initial, baseSettings, { getScopeEpoch });
+
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(result.current.currentTasks[0].status).toBe("Done");
+    expect(logActivityAs.mock.calls.map((c) => c[1])).toEqual(["task.completed", "jira.sync"]);
+    expect(droppedAt("useJiraSync.sync")).toEqual([]);
+  });
+
+  it("resolve: conflicts queued before a swap are dropped at Apply — nothing pushed, nothing written", async () => {
+    mockConflictSync();
+    const { result } = renderSync([conflictedTask()], baseSettings, { getScopeEpoch });
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts).toHaveLength(1);
+    vi.clearAllMocks();
+    epoch = 1;
+
+    await act(async () => { await result.current.handleResolveConflicts([keepLocalName]); });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(result.current.currentTasks).toEqual([conflictedTask()]);
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(result.current.jiraResolving).toBe(false);
+    expect(droppedAt("useJiraSync.resolve")).toEqual(["push"]);
+  });
+
+  it("resolve: a swap during the push writes nothing and releases the guard", async () => {
+    mockConflictSync();
+    const { result } = renderSync([conflictedTask()], baseSettings, { getScopeEpoch });
+    await act(async () => { await result.current.handleJiraSync(); });
+    vi.clearAllMocks();
+    asMock(jiraApi.updateIssue).mockImplementationOnce(async () => { epoch = 1; });
+
+    await act(async () => { await result.current.handleResolveConflicts([keepLocalName]); });
+
+    expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1);
+    expect(result.current.currentTasks).toEqual([conflictedTask()]);
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(droppedAt("useJiraSync.resolve")).toEqual(["commit"]);
+
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolve: with the scope unchanged the resolution writes (positive control)", async () => {
+    mockConflictSync();
+    const { result } = renderSync([conflictedTask()], baseSettings, { getScopeEpoch });
+    await act(async () => { await result.current.handleJiraSync(); });
+    vi.clearAllMocks();
+    asMock(jiraApi.updateIssue).mockResolvedValueOnce(undefined);
+
+    await act(async () => { await result.current.handleResolveConflicts([keepLocalName]); });
+
+    expect(result.current.currentTasks[0].localModifiedAt).toBeUndefined();
+    expect(result.current.currentTasks[0].lastSyncedAt).not.toBe("2026-01-01T00:00:00");
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(droppedAt("useJiraSync.resolve")).toEqual([]);
+  });
+});
+
+describe("useJiraSync — sync and conflict resolution exclude each other", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { resetJiraStubs(); });
+
+  it("while a resolution pushes, a sync is refused and the modal cannot be closed", async () => {
+    mockConflictSync();
+    const { result } = renderSync([conflictedTask()]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    vi.clearAllMocks();
+    let releasePush: () => void = () => {};
+    asMock(jiraApi.updateIssue).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { releasePush = resolve; }),
+    );
+
+    let resolving: Promise<void> = Promise.resolve();
+    act(() => { resolving = result.current.handleResolveConflicts([keepLocalName]); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    expect(result.current.jiraResolving).toBe(true);
+
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+    act(() => { result.current.clearConflicts(); });
+    expect(result.current.jiraConflicts).toHaveLength(1);
+
+    await act(async () => { releasePush(); await resolving; });
+    expect(result.current.jiraResolving).toBe(false);
+    expect(result.current.jiraConflicts).toEqual([]);
+
+    // Both are free again afterwards.
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1);
+  });
+
+  it("while a sync is in flight, a resolution is refused", async () => {
+    let releaseSearch: (v: JiraIssue[]) => void = () => {};
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.searchAllIssues).mockImplementationOnce(
+      () => new Promise<JiraIssue[]>((resolve) => { releaseSearch = resolve; }),
+    );
+    const { result } = renderSync([]);
+
+    let syncing: Promise<void> = Promise.resolve();
+    act(() => { syncing = result.current.handleJiraSync(); });
+    await vi.waitFor(() => expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1));
+
+    await act(async () => { await result.current.handleResolveConflicts([]); });
+    expect(result.current.jiraResolving).toBe(false);
+    // An empty resolution that ran would have shown its "resolved" summary.
+    expect(showToast).not.toHaveBeenCalled();
+
+    await act(async () => { releaseSearch([]); await syncing; });
+    // The sync's own summary is the only toast.
+    expect(showToast).toHaveBeenCalledTimes(1);
+
+    // Free again: the resolution now runs.
+    await act(async () => { await result.current.handleResolveConflicts([]); });
+    expect(showToast).toHaveBeenCalledTimes(2);
+  });
+
+  it("with no resolution running, clearConflicts closes the queue", async () => {
+    mockConflictSync();
+    const { result } = renderSync([conflictedTask()]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts).toHaveLength(1);
+
+    act(() => { result.current.clearConflicts(); });
+
+    expect(result.current.jiraConflicts).toEqual([]);
   });
 });
