@@ -123,6 +123,9 @@ Notes.
   sync conflicts show a message that says the module could not be loaded (settings used to show
   the raw browser error; sync showed nothing), and a user-search response can no longer
   overwrite a newer search or refill the list after the search ended.
+- **Double Jira sync.** A second click on "Sync with Jira" while the Jira module is still
+  downloading no longer starts a second sync, and a second click on "Apply choices" in the sync
+  conflicts window no longer runs the resolution, and its pushes, twice.
 - **Push to Jira.** A failed download of the Jira module during "Push to Jira" no longer leaves
   that task stuck as pushing until reload; it shows a message and the next push tries again.
 
