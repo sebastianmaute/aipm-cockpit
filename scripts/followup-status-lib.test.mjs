@@ -10,7 +10,15 @@ import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { statusBlock, statusViolations } from "./followup-status-lib.mjs";
+import {
+  statusBlock,
+  statusViolations,
+  closedDate,
+  isGatedClosed,
+  closedStatusViolations,
+  entryViolations,
+  CLOSED_CUTOFF,
+} from "./followup-status-lib.mjs";
 import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
 
 const entry = (...body) => ({ n: 1, title: "t", startLine: 1, body });
@@ -95,6 +103,131 @@ describe("statusViolations", () => {
   });
 });
 
+// §429: entries CLOSED on or after the cutoff are gated; earlier closures are not.
+// POSITIVE CONTROLS FIRST -- the predicate must be able to pass before a failure means anything.
+describe("closed-entry gate (§429)", () => {
+  const titled = (title, ...body) => ({ n: 1, title, startLine: 1, body });
+  const REAL = "A thing that was fixed — CLOSED ";
+  const goodStatus = "**Status:** CLOSED 2026-10-05 — fixed; `npx vitest run foo.test.ts`.";
+
+  it("control: the cutoff is the day after the batch that introduced the rule", () => {
+    expect(CLOSED_CUTOFF).toBe("2026-10-04");
+  });
+
+  it("control: closed after the cutoff with a real command is clean", () => {
+    const e = titled(REAL + "2026-10-05", "", goodStatus);
+    expect(isGatedClosed(e.title)).toBe(true);
+    expect(entryViolations(e)).toEqual([]);
+  });
+
+  it("control: an open entry still follows the open contract (never-verified escape works)", () => {
+    const ok = titled("open thing — open", "", "**Status:** open — 2026-10-05, never machine-verified.");
+    expect(entryViolations(ok)).toEqual([]);
+    const bad = titled("open thing — open", "", "**Status:** CLOSED 2026-10-05, `grep -n x y`.");
+    expect(entryViolations(bad)).toEqual(["SAYS_CLOSED"]);
+  });
+
+  it("flags a closure whose Status names only a backticked filename", () => {
+    const e = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — see `documents-list.tsx`.");
+    expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("does not accept the never-machine-verified escape on a closure", () => {
+    const e = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — never machine-verified.");
+    expect(closedStatusViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("inverts SAYS_CLOSED: a closure whose Status does not open with CLOSED is flagged", () => {
+    const e = titled(REAL + "2026-10-05", "", "**Status:** open — 2026-10-05, `grep -n x y`.");
+    expect(closedStatusViolations(e)).toEqual(["NOT_SAYS_CLOSED"]);
+  });
+
+  it("flags a closure with no Status line and one with no date", () => {
+    expect(entryViolations(titled(REAL + "2026-10-05", "", "prose"))).toEqual(["MISSING"]);
+    const nd = titled(REAL + "2026-10-05", "", "**Status:** CLOSED — `grep -n x y`.");
+    expect(closedStatusViolations(nd)).toEqual(["NO_DATE"]);
+  });
+
+  it("does not gate a closure dated before the cutoff, even with nothing in its Status", () => {
+    const e = titled(REAL + "2026-10-03", "", "**Status:** CLOSED 2026-10-03 — done.");
+    expect(isGatedClosed(e.title)).toBe(false);
+  });
+
+  it("gates a closure dated exactly on the cutoff (inclusive)", () => {
+    expect(isGatedClosed(REAL + "2026-10-04")).toBe(true);
+    expect(isGatedClosed(REAL + "2026-10-03")).toBe(false);
+  });
+
+  it("reads the real heading form and ignores a lowercase 'closed' or a dateless closure", () => {
+    expect(closedDate("5. x — CLOSED 2026-10-09")).toBe("2026-10-09");
+    expect(closedDate("5. x — closed 2026-10-09")).toBeNull();
+    expect(isGatedClosed("5. x — CLOSED")).toBe(false);
+    expect(isGatedClosed("5. ~~x~~")).toBe(false);
+  });
+
+  // Owner ruling 2026-10-03: a decision closure may carry an owner-decision marker instead of a
+  // command, but only with the date directly after the phrase.
+  it("control: a closure carrying `owner decision <date>` and no command is clean", () => {
+    const d = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — by owner decision 2026-10-05: not built.");
+    expect(entryViolations(d)).toEqual([]);
+    const r = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — accepted by owner ruling 2026-10-04.");
+    expect(entryViolations(r)).toEqual([]);
+  });
+
+  it("control: a closure citing a command and no marker stays clean", () => {
+    expect(entryViolations(titled(REAL + "2026-10-05", "", goodStatus))).toEqual([]);
+  });
+
+  it("flags the owner phrase when no date follows it (the house 'by owner ruling:' form)", () => {
+    const e = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — accepted by owner ruling: not worth it.");
+    expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("flags a bare 'owner' and a closure with neither marker nor command", () => {
+    const bare = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — decided by the owner 2026-10-05.");
+    expect(entryViolations(bare)).toEqual(["NO_VERIFICATION"]);
+    const none = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — done.");
+    expect(entryViolations(none)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("does not let the marker excuse an open entry", () => {
+    const e = titled("open thing — open", "", "**Status:** open — owner decision 2026-10-05.");
+    expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  // The marker must OPEN the closure's reason (after "CLOSED <date> — ") and carry a real date.
+  const withReason = (reason) =>
+    entryViolations(titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — " + reason));
+
+  it("control: the lead-ins and the colon form of the marker pass", () => {
+    expect(withReason("owner decision 2026-10-04: not built.")).toEqual([]);
+    expect(withReason("Owner ruling: 2026-10-04 — not built.")).toEqual([]);
+    expect(withReason("by owner ruling: 2026-10-04 not built.")).toEqual([]);
+    expect(withReason("accepted by owner decision 2026-10-04.")).toEqual([]);
+    const en = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 – owner decision 2026-10-04: x.");
+    expect(entryViolations(en)).toEqual([]);
+  });
+
+  it("flags the marker when it is not the lead of the closure's reason", () => {
+    expect(withReason("awaiting owner decision 2026-10-09")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("not an owner decision 2026-10-04 at all")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("co-owner decision 2026-10-04")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("done; later an owner decision 2026-10-04")).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("flags an impossible calendar date and a marker with no date", () => {
+    expect(withReason("owner decision 2026-13-45: x.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision 2026-02-30: x.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision: not built.")).toEqual(["NO_VERIFICATION"]);
+    expect(withReason("owner decision 2026-02-28: x.")).toEqual([]);
+  });
+
+  it("every gated closure in the real register conforms", () => {
+    const gated = parseEntries(register()).filter((e) => isGatedClosed(e.title));
+    expect(gated.filter((e) => entryViolations(e).length > 0).map((e) => e.n)).toEqual([]);
+  });
+});
+
 // ★★★ THE ENTRY POINT'S EXIT CODES, PINNED. The design doc claimed exit 2 was
 // "pinned by a unit test" while nothing spawned the script at all — a false
 // coverage claim reads as protection and stops the audit, which is worse than an
@@ -165,6 +298,34 @@ body
 `);
     expect(r.status).toBe(1);
     expect(r.stdout).toMatch(/MISSING/);
+  });
+
+  it("exits 1 when an entry closed after the cutoff names no command, 0 when it does", () => {
+    const closed = (status) => `## 61. a closure — CLOSED 2026-10-05
+
+${status}
+
+`;
+    const bad = runAgainst(manyConforming(60) + closed("**Status:** CLOSED 2026-10-05 — done."));
+    expect(bad.status).toBe(1);
+    expect(bad.stdout).toMatch(/§61/);
+    const good = runAgainst(
+      manyConforming(60) + closed("**Status:** CLOSED 2026-10-05 — done: `npx vitest run x`."),
+    );
+    expect(good.status).toBe(0);
+    expect(good.stdout).toMatch(/1 closed on or after/);
+  });
+
+  it("exits 0 when an old closure names nothing — history stays ungated", () => {
+    const r = runAgainst(
+      manyConforming(60) +
+        `## 61. old closure — CLOSED 2026-09-13
+
+**Status:** CLOSED 2026-09-13 — done.
+
+`,
+    );
+    expect(r.status).toBe(0);
   });
 
   it("exits 0 when every parsed entry conforms", () => {

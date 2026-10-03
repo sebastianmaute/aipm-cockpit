@@ -45,6 +45,7 @@ import type { DocTruncationDiag } from "./document-model";
 import type { ProjectMeta } from "./types";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { __resetNonCalendarDateReportsForTests } from "./sanitize-load-date";
+import { fullMetaWorkspace, metaSlice, type MetaKey } from "../test/meta-slices-fixtures";
 
 const PROJECT_ID = "proj-exec-1";
 
@@ -553,6 +554,95 @@ describe("§617 — a meta slice that parses but sanitizes to nothing is REPORTE
     const ws = loadWithMetaRow("project_meta", JSON.stringify({ name: "Apollo" }), diag);
     expect(ws.project?.name).toBe("Apollo");
     expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
+  });
+});
+
+// §95 residue 2 — the §617 block above stores only INVALID and legitimately EMPTY meta rows. This one
+// round-trips POPULATED meta-blob slices: written by the REAL save builders, read back by the REAL
+// SELECTs into `rowsToWorkspace`, in both layouts, and compared slice by slice.
+describe("§95 — populated meta-blob slices round-trip through the real engine", () => {
+  /** Each meta row the save builders write, by its stored key, with the workspace slice it carries.
+   *  `project_meta` is single-tenant only: the tenant layout keeps the project in its projects row. */
+  const META_ROWS: Readonly<Record<string, MetaKey>> = {
+    project_status: "status",
+    project_meta: "project",
+    field_visibility: "fieldVisibility",
+    features: "features",
+    steering_committee: "steeringCommittee",
+    timelog_links: "timelogLinks",
+    knowledge_items: "knowledgeItems",
+    insights: "insights",
+    activityLog: "activityLog",
+    budgetHistory: "budgetHistory",
+    documents: "documents",
+    documentVersions: "documentVersions",
+    settings_overrides: "settingsOverrides",
+  };
+  const TENANT_ONLY_ABSENT = new Set(["project_meta"]);
+
+  /** The keys of the meta rows a statement list INSERTs (schema_version aside), read off the statements. */
+  function writtenMetaKeys(statements: readonly SqlStmt[]): string[] {
+    return statements
+      .filter((s) => /^INSERT INTO meta \("?key"?, "?value"?(, "?project_id"?)?\) VALUES/.test(s.sql) && !s.sql.includes("'schema_version'")) // single-tenant inlines that key and binds only the version
+      .map((s) => s.args?.[0]?.value ?? "")
+      .filter((k) => k !== "schema_version")
+      .sort();
+  }
+
+  function loadTenantLayout(db: DatabaseSync, projectId: string, diag: DocTruncationDiag): Workspace {
+    const results: PipelineResultLike[] = tenantSelectStatements(projectId).map((s) => {
+      const rows = db.prepare(s.sql).all(projectId) as Record<string, unknown>[];
+      const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+      return { type: "ok", response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } } };
+    });
+    return rowsToWorkspace(results, diag);
+  }
+
+  it("covers every meta row the save builders write (a new slice must be added here)", () => {
+    const ws = fullMetaWorkspace();
+    const all = Object.keys(META_ROWS).sort();
+    expect(writtenMetaKeys(workspaceToStatements(ws))).toEqual(all);
+    expect(writtenMetaKeys(tenantWorkspaceToStatements(ws, PROJECT_ID))).toEqual(all.filter((k) => !TENANT_ONLY_ABSENT.has(k)));
+  });
+
+  it("the fixture's slices are all genuinely populated (positive control)", () => {
+    const ws = fullMetaWorkspace();
+    for (const key of Object.values(META_ROWS)) {
+      const v = metaSlice(ws, key);
+      expect(v, key).toBeTruthy();
+      expect(Array.isArray(v) ? v.length : Object.keys(v as object).length, key).toBeGreaterThan(0);
+    }
+  });
+
+  it("single-tenant: every slice loads back deep-equal, with no decode report", () => {
+    const ws = fullMetaWorkspace();
+    const diag: DocTruncationDiag = {};
+    const back = roundTrip(ws, diag);
+    expect(diag.decodeFailedSlices ?? []).toEqual([]);
+    for (const key of Object.values(META_ROWS)) {
+      const expected = key === "project" ? sanitizeLoadedProjectMeta(ws.project) : metaSlice(ws, key); // the load reader, as §538 above
+      expect(metaSlice(back, key), key).toEqual(expected);
+    }
+  });
+
+  it("tenant: every slice loads back deep-equal for its project, with no decode report", () => {
+    const ws = fullMetaWorkspace();
+    const other = "proj-exec-other";
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of tenantSchemaDdl()) db.exec(ddl);
+      runStatements(db, tenantWorkspaceToStatements(ws, PROJECT_ID));
+      runStatements(db, tenantWorkspaceToStatements(emptyWorkspace(), other)); // another project's save leaves these rows alone
+      const diag: DocTruncationDiag = {};
+      const back = loadTenantLayout(db, PROJECT_ID, diag);
+      expect(diag.decodeFailedSlices ?? []).toEqual([]);
+      for (const [row, key] of Object.entries(META_ROWS)) {
+        if (TENANT_ONLY_ABSENT.has(row)) continue;
+        expect(metaSlice(back, key), key).toEqual(metaSlice(ws, key));
+      }
+    } finally {
+      db.close();
+    }
   });
 });
 
