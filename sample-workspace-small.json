@@ -1728,6 +1728,33 @@
       "createdDate": "2026-06-24",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 8,
+      "name": "India Region Rollout (end-to-end, INR)",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0,
+      "createdDate": "2026-09-15"
     }
   ],
   "fxRates": {
@@ -1737,7 +1764,8 @@
     "rates": {
       "EUR": 1,
       "USD": 1.1,
-      "GBP": 0.85
+      "GBP": 0.85,
+      "INR": 96.5
     }
   },
   "status": {

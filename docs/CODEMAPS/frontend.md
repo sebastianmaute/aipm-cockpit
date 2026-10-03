@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.14.3 "Deaver" | Files scanned: 342 .tsx + 552 .ts under src/app (excl. 906 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.15.0 "Cornwell" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
@@ -52,7 +52,8 @@ bodies) — list them with `grep -rn "= memo(" src/app --include=*.tsx | grep -v
 
 A panel crossing ~700 lines splits into **orchestrator + `*-rows` + `*-toolbar`** (+ a `*-columns`
 leaf), rows and toolbar being purely presentational. Precedents: `gantt`, `reports`, `raid-panel`,
-`resources-panel`, `timelog-panel`, `resource-calendar`.
+`resources-panel`, `timelog-panel`, `resource-calendar`; `budget-panel` moved its bucket card into
+`budget-panel-bucket-card.tsx` the same way.
 
 Cross-cutting orchestration extracted from task-manager uses a **deps-object hook**: typed `deps` of
 live render-scope values, named `use*`, called unconditionally, returning **non-memoized** handlers
@@ -64,8 +65,10 @@ live render-scope values, named `use*`, called unconditionally, returning **non-
 `SegmentedControl` · `ToggleButton` · `Modal` / `ModalHeader` / `EditModalShell` · `PopoverPanel` ·
 `Card` · `Banner` · `EmptyState` / `Skeleton` / `PanelSkeleton` · `DataTable` / `SortResizeTh` /
 `SortHeaderButton` / `ColumnResizeHandle` · `RagDot` / `RagBadge` / `Badge` / `CountBadge` ·
-`ProgressTrack` · `FieldError` / `FieldHint` / `InfoTooltip` · `EntityLinkPicker` ·
-interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
+`ProgressTrack` · `Field` (`form-field.tsx` — caption, required mark and hint around one control;
+shared by the task and project forms) · `FieldError` / `FieldHint` / `InfoTooltip` ·
+`EntityLinkPicker` (and `single-entity-picker.tsx`, both over `useEntityCombobox` in
+`entity-combobox.ts`) · interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
 
 ★ Primitives concatenate `className` with **no** tailwind-merge — a class fighting a variant prop
 loses on source order. Only the three Button types forward `ref`.
@@ -76,7 +79,10 @@ loses on source order. Only the three Button types forward `ref`.
 descriptions) **and** for a note-log entry (`commitOnEnter`); it loads via `dynamic(ssr:false)` —
 Tiptap/ProseMirror needs `Range.getClientRects`, which jsdom lacks, so tests stub it. The note log
 itself is one shared non-modal floating window (`notes-window.tsx`) plus a `🗒 N` badge on the Open
-Points and RAID rows.
+Points and RAID rows. A task's blocker log is its plain-text sibling: `blockers-window.tsx` shares the
+same `FloatingLogWindow` chrome (`floating-log-window.tsx`) and opens from the open-count badge in the
+Open Points Blockers column (`blockers-badge-button.tsx`) — see
+[`docs/AGENTS/rich-text.md`](../AGENTS/rich-text.md) for why `Task.blockers` is derived text.
 
 ★★ Rendering stored HTML is `dangerouslySetInnerHTML`, so `NoteBody` re-sanitizes at the **sink**
 (`sanitizeRichHtml`, idempotent) rather than trusting the load path. ★★ A form must never write

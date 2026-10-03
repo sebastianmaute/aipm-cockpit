@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.14.3 "Deaver" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.15.0 "Cornwell" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
 
 # Architecture
 
@@ -52,7 +52,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 45 tools; browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 53 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-documents.ts` and add the two); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |

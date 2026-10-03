@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.14.3";
-export const APP_BUILD_DATE = "2026-10-01"; // 1.14.3: a maintenance release — a tab saving over a newer version of the project now pauses with Reload, Overwrite and Download instead of overwriting it, and a window on a local file keeps saving to that file (tested in the browser with browser storage; SharePoint and Turso not yet verified live), tabs on different projects no longer overwrite each other, a rejected or unreadable AI key is named, Turso saves are all or nothing, SharePoint names with # or % work, chat attachments are limited per batch, plus Next.js 16.3.6 for a critical advisory, moment, Electron 44.4.5 and React 19.3.0 (Deaver)
+export const APP_VERSION = "1.15.0";
+export const APP_BUILD_DATE = "2026-10-03"; // 1.15.0: a feature release — Indian rupee (INR) is a supported budget and plan currency, a task's blockers become a dated log with a counting badge, the guided tour grows to a full catalogue of tours, the AI assistant can read a scoped slice of the allocation plan, Jira responses are validated before use, and a large batch of defect fixes covers saving between windows, undo, exports, plurals and documents; projects that use INR, the end-to-end contract type or the blocker log should only be opened in this release or later, because older builds misread or drop them (Cornwell)
+// 1.14.3: a maintenance release — a tab saving over a newer version of the project now pauses with Reload, Overwrite and Download instead of overwriting it, and a window on a local file keeps saving to that file (tested in the browser with browser storage; SharePoint and Turso not yet verified live), tabs on different projects no longer overwrite each other, a rejected or unreadable AI key is named, Turso saves are all or nothing, SharePoint names with # or % work, chat attachments are limited per batch, plus Next.js 16.3.6 for a critical advisory, moment, Electron 44.4.5 and React 19.3.0 (Deaver)
 // 1.14.2: a maintenance release — typed-but-unsaved text is kept when the window closes or reloads, with a local copy restored on the next open (verified in the browser with browser storage; desktop and file, SharePoint and Turso projects not yet), data this version cannot read pauses saving instead of being overwritten, undo and staged AI chat plans no longer reach into a project you have left, German exports translate repeat patterns and insight labels, plus fixes to layout, dialog sizes, bulk edit, Trends, exports and documents (Deaver)
 // 1.14.1: a maintenance release bundling three merged PRs — the update dialog explains the install wait and release notes flow as paragraphs; defect fixes across the AI Assistant, storage, Outlook calendar sync (a per-item opt-out), the dashboard, Trends, TimeLog and exports (a styled, page-fitting desktop PDF); code-scanning hardening (markdown links stay on the app's origin); Vitest 5, jest-dom 7 and Playwright 1.63 (Deaver)
 // 1.14.0: the first release built and published by GitHub Actions — the desktop app updates itself from GitHub Releases, asking before it downloads and again before it restarts; the Version panel links to GitHub Sponsors; SECURITY.md says how to report a vulnerability; and the GitLab release pipeline is gone (Deaver)
@@ -62,7 +63,15 @@ export const APP_BUILD_DATE = "2026-10-01"; // 1.14.3: a maintenance release —
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.14.x line is "Deaver" (Jeffery Deaver, American crime novelist, author
+ *  1.15.x line is "Cornwell" (Patricia Cornwell, American crime novelist, author
+ *  of "Postmortem", 1990), taken by the SELECTION procedure below as the first
+ *  name in the candidate list. Swept BEFORE the 1.15.0 header was written, in one
+ *  run with its controls: `grep -ci cornwell CHANGELOG.md` 0, `grep -ci
+ *  '"cornwell"' CHANGELOG.md` 0, the bracketed and bracketless header patterns 0,
+ *  `git log --all --format=%s | grep -ci cornwell` 0 and 0 files in `src`;
+ *  positive control `cadigan` 2 in CHANGELOG.md and 1 in commit subjects,
+ *  negative control `zzznotaname` 0 in CHANGELOG.md and commit subjects.
+ *  The 1.14.x line was "Deaver" (Jeffery Deaver, American crime novelist, author
  *  of "The Bone Collector", 1997), taken by the SELECTION procedure below as
  *  the first name in the candidate list. Swept BEFORE the 1.14.0-rc.1 header
  *  was written, in one run with its controls: `grep -ciw deaver CHANGELOG.md`
@@ -432,7 +441,7 @@ export const APP_BUILD_DATE = "2026-10-01"; // 1.14.3: a maintenance release —
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Deaver";
+export const APP_MILESTONE = "Cornwell";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */

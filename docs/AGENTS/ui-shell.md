@@ -588,6 +588,16 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   favour of the native one — the native ✕ does not exist in Firefox and is not keyboard-reachable. Shared by
   7 panels (budget · budget-report · change-report · raid-report · reports-tables · resources-panel ·
   resources-report), several axe-scanned.
+- **A pane with several resizable tables resets them through ONE `useResetAllColumnWidths`
+  (`use-column-resize.ts`)** — the handler its single trailing reset-columns button calls. It replaced a
+  hand-written `useCallback` per pane chaining each table's `resetColWidths()`, whose dependency array
+  never held because `useColumnResize` returns a fresh object every render. ★ Its handler keeps one
+  identity and resets the tables passed on the LATEST render.
+- **A report table's sort `getValue` is built by `sortValueGetter` (`sort-value-getter.ts`)** from one
+  accessor per sort key. ★★ The if-chain it replaced let its LAST `return` answer for any key without a
+  branch, so a new sort column silently sorted by the previous one's value; `SortValueMap` requires every
+  key, so pass both type arguments at the call site and a missing key is a compile error.
+  Enumerate consumers of both: `grep -rln "useResetAllColumnWidths\|sortValueGetter" src/app --include=*.tsx | grep -v test`.
 
 ### UI shell — dismissal: Escape & Tab ownership
 

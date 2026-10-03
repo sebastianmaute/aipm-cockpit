@@ -9,7 +9,7 @@ import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates"
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
-import { loadJiraApi } from "./use-jira-sync";
+import { loadJiraApi, reportModuleLoadFailed } from "./use-jira-sync";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { laneKeyOf, type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
@@ -177,10 +177,14 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         return next;
       });
 
-      const { createIssue, taskFieldsToJiraFields, formatJiraError } =
-        await loadJiraApi();
       const issueType = jiraCfg.issueTypes[0] ?? "Task";
+      // Undefined only when the jira-api chunk failed to download. The load sits INSIDE the try
+      // so the finally below still clears this task's pushing state; outside it, one failed
+      // download left the task "pushing", and every later push on it refused, until reload.
+      let api: Awaited<ReturnType<typeof loadJiraApi>> | undefined;
       try {
+        api = await loadJiraApi();
+        const { createIssue, taskFieldsToJiraFields } = api;
         const created = await createIssue(
           {
             siteUrl: jiraCfg.siteUrl,
@@ -218,9 +222,14 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         );
         return true;
       } catch (err) {
+        if (!api) {
+          // The raw browser message can carry a chunk URL: keep it in diagnostics only.
+          showToastRef.current("error", reportModuleLoadFailed(lang, err));
+          return false;
+        }
         showToastRef.current(
           "error",
-          t(lang, "jiraPushFailed", `#${taskId}`, formatJiraError(err)),
+          t(lang, "jiraPushFailed", `#${taskId}`, api.formatJiraError(err)),
         );
         return false;
       } finally {

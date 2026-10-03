@@ -8,11 +8,11 @@ import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
 import { ClearableSearchInput } from "./clearable-search-input";
 // ★★ TYPES ONLY from ./jira-api — every call goes through `loadJiraApi()`. This section sits on
-// the startup chain (task-manager → shell-chrome → app-header → settings-menu), and jira-api pulls
+// the startup chain (settings-menu, integrations-section and backend-setup-wizard all import it), and jira-api pulls
 // in zod (§7 B4); a value import here put zod in the startup chunk, against CONTRIBUTING's
 // "Lazy loading" rule for a heavy dependency.
 import type { JiraIssueType, JiraProject, JiraUser } from "./jira-api";
-import { loadJiraApi } from "./use-jira-sync";
+import { loadJiraApi, reportModuleLoadFailed } from "./use-jira-sync";
 import {
   type JiraAssigneeMode,
   type JiraConfig,
@@ -63,6 +63,9 @@ export function JiraSettingsSection({
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState<JiraUser[]>([]);
   const userSearchTimer = useRef<number | null>(null);
+  // Monotonic id so a slower earlier search response cannot overwrite a later one. The
+  // effect cleanup bumps it too, so nothing answers into a search that has ended.
+  const userSearchSeq = useRef(0);
 
   // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
   //  shared with timelog-settings.tsx via `useEmailDraft` (fix round 1).
@@ -131,15 +134,23 @@ export function JiraSettingsSection({
       window.clearTimeout(userSearchTimer.current);
     }
     userSearchTimer.current = window.setTimeout(() => {
+      const seq = ++userSearchSeq.current;
       loadJiraApi()
         .then((api) => api.searchUsers(creds, config.projectKey, userQuery))
-        .then(setUserResults)
-        .catch(() => setUserResults([]));
+        .then((list) => {
+          if (seq === userSearchSeq.current) setUserResults(list);
+        })
+        .catch(() => {
+          if (seq === userSearchSeq.current) setUserResults([]);
+        });
     }, 300);
     return () => {
       if (userSearchTimer.current !== null) {
         window.clearTimeout(userSearchTimer.current);
       }
+      // Invalidate an in-flight search: a response landing after the query changed, the
+      // search was disabled, or the section unmounted must not repopulate the results.
+      userSearchSeq.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -155,7 +166,7 @@ export function JiraSettingsSection({
     if (!credsReady) return;
     setStatus({ kind: "loading", label: t(lang, "jiraTesting") });
     // Undefined only when the jira-api chunk itself failed to load; the catch then has no
-    // classifier and reports the raw message.
+    // classifier and reports a translated generic message.
     let api: Awaited<ReturnType<typeof loadJiraApi>> | undefined;
     try {
       api = await loadJiraApi();
@@ -174,7 +185,8 @@ export function JiraSettingsSection({
       }
     } catch (err) {
       if (!api) {
-        setStatus({ kind: "err", message: err instanceof Error ? err.message : String(err) });
+        // The raw browser message can carry a chunk URL: keep it in diagnostics, show a translated one.
+        setStatus({ kind: "err", message: reportModuleLoadFailed(lang, err) });
         return;
       }
       setStatus({ kind: "err", message: api.formatJiraError(err) });

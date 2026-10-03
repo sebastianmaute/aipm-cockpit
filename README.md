@@ -1,6 +1,6 @@
 # AI PM Cockpit
 
-[![version](https://img.shields.io/badge/version-v1.14.3_%22Deaver%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v1.15.0_%22Cornwell%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -32,7 +32,7 @@ Pull people in from Outlook, attach documents straight from SharePoint, push mil
 It runs in your browser with no backend account. Bring your own API keys; they're encrypted at rest (AES-256-GCM, device-sealed).
 
 **One cockpit for the whole engagement.**
-Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio, all in one surface, with a landing dashboard that opens on what needs you.
+Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value (in EUR, USD, GBP or INR), and a multi-project portfolio, all in one surface, with a landing dashboard that opens on what needs you.
 
 **A solo consultant and a regulated multi-workstream programme run the same tool.**
 No two project leads track the same things, so the cockpit bends to fit: see work as a table, Kanban board or Gantt, toggle whole feature modules off, pick a Simple / Modular / Advanced mode that gates complexity, and start from a reusable project template that presets it all.
