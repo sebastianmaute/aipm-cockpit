@@ -90,6 +90,27 @@ describe("AssetThumbnail", () => {
     expect(revoked).toEqual([created[0]]);
   });
 
+  // Going unavailable revokes the URL. Coming back under the SAME id and mime
+  // must not render that revoked URL while (or instead of) reloading.
+  it("never shows a revoked URL after the row turns unavailable and back", async () => {
+    let bytes: string | null = TINY_GIF;
+    const loadImage = vi.fn(async () => bytes);
+    const limiter = createLoadLimiter(3);
+    const props = { id: "a1", mime: "image/png", loadImage, limiter };
+    const { container, rerender } = render(<AssetThumbnail {...props} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const first = created[0];
+    rerender(<AssetThumbnail {...props} unavailable={true} />);
+    expect(revoked).toContain(first);
+    expect(container.querySelector("img")).toBeNull();
+    bytes = null; // the reload finds nothing
+    rerender(<AssetThumbnail {...props} unavailable={false} />);
+    expect(container.querySelector("img")).toBeNull();
+    await settle();
+    expect(container.querySelector("img")).toBeNull();
+  });
+
   it("does not load an asset marked unavailable (dangling or refused format)", async () => {
     const { container, loadImage } = renderThumb({ unavailable: true });
     scrollAllIntoView();
@@ -126,7 +147,7 @@ describe("AssetThumbnail", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("revokes, and never shows, an image that arrives after the row went away", async () => {
+  it("never mints a URL for bytes that arrive after the row went away", async () => {
     let release!: (v: string) => void;
     const loadImage = vi.fn(() => new Promise<string>((r) => { release = r; }));
     const { unmount } = renderThumb({ loadImage });
@@ -134,8 +155,7 @@ describe("AssetThumbnail", () => {
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
     unmount();
     await act(async () => { release(TINY_GIF); });
-    // Either never minted, or minted and immediately revoked — never leaked.
-    expect(created.filter((u) => !revoked.includes(u))).toEqual([]);
+    expect(created).toEqual([]);
   });
 
   // A row that scrolls past while its load is still QUEUED behind others must

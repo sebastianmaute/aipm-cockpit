@@ -16,14 +16,21 @@
 // ★ Decorative. The row already names the asset, so the image has `alt=""` and
 // the box is `aria-hidden`; it adds no control and no name to the row.
 //
-// ★ Each object URL is revoked when its row unmounts or the asset changes, and
-// one that arrives after the row went away is revoked on arrival.
+// ★ Each object URL is revoked when its row unmounts, the asset changes or the
+// row turns unavailable; bytes that arrive after the row went away are never
+// minted into a URL at all.
+//
+// ★ No reload signal: a §212 repair that rewrites the bytes of a row that was
+// never marked dangling keeps showing the old image until the library remounts.
+// The library's own lightbox mount has the same gap (it passes no reloadNonce).
 import { useEffect, useRef, useState } from "react";
 import { assetBytesToObjectUrl } from "./asset-object-url";
 import { isBlockedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import type { LoadLimiter } from "./asset-load-limiter";
 import { logDiag } from "./diagnostics";
+
+const THUMBNAIL_ROOT_MARGIN = "100px";
 
 interface AssetThumbnailProps {
   id: string;
@@ -45,6 +52,11 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
   // changed never shows the previous asset's (revoked) URL.
   const [shown, setShown] = useState<{ key: string; url: string } | null>(null);
   const key = `${id}|${mime ?? ""}`;
+  // Render-time reconcile (the repo's alternative to set-state-in-effect): going
+  // unavailable revokes the URL in the load effect's cleanup, so drop it here
+  // too — otherwise a row that becomes available again under the SAME key would
+  // render the revoked URL until (or, on a failed reload, instead of) a new one.
+  if (unavailable && shown !== null) setShown(null);
 
   // The loader is a function prop whose identity can churn on parent renders;
   // read it through a ref so a re-render does not refetch.
@@ -55,12 +67,16 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
     if (visible || unavailable) return;
     const el = boxRef.current;
     if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) {
-        setVisible(true);
-        io.disconnect();
-      }
-    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      // Start a little before the row scrolls in, so it rarely pops in empty.
+      { rootMargin: THUMBNAIL_ROOT_MARGIN },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, [visible, unavailable]);

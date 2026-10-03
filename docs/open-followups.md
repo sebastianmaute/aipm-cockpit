@@ -37683,12 +37683,14 @@ which the ★ note below advised against; the owner chose it on 2026-10-03 over 
 upload (a new field on all six write paths plus a backfill), on the condition that it is bounded. Because
 each thumbnail fetches the asset's full bytes, a row loads only once an `IntersectionObserver` reports it
 in view, and loads queue through `createLoadLimiter` (`asset-load-limiter.ts`), three at a time per
-mounted library. Dangling rows and refused mimes are never fetched; each object URL is revoked when its row
-unmounts, and one arriving after its row went away is revoked on arrival. Decorative: `alt=""` and an
+mounted library. Rows already known to be dangling and refused mimes are never fetched (a row in view
+before the async dangling diff lands is fetched once and gets null); each object URL is revoked when its
+row unmounts or turns unavailable, and bytes arriving after the row went away are never minted. Decorative: `alt=""` and an
 `aria-hidden` box. Pinned by `asset-load-limiter.test.ts`, `asset-thumbnail.test.tsx` and the "row
 thumbnails" describe in `asset-library.test.tsx`; eight mutants (eager load, no revoke, no cancel check
 on arrival, no cancel check while queued, no refused-mime guard, the library not marking dangling rows, no
-cap, a named `alt`) each turn a test red. Notes for a reader of the tests are in
+cap, a named `alt`) each turn a test red, as does a ninth from the branch review (no clear of the shown URL
+when a row turns unavailable, which rendered the revoked URL on the way back). Notes for a reader of the tests are in
 `docs/AGENTS/documents.md` beside the axe-coverage note. Not eye-verified on a live Turso library.
 
 **Original status:** OPEN 2026-09-13 — `grep -rli thumbnail src/app` → only `src/app/document-asset-upload.test.ts`,
