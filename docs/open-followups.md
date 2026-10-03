@@ -637,9 +637,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them--closed-2026-09-08) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-08 |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--closed-2026-09-07) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | **CLOSED** 2026-09-07 |
-| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
+| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--closed-2026-10-03) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | **CLOSED** 2026-10-03 |
 | [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--closed-2026-09-25) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | closed |
-| [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
+| [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--closed-2026-10-03) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | **CLOSED** 2026-10-03 |
 | [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
 | [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
 | [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
@@ -749,7 +749,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
 | [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
 | [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
-| [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--open) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | open |
+| [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--closed-2026-10-03) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | **CLOSED** 2026-10-03 |
 | [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--open) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | open |
 | [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--open) | The beta programme with UK testers and its feedback route into the backlog are not set up | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | open |
 | [§525](#525-a-recurring-two-weekly-follow-up-with-the-demo-stakeholders-is-not-yet-scheduled--open) | A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-3), GitLab #69; mirrored into the register 2026-09-13 | unestimated (process item) — a calendar series | open |
@@ -31872,9 +31872,11 @@ dictionaries as a base/`…One` pair, which is what makes the EN/DE key-parity c
 call-site-verified keys, of which this branch converted a subset. Closing §407 says the
 `taskRowChangesBadge` badge is fixed on both its surfaces; it says nothing about the other keys.
 
-## 408. No Turso connection test exists anywhere in the repo — OPEN
+## 408. No Turso connection test exists anywhere in the repo — CLOSED 2026-10-03
 
-**Status:** OPEN. Verified 2026-09-06 by grep:
+**Status:** CLOSED 2026-10-03 — already fixed: the connection test the entry says does not exist shipped in `fd4497f42` ("a Turso Test connection button, at parity with Jira/Timelog"). `testTursoConnection` in `src/app/turso-pipeline.ts` is called by `runTursoTest` behind the Turso "Test connection" button in `src/app/settings-sections/integrations-section.tsx` and by `src/app/use-storage-turso-ops.ts`; reproduce with `grep -rn testTursoConnection src/app --include=*.ts --include=*.tsx`, which lists those call sites. `canMoveToTurso` is still the configured-shape render gate (`grep -n canMoveToTurso src/app/settings-sections/integrations-section.tsx`), but the entry's headline claim, that no Turso connection test exists anywhere, is false.
+
+**Original status:** OPEN. Verified 2026-09-06 by grep:
 `grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
 returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and `testConnection` in
 `jira-api.ts`, `jira-settings.tsx` and its test — nothing under any of the 20 `turso-*.ts(x)` files
@@ -31882,8 +31884,6 @@ returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and 
 unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
 `learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
 files that are Turso-related but are not the `turso-*` module family this sentence is about.
-
-**Work item:** #271
 
 Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
 `testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
@@ -31997,11 +31997,11 @@ So collapsing the body while a block editor holds an uncommitted, unblurred edit
 
 The open question is a product one, not a correctness one: should a gesture presented as momentary ("give me room") be allowed to write persistent history? Nothing pins the collapse-specific case today — a `documents-panel.test.tsx` analogue mirroring the existing switch-flush test would be the cheap way to characterize (and, if the product answer changes, to pin a fix for) this specific trigger.
 
-## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
+## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — CLOSED 2026-10-03
 
-**Status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `be834e7d` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
+**Status:** CLOSED 2026-10-03 — already fixed: the extraction the entry recommended landed as `useEntityCombobox` (`src/app/entity-combobox.ts`), and both pickers call it (`grep -n useEntityCombobox src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx`). The duplicated region the entry measured is gone: `grep -c "const listId" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` and `grep -c "function move\|const move" ...` over the same two files print 0 for both, and the entry's own spot-check, `grep -n "cur + 1 >= options.length"`, now hits only `src/app/entity-combobox.ts`.
 
-**Work item:** #273
+**Original status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `be834e7d` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
 
 `src/app/single-entity-picker.tsx` is the single-select sibling of `src/app/entity-link-picker.tsx`.
 The `prevQuery` render-time reconcile, the `active` clamp, the whole of `move()` and the whole of
@@ -38672,9 +38672,11 @@ Size M–L — five layers: type, sanitizer, validation, blank-value consumers a
 
 **Source:** GitLab #64 (O-1, source::demo-2026-09-11)
 
-## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN
+## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented; §521, which blocked it, closed 2026-09-13.
+**Status:** CLOSED 2026-10-03 — already fixed: both halves the entry asked for exist and neither gates project creation. The next-actions provider is `src/app/next-actions/providers/project-meta.ts`, registered in `src/app/next-actions/index.ts`. The Projects-list completeness indicator, with its unknown state and per-device cache, shipped in `25ada4ebb` (`src/app/project-key-facts-meter.tsx`, `src/app/project-key-facts-cache.ts`, wired in `src/app/projects-panel.tsx`). `validateProjectMeta` in `src/app/project-validation.ts` requires only the name ("Only the name is required").
+
+**Original status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented; §521, which blocked it, closed 2026-09-13.
 
 Kai Mindermann asked that missing data be flagged only where a function cannot execute, not used to gate
 project creation. It was accepted.
@@ -38689,8 +38691,6 @@ The Projects view is not in `A11Y_VIEWS`, so unit tests and hand contrast checks
 Size M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache.
 
 **Source:** GitLab #65 (O-2, source::demo-2026-09-11)
-
-**Work item:** #65
 
 ## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN
 
