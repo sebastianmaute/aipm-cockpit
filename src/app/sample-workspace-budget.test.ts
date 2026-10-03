@@ -11,8 +11,8 @@ const json = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspac
 const ws = jsonToWorkspace(json);
 
 describe("sample-workspace budgets", () => {
-  test("parses seven buckets", () => {
-    expect(ws.budgets?.map((b) => b.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  test("parses eight buckets", () => {
+    expect(ws.budgets?.map((b) => b.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
   test("bucket 1 is detailed with three role allocations and real hours", () => {
     const b = ws.budgets!.find((x) => x.id === 1)!;
@@ -123,6 +123,17 @@ describe("sample-workspace budgets", () => {
     expect(b.fxRateOverride).toBeUndefined();
     expect(ws.fxRates?.rates.GBP).toBe(0.85);
     expect(b.planningMode).toBe("blended");
+  });
+  test("bucket 8 is end-to-end, in INR, converted through the fxRates table", () => {
+    // The demo's only end-to-end bucket (§488) and its only INR one (§477). The
+    // rate comes from the fxRates table, like bucket 6, so the INR row of that
+    // table is exercised; an override would bypass it.
+    const b = ws.budgets!.find((x) => x.id === 8)!;
+    expect(b.type).toBe("e2e");
+    expect(b.currency).toBe("INR");
+    expect(b.fixedPriceAmount).toBe(2900000);
+    expect(b.fxRateOverride).toBeUndefined();
+    expect(ws.fxRates?.rates.INR).toBe(96.5);
   });
   test("buckets 5 and 7 are closed with successors, and 7 carries its own rate overrides", () => {
     const b5 = ws.budgets!.find((x) => x.id === 5)!;

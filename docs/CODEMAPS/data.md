@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.14.3 "Deaver" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.15.0 "Cornwell" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -30,7 +30,7 @@ backend:
 |---|---|---|
 | 1 | JSON | `workspaceToJson` / `jsonToWorkspace` (`workspace.ts`) — ★ encoder and decoder are separate blocks; missing the encoder is the classic slip |
 | 2 | CSV | `csv-codecs-core` (columns + encoders) / `-config` (blobs) / `-decode` |
-| 3 | Markdown | `markdown-codecs-core` / `-decode` |
+| 3 | Markdown | `markdown-codecs-core` / `-decode`; its fenced-JSON meta slices are read through `readFencedJsonSection` (`markdown-fenced-json.ts`) — never a per-slice regex, which backtracks quadratically on a long whitespace run (`open-followups.md` §578) |
 | 4 | Turso single | derived from `*_CSV_COLUMNS` via `ENTITY_SPECS` |
 | 5 | Turso tenant | same, composite `(id, project_id)` PK |
 | 6 | IndexedDB | `browser-backend.ts` — object store or KV slot |
@@ -72,7 +72,9 @@ Seven fields hold rich HTML, not plain text: `Task.description` · RAID `descrip
 Change `description` + `impactDescription` + `resolutionNotes` · `Milestone.description`. Separately,
 `Task.noteLog` / `RaidItem.noteLog` / `ChangeItem.noteLog` hold a dated `NoteLogEntry[]` encoded as
 JSON-in-cell (`encodeNoteLog` / `decodeNoteLog`, mirroring `document-link.ts`) — THREE registers now,
-changes having joined in 0.245.0. ★★★ Each closes the write-through defect by a DIFFERENT mechanism;
+changes having joined in 0.245.0. `Task.blockerLog` rides the same JSON-in-cell shape
+(`encodeBlockerLog` / `decodeBlockerLog`) but holds PLAIN text, and `Task.blockers` is derived from
+it. ★★★ Each closes the write-through defect by a DIFFERENT mechanism;
 [`docs/AGENTS/rich-text.md`](../AGENTS/rich-text.md) owns that and copying one register's fix to
 another is how two of them broke.
 
@@ -96,6 +98,12 @@ run and `ooxml:manifest`, `docs/open-followups.md` §624). NOT because of the sa
 JSDOM before importing `src/app` (`docs/open-followups.md` §151). A source-scanning test enforces it (importing is
 fine; calling is not).
 
+★ Tag matching outside a DOM goes through `tag-pair-walk.ts` — `forEachTagPair` / `replaceTagPairs`
+in the attachment extractors (`html-extract.ts`, `office-xml.ts`, `docx-extract.ts`,
+`pptx-extract.ts`, `xlsx-extract.ts`) and `replaceOpenTags` in `html-to-text.ts` and
+`narrative-html.ts` (`git grep -l tag-pair-walk src` lists every importer) — the linear walk that replaced lazy pair regexes which
+went quadratic on repetitive unclosed markup (§578). Reuse it rather than writing a new pair regex.
+
 ★★ **Two projections, and the FLAT export paths use the second.** `descriptionText` collapses a block
 boundary to a space; `descriptionTextWithBreaks` keeps it as `"\n"`. ★★★ A rich column is no longer
 flattened in `export-sections.ts` at all — `richCell` emits `RichCell = { html; text }`
@@ -118,10 +126,12 @@ truncation off one code unit rather than splitting a surrogate pair (a lone surr
 `U+FFFD` on CSV/MD but survives on JSON/IDB — a backend-dependent corruption).
 
 ★ CSV and Markdown store — and export — a rich field's value **as-is**, in whichever shape it
-already has: the JSON and IDB load paths run the entity sanitizers and so upgrade plain text to HTML,
-but the CSV/MD/Turso decoders hand-build and normalise nothing, so a plain-text value stays plain
-there. Nothing sanitizes the six register description fields on those three paths; see
-`open-followups.md` §28.
+already has. The CSV/MD/Turso decoders are DOM-free and normalise nothing; since §28 closed, each
+browser backend's `load()` runs `sanitizeDecodedRichFields` (`workspace-rich-sanitize.ts`) over the
+decoded workspace — the same per-entity normalizers the JSON and IDB paths apply — so the seven rich
+fields and the note logs reach the app upgraded and sanitized whichever backend they came from. A
+caller of a codec alone (a script) still gets the raw cell value. ★★ That pass is DOM-bound: never
+import it from a codec, an entity sanitizer or `scripts/`.
 
 ## Per-device stores (NOT workspace data)
 

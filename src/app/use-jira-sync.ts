@@ -10,15 +10,26 @@ import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
+import { lazyRetryOnReject } from "./lazy-retry";
+import { logDiag } from "./diagnostics";
 import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
 type JiraApiModule = typeof import("./jira-api");
-let jiraApiPromise: Promise<JiraApiModule> | null = null;
+// A rejected import (chunk-download failure) is NOT cached — the next call retries.
+const loadJiraApiOnce = lazyRetryOnReject<JiraApiModule>(() => import("./jira-api"));
 export function loadJiraApi(): Promise<JiraApiModule> {
-  if (!jiraApiPromise) { jiraApiPromise = import("./jira-api"); }
-  return jiraApiPromise;
+  return loadJiraApiOnce();
+}
+
+/** The jira-api chunk failed to download. The raw browser message can carry a chunk URL, so it
+ *  goes to diagnostics only; the caller shows the returned translated message however its
+ *  surface reports errors (toast, status line). The next `loadJiraApi()` retries. One helper
+ *  for every load site (settings, Push to Jira, sync, conflict resolution). */
+export function reportModuleLoadFailed(lang: Lang, err: unknown): string {
+  logDiag("error", "jira.moduleLoadFailed", { message: err instanceof Error ? err.message : String(err) });
+  return t(lang, "jiraModuleLoadFailed");
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -60,10 +71,14 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   const [jiraConflicts, setJiraConflicts] = useState<ConflictItem[]>([]);
 
   // Ref guards for stable callbacks (avoid stale closures on boolean/array state)
+  // ★ No effect mirrors `jiraSyncing` into this ref: handleJiraSync writes both itself. A mirror
+  //   effect would run AFTER the render of a finished sync, and if a new sync had already taken
+  //   the guard by then it would clear it under that sync and let a third click through.
   const jiraSyncingRef = useRef(false);
+  // Same entry-time guard for conflict resolution, which awaits the module and every push.
+  const resolvingRef = useRef(false);
   const jiraConflictsRef = useRef(jiraConflicts);
   useEffect(() => { jiraConflictsRef.current = jiraConflicts; }, [jiraConflicts]);
-  useEffect(() => { jiraSyncingRef.current = jiraSyncing; }, [jiraSyncing]);
 
   const handleJiraSync = useCallback(async () => {
     if (jiraSyncingRef.current) return;
@@ -76,6 +91,19 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         return;
       }
     }
+    // ★ The in-flight guard is taken HERE, synchronously, before the first await. Taken after the
+    //   module load, two clicks during a slow chunk download both passed the check above and ran
+    //   two syncs. Every exit from here on releases it: the load-failure return below, and the
+    //   `finally` of the main try, which also covers the no-scope return.
+    jiraSyncingRef.current = true;
+    let api: JiraApiModule;
+    try {
+      api = await loadJiraApi();
+    } catch (err) {
+      jiraSyncingRef.current = false;
+      args.showToast("error", reportModuleLoadFailed(langRef.current, err));
+      return;
+    }
     const {
       buildJql,
       searchAllIssues,
@@ -87,20 +115,19 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       transitionIssueTo,
       formatJiraError,
       classifyJiraError,
-    } = await loadJiraApi();
-    const jql = buildJql(jiraCfg);
-    if (!jql) {
-      args.showToast("error", t(langRef.current, "jiraSyncNoScope"));
-      return;
-    }
-    const creds = {
-      siteUrl: jiraCfg.siteUrl,
-      email: jiraCfg.email,
-      apiToken: jiraCfg.apiToken,
-    };
-    jiraSyncingRef.current = true;
+    } = api;
     setJiraSyncing(true);
     try {
+      const jql = buildJql(jiraCfg);
+      if (!jql) {
+        args.showToast("error", t(langRef.current, "jiraSyncNoScope"));
+        return;
+      }
+      const creds = {
+        siteUrl: jiraCfg.siteUrl,
+        email: jiraCfg.email,
+        apiToken: jiraCfg.apiToken,
+      };
       const issues = await searchAllIssues(creds, jql);
       onJiraAuthResultRef.current?.(true);
       const issueByKey = new Map(issues.map((i) => [i.key, i]));
@@ -387,14 +414,22 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
   }, [args.showToast, args.logActivityAs]);
 
-  const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
+  const resolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
     const jiraCfg = settingsRef.current.jira;
+    // On a failed download nothing has been written and the conflicts stay, so the user can retry.
+    let api: JiraApiModule;
+    try {
+      api = await loadJiraApi();
+    } catch (err) {
+      args.showToast("error", reportModuleLoadFailed(langRef.current, err));
+      return;
+    }
     const {
       updateIssue,
       taskFieldsToJiraFields,
       transitionIssueTo,
       formatJiraError,
-    } = await loadJiraApi();
+    } = api;
     const creds = {
       siteUrl: jiraCfg.siteUrl,
       email: jiraCfg.email,
@@ -543,6 +578,19 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
   }, [args.showToast, args.logActivityAs]);
+
+  // The conflicts modal stays open until a resolution finishes, so a second Resolve click during
+  // the module load or the pushes would run a second resolution and push every row twice. The
+  // guard is taken before the first await and released however the run ends.
+  const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
+    if (resolvingRef.current) return;
+    resolvingRef.current = true;
+    try {
+      await resolveConflicts(resolutions);
+    } finally {
+      resolvingRef.current = false;
+    }
+  }, [resolveConflicts]);
 
   const clearConflicts = useCallback(() => setJiraConflicts([]), []);
 

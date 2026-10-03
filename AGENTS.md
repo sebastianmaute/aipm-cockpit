@@ -718,7 +718,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      contract, never five flat props. `outlookEventId` persists across the six write paths + is guarded by
      `entity-persistence-registry.test.ts`.
   3. **Per-entity CRUD hooks.** Entity save/delete handlers live in a dedicated per-entity hook
-     (`useChangeLog` / `useStakeholders` / `useResourcePlanner`), NOT inlined in task-manager. Every save
+     (`useChangeLog` / `useStakeholders` / `useRaidItems` / `useResourcePlanner` — RAID's handlers left
+     `useResourcePlanner` for `useRaidItems`, which it composes), NOT inlined in task-manager. Every save
      handler is a FUNCTIONAL setter (`setX(prev => …)`) — the bulk-edit "N saves in one tick" landmine.
      (A generic `makeEntityCrudHandlers` factory was evaluated and deliberately NOT built — the per-entity
      hooks already encapsulate divergent behavior; a uniform factory adds risk without cohesion.)

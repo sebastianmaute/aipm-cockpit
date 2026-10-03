@@ -178,6 +178,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -231,6 +238,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -736,6 +760,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -789,6 +820,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -1294,6 +1342,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -1347,6 +1402,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -1852,6 +1924,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -1905,6 +1984,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -2410,6 +2506,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -2463,6 +2566,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -2968,6 +3088,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -3021,6 +3148,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -3526,6 +3670,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -3579,6 +3730,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -4084,6 +4252,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -4137,6 +4312,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -4642,6 +4834,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -4695,6 +4894,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -5200,6 +5416,13 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
+      ],
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Waiting on database schema review from DBA team.",
+          "createdAt": "2026-08-19T00:00:00.000Z"
+        }
       ]
     },
     {
@@ -5253,6 +5476,23 @@
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
+      "blockerLog": [
+        {
+          "id": 1,
+          "text": "Staging snapshot not yet refreshed.",
+          "createdAt": "2026-08-18T09:00:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett",
+          "resolvedAt": "2026-08-20T14:30:00.000Z"
+        },
+        {
+          "id": 2,
+          "text": "Pending DBA approval on dry-run plan.",
+          "createdAt": "2026-08-21T10:15:00.000Z",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ],
       "description": "",
       "inquiriesSent": 2,
       "group": "Auth Migration",
@@ -10908,6 +11148,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 8,
+      "name": "India Region Rollout (end-to-end, INR)",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 100001,
       "name": "Identity Platform – T&M — Payments",
       "type": "tm",
@@ -11293,6 +11560,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 100008,
+      "name": "India Region Rollout (end-to-end, INR) — Payments",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     },
     {
       "id": 200001,
@@ -11682,6 +11976,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 200008,
+      "name": "India Region Rollout (end-to-end, INR) — Mobile App",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 300001,
       "name": "Identity Platform – T&M — Data Migration",
       "type": "tm",
@@ -12067,6 +12388,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 300008,
+      "name": "India Region Rollout (end-to-end, INR) — Data Migration",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     },
     {
       "id": 400001,
@@ -12456,6 +12804,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 400008,
+      "name": "India Region Rollout (end-to-end, INR) — Partner API",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 500001,
       "name": "Identity Platform – T&M — Compliance",
       "type": "tm",
@@ -12841,6 +13216,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 500008,
+      "name": "India Region Rollout (end-to-end, INR) — Compliance",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     },
     {
       "id": 600001,
@@ -13230,6 +13632,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 600008,
+      "name": "India Region Rollout (end-to-end, INR) — Analytics",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 700001,
       "name": "Identity Platform – T&M — Infrastructure",
       "type": "tm",
@@ -13615,6 +14044,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 700008,
+      "name": "India Region Rollout (end-to-end, INR) — Infrastructure",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     },
     {
       "id": 800001,
@@ -14004,6 +14460,33 @@
       "rateOverrideExternal": 185
     },
     {
+      "id": 800008,
+      "name": "India Region Rollout (end-to-end, INR) — Support Portal",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
+    },
+    {
       "id": 900001,
       "name": "Identity Platform – T&M — Reporting",
       "type": "tm",
@@ -14389,6 +14872,33 @@
       "planningMode": "detailed",
       "rateOverrideInternal": 105,
       "rateOverrideExternal": 185
+    },
+    {
+      "id": 900008,
+      "name": "India Region Rollout (end-to-end, INR) — Reporting",
+      "type": "e2e",
+      "currency": "INR",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 5,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-10": 80,
+            "2026-11": 120,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400193516",
+      "fixedPriceAmount": 2900000,
+      "createdDate": "2026-09-15",
+      "order": 7,
+      "planningMode": "detailed",
+      "percentComplete": 0
     }
   ],
   "fxRates": {
@@ -14398,7 +14908,8 @@
     "rates": {
       "EUR": 1,
       "USD": 1.1,
-      "GBP": 0.85
+      "GBP": 0.85,
+      "INR": 96.5
     }
   },
   "status": {
@@ -16436,12 +16947,14 @@
       {
         "name": "David Okoro",
         "email": "liam.okoro@northwind.example",
-        "synced": false
+        "synced": false,
+        "id": 1
       },
       {
         "name": "Sofia Ramirez",
         "email": "sofia.ramirez@example.com",
-        "synced": true
+        "synced": true,
+        "id": 2
       }
     ],
     "regulatory": [

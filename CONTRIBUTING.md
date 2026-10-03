@@ -161,10 +161,13 @@ Established pattern, applied to every heavy dep in the table below:
 | `i18n.de.ts` | Switching language to German |
 | `holidays.ts` (date-holidays + moment-tz) | Selecting ≥1 country in Settings |
 | `export-ooxml.ts` (DOCX / XLSX / PPTX writers) | Choosing one of those export formats |
+| `jira-api.ts` (and through `jira-schemas.ts`, `zod`) | First Jira use — Settings → Jira, a sync, or a row's Push to Jira — via `loadJiraApi()` in `use-jira-sync.ts` |
 | `gantt.tsx`, `reports.tsx`, etc. | Tabs only mount when active |
 
 When adding a new heavy dep, follow the same gate-then-import pattern rather
-than top-level importing.
+than top-level importing. If you memoise the `import()` promise, wrap the
+loader in `lazyRetryOnReject` (`lazy-retry.ts`) as `loadJiraApi` does: a plain
+cached promise keeps a failed chunk download rejected until the page reloads.
 
 ### CSS
 Tailwind v4 with `@tailwindcss/postcss`. Do **not** introduce
