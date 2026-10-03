@@ -44,8 +44,10 @@ Notes.
   applied in its answer.
 - **Linked-task search in the milestone editor.** The list of tasks linked to a milestone can be
   filtered by `#id name`; a ticked task hidden by the search stays linked.
-- **Calendar keyboard moves (§10).** Moving a meeting with the keyboard now previews where it
-  will land.
+- **Calendar keyboard moves (§10).** A keyboard move or resize now previews where it will land.
+  In the day grid, a task or absence outlines its target cells and the announcement says which
+  dates it lands on, and which person when the move reassigns it. In the meetings band, a meeting
+  outlines its target day and the announcement says which day.
 - **Contact persons (§537).** A project's contact persons have ids and can be edited in place.
 - **AI recommendations for resource insights (§360).** An insight about a resource now gets an
   AI recommendation. It sees the person's job title, department, company, external flag and
@@ -65,6 +67,9 @@ Notes.
 - **Undo labels (§132).** An edit of several unnamed rows is labelled "Edit 3 tasks" rather than
   "Edited 3 items".
 - **Dark-theme text (§40).** Text colours that had a single mode now have dark companions.
+- **Change decision maker (§446).** A change's "Decided by" field is now "Decision maker" and
+  can name the person at any status, before the decision is made. Its hint and the AI
+  assistant's tool description say so.
 
 ### Fixed
 
@@ -74,13 +79,17 @@ Notes.
   against its own file binding. Rich fields are sanitised after a CSV, Markdown or Turso load,
   RAID text gets length caps, an older `document_assets` table in Turso is rebuilt, and a
   dependency left dangling by a redo is repaired.
-- **Undo (§177, §299, §173, §198, §134).** More whole-row edits now undo field by field, undo and
+- **Undo (§177, §299, §134).** More whole-row edits now undo field by field, undo and
   redo rows carry the delivered state they reverse, a composite undo with an unflagged primary is
   refused, and a task delete's undo restores links to a re-numbered task correctly.
 - **Notes and blocker windows (§662, §664).** They close when their task, RAID item or project is
   gone, and legacy blocker text gets the same date on every load.
-- **Block editor and rich text (§188, §186, §190, §158, §16, §38).** The refusal notice clears on
-  a new edit, and dictation into a rich field keeps its formatting, among other editor fixes.
+- **Block editor and rich text (§188, §186, §190, §158, §16, §38, §198).** The refusal notice
+  clears on a new edit, dictation into a rich field keeps its formatting, and a block delete
+  confirms and checks against the block whose menu was opened, not one that slid into its place
+  before the click, among other editor fixes.
+- **Templates (§298, §228).** A template keeps a long rich note rich, applying a template cleans
+  every part of it the way a reload does, and a proposal saved as a template keeps its people.
 - **Exports (§156, §157, §94, §153, §222, §155, §217).** Lists keep their numbers and indentation
   around quotes, code blocks and headings, PowerPoint budgets slides by wrapped lines with compact
   summary and paginated detail slides, images scale to fit, Word tables no longer name an
@@ -94,8 +103,14 @@ Notes.
   switch to the modern layout, so the current view stays.
 - **IndexedDB plans (§470).** A stored plan with an out-of-range granularity or one unreadable
   date is coerced field by field on load.
-- **AI assistant (§440, §350).** Create cards list every field and say which were refused.
-- **Accessibility (§331).** One-of-N groups have real radio semantics.
+- **AI assistant (§440, §350, §173, §174).** Create cards list every field and say which were
+  refused. An insight recommendation snapshots the items it is based on, so an edit made while
+  the model answers is refused at confirm instead of being overwritten. While the chat history
+  is still loading, or after it failed to load, the assistant is told it cannot look rather
+  than that nothing was discussed.
+- **Accessibility (§331, §147).** One-of-N groups have real radio semantics, and read-only
+  checklist items read as "checked" or "not checked" ("abgehakt" / "nicht abgehakt") to screen
+  readers, in the app and in the standalone HTML and PDF export.
 - **Suggested actions.** Chips that open nothing are no longer shown.
 - **Note log beside an editor.** The notes window stays usable next to an open editor, and a
   click on it no longer closes the editor.
@@ -113,8 +128,6 @@ Notes.
   token cut at the scrub window is redacted whole.
 - **Linear parsing (§578).** HTML-to-text, narrative checks, RAID escalation text and the
   fenced-JSON reads in Markdown files no longer use patterns that can backtrack quadratically.
-- **Control characters (§201).** A raw control byte in Jira array joins is written as an escape,
-  and a test now rejects any such byte in the tree.
 
 ### Development
 
@@ -124,6 +137,11 @@ Notes.
   `BudgetPanel` (§274); RAID handlers move out of `useResourcePlanner` (§61); and the Resources
   panel memos can now skip re-renders (§1). The three project-form tooltip triggers are named
   by their own hints.
+- **Control characters (§201).** `jira-api.ts` no longer contains a raw control byte: its
+  delimiter is now written as an escape, with no behaviour change. A test now rejects any raw
+  control byte in the tree.
+- **Help deep link (§489).** The floating help menu accepts a request to open at an entry, as
+  the Help view already does. Nothing calls it yet.
 - **Dependencies.** `zod` is now a runtime dependency, loaded lazily so it stays out of the
   startup chunk; electron-builder 26.17.0 and a CodeQL action bump.
 - **Register.** Many follow-up entries were closed, many as already fixed, on CI history or
