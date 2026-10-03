@@ -458,6 +458,25 @@ function clipDetail(body: string): string {
   return splitsPair ? cut.slice(0, -1) : cut;
 }
 
+/** The run-level census over every reply: how many ended on each stop reason, and how many
+ *  blocks of each type came back. Both accumulators are PROTOTYPE-FREE, because the keys are
+ *  the remote's own strings and a plain `{}` would drop `__proto__` and read an inherited
+ *  function as the count for `constructor` / `toString` (§455). */
+export function summariseResponseShape(
+  replies: ReadonlyArray<{ stopReason?: string; blockTypes?: Record<string, number> }>,
+): { stopReasons: Record<string, number>; blockTypes: Record<string, number> } {
+  const stopReasons: Record<string, number> = Object.create(null);
+  const blockTypes: Record<string, number> = Object.create(null);
+  for (const r of replies) {
+    const sr = r.stopReason ?? "(unrecorded)";
+    stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
+    for (const [t, n] of Object.entries(r.blockTypes ?? {})) {
+      blockTypes[t] = (blockTypes[t] ?? 0) + n;
+    }
+  }
+  return { stopReasons, blockTypes };
+}
+
 /** Reduce a decoded response body to the `Reply` everything downstream reads.
  *
  *  ★★ PURE, AND SPLIT OUT OF `liveRequest` FOR THAT REASON. `liveRequest` is
@@ -1256,16 +1275,8 @@ ${armA.turn}`;
     ]),
     ...driftReplies.N, ...driftReplies.R,
   ];
-  const stopReasons: Record<string, number> = {};
-  const blockTypeCensus: Record<string, number> = Object.create(null);
-  for (const r of allReplies) {
-    const sr = r.stopReason ?? "(unrecorded)";
-    stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
-    for (const [t, n] of Object.entries(r.blockTypes ?? {})) {
-      blockTypeCensus[t] = (blockTypeCensus[t] ?? 0) + n;
-    }
-  }
-  const responseShape = { stopReasons, blockTypes: blockTypeCensus };
+  const responseShape = summariseResponseShape(allReplies);
+  const stopReasons = responseShape.stopReasons;
   // ★★★ WHICH PROBES AND ARMS WERE INSTRUMENT-LIMITED, at the top of the
   //     record. A truncated reply scores a miss whatever the model found, so a
   //     run carrying any is partly measuring its own cap — and that must be

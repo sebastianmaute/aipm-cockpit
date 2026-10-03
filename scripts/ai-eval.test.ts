@@ -40,7 +40,7 @@ const { priorImportFlag } = vi.hoisted(() => {
   process.env.AI_EVAL_IMPORT = "1";
   return { priorImportFlag: prior };
 });
-import { runEval, parseAnthropicBody, anthropicErrorMessage } from "./ai-eval.ts";
+import { runEval, parseAnthropicBody, anthropicErrorMessage, summariseResponseShape } from "./ai-eval.ts";
 
 // ★★ Put the worker's env back. This is HYGIENE, not a fix for a live leak,
 //    and the first two versions of this comment each asserted a mechanism
@@ -958,6 +958,55 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
     expect(reply.cacheReadTokens).toBe(31000);
     expect(reply.outputTokens).toBe(0);
     expect(reply.cacheWriteTokens).toBe(0);
+  });
+});
+
+describe("summariseResponseShape — the run-level census (§455)", () => {
+  it("counts prototype-named block types exactly across replies", () => {
+    // Arrange — the keys are the remote's own strings; on a plain object
+    //   "__proto__" is never recorded and "constructor"/"toString" read an
+    //   inherited function as the count.
+    const protoKeyed = Object.create(null) as Record<string, number>;
+    protoKeyed["__proto__"] = 2;
+    protoKeyed["constructor"] = 1;
+    protoKeyed["toString"] = 3;
+    const other = Object.create(null) as Record<string, number>;
+    other["__proto__"] = 1;
+    other["toString"] = 1;
+    other["text"] = 1;
+
+    // Act
+    const shape = summariseResponseShape([
+      { stopReason: "end_turn", blockTypes: protoKeyed },
+      { stopReason: "end_turn", blockTypes: other },
+    ]);
+
+    // Assert
+    expect(Object.entries(shape.blockTypes).sort()).toEqual([
+      ["__proto__", 3],
+      ["constructor", 1],
+      ["text", 1],
+      ["toString", 4],
+    ]);
+  });
+
+  it("counts prototype-named stop reasons exactly", () => {
+    // Arrange / Act
+    const shape = summariseResponseShape([
+      { stopReason: "__proto__" },
+      { stopReason: "__proto__" },
+      { stopReason: "toString" },
+      { stopReason: "end_turn" },
+      {},
+    ]);
+
+    // Assert
+    expect(Object.entries(shape.stopReasons).sort()).toEqual([
+      ["(unrecorded)", 1],
+      ["__proto__", 2],
+      ["end_turn", 1],
+      ["toString", 1],
+    ]);
   });
 });
 
