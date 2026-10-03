@@ -29,7 +29,8 @@
 // forbidden to make. Deriving it locally keeps every dependency array
 // byte-identical. It is ONE `argsRef` mirroring the whole bag after every commit,
 // not a ref per arg — the per-arg pairs were the same boilerplate hand-rolled in
-// four sibling hooks (open-followups §61 (c)); the four now share this shape. `logUpdate` is threaded instead of re-derived because it was
+// four sibling hooks (open-followups §61 (c)); the four now share this shape.
+// `logUpdate` is threaded instead of re-derived because it was
 // ALREADY a named dependency of handleSaveRole (so nothing changes) and
 // re-deriving it would duplicate a 13-line helper the owner still needs.
 

@@ -78,8 +78,8 @@ describe("resolveRateSource", () => {
 // `resolveRateSource` so it cannot disagree with the per-bucket marker about
 // which buckets qualify.
 describe("countUnresolvedBuckets", () => {
-  // Missing GBP (unlike the module-level `fx`, which caches all three
-  // supported currencies) — the union is EUR/USD/GBP only, so this is the
+  // Missing GBP and INR (unlike the module-level `fx`, which caches the
+  // supported currencies) — the union is EUR/USD/GBP/INR, so this is the
   // one table that can produce "cached" AND "unresolved" side by side.
   const partialFx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08 } };
 
