@@ -22,12 +22,14 @@
 // receives any handler from this file. Preserving the memoization form needs no
 // reason beyond this being a move-only commit — don't reintroduce one.
 //
-// The two REFS the moved bodies read are re-derived here rather than threaded
-// in: exhaustive-deps only knows a value is render-stable when it can see the
-// useRef, so threading the ref objects as args made the rule demand them in
+// The args the moved bodies read go through a REF derived here rather than
+// threaded in: exhaustive-deps only knows a value is render-stable when it can
+// see the useRef, so threading ref objects as args made the rule demand them in
 // every dependency array — a change to the memoization form this move is
-// forbidden to make. Deriving them locally keeps every dependency array
-// byte-identical. `logUpdate` is threaded instead of re-derived because it was
+// forbidden to make. Deriving it locally keeps every dependency array
+// byte-identical. It is ONE `argsRef` mirroring the whole bag after every commit,
+// not a ref per arg — the per-arg pairs were the same boilerplate hand-rolled in
+// four sibling hooks (open-followups §61 (c)); the four now share this shape. `logUpdate` is threaded instead of re-derived because it was
 // ALREADY a named dependency of handleSaveRole (so nothing changes) and
 // re-deriving it would duplicate a 13-line helper the owner still needs.
 
@@ -61,12 +63,8 @@ export function useReferenceData(args: UseReferenceDataArgs) {
     useWorkspace();
   const { logUpdate } = args;
 
-  const logActivityRef = useRef(args.logActivity);
-  useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
-  const captureCompositeRef = useRef(args.captureComposite);
-  useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
-  const allowDestructiveRef = useRef(args.allowDestructiveSave);
-  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
+  const argsRef = useRef(args);
+  useEffect(() => { argsRef.current = args; });
 
   // ── moved verbatim from use-resource-planner.ts ──
 
@@ -86,7 +84,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         localModifiedAt: new Date().toISOString(),
       };
       setRoles((prev) => [...prev, role]);
-      logActivityRef.current("role.created", id, `${disciplineId}/${gradeId}`);
+      argsRef.current.logActivity("role.created", id, `${disciplineId}/${gradeId}`);
       return id;
     },
     [roles, setRoles],
@@ -121,7 +119,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
       );
       if (removed) {
         // One undo reverts BOTH the role removal and the roleId-clearing cascade.
-        captureCompositeRef.current?.({
+        argsRef.current.captureComposite?.({
           kind: "role.deleted",
           primaryCount: 1,
           name: `${removed.disciplineId}/${removed.gradeId}`,
@@ -137,8 +135,8 @@ export function useReferenceData(args: UseReferenceDataArgs) {
             }),
           ],
         });
-        logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
-        allowDestructiveRef.current?.();
+        argsRef.current.logActivity("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
+        argsRef.current.allowDestructiveSave?.();
       }
     },
     [roles, resources, setRoles, setResources],
@@ -222,7 +220,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
     ));
     if (removed) {
       // One undo reverts the discipline removal AND the roles' cleared FK + rates.
-      captureCompositeRef.current?.({
+      argsRef.current.captureComposite?.({
         kind: "discipline.deleted",
         primaryCount: 1,
         name: removed.name,
@@ -239,10 +237,10 @@ export function useReferenceData(args: UseReferenceDataArgs) {
           }),
         ],
       });
-      logActivityRef.current("discipline.deleted", id, removed.name);
+      argsRef.current.logActivity("discipline.deleted", id, removed.name);
       // `disciplines` is a counted slice — a deliberate delete must arm the
       // one-shot bypass or the save guard refuses the user's own removal.
-      allowDestructiveRef.current?.();
+      argsRef.current.allowDestructiveSave?.();
     }
   }, [disciplines, roles, setDisciplines, setRoles]);
 
@@ -256,7 +254,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
       r.gradeId === id ? { ...r, ...cleared } : r,
     ));
     if (removed) {
-      captureCompositeRef.current?.({
+      argsRef.current.captureComposite?.({
         kind: "grade.deleted",
         primaryCount: 1,
         name: removed.name,
@@ -273,10 +271,10 @@ export function useReferenceData(args: UseReferenceDataArgs) {
           }),
         ],
       });
-      logActivityRef.current("grade.deleted", id, removed.name);
+      argsRef.current.logActivity("grade.deleted", id, removed.name);
       // `grades` is a counted slice — same one-shot arming as the discipline
       // and role routes above.
-      allowDestructiveRef.current?.();
+      argsRef.current.allowDestructiveSave?.();
     }
   }, [grades, roles, setGrades, setRoles]);
 

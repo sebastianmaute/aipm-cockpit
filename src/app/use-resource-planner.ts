@@ -100,18 +100,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   const { workdayHours, holidaySet, today } = args;
 
-  const logActivityRef = useRef(args.logActivity);
-  const captureRef = useRef(args.capture);
-  useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
-  // ★★ A REF, not `args.` — these delete callbacks do not list `args` in their
-  //    deps arrays, and `react-hooks/exhaustive-deps` is FATAL here. Mirrors
-  //    `captureRef` immediately above for exactly that reason.
-  const allowDestructiveRef = useRef(args.allowDestructiveSave);
-  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
-  const logActivityChangesRef = useRef(args.logActivityChanges);
+  // ★★ Callbacks read `argsRef.current.x`, never `args.x` — they do not list
+  //    `args` in their deps arrays, and `react-hooks/exhaustive-deps` is FATAL
+  //    here. ONE mirror of the whole bag, refreshed after every commit, instead
+  //    of a ref per arg (§61 (c)); the `useRef` must stay visible in this file,
+  //    because exhaustive-deps only treats a value as stable when it can see it.
+  const argsRef = useRef(args);
+  useEffect(() => { argsRef.current = args; });
   const tasksRef = useRef(tasks);
-  useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
-  useEffect(() => { logActivityChangesRef.current = args.logActivityChanges; }, [args.logActivityChanges]);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
   // Log an UPDATE with a per-field diff (#22) when a diff logger + previous
@@ -125,10 +121,10 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       next: object,
       ...args: (string | number)[]
     ): void => {
-      if (previous && logActivityChangesRef.current) {
-        logActivityChangesRef.current(kind, diffFields(previous, next), ...args);
+      if (previous && argsRef.current.logActivityChanges) {
+        argsRef.current.logActivityChanges(kind, diffFields(previous, next), ...args);
       } else {
-        logActivityRef.current(kind, ...args);
+        argsRef.current.logActivity(kind, ...args);
       }
     },
     [],
@@ -200,7 +196,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         );
       } else {
         setAbsences((prev) => [...prev, withStamp]);
-        logActivityRef.current(
+        argsRef.current.logActivity(
           "absence.created",
           next.id,
           next.assignee,
@@ -216,11 +212,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteAbsence = useCallback(
     (id: number) => {
       const removed = absences.find((a) => a.id === id);
-      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", removed: [removed], fromArray: absences, name: removed.assignee });
+      if (removed) argsRef.current.capture?.({ setter: setAbsences, kind: "absence.deleted", removed: [removed], fromArray: absences, name: removed.assignee });
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
-        logActivityRef.current("absence.deleted", id, removed.assignee);
-        allowDestructiveRef.current?.();
+        argsRef.current.logActivity("absence.deleted", id, removed.assignee);
+        argsRef.current.allowDestructiveSave?.();
       }
       setEditingAbsence(null);
     },
@@ -269,7 +265,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         logUpdate("shift.updated", existing, withStamp, next.id, next.assignee);
       } else {
         setShifts((prev) => [...prev, withStamp]);
-        logActivityRef.current("shift.created", next.id, next.assignee);
+        argsRef.current.logActivity("shift.created", next.id, next.assignee);
       }
       setEditingShift(null);
     },
@@ -279,11 +275,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteShift = useCallback(
     (id: number) => {
       const removed = shifts.find((s) => s.id === id);
-      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", removed: [removed], fromArray: shifts, name: removed.assignee });
+      if (removed) argsRef.current.capture?.({ setter: setShifts, kind: "shift.deleted", removed: [removed], fromArray: shifts, name: removed.assignee });
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
-        logActivityRef.current("shift.deleted", id, removed.assignee);
-        allowDestructiveRef.current?.();
+        argsRef.current.logActivity("shift.deleted", id, removed.assignee);
+        argsRef.current.allowDestructiveSave?.();
       }
       setEditingShift(null);
     },

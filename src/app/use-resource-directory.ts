@@ -29,12 +29,13 @@
 // memoization form needs no justification beyond this being a move-only
 // commit — don't invent one.
 //
-// The SIX refs the moved bodies read are re-derived here rather than threaded
-// in: exhaustive-deps only knows a value is render-stable when it can see the
-// useRef, so threading the ref objects as args would make the rule demand them
-// in every dependency array — a change to the memoization form this move is
-// forbidden to make. Deriving them locally keeps every dependency array
-// byte-identical. `logUpdate` is threaded instead of re-derived because it was
+// The args the moved bodies read go through ONE `argsRef` derived here rather
+// than threaded in: exhaustive-deps only knows a value is render-stable when it
+// can see the useRef, so threading ref objects as args would make the rule demand
+// them in every dependency array — a change to the memoization form this move is
+// forbidden to make. Deriving it locally keeps every dependency array
+// byte-identical. (It replaced a hand-rolled ref per arg — open-followups §61 (c);
+// use-reference-data.ts's header has the rest.) `logUpdate` is threaded instead of re-derived because it was
 // ALREADY a named dependency of handleSaveResource (so nothing changes) and
 // re-deriving it would duplicate a helper the owner still needs.
 //
@@ -130,20 +131,8 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
   } = useWorkspace();
   const { logUpdate } = args;
 
-  const langRef = useRef(args.lang);
-  useEffect(() => { langRef.current = args.lang; }, [args.lang]);
-  const logActivityRef = useRef(args.logActivity);
-  useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
-  const showToastRef = useRef(args.showToast);
-  useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
-  const captureRef = useRef(args.capture);
-  useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
-  const captureCompositeRef = useRef(args.captureComposite);
-  useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
-  const captureFieldEditRef = useRef(args.captureFieldEdit);
-  useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
-  const allowDestructiveRef = useRef(args.allowDestructiveSave);
-  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
+  const argsRef = useRef(args);
+  useEffect(() => { argsRef.current = args; });
 
   // ── moved verbatim from use-resource-planner.ts ──
 
@@ -204,13 +193,13 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         const created: Resource = { ...next, id, localModifiedAt: stamp };
         setResources((prev) => [...prev, created]);
         setEditingResource(null);
-        logActivityRef.current("resource.created", id, name);
+        argsRef.current.logActivity("resource.created", id, name);
       } else {
         const previous = resources.find((r) => r.id === next.id);
         // Editing a row a concurrent writer already deleted: the map-replace below
         // would silently no-op. Surface it instead of dropping the edit in silence.
         if (!previous) {
-          reportSilentFailure(showToastRef.current, langRef.current, "resource.editVanished", "concurrent delete during edit", "guardEditVanished");
+          reportSilentFailure(argsRef.current.showToast, argsRef.current.lang, "resource.editVanished", "concurrent delete during edit", "guardEditVanished");
           setEditingResource(null);
           return;
         }
@@ -220,18 +209,18 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         // Spec Part 7 — a corrected primary email reaches its FK-linked copies,
         // as ONE undo entry with the resource. Otherwise the capture is unchanged.
         const corrected = commitResourceEmailCorrection({
-          previous, next: withStamp, lang: langRef.current,
+          previous, next: withStamp, lang: argsRef.current.lang,
           input: { tasks, raid, absences, shifts, stakeholders, contactPersons: project?.contactPersons ?? [] },
           setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject },
         });
         if (corrected) {
-          captureCompositeRef.current?.({
+          argsRef.current.captureComposite?.({
             kind: "resource.updated", primaryCount: 1, name, entityKey: "resource",
             toastText: corrected.toastText,
             parts: [capturePart({ setter: setResources, edited: [previous], fromArray: resources, isPrimary: true }), ...corrected.cascade],
           });
         } else {
-          captureFieldChanges(captureFieldEditRef.current, {
+          captureFieldChanges(argsRef.current.captureFieldEdit, {
             setter: setResources, kind: "resource.updated", id: next.id,
             prev: previous, next: withStamp, groups: RESOURCE_UNDO_GROUPS,
             stampField: "localModifiedAt", name,
@@ -293,7 +282,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         // absences/shifts. Empty purge parts collapse to null (skipped).
         const { purgedAbsences, purgedShifts } = purgeCalendarFor([removed], surviving);
         const name = `${removed.firstName} ${removed.lastName}`.trim();
-        captureCompositeRef.current?.({
+        argsRef.current.captureComposite?.({
           kind: "resource.deleted",
           primaryCount: 1,
           name,
@@ -303,8 +292,8 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
-        logActivityRef.current("resource.deleted", id, name);
-        allowDestructiveRef.current?.();
+        argsRef.current.logActivity("resource.deleted", id, name);
+        argsRef.current.allowDestructiveSave?.();
       }
     },
     [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
@@ -325,7 +314,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         const merged: Resource = { ...r, ...patch, localModifiedAt: stamp };
         return sanitizeResource(merged) ?? merged;
       });
-      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, editedAfter: written, fromArray: resources, entityKey: "resource" });
+      if (affected.length > 0) argsRef.current.capture?.({ setter: setResources, kind: "bulk.edit", edited: affected, editedAfter: written, fromArray: resources, entityKey: "resource" });
       setResources((prev) =>
         prev.map((r) => {
           if (!idSet.has(r.id)) return r;
@@ -337,7 +326,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         }),
       );
       for (const r of affected) {
-        logActivityRef.current("resource.updated", r.id, `${r.firstName} ${r.lastName}`.trim());
+        argsRef.current.logActivity("resource.updated", r.id, `${r.firstName} ${r.lastName}`.trim());
       }
     },
     [resources, setResources],
@@ -353,7 +342,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
       const { purgedAbsences, purgedShifts } = purgeCalendarFor(removed, surviving);
       if (removed.length > 0) {
         // Composite: re-insert the deleted resources AND their purged calendar rows.
-        captureCompositeRef.current?.({
+        argsRef.current.captureComposite?.({
           kind: "resource.deleted",
           primaryCount: removed.length,
           parts: [
@@ -362,10 +351,10 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
-        allowDestructiveRef.current?.();
+        argsRef.current.allowDestructiveSave?.();
       }
       for (const r of removed) {
-        logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
+        argsRef.current.logActivity("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
       }
     },
     [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
