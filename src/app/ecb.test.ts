@@ -19,6 +19,11 @@ describe("parseEcbDailyXml", () => {
     expect(fx.date).toBe("2026-05-26");
     expect(fx.rates).toEqual({ EUR: 1, USD: 1.0823, GBP: 0.8512 });
   });
+  test("accepts an INR rate from the feed (§477)", () => {
+    const xml = `<Cube time='2026-05-26'><Cube currency='INR' rate='96.5'/><Cube currency='USD' rate='1.08'/></Cube>`;
+    const fx = parseEcbDailyXml(xml, "x")!;
+    expect(fx.rates).toEqual({ EUR: 1, USD: 1.08, INR: 96.5 });
+  });
   test("returns null on malformed XML", () => {
     expect(parseEcbDailyXml("<nope/>", "x")).toBeNull();
   });
