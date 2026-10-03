@@ -204,6 +204,7 @@ describe("SavingPausedBanner", () => {
     render(<SavingPausedBanner cause={{ kind: "truncation", truncation: { entries: 0, blocks: 7 }, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/7 blocks in stored documents could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/versions/i)).toBeNull();
+    expect(screen.queryByText(t("en-US", "documentsTruncatedEntriesCount", 0))).toBeNull();
     expect(screen.queryByText(/document entries/i)).toBeNull();
   });
 
@@ -291,8 +292,8 @@ describe("SavingPausedBanner", () => {
     // ★ "Document data" is true of truncation and false of a malformed import,
     // so the pair must take the wider wording — the same rule the
     // truncation+decode pair already follows.
-    expect(screen.getByRole("alert", { name: "Saved data could not be opened" })).toBeInTheDocument();
-    expect(screen.queryByRole("alert", { name: "Document data could not be opened" })).toBeNull();
+    expect(screen.getByRole("alert", { name: t("en-US", "documentsUnreadableBannerAria") })).toBeInTheDocument();
+    expect(screen.queryByRole("alert", { name: t("en-US", "documentsTruncatedBannerAria") })).toBeNull();
   });
 
   // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS EVERY
@@ -403,7 +404,7 @@ describe("SavingPausedBanner", () => {
     render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
 
     // Not the full banner — dismissing must still quieten it.
-    expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeNull();
     // ★ It carries the COUNT, not a third repetition of "Saving paused" (the
     // region is labelled that and the button says it too). Caught by looking at
     // it in a browser — jsdom cannot see that a line was wasted.
@@ -725,14 +726,14 @@ describe("SavingPausedBanner", () => {
   it("does not render Overwrite or Download when no handler is given", () => {
     renderConflict({ onOverwrite: undefined, onDownload: undefined });
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument(); // control: the banner rendered
-    expect(screen.queryByRole("button", { name: "Overwrite" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Download my version" })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "storageConflictOverwrite") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "storageConflictDownload") })).toBeNull();
   });
 
   it("comes back after a dismiss: the chip reopens it in the classic layout", () => {
     const onReopen = vi.fn();
     const { rerender } = renderConflict({ dismissed: true, hasFooterIndicator: false, onReopen });
-    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "storageConflictReload") })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
     expect(onReopen).toHaveBeenCalledTimes(1);
     rerender(

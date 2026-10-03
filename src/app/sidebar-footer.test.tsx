@@ -17,7 +17,7 @@ describe("SidebarFooter", () => {
   it("renders the storage description (theme control moved to Settings → Appearance)", () => {
     render(<SidebarFooter {...base} />);
     expect(screen.getByText("Local file: lop.json")).toBeTruthy();
-    expect(screen.queryByText("Theme")).toBeNull();
+    expect(screen.queryByText(t("en-US", "theme"))).toBeNull();
   });
 
   it("shows the account name and a sign-out button when signed in", () => {
@@ -75,7 +75,7 @@ describe("SidebarFooter", () => {
     // nothing. Everything below pins that the door exists and opens.
     it("is absent while saving is running", () => {
       render(<SidebarFooter {...base} />);
-      expect(screen.queryByRole("button", { name: /saving paused/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "storageSavingPausedAction") })).toBeNull();
     });
 
     it("names the paused state in TEXT, not by colour alone, and re-opens the notice", () => {
