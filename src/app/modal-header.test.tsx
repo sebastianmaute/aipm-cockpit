@@ -1,6 +1,6 @@
 // src/app/modal-header.test.tsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ModalHeader } from "./modal-header";
 import { Modal } from "./modal";
@@ -378,7 +378,15 @@ describe("ModalHeader help icon", () => {
     );
     const entry = HELP_ENTRIES.find((e) => e.id === "concept-raid")!;
     const popoverClose = `${t("en-US", "alertModalClose")} – ${t("en-US", entry.titleKey)}`;
-    await user.click(screen.getByRole("button", { name: "Help – Edit risk" }));
+    // ★★ WAIT FOR THE MODAL'S OWN INITIAL FOCUS FIRST. `Modal` moves focus
+    // into the dialog one animation frame after opening, onto its first
+    // focusable control — this help button. On a loaded runner that frame
+    // fired DURING the first Tab below, after the popover had taken focus,
+    // and pulled it back to the trigger: CI recorded ["Help – Edit risk",
+    // close ×5]. Reproduced by delivering the frame inside the first press.
+    const helpTrigger = screen.getByRole("button", { name: "Help – Edit risk" });
+    await waitFor(() => expect(helpTrigger).toHaveFocus());
+    await user.click(helpTrigger);
 
     const whileOpen: string[] = [];
     for (let i = 0; i < 6; i++) {
