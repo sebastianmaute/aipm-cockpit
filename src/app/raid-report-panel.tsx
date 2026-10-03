@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { sortValueGetter } from "./sort-value-getter";
 import { SegmentedControl } from "./segmented-control";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
@@ -273,10 +274,13 @@ type StatusResizable = ReturnType<typeof useColumnResize<StatusCol>>;
 function StatusTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["byStatus"]; colResize: StatusResizable }) {
   const [sort, setSort] = useState<SortState<StatusSortKey>>({ key: "name", dir: "asc" });
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.status })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: StatusSortKey): string | number => {
-    if (k === "name") return r.status;
-    return r.count;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], StatusSortKey>({
+      name: (r) => r.status,
+      open: (r) => r.count,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -313,14 +317,17 @@ function OwnerTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["b
   const [sort, setSort] = useState<SortState<OwnerSortKey>>({ key: "total", dir: "desc" });
   const [filter, setFilter] = useState("");
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.owner })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: OwnerSortKey): string | number => {
-    if (k === "name") return r.owner;
-    if (k === "risks") return r.openR;
-    if (k === "assumptions") return r.openA;
-    if (k === "issues") return r.openI;
-    if (k === "dependencies") return r.openD;
-    return r.total;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], OwnerSortKey>({
+      name: (r) => r.owner,
+      risks: (r) => r.openR,
+      assumptions: (r) => r.openA,
+      issues: (r) => r.openI,
+      dependencies: (r) => r.openD,
+      total: (r) => r.total,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -360,14 +367,17 @@ type TopOpenResizable = ReturnType<typeof useColumnResize<TopOpenCol>>;
 function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["topOpen"]; colResize: TopOpenResizable }) {
   const [sort, setSort] = useState<SortState<TopOpenSortKey>>({ key: "ageDays", dir: "desc" });
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.title })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: TopOpenSortKey): string | number => {
-    if (k === "name") return r.title;
-    if (k === "id") return r.id;
-    if (k === "category") return r.category;
-    if (k === "severity") return r.severity ?? "";
-    if (k === "owner") return r.owner;
-    return r.ageDays;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], TopOpenSortKey>({
+      name: (r) => r.title,
+      id: (r) => r.id,
+      category: (r) => r.category,
+      severity: (r) => r.severity ?? "",
+      owner: (r) => r.owner,
+      ageDays: (r) => r.ageDays,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -506,18 +516,21 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
   const [sort, setSort] = useState<SortState<DetailSortKey>>({ key: "name", dir: "asc" });
   const [filter, setFilter] = useState("");
   const mapped = useMemo(() => rows.map((r) => ({ ...r, name: r.title })), [rows]);
-  const getValue = useCallback((r: typeof mapped[number], k: DetailSortKey): string | number => {
-    if (k === "name") return r.title;
-    if (k === "id") return r.id;
-    if (k === "category") return r.category;
-    if (k === "severity") return r.severity ?? "";
-    if (k === "status") return r.status;
-    if (k === "owner") return r.owner;
-    if (k === "raisedDate") return r.raisedDate;
-    if (k === "targetDate") return r.targetDate ?? "";
-    if (k === "ageDays") return r.ageDays;
-    return r.linkedTaskCount;
-  }, []);
+  const getValue = useMemo(
+    () => sortValueGetter<typeof mapped[number], DetailSortKey>({
+      name: (r) => r.title,
+      id: (r) => r.id,
+      category: (r) => r.category,
+      severity: (r) => r.severity ?? "",
+      status: (r) => r.status,
+      owner: (r) => r.owner,
+      raisedDate: (r) => r.raisedDate,
+      targetDate: (r) => r.targetDate ?? "",
+      ageDays: (r) => r.ageDays,
+      linkedTaskCount: (r) => r.linkedTaskCount,
+    }),
+    [],
+  );
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
