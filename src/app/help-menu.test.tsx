@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 import { loadI18n, t } from "./i18n";
 
@@ -196,5 +197,121 @@ describe("HelpMenu search clear", () => {
       screen.getByRole("button", { name: "Clear – Search help (window)" }),
     );
     expect(field.value).toBe("");
+  });
+});
+
+// §489 — the floating panel takes the same deep-link input as `HelpView`
+// (`pendingHelpConcept` + `onHelpConceptConsumed`). No production caller passes
+// it yet; these pin the input itself.
+describe("HelpMenu deep-link (§489)", () => {
+  const TARGET = "concept-raid";
+
+  /** The elements `scrollIntoView` was called on, in call order. */
+  function scrolledElements(spy: { mock: { contexts: unknown[] } }): Element[] {
+    return spy.mock.contexts as Element[];
+  }
+
+  /** A parent that owns the request and clears it on consume, like the
+   *  `workspace-tab-context` channel does for `HelpView`. `key` forces a remount. */
+  function Harness({ initial, mountKey, onConsumed }: { initial: string | null; mountKey: number; onConsumed: () => void }) {
+    const [pending, setPending] = useState<string | null>(initial);
+    return (
+      <HelpMenu
+        key={mountKey}
+        lang="en-US"
+        pendingHelpConcept={pending}
+        onHelpConceptConsumed={() => {
+          onConsumed();
+          setPending(null);
+        }}
+      />
+    );
+  }
+
+  it("opens the panel and scrolls to the requested entry inside it", () => {
+    // A same-id section OUTSIDE the panel, as the in-pane Help view renders —
+    // the scroll must land on the panel's own copy.
+    const outside = document.createElement("section");
+    outside.id = `help-sec-${TARGET}`;
+    document.body.appendChild(outside);
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const consumed = vi.fn();
+      render(<HelpMenu lang="en-US" pendingHelpConcept={TARGET} onHelpConceptConsumed={consumed} />);
+      const panel = screen.getByRole("dialog", { name: "Help" });
+      const scrolled = scrolledElements(spy);
+      expect(scrolled).toHaveLength(1);
+      expect(scrolled[0].id).toBe(`help-sec-${TARGET}`);
+      expect(panel.contains(scrolled[0])).toBe(true);
+      expect(within(scrolled[0] as HTMLElement).getByText(t("en-US", "helpConceptRaidTitle"))).toBeInTheDocument();
+      expect(consumed).toHaveBeenCalledOnce();
+    } finally {
+      spy.mockRestore();
+      outside.remove();
+    }
+  });
+
+  it("clears a search that would filter the requested entry out", () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const { rerender } = render(<HelpMenu lang="en-US" pendingHelpConcept={null} />);
+      openPanel();
+      const field = screen.getByLabelText("Search help (window)") as HTMLInputElement;
+      fireEvent.change(field, { target: { value: "zzzz-no-such-help" } });
+      expect(screen.getByText(t("en-US", "helpNoResults"))).toBeInTheDocument();
+      rerender(<HelpMenu lang="en-US" pendingHelpConcept={TARGET} />);
+      expect(field.value).toBe("");
+      expect(scrolledElements(spy).map((e) => e.id)).toEqual([`help-sec-${TARGET}`]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("without a request behaves as before: closed, nothing scrolled or consumed", () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const consumed = vi.fn();
+      render(<HelpMenu lang="en-US" pendingHelpConcept={null} onHelpConceptConsumed={consumed} />);
+      expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
+      openPanel();
+      expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+      expect(spy).not.toHaveBeenCalled();
+      expect(consumed).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a remount after the parent consumed the request does not re-fire it", () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const consumed = vi.fn();
+      const { rerender } = render(<Harness initial={TARGET} mountKey={1} onConsumed={consumed} />);
+      expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+      expect(consumed).toHaveBeenCalledOnce();
+
+      rerender(<Harness initial={TARGET} mountKey={2} onConsumed={consumed} />);
+      expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
+      expect(consumed).toHaveBeenCalledOnce();
+      expect(scrolledElements(spy)).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("closing and reopening the panel does not jump back to a handled request", () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const consumed = vi.fn();
+      render(<HelpMenu lang="en-US" pendingHelpConcept={TARGET} onHelpConceptConsumed={consumed} />);
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "close") }));
+      expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
+      openPanel();
+      expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+      expect(scrolledElements(spy)).toHaveLength(1);
+      expect(consumed).toHaveBeenCalledOnce();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

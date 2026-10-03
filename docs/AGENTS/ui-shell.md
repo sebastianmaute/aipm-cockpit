@@ -55,7 +55,10 @@
   `onStartTour`) thread `task-manager → WorkspaceSectionProps → workspace-section → HelpView`, REPLACING the dead
   `onTakeTour`. In-pane view is resizable (`useResizable` key `aipm-cockpit:help-view-size`) + carries Print/Reset-size
   buttons. ★★ FLOATING panel (`help-menu.tsx`) is CONTENT-PANE ONLY (`HelpContentPane` + its own search box; props
-  `{lang}` only — NO tabs, NO tour catalog); the `helpIntro` slogan + footer "Take a tour" button are GONE (footer =
+  `lang` plus the OPTIONAL deep-link pair `pendingHelpConcept`/`onHelpConceptConsumed`, the same input and
+  render-time reconcile `HelpView` uses (§489: a request opens the panel, clears its query and scrolls to the
+  section found INSIDE the panel, since the in-pane view renders the same section ids; no production caller
+  passes it yet) — NO tabs, NO tour catalog); the `helpIntro` slogan + footer "Take a tour" button are GONE (footer =
   license link only). Floating `useResizable` key `aipm-cockpit:help-size-v3`.
   `InformationFlowsSection` has an optional `maxWidth` (default 480 keeps Settings byte-identical; the in-pane flows
   tab passes 720). jsdom

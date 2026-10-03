@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
-import { HelpContentPane } from "./help-content-pane";
+import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { smoothScrollBehavior } from "./reduced-motion";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
@@ -45,7 +46,18 @@ const computeHelpInitialPos: ComputeInitialPos = ({ saved, panelW, panelH, clamp
  *  shared grouped Help content (TOC + cards + search). Content-pane only — the
  *  tabbed tours / relations-map / information-flows surfaces live in the in-pane
  *  Help VIEW, not here. */
-export function HelpMenu({ lang }: { lang: Lang }) {
+export function HelpMenu({
+  lang,
+  pendingHelpConcept,
+  onHelpConceptConsumed,
+}: {
+  lang: Lang;
+  /** §489 — open the panel at this Help entry id (a `HELP_ENTRIES` id), the
+   *  same deep-link input `HelpView` takes. The caller clears it to `null` in
+   *  `onHelpConceptConsumed`; re-requesting the same id after that fires again. */
+  pendingHelpConcept?: string | null;
+  onHelpConceptConsumed?: () => void;
+}) {
   // ★ A LOCAL useSettings(), not a prop threaded through `ActionMenus` (which
   // mounts this component). That contract is guarded by
   // `action-menus-sweep.test.ts` and documents a props-not-hooks rule for the
@@ -98,6 +110,40 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   // `open` focuses nothing (the node does not exist yet when the deferred frame
   // fires) and the panel goes on declining its own Escape.
   usePanelInitialFocus(panelRef, open && pos !== null);
+
+  // §489 — deep-link: the same render-time reconcile as `HelpView`'s
+  // (`handledConcept` seeded `undefined`, so a FRESH mount that already sees a
+  // pending id still honours it — the remount-swallow rule). A request opens the
+  // panel and clears the query so the target cannot be filtered out; the scroll
+  // waits for the panel, which renders a tick after `open` (see above).
+  const [handledConcept, setHandledConcept] = useState<string | null | undefined>(undefined);
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
+  const [scrollSeq, setScrollSeq] = useState(0);
+  if (pendingHelpConcept !== undefined && pendingHelpConcept !== handledConcept) {
+    setHandledConcept(pendingHelpConcept);
+    if (pendingHelpConcept) {
+      setOpen(true);
+      setQuery("");
+      setScrollTarget(pendingHelpConcept);
+      setScrollSeq((s) => s + 1);
+    }
+  }
+  // `scrollTarget` is never cleared (no set-state-in-effect), so the last
+  // scrolled request is remembered here — a later close/reopen must not jump
+  // back to it or report it consumed twice.
+  const scrolledSeqRef = useRef(0);
+  const panelShown = open && pos !== null;
+  useEffect(() => {
+    if (!scrollTarget || !panelShown || scrolledSeqRef.current === scrollSeq) return;
+    scrolledSeqRef.current = scrollSeq;
+    // ★ Looked up INSIDE this panel, not via `document.getElementById`: the
+    // in-pane Help view renders the same section ids, and this window can float
+    // over it.
+    const id = helpSectionId(scrollTarget);
+    const sections = panelRef.current?.querySelectorAll<HTMLElement>("section[id]") ?? [];
+    Array.from(sections).find((s) => s.id === id)?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
+    onHelpConceptConsumed?.();
+  }, [scrollSeq, scrollTarget, panelShown, onHelpConceptConsumed]);
 
   const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
   useDismissable({
