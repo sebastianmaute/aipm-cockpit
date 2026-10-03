@@ -22,8 +22,8 @@
  *
  * ---------------------------------------------------------------------------
  * jsdom landmine (read before touching the import order below): decoding via
- * `jsonToWorkspace` (re-exported by ../src/app/storage from workspace.ts)
- * re-sanitizes every task/RAID noteLog + description through
+ * `jsonToWorkspace` (workspace.ts, reached through
+ * ../src/app/sample-workspace-variants, which imports it) re-sanitizes every task/RAID noteLog + description through
  * sanitizeNoteFields -> sanitizeRichHtml -> DOMPurify (sanitize-html.ts).
  * DOMPurify binds its `window` ONCE, at the moment the "dompurify" package
  * is first imported (module-eval time, not per-call) — under bare Node
@@ -33,7 +33,8 @@
  * JSON with no error.
  *
  * We avoid this by installing a minimal jsdom window/document as globals
- * BEFORE "../src/app/storage" (and its DOMPurify dependency) is first
+ * BEFORE "../src/app/sample-workspace-variants" (and, through workspace.ts,
+ * its DOMPurify dependency) is first
  * loaded. Because ordinary `import` statements are hoisted above any other
  * top-level code, that load is done via a `await import(...)` performed
  * AFTER the jsdom globals are installed, not a static import.
@@ -53,8 +54,7 @@ const ROOT = join(__dirname, "..");
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 Object.assign(globalThis, { window: dom.window, document: dom.window.document });
 
-const { jsonToWorkspace, workspaceToJson } = await import("../src/app/storage");
-const { scaleWorkspace } = await import("../src/app/scale-workspace");
+const { SCALED_VARIANTS, decodeSampleMaster, scaleSample } = await import("../src/app/sample-workspace-variants");
 
 // ---------------------------------------------------------------------------
 // Step 1: Load the hand-curated master via the real decoder (strict: a
@@ -62,11 +62,7 @@ const { scaleWorkspace } = await import("../src/app/scale-workspace");
 // empty workspace that then "successfully" scales to near-empty output).
 // ---------------------------------------------------------------------------
 const jsonPath = join(ROOT, "sample-workspace-small.json");
-const ws = jsonToWorkspace(readFileSync(jsonPath, "utf8"), { strict: true });
-
-if (!ws.tasks.length || !ws.raid.length) {
-  throw new Error("jsonToWorkspace returned an empty workspace — check sample-workspace-small.json.");
-}
+const ws = decodeSampleMaster(readFileSync(jsonPath, "utf8"));
 
 console.log("\n=== generate-sample-workspace summary ===\n");
 console.log("Source: sample-workspace-small.json (hand-curated master — not overwritten)");
@@ -88,16 +84,13 @@ console.log(`  grades:       ${ws.grades.length}`);
 // Step 2: Emit SCALED variants (big = 3x, huge = 10x) from the master via
 // the pure scaleWorkspace(ws, factor) helper. json only — no md/csv/sqlite3.
 // ---------------------------------------------------------------------------
-const SCALED_VARIANTS: ReadonlyArray<{ name: string; factor: number }> = [
-  { name: "big", factor: 3 },
-  { name: "huge", factor: 10 },
-];
-
+// (SCALED_VARIANTS and the scale+encode step live in src/app/sample-workspace-variants.ts,
+// shared with the test that checks the committed files against them.)
 console.log("\nScaled variants:");
 for (const { name, factor } of SCALED_VARIANTS) {
-  const scaled = scaleWorkspace(ws, factor);
+  const { scaled, json } = scaleSample(ws, factor);
   const scaledJsonPath = join(ROOT, `sample-workspace-${name}.json`);
-  writeFileSync(scaledJsonPath, workspaceToJson(scaled), "utf8");
+  writeFileSync(scaledJsonPath, json, "utf8");
 
   console.log(
     `  ${name.padEnd(4)} (${factor}x): tasks=${scaled.tasks.length}, raid=${scaled.raid.length}, ` +

@@ -38,6 +38,17 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Recent closures are status-checked (§429).** `followups:status:check` now also reads the
+  `**Status:**` line of a register entry closed on or after 2026-10-04: it must open with CLOSED, carry a
+  date and cite an executed command, or, for a decision closure, open its reason with `owner decision <date>` (a real date).
+  Earlier closures stay unchecked by design.
+- **The axe guard checks the checkout (§58).** A dev server stamps `data-checkout` (a short hash
+  of its working directory; absent in production) and the a11y suite's guard refuses a reused dev
+  server started from another worktree, not only one on another version. A server with no
+  `data-checkout` (a production build, or a dev server from before this change) is refused too,
+  unless the run sets `PLAYWRIGHT_NO_WEBSERVER` to scan an external server on purpose.
+- **Generated samples are checked (§238).** `sample-workspace-big.json` and `-huge.json` are now
+  compared against a fresh regeneration from `sample-workspace-small.json` by a unit test.
 - **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or
   `circle`) and a fixed 20px `xs` size, so a round or compact control no longer has to be
   hand-rolled.

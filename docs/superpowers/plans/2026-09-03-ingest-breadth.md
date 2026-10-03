@@ -1,5 +1,7 @@
 # Ingest Breadth Implementation Plan
 
+> **SUPERSEDED 2026-10-03 — the shipped code and its tests are the record.** This plan's snippets disagree with them in places (see `docs/open-followups.md` §358); read the code first and this plan only for intent. Only the four headline contradictions (the Task 10 budget clone, its double-charge, the `cap()` under-charge and the DIFAT claim) are corrected below, each marked "shipped behaviour"; the remaining stale items are intentionally left.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the AI Assistant read Outlook mail (`.msg`, `.eml`, `.mhtml`), extract real content from HTML, recurse into mail attachments, and give all three attachment consumers one identical set of supported types.
@@ -1673,11 +1675,18 @@ function newBudget(): Budget {
   };
 }
 
+// Shipped behaviour (corrected 2026-10-03): the original version of this function deducted
+// `room` but returned `room + note.length`, which under-charges the shared pool. Shipped
+// `cap()` in `attachment-ingest.ts` slices the text SHORT of `room` by the note's length first,
+// then deducts the length of what it actually returns, so the pool is charged exactly what is
+// emitted.
 function cap(text: string, limit: number, budget: Budget): string {
   const room = Math.min(limit, MAX_NODE_EXTRACT_CHARS, budget.charsRemaining);
   if (text.length <= room) { budget.charsRemaining -= text.length; return text; }
-  budget.charsRemaining -= room;
-  return `${text.slice(0, room)}\n\n_(truncated - exceeded the extraction budget)_`;
+  const note = "\n\n_(truncated - exceeded the extraction budget)_";
+  const truncated = `${text.slice(0, Math.max(0, room - note.length))}${note}`;
+  budget.charsRemaining -= truncated.length;
+  return truncated;
 }
 
 async function ingestNode(
@@ -1741,13 +1750,19 @@ async function ingestNode(
     // Equal shares of what remains, with unused share flowing to later siblings.
     const share = left > 0 ? Math.floor(budget.charsRemaining / left) : 0;
     left -= 1;
-    const child = await ingestNode(a.bytes, a.mimeType, a.fileName, depth + 1, {
-      ...budget,
-      charsRemaining: Math.min(share, budget.charsRemaining),
-    });
+    // Shipped behaviour (corrected 2026-10-03): the original snippet here cloned the budget per
+    // child (a spread with `charsRemaining` set to the share) and then deducted the child's
+    // serialized block from the parent. Both are wrong. The budget is mutated in place and NEVER
+    // cloned per child (a clone breaks "shared": a tree-wide cap would bound one branch at a
+    // time). The share travels as a separate `ceiling` argument, and the parent does NOT charge
+    // the child's block again: the child's own `cap()` already spent from the shared pool, so
+    // charging the serialized length on top would double-charge. Shipped form:
+    //   const before = budget.charsRemaining;
+    //   const child = await ingestNode(a.bytes, a.mimeType, a.fileName, depth + 1, budget, share);
+    //   childrenCeiling = Math.max(0, childrenCeiling - (before - budget.charsRemaining));
+    const child = await ingestNode(a.bytes, a.mimeType, a.fileName, depth + 1, budget, share);
     if (child.ok) {
       children.push(child.node);
-      budget.charsRemaining -= JSON.stringify(child.node.block).length;
     } else {
       notes.push(`attachment "${a.fileName}" skipped - ${child.error}`);
     }
@@ -2338,7 +2353,7 @@ Expected: PASS, 8 tests.
 - Remove `if (visited.has(idx)) return;`. Expected: the cyclic-directory test fails. Restore.
 - Change the clamp to `const size = e.size;`. Expected: the huge-size test fails. Restore.
 - Change the shift check to `if (false)`. Expected: the illegal-shift test fails. Restore.
-- Delete the DIFAT chain block (keep only the header's 109). Expected: no unit test catches it — **this is the gap the real fixture in Task 16 closes.** Record that explicitly and restore.
+- Delete the DIFAT chain block (keep only the header's 109). Expected: no unit test catches it. Record that explicitly and restore. (Shipped behaviour, corrected 2026-10-03: the Task 16 real `.msg` fixture does NOT close this gap. It is small enough that the header's 109 entries suffice, so the chain-walk loop is never entered and the mutant survives; `msg-integration.test.ts` records the gap in a comment. Closing it needs a separate ~8 MB+ fixture whose only job is to force a chained DIFAT sector.)
 
 - [ ] **Step 7: Commit**
 
