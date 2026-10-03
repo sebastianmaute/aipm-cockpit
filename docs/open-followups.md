@@ -494,7 +494,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§260](#260-the-turso-pipeline-timeout-stopped-at-the-headers-so-a-stalled-response-body-hung-every-caller--closed-2026-08-27) | The Turso pipeline timeout stopped at the headers, so a stalled response BODY hung every caller | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
-| [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design--closed-2026-10-03) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-10-03 |
+| [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design--closed-2026-10-03--superseded-by-109-on-2026-10-03) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-10-03 — superseded by §109 on 2026-10-03 |
 | [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary--closed-2026-09-30) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | **CLOSED** 2026-09-30 |
 | [§265](#265-stakeholderrecipientinput-has-no-production-caller--closed-2026-09-30) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-09-30 |
 | [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
@@ -22916,11 +22916,11 @@ node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8
 — and note that the remaining large block in the file has its own entry,
 [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting).
 
-## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design — CLOSED 2026-10-03
+## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design — CLOSED 2026-10-03 — superseded by §109 on 2026-10-03
 
 **Status:** CLOSED 2026-10-03 — accepted by owner ruling: the structured `aria-label`s in `budget-panel-totals.tsx` stay untranslated because existing tests select on them.
 
-★★ **SUPERSEDED 2026-10-03 by §109.** The same day, the owner approved the §109 design that replaces these machine hooks with translated, row-unique names ("Budget|Actual – <bucket> – <role or discipline> – <period>", built with `rowLabel`), and migrated every test that selected on them. The ruling above is kept as the record of what was decided first; it no longer describes the code. Do NOT restore the `budget-…` / `actual-…` hooks on its authority.
+★★ **SUPERSEDED 2026-10-03 by §109 — the owner reversed this ruling on 2026-10-03 when approving #141, and confirmed afterwards that #141 stands and the labels stay translated.** The same day, the owner approved the §109 design that replaces these machine hooks with translated, row-unique names ("Budget|Actual – <bucket> – <role or discipline> – <period>", built with `rowLabel`), and migrated every test that selected on them. The ruling above is kept as the record of what was decided first; it no longer describes the code. Do NOT restore the `budget-…` / `actual-…` hooks on its authority.
 
 **Original status:** open — deliberately excluded, not forgotten. Found 2026-08-27 while re-grounding §248
 during closure; recorded so a future sweep does not "complete the pattern" here. Never machine-verified by a committed probe.
