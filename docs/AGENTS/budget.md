@@ -92,8 +92,8 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 
 ## Currency on the plan, and the load paths
 
-- `ResourcePlan.currency` is narrowed to `BudgetCurrency` (`SUPPORTED_CURRENCIES`: EUR, USD and GBP
-  today; `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts`). INR is requested in §477.
+- `ResourcePlan.currency` is narrowed to `BudgetCurrency` (`SUPPORTED_CURRENCIES`: EUR, USD, GBP and
+  INR today; `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts`).
 - ★★ **THE INDEXEDDB LOAD PATH IS THE ONE PATH THAT DOES NOT RUN `sanitizePlan`**, and it coerces
   a stored plan instead (in `browser-backend.ts`; `isBudgetCurrency` gates the
   currency). Do not "complete the pattern" by calling `sanitizePlan` there. It would also swap
@@ -232,7 +232,7 @@ comments).
 ## Open register entries
 
 §473 (a non-EUR plan) · §476 (the
-baseline currency is hardcoded EUR) · §477 (only three currencies; INR wanted) · §500 (budget
+baseline currency is hardcoded EUR) · §500 (budget
 forecast hours cannot be imported from a spreadsheet) · §545 (the AI
 dashboard snapshot and the exports carry no budget forecast figures) · §551 (the dead snapshot
 `currency` column). This list was read off the register on 2026-09-27 and is not gated. Re-check
