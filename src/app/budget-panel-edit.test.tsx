@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
-import type { BudgetBucket, Role, ResourcePlan, Task } from "./types";
+import type { BudgetBucket, Discipline, Role, ResourcePlan, Task } from "./types";
 
 // The edit modal's header controls read field visibility from the workspace,
 // so any render that can open the modal needs Workspace/Filters providers.
@@ -27,10 +27,12 @@ function Harness({
   initial,
   onChangeSpy,
   tasks,
+  disciplines = [{ id: 1, name: "Consulting" }],
 }: {
   initial: BudgetBucket[];
   onChangeSpy: (next: BudgetBucket[]) => void;
   tasks?: readonly Task[];
+  disciplines?: Discipline[];
 }) {
   const [buckets, setBuckets] = useState<BudgetBucket[]>(initial);
   return (
@@ -38,7 +40,7 @@ function Harness({
       lang="en-US"
       buckets={buckets}
       roles={roles}
-      disciplines={[{ id: 1, name: "Consulting" }]}
+      disciplines={disciplines}
       grades={[{ id: 1, name: "Senior" }]}
       resources={[]}
       plan={plan}
@@ -218,7 +220,30 @@ describe("BudgetPanel editing", () => {
       expect.stringMatching(/^Actual – Build – .+ – 2026-01$/),
     ]));
     expect(new Set(names).size).toBe(names.length);
+    // The bucket already tells the two apart, so no "(n)" suffix is added.
+    expect(names.filter((n) => /\(\d+\)/.test(n))).toEqual([]);
     expect(screen.queryAllByLabelText(/^(budget|actual)-/)).toHaveLength(0);
+  });
+
+  // Two disciplines may share a NAME (distinct ids) in one blended bucket;
+  // their hours inputs must still be named apart.
+  test("names a blended bucket's same-named disciplines apart", () => {
+    const blended: BudgetBucket[] = [{
+      id: 1, name: "Blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+        { disciplineId: 2, resourceIds: [], budgetHours: {}, actualHours: {} },
+      ],
+    }];
+    render(
+      <Harness initial={blended} onChangeSpy={vi.fn()} disciplines={[{ id: 1, name: "Consulting" }, { id: 2, name: "Consulting" }]} />,
+      { wrapper },
+    );
+    const names = screen.getAllByLabelText(/^Budget – Blend – /).map((el) => el.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
   });
 
   test("each bucket's manual % input carries a row-UNIQUE accessible name", () => {
