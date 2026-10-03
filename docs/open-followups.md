@@ -251,7 +251,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
-| [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
+| [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--closed-2026-10-03) | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | **CLOSED** 2026-10-03 |
 | [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
@@ -1524,11 +1524,11 @@ request and is not the same condition.
 
 ---
 
-## 12. `list_allocations` dumps the grid; should be a scoped query — open, design
+## 12. `list_allocations` dumps the grid; should be a scoped query — CLOSED 2026-10-03
 
-**Status:** open — an AI tool that dumps the grid instead of scoping a query. Reproduced 2026-08-28 by `grep -n "list_allocations" src/app/chat-tool-defs.ts`.
+**Status:** CLOSED 2026-10-03 — fixed: `list_allocations` now takes optional `resourceIds` and `periodFrom`/`periodTo` (period keys of the plan's granularity, or YYYY-MM-DD dates), which `buildAllocationsSnapshot` validates coerce-or-drop and applies BEFORE the cell cap, so a narrow question gets the whole cap to itself; a scoped result echoes what was applied (`unknownResourceIds`, `ignored`), an argument-less call returns the old output unchanged, and the per-resource `truncated` flag is kept. `minPercent` was not added. Pinned in `alloc-plan.test.ts` ("buildAllocationsSnapshot scope (§12)", including the cap case) and `chat-tools.test.ts`.
 
-**Work item:** #91
+**Original status:** open — an AI tool that dumps the grid instead of scoping a query. Reproduced 2026-08-28 by `grep -n "list_allocations" src/app/chat-tool-defs.ts`.
 
 The tool takes **no arguments at all** — `input_schema: { type: "object", properties: {} }`
 (`chat-tool-defs.ts:368-372`) — and returns the whole planning grid: plan window, granularity, every
