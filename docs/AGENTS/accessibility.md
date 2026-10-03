@@ -253,7 +253,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
   scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
   hardcoded, so none scales with the combo count) = **132** axe tests, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **133**
+  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd, open-followups §58) — **133**
   tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
