@@ -96,8 +96,8 @@ export function JiraConflictsModal({
   conflicts: ConflictItem[];
   onResolve: (resolutions: ConflictResolution[]) => void;
   onClose: () => void;
-  /** A resolution is pushing. Cancel is disabled; the host's `onClose` also refuses meanwhile, so
-   *  ✕, Escape and the backdrop cannot close it either. */
+  /** A resolution is pushing. Defer, ✕ and Apply are disabled; the host's `onClose` also refuses
+   *  meanwhile, so Escape and the backdrop cannot close it either. */
   resolving?: boolean;
 }) {
   // Picks state, keyed by taskId then field key. Default: assignee → remote, others → remote
@@ -191,6 +191,7 @@ export function JiraConflictsModal({
           title={t(lang, "jiraConflictTitle")}
           helpConceptId={MODAL_HELP.jiraConflicts}
           onClose={onClose}
+          closeDisabled={resolving}
           dragHandleProps={handleProps}
           onResetLayout={() => {
             dragReset();
@@ -319,7 +320,7 @@ export function JiraConflictsModal({
           <Button variant="secondary" size="sm" onClick={onClose} disabled={resolving}>
             {t(lang, "jiraConflictDefer")}
           </Button>
-          <Button variant="primary" size="sm" onClick={handleResolve}>
+          <Button variant="primary" size="sm" onClick={handleResolve} disabled={resolving}>
             {t(lang, "jiraConflictApply")}
           </Button>
         </footer>

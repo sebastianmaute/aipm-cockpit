@@ -17,14 +17,16 @@ vi.mock("./modal-header", () => ({
   ModalHeader: ({
     title,
     onClose,
+    closeDisabled,
   }: {
     title: string;
     onClose: () => void;
+    closeDisabled?: boolean;
     dragHandleProps?: unknown;
   }) => (
     <div data-testid="modal-header">
       <span>{title}</span>
-      <button type="button" onClick={onClose} aria-label={t("en-US", "alertModalClose")}>
+      <button type="button" onClick={onClose} disabled={closeDisabled} aria-label={t("en-US", "alertModalClose")}>
         {t("en-US", "alertModalClose")}
       </button>
     </div>
@@ -100,17 +102,24 @@ describe("JiraConflictsModal", () => {
   });
 
   // Cancel must not close the modal under a resolution that is still pushing.
-  it("Defer is disabled while a resolution is running, and enabled otherwise", () => {
-    const { onClose } = setup({ resolving: true });
+  it("Defer, the header close and Apply are all disabled while a resolution is running", () => {
+    const { onClose, onResolve } = setup({ resolving: true });
     const defer = screen.getByRole("button", { name: t("en-US", "jiraConflictDefer") });
-    expect(defer).toBeDisabled();
-    fireEvent.click(defer);
+    const close = screen.getByRole("button", { name: t("en-US", "alertModalClose") });
+    const apply = screen.getByRole("button", { name: t("en-US", "jiraConflictApply") });
+    for (const btn of [defer, close, apply]) {
+      expect(btn).toBeDisabled();
+      fireEvent.click(btn);
+    }
     expect(onClose).not.toHaveBeenCalled();
+    expect(onResolve).not.toHaveBeenCalled();
   });
 
-  it("Defer is enabled when no resolution is running", () => {
+  it("Defer, the header close and Apply are enabled when no resolution is running", () => {
     setup({ resolving: false });
-    expect(screen.getByRole("button", { name: t("en-US", "jiraConflictDefer") })).toBeEnabled();
+    for (const key of ["jiraConflictDefer", "alertModalClose", "jiraConflictApply"] as const) {
+      expect(screen.getByRole("button", { name: t("en-US", key) })).toBeEnabled();
+    }
   });
 
   it("Apply choices button fires onResolve with current picks", () => {
