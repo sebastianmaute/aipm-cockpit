@@ -331,6 +331,12 @@ For `next` specifically, a silent minor bump moves the tree off the version
 the `AGENTS.md` opening warning is calibrated against — and every gate stays
 green while it happens.
 
+**An `@azure/msal-browser` bump needs a manual sign-in run.** No CI job signs
+in to a real Microsoft 365 tenant, so a green pipeline says nothing about the
+live token flow. Run the
+[Microsoft 365 sign-in smoke](docs/RUNBOOK.md#microsoft-365-sign-in-smoke-manual)
+before merging one, and record the result in open-followups §498.
+
 Adding a framework-coupled dependency? Pin it exactly and add it to this list.
 Verify the current split with:
 
