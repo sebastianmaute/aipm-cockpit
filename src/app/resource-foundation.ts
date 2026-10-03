@@ -316,15 +316,6 @@ function resolvePersonResourceIdForWrite(
  * so omitting it there silently reverts a project's task FKs to the pre-repair
  * shape until the next real load. A third funnel must call this too.
  *
- * ★ A PERMANENT pass on every load, not a one-shot migration, BY DECISION
- * (open-followups §82, closed 2026-10-03). Nothing in this repo is one-shot:
- * every `migrateWorkspaceV*` step reruns on every load, and `schemaVersion` is
- * written but never read. Re-linking each load is what links Jira-, CSV- and
- * AI-written names, none of which set the FK themselves. The cost is that a
- * name-only task matching the directory cannot stay unlinked; no task writer
- * can express that wish today (`update_task` cannot write `resourceId`), so
- * nothing currently asks for it.
- *
  * Pure: returns the SAME array reference when nothing matched, so the caller
  * can detect a no-op by identity.
  */

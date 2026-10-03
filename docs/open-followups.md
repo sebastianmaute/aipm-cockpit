@@ -313,7 +313,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--closed-2026-09-14) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | **CLOSED** 2026-09-14 |
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
-| [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--closed-2026-10-03) | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | **CLOSED** 2026-10-03 |
+| [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--open) | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open |
 | [§83](#83-emailname-disagreement-in-the-fk-backfill-resolves-silently-to-email--closed-2026-09-25) | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | closed |
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
@@ -6670,11 +6670,11 @@ two are controls that pass under both old and new code, and none exercised the a
 
 ---
 
-## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — CLOSED 2026-10-03
+## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — open
 
-**Status:** CLOSED 2026-10-03 as ACCEPTED, by owner decision: the backfill stays a permanent pass on every load. Three findings decided it. (1) Nothing here is one-shot. Every `migrateWorkspaceV*` step reruns idempotently on every load from every decoder, and `schemaVersion` is written into the JSON envelope but never read (`grep -rn "schemaVersion" src/app --include=*.ts`), so a `migrateWorkspaceV11` would rerun too unless a new persisted marker were added across all six write paths. (2) The per-load pass is what links Jira-, CSV- and AI-written names, because none of those writers sets `Task.resourceId`. A one-shot stamp would leave every later import unlinked. (3) No task writer can express a deliberate unlink: `update_task` cannot write `resourceId` (an FK, excluded in `entity-descriptor.ts`), and the resource picker's ✕ clears the name with the link. The only name-only writes left are picking an Outlook contact or typing a free-text name, where linking a match is the expected outcome. The decision is recorded in `backfillTaskResourceFks`'s docstring. Reopen if a writer appears that needs a task to keep a directory-matching name unlinked.
+**Status:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
-**Original status:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Work item:** #122
 
 `backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
 `applyRestoredWorkspace` (`task-manager.tsx`), not from `migrateWorkspaceV*`. That placement is
