@@ -3059,7 +3059,7 @@ function TaskManagerInner() {
         <SavingPausedBanner lang={lang} cause={loadPause === "conflict" ? { kind: "conflict" } : { kind: "load", reason: loadPause }} dismissed={loadPauseBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={() => { void (loadPause === "conflict" ? resolveConflictReload() : reloadCurrentProject()); }} onOverwrite={canOverwriteConflict ? resolveConflictOverwrite : undefined} onDownload={loadPause === "conflict" ? downloadConflictVersion : undefined} onDismiss={() => setLoadPauseBannerDismissed(true)} onReopen={() => setLoadPauseBannerDismissed(false)} />
       )}
       {!isPopout && destructiveRefusal !== null && (
-        <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
+        <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDiscard={() => { void reloadCurrentProject(); }} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
       )}
     </>
   );

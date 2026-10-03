@@ -402,7 +402,7 @@ describe("HOURS_LINE_UNITS — the shared alignment constant", () => {
     const { container } = render(
       <table><tbody><tr>
         <HoursTd
-          ariaPrefix="Jan" budget={8} actual={6} onBudget={() => {}} onActual={() => {}}
+          cellName="PAM – Consulting Senior – Jan" budget={8} actual={6} onBudget={() => {}} onActual={() => {}}
           lang="en-US" periodEnd="2026-01-31" today="2026-01-15"
         />
       </tr></tbody></table>,

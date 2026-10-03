@@ -492,7 +492,7 @@ function ConflictActions({ lang, onReload, onOverwrite, onDownload }: {
  *  toast auto-dismisses and is single-slot: a bad host for an irreversible
  *  button that needs to stay reachable until the user acts. */
 export function SavingPausedBanner({
-  lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onOverwrite, onDownload, onDismiss, onReopen,
+  lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onDiscard, onOverwrite, onDownload, onDismiss, onReopen,
 }: {
   lang: Lang;
   cause: SavingPausedCause;
@@ -505,6 +505,12 @@ export function SavingPausedBanner({
    *  project", rendered secondary and unconfirmed because it discards nothing. For `conflict` it is
    *  "Reload", confirmed, because it discards the unsaved edits. */
   onSaveAnyway: () => void;
+  /** `destructive` only (§629): drop the withheld deletion by reloading the
+   *  project from storage — the exit that also removes a restored unload
+   *  journal, which a PAGE reload re-applies and the guard refuses again.
+   *  Confirmed first, since it discards every unsaved change. Not rendered when
+   *  absent. */
+  onDiscard?: () => void;
   /** `conflict` only: save this version over the other one. Not rendered when absent. */
   onOverwrite?: () => void;
   /** `conflict` only: download this version. Not rendered when absent. */
@@ -573,6 +579,17 @@ export function SavingPausedBanner({
     });
     if (ok) onSaveAnyway();
   };
+  const askThenDiscard = async () => {
+    if (!onDiscard) return;
+    const ok = await confirm({
+      title: t(lang, "storageDestructiveDiscardConfirmTitle"),
+      message: t(lang, "storageDestructiveDiscardConfirmBody"),
+      // Distinct from the trigger's own label: the banner stays mounted behind
+      // the dialog, so sharing it would put two same-named buttons on screen.
+      confirmLabel: t(lang, "storageDestructiveDiscardConfirmAction"),
+    });
+    if (ok) onDiscard();
+  };
   // ★★★ THE CLASSIC LAYOUT HAS NO SIDEBAR FOOTER, so dismissal there used to be
   // the very lockout this banner exists to prevent: `SidebarFooter` has ONE mount
   // in the app and it is inside `modernTree`, so a classic user who clicked ✕ lost
@@ -606,6 +623,12 @@ export function SavingPausedBanner({
     <>
       <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
         actions={<>
+          {/* §629 — the SAFE exit leads, ahead of the destructive save. */}
+          {cause.kind === "destructive" && onDiscard && (
+            <Button variant="secondary" size="xs" onClick={() => { void askThenDiscard(); }}>
+              {t(lang, "storageDestructiveDiscard")}
+            </Button>
+          )}
           {cause.kind === "load" ? (
             <Button variant="secondary" size="xs" onClick={onSaveAnyway}>
               {t(lang, "reloadProject")}

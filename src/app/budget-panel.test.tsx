@@ -303,14 +303,14 @@ describe("BudgetPanel", () => {
     // The narrow input truncates 10.559999999999999 mid-number ("10.5599…"),
     // which reads as a wrong value.
     renderPanelWithMirroredHours();
-    expect(screen.getByLabelText("budget-1-3-2026-01")).toHaveValue(10.56);
+    expect(screen.getByLabelText(/^Budget – PAM – .+ – 2026-01$/)).toHaveValue(10.56);
   });
 
   test("the per-period cell labels its budget input Budget, not Plan", () => {
     // The cell's input writes budgetHours, so labelling it "Plan" collided with
     // the bucket header's "Plan (h)" — a different quantity in the same view.
     render(<BudgetPanel {...props} />);
-    const cell = screen.getByLabelText("budget-1-3-2026-01").closest("div");
+    const cell = screen.getByLabelText(/^Budget – PAM – .+ – 2026-01$/).closest("div");
     expect(cell).toHaveTextContent("Budget");
   });
 
@@ -805,7 +805,7 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={resourcedBucket()}
       />,
     );
-    const budgetInput = screen.getAllByLabelText(/^budget-/)[0] as HTMLInputElement;
+    const budgetInput = screen.getAllByLabelText(/^Budget – PAM – /)[0] as HTMLInputElement;
     expect(budgetInput).toHaveAttribute("readonly");
     // Must show the PLANNED value (Jan 2026 = 22 workdays × 8h = 176h at 100%),
     // NOT the stored 100 — a broken mirror rendering 100 must fail here.
@@ -822,7 +822,7 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={unresourcedBucket()}
       />,
     );
-    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+    expect(screen.getAllByLabelText(/^Budget – PAM – /)[0]).not.toHaveAttribute("readonly");
   });
 
   test("mirror OFF — budget input editable (unchanged)", () => {
@@ -834,7 +834,7 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={resourcedBucket()}
       />,
     );
-    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+    expect(screen.getAllByLabelText(/^Budget – PAM – /)[0]).not.toHaveAttribute("readonly");
   });
 
   test("mirror ON — actual input stays editable", () => {
@@ -846,7 +846,7 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={resourcedBucket()}
       />,
     );
-    expect(screen.getAllByLabelText(/^actual-/)[0]).not.toHaveAttribute("readonly");
+    expect(screen.getAllByLabelText(/^Actual – PAM – /)[0]).not.toHaveAttribute("readonly");
   });
 
   test("mirror ON — row RAG follows planned, not the stored 0 budget", () => {
@@ -900,7 +900,7 @@ describe("budget: per-period cell RAG is period-aware", () => {
   // but so would any other untitled badge. Reach it through the cell's own
   // actual-hours input instead, which is uniquely labelled per period.
   const cellBadgeLabel = (periodKey: string): string | null =>
-    screen.getByLabelText(`actual-1-3-${periodKey}`)
+    screen.getByLabelText(new RegExp(`^Actual – PAM – .+ – ${periodKey}$`))
       .parentElement!.querySelector('[role="img"]')!
       .getAttribute("aria-label");
 
@@ -930,7 +930,7 @@ describe("budget: actual cell is read-only when TimeLog day keys are booked", ()
 
   test("period holding TimeLog day keys is read-only, summed, and described", () => {
     render(<BudgetPanel {...props} buckets={dayKeyBucket} />);
-    const input = screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement;
+    const input = screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/) as HTMLInputElement;
     expect(input.readOnly).toBe(true);
     expect(input.value).toBe("5");
     expect(input).toHaveAccessibleDescription(t("en-US", "budgetActualFromTimelog"));
@@ -938,7 +938,7 @@ describe("budget: actual cell is read-only when TimeLog day keys are booked", ()
 
   test("a sibling period without day keys in the same row stays editable", () => {
     render(<BudgetPanel {...props} buckets={dayKeyBucket} />);
-    const input = screen.getByLabelText("actual-1-3-2026-02") as HTMLInputElement;
+    const input = screen.getByLabelText(/^Actual – PAM – .+ – 2026-02$/) as HTMLInputElement;
     expect(input.readOnly).toBe(false);
     expect(input).not.toHaveAttribute("aria-describedby");
   });

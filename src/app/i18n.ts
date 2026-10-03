@@ -1172,6 +1172,8 @@ const enUS = {
   wizardImportErrorSource: "Could not import from that source.",
   wizardImportErrorEncrypted: "That file is password-protected. Save it without protection and try again.",
   wizardImportWorkspaceButton: "Import workspace file…",
+  wizardAiOffHint:
+    "The AI assistant can also draft a project from a document or a description. Turn it on in Settings, and add or unlock its API key.",
   wizardImportWorkspaceNotice: "Importing {0}: {1} tasks, {2} RAID items, {3} budgets",
   wizardImportWorkspaceClear: "Clear imported workspace {0}",
   wizardImportWorkspaceInvalid: "{0} looks like a workspace file but could not be read.",
@@ -4486,7 +4488,7 @@ const enUS = {
   unloadJournalDownloadFailed: "The download of {0} could not be started.",
   unloadJournalExpired: "{0} unsaved drafts older than 30 days were removed from this browser. You can still download them until you close this notice.",
   unloadJournalExpiredOne: "{0} unsaved draft older than 30 days was removed from this browser. You can still download it until you close this notice.",
-  storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
+  storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above: save it, or discard it to go back to your saved data.",
   storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
   storageSavePausedConflict: "This project was changed in another tab or on another device. Your changes since then are not saved yet.",
   storageConflictNotSavedOnSwitch: "Your changes were not saved before switching, because the project was changed in another tab or on another device.",
@@ -4509,14 +4511,22 @@ const enUS = {
   storageDestructiveWipeCount: "Every record in this project would be removed.",
   storageDestructiveSaveAnyway: "Save this deletion",
   storageDestructiveConfirmTitle: "Save this deletion?",
-  storageDestructiveConfirmBody: "If you did not do this, reload the page instead - your saved data is intact.",
+  storageDestructiveConfirmBody: "If you did not do this, choose \"Discard this deletion\" instead - your saved data is intact.",
   // ★★ NOT `storageDestructiveSaveAnyway`, for the same reason as the wipe pair
   // below: `ConfirmDialog` renders this as a button while the banner's own
   // trigger stays mounted behind it, so sharing the string would put two
   // identically-named buttons on screen at once.
   storageDestructiveConfirmSaveAnyway: "Remove these records",
+  // §629 — the way out of a refusal that DROPS the deletion: reload the project
+  // from storage (reloadCurrentProject), which also removes a restored journal.
+  // A page reload is NOT that: it re-applies the journal and is refused again.
+  storageDestructiveDiscard: "Discard this deletion",
+  storageDestructiveDiscardConfirmTitle: "Discard this deletion?",
+  storageDestructiveDiscardConfirmBody: "This reloads the project from storage. The withheld deletion is discarded, and so is any other change made since the last save.",
+  // Distinct from the trigger: the banner stays mounted behind the dialog.
+  storageDestructiveDiscardConfirmAction: "Discard and reload",
   storageDestructiveWipeConfirmTitle: "Save this wipe?",
-  storageDestructiveWipeConfirmBody: "This removes every record in the project. If you did not do this, reload the page instead - your saved data is intact.",
+  storageDestructiveWipeConfirmBody: "This removes every record in the project. If you did not do this, choose \"Discard this deletion\" instead - your saved data is intact.",
   storageDestructiveWipeConfirmValue: "yes, save this wipe",
   // ★★ DELIBERATELY NOT `storageDestructiveSaveAnyway`. The banner's own trigger
   // keeps that string and stays in the DOM behind the open dialog, so reusing it
