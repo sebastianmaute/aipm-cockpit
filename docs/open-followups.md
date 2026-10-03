@@ -270,7 +270,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--closed-2026-10-02) | `RaidItem` has NO storage-side length cap on any path | pre-existing, found 0.210.0 | M | **CLOSED** 2026-10-02 |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
-| [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
+| [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--closed-2026-10-03) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state | first seen 0.205.0 | M | **CLOSED** 2026-10-03 |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--closed-2026-10-02) | `text-ui-dark-blue` without a mode-appropriate companion | pre-existing, counted 0.211.0 | M–L | **CLOSED** 2026-10-02 |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open |
 | [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
@@ -839,7 +839,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
-| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
+| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--closed-2026-10-03) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | **CLOSED** 2026-10-03 |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
@@ -2698,11 +2698,11 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
+## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — CLOSED 2026-10-03
 
-**Status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — closed on CI history; the causation stays unproved. The fix (`6d2ab195f`, wait for `toBeEnabled` before the click) is in every `main` push run since the GitHub cut-over: `gh run list --workflow ci.yml --branch main --event push --limit 100` returns 86 runs, 2026-09-24T09:54Z (first sha `2f5ccd28c`, a descendant of the fix) to 2026-10-03T07:32Z (last sha `841a8a83e`), and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs` shows the `unit` job green in all 86 and `unit-shuffled` green in 84. The two red `unit-shuffled` runs (36130553265 on 2026-09-25, 36257686607 on 2026-09-26) failed in `dashboard-narrative.test.tsx`, not in `timelog-panel.test.tsx`. That is eight recorded failures before the fix against none in 86 runs after it.
 
-**Work item:** #102
+**Original status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -42056,14 +42056,14 @@ The `dast-zap` job has not been dispatched since this change landed, so end-to-e
 pinned digest still resolves and the job completes) is unverified beyond both digests being
 well-formed and matching a real manifest; treat the next dispatch as the real verification.
 
-## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open
+## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — CLOSED 2026-10-03
 
-**Status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
+**Status:** CLOSED 2026-10-03 — closed on CI history; the cause was never reproduced and this shows no failure after the hedge, not that the hedge removed one. The hedge merged to `main` on 2026-09-23 (`90158a1c2`, PR #5); across the 86 `main` push runs of `ci.yml` from 2026-09-24T09:54Z (`2f5ccd28c`) to 2026-10-03T07:32Z (`841a8a83e`) `unit-shuffled` was green in 84 and `unit` in all 86. The two red `unit-shuffled` runs (36130553265, 36257686607) failed in `dashboard-narrative.test.tsx`, not in `tag-pair-walk.test.ts` or any other `expectLinearScaling` site.
+
+**Original status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
 `npx vitest run src/app/tag-pair-walk.test.ts` (five green runs; three mutants red, ONE run per
 site, so each mutant figure below is a single measurement, not a range); not yet re-proved on a CI
 runner, the cause was not reproduced locally, and the change is a hedge with no shown effect.
-
-**Work item:** #394
 
 **What failed.** GitHub Actions run 35844783726, job `unit-shuffled` (`npm run test:shuffle --
 --maxWorkers=2`, a 2-vCPU `ubuntu-latest` runner), failed 1 of 19,569 tests on correct code:
