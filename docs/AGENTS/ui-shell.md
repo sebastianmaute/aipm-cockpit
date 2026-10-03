@@ -447,8 +447,8 @@ commits that merely added comments above it; its `onChange` is
   **what the caption is FOR**, not whether the widget self-names. (a) If the block has no single input the
   caption could name — a chip row, a radiogroup, a contenteditable, or several controls — use
   **`FieldGroup`** (`form-controls.tsx`): `<div role="group" aria-label>` + a `<span>` caption, so the block
-  is still named but the caption is not a click target. Both form `Field` helpers (`task-form-layout.tsx`,
-  `project-form-fields.tsx`) take a `group` prop that delegates to it, and `DocumentLinksGroup` wraps the
+  is still named but the caption is not a click target. The shared form `Field` (`form-field.tsx`, used by
+  the task and project forms) takes a `group` prop that delegates to it, and `DocumentLinksGroup` wraps the
   Documents case the four entity editors share. (b) If the caption legitimately names a real `<input>` and a
   button merely got IN FRONT of it (the mic before a title/name field), keep the `<label>` and add an
   explicit `htmlFor`/`id`.

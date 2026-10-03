@@ -4,7 +4,7 @@ import { useState } from "react";
 import { EffortProgressBar, effortCaption } from "./effort-progress-bar";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
-import { Field } from "./task-form-layout";
+import { Field } from "./form-field";
 import { TaskTimeTrackingModal, type TimeTrackingValues } from "./task-time-tracking-modal";
 
 /** The task form's Time tracking cell: a button showing the bar and the

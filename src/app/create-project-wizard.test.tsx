@@ -74,7 +74,7 @@ interface Step1Overrides {
 /** Fill every required project field so Step 1's form becomes valid. */
 function fillRequired(overrides: Step1Overrides = {}) {
   function setText(label: string, value: string) {
-    fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+    fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
       target: { value },
     });
   }
@@ -83,11 +83,11 @@ function fillRequired(overrides: Step1Overrides = {}) {
   setText("Project manager", "Dana PM");
   setText("Number of stakeholders", String(overrides.stakeholderCount ?? 2));
   setText("Customer", "ACME Corp");
-  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "C" },
   });
   setText("Products", "Widget");
-  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false, selector: "input, select, textarea" }), {
     target: { value: overrides.deployment ?? "Cloud" },
   });
   setText("Start date", overrides.startDate ?? "2026-01-01");
@@ -126,7 +126,7 @@ describe("CreateProjectWizard", () => {
   it("starts on Step 1 (Details) showing the project form", () => {
     setup();
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toBeInTheDocument();
     // Template/Functions steps are not reachable yet.
     expect(
@@ -289,7 +289,7 @@ describe("CreateProjectWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     // Back on Step 1 — the form is visible again.
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toBeInTheDocument();
 
     // Step 1's Cancel.
@@ -306,11 +306,11 @@ describe("CreateProjectWizard", () => {
 
     // The previously-entered project name is still in the field.
     const nameInput = screen.getByLabelText("Project name", {
-      exact: false,
+      exact: false, selector: "input, select, textarea",
     }) as HTMLInputElement;
     expect(nameInput.value).toBe("WizardProj");
     const codeInput = screen.getByLabelText("Project code", {
-      exact: false,
+      exact: false, selector: "input, select, textarea",
     }) as HTMLInputElement;
     expect(codeInput.value).toBe("WZ-1");
   });
@@ -401,7 +401,7 @@ describe("CreateProjectWizard", () => {
     // values and the regulatory-framework checkbox label are data, not UI
     // copy, so they stay as in the English flow.
     function setText(label: string, value: string) {
-      fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+      fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
         target: { value },
       });
     }
@@ -410,11 +410,11 @@ describe("CreateProjectWizard", () => {
     setText(t("de", "projectManager"), "Dana PM");
     setText(t("de", "projectStakeholderCount"), "2");
     setText(t("de", "projectCustomer"), "ACME Corp");
-    fireEvent.change(screen.getByLabelText(t("de", "projectNaceSection"), { exact: false }), {
+    fireEvent.change(screen.getByLabelText(t("de", "projectNaceSection"), { exact: false, selector: "input, select, textarea" }), {
       target: { value: "C" },
     });
     setText(t("de", "projectProducts"), "Widget");
-    fireEvent.change(screen.getByLabelText(t("de", "projectDeployment"), { exact: false }), {
+    fireEvent.change(screen.getByLabelText(t("de", "projectDeployment"), { exact: false, selector: "input, select, textarea" }), {
       target: { value: "Cloud" },
     });
     setText(t("de", "projectStartDate"), "2026-01-01");
@@ -637,7 +637,7 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
     // The imported file's own project meta pre-fills Step 1 — not a blank form.
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toHaveValue("Customer Identity Platform");
     // Submit Step 1 with its pre-filled name — the import must have replaced
     // the (previously blank) form draft, or Next stays disabled.
@@ -693,7 +693,7 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     // … then Back to Step 1: the manually-submitted meta is still in effect.
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toHaveValue("WizardProj");
     // Now import — the file's OWN project name must win, not the stale meta.
     fireEvent.change(workspacePickerInput(), {
@@ -701,7 +701,7 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     });
     await waitFor(() =>
       expect(
-        screen.getByLabelText("Project name", { exact: false }),
+        screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
       ).toHaveValue("Customer Identity Platform"),
     );
   });

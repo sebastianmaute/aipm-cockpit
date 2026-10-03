@@ -246,7 +246,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | open |
-| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--open-narrowed-to-a1-and-b4) | Surviving dedup seams from the 2026-06 refactor review — open, narrowed to A1 and B4 | refactor review | S–M | open |
+| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--open-narrowed-to-b4) | Surviving dedup seams from the 2026-06 refactor review — open, narrowed to B4 | refactor review | S–M | open |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
@@ -1211,11 +1211,11 @@ forward from the campaign doc, which still listed it.
 
 ---
 
-## 7. Surviving dedup seams from the 2026-06 refactor review — open, narrowed to A1 and B4
+## 7. Surviving dedup seams from the 2026-06 refactor review — open, narrowed to B4
 
-**Status:** open, narrowed 2026-10-03. A3 and A4 are DONE. A3: `useResetAllColumnWidths` (`use-column-resize.ts`) replaced the three `resetAllCols` chains; re-check with `grep -rn "useResetAllColumnWidths(" src/app --include=*.tsx`. A4: `sortValueGetter` (`sort-value-getter.ts`) replaced the eight `getValue` if-chains that listed their keys one by one, in the change, RAID and resources reports. Its typed map makes a missing key a compile error, and each mapping was compared key by key with the old chain. Left as they are on purpose: the one-line "`name` or the field of the same name" forms (`reports-tables.tsx` ×2, the change report's four count tables, the RAID severity and category tables), `milestones-panel.tsx`'s two-key ternary, and `budget-report-panel.tsx`'s `switch`, which TypeScript already checks for every key. ★ None of the per-column sorts has a runtime test: swapping an accessor in each of the three files left its suite green. What remains: A1 needs a decision (below), and B4 needs one on adding a dependency.
+**Status:** open, narrowed 2026-10-03 to B4. A1 is DONE, by owner decision to name tooltip triggers by their hint: the task form's `Field` moved verbatim into `form-field.tsx`, the project form's copy was deleted, and its call sites pass `hint` where they passed `lang` and `tooltip`. The three project-form triggers that all read "More information" are now named by their own hints, the unused `infoMore` string is gone from both dictionaries, and the project-form asterisk gains the task form's `ml-0.5`. Consequences handled in the same change: 19 `{ exact: false }` label queries in `project-form.test.tsx` and `create-project-wizard.test.tsx` are restricted to form controls, because a trigger whose hint contains the field name would otherwise match too; the §386 test asserts the trigger's new name; the contacts scan in `project-form-fields.test.tsx` is back at whole-container scope, which now passes; and `row-unique-names.ts`'s SCOPE CHOICE comment and §282 say the worked example is gone. Re-check with `grep -rn "function Field(" src/app --include=*.tsx`, which returns one line. A3 and A4 are DONE. A3: `useResetAllColumnWidths` (`use-column-resize.ts`) replaced the three `resetAllCols` chains; re-check with `grep -rn "useResetAllColumnWidths(" src/app --include=*.tsx`. A4: `sortValueGetter` (`sort-value-getter.ts`) replaced the eight `getValue` if-chains that listed their keys one by one, in the change, RAID and resources reports. Its typed map makes a missing key a compile error, and each mapping was compared key by key with the old chain. Left as they are on purpose: the one-line "`name` or the field of the same name" forms (`reports-tables.tsx` ×2, the change report's four count tables, the RAID severity and category tables), `milestones-panel.tsx`'s two-key ternary, and `budget-report-panel.tsx`'s `switch`, which TypeScript already checks for every key. ★ None of the per-column sorts has a runtime test: swapping an accessor in each of the three files left its suite green. What remains: A1 needs a decision (below), and B4 needs one on adding a dependency.
 
-★★ **A1's merge changes behaviour, and that decision is the owner's.** The two `Field`s name their tooltip trigger differently: the task form's is named by its hint text, the project form's by `t(lang, "infoMore")`, so three project-form fields share the name "More information". A merged component has to pick one. Picking the task form's fixes that duplicate name, and also removes the live example §282 put into `row-unique-names.ts`'s SCOPE CHOICE comment and the narrowing in `project-form-fields.test.tsx`, so both would need rewriting. The required asterisk's `ml-0.5` (task form only) is a second, visual-only difference.
+★★ **A1's merge changes behaviour, and that decision is the owner's** (taken 2026-10-03: name by hint; see Status). The two `Field`s name their tooltip trigger differently: the task form's is named by its hint text, the project form's by `t(lang, "infoMore")`, so three project-form fields share the name "More information". A merged component has to pick one. Picking the task form's fixes that duplicate name, and also removes the live example §282 put into `row-unique-names.ts`'s SCOPE CHOICE comment and the narrowing in `project-form-fields.test.tsx`, so both would need rewriting. The required asterisk's `ml-0.5` (task form only) is a second, visual-only difference.
 
 **Previously:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
 
@@ -24287,6 +24287,8 @@ against the code before citing it, as the ★★ paragraph below requires. The `
 `tbody` narrowing is still described as NOT an example. Comment-only; no test pins the citation.
 Re-check with `grep -n "SCOPE CHOICE" -A 20 src/test/row-unique-names.ts`.
 
+★★ **Superseded 2026-10-03 by §7 A1.** The shared `Field` names each project-form tooltip trigger by its hint, so the "More information" collision this closure cited no longer exists. The contacts scan in `project-form-fields.test.tsx` is back at whole-container scope, and the SCOPE CHOICE comment now says there is no live worked example, naming this as the last one. The rule has no live example again, which is the state this entry was filed about; it stays closed because the comment states the gap rather than pointing at a stale one.
+
 Original status: open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
 because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills. Never machine-verified by a committed probe.
 
@@ -30918,7 +30920,8 @@ register for checkers scanning their own corpus.
 ## 386. `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14
 
 **Status:** CLOSED 2026-09-14 — the first closure option below was taken, for BOTH `Field`
-implementations: `src/app/task-form-layout.tsx` (its `hint` prop) and `src/app/project-form-fields.tsx`
+implementations (merged into one `form-field.tsx` on 2026-10-03 by §7 A1; its test file is now
+`form-field.test.tsx`, which the reproduce below names): `src/app/task-form-layout.tsx` (its `hint` prop) and `src/app/project-form-fields.tsx`
 (its `tooltip` prop). Every call site is unchanged. In a hinted, non-`group` Field, both now render
 through the shared `HintedLabel` (`src/app/form-controls.tsx`). The `InfoTooltip` is a SIBLING of the
 `<label>`, not inside it: the wrapper is the flex row, the `<label>` is `display: contents`, and
@@ -30932,7 +30935,7 @@ cloning the child or mutating it imperatively, and both were judged more fragile
 `group` mode was already correct in both files, because `FieldGroup`'s `aria-label` outranks its
 content; its caption keeps the tooltip. The task form's redundant `preventDefault` wrapper is gone.
 Pinned by
-`npx vitest run src/app/task-form-layout.test.tsx -t "a hinted label Field names its control with the label alone"`
+`npx vitest run src/app/form-field.test.tsx -t "a hinted label Field names its control with the label alone"`
 and
 `npx vitest run src/app/project-form-fields.test.tsx -t "names a tooltipped field's control with its label alone"`.
 Both are mutation-proved: moving the tooltip back inside the label turns each red. Both prefix-regex
@@ -31063,7 +31066,7 @@ state. It has to drive the per-field checklist — `grep -n "toggleField" src/ap
 
 ## 388. The task-name mic is now invisible to the label-binding source scan — CLOSED 2026-09-26
 
-**Status:** CLOSED 2026-09-26 as ACCEPTED, by owner decision. The scan's coverage did get narrower, but it leaves no hole. `Field` forces group mode whenever `captionAction` is passed (`task-form-layout.tsx`), `task-form-layout.test.tsx` pins that, and `task-form-fields.tsx` is the only caller. A scan rule that flags `captionAction=` on any tag other than `Field` was weighed and not added.
+**Status:** CLOSED 2026-09-26 as ACCEPTED, by owner decision. The scan's coverage did get narrower, but it leaves no hole. `Field` forces group mode whenever `captionAction` is passed (`form-field.tsx` since §7 A1; `task-form-layout.tsx` when written), `form-field.test.tsx` pins that, and `task-form-fields.tsx` is the only caller. A scan rule that flags `captionAction=` on any tag other than `Field` was weighed and not added.
 
 Original status: OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
 the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
@@ -31078,7 +31081,7 @@ body, so `standsFirst(b.body, …)` no longer sees it and the guard stays green 
 whatever happens to it.
 
 ★★ This is a NARROWING OF COVERAGE, not a hole. That field's protection now rests on `captionAction`
-forcing `group` mode, which IS pinned — by the mutation-proved tests in `task-form-layout.test.tsx`,
+forcing `group` mode, which IS pinned — by the mutation-proved tests in `form-field.test.tsx` (renamed from `task-form-layout.test.tsx` by §7 A1),
 which go red when the forced `group` is reverted. The guarantee moved; it did not disappear.
 
 ★ `hasGroupProp` recognises only a literal `group` prop and was deliberately NOT widened to know

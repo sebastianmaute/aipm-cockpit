@@ -144,7 +144,7 @@ describe("TaskTimeTrackingButton", () => {
     // `group` mode specifically: the child IS a button, and a <label> with no
     // `for` binds to its first LABELABLE descendant, so the default branch
     // would make clicking the caption OPEN the dialog. `Field` renders
-    // <div role="group" aria-label> instead (task-form-layout.tsx).
+    // <div role="group" aria-label> instead (form-field.tsx).
     render(<TaskTimeTrackingButton {...base} />);
     const group = screen.getByRole("group", { name: t("en-US", "taskTimeTracking") });
     expect(group).toContainElement(screen.getByRole("button", { name: /time tracking/i }));
