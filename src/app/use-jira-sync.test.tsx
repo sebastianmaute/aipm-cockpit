@@ -55,7 +55,8 @@ import * as jiraApi from "./jira-api";
 
 // The loader lives in the module under test, so a failed chunk download is simulated one level
 // down: the real lazyRetryOnReject wraps the import, and `failNextLoads` rejects ahead of it.
-const loaderGate = vi.hoisted(() => ({ failNextLoads: 0 }));
+// `hold`, while set, keeps every load pending until the promise settles (a slow chunk download).
+const loaderGate = vi.hoisted(() => ({ failNextLoads: 0, hold: null as Promise<void> | null }));
 vi.mock("./lazy-retry", async (importActual) => {
   const actual = await importActual<typeof import("./lazy-retry")>();
   return {
@@ -69,7 +70,8 @@ vi.mock("./lazy-retry", async (importActual) => {
             new Error("Failed to fetch dynamically imported module: https://app.example/_next/static/chunks/jira.js"),
           );
         }
-        return load();
+        const hold = loaderGate.hold;
+        return hold ? hold.then(() => load()) : load();
       };
     },
   };
@@ -1351,5 +1353,57 @@ describe("useJiraSync — the Jira module fails to download", () => {
     await act(async () => { await result.current.handleResolveConflicts([]); });
     expect(showToast).toHaveBeenCalledTimes(2);
     expect(showToast).toHaveBeenLastCalledWith("info", expect.any(String));
+  });
+});
+
+describe("useJiraSync — a second call while the Jira module is still loading", () => {
+  let release: () => void = () => {};
+  beforeEach(() => {
+    vi.clearAllMocks();
+    loaderGate.failNextLoads = 0;
+    loaderGate.hold = new Promise<void>((resolve) => { release = resolve; });
+  });
+  afterEach(() => {
+    release();
+    loaderGate.hold = null;
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
+  });
+
+  it("handleJiraSync: two clicks during the download start exactly one sync", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValue("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    const { result } = renderSync([]);
+
+    await act(async () => {
+      const first = result.current.handleJiraSync();
+      const second = result.current.handleJiraSync();
+      release();
+      await Promise.all([first, second]);
+    });
+
+    expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1);
+    expect(result.current.jiraSyncing).toBe(false);
+
+    // The guard is released afterwards: a later click syncs again.
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(2);
+  });
+
+  it("handleResolveConflicts: two clicks during the download run exactly one resolution", async () => {
+    const { result } = renderSync([]);
+
+    await act(async () => {
+      const first = result.current.handleResolveConflicts([]);
+      const second = result.current.handleResolveConflicts([]);
+      release();
+      await Promise.all([first, second]);
+    });
+
+    // One "resolved" summary toast per resolution that actually ran.
+    expect(showToast).toHaveBeenCalledTimes(1);
+
+    await act(async () => { await result.current.handleResolveConflicts([]); });
+    expect(showToast).toHaveBeenCalledTimes(2);
   });
 });
