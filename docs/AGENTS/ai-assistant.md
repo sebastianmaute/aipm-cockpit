@@ -166,7 +166,8 @@
   gets a complete answer. With no argument its output carries no `scope` key — byte-for-byte the old dump. Derived data reaches the dispatcher as
   un-memoized GETTERS on `ChatDispatcherArgs` (`getDashboardModel`/`getBudgetRollup`/`getAllocationsSnapshot`),
   each read through its own ref so an unused read tool costs nothing per render. Build the getter in
-  `task-manager.tsx` beside the others. ★ This used to say the dep array "stays `[args.isReadOnly]`", which
+  `task-manager.tsx` beside the others; the allocations getter is built through `makeAllocationsSnapshotGetter`
+  (in `alloc-plan.ts`), which is where scope forwarding is pinned. ★ This used to say the dep array "stays `[args.isReadOnly]`", which
   is no longer true — it is `[args.isReadOnly, documentTools]`, because `documentTools` is a REAL dep rather
   than a ref-routed value (a `useMemo`'d object captured by the spread, whose identity must change when a
   popout toggles read-only). The RULE — route reactive values through refs, do not add them as deps — is
