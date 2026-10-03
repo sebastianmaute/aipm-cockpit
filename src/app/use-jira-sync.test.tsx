@@ -134,8 +134,9 @@ function makeProbe(
       onJiraAuthResult: overrides.onJiraAuthResult,
       getScopeEpoch: overrides.getScopeEpoch ?? (() => 0),
     });
-    const { tasks } = useWorkspace();
-    return { ...sync, currentTasks: tasks };
+    const { tasks, setTasks } = useWorkspace();
+    // `replaceTasks` stands in for a project swap's workspace replacement.
+    return { ...sync, currentTasks: tasks, replaceTasks: setTasks };
   };
 }
 
@@ -1515,6 +1516,51 @@ describe("useJiraSync — §667 a project swap while a sync or resolution is in 
     expect(result.current.currentTasks[0].taskName).toBe("Remote");
     expect(result.current.jiraConflicts).toHaveLength(1);
     expect(droppedAt("useJiraSync.sync")).toEqual(["search"]);
+  });
+
+  it("sync: a swap that replaces the task list during the search pushes none of the next project's rows", async () => {
+    const initial = [makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Old project row", lastSyncedAt: "2026-01-01T00:00:00" })];
+    // The next project holds a locally edited row linked to an issue in THIS sync's result set
+    // whose remote side did not move, so a sync that read the swapped list would push it.
+    const nextProject = [
+      makeTask({ id: 7, jiraKey: "TEST-5", taskName: "Next project row", lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00" }),
+    ];
+    const issues = [
+      { key: "TEST-1", fields: { summary: "Remote", updated: "2026-05-10T00:00:00" } },
+      { key: "TEST-5", fields: { summary: "Next project row", updated: "2025-12-01T00:00:00" } },
+    ] as unknown as JiraIssue[];
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Remote", status: "To Do" });
+    let releaseSearch: (v: JiraIssue[]) => void = () => {};
+    asMock(jiraApi.searchAllIssues).mockImplementationOnce(
+      () => new Promise<JiraIssue[]>((resolve) => { releaseSearch = resolve; }),
+    );
+    const { result } = renderSync(initial, baseSettings, { getScopeEpoch });
+
+    let syncing: Promise<void> = Promise.resolve();
+    act(() => { syncing = result.current.handleJiraSync(); });
+    await vi.waitFor(() => expect(jiraApi.searchAllIssues).toHaveBeenCalledTimes(1));
+    // The swap commits while the search is still in flight: the epoch moves and the list is replaced.
+    act(() => {
+      epoch = 1;
+      result.current.replaceTasks(nextProject);
+    });
+    await act(async () => { releaseSearch(issues); await syncing; });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(result.current.currentTasks).toEqual(nextProject);
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.jiraSyncing).toBe(false);
+    expect(droppedAt("useJiraSync.sync")).toEqual(["search"]);
+
+    // Positive control: a sync started in the new scope pushes that project's own edited row.
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce(issues);
+    asMock(jiraApi.updateIssue).mockResolvedValueOnce(undefined);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1);
+    expect(result.current.currentTasks.find((row) => row.id === 7)?.localModifiedAt).toBeUndefined();
   });
 
   it("sync: a swap during a push drops the whole batch, including the status transitions observed before it", async () => {
