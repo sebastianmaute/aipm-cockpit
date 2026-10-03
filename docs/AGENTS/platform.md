@@ -252,7 +252,9 @@
   project — the conservative direction, and that write would have been replaced anyway.
 - ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts --include=*.tsx | grep -v test`
   — ★★ one of its rows is the DECLARATION in `scope-epoch.ts`, so subtract it before quoting a count;
-  today it prints 11 call sites plus that row.
+  on 2026-10-03 it printed 18 call sites plus that row. ★★ The "11" that stood here until then was
+  already four short before `useJiraSync` added its three: the undo stack's two and two of the chat
+  panel's three were never counted. Re-run it rather than adding to this number.
   ★★★ **THE SECOND `--include` IS LOAD-BEARING AND WAS MISSING UNTIL 2026-09-20.** With
   `--include=*.ts` alone the recipe cannot see a `.tsx` file, so it went blind to the chat panel's call
   site below — and printed 10 call sites plus the row, which is word for word what the sentence beside
@@ -263,6 +265,11 @@
   once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
   `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
   CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left),
+  `useJiraSync` (§667: sync after the search and again before its single commit, because the push
+  arm awaits Jira per row; conflict resolution before each row's push and before each row's commit,
+  against the epoch the conflicts were QUEUED in, not a fresh read at Apply — the hook takes the
+  reader REQUIRED, since `task-manager.tsx` calls it directly with no deps boundary between),
+  the undo stack (`use-undo-stack.ts`; see [undo.md](undo.md)),
   and `chat-panel.tsx`'s tool loop (per TOOL, and the loop `break`s — but read the separate bullet
   below before treating it as a fourth row of this rule; its cancel rides a different signal).
   ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
@@ -333,7 +340,8 @@
   `use-entity-calendar-push.test.tsx`, `use-entity-calendar-pull.test.tsx`,
   `use-outlook-calendar-push.test.tsx`, `use-milestone-calendar-pull.test.tsx`,
   `use-committee-outlook-push.test.tsx`, `use-insight-recommend.test.tsx` and
-  `use-insight-recommend-runner.test.ts`. ★★ `tasks-section.test.tsx`'s own "the scope epoch reaches the
+  `use-insight-recommend-runner.test.ts`, plus `use-jira-sync.test.tsx` for the Jira sync and
+  conflict resolution. ★★ `tasks-section.test.tsx`'s own "the scope epoch reaches the
   manual Outlook push/pull (§548)" block pins the PANE'S WIRING rather than the guard: for the push it
   drives the real hook end-to-end through the toolbar button (drop + control), for the pull — mocked out
   file-wide — it asserts the reader is the one the pane was handed. That is the only place a lost thread

@@ -32,6 +32,8 @@ export interface AppModalsProps {
   // Jira conflicts modal
   jiraConflicts: ConflictItem[];
   handleResolveConflicts: (resolutions: ConflictResolution[]) => void;
+  /** True while a resolution is pushing — the modal's Cancel is disabled until it finishes. */
+  jiraResolving: boolean;
   clearConflicts: () => void;
 
   // Absence edit modal
@@ -123,6 +125,7 @@ export function AppModals({
   showTaskFormModal = true,
   jiraConflicts,
   handleResolveConflicts,
+  jiraResolving,
   clearConflicts,
   editingAbsence,
   absenceKnownAssignees,
@@ -222,6 +225,7 @@ export function AppModals({
           lang={lang}
           conflicts={jiraConflicts}
           onResolve={handleResolveConflicts}
+          resolving={jiraResolving}
           onClose={clearConflicts}
         />
       )}

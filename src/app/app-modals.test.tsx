@@ -18,7 +18,9 @@ vi.mock("./task-form-modal", () => ({
 }));
 // Dynamic imports are intercepted by vi.mock at the module level.
 vi.mock("./jira-conflicts-modal", () => ({
-  JiraConflictsModal: () => <div data-testid="jira-conflicts-modal" />,
+  JiraConflictsModal: (props: { resolving?: boolean }) => (
+    <div data-testid="jira-conflicts-modal" data-resolving={String(props.resolving)} />
+  ),
 }));
 vi.mock("./absence-edit-modal", () => ({
   AbsenceEditModal: (props: { calendarSyncEnabled?: boolean }) => (
@@ -62,6 +64,7 @@ function makeProps(): AppModalsProps {
     isPopout: false,
     jiraConflicts: [],
     handleResolveConflicts: vi.fn(),
+    jiraResolving: false,
     clearConflicts: vi.fn(),
     editingAbsence: null,
     absenceKnownAssignees: [],
@@ -129,6 +132,16 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} jiraConflicts={[{} as unknown as ConflictItem]} />);
     expect(screen.getByTestId("jira-conflicts-modal")).toBeInTheDocument();
+  });
+
+  it("passes jiraResolving through to the conflicts modal as resolving", () => {
+    stubTaskForm();
+    const { rerender } = render(
+      <AppModals {...makeProps()} jiraConflicts={[{} as unknown as ConflictItem]} jiraResolving={true} />,
+    );
+    expect(screen.getByTestId("jira-conflicts-modal").dataset.resolving).toBe("true");
+    rerender(<AppModals {...makeProps()} jiraConflicts={[{} as unknown as ConflictItem]} jiraResolving={false} />);
+    expect(screen.getByTestId("jira-conflicts-modal").dataset.resolving).toBe("false");
   });
 
   it("shows AbsenceEditModal when editingAbsence is non-null", () => {

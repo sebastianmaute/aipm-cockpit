@@ -29,6 +29,11 @@ interface ModalHeaderProps {
   /** Hide the ✕ close button (e.g. a non-dismissable empty-state header where
    *  the close gesture is a no-op and the button would be a dead control). */
   hideClose?: boolean;
+  /** Render the ✕ DISABLED (native `disabled`, so it is announced as unavailable and takes no
+   *  click) while the host refuses to close, e.g. during a run the dialog must stay open for.
+   *  Defaults to false, and only a disabled ✕ gains the disabled classes, so every other call site
+   *  renders byte-identically. */
+  closeDisabled?: boolean;
   /** Accessible name AND `title` for the ✕. Defaults to the shared
    *  `alertModalClose` string, so every call site that omits it is unchanged.
    *  ★ PASS IT WHENEVER THIS HEADER CAN BE OPEN ON TOP OF ANOTHER MODAL. Every
@@ -90,6 +95,7 @@ export function ModalHeader({
   onClose,
   dragHandleProps,
   hideClose = false,
+  closeDisabled = false,
   closeLabel,
   hideVoiceCommand = false,
   helpConceptId,
@@ -136,9 +142,12 @@ export function ModalHeader({
           <button
             type="button"
             onClick={onClose}
+            disabled={closeDisabled}
             aria-label={closeName}
             title={closeName}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
+            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey${
+              closeDisabled ? " disabled:cursor-not-allowed disabled:opacity-50" : ""
+            }`}
           >
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </button>
