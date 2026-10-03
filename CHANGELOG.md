@@ -43,7 +43,9 @@ longer carries its own changelog comment.
   date and cite an executed command. Earlier closures stay unchecked by design.
 - **The axe guard checks the checkout (§58).** A dev server stamps `data-checkout` (a short hash
   of its working directory; absent in production) and the a11y suite's guard refuses a reused dev
-  server started from another worktree, not only one on another version.
+  server started from another worktree, not only one on another version. A server with no
+  `data-checkout` (a production build, or a dev server from before this change) is refused too,
+  unless the run sets `PLAYWRIGHT_NO_WEBSERVER` to scan an external server on purpose.
 - **Generated samples are checked (§238).** `sample-workspace-big.json` and `-huge.json` are now
   compared against a fresh regeneration from `sample-workspace-small.json` by a unit test.
 - **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or

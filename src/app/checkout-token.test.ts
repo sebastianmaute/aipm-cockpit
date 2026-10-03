@@ -1,5 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
-import { CHECKOUT_TOKEN_LENGTH, checkoutToken } from "./checkout-token";
+import {
+  CHECKOUT_TOKEN_LENGTH,
+  checkoutToken,
+  judgeServedCheckout,
+  runStartsDevServer,
+} from "./checkout-token";
+
+describe("judgeServedCheckout (§58 guard decision)", () => {
+  it("control: a matching token passes, a different one does not", () => {
+    expect(judgeServedCheckout("abc", "abc", true)).toBe("match");
+    expect(judgeServedCheckout("def", "abc", true)).toBe("mismatch");
+    expect(judgeServedCheckout("def", "abc", false)).toBe("mismatch");
+  });
+
+  it("refuses an absent attribute when the run starts its own dev server", () => {
+    expect(judgeServedCheckout(null, "abc", true)).toBe("absent-refused");
+  });
+
+  it("accepts an absent attribute only when the run targets an external server", () => {
+    expect(judgeServedCheckout(null, "abc", false)).toBe("absent-external");
+  });
+});
+
+describe("runStartsDevServer (mirrors playwright.config.ts webServer)", () => {
+  it("is true when PLAYWRIGHT_NO_WEBSERVER is unset or empty", () => {
+    expect(runStartsDevServer({})).toBe(true);
+    expect(runStartsDevServer({ PLAYWRIGHT_NO_WEBSERVER: "" })).toBe(true);
+  });
+
+  it("is false when PLAYWRIGHT_NO_WEBSERVER is set", () => {
+    expect(runStartsDevServer({ PLAYWRIGHT_NO_WEBSERVER: "1" })).toBe(false);
+  });
+});
 
 describe("checkoutToken (§58)", () => {
   it("returns the same token for the same directory", () => {

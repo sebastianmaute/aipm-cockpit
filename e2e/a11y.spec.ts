@@ -10,7 +10,11 @@ import {
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
 import { APP_VERSION } from "../src/app/version";
-import { checkoutToken } from "../src/app/checkout-token";
+import {
+  checkoutToken,
+  judgeServedCheckout,
+  runStartsDevServer,
+} from "../src/app/checkout-token";
 import { sealPassphrase, type SealedSecret } from "../src/app/secrets";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
@@ -157,6 +161,13 @@ const comboLabel = (combo: (typeof COMBOS)[number]): string =>
 //     a hand-started `npm run dev` runs in the package root, and this suite
 //     already requires the runner to sit at the repo root (seed.ts reads
 //     sample-workspace-small.json from process.cwd()).
+//     An ABSENT data-checkout fails too, unless PLAYWRIGHT_NO_WEBSERVER is set
+//     (judgeServedCheckout / runStartsDevServer in checkout-token.ts). That env
+//     var is the only signal of which server a run targets: unset, the config
+//     starts or reuses `npm run dev` (CI's e2e job included), so the server
+//     should be this checkout's dev server and a missing attribute means a
+//     production build or a dev server from a commit before the attribute. Set,
+//     the run points at an external server, which may be production on purpose.
 // Still NOT sufficient: a leftover dev server from THIS worktree matches both,
 // so keep the PORT=3100 fresh-port convention AGENTS.md prescribes.
 test("guard: the served app is this checkout", async ({ page }) => {
@@ -174,10 +185,24 @@ test("guard: the served app is this checkout", async ({ page }) => {
       `APP_VERSION is ${APP_VERSION}. This compares release versions only: Playwright reused a ` +
       `server already answering on this port that runs a different version of the app. ${remedy}`,
   ).toBe(APP_VERSION);
-  // A production server omits data-checkout by design (no path-derived value
-  // ships), so there is nothing to compare against — the version check stands alone.
-  if (served.checkout === null) return;
-  const expected = checkoutToken("development", () => process.cwd());
+  const expected = checkoutToken("development", () => process.cwd()) ?? "";
+  const verdict = judgeServedCheckout(
+    served.checkout,
+    expected,
+    runStartsDevServer(process.env),
+  );
+  expect(
+    verdict,
+    `Served app has no data-checkout attribute, but this run uses playwright.config.ts's ` +
+      `\`npm run dev\` webServer (PLAYWRIGHT_NO_WEBSERVER is unset), and a dev server from this ` +
+      `checkout always stamps it. The server answering on this port is a production build or a ` +
+      `dev server built from a commit that predates data-checkout, from another worktree or ` +
+      `this one. ${remedy} To scan a production server on purpose, set PLAYWRIGHT_NO_WEBSERVER=1 ` +
+      `and PLAYWRIGHT_BASE_URL.`,
+  ).not.toBe("absent-refused");
+  // An external (PLAYWRIGHT_NO_WEBSERVER) run against a production server: no
+  // path-derived value ships there, so the version check stands alone.
+  if (verdict === "absent-external") return;
   expect(
     served.checkout,
     `Served app reports data-checkout ${served.checkout}, but this test process's ` +
