@@ -89,7 +89,7 @@ describe("BudgetPanel editing", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const cell = screen.getByLabelText(/^Actual – .+ – 2026-01$/) as HTMLInputElement;
+    const cell = screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/) as HTMLInputElement;
     // Controlled input starts at the prop value.
     expect(cell.value).toBe("80");
     fireEvent.change(cell, { target: { value: "90" } });
@@ -97,7 +97,7 @@ describe("BudgetPanel editing", () => {
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].allocations[0].actualHours["2026-01"]).toBe(90);
     // Re-render reflects the new controlled value.
-    expect((screen.getByLabelText(/^Actual – .+ – 2026-01$/) as HTMLInputElement).value).toBe("90");
+    expect((screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/) as HTMLInputElement).value).toBe("90");
   });
 
   test("Edit button opens the modal for that bucket", async () => {
@@ -146,7 +146,7 @@ describe("BudgetPanel editing", () => {
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const input = screen.getByLabelText(/^Budget – .+ – 2026-01$/) as HTMLInputElement;
+    const input = screen.getByLabelText(/^Budget – Blend – .+ – 2026-01$/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
@@ -162,7 +162,7 @@ describe("BudgetPanel editing", () => {
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const input = screen.getByLabelText(/^Actual – .+ – 2026-01$/) as HTMLInputElement;
+    const input = screen.getByLabelText(/^Actual – Blend – .+ – 2026-01$/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "30" } });
     fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
@@ -177,7 +177,7 @@ describe("BudgetPanel editing", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const cell = screen.getByLabelText(/^Actual – .+ – 2026-01$/);
+    const cell = screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/);
     await user.clear(cell);
     await user.type(cell, "40");
     expect(spy).not.toHaveBeenCalled();
