@@ -427,7 +427,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
 | [§194](#194-the-lazy-editors-queue-has-no-strictmode-coverage-and-the-test-that-would-give-it-must-assert-the-attach-sequence--closed-2026-08-20) | The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE | — | — | **CLOSED** 2026-08-20 |
 | [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression--closed-2026-10-03) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | **CLOSED** 2026-10-03 |
-| [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
+| [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture--closed-2026-10-03) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | **CLOSED** 2026-10-03 |
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false--closed-2026-09-27) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | **CLOSED** 2026-09-27 |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
@@ -16764,11 +16764,11 @@ a "write the test" follow-up. It is a gap with a named cause.
 mechanism and says not to tidy the read down into the ternary. Treat that comment as
 the guard, and do not delete it as redundant with the code.
 
-## 196. The two-routes-agree property §192 exists to establish has NO fixture
+## 196. The two-routes-agree property §192 exists to establish has NO fixture — CLOSED 2026-10-03
 
-**Status:** open — a test gap, not a defect. The behaviour is correct today. Reproduced 2026-08-28 by `grep -c "it(" src/app/rich-text-editor-lazy.queue.test.tsx`.
+**Status:** CLOSED 2026-10-03 — fixture added: `rich-text-editor-lazy.routes.test.tsx` renders two never-focused lazy editors in one test, queues an append on the first before the chunk resolves, appends live to the second after it has, and asserts identical HTML (`<p>existing appended</p>`). Mutation-checked: forcing the append position to the caret (`atCaret` true) turns it red with `<p> appendedexisting</p>` against `<p>existing appended</p>`.
 
-**Work item:** #182
+**Original status:** open — a test gap, not a defect. The behaviour is correct today. Reproduced 2026-08-28 by `grep -c "it(" src/app/rich-text-editor-lazy.queue.test.tsx`.
 
 §192's whole point is that a dictated line lands in the SAME place whether it reached the editor
 through the lazy wrapper's QUEUE (appended before the chunk resolved, replayed at attach) or LIVE
