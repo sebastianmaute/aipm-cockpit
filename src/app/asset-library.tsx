@@ -35,6 +35,8 @@ import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { INTERACTIVE } from "./interaction-styles";
 import { AssetPreviewModal } from "./asset-preview-modal";
+import { AssetThumbnail } from "./asset-thumbnail";
+import { createLoadLimiter } from "./asset-load-limiter";
 import type { AssetByteLoader } from "./document-asset-images";
 
 export interface AssetLibraryProps {
@@ -60,6 +62,10 @@ export interface AssetLibraryProps {
 }
 
 type AssetSortKey = "name" | "size";
+
+/** Most row thumbnails loading at once (§482): each fetches the asset's full
+ *  stored bytes, so a screenful of rows queues instead of firing together. */
+const THUMBNAIL_CONCURRENCY = 3;
 
 /** Disclosure only — there is no per-workspace cap to check against.
  *
@@ -101,6 +107,8 @@ export function AssetLibrary({
   // `null` means closed. Kept as an index rather than an id so "next"/"prev"
   // inside AssetPreviewModal walk the SAME order these rows render in.
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  // One queue per mounted library, shared by its row thumbnails (§482).
+  const [thumbnailLimiter] = useState(() => createLoadLimiter(THUMBNAIL_CONCURRENCY));
   // ★★ ONE derivation, TWO pickers. This pane mounts two independent file
   // dialogs — the toolbar `FilePickerButton` and, on the empty branch, the
   // dashed box's own hidden input — and they must agree on what they accept
@@ -379,6 +387,19 @@ export function AssetLibrary({
                           </>
                         )}
                       </span>
+                      {/* §482 — only where a loader exists, the same gate as the
+                          Preview control: no loader, no bytes to show. Keyed on
+                          the id by the row's own key, so a sort reorders the
+                          rows without refetching. Decorative (aria-hidden). */}
+                      {loadImage && (
+                        <AssetThumbnail
+                          id={asset.id}
+                          mime={asset.mime}
+                          loadImage={loadImage}
+                          limiter={thumbnailLimiter}
+                          unavailable={isDangling || isBlocked}
+                        />
+                      )}
                       {isEditing ? (
                         <Input
                           value={draftName}
