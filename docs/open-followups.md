@@ -246,7 +246,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | open |
-| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
+| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--open-narrowed-to-a1-and-b4) | Surviving dedup seams from the 2026-06 refactor review — open, narrowed to A1 and B4 | refactor review | S–M | open |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
@@ -1211,9 +1211,13 @@ forward from the campaign doc, which still listed it.
 
 ---
 
-## 7. Surviving dedup seams from the 2026-06 refactor review
+## 7. Surviving dedup seams from the 2026-06 refactor review — open, narrowed to A1 and B4
 
-**Status:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
+**Status:** open, narrowed 2026-10-03. A3 and A4 are DONE. A3: `useResetAllColumnWidths` (`use-column-resize.ts`) replaced the three `resetAllCols` chains; re-check with `grep -rn "useResetAllColumnWidths(" src/app --include=*.tsx`. A4: `sortValueGetter` (`sort-value-getter.ts`) replaced the eight `getValue` if-chains that listed their keys one by one, in the change, RAID and resources reports. Its typed map makes a missing key a compile error, and each mapping was compared key by key with the old chain. Left as they are on purpose: the one-line "`name` or the field of the same name" forms (`reports-tables.tsx` ×2, the change report's four count tables, the RAID severity and category tables), `milestones-panel.tsx`'s two-key ternary, and `budget-report-panel.tsx`'s `switch`, which TypeScript already checks for every key. ★ None of the per-column sorts has a runtime test: swapping an accessor in each of the three files left its suite green. What remains: A1 needs a decision (below), and B4 needs one on adding a dependency.
+
+★★ **A1's merge changes behaviour, and that decision is the owner's.** The two `Field`s name their tooltip trigger differently: the task form's is named by its hint text, the project form's by `t(lang, "infoMore")`, so three project-form fields share the name "More information". A merged component has to pick one. Picking the task form's fixes that duplicate name, and also removes the live example §282 put into `row-unique-names.ts`'s SCOPE CHOICE comment and the narrowing in `project-form-fields.test.tsx`, so both would need rewriting. The required asterisk's `ml-0.5` (task form only) is a second, visual-only difference.
+
+**Previously:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
 
 **Work item:** #89
 
