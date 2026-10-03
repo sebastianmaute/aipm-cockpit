@@ -44,6 +44,9 @@ longer carries its own changelog comment.
 - **Import cycle removed (§92).** `StorageConfig` and `defaultStorageConfig` move to a leaf
   module, `storage-config-kind.ts`, which breaks the `settings-types` ⇄ `workspace` ⇄
   `document-model` cycle. `workspace.ts` re-exports both, so no import path changes.
+- **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
+  Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
+  needs 5.0.3.
 
 ## [1.15.0] - 2026-10-03 "Cornwell"
 
