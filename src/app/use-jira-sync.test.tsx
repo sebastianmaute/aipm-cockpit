@@ -1581,6 +1581,27 @@ describe("useJiraSync — §667 a project swap while a sync or resolution is in 
     expect(droppedAt("useJiraSync.resolve")).toEqual(["push"]);
   });
 
+  it("conflicts queued before a swap are not shown after it; a sync in the new scope shows its own", async () => {
+    mockConflictSync();
+    const { result, rerender } = renderSync([conflictedTask()], baseSettings, { getScopeEpoch });
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts).toHaveLength(1);
+
+    // Positive control: a re-render in the same scope keeps the queue.
+    rerender();
+    expect(result.current.jiraConflicts).toHaveLength(1);
+
+    // The swap re-renders the hook (it replaces `tasks`); the old project's rows are hidden.
+    epoch = 1;
+    rerender();
+    expect(result.current.jiraConflicts).toEqual([]);
+
+    // A sync in the new scope queues and shows its own conflicts.
+    mockConflictSync();
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts).toHaveLength(1);
+  });
+
   it("resolve: a swap during the push writes nothing and releases the guard", async () => {
     mockConflictSync();
     const { result } = renderSync([conflictedTask()], baseSettings, { getScopeEpoch });

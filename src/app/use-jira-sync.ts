@@ -12,7 +12,7 @@ import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
 import { lazyRetryOnReject } from "./lazy-retry";
 import { logDiag } from "./diagnostics";
-import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
@@ -59,6 +59,9 @@ export interface UseJiraSyncArgs {
 
 type ActivityTransition = NonNullable<ReturnType<typeof statusActivityKind>>;
 
+/** Stable empty queue, so hiding stale conflicts does not hand the modal a new array each render. */
+const NO_CONFLICTS: ConflictItem[] = [];
+
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useJiraSync(args: UseJiraSyncArgs) {
   const { tasks, setTasks } = useWorkspace();
@@ -93,7 +96,18 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   // §667 — the scope epoch the queued conflicts were computed in. A resolution writes against THAT
   // project, not whichever one is in scope when the user clicks Apply, so it is checked against
   // this value rather than a fresh read (the chat panel's staged proposals carry theirs the same way).
+  // The ref serves the callbacks; the state copy serves the render below, which may not read a ref.
   const jiraConflictsEpochRef = useRef<number | undefined>(undefined);
+  const [jiraConflictsEpoch, setJiraConflictsEpoch] = useState<number | undefined>(undefined);
+  // §667 — conflicts queued in a project that has since left are not shown. `useJiraSync` lives in
+  // `task-manager.tsx`, which the load hold does not unmount, so its queue outlives a swap, and the
+  // conflicts modal would come back after the hold showing the previous project's rows. DERIVED,
+  // not cleared: no effect may set state here (`set-state-in-effect`), and the epoch reader is not
+  // a render value. Reading it during render is still current, because every epoch bump is
+  // immediately followed by the replacement of `tasks`, which this hook reads from the workspace,
+  // so the swap itself re-renders the hook. The stale queue stays in state until the next sync
+  // replaces it or a resolution drops it; nothing can reach it meanwhile.
+  const visibleConflicts = isScopeStale(args.getScopeEpoch, jiraConflictsEpoch) ? NO_CONFLICTS : jiraConflicts;
 
   const handleJiraSync = useCallback(async () => {
     if (jiraInFlightRef.current !== null) return;
@@ -418,6 +432,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       const summary = tPlural(langRef.current, "jiraSyncDoneFull", issues.length, issues.length, added, pulled, pushed);
       if (conflictItems.length > 0) {
         jiraConflictsEpochRef.current = startEpoch;
+        setJiraConflictsEpoch(startEpoch);
         setJiraConflicts(conflictItems);
         args.showToast(
           "info",
@@ -650,5 +665,5 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     setJiraConflicts([]);
   }, []);
 
-  return { handleJiraSync, handleResolveConflicts, jiraSyncing, jiraResolving, jiraConflicts, clearConflicts };
+  return { handleJiraSync, handleResolveConflicts, jiraSyncing, jiraResolving, jiraConflicts: visibleConflicts, clearConflicts };
 }
