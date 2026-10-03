@@ -454,9 +454,9 @@ function ChangePanelBody({
           type="button"
           onClick={() => onClearTaskFilter?.()}
           // Visible "#7 ×"; the name leads with the same "#7" (WCAG 2.5.3) and
-          // says what the ✕ does, which the glyph alone cannot.
+          // says what the ✕ does, which the glyph alone cannot. No `title`: the
+          // chip clears the task filter only, not every filter (cf. Reset).
           aria-label={`#${filterTaskId} – ${t(lang, "clear")}`}
-          title={t(lang, "ganttResetFilters")}
           className={`rounded-md border border-ui-blue/40 bg-ui-blue/10 px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-ui-blue/20 dark:border-ui-blue/50 dark:bg-ui-blue/15 dark:text-ui-light-grey ${INTERACTIVE}`}
         >
           #{filterTaskId} ×

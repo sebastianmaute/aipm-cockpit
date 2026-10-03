@@ -2,7 +2,8 @@
 // src/app/task-kanban-card.tsx — rich, compact card for the Kanban board.
 // Mirrors the essentials task-row.tsx shows in the table (priority, health,
 // Jira/RAID/change badges) but laid out for a narrow column. The status
-// <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
+// <select> and badges are shared with the row via TaskStatusSelect / RaidBadge /
+// ChangesBadge.
 import { SparklesIcon } from "./icons";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
@@ -25,8 +26,6 @@ import { rowLabel } from "./row-tokens";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
-/** Stable fallback when no Changes jump is threaded, so the memo'd badge keeps one handler identity. */
-const NOOP_JUMP_TO_CHANGES: (taskId: number) => void = () => {};
 
 interface TaskKanbanCardProps {
   lang: Lang;
@@ -133,7 +132,7 @@ export function TaskKanbanCard({
             count={changeRefs.length}
             lang={lang}
             rowToken={rowToken}
-            onJumpToChanges={onJumpToChanges ?? NOOP_JUMP_TO_CHANGES}
+            onJumpToChanges={onJumpToChanges}
           />
         )}
       </div>

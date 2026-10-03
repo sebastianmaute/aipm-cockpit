@@ -145,7 +145,7 @@ export interface TasksSectionProps {
   /** Deep-link to the Documents pane, filtered to this task. */
   onOpenDocuments: (taskId: number) => void;
   /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
-  onJumpToChanges?: (taskId: number) => void;
+  onJumpToChanges: (taskId: number) => void;
   // jira
   jiraEnabled: boolean;
   jiraSyncing: boolean;

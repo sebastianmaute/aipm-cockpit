@@ -44,9 +44,6 @@ export { RowContextProvider, useTaskRowContext, useTaskLookup, type RowContextVa
  *  contacts are threaded into the row, so a stable empty list is passed. */
 const EMPTY_CONTACTS: Contact[] = [];
 
-/** Stable fallback when no Changes jump is threaded (lightweight callers/tests),
- *  so the memo'd badge does not see a new handler identity every render. */
-const NOOP_JUMP_TO_CHANGES: (taskId: number) => void = () => {};
 
 // Marker re-export so TaskRow consumers can pass a typed `RaidItem[]` prop
 // without importing from `./types` separately.
@@ -350,7 +347,7 @@ function TaskRowImpl({
             count={changeRefs.length}
             lang={lang}
             rowToken={rowToken}
-            onJumpToChanges={onJumpToChanges ?? NOOP_JUMP_TO_CHANGES}
+            onJumpToChanges={onJumpToChanges}
           />
         )}
       </Td>}

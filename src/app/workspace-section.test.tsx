@@ -58,7 +58,12 @@ vi.mock("./chat-panel", () => ({
 }));
 vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
-vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
+// Exposes the task backlink it was handed, for the scope-epoch test below.
+vi.mock("./raid-panel", () => ({
+  RaidPanel: (p: { filterTaskId: number | null }) => (
+    <div data-testid="raid-panel" data-filter-task-id={String(p.filterTaskId)} />
+  ),
+}));
 // Captures its props for the §1 handler-identity tests; same stub div as before.
 const resourcesPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
 vi.mock("./resources-panel", () => ({
@@ -270,14 +275,18 @@ describe("WorkspaceSection — documents tab routing", () => {
 // section must hand that filter and its clear handler to ChangePanel, which
 // mounts fresh on the visit and so can only learn the filter from its parent.
 describe("WorkspaceSection — Changes task filter wiring", () => {
+  let epoch = 0;
+  const getScopeEpoch = () => epoch;
+
   function JumpProbe() {
     const { setActiveTab } = useWorkspaceTab();
-    const { setChangeFilterTaskId } = useFilters();
+    const { setChangeFilterTaskId, setChangeFilterEpoch } = useFilters();
     return (
       <button
         data-testid="jump-to-changes"
         onClick={() => {
           setChangeFilterTaskId(7);
+          setChangeFilterEpoch(epoch);
           setActiveTab("changes");
         }}
       />
@@ -285,11 +294,12 @@ describe("WorkspaceSection — Changes task filter wiring", () => {
   }
 
   it("passes the armed task filter and its clear handler to the Changes panel", async () => {
+    epoch = 0;
     const handleClearChangeTaskFilter = vi.fn();
     render(
       <>
         <JumpProbe />
-        <WorkspaceSection {...makeProps({ handleClearChangeTaskFilter })} />
+        <WorkspaceSection {...makeProps({ handleClearChangeTaskFilter, getScopeEpoch })} />
       </>,
       { wrapper: Wrapper },
     );
@@ -298,6 +308,71 @@ describe("WorkspaceSection — Changes task filter wiring", () => {
     const chip = await screen.findByRole("button", { name: `#7 – ${t("en-US", "clear")}` });
     fireEvent.click(chip);
     expect(handleClearChangeTaskFilter).toHaveBeenCalledTimes(1);
+  });
+
+  // Task ids are per project. After a project switch (the scope epoch bumps)
+  // the backlink armed in the previous project must not filter this one.
+  it("retires the task filter once the scope epoch moves on (project switch)", async () => {
+    epoch = 0;
+    const props = makeProps({ getScopeEpoch });
+    const { rerender } = render(
+      <>
+        <JumpProbe />
+        <WorkspaceSection {...props} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("jump-to-changes"));
+    const name = `#7 – ${t("en-US", "clear")}`;
+    // Positive control: the chip is there in the scope it was armed in.
+    expect(await screen.findByRole("button", { name })).toBeInTheDocument();
+    epoch = 1;
+    rerender(
+      <>
+        <JumpProbe />
+        <WorkspaceSection {...props} />
+      </>,
+    );
+    expect(screen.queryByRole("button", { name })).toBeNull();
+  });
+
+  // RAID's task backlink shares the rule: same per-project task ids, same retirement.
+  function RaidJumpProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    const { setRaidFilterTaskId, setRaidFilterEpoch } = useFilters();
+    return (
+      <button
+        data-testid="jump-to-raid"
+        onClick={() => {
+          setRaidFilterTaskId(7);
+          setRaidFilterEpoch(epoch);
+          setActiveTab("raid");
+        }}
+      />
+    );
+  }
+
+  it("retires the RAID task filter once the scope epoch moves on (project switch)", () => {
+    epoch = 0;
+    const props = makeProps({ getScopeEpoch });
+    const { rerender } = render(
+      <>
+        <RaidJumpProbe />
+        <WorkspaceSection {...props} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("jump-to-raid"));
+    // RaidPanel is stubbed in this file; the stub reports the filter it was handed.
+    expect(screen.getByTestId("raid-panel")).toHaveAttribute("data-filter-task-id", "7");
+    epoch = 1;
+    rerender(
+      <>
+        <RaidJumpProbe />
+        <WorkspaceSection {...props} />
+      </>,
+    );
+    expect(screen.getByTestId("raid-panel")).toHaveAttribute("data-filter-task-id", "null");
   });
 });
 

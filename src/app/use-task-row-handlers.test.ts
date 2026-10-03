@@ -80,6 +80,9 @@ function makeArgs(
     setChangeFilterTaskId: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["setChangeFilterTaskId"],
+    setRaidFilterEpoch: vi.fn() as Parameters<typeof useTaskRowHandlers>[0]["setRaidFilterEpoch"],
+    setChangeFilterEpoch: vi.fn() as Parameters<typeof useTaskRowHandlers>[0]["setChangeFilterEpoch"],
+    getScopeEpoch: () => 0,
     setWorkspaceCollapsed: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["setWorkspaceCollapsed"],
@@ -207,16 +210,30 @@ describe("useTaskRowHandlers", () => {
       isPopout: false,
     } as unknown as ReturnType<typeof useWorkspaceTab>);
     const setChangeFilterTaskId = vi.fn();
+    const setChangeFilterEpoch = vi.fn();
     const setWorkspaceCollapsed = vi.fn();
     const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setChangeFilterTaskId, setWorkspaceCollapsed })),
+      useTaskRowHandlers(makeArgs({ setChangeFilterTaskId, setChangeFilterEpoch, setWorkspaceCollapsed, getScopeEpoch: () => 4 })),
     );
     act(() => result.current.onJumpToChanges(5));
     expect(setChangeFilterTaskId).toHaveBeenCalledWith(5);
+    // Stamped with the CURRENT scope epoch, so a project switch retires it.
+    expect(setChangeFilterEpoch).toHaveBeenCalledWith(4);
     expect(setActiveTab).toHaveBeenCalledWith("changes");
     const updater = setWorkspaceCollapsed.mock.calls[0][0] as (prev: boolean) => boolean;
     expect(updater(true)).toBe(false);
     expect(updater(false)).toBe(false);
+  });
+
+  it("onJumpToRaid stamps the RAID backlink with the current scope epoch", () => {
+    const setRaidFilterTaskId = vi.fn();
+    const setRaidFilterEpoch = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setRaidFilterTaskId, setRaidFilterEpoch, getScopeEpoch: () => 9 })),
+    );
+    act(() => result.current.onJumpToRaid(3));
+    expect(setRaidFilterTaskId).toHaveBeenCalledWith(3);
+    expect(setRaidFilterEpoch).toHaveBeenCalledWith(9);
   });
 
   it("handleClearChangeTaskFilter calls setChangeFilterTaskId with null", () => {

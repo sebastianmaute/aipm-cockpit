@@ -20,7 +20,9 @@ interface ChangesBadgeProps {
    * (WCAG 2.4.6). Built by the list owner (`buildRowTokens`), as for `RaidBadge`.
    */
   rowToken: string;
-  onJumpToChanges: (taskId: number) => void;
+  /** Optional only so lightweight callers/tests can omit it; every production
+   *  surface threads it (pinned in `tasks-section.test.tsx`). */
+  onJumpToChanges?: (taskId: number) => void;
 }
 
 function ChangesBadgeImpl({ taskId, count, lang, rowToken, onJumpToChanges }: ChangesBadgeProps) {
@@ -34,7 +36,7 @@ function ChangesBadgeImpl({ taskId, count, lang, rowToken, onJumpToChanges }: Ch
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onJumpToChanges(taskId);
+        onJumpToChanges?.(taskId);
       }}
       title={t(lang, "taskRowChangesBadgeJump")}
       aria-label={rowLabel(countText, rowToken)}

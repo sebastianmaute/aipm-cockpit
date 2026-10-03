@@ -17,6 +17,7 @@ import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
@@ -36,6 +37,10 @@ export interface UseTaskRowHandlersArgs {
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaidFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
   setChangeFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
+  setRaidFilterEpoch: React.Dispatch<React.SetStateAction<number | null>>;
+  setChangeFilterEpoch: React.Dispatch<React.SetStateAction<number | null>>;
+  /** Stamped onto each task backlink so a project switch retires it (filters-context). */
+  getScopeEpoch: ScopeEpochReader;
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
@@ -64,6 +69,9 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     setTasks,
     setRaidFilterTaskId,
     setChangeFilterTaskId,
+    setRaidFilterEpoch,
+    setChangeFilterEpoch,
+    getScopeEpoch,
     setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
@@ -96,20 +104,22 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onJumpToRaid = useCallback(
     (id: number) => {
       setRaidFilterTaskId(id);
+      setRaidFilterEpoch(getScopeEpoch());
       setActiveTab("raid");
       setWorkspaceCollapsed((prev) => (prev ? false : prev));
     },
-    [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed],
+    [setRaidFilterTaskId, setRaidFilterEpoch, getScopeEpoch, setActiveTab, setWorkspaceCollapsed],
   );
 
   // Twin of onJumpToRaid for the task-row "N changes" badge (open-followups §481).
   const onJumpToChanges = useCallback(
     (id: number) => {
       setChangeFilterTaskId(id);
+      setChangeFilterEpoch(getScopeEpoch());
       setActiveTab("changes");
       setWorkspaceCollapsed((prev) => (prev ? false : prev));
     },
-    [setChangeFilterTaskId, setActiveTab, setWorkspaceCollapsed],
+    [setChangeFilterTaskId, setChangeFilterEpoch, getScopeEpoch, setActiveTab, setWorkspaceCollapsed],
   );
 
   const onSendInquiry = useCallback(

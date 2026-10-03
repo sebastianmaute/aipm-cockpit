@@ -260,6 +260,23 @@ describe("ChangePanel — task filter from the task-row badge", () => {
     expect(onClear).toHaveBeenCalledTimes(1);
   });
 
+  // A saved view describes the panel's own filters; applying one must not leave
+  // a task backlink silently narrowing it.
+  it("clears the task filter when a saved view is applied", () => {
+    const onClear = vi.fn();
+    const { getByText, getByLabelText, getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={onClear} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByText("Save current view"));
+    fireEvent.change(getByLabelText("View name"), { target: { value: "Mine" } });
+    fireEvent.click(getByText("Save"));
+    expect(onClear).not.toHaveBeenCalled();
+    const option = getByRole("option", { name: "Mine" }) as HTMLOptionElement;
+    fireEvent.change(getByLabelText("Apply a saved view"), { target: { value: option.value } });
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
   it("counts the task filter as active, so Reset shows and clears it", () => {
     const onClear = vi.fn();
     const { getByRole } = render(

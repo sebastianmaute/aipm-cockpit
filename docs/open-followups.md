@@ -37668,9 +37668,17 @@ describe in `change-panel.test.tsx`, the "Changes task filter wiring" describe i
 test each in `task-row.test.tsx` and `task-kanban-card.test.tsx`. Six mutants were run, one per guard
 (row token dropped from the name, `stopPropagation` removed, the panel filter line removed, Reset no
 longer clearing it, the section not passing `filterTaskId`, the handler not switching view); each turned its
-test red. ★ Same as RAID's task filter, the Changes filter is not cleared by a project switch:
-`FiltersProvider` is not keyed by project, so a filter armed in one project still applies after the switch,
-visibly, through its chip. Not new here and not fixed here.
+test red. The prop is REQUIRED on `TasksSection`, so tsc covers the task-manager hop, and the "threads
+onJumpToChanges to every task surface" describe in `tasks-section.test.tsx` covers the table, board and
+swimlane hops (each of the three lines, deleted alone, turns it red).
+★ The branch review also closed a gap this shared with RAID's task filter: `FiltersProvider` is not keyed by
+project, so a "#7" armed in one project used to keep filtering the next project's register by an unrelated
+task. Each jump now stamps `getScopeEpoch()` into `raidFilterEpoch` / `changeFilterEpoch`, and
+`workspace-section.tsx` passes a backlink to its panel only while the epoch is unchanged. Pinned by the two
+"retires the … task filter once the scope epoch moves on" tests in `workspace-section.test.tsx`; removing
+either gate turns its test red. Both chips (`raid-panel-toolbar.tsx`, `change-panel.tsx`) are now named
+"#7 – Clear" and no longer carry `title="Reset filters"`, which screen readers announced as the
+description of a control that clears the task filter only.
 
 **Original status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`
 → a bare `<span>` with only `title`, `aria-label` and `className`, and no handler.
