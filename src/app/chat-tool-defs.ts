@@ -26,6 +26,7 @@ import { expectedTokenField } from "./chat-tools-updates";
 //   description tells the model how many events the log retains, and a
 //   hardcoded copy would go quietly false the day the cap moves.
 import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
+import { ALLOC_SCOPE_MAX_RESOURCE_IDS } from "./alloc-plan/alloc-plan";
 // ★ Same rule for search_chats: its default, ceiling and per-message excerpt
 //   caps are EXPORTED constants, so the prose interpolates them rather than
 //   restating numbers that go quietly false the day one of them moves.
@@ -465,12 +466,12 @@ export const TOOL_DEFS = [
   {
     name: "list_allocations",
     description:
-      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed. Each resource carries its own `truncated` flag: `truncated: false` with an empty `cells` array means that resource genuinely has no planned load; `truncated: true` means some or all of its load could not be read (the size cap was hit) — treat that resource's load as UNKNOWN, not zero, and say so rather than asserting it has none. To answer a narrow question, SCOPE the call with `resourceIds` and/or `periodFrom`/`periodTo` (all optional; with none, the whole grid is returned): the size cap then applies to the scoped answer alone, so it is far less likely to be truncated. A scoped result lists only the resources and periods in scope and carries a `scope` object echoing what was applied — `unknownResourceIds` names ids that match no resource, and `ignored` names any parameter dropped as malformed (that axis was NOT filtered). A reversed range (periodFrom after periodTo) matches no period. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
+      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed. Each resource carries its own `truncated` flag: `truncated: false` with an empty `cells` array means that resource genuinely has no planned load; `truncated: true` means some or all of its load could not be read (the size cap was hit) — treat that resource's load as UNKNOWN, not zero, and say so rather than asserting it has none. To answer a narrow question, SCOPE the call with `resourceIds` and/or `periodFrom`/`periodTo` (all optional; with none, the whole grid is returned): the size cap then applies to the scoped answer alone, so it is far less likely to be truncated. A scoped result lists only the resources and periods in scope and carries a `scope` object echoing what was applied — `unknownResourceIds` names ids that match no resource, `droppedResourceIdCount` counts list entries that were not integer ids (the filter used the rest), and `ignored` names any parameter dropped as malformed (that axis was NOT filtered). Long id lists are echoed only in part; a `*NotEchoed` count says how many more were applied. A reversed range (periodFrom after periodTo) matches no period. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
     input_schema: {
       type: "object",
       properties: {
         resourceIds: idList(
-          "Optional. Only these resources (ids from list_resources). Omit for every resource.",
+          `Optional. Only these resources: integer ids from list_resources, at most ${ALLOC_SCOPE_MAX_RESOURCE_IDS}. Omit for every resource. An empty list is not a filter: it is ignored (and named in "ignored"), so it returns every resource.`,
         ),
         periodFrom: {
           type: "string",

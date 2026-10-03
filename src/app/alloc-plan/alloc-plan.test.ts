@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ALLOC_CONTEXT_MAX_PERIODS,
   ALLOC_CONTEXT_MAX_RESOURCES,
+  ALLOC_SCOPE_ECHO_MAX_IDS,
+  ALLOC_SCOPE_MAX_RESOURCE_IDS,
   ALLOC_TOOL_MAX_CELLS,
   MAX_ALLOC_CELLS,
   PROPOSE_ALLOCATIONS_TOOL,
@@ -13,6 +15,7 @@ import {
   cellKey,
   formatAllocValue,
   groundAllocationCells,
+  makeAllocationsSnapshotGetter,
   parseAllocationProposal,
   pickAllocationsScope,
   resourceLabel,
@@ -1085,13 +1088,54 @@ describe("buildAllocationsSnapshot scope (§12)", () => {
     });
 
     expect(snap.resources.map((r) => r.id)).toEqual([2]);
-    expect(snap.scope).toStrictEqual({ resourceIds: [2] });
+    // 9 entries, 2 survivors ("2" and 2, deduplicated) → 7 dropped.
+    expect(snap.scope).toStrictEqual({ resourceIds: [2], droppedResourceIdCount: 7 });
+  });
+
+  it("counts a name passed beside an id instead of dropping it silently", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2)],
+      plan: halfYear,
+      scope: { resourceIds: ["Anna", 2] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([2]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [2], droppedResourceIdCount: 1 });
+  });
+
+  it("parses ids strictly: no hex, exponent, fraction or unsafe integer; -0 is read as 0", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(3), busy(16), busy(0)],
+      plan: halfYear,
+      scope: { resourceIds: ["0x10", "1e0", "1.0", " 3 ", "-0", Number.MAX_SAFE_INTEGER + 1, "9007199254740993"] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([3, 0]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [3, 0], droppedResourceIdCount: 5 });
+  });
+
+  it("reads a numeric -0 as id 0, not as a distinct -0", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(0), busy(1)],
+      plan: halfYear,
+      scope: { resourceIds: [-0] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([0]);
+    expect(Object.is(snap.scope?.resourceIds?.[0], 0)).toBe(true);
   });
 
   it.each([
     ["a non-array", 3],
     ["a string", "1,2"],
     ["an array of nothing usable", ["x", null]],
+    // ★ Empty must not widen silently: as a filter it would match nobody, as
+    //   no filter it would return everybody — so it is named, like any drop.
+    ["an empty array", []],
+    ["an array over ALLOC_SCOPE_MAX_RESOURCE_IDS", Array.from({ length: ALLOC_SCOPE_MAX_RESOURCE_IDS + 1 }, () => 1)],
   ])("ignores resourceIds given as %s, names it, and does not filter", (_label, resourceIds) => {
     const snap = buildAllocationsSnapshot({
       ...base,
@@ -1104,16 +1148,44 @@ describe("buildAllocationsSnapshot scope (§12)", () => {
     expect(snap.scope).toStrictEqual({ ignored: ["resourceIds"] });
   });
 
-  it("treats an empty resourceIds array as no filter, without reporting it as malformed", () => {
+  it("still reads a list of exactly ALLOC_SCOPE_MAX_RESOURCE_IDS entries", () => {
+    const resourceIds = Array.from({ length: ALLOC_SCOPE_MAX_RESOURCE_IDS }, () => 2);
+
     const snap = buildAllocationsSnapshot({
       ...base,
       resources: [busy(1), busy(2)],
       plan: halfYear,
-      scope: { resourceIds: [] },
+      scope: { resourceIds },
     });
 
-    expect(snap.resources.map((r) => r.id)).toEqual([1, 2]);
-    expect(snap.scope).toStrictEqual({});
+    expect(snap.resources.map((r) => r.id)).toEqual([2]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [2] });
+  });
+
+  it("caps both echoed id lists at ALLOC_SCOPE_ECHO_MAX_IDS and counts the rest", () => {
+    const known = 60;
+    const requested = 120;
+    const resources = Array.from({ length: known }, (_, i) => busy(i + 1));
+    const resourceIds = Array.from({ length: requested }, (_, i) => i + 1);
+
+    const snap = buildAllocationsSnapshot({ ...base, resources, plan, scope: { resourceIds } });
+
+    // The FILTER is the whole list — only the echo is capped.
+    expect(snap.resources).toHaveLength(known);
+    expect(snap.scope).toStrictEqual({
+      resourceIds: resourceIds.slice(0, ALLOC_SCOPE_ECHO_MAX_IDS),
+      resourceIdsNotEchoed: requested - ALLOC_SCOPE_ECHO_MAX_IDS,
+      unknownResourceIds: resourceIds.slice(known, known + ALLOC_SCOPE_ECHO_MAX_IDS),
+      unknownResourceIdsNotEchoed: requested - known - ALLOC_SCOPE_ECHO_MAX_IDS,
+    });
+  });
+
+  it("adds no overflow count when an echo list is exactly ALLOC_SCOPE_ECHO_MAX_IDS long", () => {
+    const resourceIds = Array.from({ length: ALLOC_SCOPE_ECHO_MAX_IDS }, (_, i) => i + 1);
+
+    const snap = buildAllocationsSnapshot({ ...base, resources: [], plan, scope: { resourceIds } });
+
+    expect(snap.scope).toStrictEqual({ resourceIds, unknownResourceIds: resourceIds });
   });
 
   it("narrows periods and cells to an inclusive month-key range", () => {
@@ -1193,7 +1265,8 @@ describe("buildAllocationsSnapshot scope (§12)", () => {
 
   it.each([
     ["a key of the other granularity", "2026-W33"],
-    ["an impossible date", "2026-02-30"],
+    ["an impossible date that would roll over", "2026-02-30"],
+    ["an unparseable date", "2026-13-45"],
     ["an out-of-range month", "2026-13"],
     ["free text", "Q3"],
     ["a number", 202608],
@@ -1237,6 +1310,32 @@ describe("buildAllocationsSnapshot scope (§12)", () => {
     expect(scoped.resources).toEqual([expect.objectContaining({ id: lastId, truncated: false })]);
     expect(scoped.resources[0]?.cells.map((c) => c.periodKey)).toEqual(["2026-08"]);
     expect(scoped.truncated).toBe(false);
+  });
+});
+
+describe("makeAllocationsSnapshotGetter", () => {
+  const inputs = {
+    resources: [resource(1, { utilizationMode: "hours" as const, utilization: { "2026-08": 10 } }), resource(2)],
+    plan,
+    absences: [],
+    workdayHours: 8,
+    holidaySet: new Set<string>(),
+  };
+
+  it("forwards the call's scope to the builder", () => {
+    const get = makeAllocationsSnapshotGetter(inputs);
+
+    const snap = get({ resourceIds: [2] });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([2]);
+    expect(snap).toStrictEqual(buildAllocationsSnapshot({ ...inputs, scope: { resourceIds: [2] } }));
+  });
+
+  it("returns the unscoped grid, with no scope key, when called without a scope", () => {
+    const snap = makeAllocationsSnapshotGetter(inputs)();
+
+    expect(snap).toStrictEqual(buildAllocationsSnapshot(inputs));
+    expect("scope" in snap).toBe(false);
   });
 });
 

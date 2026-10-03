@@ -4,11 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
-import {
-  buildAllocationsSnapshot,
-  type AllocationsScopeInput,
-  type AllocationsSnapshot,
-} from "./alloc-plan/alloc-plan";
+import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t, tPlural } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -2110,17 +2106,17 @@ function TaskManagerInner() {
     ).project;
   };
 
-  // Deliberately NOT memoized: this runs only when the assistant calls
-  // list_allocations, so an unused read tool costs nothing per render.
-  const getAllocationsSnapshot = (scope?: AllocationsScopeInput): AllocationsSnapshot =>
-    buildAllocationsSnapshot({
-      resources,
-      plan,
-      absences,
-      workdayHours: settings.resources.workdayHours,
-      holidaySet,
-      scope,
-    });
+  // Deliberately NOT memoized: the snapshot is built only when the assistant
+  // calls list_allocations, so an unused read tool costs nothing per render.
+  // The factory forwards the call's §12 scope — see its docstring for why it
+  // is not an inline arrow.
+  const getAllocationsSnapshot = makeAllocationsSnapshotGetter({
+    resources,
+    plan,
+    absences,
+    workdayHours: settings.resources.workdayHours,
+    holidaySet,
+  });
 
   const dispatcher = useChatDispatcher({
     settings,
