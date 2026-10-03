@@ -891,7 +891,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§664](#664-legacy-blocker-text-with-an-impossible-or-missing-date-makes-load-non-deterministic--closed-2026-10-02) | Legacy blocker text with an impossible or missing date makes load non-deterministic | — | — | **CLOSED** 2026-10-02 |
 | [§665](#665-the-burn-down-charts-join-label-overprints-the-budget-at-start-of-recording-label--closed-2026-10-02) | The burn-down chart's join label overprints the "Budget at start of recording" label | — | — | **CLOSED** 2026-10-02 |
 | [§666](#666-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
-| [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--open) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | open |
+| [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--closed-2026-10-03) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | **CLOSED** 2026-10-03 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43847,9 +43847,11 @@ Named check: a hook test with two windows, each with a pending own edit, whose s
 
 **Source:** the §4 final review (m1), via §656, 2026-10-02.
 
-## 667. A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one — open
+## 667. A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one — CLOSED 2026-10-03
 
-**Status:** open 2026-10-03, found by the review of the 1.15.0 double-sync fix (its Minor 1). Read off the code, not reproduced in a browser.
+**Status:** CLOSED 2026-10-03 — fixed in `use-jira-sync.ts`: the sync and the conflict resolution capture `getScopeEpoch()` before their first await (threaded from `task-manager.tsx`) and drop through `dropStaleScopeWrite` — the sync after the search and again before its single commit, the resolution before each row's push and before each row's commit, against the epoch the conflicts were queued in. A dropped run writes no task, queues no conflict, logs no activity (the pull arms' transitions are buffered until after the commit) and releases the in-flight guard; a dropped resolution also clears the stale conflicts. Pinned by the "§667" describe in `use-jira-sync.test.tsx`, a drop plus a positive control for each path; removing each check turns its test red.
+
+**Original status:** open 2026-10-03, found by the review of the 1.15.0 double-sync fix (its Minor 1). Read off the code, not reproduced in a browser.
 
 `handleJiraSync` (`use-jira-sync.ts`) awaits `searchAllIssues`, builds the new task list from `tasksRef` and commits it with one `setTasks`, then queues conflicts and shows the summary toast. Neither it nor the conflict resolution, which awaits a push per row before writing that row, captures `getScopeEpoch()` or calls `dropStaleScopeWrite`, although every Outlook and insight writer that awaits does both (`docs/AGENTS/platform.md`, "The load hold"). `loadPending` only answers "may I start?": `useJiraSync` lives in `task-manager.tsx`, which the load hold does not unmount, so a sync that started before a project swap runs on after it. When the search resolves after the swap, `tasksRef` already holds the next project's rows, and the sync writes that list merged with the old project's Jira issues into the next project. The pull arms also log status transitions into the activity log of whichever project is then in scope, and any conflicts it queues belong to the old project. A resolution has the same window, and so does a conflict queue left from before the swap: its task ids are looked up in the next project's list, and a match would push that row's fields to the old project's Jira issue. The double-sync fix did not introduce this. Holding the in-flight guard across the module download only widens the window a little.
 
