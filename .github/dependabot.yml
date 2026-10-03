@@ -35,7 +35,9 @@ updates:
     ignore:
       # TypeScript 7 is the native compiler, and its npm package drops the compiler API that
       # src/test/strip-comments.ts, scripts/src-symbols-lib.mjs and two tests parse with;
-      # next build failed on it too (PR #413). Lift this when both support 7.
+      # next build failed on it too (PR #413). Lift this when both support 7: TypeScript 7
+      # ships a compiler API those parsers can import AND the pinned Next.js supports it.
+      # This comment is the only tracker for that; see §494 in docs/open-followups.md (closed).
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
