@@ -96,17 +96,23 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   // §667 — the scope epoch the queued conflicts were computed in. A resolution writes against THAT
   // project, not whichever one is in scope when the user clicks Apply, so it is checked against
   // this value rather than a fresh read (the chat panel's staged proposals carry theirs the same way).
-  // The ref serves the callbacks; the state copy serves the render below, which may not read a ref.
+  // The ref serves the callbacks; the state copy is what the render below compares, so this hook
+  // reads its OWN ref only in callbacks.
   const jiraConflictsEpochRef = useRef<number | undefined>(undefined);
   const [jiraConflictsEpoch, setJiraConflictsEpoch] = useState<number | undefined>(undefined);
   // §667 — conflicts queued in a project that has since left are not shown. `useJiraSync` lives in
   // `task-manager.tsx`, which the load hold does not unmount, so its queue outlives a swap, and the
   // conflicts modal would come back after the hold showing the previous project's rows. DERIVED,
-  // not cleared: no effect may set state here (`set-state-in-effect`), and the epoch reader is not
-  // a render value. Reading it during render is still current, because every epoch bump is
-  // immediately followed by the replacement of `tasks`, which this hook reads from the workspace,
-  // so the swap itself re-renders the hook. The stale queue stays in state until the next sync
-  // replaces it or a resolution drops it; nothing can reach it meanwhile.
+  // not cleared: no effect may set state here (`set-state-in-effect`).
+  // ★ `args.getScopeEpoch()` below IS a ref read during render — `useStorageBackend`'s stable
+  //   reader over `scopeEpochRef`. Lint allows it: the purity rule flags only functions with a
+  //   known impure signature, and the refs rule cannot see a ref behind another module's callback.
+  //   It is CORRECT because of the load hold, not because of any re-render it causes itself: every
+  //   epoch bump happens while `loadPending` is committed true (scope-epoch.ts), the modal is
+  //   unmounted under the `PanelSkeleton` hold, and the hold's fall re-renders `task-manager`, which
+  //   calls this hook unconditionally. So the first render that can show the modal again reads the
+  //   new epoch. The stale queue stays in state until the next sync replaces it or a resolution
+  //   drops it; nothing can reach it meanwhile.
   const visibleConflicts = isScopeStale(args.getScopeEpoch, jiraConflictsEpoch) ? NO_CONFLICTS : jiraConflicts;
 
   const handleJiraSync = useCallback(async () => {
@@ -417,8 +423,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       }
 
       // §667 — the push arm above awaits Jira per row, so the scope can move during the loop too.
-      // The pushes already sent are not undone; their rows' sync stamps are dropped with the rest,
-      // so the next sync in that project pushes them again (an idempotent field update).
+      // The pushes already sent stay sent, and their rows keep the old `lastSyncedAt` and their
+      // `localModifiedAt`. The push itself moved Jira's `updated`, so the next sync in that project
+      // sees BOTH sides moved and takes the conflict arm, not the push arm — nothing is resent. It
+      // re-stamps the row when the values match, or queues a conflict when one did not round-trip
+      // (e.g. the resolution date Jira stamped on a done-transition). No data is lost either way.
       if (dropStaleScopeWrite(args.getScopeEpoch, startEpoch, "useJiraSync.sync", { at: "commit" })) return;
 
       tasksRef.current = next;
