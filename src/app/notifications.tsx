@@ -623,6 +623,12 @@ export function SavingPausedBanner({
     <>
       <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
         actions={<>
+          {/* §629 — the SAFE exit leads, ahead of the destructive save. */}
+          {cause.kind === "destructive" && onDiscard && (
+            <Button variant="secondary" size="xs" onClick={() => { void askThenDiscard(); }}>
+              {t(lang, "storageDestructiveDiscard")}
+            </Button>
+          )}
           {cause.kind === "load" ? (
             <Button variant="secondary" size="xs" onClick={onSaveAnyway}>
               {t(lang, "reloadProject")}
@@ -636,11 +642,6 @@ export function SavingPausedBanner({
           }}>
             {saveLabel}
           </Button>
-          )}
-          {cause.kind === "destructive" && onDiscard && (
-            <Button variant="secondary" size="xs" onClick={() => { void askThenDiscard(); }}>
-              {t(lang, "storageDestructiveDiscard")}
-            </Button>
           )}
           <DismissButton lang={lang} onClick={onDismiss} />
         </>}>

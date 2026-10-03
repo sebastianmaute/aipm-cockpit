@@ -648,6 +648,18 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     ).toBeInTheDocument();
   });
 
+  // §523 — the AI-off hint must not sit beside the key-free import's notice,
+  // where it would read as if that file route needed AI.
+  it("hides the AI-off hint while an imported workspace is pending", async () => {
+    setup();
+    expect(screen.getByText(t("en-US", "wizardAiOffHint"))).toBeInTheDocument();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "wizardAiOffHint"))).toBeNull();
+  });
+
   it("imports a workspace file from Step 1 and creates the project with its content", async () => {
     const { onCreate } = setup();
     fireEvent.change(workspacePickerInput(), {

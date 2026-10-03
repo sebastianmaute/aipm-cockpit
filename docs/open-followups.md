@@ -8906,7 +8906,7 @@ next real sanitize pass) as an actual, usually-empty element.
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
 
-**Status:** **Update 2026-10-03:** the budget hours inputs' machine-hook names (`budget-${…}` / `actual-${…}` in `budget-panel-totals.tsx`) are replaced by translated, row-unique names — "Budget|Actual – <bucket> – <role or discipline> – <period>" — pinned by `budget-panel-edit.test.tsx` (two buckets sharing a role) and `budget-panel-actual-readonly.test.tsx` (DE "Ist"); both mutants (machine label restored, bucket token dropped) turn the first red. `task-editor-raid-mini.tsx`'s "RAID …" prefix is left as decided (RAID is a proper noun). Still owed: **B1** (the settings cog in classic `AppHeader`, a product decision on whether the modern shell's Settings route makes a tooltip moot), the tooltip ratchet, and an inventory re-measure. open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
+**Status:** **Update 2026-10-03:** the budget hours inputs' machine-hook names (`budget-${…}` / `actual-${…}` in `budget-panel-totals.tsx`) are replaced by translated, row-unique names — "Budget|Actual – <bucket> – <role or discipline> – <period>" — pinned by `budget-panel-edit.test.tsx` (two buckets sharing a role) and `budget-panel-actual-readonly.test.tsx` (DE "Ist"); both mutants (machine label restored, bucket token dropped) turn the first red. `task-editor-raid-mini.tsx`'s "RAID …" prefix is left as decided (RAID is a proper noun). This supersedes §263's earlier ruling to keep them untranslated (noted there). Still owed: **B1** (the settings cog in classic `AppHeader`, a product decision on whether the modern shell's Settings route makes a tooltip moot), the tooltip ratchet, and an inventory re-measure. open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
 embedded in `docs/tooltip-inventory.md` — untitled icon-only surface **31**, of which the real-control
 count is unchanged in substance. What remains open is **B1**, the **four** untranslated names that are
 judgement calls rather than defects, and the ratchet itself. The one name defect
@@ -22919,6 +22919,8 @@ node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8
 ## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design — CLOSED 2026-10-03
 
 **Status:** CLOSED 2026-10-03 — accepted by owner ruling: the structured `aria-label`s in `budget-panel-totals.tsx` stay untranslated because existing tests select on them.
+
+★★ **SUPERSEDED 2026-10-03 by §109.** The same day, the owner approved the §109 design that replaces these machine hooks with translated, row-unique names ("Budget|Actual – <bucket> – <role or discipline> – <period>", built with `rowLabel`), and migrated every test that selected on them. The ruling above is kept as the record of what was decided first; it no longer describes the code. Do NOT restore the `budget-…` / `actual-…` hooks on its authority.
 
 **Original status:** open — deliberately excluded, not forgotten. Found 2026-08-27 while re-grounding §248
 during closure; recorded so a future sweep does not "complete the pattern" here. Never machine-verified by a committed probe.
@@ -38702,7 +38704,7 @@ Size M — a next-actions provider plus a Projects-list completeness indicator b
 
 ## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — with AI off, step 1 of `create-project-wizard.tsx` now shows a muted `wizardAiOffHint` line (EN/DE) saying to turn on the AI assistant and add an API key in Settings, so the Describe/import step is discoverable; with AI on it is absent. Pinned by two tests in `create-project-wizard.test.tsx` (deleting the hint, or flipping its condition, turns them red). The title's second half, the eleven-field gate after a proposal, was closed by §521 (CLOSED 2026-09-13). Copy not yet eye-checked by the owner.
+**Status:** CLOSED 2026-10-03 — with AI off, step 1 of `create-project-wizard.tsx` now shows a muted `wizardAiOffHint` line (EN/DE): the AI assistant can also draft a project from a document or a description; turn it on in Settings and add or unlock its API key. So the Describe step is discoverable; with AI on it is absent, and it hides while an imported workspace file (the key-free route on the same step) is pending. Copy reworded after the branch review: the first wording said a FILE needed AI while the key-free import button sat beside it, and told a user with a passphrase-locked key to add one. Pinned by two tests in `create-project-wizard.test.tsx` (deleting the hint, or flipping its condition, turns them red). The title's second half, the eleven-field gate after a proposal, was closed by §521 (CLOSED 2026-09-13). Copy not yet eye-checked by the owner.
 
 **Original status:** OPEN 2026-09-13 — `grep -rln "Step0ImportPanel" src/app` → `create-project-wizard.tsx` and `step0-import-panel.tsx`
 (plus a test), so the feature exists.

@@ -264,6 +264,12 @@ describe("budget forecast (open-followups §545)", () => {
       .forecast?.budgetHistory).toBeNull();
   });
 
+  // The model holds a forecast whenever budgets exist, module on or off; the
+  // rollup (`project`) is null exactly when the budget module is off.
+  it("emits forecast: null when the budget module is off, even though the model holds one", () => {
+    expect(buildDashboardSnapshot(model({ forecastBundle: bundle(2) }), null, "2026-07-25").forecast).toBeNull();
+  });
+
   it("emits forecast: null when the dashboard has no forecast", () => {
     expect(buildDashboardSnapshot(model({ forecastBundle: null }), report(), "2026-07-25").forecast).toBeNull();
   });

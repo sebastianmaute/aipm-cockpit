@@ -16,8 +16,8 @@ longer carries its own changelog comment.
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
 - **New-project wizard without AI (§523).** With the AI assistant off, the wizard opens on the
-  details step and never shows its "describe or import a file" step. The details step now says
-  how to get there: turn on the AI assistant and add an API key in Settings.
+  details step and never shows its "describe it" step. The details step now says that the AI
+  assistant can draft a project from a document or a description, and how to turn it on.
 - **The AI assistant knows the budget forecast (§545).** The project health snapshot the AI
   assistant reads now includes the budget forecast: where the budget lands at the current pace
   and at the current efficiency, the gap between the two, the role driving any rate difference,

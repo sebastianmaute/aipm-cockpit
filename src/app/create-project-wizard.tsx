@@ -401,8 +401,10 @@ export function CreateProjectWizard({
             {importMsg && <FieldError>{importMsg}</FieldError>}
             {/* §523 — with AI off, Step 0 (Describe / import a file) never
                 renders, so nothing on this step would say it exists. A muted
-                line names the way in rather than changing the flow. */}
-            {!aiEnabled && (
+                line names the way in rather than changing the flow. Hidden while an
+                imported workspace is pending: that file route needs no AI, and
+                the hint beside its notice would read as if it did. */}
+            {!aiEnabled && !imported && (
               <p className="mb-3 text-xs text-muted-foreground">{t(lang, "wizardAiOffHint")}</p>
             )}
             <CreateProjectForm

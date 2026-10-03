@@ -1075,7 +1075,7 @@ export const de: Record<TranslationKey, string> = {
   wizardImportErrorEncrypted: "Diese Datei ist kennwortgeschützt. Speichere sie ohne Schutz und versuche es erneut.",
   wizardImportWorkspaceButton: "Workspace-Datei importieren…",
   wizardAiOffHint:
-    "Um ein Projekt aus einer Datei oder Beschreibung zu erstellen, aktivieren Sie in den Einstellungen den KI-Assistenten und hinterlegen Sie einen API-Schlüssel.",
+    "Der KI-Assistent kann ein Projekt auch aus einem Dokument oder einer Beschreibung entwerfen. Aktivieren Sie ihn in den Einstellungen, und hinterlegen oder entsperren Sie seinen API-Schlüssel.",
   wizardImportWorkspaceNotice: "Import von {0}: {1} Aufgaben, {2} RAID-Einträge, {3} Budgets",
   wizardImportWorkspaceClear: "Importierten Workspace {0} entfernen",
   wizardImportWorkspaceInvalid: "{0} sieht wie eine Workspace-Datei aus, konnte aber nicht gelesen werden.",
@@ -4254,7 +4254,7 @@ export const de: Record<TranslationKey, string> = {
   storageDestructiveWipeConfirmValue: "ja, diese Löschung speichern",
   storageDestructiveWipeSaveAnyway: "Diese vollständige Löschung speichern",
   storageDestructiveWipeBannerSaveAnyway: "Diese Komplettlöschung speichern",
-  storageRefusedWipe: "Das Speichern ist pausiert - eine große Löschung wurde zurückgehalten. Prüfen Sie sie im Hinweis oben: Speichern Sie sie, oder verwerfen Sie sie, um zu Ihren gespeicherten Daten zurückzukehren.",
+  storageRefusedWipe: "Das Speichern ist pausiert - eine große Löschung wurde zurückgehalten. Prüfen Sie sie im Hinweis oben: Speichern Sie die Löschung, oder verwerfen Sie sie und kehren Sie zu Ihren gespeicherten Daten zurück.",
   storageSavePausedLoadFailed: "Das Speichern ist pausiert, weil das Projekt nicht geladen werden konnte. Änderungen, die Sie jetzt vornehmen, werden nicht gespeichert. Laden Sie das Projekt neu, um es erneut zu versuchen.",
   storageSavePausedConflict: "Dieses Projekt wurde in einem anderen Tab oder auf einem anderen Gerät geändert. Ihre Änderungen seitdem sind noch nicht gespeichert.",
   storageConflictNotSavedOnSwitch: "Ihre Änderungen wurden vor dem Wechsel nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde.",

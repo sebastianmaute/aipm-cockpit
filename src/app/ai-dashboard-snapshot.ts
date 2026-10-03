@@ -51,7 +51,8 @@ export interface DashboardSnapshotForecast {
   rateMix: (Pick<RateMix, "triggered" | "direction" | "severity" | "drift" | "bookedRate" | "plannedRate" | "excludedActualHours"> & {
     driver: Pick<RateMixRow, "kind" | "name" | "plannedRate" | "plannedShare" | "bookedShare" | "difference"> | null;
   }) | null;
-  /** null before the first recorded budget change. */
+  /** null before a baseline is recorded; with a baseline and no change yet it
+   *  is an object with `changeCount: 0`. */
   budgetHistory: {
     baselineDate: string;
     baseline: ProjectBac;
@@ -118,7 +119,8 @@ export interface DashboardSnapshot {
   };
   /** null when the budget module is off. */
   budget: DashboardSnapshotBudget | null;
-  /** null when the dashboard has no forecast (no budget, or no burndown yet). */
+  /** null when the budget module is off, or the dashboard has no forecast
+   *  (no budget, or no report and burndown to build one from). */
   forecast: DashboardSnapshotForecast | null;
   counts: {
     overdueTasks: number;
@@ -195,7 +197,11 @@ export function buildDashboardSnapshot(
             costPerformanceIndex: project.costPerformanceIndex,
             costUnknownReason: project.costUnknownReason,
           },
-    forecast: snapshotForecast(model.forecastBundle),
+    // Gated on the rollup like `budget`: the dashboard model computes its
+    // forecast from the raw budgets even with the budget module OFF (the panel
+    // hides it by passing no budgets), so without this gate a user who turned
+    // the module off would still have the assistant read out € forecasts.
+    forecast: project === null ? null : snapshotForecast(model.forecastBundle),
     counts: {
       overdueTasks: model.overdue.length,
       dueSoonTasks: model.dueSoon.length,
