@@ -741,12 +741,13 @@ function TaskManagerInner() {
   // mutators that update the top-level `raid` array, which round-trips to
   // storage via the existing save effect.
 
-  const { jiraSyncing, jiraConflicts, handleJiraSync, handleResolveConflicts, clearConflicts } = useJiraSync({
+  const { jiraSyncing, jiraResolving, jiraConflicts, handleJiraSync, handleResolveConflicts, clearConflicts } = useJiraSync({
     settings,
     today,
     lang,
     showToast,
     logActivityAs,
+    getScopeEpoch,
     onJiraAuthResult: (ok: boolean) =>
       setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
@@ -3141,6 +3142,7 @@ function TaskManagerInner() {
         absenceCalendarSyncEnabled={calendarAbsenceEnabled}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
+        jiraResolving={jiraResolving}
         clearConflicts={clearConflicts}
         editingAbsence={editingAbsence}
         absenceKnownAssignees={absenceKnownAssignees}

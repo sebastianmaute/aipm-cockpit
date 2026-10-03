@@ -12,6 +12,7 @@ import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
 import { lazyRetryOnReject } from "./lazy-retry";
 import { logDiag } from "./diagnostics";
+import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
@@ -48,7 +49,18 @@ export interface UseJiraSyncArgs {
   logActivityAs: LogActivityAsFn;
   /** Called false when a sync hits a 401/403 (token rejected), true on a successful sync. */
   onJiraAuthResult?: (ok: boolean) => void;
+  /** §667 — the §548 scope epoch reader (`getScopeEpoch` from `useStorageBackend`). Sync and
+   *  conflict resolution await Jira and then write tasks, so a project swap in between would write
+   *  the previous project's rows into the next one. REQUIRED here, as at every boundary that hands
+   *  the reader down (docs/AGENTS/platform.md, "The load hold"): an optional one that nobody threads
+   *  silently restores the unguarded behaviour. A test opts out by passing a constant reader. */
+  getScopeEpoch: ScopeEpochReader;
 }
+
+type ActivityTransition = NonNullable<ReturnType<typeof statusActivityKind>>;
+
+/** Stable empty queue, so hiding stale conflicts does not hand the modal a new array each render. */
+const NO_CONFLICTS: ConflictItem[] = [];
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useJiraSync(args: UseJiraSyncArgs) {
@@ -68,20 +80,43 @@ export function useJiraSync(args: UseJiraSyncArgs) {
 
   // Owned state
   const [jiraSyncing, setJiraSyncing] = useState(false);
+  const [jiraResolving, setJiraResolving] = useState(false);
   const [jiraConflicts, setJiraConflicts] = useState<ConflictItem[]>([]);
 
   // Ref guards for stable callbacks (avoid stale closures on boolean/array state)
-  // ★ No effect mirrors `jiraSyncing` into this ref: handleJiraSync writes both itself. A mirror
-  //   effect would run AFTER the render of a finished sync, and if a new sync had already taken
-  //   the guard by then it would clear it under that sync and let a third click through.
-  const jiraSyncingRef = useRef(false);
-  // Same entry-time guard for conflict resolution, which awaits the module and every push.
-  const resolvingRef = useRef(false);
+  // ★ ONE in-flight guard for sync AND conflict resolution, naming which one holds it. Separate
+  //   guards let them overlap: a sync started mid-resolution could queue new conflicts that the
+  //   resolution's closing `setJiraConflicts([])` then wiped. Whichever starts second is a no-op.
+  // ★ No effect mirrors `jiraSyncing` / `jiraResolving` into this ref: each handler writes both
+  //   itself. A mirror effect would run AFTER the render of a finished run, and if a new run had
+  //   already taken the guard by then it would clear it under that run and let a third click through.
+  const jiraInFlightRef = useRef<"sync" | "resolve" | null>(null);
   const jiraConflictsRef = useRef(jiraConflicts);
   useEffect(() => { jiraConflictsRef.current = jiraConflicts; }, [jiraConflicts]);
+  // §667 — the scope epoch the queued conflicts were computed in. A resolution writes against THAT
+  // project, not whichever one is in scope when the user clicks Apply, so it is checked against
+  // this value rather than a fresh read (the chat panel's staged proposals carry theirs the same way).
+  // The ref serves the callbacks; the state copy is what the render below compares, so this hook
+  // reads its OWN ref only in callbacks.
+  const jiraConflictsEpochRef = useRef<number | undefined>(undefined);
+  const [jiraConflictsEpoch, setJiraConflictsEpoch] = useState<number | undefined>(undefined);
+  // §667 — conflicts queued in a project that has since left are not shown. `useJiraSync` lives in
+  // `task-manager.tsx`, which the load hold does not unmount, so its queue outlives a swap, and the
+  // conflicts modal would come back after the hold showing the previous project's rows. DERIVED,
+  // not cleared: no effect may set state here (`set-state-in-effect`).
+  // ★ `args.getScopeEpoch()` below IS a ref read during render — `useStorageBackend`'s stable
+  //   reader over `scopeEpochRef`. Lint allows it: the purity rule flags only functions with a
+  //   known impure signature, and the refs rule cannot see a ref behind another module's callback.
+  //   It is CORRECT because of the load hold, not because of any re-render it causes itself: every
+  //   epoch bump happens while `loadPending` is committed true (scope-epoch.ts), the modal is
+  //   unmounted under the `PanelSkeleton` hold, and the hold's fall re-renders `task-manager`, which
+  //   calls this hook unconditionally. So the first render that can show the modal again reads the
+  //   new epoch. The stale queue stays in state until the next sync replaces it or a resolution
+  //   drops it; nothing can reach it meanwhile.
+  const visibleConflicts = isScopeStale(args.getScopeEpoch, jiraConflictsEpoch) ? NO_CONFLICTS : jiraConflicts;
 
   const handleJiraSync = useCallback(async () => {
-    if (jiraSyncingRef.current) return;
+    if (jiraInFlightRef.current !== null) return;
     const jiraCfg = settingsRef.current.jira;
     if (!jiraCfg.enabled) return;
     if (jiraCfg.tokenExpiresAt) {
@@ -94,13 +129,21 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     // ★ The in-flight guard is taken HERE, synchronously, before the first await. Taken after the
     //   module load, two clicks during a slow chunk download both passed the check above and ran
     //   two syncs. Every exit from here on releases it: the load-failure return below, and the
-    //   `finally` of the main try, which also covers the no-scope return.
-    jiraSyncingRef.current = true;
+    //   `finally` of the main try, which also covers the no-scope and stale-scope returns.
+    //   `jiraSyncing` goes up with it, so both "Sync with Jira" buttons show the syncing state
+    //   during the download too, and comes down on the same two exits.
+    jiraInFlightRef.current = "sync";
+    setJiraSyncing(true);
+    // §667 — captured before the first await, as every §548 writer does. No `loadPending` start
+    // gate: both sync buttons live in the main-window tree, which the render hold replaces with
+    // `PanelSkeleton`, so no sync can START during a hold (scope-epoch.ts, "the start gate").
+    const startEpoch = args.getScopeEpoch();
     let api: JiraApiModule;
     try {
       api = await loadJiraApi();
     } catch (err) {
-      jiraSyncingRef.current = false;
+      jiraInFlightRef.current = null;
+      setJiraSyncing(false);
       args.showToast("error", reportModuleLoadFailed(langRef.current, err));
       return;
     }
@@ -116,7 +159,6 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       formatJiraError,
       classifyJiraError,
     } = api;
-    setJiraSyncing(true);
     try {
       const jql = buildJql(jiraCfg);
       if (!jql) {
@@ -129,7 +171,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         apiToken: jiraCfg.apiToken,
       };
       const issues = await searchAllIssues(creds, jql);
+      // The token verdict is device settings, true whichever project is now in scope.
       onJiraAuthResultRef.current?.(true);
+      // §667 — `tasksRef` below is read NOW, so after a swap it would be the next project's list
+      // diffed against this project's issues. Dropped silently, per the §548 convention.
+      if (dropStaleScopeWrite(args.getScopeEpoch, startEpoch, "useJiraSync.sync", { at: "search" })) return;
       const issueByKey = new Map(issues.map((i) => [i.key, i]));
       const todayNow = todayRef.current;
       const syncStamp = new Date().toISOString();
@@ -140,6 +186,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       let pushed = 0;
       let pushErrors = 0;
       const conflictItems: ConflictItem[] = [];
+      // Status transitions the two pull arms observe, logged after the commit (see the note there).
+      const transitions: Array<[ActivityTransition, number, string]> = [];
 
       // Walk existing tasks first; decide pull/push/conflict per row.
       const next: Task[] = [];
@@ -190,24 +238,19 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             // docs/AGENTS/task-status.md. `issueToTaskFields` derives `status`
             // and `completedDate` from ONE `statusKey` read, so the patch's
             // pair is already coherent and the comparison needs nothing more.
-            // ★★ LOGGED INSIDE THE LOOP, BEFORE THE COMMIT — the opposite of
-            // the conflict path below, and deliberately so rather than by
-            // oversight. Both pull arms accumulate into `next` and the loop
-            // commits ONCE (`setTasks(next)` after it), so there is no
-            // per-iteration write for a log to get ahead of: either the whole
-            // batch lands or none of it does. The only throwing calls between
-            // here and that commit are the push arm's `updateIssue` /
-            // `transitionIssueTo`, and its own `catch` keeps the row and
-            // carries on, so nothing can abandon the batch. Buffering these
-            // transitions to emit them after the commit would REORDER the audit
-            // trail (they currently precede the `jira.sync` summary) and add a
-            // list that can silently diverge from the committed rows — a real
-            // defect surface bought to close a hazard no path can reach. If a
-            // future edit adds an early `return`/`throw` between this line and
-            // that commit, this reasoning dies with it: buffer then.
+            // ★★ BUFFERED, NOT LOGGED HERE. An earlier revision logged inside
+            // the loop and argued that was safe because nothing could abandon
+            // the batch between here and the single `setTasks(next)` after the
+            // loop — and said to buffer the day an early return appeared. §667
+            // added one: the push arm awaits Jira, a project swap can land
+            // during it, and the stale-scope check before the commit then drops
+            // the whole batch. A transition logged here would reach the NEXT
+            // project's activity log for a row it never received. The buffer
+            // is emitted right after the commit and before the `jira.sync`
+            // summary, so the audit trail keeps its order.
             const transition = statusActivityKind(row, { completedDate: patch.completedDate });
             if (transition) {
-              args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
+              transitions.push([transition, row.id, patch.taskName ?? row.taskName]);
             }
           } else {
             next.push({ ...row, lastSyncedAt: syncStamp });
@@ -316,12 +359,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           });
           // Same two rules as the read-only pull above: OBSERVE the transition,
           // never route this arm through `applyStatusChange` (it would overwrite
-          // Jira's real resolution date with `today`); and log inside the loop,
-          // because this arm shares that one's single-commit shape — the note
-          // there carries the argument and the condition that would void it.
+          // Jira's real resolution date with `today`); and buffer it for after
+          // the commit — the note there carries the reason.
           const transition = statusActivityKind(row, { completedDate: patch.completedDate });
           if (transition) {
-            args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
+            transitions.push([transition, row.id, patch.taskName ?? row.taskName]);
           }
         } else {
           // No-op; refresh sync stamp.
@@ -380,13 +422,26 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         added++;
       }
 
+      // §667 — the push arm above awaits Jira per row, so the scope can move during the loop too.
+      // The pushes already sent stay sent, and their rows keep the old `lastSyncedAt` and their
+      // `localModifiedAt`. The push itself moved Jira's `updated`, so the next sync in that project
+      // sees BOTH sides moved and takes the conflict arm, not the push arm — nothing is resent. It
+      // re-stamps the row when the values match, or queues a conflict when one did not round-trip
+      // (e.g. the resolution date Jira stamped on a done-transition). No data is lost either way.
+      if (dropStaleScopeWrite(args.getScopeEpoch, startEpoch, "useJiraSync.sync", { at: "commit" })) return;
+
       tasksRef.current = next;
       setTasks(next);
 
+      for (const [kind, id, name] of transitions) {
+        args.logActivityAs("integration", kind, id, name);
+      }
       args.logActivityAs("integration", "jira.sync", added + pulled, pushed, conflictItems.length);
 
       const summary = tPlural(langRef.current, "jiraSyncDoneFull", issues.length, issues.length, added, pulled, pushed);
       if (conflictItems.length > 0) {
+        jiraConflictsEpochRef.current = startEpoch;
+        setJiraConflictsEpoch(startEpoch);
         setJiraConflicts(conflictItems);
         args.showToast(
           "info",
@@ -408,14 +463,24 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         args.showToast("error", t(langRef.current, "jiraSyncFailed", formatJiraError(err)));
       }
     } finally {
-      jiraSyncingRef.current = false;
+      jiraInFlightRef.current = null;
       setJiraSyncing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
-  }, [args.showToast, args.logActivityAs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs/getScopeEpoch are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
+  }, [args.showToast, args.logActivityAs, args.getScopeEpoch]);
 
   const resolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
     const jiraCfg = settingsRef.current.jira;
+    // §667 — the epoch the conflicts were computed in, read before the first await.
+    const startEpoch = jiraConflictsEpochRef.current;
+    // A stale resolution's conflicts belong to the project that left: drop them (hook state, not
+    // workspace), which also closes the modal, and skip the summary toast. Silent, per §548.
+    const dropStale = (at: string): boolean => {
+      if (!dropStaleScopeWrite(args.getScopeEpoch, startEpoch, "useJiraSync.resolve", { at })) return false;
+      setJiraConflicts([]);
+      jiraConflictsRef.current = [];
+      return true;
+    };
     // On a failed download nothing has been written and the conflicts stay, so the user can retry.
     let api: JiraApiModule;
     try {
@@ -441,6 +506,9 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     let pushErrors = 0;
 
     for (const res of resolutions) {
+      // Before the lookup and any push: after a swap `tasksRef` holds the next project's rows, and
+      // an id match there would push that row's fields to this project's Jira issue.
+      if (dropStale("push")) return;
       const original = tasksRef.current.find((row) => row.id === res.taskId);
       const conflict = jiraConflictsRef.current.find((c) => c.taskId === res.taskId);
       if (!original || !conflict) continue;
@@ -538,6 +606,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
 
       merged.lastSyncedAt = syncStamp;
       merged.localModifiedAt = undefined;
+      // The push above awaited Jira, so the scope can have moved since the check at the loop top.
+      if (dropStale("commit")) return;
       const next = tasksRef.current.map((row) =>
         row.id === merged.id ? merged : row,
       );
@@ -576,23 +646,33 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       "info",
       tPlural(langRef.current, "jiraConflictResolved", resolutions.length, resolutions.length, pulled, pushed),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
-  }, [args.showToast, args.logActivityAs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs/getScopeEpoch are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
+  }, [args.showToast, args.logActivityAs, args.getScopeEpoch]);
 
   // The conflicts modal stays open until a resolution finishes, so a second Resolve click during
   // the module load or the pushes would run a second resolution and push every row twice. The
-  // guard is taken before the first await and released however the run ends.
+  // shared guard is taken before the first await and released however the run ends; a sync in
+  // flight refuses the resolution the same way.
   const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
-    if (resolvingRef.current) return;
-    resolvingRef.current = true;
+    if (jiraInFlightRef.current !== null) return;
+    jiraInFlightRef.current = "resolve";
+    setJiraResolving(true);
     try {
       await resolveConflicts(resolutions);
     } finally {
-      resolvingRef.current = false;
+      jiraInFlightRef.current = null;
+      setJiraResolving(false);
     }
   }, [resolveConflicts]);
 
-  const clearConflicts = useCallback(() => setJiraConflicts([]), []);
+  // Every way out of the conflicts modal (Cancel, ✕, Escape, backdrop) lands here, so a resolution
+  // in flight is protected at this one place: closing mid-run would hide its outcome and let the
+  // user start a sync whose new conflicts the resolution's closing clear would then wipe. `Modal`
+  // already handles an `onClose` that does not close (docs/AGENTS/ui-shell.md, dismissal).
+  const clearConflicts = useCallback(() => {
+    if (jiraInFlightRef.current === "resolve") return;
+    setJiraConflicts([]);
+  }, []);
 
-  return { handleJiraSync, handleResolveConflicts, jiraSyncing, jiraConflicts, clearConflicts };
+  return { handleJiraSync, handleResolveConflicts, jiraSyncing, jiraResolving, jiraConflicts: visibleConflicts, clearConflicts };
 }

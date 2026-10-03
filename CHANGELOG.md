@@ -16,6 +16,26 @@ longer carries its own changelog comment.
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
 
+### Fixed
+
+- **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
+  waiting on Jira when you switched project went on to write the previous project's tasks, status
+  changes and sync conflicts into the project you switched to. It now drops its result instead.
+  A resolution that was already running pushes no further rows to Jira after the switch, and the
+  sync conflicts window no longer reopens showing the previous project's conflicts.
+- **Sync during a conflict resolution.** "Sync with Jira" and "Apply choices" in the sync
+  conflicts window no longer run at the same time: whichever starts second does nothing. Before, a
+  sync started during a resolution could have its new conflicts cleared when the resolution
+  finished. While a resolution runs, the conflicts window cannot be closed, and its close button,
+  "Defer (resolve later)" and "Apply choices" are disabled.
+- **Sync progress during the module download.** Both "Sync with Jira" buttons show "Syncing…" and
+  are disabled from the click, including while the Jira module is still downloading. A failed
+  download still turns them back on.
+- **A failing Jira query.** An error while building the Jira search query from the settings now
+  ends the sync with an error message instead of an unhandled error and no message. This changed
+  in 1.15.0 without a note. The message shown is the "Couldn't reach Jira" one, which names the
+  connection rather than the settings.
+
 ### Development
 
 - **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or

@@ -81,6 +81,21 @@ describe("ModalHeader", () => {
     expect(btn.getAttribute("title")).toBe(t("en-US", "alertModalClose"));
   });
 
+  it("closeDisabled renders the close button disabled, and it takes no click", () => {
+    const { onClose } = setup({ closeDisabled: true });
+    const btn = screen.getByRole("button", { name: t("en-US", "alertModalClose") });
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("the close button is enabled, with no disabled classes, when closeDisabled is omitted", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: t("en-US", "alertModalClose") });
+    expect(btn).toBeEnabled();
+    expect(btn.className).not.toContain("disabled:");
+  });
+
   it("hideClose=true removes the close button", () => {
     setup({ hideClose: true });
     expect(
