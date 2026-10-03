@@ -472,7 +472,7 @@ describe("JiraSettingsSection — jira module chunk fails to load", () => {
     render(<JiraSettingsSection lang="en-US" config={config} onChange={onChange} alwaysOpen />);
     fireEvent.click(screen.getByRole("button", { name: /test connection/i }));
 
-    expect(await screen.findByText((content) => content.includes(t("en-US", "jiraSyncUnreachable")))).toBeInTheDocument();
+    expect(await screen.findByText((content) => content.includes(t("en-US", "jiraModuleLoadFailed")))).toBeInTheDocument();
     expect(screen.queryByText(/dynamically imported module/i)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain("_next/static");
     expect(screen.getByRole("button", { name: /test connection/i })).toBeEnabled();

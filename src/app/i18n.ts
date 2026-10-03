@@ -2286,6 +2286,7 @@ const enUS = {
   jiraTokenExpiredBanner: "Your Jira API token expired on {0}. Sync is paused until you create a new token and update Settings → Jira.",
   jiraTokenInvalidBanner: "Jira rejected your API token — it may be expired or invalid. Create a new token and update Settings → Jira.",
   jiraSyncUnreachable: "Couldn't reach Jira — check your connection and the site URL, then try again.",
+  jiraModuleLoadFailed: "The Jira module could not be loaded. Check your connection and try again.",
 
   raidCategoryRisk: "Risks",
   raidCategoryAssumption: "Assumptions",

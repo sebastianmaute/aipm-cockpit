@@ -188,7 +188,7 @@ export function JiraSettingsSection({
       if (!api) {
         // The raw browser message can carry a chunk URL: keep it in diagnostics, show a translated one.
         logDiag("error", "jira.moduleLoadFailed", { message: err instanceof Error ? err.message : String(err) });
-        setStatus({ kind: "err", message: t(lang, "jiraSyncUnreachable") });
+        setStatus({ kind: "err", message: t(lang, "jiraModuleLoadFailed") });
         return;
       }
       setStatus({ kind: "err", message: api.formatJiraError(err) });

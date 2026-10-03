@@ -2173,6 +2173,7 @@ export const de: Record<TranslationKey, string> = {
   jiraTokenExpiredBanner: "Ihr Jira-API-Token ist am {0} abgelaufen. Die Synchronisierung ist pausiert, bis Sie ein neues Token erstellen und es unter Einstellungen → Jira hinterlegen.",
   jiraTokenInvalidBanner: "Jira hat Ihr API-Token abgelehnt – es ist möglicherweise abgelaufen oder ungültig. Erstellen Sie ein neues Token und hinterlegen Sie es unter Einstellungen → Jira.",
   jiraSyncUnreachable: "Jira konnte nicht erreicht werden – bitte Verbindung und Site-URL prüfen und erneut versuchen.",
+  jiraModuleLoadFailed: "Das Jira-Modul konnte nicht geladen werden. Bitte Verbindung prüfen und erneut versuchen.",
 
   raidCategoryRisk: "Risiken",
   raidCategoryAssumption: "Annahmen",
