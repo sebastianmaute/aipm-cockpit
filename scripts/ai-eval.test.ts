@@ -805,6 +805,34 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
     expect(reply.toolUses).toBe(1);
   });
 
+  it("counts prototype-named block types exactly (§455)", () => {
+    // Arrange — on a plain object literal "__proto__" sets the prototype and
+    //   is never recorded; "constructor"/"toString" would read an inherited
+    //   function as the count.
+    const body = bodyWithBlocks([
+      { type: "__proto__" },
+      { type: "__proto__" },
+      { type: "constructor" },
+      { type: "toString" },
+      { type: "toString" },
+      { type: "toString" },
+      { type: "text", text: "a" },
+    ]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(Object.keys(reply.blockTypes).sort()).toEqual(["__proto__", "constructor", "text", "toString"]);
+    expect(Object.entries(reply.blockTypes).sort()).toEqual([
+      ["__proto__", 2],
+      ["constructor", 1],
+      ["text", 1],
+      ["toString", 3],
+    ]);
+    expect(JSON.stringify(reply.blockTypes)).toBe('{"__proto__":2,"constructor":1,"toString":3,"text":1}');
+  });
+
   it("records (no blocks) when the content array is empty", () => {
     // Arrange / Act
     const reply = parseAnthropicBody(bodyWithBlocks([]));

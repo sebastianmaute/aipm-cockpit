@@ -465,7 +465,9 @@ export function parseAnthropicBody(body: AnthropicBody): Reply {
   //     model, but that is a HYPOTHESIS and this census is what settles it on
   //     the next run rather than another round of reading the code. Types and
   //     counts only: block CONTENT is not captured here or anywhere.
-  const blockTypes: Record<string, number> = {};
+  // Prototype-free: on a plain `{}` a block typed "__proto__" sets the prototype
+  // instead of an own key and vanishes from the record (§455).
+  const blockTypes: Record<string, number> = Object.create(null);
   for (const b of blocks) {
     const t = typeof b?.type === "string" ? b.type : "(untyped)";
     blockTypes[t] = (blockTypes[t] ?? 0) + 1;
@@ -1245,7 +1247,7 @@ ${armA.turn}`;
     ...driftReplies.N, ...driftReplies.R,
   ];
   const stopReasons: Record<string, number> = {};
-  const blockTypeCensus: Record<string, number> = {};
+  const blockTypeCensus: Record<string, number> = Object.create(null);
   for (const r of allReplies) {
     const sr = r.stopReason ?? "(unrecorded)";
     stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
