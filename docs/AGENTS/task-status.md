@@ -63,7 +63,9 @@ writes `status` in only two cases — a date on a row that is neither Done nor C
 `status === "Done"` and `jiraCategoryToStatus` can never emit `Cancelled` — so routing either arm
 through it buys nothing rather than protecting anything. The hazard that IS real runs the OTHER
 way: a stale LOCAL date beside a non-Done status would be
-promoted to Done — the §227 local-arm question, DEFERRED there; do not act on it without the user.
+promoted to Done — the §227 local-arm question, which the product owner DECIDED on 2026-10-02:
+leave it as is (§227 closed with no code change; `countSplitTaskPairs` keeps reporting such rows in
+Settings → Diagnostics). Do not reopen it without the user.
 
 ## Re-derive the two sets — never trust a list
 

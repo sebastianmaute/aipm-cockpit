@@ -75,6 +75,17 @@
 - **Budget bucket earned value (Phase C EVM) → [`budget.md`](budget.md)** "Budget bucket earned value".
 - **Integration disclaimer:** `integration-disclaimer.tsx` — a one-time security note shown the FIRST time any enable checkbox is ticked (AI/Jira/M365/Turso/Timelog). Context provider (no-op default) so each enable checkbox, including the digest toggle, fires `useIntegrationDisclaimer().notifyEnable()` (`grep -rn "notifyEnable()" src/app --include=*.tsx | grep -v "\.test\."`) without prop-threading; gated by per-device `settings.integrationDisclaimerSeen`. Mounted at SettingsView + backend-setup-wizard + backend-config-modal. ★ memoize the context value (`useCallback`+`useMemo`) — an unstable value re-fires. NOT shown in popouts.
 - **Jira lives INSIDE Integrations:** `IntegrationsSection` renders `JiraSettingsSection` (below Timelog) gated on `!hideJira`; the wizard passes `hideJira` (it has a dedicated Jira step). `settings.jira` stays TOP-LEVEL.
+- **Jira responses are validated, and the module that validates them is lazy (§7 B4).** `jira-api.ts`
+  parses every proxy response against the zod schemas in `jira-schemas.ts`: a bad envelope throws a
+  `JiraApiError` carrying `JIRA_MALFORMED_RESPONSE` (classified as an ordinary error, never "network",
+  so sync does not treat it as transient), and a bad list item is dropped and counted under
+  `jira.malformedItems` in the diagnostics ring. ★★ `zod` is reached only through `jira-schemas.ts`,
+  and `jira-api.ts` only through `loadJiraApi()` (`use-jira-sync.ts`) — a value import of either from
+  the startup chain puts zod back in the startup chunk; `docs/CODEMAPS/dependencies.md` carries the
+  re-check greps. ★ `loadJiraApi` memoises through `lazyRetryOnReject` (`lazy-retry.ts`): a REJECTED
+  import is forgotten so the next call retries, where a plain cached promise kept Jira settings and sync
+  broken until reload. Settings → Jira shows `jiraSyncUnreachable` for a failed load and logs the raw
+  browser message as `jira.moduleLoadFailed` (it can carry a chunk URL).
 - **Multi-project Jira sync (per-project read-only):** `settings.jira` keeps a single PRIMARY `projectKey` (two-way,
   the create target + issue-type/user-picker source) PLUS `extraProjects: {key,name,readOnly}[]` (opt-in reads, each
   with its own read-only flag, default read-only ON). Pure dep-light `jira-projects.ts` (kept OUT of the lazy
