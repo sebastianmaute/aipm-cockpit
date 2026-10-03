@@ -881,7 +881,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
 | [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--open) | A conflict version that was kept can be downloaded but not restored in the app | — | — | open |
 | [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--closed-2026-10-02) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | **CLOSED** 2026-10-02 |
-| [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
+| [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--closed-2026-10-03) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | **CLOSED** 2026-10-03 |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--closed-2026-10-01) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | **CLOSED** 2026-10-01 |
 | [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--closed-2026-10-02) | A window's project binding still leans on the shared registry | — | — | **CLOSED** 2026-10-02 |
 | [§660](#660-the-185-tab-close-refusal-test-in-document-block-editorstesttsx-times-out-under-load--closed-2026-10-01) | The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load | — | — | **CLOSED** 2026-10-01 |
@@ -7457,7 +7457,7 @@ from the box width and an average glyph width, which is still an estimate but a 
 
 ## 95. No test in CI exercises a real Turso database — open, NARROWED 2026-08-25
 
-**Status:** open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-03:** residue 2 below is closed. `turso-schema.execute.test.ts` now writes a workspace with all thirteen meta rows populated (`fullMetaWorkspace`) through the real save builders, reads it back through the real SELECTs into `rowsToWorkspace` for the single-tenant and the tenant layout, and asserts every slice deep-equal with no decode report. A further case checks that the set of meta rows the builders emit equals the set the test covers, so a new slice fails it until added. Mutation-checked with `npx vitest run src/app/turso-schema.execute.test.ts --maxWorkers=1`: dropping the single-tenant `documents` row, corrupting the tenant `documents` JSON, and swapping the single-tenant `documents` / `documentVersions` keys each turn it red. No defect surfaced. Residue 1 is still owed: CI never reaches a real libSQL endpoint (§215). Original status: open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #132
 
@@ -7499,7 +7499,7 @@ grep -n "libsql" package.json; echo "EXIT=$?"              # no hits, EXIT=1
    green on it and silent — that half is **§215**, which owns it in full. ★ Note this refutes the
    old heading outright: a test exercising a real Turso database DOES exist; it just never runs
    unattended.
-2. **The meta-blob JSON round-trip still meets no engine.** `turso-schema.execute.test.ts` populates
+2. ~~**The meta-blob JSON round-trip still meets no engine.**~~ — **CLOSED 2026-10-03**, see the Status update. The original text: `turso-schema.execute.test.ts` populates
    every `ENTITY_SPECS` entity and proves `plan` and `meta` ride the same transaction, but its
    `meta` assertion is on `schema_version` — the `documents` / `insights` / `activityLog` blobs are
    not in that fixture, so their encode and decode are still string-matched only.
@@ -43715,11 +43715,11 @@ Two more false pauses of the same family, found by the final review of §4 (m1, 
 
 **Source:** the §4 plan, follow-ups F2 and F4, 2026-09-30.
 
-## 657. Dropping the journal entry of a skipped mirrored-only save job has no test — open
+## 657. Dropping the journal entry of a skipped mirrored-only save job has no test — CLOSED 2026-10-03
 
-**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified: read off the save job in `use-storage-backend.ts`, where `isMirroredOnly` short-circuits the job with `noteSaveRefused(journalSavedAt, null)`; `grep -rn "noteSaveRefused" src/app --include=*.test.*` finds only `use-unload-journal.test.tsx`, which calls the journal hook directly.
+**Status:** CLOSED 2026-10-03 — test added, no code change: `use-storage-backend.mirror-journal.test.tsx` drives two windows over the real `broadcast-sync` (the mirror-race harness), so B's second save job starts mirrored-only, and pins both halves below in both StrictMode settings: after the skip a later pagehide journals nothing; an entry written while the document was hidden stays in localStorage; and on the next load that entry brings the peer's part back while storage lacks it, or clears silently once the peer's save has landed. Mutation-checked with `npx vitest run src/app/use-storage-backend.mirror-journal.test.tsx --maxWorkers=1`: deleting the `noteSaveRefused(...)` call turns the pagehide test red in each setting (journal record not null), and removing the `isMirroredOnly` early return turns two tests red in each setting (B saves twice).
 
-**Work item:** #499
+**Original status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified: read off the save job in `use-storage-backend.ts`, where `isMirroredOnly` short-circuits the job with `noteSaveRefused(journalSavedAt, null)`; `grep -rn "noteSaveRefused" src/app --include=*.test.*` finds only `use-unload-journal.test.tsx`, which calls the journal hook directly.
 
 When a queued save's snapshot holds nothing but slices mirrored from a peer (`createMirrorLedger`, `mirror-ledger.ts`), the job writes nothing and drops its unconfirmed journal entry in memory. An entry already written to localStorage while the page was hiding stays, and its peer part may come back on the next load. No test covers either half. It needs a harness that fires `pagehide` while saves are queued, then asserts what the journal holds and what the next load restores.
 
