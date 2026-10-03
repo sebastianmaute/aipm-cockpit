@@ -15,8 +15,8 @@ longer carries its own changelog comment.
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
   waiting on Jira when you switched project went on to write the previous project's tasks, status
   changes and sync conflicts into the project you switched to. It now drops its result instead.
-  Conflicts left over from the previous project are dropped when you apply them, and nothing is
-  pushed to Jira for them.
+  The sync conflicts window no longer reopens after the switch showing the previous project's
+  conflicts, and if they are applied anyway, nothing is pushed to Jira for them.
 - **Sync during a conflict resolution.** "Sync with Jira" and "Apply choices" in the sync
   conflicts window no longer run at the same time: whichever starts second does nothing. Before, a
   sync started during a resolution could have its new conflicts cleared when the resolution
