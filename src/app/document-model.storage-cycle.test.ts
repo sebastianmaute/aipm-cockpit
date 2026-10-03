@@ -1,5 +1,13 @@
 // ★★★ THIS FILE'S IMPORT ORDER IS THE TEST. Do not reorder or "tidy" it.
 //
+// ★★ SINCE §92 (2026-10-03) THIS TEST CANNOT FAIL, and that is the decision the
+// register recorded in advance. The cycle below is broken (`settings-types.ts`
+// now takes `defaultStorageConfig` from the leaf `storage-config-kind.ts`), so
+// document-model no longer evaluates mid-way through settings-types and the
+// assertion passes for a new reason. It is kept because it costs nothing, and it
+// fails again only if BOTH come back: the cycle, and an eval-time snapshot in
+// document-model. The description below is history.
+//
 // `sanitizeProjectDocuments` reads EXPORT_SECTION_KEYS to ground a dataSection
 // block's key against the real registry. That read used to happen at MODULE-EVAL
 // (`const SECTION_KEYS = new Set(EXPORT_SECTION_KEYS)`), and there is a runtime

@@ -323,7 +323,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings--closed-2026-09-30) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | **CLOSED** 2026-09-30 |
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--closed-2026-09-14) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` | found in the help-coverage slice-3 review, unreleased | — | **CLOSED** 2026-09-14 |
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--closed-2026-09-14) | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | **CLOSED** 2026-09-14 |
-| [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
+| [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--closed-2026-10-03) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | **CLOSED** 2026-10-03 |
 | [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--closed-2026-10-02) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-02 |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
@@ -7214,11 +7214,11 @@ popout. Same outcome, different mechanism.
 
 ---
 
-## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open
+## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — CLOSED 2026-10-03
 
-**Status:** open — a three-edge value-import cycle. Reproduced 2026-08-28 by `grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts`.
+**Status:** CLOSED 2026-10-03 by fix option (b). `StorageConfig` and `defaultStorageConfig` moved to the import-free leaf `storage-config-kind.ts`; `workspace.ts` re-exports both, so no other importer changed, and `settings-types.ts` imports them from the leaf. (Not `storage-config.ts`: a `storage-config.tsx` component exists, and a bare import resolves `.ts` first.) Verified with a value-import graph walk that follows `export … from` edges, as this entry requires: on the parent commit it finds `settings-types → workspace → document-model`, and after the move `settings-types` no longer reaches `document-model`. As recorded below, `document-model.storage-cycle.test.ts` now passes for a new reason; its header and `isSectionKey`'s docstring say so, and the call-time read stays. The walker is still not checked in, which remains the open decision at the end of this entry.
 
-**Work item:** #129
+**Original status:** open — a three-edge value-import cycle. Reproduced 2026-08-28 by `grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts`.
 
 **This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
 CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
