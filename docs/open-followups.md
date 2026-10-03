@@ -464,7 +464,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
-| [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
+| [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale--closed-2026-10-03) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | **CLOSED** 2026-10-03 |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
 | [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | **CLOSED** 2026-08-30 |
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
@@ -704,7 +704,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
-| [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
+| [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--closed-2026-10-03) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | **CLOSED** 2026-10-03 |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--closed-2026-10-03) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | **CLOSED** 2026-10-03 |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--closed-2026-09-27) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | **CLOSED** 2026-09-27 |
@@ -20427,12 +20427,12 @@ written without that wait fails against the FIXED code, which reads like a live 
 
 ---
 
-## 233. `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale
+## 233. `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale — CLOSED 2026-10-03
 
-**Status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
+**Status:** CLOSED 2026-10-03 — the cheap half the entry names was taken: `ask-claude-prompts.test.ts` now asserts `timelog` alone under a title about its deferred read tool, and `activity` in its own test titled as a product choice rather than a missing tool. No chip was added; whether Activity wants one stays a product question. Checked by adding an `activity` chip temporarily: the new test and the key-list test went red; the chip was removed.
+
+**Original status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
 it, per that entry's own closing paragraph. **Severity:** low; nothing renders wrong. Reproduced 2026-08-28 by `grep -n "ASK_CLAUDE_PROMPTS" src/app/ask-claude-prompts.ts`.
-
-**Work item:** #201
 
 `ask-claude-prompts.test.ts` asserts two absences under one title:
 
@@ -36030,7 +36030,7 @@ repair of the current arrangement.
 
 ## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — OPEN
 
-**Status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduce. The
+**Status:** PARTLY FIXED 2026-10-03 — defect (1) is closed: both `.filter()` calls in `parseAnthropicBody` (`scripts/ai-eval.ts`) now use `b?.type`, pinned by a test in `scripts/ai-eval.test.ts` that feeds null, undefined and non-object entries (reverting one filter turns it red with a TypeError). Defects (2) and (3) are untouched and still open, so the entry stays open. 2026-09-10 — MEASURED, not reasoned, and all three still reproduced. The
 guarded-then-unguarded inconsistency behind (1) is visible directly:
 `grep -n "b?.type\|b.type" scripts/ai-eval.ts` returns the census line guarding with
 `b?.type` and the two filters immediately below it using `b.type` bare. Runnable demos for (2) and
@@ -37437,17 +37437,17 @@ every money-bearing figure (nothing records one today), its propagation across a
 the blocked-without-rates guard and its confirmation UI, and the display sweep. INR support is filed
 separately as §477 because it is independent of all of this and ships on its own.
 
-## 477. Only three currencies are supported, and INR is wanted — OPEN
+## 477. Only three currencies are supported, and INR is wanted — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-12 — **never machine-verified**; nothing here has been run against the live
+**Status:** CLOSED 2026-10-03 — fixed on `fix/defect-batch-2026-10b`: `"INR"` was appended to `SUPPORTED_CURRENCIES` in `src/app/types.ts`, which the ECB parser, the sanitizers and the bucket currency select all derive from, so no other consumer needed an edit (no `Record` over the currency union exists). The triage confirmed on 2026-10-03 that the ECB daily feed carries INR. Tests: the parser accepts an INR rate (`ecb.test.ts`), `isBudgetCurrency("INR")` holds and `currencyToEur` converts at the cached INR rate (`fx.test.ts`), and the supported list is pinned (`budget-types.test.ts`). Mutation-checked: dropping INR from the list turns the two new tests red.
+
+**Original status:** OPEN 2026-09-12 — **never machine-verified**; nothing here has been run against the live
 ECB feed, which is the one thing that has to be checked. Presence witnesses run 2026-09-12:
 `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members (`EUR`, `USD`, `GBP`),
 `grep -c "SUPPORTED_CURRENCIES" src/app/ecb.ts` → 3 (the parser filters the live feed to the supported
 set and pins EUR = 1, so a fourth member flows through the fetch, the sanitizer and the cache with no
 further edit), and `grep -c "Intl.NumberFormat" src/app/resource-cost.ts` → 2 (`currencySymbol`
 derives the glyph from the locale, so the rupee sign needs no symbol map entry).
-
-**Work item:** #83
 
 **Requested 2026-09-12**, alongside §476.
 
