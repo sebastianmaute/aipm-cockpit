@@ -18,9 +18,18 @@ longer carries its own changelog comment.
 - **New-project wizard without AI (§523).** With the AI assistant off, the wizard opens on the
   details step and never shows its "describe or import a file" step. The details step now says
   how to get there: turn on the AI assistant and add an API key in Settings.
+- **The AI assistant knows the budget forecast (§545).** The project health snapshot the AI
+  assistant reads now includes the budget forecast: where the budget lands at the current pace
+  and at the current efficiency, the gap between the two, the role driving any rate difference,
+  and the latest budget changes. It also tells the assistant that its earned-value indices
+  measure task effort in hours, not money.
 
 ### Fixed
 
+- **Budget hours cells read out a code (§109).** Screen readers announced each Budget and Actual
+  hours box in the Budget view by an internal code such as "budget-1-3-2026-01". They now hear
+  the label, the bucket, the role and the period, for example "Actual – PAM – Consulting Senior –
+  2026-01", in English or German.
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
   waiting on Jira when you switched project went on to write the previous project's tasks, status
   changes and sync conflicts into the project you switched to. It now drops its result instead.
