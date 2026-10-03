@@ -8,6 +8,8 @@
  *  `followup-claims-lib.mjs`, because a second, differently-spelled heading
  *  parser is a second thing to drift out of agreement with the first. */
 
+import { isClosed } from "./followup-claims-lib.mjs";
+
 /** The Status BLOCK: from the `**Status:**` line to the next blank line.
  *  ★★ Status lines WRAP in this register, so a single-line match would read
  *  only the first physical line and fail a conformant entry whose date or
@@ -58,10 +60,57 @@ export function statusViolations(entry) {
   return out;
 }
 
+/** ★★★ CLOSED ENTRIES ARE GATED FROM A CUTOFF DATE, NOT BASELINED (§429, owner decision
+ *  2026-10-03). A closure is the moment a fabricated verification is most tempting and, until
+ *  this, the one Status line the gate never read. Widening the filter outright lights up the 124
+ *  historical closures that name no command, so only entries whose heading says
+ *  ` — CLOSED <date>` with a date ON OR AFTER this cutoff are checked; everything closed
+ *  earlier stays ungated BY DESIGN (rewriting history to satisfy a new rule would invent
+ *  verifications that were never run). The cutoff is the day AFTER the batch that introduced
+ *  this rule closed its own entries (2026-10-03), so none of those closures is judged
+ *  retroactively. Moving it earlier needs the entries it newly covers to conform first. */
+export const CLOSED_CUTOFF = "2026-10-04";
+
+/** The date in a heading's `CLOSED <date>` suffix, or null.
+ *  ★★ Case-SENSITIVE, like `isClosed`: that is the real heading form, and a lowercase
+ *  "closed" is not a closure marker anywhere in this register's tooling. */
+export function closedDate(title) {
+  const m = /\bCLOSED (\d{4}-\d{2}-\d{2})\b/.exec(title);
+  return m ? m[1] : null;
+}
+
+/** True for a closed entry whose closure date is on or after the cutoff (inclusive; ISO
+ *  dates compare correctly as strings). A closed entry with no parsable date is ungated. */
+export function isGatedClosed(title, cutoff = CLOSED_CUTOFF) {
+  const d = closedDate(title);
+  return d !== null && d >= cutoff;
+}
+
+/** The contract for a gated CLOSED entry. Per universe: `SAYS_CLOSED` INVERTS (the Status
+ *  must open with CLOSED, so a closure cannot hide behind an open-style note), `NO_DATE` and
+ *  `NO_VERIFICATION` mean the same as for an open entry, EXCEPT that the
+ *  `never machine-verified` escape is NOT accepted: a closure claims the work is done, and
+ *  admitting nothing was run is the open-entry honesty, not a closure's. */
+export function closedStatusViolations(entry) {
+  const block = statusBlock(entry);
+  if (block === null) return ["MISSING"];
+  const out = [];
+  if (!/^\*\*Status:\*\*\s*CLOSED\b/.test(block)) out.push("NOT_SAYS_CLOSED");
+  if (!/\b20\d\d-\d\d-\d\d\b/.test(block)) out.push("NO_DATE");
+  if (!VERIFICATION_RE.test(block)) out.push("NO_VERIFICATION");
+  return out;
+}
+
+/** The violations for any entry the gate covers, picking the universe from the heading. */
+export function entryViolations(entry) {
+  return isClosed(entry.title) ? closedStatusViolations(entry) : statusViolations(entry);
+}
+
 export const VIOLATION_HELP = {
   MISSING: "no `**Status:**` line — every OPEN entry needs one",
   SAYS_CLOSED: "the Status line says CLOSED; closure lives in the `##` heading",
   NO_DATE: "no ISO YYYY-MM-DD date in the Status block",
   NO_VERIFICATION:
-    "names no executed verification — cite a grep/npm/npx/node-scripts command in backticks, or say `never machine-verified`",
+    "names no executed verification — cite a grep/npm/npx/node-scripts command in backticks (an open entry may instead say `never machine-verified`; a closed one may not)",
+  NOT_SAYS_CLOSED: "a closed entry's Status must open with `**Status:** CLOSED <date>`",
 };

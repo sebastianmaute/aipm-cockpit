@@ -38,6 +38,9 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Recent closures are status-checked (§429).** `followups:status:check` now also reads the
+  `**Status:**` line of a register entry closed on or after 2026-10-04: it must open with CLOSED, carry a
+  date and cite an executed command. Earlier closures stay unchecked by design.
 - **Generated samples are checked (§238).** `sample-workspace-big.json` and `-huge.json` are now
   compared against a fresh regeneration from `sample-workspace-small.json` by a unit test.
 - **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or

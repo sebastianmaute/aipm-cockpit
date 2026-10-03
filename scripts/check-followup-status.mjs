@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
-import { statusViolations, VIOLATION_HELP } from "./followup-status-lib.mjs";
+import {
+  entryViolations,
+  isGatedClosed,
+  CLOSED_CUTOFF,
+  VIOLATION_HELP,
+} from "./followup-status-lib.mjs";
 
 const REGISTER = "docs/open-followups.md";
 
@@ -19,7 +24,13 @@ try {
   process.exit(2);
 }
 
-const open = parseEntries(src).filter((e) => !isClosed(e.title));
+const all = parseEntries(src);
+const open = all.filter((e) => !isClosed(e.title));
+/** Entries closed on or after CLOSED_CUTOFF are gated too (§429). Closures before it stay
+ *  ungated by design; see the cutoff's comment in followup-status-lib.mjs. The vacuity floor
+ *  below still counts OPEN entries only, so adding closures cannot mask a parser regression. */
+const recentlyClosed = all.filter((e) => isGatedClosed(e.title));
+const scanned = [...open, ...recentlyClosed];
 /** ★★★ THE FLOOR IS 50, NOT 0, AND THE DIFFERENCE IS THE WHOLE GUARD. A
  *  zero-only test catches a scan that reads NOTHING and misses one that reads
  *  ALMOST nothing, which is the reachable failure: the parser recognises one
@@ -43,9 +54,12 @@ if (open.length < MIN_OPEN_ENTRIES) {
   process.exit(2);
 }
 
-const bad = open.map((e) => ({ e, v: statusViolations(e) })).filter((x) => x.v.length > 0);
+const bad = scanned.map((e) => ({ e, v: entryViolations(e) })).filter((x) => x.v.length > 0);
 
-console.log(`Status-line contract — ${open.length} open entries scanned\n`);
+console.log(
+  `Status-line contract — ${open.length} open entries and ${recentlyClosed.length}` +
+    ` closed on or after ${CLOSED_CUTOFF} scanned\n`,
+);
 for (const { e, v } of bad) {
   console.log(`  §${e.n}  ${e.title.slice(0, 70)}`);
   for (const k of v) console.log(`      ${k}: ${VIOLATION_HELP[k]}`);
@@ -57,9 +71,11 @@ if (bad.length === 0) {
 }
 
 console.log(
-  `\n${bad.length} of ${open.length} open entries violate the contract.\n` +
+  `\n${bad.length} of ${scanned.length} scanned entries violate the contract.\n` +
     "Every OPEN entry needs a `**Status:**` line that carries an ISO date and\n" +
     "either cites a command in backticks or says `never machine-verified`.\n" +
+    `Every entry CLOSED on or after ${CLOSED_CUTOFF} needs a Status that opens with CLOSED, carries a\n` +
+    "date and cites an executed command in backticks (no never-verified escape).\n" +
     "Do NOT satisfy this by inventing a verification that was not run.",
 );
 process.exit(1);
