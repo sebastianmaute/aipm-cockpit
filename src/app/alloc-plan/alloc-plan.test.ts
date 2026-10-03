@@ -14,6 +14,7 @@ import {
   formatAllocValue,
   groundAllocationCells,
   parseAllocationProposal,
+  pickAllocationsScope,
   resourceLabel,
   type GroundedAllocCell,
 } from "./alloc-plan";
@@ -998,5 +999,263 @@ describe("buildAllocationsSnapshot", () => {
     expect(snap.resources.slice(0, ALLOC_TOOL_MAX_CELLS).every((r) => r.cells.length === 1 && !r.truncated)).toBe(
       true,
     );
+  });
+});
+
+describe("buildAllocationsSnapshot scope (§12)", () => {
+  const halfYear: ResourcePlan = { ...plan, startDate: "2026-07-01", endDate: "2026-12-31" };
+  const weekly: ResourcePlan = { ...plan, startDate: "2026-08-03", endDate: "2026-08-30", granularity: "week" };
+  const base = { absences: [], workdayHours: 8, holidaySet: new Set<string>() };
+  const busy = (id: number) =>
+    resource(id, {
+      utilizationMode: "hours",
+      utilization: { "2026-07": 10, "2026-08": 10, "2026-09": 10, "2026-10": 10, "2026-11": 10, "2026-12": 10 },
+    });
+  const cellKeys = (snap: ReturnType<typeof buildAllocationsSnapshot>) =>
+    snap.resources.map((r) => [r.id, r.cells.map((c) => c.periodKey)]);
+
+  it("returns exactly the unscoped output, with no scope key, when no scope is passed", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } });
+
+    const snap = buildAllocationsSnapshot({ ...base, resources: [r], plan });
+
+    expect(snap).toStrictEqual({
+      planStartDate: "2026-08-01",
+      planEndDate: "2026-09-30",
+      granularity: "month",
+      periods: ["2026-08", "2026-09"],
+      resources: [
+        {
+          id: 1,
+          name: resourceLabel(r),
+          roleId: null,
+          unit: "hours",
+          cells: [{ periodKey: "2026-08", value: 10, unit: "hours", hours: 10, capacityHours: 168 }],
+          truncated: false,
+        },
+      ],
+      truncated: false,
+    });
+    expect("scope" in snap).toBe(false);
+  });
+
+  it("narrows to the requested resources and echoes the filter", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2), busy(3)],
+      plan: halfYear,
+      scope: { resourceIds: [3, 1] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([1, 3]);
+    expect(snap.periods).toHaveLength(6);
+    expect(snap.scope).toStrictEqual({ resourceIds: [3, 1] });
+  });
+
+  it("reports an unknown resource id instead of widening the answer to everyone", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2)],
+      plan: halfYear,
+      scope: { resourceIds: [2, 99] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([2]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [2, 99], unknownResourceIds: [99] });
+  });
+
+  it("matches no resource when every requested id is unknown", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { resourceIds: [42] },
+    });
+
+    expect(snap.resources).toEqual([]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [42], unknownResourceIds: [42] });
+  });
+
+  it("coerces numeric strings, drops malformed entries, and deduplicates", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2), busy(3)],
+      plan: halfYear,
+      scope: { resourceIds: ["2", "abc", "", "  ", null, 1.5, { id: 1 }, 2, true] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([2]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [2] });
+  });
+
+  it.each([
+    ["a non-array", 3],
+    ["a string", "1,2"],
+    ["an array of nothing usable", ["x", null]],
+  ])("ignores resourceIds given as %s, names it, and does not filter", (_label, resourceIds) => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2)],
+      plan: halfYear,
+      scope: { resourceIds },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([1, 2]);
+    expect(snap.scope).toStrictEqual({ ignored: ["resourceIds"] });
+  });
+
+  it("treats an empty resourceIds array as no filter, without reporting it as malformed", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2)],
+      plan: halfYear,
+      scope: { resourceIds: [] },
+    });
+
+    expect(snap.resources.map((r) => r.id)).toEqual([1, 2]);
+    expect(snap.scope).toStrictEqual({});
+  });
+
+  it("narrows periods and cells to an inclusive month-key range", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodFrom: "2026-08", periodTo: "2026-10" },
+    });
+
+    expect(snap.periods).toEqual(["2026-08", "2026-09", "2026-10"]);
+    expect(cellKeys(snap)).toEqual([[1, ["2026-08", "2026-09", "2026-10"]]]);
+    expect(snap.scope).toStrictEqual({ periodFrom: "2026-08", periodTo: "2026-10" });
+  });
+
+  it("accepts a single open-ended bound", () => {
+    const from = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodFrom: "2026-11" },
+    });
+    const to = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodTo: "2026-07" },
+    });
+
+    expect(from.periods).toEqual(["2026-11", "2026-12"]);
+    expect(to.periods).toEqual(["2026-07"]);
+  });
+
+  it("reads a YYYY-MM-DD bound as the period containing it, and echoes the period key", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodFrom: "2026-09-15", periodTo: " 2026-10-01 " },
+    });
+
+    expect(snap.periods).toEqual(["2026-09", "2026-10"]);
+    expect(snap.scope).toStrictEqual({ periodFrom: "2026-09", periodTo: "2026-10" });
+  });
+
+  it("filters a weekly plan by week key and by date", () => {
+    const r = resource(1, {
+      utilizationMode: "hours",
+      utilization: { "2026-W32": 8, "2026-W33": 8, "2026-W34": 8, "2026-W35": 8 },
+    });
+
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [r],
+      plan: weekly,
+      scope: { periodFrom: "2026-W33", periodTo: "2026-08-19" },
+    });
+
+    expect(snap.periods).toEqual(["2026-W33", "2026-W34"]);
+    expect(cellKeys(snap)).toEqual([[1, ["2026-W33", "2026-W34"]]]);
+    expect(snap.scope).toStrictEqual({ periodFrom: "2026-W33", periodTo: "2026-W34" });
+  });
+
+  it("returns no periods and no cells (not truncated) for a reversed range", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodFrom: "2026-10", periodTo: "2026-08" },
+    });
+
+    expect(snap.periods).toEqual([]);
+    expect(snap.resources).toEqual([expect.objectContaining({ id: 1, cells: [], truncated: false })]);
+    expect(snap.truncated).toBe(false);
+    expect(snap.scope).toStrictEqual({ periodFrom: "2026-10", periodTo: "2026-08" });
+  });
+
+  it.each([
+    ["a key of the other granularity", "2026-W33"],
+    ["an impossible date", "2026-02-30"],
+    ["an out-of-range month", "2026-13"],
+    ["free text", "Q3"],
+    ["a number", 202608],
+  ])("ignores a period bound given as %s, names it, and does not filter on it", (_label, periodFrom) => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1)],
+      plan: halfYear,
+      scope: { periodFrom, periodTo: "2026-08" },
+    });
+
+    expect(snap.periods).toEqual(["2026-07", "2026-08"]);
+    expect(snap.scope).toStrictEqual({ periodTo: "2026-08", ignored: ["periodFrom"] });
+  });
+
+  it("combines a resource filter with a period range", () => {
+    const snap = buildAllocationsSnapshot({
+      ...base,
+      resources: [busy(1), busy(2), busy(3)],
+      plan: halfYear,
+      scope: { resourceIds: [2], periodFrom: "2026-09", periodTo: "2026-09" },
+    });
+
+    expect(cellKeys(snap)).toEqual([[2, ["2026-09"]]]);
+    expect(snap.scope).toStrictEqual({ resourceIds: [2], periodFrom: "2026-09", periodTo: "2026-09" });
+  });
+
+  // The defect itself: unscoped, the last resource's load is dropped by the
+  // cap (`truncated: true`); scoped to that one resource, the cap is spent on
+  // it alone and the answer is complete.
+  it("spends the cell cap on the scoped answer alone, so a narrow query is not truncated", () => {
+    const resources = Array.from({ length: ALLOC_TOOL_MAX_CELLS + 1 }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours", utilization: { "2026-08": 10 } }),
+    );
+    const lastId = ALLOC_TOOL_MAX_CELLS + 1;
+
+    const unscoped = buildAllocationsSnapshot({ ...base, resources, plan });
+    const scoped = buildAllocationsSnapshot({ ...base, resources, plan, scope: { resourceIds: [lastId] } });
+
+    expect(unscoped.resources[unscoped.resources.length - 1]).toMatchObject({ id: lastId, cells: [], truncated: true });
+    expect(scoped.resources).toEqual([expect.objectContaining({ id: lastId, truncated: false })]);
+    expect(scoped.resources[0]?.cells.map((c) => c.periodKey)).toEqual(["2026-08"]);
+    expect(scoped.truncated).toBe(false);
+  });
+});
+
+describe("pickAllocationsScope", () => {
+  it("returns undefined when no scope field is present, so the call stays unscoped", () => {
+    expect(pickAllocationsScope({})).toBeUndefined();
+    expect(pickAllocationsScope({ limit: 5, resourceId: 1 })).toBeUndefined();
+  });
+
+  it("picks the three scope fields verbatim, leaving validation to the builder", () => {
+    expect(pickAllocationsScope({ resourceIds: "junk", other: 1 })).toStrictEqual({
+      resourceIds: "junk",
+      periodFrom: undefined,
+      periodTo: undefined,
+    });
+    expect(pickAllocationsScope({ periodTo: "2026-09" })).toStrictEqual({
+      resourceIds: undefined,
+      periodFrom: undefined,
+      periodTo: "2026-09",
+    });
   });
 });

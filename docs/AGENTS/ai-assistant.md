@@ -159,8 +159,11 @@
   the strip reintroduces a false permit for exactly the excluded fields — see the concurrency-token bullet
   below.
   ★ R4 added THREE more: read-only `get_dashboard_snapshot` (live RAG + progress + EVM + budget rollup, via
-  `ai-dashboard-snapshot.ts`) and read-only `list_allocations` (planner grid) — both zero-arg, NO `isReadOnly`
-  guard (reads) — plus the write tool `set_task_dependencies`. Derived data reaches the dispatcher as
+  `ai-dashboard-snapshot.ts`) and read-only `list_allocations` (planner grid) — both with NO `isReadOnly`
+  guard (reads) — plus the write tool `set_task_dependencies`. `get_dashboard_snapshot` is zero-arg;
+  `list_allocations` takes an OPTIONAL scope (`resourceIds`, `periodFrom`/`periodTo`, §12) that
+  `buildAllocationsSnapshot` validates coerce-or-drop and applies BEFORE the cell cap, so a narrow question
+  gets a complete answer. With no argument its output carries no `scope` key — byte-for-byte the old dump. Derived data reaches the dispatcher as
   un-memoized GETTERS on `ChatDispatcherArgs` (`getDashboardModel`/`getBudgetRollup`/`getAllocationsSnapshot`),
   each read through its own ref so an unused read tool costs nothing per render. Build the getter in
   `task-manager.tsx` beside the others. ★ This used to say the dep array "stays `[args.isReadOnly]`", which
@@ -866,7 +869,8 @@
   returns `truncated` (the cap that actually fires — the ground-level one is defence in depth and cannot),
   `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
-  distinguishable from a genuinely idle one.
+  distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
+  overflow.
 - **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
   free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
   (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —

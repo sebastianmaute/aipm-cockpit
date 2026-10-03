@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
-import { buildAllocationsSnapshot, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import {
+  buildAllocationsSnapshot,
+  type AllocationsScopeInput,
+  type AllocationsSnapshot,
+} from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t, tPlural } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -2108,13 +2112,14 @@ function TaskManagerInner() {
 
   // Deliberately NOT memoized: this runs only when the assistant calls
   // list_allocations, so an unused read tool costs nothing per render.
-  const getAllocationsSnapshot = (): AllocationsSnapshot =>
+  const getAllocationsSnapshot = (scope?: AllocationsScopeInput): AllocationsSnapshot =>
     buildAllocationsSnapshot({
       resources,
       plan,
       absences,
       workdayHours: settings.resources.workdayHours,
       holidaySet,
+      scope,
     });
 
   const dispatcher = useChatDispatcher({
