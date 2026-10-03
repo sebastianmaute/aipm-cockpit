@@ -15,6 +15,9 @@ longer carries its own changelog comment.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
+- **New-project wizard without AI (§523).** With the AI assistant off, the wizard opens on the
+  details step and never shows its "describe or import a file" step. The details step now says
+  how to get there: turn on the AI assistant and add an API key in Settings.
 
 ### Fixed
 

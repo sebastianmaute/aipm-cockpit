@@ -750,7 +750,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
 | [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
 | [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--closed-2026-10-03) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | **CLOSED** 2026-10-03 |
-| [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--open) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | open |
+| [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--closed-2026-10-03) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | **CLOSED** 2026-10-03 |
 | [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--closed-2026-10-03) | The beta programme with UK testers and its feedback route into the backlog are not set up | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | **CLOSED** 2026-10-03 |
 | [§525](#525-a-recurring-two-weekly-follow-up-with-the-demo-stakeholders-is-not-yet-scheduled--closed-2026-10-03) | A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-3), GitLab #69; mirrored into the register 2026-09-13 | unestimated (process item) — a calendar series | **CLOSED** 2026-10-03 |
 | [§526](#526-the-initiative-board-entry-and-the-demo-day-presentation-are-not-yet-scheduled--closed-2026-10-03) | The initiative-board entry and the Demo Day presentation are not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-4), GitLab #70; mirrored into the register 2026-09-13 | unestimated (process item) — organisational only | **CLOSED** 2026-10-03 |
@@ -38700,9 +38700,11 @@ Size M — a next-actions provider plus a Projects-list completeness indicator b
 
 **Source:** GitLab #65 (O-2, source::demo-2026-09-11)
 
-## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN
+## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — `grep -rln "Step0ImportPanel" src/app` → `create-project-wizard.tsx` and `step0-import-panel.tsx`
+**Status:** CLOSED 2026-10-03 — with AI off, step 1 of `create-project-wizard.tsx` now shows a muted `wizardAiOffHint` line (EN/DE) saying to turn on the AI assistant and add an API key in Settings, so the Describe/import step is discoverable; with AI on it is absent. Pinned by two tests in `create-project-wizard.test.tsx` (deleting the hint, or flipping its condition, turns them red). The title's second half, the eleven-field gate after a proposal, was closed by §521 (CLOSED 2026-09-13). Copy not yet eye-checked by the owner.
+
+**Original status:** OPEN 2026-09-13 — `grep -rln "Step0ImportPanel" src/app` → `create-project-wizard.tsx` and `step0-import-panel.tsx`
 (plus a test), so the feature exists.
 
 Kai Mindermann and Sebastian discussed creating a project from an uploaded file or free text. On the call it
@@ -38717,8 +38719,6 @@ Related: §445 (`propose_project` model-write surface), §391.
 Size S–M — discoverability when AI is off; removing the gate after a proposal comes with §521.
 
 **Source:** GitLab #66 (O-3, source::demo-2026-09-11)
-
-**Work item:** #66
 
 ## 524. The beta programme with UK testers and its feedback route into the backlog are not set up — CLOSED 2026-10-03
 
