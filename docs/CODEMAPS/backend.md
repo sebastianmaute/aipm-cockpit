@@ -43,6 +43,12 @@ never been security-audited — see `open-followups.md` §13.
 ★ `jira/_helpers.ts` `sanitizeIssueFields` is an allowlist — the write-path field-injection guard.
 `parseIssueFields` is shared by create/update; the SSRF/auth/URL chain is not.
 
+★ What a Jira route returns is checked on the CLIENT, not here: `jira-api.ts` parses every response
+against the zod schemas in `jira-schemas.ts` (open-followups §7 B4). A malformed envelope throws
+"Malformed Jira response"; a malformed item in a list is dropped and counted in the diagnostics ring
+(`jira.malformedItems`). See [dependencies.md](dependencies.md) for why `zod` stays out of the
+startup chunk.
+
 ## Client storage backends — `storage.ts` facade
 
 | Backend | Medium | Notes |
