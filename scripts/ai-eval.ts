@@ -453,7 +453,8 @@ export function anthropicErrorMessage(status: number, body: string): string {
 function clipDetail(body: string): string {
   const cut = body.slice(0, ERROR_DETAIL_LIMIT);
   const last = cut.charCodeAt(cut.length - 1);
-  const splitsPair = last >= 0xd800 && last <= 0xdbff && body.length > cut.length;
+  const next = body.charCodeAt(cut.length);
+  const splitsPair = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
   return splitsPair ? cut.slice(0, -1) : cut;
 }
 

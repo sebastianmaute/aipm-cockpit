@@ -1012,6 +1012,15 @@ describe("anthropicErrorMessage — the bounded failure detail", () => {
     expect(msg).toBe(`anthropic 500: ${"x".repeat(499)}`);
   });
 
+  it("keeps a lone high surrogate the input already carried at the bound (§455)", () => {
+    // Arrange — unit 500 is a high surrogate NOT followed by a low one, so no
+    //   pair is being split and nothing is backed off.
+    const body = "x".repeat(499) + "\ud83d" + "tail";
+
+    // Act / Assert
+    expect(anthropicErrorMessage(500, body)).toBe(`anthropic 500: ${"x".repeat(499)}\ud83d`);
+  });
+
   it("keeps a whole emoji that fits inside the bound (§455)", () => {
     // Arrange — the pair occupies units 499-500, so it fits exactly.
     const body = "x".repeat(498) + String.fromCodePoint(128512) + "tail";
