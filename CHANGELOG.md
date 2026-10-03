@@ -10,6 +10,21 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **RACI chips press like buttons (§110).** All five RACI chips (R, A, C, I and clear) now
+  give the same press feedback as other icon buttons. The clear chip is now a shared
+  `IconButton` and still renders as the same 20px circle.
+
+### Development
+
+- **`IconButton` shapes and an `xs` size (§110).** `IconButton` takes a `shape` (`square` or
+  `circle`) and a fixed 20px `xs` size, so a round or compact control no longer has to be
+  hand-rolled.
+- **Import cycle removed (§92).** `StorageConfig` and `defaultStorageConfig` move to a leaf
+  module, `storage-config-kind.ts`, which breaks the `settings-types` ⇄ `workspace` ⇄
+  `document-model` cycle. `workspace.ts` re-exports both, so no import path changes.
+
 ## [1.15.0] - 2026-10-03 "Cornwell"
 
 A feature release. Indian rupee (INR) is now a supported budget and plan currency, a task's
