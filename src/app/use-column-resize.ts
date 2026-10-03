@@ -1,7 +1,7 @@
 // src/app/use-column-resize.ts
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState } from "react";
 
 const KEY_PREFIX = "aipm-cockpit:col-widths";
 
@@ -192,4 +192,21 @@ export function useColumnResize<TId extends string>(
   }, [defaults]);
 
   return { colWidths, sizedWidths, startColResize, resetColWidths };
+}
+
+/** One reset handler for a pane that owns several resizable tables — what its single trailing
+ *  reset-columns button calls (open-followups §7, A3). It replaces a hand-written `useCallback` per
+ *  pane that chained each table's `resetColWidths()`. That form re-created every render anyway,
+ *  because `useColumnResize` returns a fresh object, so its dependency array never held.
+ *  The handler keeps one identity and resets the tables passed on the LATEST render. */
+export function useResetAllColumnWidths(
+  ...resizers: readonly { resetColWidths: () => void }[]
+): () => void {
+  const latest = useRef(resizers);
+  useInsertionEffect(() => {
+    latest.current = resizers;
+  });
+  return useCallback(() => {
+    for (const r of latest.current) r.resetColWidths();
+  }, []);
 }

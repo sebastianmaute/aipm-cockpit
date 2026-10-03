@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 
 const KEY = (id: string) => `aipm-cockpit:col-widths:${id}`;
 
@@ -301,5 +301,48 @@ describe("useColumnResize", () => {
 
     expect(result.current.sizedWidths).toEqual({});
     expect(result.current.colWidths).toEqual(DEFAULTS);
+  });
+});
+
+// §7 (A3) — one reset handler for a pane with several tables.
+describe("useResetAllColumnWidths", () => {
+  type R = { resetColWidths: () => void };
+
+  it("resets every table it was handed", () => {
+    const a = { resetColWidths: vi.fn() };
+    const b = { resetColWidths: vi.fn() };
+    const { result } = renderHook(() => useResetAllColumnWidths(a, b));
+    result.current();
+    expect(a.resetColWidths).toHaveBeenCalledTimes(1);
+    expect(b.resetColWidths).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps one identity and reaches the tables from the latest render", () => {
+    const first = { resetColWidths: vi.fn() };
+    const next = { resetColWidths: vi.fn() };
+    const { result, rerender } = renderHook(({ rs }: { rs: R[] }) => useResetAllColumnWidths(...rs), {
+      initialProps: { rs: [first] },
+    });
+    const held = result.current;
+    rerender({ rs: [next] });
+    expect(result.current).toBe(held);
+    held();
+    expect(next.resetColWidths).toHaveBeenCalledTimes(1);
+    expect(first.resetColWidths).not.toHaveBeenCalled();
+  });
+
+  it("clears the persisted widths of real tables", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { a: 150 } }));
+    localStorage.setItem(KEY("t2"), JSON.stringify({ v: 2, widths: { b: 250 } }));
+    const { result } = renderHook(() => {
+      const t1 = useColumnResize("t1", DEFAULTS);
+      const t2 = useColumnResize("t2", DEFAULTS);
+      return { t1, t2, resetAll: useResetAllColumnWidths(t1, t2) };
+    });
+    expect(result.current.t1.colWidths.a).toBe(150);
+    act(() => result.current.resetAll());
+    expect(result.current.t1.colWidths.a).toBe(DEFAULTS.a);
+    expect(result.current.t2.colWidths.b).toBe(DEFAULTS.b);
+    expect(localStorage.getItem(KEY("t1"))).toBeNull();
   });
 });

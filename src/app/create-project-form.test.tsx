@@ -33,7 +33,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof CreateProjectForm>
 
 function fillRequired() {
   function setText(label: string, value: string) {
-    fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+    fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
       target: { value },
     });
   }
@@ -41,11 +41,11 @@ function fillRequired() {
   setText("Project code", "TST-1");
   setText("Project manager", "Dana PM");
   setText("Customer", "ACME Corp");
-  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "C" },
   });
   setText("Products", "Widget");
-  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "Cloud" },
   });
   setText("Start date", "2026-01-01");
@@ -64,7 +64,7 @@ describe("CreateProjectForm", () => {
     setup();
     expect(screen.getByLabelText("Storage")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Turso/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Project name", { exact: false })).toBeInTheDocument();
+    expect(screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" })).toBeInTheDocument();
   });
 
   it("hides the storage selector when hideFormat is set", () => {
@@ -73,7 +73,7 @@ describe("CreateProjectForm", () => {
     expect(screen.queryByRole("combobox", { name: /storage/i })).toBeNull();
     // The rest of the form still renders.
     expect(
-      screen.getByLabelText("Project name", { exact: false }),
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
     ).toBeInTheDocument();
   });
 

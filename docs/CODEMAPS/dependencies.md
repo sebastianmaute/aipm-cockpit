@@ -2,8 +2,8 @@
 
 # Dependencies
 
-Deliberately small. **Fourteen runtime dependencies**, seven of which are Tiptap packages on one
-version line — so the count of independent vendors is eight. Timezones use native `Intl`,
+Deliberately small. **Fifteen runtime dependencies**, seven of which are Tiptap packages on one
+version line — so the count of independent vendors is nine. Timezones use native `Intl`,
 drag-and-drop is native HTML5, OOXML export is hand-rolled over an in-tree zip writer, and every AI
 call is a raw `fetch`.
 
@@ -22,6 +22,7 @@ It said **nine** for six releases after five Tiptap extensions and `lucide-react
 | `lucide-react` | ^1.48.0 | the app's ONLY icon set since 0.255.0. **2 importers**: `src/app/icons.ts` (the barrel every other file goes through) and `rich-text-toolbar.tsx` (grandfathered — its set came from Tiptap's reference toolbar). ★ A third file, `icons.test.ts`, matches a bare `lucide-react` grep on a COMMENT and is not an importer — quote importers, not string hits. `@heroicons/react` was REMOVED app-wide in the same release and an ESLint `no-restricted-imports` rule (both a `paths` and a `patterns` entry, the latter load-bearing because every old call site used the `/24/outline` SUBPATH) makes its return a fatal lint error. Re-measure rather than quoting: `grep -rln "@heroicons/react" src/app | wc -l` returns **0**. See `docs/tech-debt-register.md` TD-8 (resolved) and `docs/superpowers/specs/2026-08-21-heroicons-to-lucide-migration-design.md`. |
 | `dompurify` | ^3.4.16 | HTML sanitize for the note log, the seven rich description fields, and anything the AI writes into them. ★★ must not run at module-eval (no DOM under SSR → 500) **and must never be reached from `rich-text-plain.ts` or an entity sanitizer** — those are DOM-free by contract, and scripts import them with no DOM installed (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`), where the call throws; the sample generator is NOT one of them, it installs JSDOM first (see [data.md](data.md) and `docs/open-followups.md` §151) |
 | `date-holidays` | ^3.37.0 | public-holiday calendar |
+| `zod` | ^4.6.5 | runtime schemas for the Jira responses the client reads (`jira-schemas.ts`, open-followups §7 B4). Strict on each item's identity, lenient on an issue's fields: a wrong-typed field becomes `undefined` and a malformed list item is dropped and logged. ★ In zod 4 a bare `z.unknown()` object key is REQUIRED; write `.optional()` when the key may be absent. It was already in the tree as a dev-only transitive of `eslint-plugin-react-hooks`. ★★ It stays OUT of the startup chunk: `jira-api.ts` is its only importer, and every caller reaches that module through `loadJiraApi()` (`use-jira-sync.ts`), per CONTRIBUTING's "Lazy loading" rule. A value import of `./jira-api` from anything on the startup chain puts it back |
 
 ## Dev / test
 
@@ -58,5 +59,6 @@ hosts must appear in `src/proxy.ts` `connect-src`/`frame-src`; proxied ones need
 Check the registry first, prefer a battle-tested library over hand-rolling — but note the standing
 bias here is the reverse of most repos: zip writing, OOXML, DnD, recurrence expansion, lane packing
 and the virtual-list-shaped work were all built in-tree deliberately. A new runtime dep is a decision
-to raise, not a default. `zod` in particular is an open ask, not an approval
-(`open-followups.md` §7 B4).
+to raise, not a default. `zod` is the worked example: it was an open ask under
+`open-followups.md` §7 B4 until the owner approved it on 2026-10-03, and it is scoped to the Jira
+responses that entry named. Using it anywhere else is a new decision, not a precedent.

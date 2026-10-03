@@ -246,7 +246,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled--closed-2026-10-03) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | **CLOSED** 2026-10-03 |
-| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
+| [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--closed-2026-10-03) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | **CLOSED** 2026-10-03 |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
@@ -505,7 +505,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-31 |
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
-| [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
+| [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting--closed-2026-10-03) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | **CLOSED** 2026-10-03 |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary--closed-2026-10-01) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | **CLOSED** 2026-10-01 |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
@@ -1211,11 +1211,13 @@ forward from the campaign doc, which still listed it.
 
 ---
 
-## 7. Surviving dedup seams from the 2026-06 refactor review
+## 7. Surviving dedup seams from the 2026-06 refactor review — CLOSED 2026-10-03
 
-**Status:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
+**Status:** CLOSED 2026-10-03; all four seams are done. B4 is DONE, by owner decision to add `zod` (`^4.6.5`, already in the tree as a dev-only transitive). `jira-schemas.ts` holds schemas for the five response shapes the client reads, and `jira-api.ts` checks every response at its one `post()`. A malformed envelope throws a `JiraApiError` that classifies as "other" and reads "Malformed Jira response"; the path is logged (`jira.malformedResponse`), the body never is. A malformed list item is dropped and counted (`jira.malformedItems`), so one bad issue cannot stop a sync, and a wrong-typed issue field becomes `undefined`. Pinned by `jira-schemas.test.ts` and `jira-api.responses.test.ts`. ★ Writing them caught a zod 4 trap: a bare `z.unknown()` key is required, so an issue with no `description` lost all its fields; the fix is `.optional()`, and removing it fails four tests. `npm audit --omit=dev --audit-level=high` reports 0. A1 is DONE, by owner decision to name tooltip triggers by their hint: the task form's `Field` moved verbatim into `form-field.tsx`, the project form's copy was deleted, and its call sites pass `hint` where they passed `lang` and `tooltip`. The three project-form triggers that all read "More information" are now named by their own hints, the unused `infoMore` string is gone from both dictionaries, and the project-form asterisk gains the task form's `ml-0.5`. Consequences handled in the same change: 35 `{ exact: false }` label queries across the five suites that render the project form (`project-form`, `create-project-wizard`, `create-project-form`, `project-empty-state`, `projects-panel`) are restricted to form controls, because a trigger whose hint contains the field name would otherwise match too; the §386 test asserts the trigger's new name; the contacts scan in `project-form-fields.test.tsx` is back at whole-container scope, which now passes; and `row-unique-names.ts`'s SCOPE CHOICE comment and §282 say the worked example is gone. Re-check with `grep -rn "function Field(" src/app --include=*.tsx`, which returns one line. A3 and A4 are DONE. A3: `useResetAllColumnWidths` (`use-column-resize.ts`) replaced the three `resetAllCols` chains; re-check with `grep -rn "useResetAllColumnWidths(" src/app --include=*.tsx`. A4: `sortValueGetter` (`sort-value-getter.ts`) replaced the eight `getValue` if-chains that listed their keys one by one, in the change, RAID and resources reports. Its typed map makes a missing key a compile error, and each mapping was compared key by key with the old chain. Left as they are on purpose: the one-line "`name` or the field of the same name" forms (`reports-tables.tsx` ×2, the change report's four count tables, the RAID severity and category tables), `milestones-panel.tsx`'s two-key ternary, and `budget-report-panel.tsx`'s `switch`, which TypeScript already checks for every key. ★ None of the per-column sorts has a runtime test: swapping an accessor in each of the three files left its suite green. Both decisions behind A1 and B4 were the owner's, confirmed again on 2026-10-03.
 
-**Work item:** #89
+★★ **A1's merge changes behaviour, and that decision is the owner's** (taken 2026-10-03: name by hint; see Status). The two `Field`s name their tooltip trigger differently: the task form's is named by its hint text, the project form's by `t(lang, "infoMore")`, so three project-form fields share the name "More information". A merged component has to pick one. Picking the task form's fixes that duplicate name, and also removes the live example §282 put into `row-unique-names.ts`'s SCOPE CHOICE comment and the narrowing in `project-form-fields.test.tsx`, so both would need rewriting. The required asterisk's `ml-0.5` (task form only) is a second, visual-only difference.
+
+**Previously:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
 
 That review was dated **2026-06-19 against v0.104.0** — ~100 releases stale. Re-verified item by item
 on 2026-07-27; **four of nine survive**, and they are reproduced in full below, so nothing here
@@ -5480,8 +5482,8 @@ occurrences in 6 files**, and all six render their tables through the marked she
 `timelog-people-table` · `timelog-projects-table`. Reproduce with
 `grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"` —
 deliberately no line numbers, because the first revision of this entry cited two that the very
-commit writing it had already invalidated (it named `budget-panel.tsx:567`/`:599`; the rows had moved
-to `:589`/`:621` before the commit landed, and they were `:654`/`:684` at its base). Only budget's two
+commit writing it had already invalidated (it named lines 567 and 599 of `budget-panel.tsx`; the rows had moved
+to 589 and 621 before the commit landed, and they were 654 and 684 at its base). Only budget's two
 were verified in a browser; the other six share the mechanism but were not individually confirmed.
 ★ `learning-insights.tsx:72` additionally sets an explicit `border-collapse` Tailwind utility on the
 table, which reads as if it opts back into the collapsed model — it does not, because the
@@ -10277,10 +10279,10 @@ divergence is created by giving them a source at all.
 Two numbers are now stacked vertically in the same table, both called booked/actual, and they come
 from different places:
 
-* **The role row** (`budget-panel.tsx:663`) renders `a.actualHours[p.key]` — PERSISTED workspace
+* **The role row** (the `HoursTd` cells in `BudgetBucketCard`, `budget-panel-bucket-card.tsx`) renders `a.actualHours[p.key]` — PERSISTED workspace
   data on the `BucketAllocation`. It is written only when a user runs Apply in the Timelog panel
   (`timelog-apply.ts:281` `applyActualsToBuckets`), and it is HAND-EDITABLE in the cell.
-* **The people rows beneath it** (`budget-panel.tsx:678` → `budget-bucket-people.ts:67`) render the
+* **The people rows beneath it** (`BucketRolePeople` in the same card → `budget-bucket-people.ts:67`) render the
   per-resource breakdown from the PER-DEVICE Timelog cache, read at
   `workspace-section.tsx:247` (`loadActualsCache(projectId)?.aggregates?.byBucket`) and written by
   every fetch (`use-timelog-sync.ts:219` `saveActualsCache`). Apply never touches it; nobody can
@@ -23610,13 +23612,13 @@ exactly the ones the user has already filtered or scrolled away from.
 of the code reaches it without finding this entry. That is deliberate — the register is the backup
 copy here, not the primary one.
 
-## 274. `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting
+## 274. `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting — CLOSED 2026-10-03
 
-**Status:** open. Filed 2026-08-28 while closing
+**Status:** CLOSED 2026-10-03. The map body is now `BudgetBucketCard` in `budget-panel-bucket-card.tsx`, and the panel renders one per visible bucket. The card is pure presentational: its roughly thirty inputs are explicit props, not the panel's props bag, and its edit handlers arrive as `on*` callbacks. The two token maps stay built in the panel, which holds the list (§262), and the card receives `bucketToken` and `roleTokens`. The moved body is unchanged apart from those renames, and `cpiCciValue` and `sumPeriods` moved with it. Measured with the reproduce below on 2026-10-03: the panel went from 843 lines to 495 and the card is 463. All 41 budget test files (817 tests) pass with no test edited. `docs/AGENTS/budget.md`'s module map and five source comments that named the panel as the home of the moved code now name the card.
+
+**Original status:** open. Filed 2026-08-28 while closing
 [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28), whose headroom objection was
 retired by `803b134f` (`budget-panel-cards.tsx`) without touching the largest block in the file. Never machine-verified by a committed probe.
-
-**Work item:** #215
 
 AGENTS.md's Phase-3 "Panel split (gantt pattern)" convention says a panel crossing ~700 lines splits
 into orchestrator + `*-rows` + `*-toolbar` (+ a `*-columns` leaf), rows and toolbar PURE
@@ -24282,6 +24284,8 @@ the comment above that helper names the collision. `Field` passes `label={t(lang
 against the code before citing it, as the ★★ paragraph below requires. The `change-panel.test.tsx`
 `tbody` narrowing is still described as NOT an example. Comment-only; no test pins the citation.
 Re-check with `grep -n "SCOPE CHOICE" -A 20 src/test/row-unique-names.ts`.
+
+★★ **Superseded 2026-10-03 by §7 A1.** The shared `Field` names each project-form tooltip trigger by its hint, so the "More information" collision this closure cited no longer exists. The contacts scan in `project-form-fields.test.tsx` is back at whole-container scope, and the SCOPE CHOICE comment now says there is no live worked example, naming this as the last one. The rule has no live example again, which is the state this entry was filed about; it stays closed because the comment states the gap rather than pointing at a stale one.
 
 Original status: open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
 because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills. Never machine-verified by a committed probe.
@@ -30914,7 +30918,8 @@ register for checkers scanning their own corpus.
 ## 386. `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14
 
 **Status:** CLOSED 2026-09-14 — the first closure option below was taken, for BOTH `Field`
-implementations: `src/app/task-form-layout.tsx` (its `hint` prop) and `src/app/project-form-fields.tsx`
+implementations (merged into one `form-field.tsx` on 2026-10-03 by §7 A1; its test file is now
+`form-field.test.tsx`, which the reproduce below names): `src/app/task-form-layout.tsx` (its `hint` prop) and `src/app/project-form-fields.tsx`
 (its `tooltip` prop). Every call site is unchanged. In a hinted, non-`group` Field, both now render
 through the shared `HintedLabel` (`src/app/form-controls.tsx`). The `InfoTooltip` is a SIBLING of the
 `<label>`, not inside it: the wrapper is the flex row, the `<label>` is `display: contents`, and
@@ -30928,7 +30933,7 @@ cloning the child or mutating it imperatively, and both were judged more fragile
 `group` mode was already correct in both files, because `FieldGroup`'s `aria-label` outranks its
 content; its caption keeps the tooltip. The task form's redundant `preventDefault` wrapper is gone.
 Pinned by
-`npx vitest run src/app/task-form-layout.test.tsx -t "a hinted label Field names its control with the label alone"`
+`npx vitest run src/app/form-field.test.tsx -t "a hinted label Field names its control with the label alone"`
 and
 `npx vitest run src/app/project-form-fields.test.tsx -t "names a tooltipped field's control with its label alone"`.
 Both are mutation-proved: moving the tooltip back inside the label turns each red. Both prefix-regex
@@ -31059,7 +31064,7 @@ state. It has to drive the per-field checklist — `grep -n "toggleField" src/ap
 
 ## 388. The task-name mic is now invisible to the label-binding source scan — CLOSED 2026-09-26
 
-**Status:** CLOSED 2026-09-26 as ACCEPTED, by owner decision. The scan's coverage did get narrower, but it leaves no hole. `Field` forces group mode whenever `captionAction` is passed (`task-form-layout.tsx`), `task-form-layout.test.tsx` pins that, and `task-form-fields.tsx` is the only caller. A scan rule that flags `captionAction=` on any tag other than `Field` was weighed and not added.
+**Status:** CLOSED 2026-09-26 as ACCEPTED, by owner decision. The scan's coverage did get narrower, but it leaves no hole. `Field` forces group mode whenever `captionAction` is passed (`form-field.tsx` since §7 A1; `task-form-layout.tsx` when written), `form-field.test.tsx` pins that, and `task-form-fields.tsx` is the only caller. A scan rule that flags `captionAction=` on any tag other than `Field` was weighed and not added.
 
 Original status: OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
 the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
@@ -31074,7 +31079,7 @@ body, so `standsFirst(b.body, …)` no longer sees it and the guard stays green 
 whatever happens to it.
 
 ★★ This is a NARROWING OF COVERAGE, not a hole. That field's protection now rests on `captionAction`
-forcing `group` mode, which IS pinned — by the mutation-proved tests in `task-form-layout.test.tsx`,
+forcing `group` mode, which IS pinned — by the mutation-proved tests in `form-field.test.tsx` (renamed from `task-form-layout.test.tsx` by §7 A1),
 which go red when the forced `group` is reverted. The guarantee moved; it did not disappear.
 
 ★ `hasGroupProp` recognises only a literal `group` prop and was deliberately NOT widened to know
@@ -31999,7 +32004,7 @@ The open question is a product one, not a correctness one: should a gesture pres
 
 ## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — already fixed: the extraction the entry recommended landed as `useEntityCombobox` (`src/app/entity-combobox.ts`), and both pickers call it (`grep -n useEntityCombobox src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx`). The duplicated region the entry measured is gone: `grep -c "const listId" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` and `grep -c "function move\|const move" ...` over the same two files print 0 for both, and the entry's own spot-check, `grep -n "cur + 1 >= options.length"`, now hits only `src/app/entity-combobox.ts`.
+**Status:** CLOSED 2026-10-03 — already fixed; this entry was never closed when the fix landed. The mechanics live in `useEntityCombobox` (`entity-combobox.ts`) with the search box and option list in `entity-combobox-search.tsx` and `entity-combobox-list.tsx`; both pickers import all three. They landed on 2026-09-07 in `3bb04a31b` (`entity-combobox.ts`), `c4913ddaa` (`entity-combobox-search.tsx`) and `1e507d123` (`entity-combobox-list.tsx`). (An earlier revision of this line named `a782ad5`, which is only where a shallow clone's history starts.) Verified by running this entry's own reproduce on 2026-10-03: neither picker has a `const listId` block any more, so the first diff compares two empty regions, and `grep -c "cur + 1 >= options.length"` finds the wrap logic only in `entity-combobox.ts`. The duplicated prose went with the code: each picker's header now points at the hook's docblock. The "one suite over the shared hook" the body asks for is `entity-combobox.test.tsx`; each component suite keeps a "routes the keyboard path through the shared combobox hook" test plus its own integration cases, which is coverage of the wiring, not a second copy of the mechanism.
 
 **Original status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `be834e7d` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
 

@@ -144,7 +144,8 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   AND every such bucket has a known `earnedValue`. A bucket with no budgeted cost is exempt. One unscored bucket blanks the
   rollup rather than summing a partial figure, which is the same stance as `costIsKnowable`.
 - **The tile.** The Budget panel's "Internal cost index" tile (`budgetCciInternalCostIndex`, the
-  third of four `Cci` tiles in each row; `grep -n "<Cci label" src/app/budget-panel.tsx`) renders
+  third of four `Cci` tiles in each row; `grep -n "<Cci label" src/app/budget-panel.tsx src/app/budget-panel-bucket-card.tsx`
+  lists the project row and the per-bucket row) renders
   "—" whenever `costPerformanceIndex` is `null`.
 - ★★ **THAT KEY HAS BEEN RENAMED THREE TIMES.** The name budgetCciCpi was first freed when the old
   BAC/AC tile became "Cost burn"/`budgetCciBurn`, then claimed by this EV/AC tile, which left two
@@ -166,9 +167,12 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 
 ## Budget panel module map (gantt pattern)
 
-`budget-panel.tsx` is the orchestrator: state, derivation, and the layout of the bucket cards and
-the CCI tiles it mounts. The tile component `Cci` and the manual-percent editor `ManualPercentCell`
-live in the leaf `budget-panel-cards.tsx`. The bucket table's CELL layer is the presentational leaf `budget-panel-totals.tsx`: `HoursCell`/`HoursTd`
+`budget-panel.tsx` is the orchestrator: state, derivation, the project-total CCI tiles, and the list
+of bucket cards. Each card is `BudgetBucketCard` (`budget-panel-bucket-card.tsx`, the `*-rows` half of
+the split, §274): pure presentational, every value it reads arrives as a prop. ★★ The two token maps
+(`bucketTokens`, and `roleTokens` from `useDetailedRoleRows`) stay built in the panel, which holds the
+list, and are passed down: a card cannot make its own name unique (§262). The tile component `Cci` and
+the manual-percent editor `ManualPercentCell` live in the leaf `budget-panel-cards.tsx`. The bucket table's CELL layer is the presentational leaf `budget-panel-totals.tsx`: `HoursCell`/`HoursTd`
 (the editable period cells), `TotalsTd` (the fixed Total column's cells and every cell of a bucket
 total row), `BucketRowLeadCells` (the three PINNED leading cells: RAG dot · label · Total),
 `BucketTotalRow`, `RowDot`, and the pure `bucketBudgetGrid` arithmetic. It was split out to keep

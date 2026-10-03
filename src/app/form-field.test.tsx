@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { Field } from "./task-form-layout";
+import { Field } from "./form-field";
 
 describe("Field captionAction", () => {
   test("clicking the caption does NOT activate the caption control", async () => {

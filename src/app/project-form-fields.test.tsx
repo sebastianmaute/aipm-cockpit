@@ -57,8 +57,9 @@ describe("project form checkbox-grid captions", () => {
     // Whole-string match. With the tooltip inside the binding <label> the
     // trigger's text joined the control's name, so this found nothing.
     expect(screen.getByRole("textbox", { name: t("en-US", "projectCode") })).toBeInTheDocument();
-    // The hint is still reachable, through its own focusable trigger.
-    expect(screen.getAllByRole("button", { name: t("en-US", "infoMore") }).length).toBeGreaterThan(0);
+    // The hint is still reachable, through its own focusable trigger, which is
+    // named by the hint itself (§7 A1 — the shared `Field`).
+    expect(screen.getByRole("button", { name: t("en-US", "tipProjectCode") })).toBeInTheDocument();
   });
 
   it("renders Identity types as a named group", () => {
@@ -128,21 +129,12 @@ const withContactPeople = (...people: { name: string; email?: string }[]) => ({
   },
 });
 
-// ★★ SCOPE IS NARROWED TO THE CONTACTS LIST, and the named collision that
-// forces it is `InfoTooltip`: this section renders FOUR of them, of which
-// exactly THREE share one name. `info-tooltip.tsx` computes
-// `aria-label={label ?? text}`, and `Field` (`project-form-fields.tsx`) passes
-// `label={t(lang,"infoMore")}` — so the three tooltips rendered THROUGH `Field`
-// (project name, code, manager) are all accessibly named "More information",
-// while the contacts one is rendered directly with NO `label` prop and is
-// therefore named by its `text`, `contactPersonsTip`. That is why the measured
-// figure is 3 and not 4. Measured at whole-document scope:
-// `"More information" x3`.
-// Two consequences, and the second is the dangerous one — it would leave the
-// assertion permanently red, AND it satisfies `requireCollisionSeed` all by
-// itself, so a `roles` list or fixture that stopped seeding a contact collision
-// would still certify as collision-bearing. That masking is exactly what the
-// helper's docstring says a narrowed scope is for.
+// The contacts list, for the per-row name checks below. The row-uniqueness scan
+// itself runs at whole-container scope, the default: it was narrowed to this list
+// while three tooltip triggers in the section shared the name "More information",
+// and the shared `Field` (§7 A1) now names each trigger by its own hint, so
+// nothing outside the list collides. Re-narrow only for a NEW confirmed collision,
+// named here (see SCOPE CHOICE in src/test/row-unique-names.ts).
 const contactsList = () => screen.getByRole("list");
 
 describe("contact persons", () => {
@@ -175,7 +167,6 @@ describe("contact persons", () => {
     expectRowUniqueNames({
       minControls: 4,
       roles: ["button"],
-      scope: contactsList(),
       requireCollisionSeed: true,
     });
 

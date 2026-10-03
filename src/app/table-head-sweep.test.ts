@@ -28,7 +28,9 @@ const SWEPT_FILES = [
   "resources-report.tsx",
   "jira-conflicts-modal.tsx",
   "roles-editor.tsx",
-  "budget-panel.tsx",
+  // The bucket tables moved to budget-panel-bucket-card.tsx in the §274 split;
+  // budget-panel.tsx is now the orchestrator and renders no bucket table.
+  "budget-panel-bucket-card.tsx",
   // The report tables moved to reports-blocks.tsx when the arrangement slice
   // extracted the block bodies; reports.tsx is now the header-less orchestrator
   // and holds no `<th`, no TABLE_HEAD_CLASS and no `<DataTable` at all — so it

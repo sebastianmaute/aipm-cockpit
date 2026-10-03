@@ -14,7 +14,8 @@
 import { useId, useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
-import { FieldGroup, HintedLabel, fieldClass } from "./form-controls";
+import { fieldClass } from "./form-controls";
+import { Field } from "./form-field";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
 import { PencilIcon } from "./icons";
@@ -132,84 +133,6 @@ export function FormSection({
   );
 }
 
-// Field wrapper with label + required-asterisk convention (same as task form).
-// ★★★ `group` IS NOT COSMETIC — pass it whenever the children's first labelable
-// element is a BUTTON. A `<label>` with no `for` binds to its first LABELABLE
-// descendant (button · input · meter · output · progress · select · textarea);
-// a chip row, a radiogroup and a contenteditable are none of those, so the
-// caption silently binds to a BUTTON inside instead — hovering the caption
-// paints that button's hover state and clicking it ACTIVATES it. The documents
-// field is the case here: it renders a ✕ per link and no input, so clicking
-// "Documents" deleted a link. See src/test/label-binding.ts.
-export function Field({
-  lang,
-  label,
-  required,
-  className,
-  tooltip,
-  group,
-  children,
-}: {
-  lang: Lang;
-  label: string;
-  required?: boolean;
-  className?: string;
-  tooltip?: string;
-  /** Children's first labelable element is a button (or there is none) — render
-   *  a named `role="group"` wrapper rather than a mis-binding `<label>`. */
-  group?: boolean;
-  children: React.ReactNode;
-}) {
-  const requiredMark = required && <span className="text-ui-pink-strong">*</span>;
-  const hint = tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />;
-  if (group) {
-    // `FieldGroup`'s aria-label outranks its content, so a hint in the caption
-    // never reaches the group's name.
-    const groupCaption = (
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {label}
-        {requiredMark}
-        {hint}
-      </span>
-    );
-    return (
-      <FieldGroup name={label} caption={groupCaption} className={`block ${className ?? ""}`}>
-        {children}
-      </FieldGroup>
-    );
-  }
-  if (hint) {
-    // ★★ Never inside the <label>: the trigger's text would join the
-    //   control's accessible name (open-followups §386). See `HintedLabel`.
-    return (
-      <HintedLabel
-        hint={hint}
-        caption={
-          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-            {label}
-            {requiredMark}
-          </span>
-        }
-        className={className}
-      >
-        {children}
-      </HintedLabel>
-    );
-  }
-  const caption = (
-    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-      {label}
-      {requiredMark}
-    </span>
-  );
-  return (
-    <label className={`block ${className ?? ""}`}>
-      {caption}
-      {children}
-    </label>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Shared props
 // ---------------------------------------------------------------------------
@@ -241,7 +164,7 @@ export function IdentityPeopleFields({
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
-      <Field lang={lang} label={t(lang,"projectName")} required tooltip={t(lang, "tipProjectName")}>
+      <Field label={t(lang,"projectName")} required hint={t(lang, "tipProjectName")}>
         <input
           type="text"
           value={draft.name}
@@ -254,7 +177,7 @@ export function IdentityPeopleFields({
         <FieldError id="name-error">{errorFor("name")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectCode")} tooltip={t(lang, "tipProjectCode")}>
+      <Field label={t(lang,"projectCode")} hint={t(lang, "tipProjectCode")}>
         <input
           type="text"
           value={draft.code}
@@ -263,7 +186,7 @@ export function IdentityPeopleFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectManager")} tooltip={t(lang, "tipProjectManager")}>
+      <Field label={t(lang,"projectManager")} hint={t(lang, "tipProjectManager")}>
         <input
           type="text"
           value={draft.projectManager}
@@ -317,7 +240,7 @@ export function CustomerFields({
 
   return (
     <FormSection title={t(lang, "projectFormCustomer")}>
-      <Field lang={lang} label={t(lang,"projectCustomer")} tooltip={t(lang, "tipCustomer")}>
+      <Field label={t(lang,"projectCustomer")} hint={t(lang, "tipCustomer")}>
         <input
           type="text"
           value={draft.customer}
@@ -326,7 +249,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectNaceSection")} tooltip={t(lang, "tipNace")}>
+      <Field label={t(lang,"projectNaceSection")} hint={t(lang, "tipNace")}>
         <select
           value={draft.naceSection}
           onChange={(e) => setDraft((p) => ({ ...p, naceSection: e.target.value }))}
@@ -341,7 +264,7 @@ export function CustomerFields({
         </select>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectProducts")} tooltip={t(lang, "tipProducts")}>
+      <Field label={t(lang,"projectProducts")} hint={t(lang, "tipProducts")}>
         <input
           type="text"
           value={draft.products}
@@ -350,7 +273,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectDeployment")} tooltip={t(lang, "tipDeployment")}>
+      <Field label={t(lang,"projectDeployment")} hint={t(lang, "tipDeployment")}>
         <select
           value={draft.deployment}
           onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
@@ -365,7 +288,7 @@ export function CustomerFields({
         </select>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectStartDate")} tooltip={t(lang, "tipStartDate")}>
+      <Field label={t(lang,"projectStartDate")} hint={t(lang, "tipStartDate")}>
         <input
           type="date"
           value={draft.startDate}
@@ -374,7 +297,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectProfitCenter")} tooltip={t(lang, "tipProfitCenter")}>
+      <Field label={t(lang,"projectProfitCenter")} hint={t(lang, "tipProfitCenter")}>
         <input
           type="text"
           value={draft.profitCenter}
@@ -386,7 +309,7 @@ export function CustomerFields({
       {/* `group`: a grid of checkboxes, each in its own `<label>`. A plain
           caption would adopt the FIRST checkbox — clicking "Regulatory
           requirements" ticked it — and would nest a label inside a label. */}
-      <Field lang={lang} label={t(lang,"projectRegulatory")} className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")} group>
+      <Field label={t(lang,"projectRegulatory")} className="sm:col-span-2" hint={t(lang, "tipRegulatory")} group>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -428,7 +351,7 @@ export function OptionalDetailsFields({
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Field lang={lang} label={t(lang,"projectDescription")} className="sm:col-span-2">
+      <Field label={t(lang,"projectDescription")} className="sm:col-span-2">
         <textarea
           rows={2}
           value={draft.description}
@@ -437,7 +360,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectSponsor")}>
+      <Field label={t(lang,"projectSponsor")}>
         <input
           type="text"
           value={draft.sponsor}
@@ -446,7 +369,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectPlatform")}>
+      <Field label={t(lang,"projectPlatform")}>
         <input
           type="text"
           value={draft.platform}
@@ -456,7 +379,7 @@ export function OptionalDetailsFields({
       </Field>
 
       {/* `group`: checkbox grid, same shape as Regulatory above. */}
-      <Field lang={lang} label={t(lang,"projectIdentityTypes")} className="sm:col-span-2" group>
+      <Field label={t(lang,"projectIdentityTypes")} className="sm:col-span-2" group>
         <div className="flex flex-wrap gap-3">
           {IDENTITY_TYPES.map((type) => (
             <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -472,7 +395,7 @@ export function OptionalDetailsFields({
         </div>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
+      <Field label={t(lang,"projectIdentityCount")} hint={t(lang, "tipIdentityCount")}>
         {/* Only the predefined steps are accepted — no free entry, no by-1 stepper. */}
         <select
           value={draft.identityCount}
@@ -488,7 +411,7 @@ export function OptionalDetailsFields({
         </select>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectEndDate")} tooltip={t(lang, "tipEndDate")}>
+      <Field label={t(lang,"projectEndDate")} hint={t(lang, "tipEndDate")}>
         <input
           type="date"
           value={draft.endDate}
@@ -501,7 +424,7 @@ export function OptionalDetailsFields({
         <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectQuotes")} className="sm:col-span-2">
+      <Field label={t(lang,"projectQuotes")} className="sm:col-span-2">
         <textarea
           rows={2}
           value={draft.quotes}
@@ -510,7 +433,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectLinkSalesforce")}>
+      <Field label={t(lang,"projectLinkSalesforce")}>
         <input
           type="url"
           value={draft.salesforceUrl}
@@ -524,7 +447,7 @@ export function OptionalDetailsFields({
         <FieldError id="salesforceUrl-error">{errorFor("salesforceUrl")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectLinkSharepoint")}>
+      <Field label={t(lang,"projectLinkSharepoint")}>
         <input
           type="url"
           value={draft.sharepointUrl}
@@ -538,7 +461,7 @@ export function OptionalDetailsFields({
         <FieldError id="sharepointUrl-error">{errorFor("sharepointUrl")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectLinkConfluence")}>
+      <Field label={t(lang,"projectLinkConfluence")}>
         <input
           type="url"
           value={draft.confluenceUrl}
@@ -552,7 +475,7 @@ export function OptionalDetailsFields({
         <FieldError id="confluenceUrl-error">{errorFor("confluenceUrl")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectLinkJira")}>
+      <Field label={t(lang,"projectLinkJira")}>
         <input
           type="url"
           value={draft.jiraUrl}
@@ -566,7 +489,7 @@ export function OptionalDetailsFields({
         <FieldError id="jiraUrl-error">{errorFor("jiraUrl")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang, "projectOperatingTimezone")}>
+      <Field label={t(lang, "projectOperatingTimezone")}>
         <select
           aria-label={t(lang, "projectOperatingTimezone")}
           value={draft.operatingTimezone}
@@ -582,7 +505,7 @@ export function OptionalDetailsFields({
         </select>
       </Field>
 
-      <Field lang={lang} label={t(lang, "projectStakeholderCount")} tooltip={t(lang, "tipStakeholderCount")}>
+      <Field label={t(lang, "projectStakeholderCount")} hint={t(lang, "tipStakeholderCount")}>
         <input
           type="number"
           min={0}
@@ -593,7 +516,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectDocRepo")} className="sm:col-span-2">
+      <Field label={t(lang,"projectDocRepo")} className="sm:col-span-2">
         <input
           type="text"
           value={draft.docRepoLocation}
@@ -602,7 +525,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2" group>
+      <Field label={t(lang,"documents")} className="sm:col-span-2" group>
         <KnowledgeLinksFieldGated
           value={draft.knowledgeLinks}
           onChange={(knowledgeLinks) => setDraft((p) => ({ ...p, knowledgeLinks }))}
@@ -610,7 +533,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectNotes")} className="sm:col-span-2">
+      <Field label={t(lang,"projectNotes")} className="sm:col-span-2">
         <textarea
           rows={3}
           value={draft.notes}

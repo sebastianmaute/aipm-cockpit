@@ -93,8 +93,8 @@ export function peopleBodyId(bucketId: number, roleId: number): string {
  *    (discipline + grade text) carries no bucket or role identity, so two role
  *    lines sharing a discipline+grade combo — across buckets, or within one —
  *    render identical names; `useDetailedRoleRows` (below) builds a
- *    `buildRowTokens` map over every rendered role line, and `budget-panel.tsx`
- *    passes the resolved `token` here. The unit coverage is
+ *    `buildRowTokens` map over every rendered role line, and
+ *    `budget-panel-bucket-card.tsx` passes the resolved `token` here. The unit coverage is
  *    `budget-panel-people-rows.test.tsx`'s "disambiguates … while the label
  *    stays identical" (pins the mechanism) and `budget-panel.test.tsx`'s
  *    "role lines with the SAME discipline+grade text get row-unique names
@@ -178,7 +178,7 @@ export function PeopleDisclosureLabel({
 /** Filters + sorts a bucket's allocations by a caller-supplied display name.
  *  Shared by both allocation shapes — `BucketAllocation` (the detailed role
  *  rows `useDetailedRoleRows` below builds) and `BucketDisciplineAllocation`
- *  (the blended rows `budget-panel.tsx` builds directly) — so there is
+ *  (the blended rows `budget-panel-bucket-card.tsx` builds directly) — so there is
  *  exactly one filter/sort implementation for both role tables. */
 export function filterSortAllocations<T>(
   allocs: readonly T[],
@@ -199,8 +199,8 @@ export function filterSortAllocations<T>(
 
 /** Detailed (per-role) rows for every rendered, non-blended bucket, plus the
  *  WCAG 2.4.6 disambiguation tokens for their people-disclosure triggers (see
- *  `PeopleDisclosureLabel` above) — computed together so `budget-panel.tsx`'s
- *  render loop and the token map share ONE `filterSortAllocations` pass per
+ *  `PeopleDisclosureLabel` above) — computed together so the bucket cards
+ *  (`budget-panel-bucket-card.tsx`) and the token map share ONE `filterSortAllocations` pass per
  *  bucket instead of each calling it separately.
  *
  *  ★★ `roleLabel()` is discipline+grade TEXT only and carries no bucket or
