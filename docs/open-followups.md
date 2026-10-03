@@ -40908,6 +40908,14 @@ started), or (3) both — compare to-date budget vs to-date actual for the breac
 surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
 that is still worth flagging.
 
+**Note 2026-10-03 (added under §598; the closure above is a dated record and is not rewritten):** the
+closure ran no repo-wide sweep for the tests this detector change invalidated, and one was exposed —
+`sample-workspace-budget.test.ts`, which compares the curated `budgetVariance` insight against the live
+detector, went red on the MR pipeline after this change. The sweep is
+`grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`; a detector change owes it up front,
+with each hit labelled DELETE / MIGRATE / RECOMPUTE, and curated sample insights are part of the class.
+The detector-change checklist is the "Changing a detector" bullet in `docs/AGENTS/insights.md`.
+
 ## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — CLOSED 2026-10-02
 
 **Status:** CLOSED 2026-10-02 — fixed by `b9099bd23`, `4a66f896c` and `1c86cae3e`, one per site: `htmlToPlainText`'s
