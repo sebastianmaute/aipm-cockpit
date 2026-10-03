@@ -86,18 +86,31 @@ export function isGatedClosed(title, cutoff = CLOSED_CUTOFF) {
   return d !== null && d >= cutoff;
 }
 
+/** ★★ A DECISION CLOSURE HAS NO NATURAL COMMAND, so it may carry this marker instead (owner
+ *  ruling 2026-10-03): `owner decision <ISO date>` or `owner ruling <ISO date>`. Without it,
+ *  closing an accepted-risk or decided-not-to-build entry would push the author toward a token
+ *  `grep` added only to pass, the fabrication this gate exists to prevent.
+ *  ★ NARROW ON PURPOSE. The date must FOLLOW the phrase directly: the house form "accepted by
+ *  owner ruling: …" names no date of its own and does not pass, and neither does a bare
+ *  "owner" or "decided by the owner". Case-sensitive except the first letter, which may be
+ *  capitalised at a sentence start ("Owner decision 2026-09-23" is already in the register). */
+const OWNER_DECISION_RE = /\b[Oo]wner (?:decision|ruling) 20\d\d-\d\d-\d\d\b/;
+
 /** The contract for a gated CLOSED entry. Per universe: `SAYS_CLOSED` INVERTS (the Status
- *  must open with CLOSED, so a closure cannot hide behind an open-style note), `NO_DATE` and
- *  `NO_VERIFICATION` mean the same as for an open entry, EXCEPT that the
- *  `never machine-verified` escape is NOT accepted: a closure claims the work is done, and
- *  admitting nothing was run is the open-entry honesty, not a closure's. */
+ *  must open with CLOSED, so a closure cannot hide behind an open-style note), `NO_DATE` means
+ *  the same as for an open entry, and `NO_VERIFICATION` is satisfied by a command (as for an
+ *  open entry) OR by the owner-decision marker above. The `never machine-verified` escape is
+ *  NOT accepted: a closure claims the work is done, and admitting nothing was run is the
+ *  open-entry honesty, not a closure's. */
 export function closedStatusViolations(entry) {
   const block = statusBlock(entry);
   if (block === null) return ["MISSING"];
   const out = [];
   if (!/^\*\*Status:\*\*\s*CLOSED\b/.test(block)) out.push("NOT_SAYS_CLOSED");
   if (!/\b20\d\d-\d\d-\d\d\b/.test(block)) out.push("NO_DATE");
-  if (!VERIFICATION_RE.test(block)) out.push("NO_VERIFICATION");
+  if (!VERIFICATION_RE.test(block) && !OWNER_DECISION_RE.test(block)) {
+    out.push("NO_VERIFICATION");
+  }
   return out;
 }
 
@@ -111,6 +124,6 @@ export const VIOLATION_HELP = {
   SAYS_CLOSED: "the Status line says CLOSED; closure lives in the `##` heading",
   NO_DATE: "no ISO YYYY-MM-DD date in the Status block",
   NO_VERIFICATION:
-    "names no executed verification — cite a grep/npm/npx/node-scripts command in backticks (an open entry may instead say `never machine-verified`; a closed one may not)",
+    "names no executed verification — cite a grep/npm/npx/node-scripts command in backticks (an open entry may instead say `never machine-verified`; a closed one may not, but a decision closure may say `owner decision <YYYY-MM-DD>`)",
   NOT_SAYS_CLOSED: "a closed entry's Status must open with `**Status:** CLOSED <date>`",
 };

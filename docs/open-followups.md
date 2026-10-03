@@ -34,8 +34,8 @@ the claim or says outright `never machine-verified`. Four clauses, checked by
 `npm run followups:status:check` (CI job `followups-status-check`):
 
 1. it begins with the literal `**Status:**`;
-2. it MUST NOT contain the word CLOSED — the `##` heading owns closure, and a body line claiming it
-   breaks every count above;
+2. on an OPEN entry it MUST NOT contain the word CLOSED — the `##` heading owns closure, and a body
+   line claiming it breaks every count above (a gated closure inverts this, see below);
 3. it carries at least one ISO `YYYY-MM-DD` date;
 4. it names the last EXECUTED verification, or says `never machine-verified`.
 
@@ -45,6 +45,15 @@ open entries had on 2026-08-28, and silence is what the gate exists to end. Clau
 command shape (`grep` / `npm run` / `npx` / `node scripts`), not merely something in backticks: a
 backticked FILENAME is not a verification, and accepting one was measured to admit ten entries that
 named none.
+
+★★★ **CLOSURES DATED 2026-10-04 OR LATER ARE GATED TOO (§429).** An entry whose heading says
+` — CLOSED <date>` with a date on or after `CLOSED_CUTOFF` must have a Status that opens with
+`**Status:** CLOSED <date>` and carries an ISO date. It must also name the command run to verify the
+closure: `npx vitest run <file>` for a closure pinned by a test, or the `grep` or other command that
+shows the shipped state. A decision closure with nothing to run says `owner decision <date>` (or
+`owner ruling <date>`) instead, with the date straight after the phrase. `never machine-verified`
+is refused for a closure. Earlier closures stay ungated by design. Never add a token command just to
+pass: a closure with no honest command is a decision closure and says so.
 
 ★★ **"Reproduced by" means the cited command was RUN and its output is consistent with the entry —
 not that the command alone demonstrates the defect.** Many are presence witnesses (a symbol still
@@ -34062,7 +34071,7 @@ what produced that — but a reproduce command beside a claim can refute it with
 state a check was made against, never the command's output alone.
 ## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — cutoff-date gate, per the owner's choice of the second shape this entry names: `scripts/check-followup-status.mjs` now also scans an entry whose heading says ` — CLOSED <date>` with a date on or after `CLOSED_CUTOFF` (2026-10-04, `scripts/followup-status-lib.mjs`). Its Status must open with CLOSED (`SAYS_CLOSED` inverted into `NOT_SAYS_CLOSED`), carry a date and cite a command in backticks; the `never machine-verified` escape is refused for a closure. Closures before the cutoff, including the 124 above, stay ungated by design, and the cutoff sits a day after this batch's own closures so none is judged retroactively. Pinned by `scripts/followup-status-lib.test.mjs` (positive controls, backticked filename, inclusive cutoff, both exit codes) and mutation-checked: an open-only filter, a flipped comparison and an off-by-one at the cutoff each turn it red. Run: `node scripts/check-followup-status.mjs` (exit 0, "101 open entries and 0 closed on or after 2026-10-04").
+**Status:** CLOSED 2026-10-03 — cutoff-date gate, per the owner's choice of the second shape this entry names: `scripts/check-followup-status.mjs` now also scans an entry whose heading says ` — CLOSED <date>` with a date on or after `CLOSED_CUTOFF` (2026-10-04, `scripts/followup-status-lib.mjs`). Its Status must open with CLOSED (`SAYS_CLOSED` inverted into `NOT_SAYS_CLOSED`), carry a date and cite a command in backticks, or, for a decision closure with nothing to run, carry `owner decision <date>` / `owner ruling <date>` with the date directly after the phrase (owner ruling 2026-10-03, added after the final review); the `never machine-verified` escape is refused for a closure. Closures before the cutoff, including the 124 above, stay ungated by design, and the cutoff sits a day after this batch's own closures so none is judged retroactively. Pinned by `scripts/followup-status-lib.test.mjs` (positive controls, backticked filename, inclusive cutoff, both exit codes) and mutation-checked: an open-only filter, a flipped comparison and an off-by-one at the cutoff each turn it red. Run: `node scripts/check-followup-status.mjs` (exit 0, "101 open entries and 0 closed on or after 2026-10-04").
 
 **Original status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
 

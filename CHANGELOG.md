@@ -40,7 +40,8 @@ longer carries its own changelog comment.
 
 - **Recent closures are status-checked (§429).** `followups:status:check` now also reads the
   `**Status:**` line of a register entry closed on or after 2026-10-04: it must open with CLOSED, carry a
-  date and cite an executed command. Earlier closures stay unchecked by design.
+  date and cite an executed command, or, for a decision closure, say `owner decision <date>`.
+  Earlier closures stay unchecked by design.
 - **The axe guard checks the checkout (§58).** A dev server stamps `data-checkout` (a short hash
   of its working directory; absent in production) and the a11y suite's guard refuses a reused dev
   server started from another worktree, not only one on another version. A server with no

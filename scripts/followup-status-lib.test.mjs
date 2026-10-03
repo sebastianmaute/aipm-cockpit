@@ -165,6 +165,36 @@ describe("closed-entry gate (§429)", () => {
     expect(isGatedClosed("5. ~~x~~")).toBe(false);
   });
 
+  // Owner ruling 2026-10-03: a decision closure may carry an owner-decision marker instead of a
+  // command, but only with the date directly after the phrase.
+  it("control: a closure carrying `owner decision <date>` and no command is clean", () => {
+    const d = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — by owner decision 2026-10-05: not built.");
+    expect(entryViolations(d)).toEqual([]);
+    const r = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — accepted by owner ruling 2026-10-04.");
+    expect(entryViolations(r)).toEqual([]);
+  });
+
+  it("control: a closure citing a command and no marker stays clean", () => {
+    expect(entryViolations(titled(REAL + "2026-10-05", "", goodStatus))).toEqual([]);
+  });
+
+  it("flags the owner phrase when no date follows it (the house 'by owner ruling:' form)", () => {
+    const e = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — accepted by owner ruling: not worth it.");
+    expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("flags a bare 'owner' and a closure with neither marker nor command", () => {
+    const bare = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — decided by the owner 2026-10-05.");
+    expect(entryViolations(bare)).toEqual(["NO_VERIFICATION"]);
+    const none = titled(REAL + "2026-10-05", "", "**Status:** CLOSED 2026-10-05 — done.");
+    expect(entryViolations(none)).toEqual(["NO_VERIFICATION"]);
+  });
+
+  it("does not let the marker excuse an open entry", () => {
+    const e = titled("open thing — open", "", "**Status:** open — owner decision 2026-10-05.");
+    expect(entryViolations(e)).toEqual(["NO_VERIFICATION"]);
+  });
+
   it("every gated closure in the real register conforms", () => {
     const gated = parseEntries(register()).filter((e) => isGatedClosed(e.title));
     expect(gated.filter((e) => entryViolations(e).length > 0).map((e) => e.n)).toEqual([]);
