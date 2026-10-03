@@ -1,8 +1,9 @@
 // The footer line of HTML, print/PDF and PowerPoint exports (on every slide, and the
 // name of the PowerPoint theme). Dependency-free on purpose:
-// `doc-render-html.ts` and `export.ts` import it, and `settings-types.ts` sits in
-// an import cycle (settings-types ⇄ workspace ⇄ document-model) those renderers
-// should not join. `settings-types.ts` re-exports everything here.
+// `doc-render-html.ts` and `export.ts` import it. `settings-types.ts` once sat in
+// an import cycle (settings-types ⇄ workspace ⇄ document-model, removed by
+// open-followups §92) those renderers should not join. `settings-types.ts`
+// re-exports everything here.
 //
 // ★ Precedence: a build-time `NEXT_PUBLIC_EXPORT_FOOTER` value, then Settings, then
 //   the neutral built-in — mirrors `ai-policy.ts`'s env → Settings → built-in order.

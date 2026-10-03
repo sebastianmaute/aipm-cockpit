@@ -3,9 +3,10 @@
 // A document's reference to a project entity. LEAF MODULE — imports nothing
 // from the app, on purpose:
 //
-//  * `document-model.ts` sits in a value-import cycle (settings-types ⇄
-//    workspace ⇄ document-model, open-followups §92). Keeping this module
-//    dependency-free keeps the new type out of it.
+//  * `document-model.ts` sat in a value-import cycle (settings-types ⇄
+//    workspace ⇄ document-model, open-followups §92, removed 2026-10-03).
+//    Keeping this module dependency-free kept the new type out of it, and
+//    still keeps it from helping a new cycle form.
 //  * the entity-side attach door (a follow-up) will want this type from the
 //    task/RAID/change/milestone editors, which must not import document-model.
 //

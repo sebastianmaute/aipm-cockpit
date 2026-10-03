@@ -7220,6 +7220,8 @@ popout. Same outcome, different mechanism.
 
 **Original status:** open — a three-edge value-import cycle. Reproduced 2026-08-28 by `grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts`.
 
+> **Resolved 2026-10-03.** The body below is the record as of 2026-08-28 and is kept as written. The cycle it describes no longer exists: `settings-types.ts` now takes `defaultStorageConfig` from `storage-config-kind.ts`, so the first reproduce grep below names that leaf rather than `workspace`. The same walk found a second loop through the same edge, `settings-types → workspace → settings-overrides → settings-types`; it went with the move, because `settings-types` no longer reaches `workspace`.
+
 **This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
 CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
 fails the same silent way.
@@ -9056,7 +9058,7 @@ A/B judgement is not automatable and the inventory records every borderline call
 
 ## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03. `IconButton` gained `shape` (`square` | `circle`) and an `xs` size, a fixed 20px box with no padding. Both live in the primitive's own class maps, and `rounded-md` left `BASE_CLASS`, so no caller override has to beat Tailwind's source order. `disabled` stays a real attribute and `label` stays required. The RACI picker's clear ✕ is now `<IconButton size="xs" shape="circle" variant="bordered">`, and `CHIP_BASE` gained `PRESS`, so all five chips share the press nudge `IconButton` brings. Eye-verified in Chromium with a throwaway spec (not committed): before and after, the ✕ measures 20×20 on the same row as its siblings and the two screenshots match. Pinned by two `icon-button.test.tsx` cases, which also assert that no `rounded-md` or `p-*` class survives beside `circle` / `xs`. The `knowledge-panel.tsx` glyph item named at the end stays where the entry left it, in `docs/handrolled-ui-inventory.md`.
+**Status:** CLOSED 2026-10-03. `IconButton` gained `shape` (`square` | `circle`) and an `xs` size, a fixed 20px box with no padding. Both live in the primitive's own class maps, and `rounded-md` left `BASE_CLASS`, so no caller override has to beat Tailwind's source order. `disabled` stays a real attribute and `label` stays required. The RACI picker's clear ✕ is now `<IconButton size="xs" shape="circle" variant="bordered">`, and `CHIP_BASE` gained `PRESS`, so all six controls share the press nudge `IconButton` brings: the four role chips, the clear chip and the collapsed trigger, which also uses `CHIP_BASE`. The clear chip keeps the `bordered` variant's neutral border, hover glyph darkening and `cursor-pointer`, which the role chips lack; a comment at the call site says why. Eye-verified in Chromium with a throwaway spec (not committed): before and after, the ✕ measures 20×20 on the same row as its siblings and the two screenshots match. Pinned by two `icon-button.test.tsx` cases, which also assert that no `rounded-md` or `p-*` class survives beside `circle` / `xs`, and at the call site by a `raci-chip-picker.test.tsx` case; deleting either `size="xs"` or `shape="circle"` there turns it red. The `knowledge-panel.tsx` glyph item named at the end stays where the entry left it, in `docs/handrolled-ui-inventory.md`.
 
 **Original status:** open — a primitive with no shape opt-out, so one chip stays hand-rolled. Reproduced 2026-08-28 by `grep -n "SIZE_CLASS" src/app/icon-button.tsx`.
 

@@ -1733,7 +1733,8 @@ canonical section. The canonical copies are this file's version-model, "Asset im
   ★★ `document-model.ts` is DOM-FREE BY CONTRACT (a comment-stripped source scan in its test enforces it, so
   comments may name DOMPurify and code may not) — but the CSV/MD/JSON/Turso LOAD paths are the OPPOSITE and
   REQUIRE a DOM. Do not generalise either direction: `docs/open-followups.md` §97 holds the measurement and
-  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
+  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle (closed 2026-10-03; the
+  cycle is gone).
   ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
   `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
   ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`: see [the version model](#the-version-model-document-versionsts) and [the six write paths](#persistence--six-write-paths) above.

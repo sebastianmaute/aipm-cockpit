@@ -12,9 +12,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
-- **RACI chips press like buttons (§110).** All five RACI chips (R, A, C, I and clear) now
-  give the same press feedback as other icon buttons. The clear chip is now a shared
-  `IconButton` and still renders as the same 20px circle.
+- **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
+  chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
+  clear chip is now a shared `IconButton` and still renders as the same 20px circle.
 
 ### Development
 

@@ -285,11 +285,19 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
             a 20px circle. It is an `IconButton` since §110 gave the primitive an
             `xs` fixed box and a `circle` shape — before that it hard-coded
             `rounded-md` + `p-1`, and a caller `className` could not win either
-            (Tailwind resolves a conflict by stylesheet source order). `bordered`
-            is the same `border-line` + `bg-surface` + muted glyph the four role
-            chips use unselected; SELECTED_RING is correctly absent, because clear
-            is not a role and is never the selected value. `CHIP_BASE` carries
-            `PRESS` so the five share the press nudge `IconButton` brings. */}
+            (Tailwind resolves a conflict by stylesheet source order).
+            SELECTED_RING is correctly absent, because clear is not a role and is
+            never the selected value. `CHIP_BASE` carries `PRESS`, so all six
+            controls here (the collapsed trigger, R/A/C/I and clear) share the
+            press nudge `IconButton` brings.
+            ★ It does NOT match the role chips in every respect, deliberately.
+            `bordered` gives it a neutral `border-line` ring and a muted glyph
+            that darkens on hover, plus the primitive's `cursor-pointer`; the
+            role chips are outlined in their own role colour, keep their letter
+            colour on hover, and use the browser's default cursor. Clear is not
+            a role, so it takes the house icon-button affordance rather than a
+            role's; matching the role chips would mean overriding the primitive
+            per call site, which is what §110 removed. */}
         <IconButton
           label={t(lang, "raciClear")}
           title={t(lang, "raciClearHint")}

@@ -433,8 +433,9 @@
   (`buildPptxTheme`, via `buildPptxPackage`) — both exporters, `buildPptx` and `renderDocumentPptx`.
   ★ Changing the theme bytes moves `docs/baselines/ooxml-parts.json`; regenerate it only with
   `npm run ooxml:manifest`. All of it is resolved by ONE function,
-  `exportFooterText` (`export-footer.ts`, dependency-free so the renderers stay out of the
-  settings-types import cycle; re-exported from `settings-types.ts`). ★★ Precedence is env
+  `exportFooterText` (`export-footer.ts`, dependency-free so the renderers never import
+  `settings-types`; the import cycle that motivated it was removed in §92; re-exported from
+  `settings-types.ts`). ★★ Precedence is env
   (`NEXT_PUBLIC_EXPORT_FOOTER`, read by `exportFooterEnv`) → Settings → the single built-in
   `DEFAULT_EXPORT_FOOTER` — mirrors `ai-policy.ts`'s env → Settings → built-in order (the AI policy
   built-in was dropped; this one stays, because every export always carries SOME footer). THREE
