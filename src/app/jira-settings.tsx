@@ -7,17 +7,12 @@ import { HintedLabel, fieldClass } from "./form-controls";
 import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
 import { ClearableSearchInput } from "./clearable-search-input";
-import {
-  type JiraIssueType,
-  type JiraProject,
-  type JiraUser,
-  classifyJiraError,
-  formatJiraError,
-  listIssueTypes,
-  listProjects,
-  searchUsers,
-  testConnection,
-} from "./jira-api";
+// ★★ TYPES ONLY from ./jira-api — every call goes through `loadJiraApi()`. This section sits on
+// the startup chain (task-manager → shell-chrome → app-header → settings-menu), and jira-api pulls
+// in zod (§7 B4); a value import here put zod in the startup chunk, against CONTRIBUTING's
+// "Lazy loading" rule for a heavy dependency.
+import type { JiraIssueType, JiraProject, JiraUser } from "./jira-api";
+import { loadJiraApi } from "./use-jira-sync";
 import {
   type JiraAssigneeMode,
   type JiraConfig,
@@ -97,7 +92,8 @@ export function JiraSettingsSection({
   useEffect(() => {
     if (!credsReady || !config.projectKey) return;
     let cancelled = false;
-    listIssueTypes(creds, config.projectKey)
+    loadJiraApi()
+      .then((api) => api.listIssueTypes(creds, config.projectKey))
       .then((list) => {
         if (!cancelled) setIssueTypes(list);
       })
@@ -135,7 +131,8 @@ export function JiraSettingsSection({
       window.clearTimeout(userSearchTimer.current);
     }
     userSearchTimer.current = window.setTimeout(() => {
-      searchUsers(creds, config.projectKey, userQuery)
+      loadJiraApi()
+        .then((api) => api.searchUsers(creds, config.projectKey, userQuery))
         .then(setUserResults)
         .catch(() => setUserResults([]));
     }, 300);
@@ -157,8 +154,12 @@ export function JiraSettingsSection({
   async function handleTest() {
     if (!credsReady) return;
     setStatus({ kind: "loading", label: t(lang, "jiraTesting") });
+    // Undefined only when the jira-api chunk itself failed to load; the catch then has no
+    // classifier and reports the raw message.
+    let api: Awaited<ReturnType<typeof loadJiraApi>> | undefined;
     try {
-      const me = await testConnection(creds);
+      api = await loadJiraApi();
+      const me = await api.testConnection(creds);
       setStatus({
         kind: "ok",
         message: t(lang, "jiraConnectedAs", me.displayName),
@@ -166,14 +167,18 @@ export function JiraSettingsSection({
       onChange({ ...config, tokenInvalidAt: undefined });
       // Auto-load projects after a successful test.
       try {
-        const list = await listProjects(creds);
+        const list = await api.listProjects(creds);
         setProjects(list);
       } catch (e) {
         reportSilentFailure(showToast, lang, "jira.projectListLoadFailed", e, "guardJiraProjectListFailed");
       }
     } catch (err) {
-      setStatus({ kind: "err", message: formatJiraError(err) });
-      if (classifyJiraError(err) === "auth") {
+      if (!api) {
+        setStatus({ kind: "err", message: err instanceof Error ? err.message : String(err) });
+        return;
+      }
+      setStatus({ kind: "err", message: api.formatJiraError(err) });
+      if (api.classifyJiraError(err) === "auth") {
         onChange({ ...config, tokenInvalidAt: new Date().toISOString() });
       }
     }
