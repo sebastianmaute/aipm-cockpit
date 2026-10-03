@@ -289,7 +289,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
 | [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--closed-2026-09-01) | ~~`ToggleButton`'s pressed state is near-invisible in all three DARK schemes~~ | 0.212.0 (Nayler) | S–M | **CLOSED** 2026-09-01 (state borders DERIVED at a 3:1 floor, so an imported theme is covered too) |
 | [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--closed-2026-09-30) | The four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | **CLOSED** 2026-09-30 |
-| [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
+| [§58](#58-the-axe-gate-can-pass-against-a-leftover-dev-server-from-the-same-worktree--boot-nonce-not-built--open) | The axe gate can pass against a leftover dev server from the SAME worktree — boot nonce not built | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--closed-2026-10-03) | Three residuals from the `use-resource-planner` split, plus one pointer | post-0.212.0 | S | **CLOSED** 2026-10-03 |
@@ -4591,9 +4591,9 @@ a single click on an imported settings blob.
 
 ---
 
-## 58. The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN
+## 58. The axe gate can pass against a leftover dev server from the SAME worktree — boot nonce not built — open
 
-**Status:** open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`. Re-verified 2026-09-13 on `00f2a273`: `grep -c "process.cwd" e2e/a11y.spec.ts` → 0, so no per-checkout token exists yet; the version guard alone stands.
+**Status:** **Update 2026-10-03:** candidate (a) is built. `checkoutToken` (`src/app/checkout-token.ts`) hashes a directory to 12 sha-256 hex characters and returns undefined in production; `layout.tsx` stamps it from `process.cwd()` as `data-checkout` on `<html>`, and the guard in `e2e/a11y.spec.ts` now also compares it against the token of the runner's own cwd, skipping that check when the attribute is absent (a production server). Its two error messages now say exactly what each compared. A dev server from ANOTHER worktree is therefore refused. Still owed, and the reason this stays open under the narrowed title: a leftover dev server started earlier from THIS worktree matches both checks — only candidate (b), a boot nonce, or a decision that the fresh-port convention carries that case, closes it. The guard's negative path (a wrong checkout) was not run locally; CI's e2e job runs the positive path only. Earlier text: open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`. Re-verified 2026-09-13 on `00f2a273`: `grep -c "process.cwd" e2e/a11y.spec.ts` → 0, so no per-checkout token exists yet; the version guard alone stands.
 
 **Work item:** #113
 
@@ -4627,7 +4627,7 @@ at release, so BOTH of those read as a match for the whole of a release cycle. T
 accurate about what to DO (fresh port) and overstated about what was DETECTED. Two reviewers raised
 this independently. Leave the remedy wording; the diagnosis half is what the follow-up below fixes.
 
-### The remaining half — follow-up, not yet built
+### The remaining half — (a) built 2026-10-03, (b) not built
 
 **What it needs:** a token that differs per CHECKOUT, not per release, surviving from the serving
 process into the DOM, comparable from the test process. Three candidates, cheapest first. ★★ None is
