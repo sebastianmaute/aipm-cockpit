@@ -445,7 +445,16 @@ const ERROR_DETAIL_LIMIT = 500;
  *  closes over it and passes it only in the request header, so nothing on this
  *  path holds it to spill into a message. */
 export function anthropicErrorMessage(status: number, body: string): string {
-  return `anthropic ${status}: ${body.slice(0, ERROR_DETAIL_LIMIT)}`;
+  return `anthropic ${status}: ${clipDetail(body)}`;
+}
+
+/** `ERROR_DETAIL_LIMIT` counts UTF-16 CODE UNITS. When the cut would end on the high half
+ *  of a surrogate pair, back off one unit so no lone surrogate is left (§455). */
+function clipDetail(body: string): string {
+  const cut = body.slice(0, ERROR_DETAIL_LIMIT);
+  const last = cut.charCodeAt(cut.length - 1);
+  const splitsPair = last >= 0xd800 && last <= 0xdbff && body.length > cut.length;
+  return splitsPair ? cut.slice(0, -1) : cut;
 }
 
 /** Reduce a decoded response body to the `Reply` everything downstream reads.

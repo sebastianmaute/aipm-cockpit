@@ -997,4 +997,26 @@ describe("anthropicErrorMessage — the bounded failure detail", () => {
     expect(atBound).toBe(overBound);
     expect(atBound.endsWith("y".repeat(500))).toBe(true);
   });
+
+  it("never ends on a lone high surrogate when an emoji straddles the bound (§455)", () => {
+    // Arrange — 499 units then a surrogate pair: unit 500 is the HIGH half.
+    const body = "x".repeat(499) + String.fromCodePoint(128512) + "tail";
+
+    // Act
+    const msg = anthropicErrorMessage(500, body);
+
+    // Assert — the limit counts UTF-16 code units, so the pair is dropped
+    //   whole rather than split.
+    const last = msg.charCodeAt(msg.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+    expect(msg).toBe(`anthropic 500: ${"x".repeat(499)}`);
+  });
+
+  it("keeps a whole emoji that fits inside the bound (§455)", () => {
+    // Arrange — the pair occupies units 499-500, so it fits exactly.
+    const body = "x".repeat(498) + String.fromCodePoint(128512) + "tail";
+
+    // Act / Assert
+    expect(anthropicErrorMessage(500, body)).toBe(`anthropic 500: ${"x".repeat(498)}${String.fromCodePoint(128512)}`);
+  });
 });
