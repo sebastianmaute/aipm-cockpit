@@ -1074,6 +1074,8 @@ export const de: Record<TranslationKey, string> = {
   wizardImportErrorSource: "Import aus dieser Quelle nicht möglich.",
   wizardImportErrorEncrypted: "Diese Datei ist kennwortgeschützt. Speichere sie ohne Schutz und versuche es erneut.",
   wizardImportWorkspaceButton: "Workspace-Datei importieren…",
+  wizardAiOffHint:
+    "Um ein Projekt aus einer Datei oder Beschreibung zu erstellen, aktivieren Sie in den Einstellungen den KI-Assistenten und hinterlegen Sie einen API-Schlüssel.",
   wizardImportWorkspaceNotice: "Import von {0}: {1} Aufgaben, {2} RAID-Einträge, {3} Budgets",
   wizardImportWorkspaceClear: "Importierten Workspace {0} entfernen",
   wizardImportWorkspaceInvalid: "{0} sieht wie eine Workspace-Datei aus, konnte aber nicht gelesen werden.",

@@ -399,6 +399,12 @@ export function CreateProjectWizard({
               </p>
             )}
             {importMsg && <FieldError>{importMsg}</FieldError>}
+            {/* §523 — with AI off, Step 0 (Describe / import a file) never
+                renders, so nothing on this step would say it exists. A muted
+                line names the way in rather than changing the flow. */}
+            {!aiEnabled && (
+              <p className="mb-3 text-xs text-muted-foreground">{t(lang, "wizardAiOffHint")}</p>
+            )}
             <CreateProjectForm
               key={importNonce}
               lang={lang}

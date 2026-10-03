@@ -1172,6 +1172,8 @@ const enUS = {
   wizardImportErrorSource: "Could not import from that source.",
   wizardImportErrorEncrypted: "That file is password-protected. Save it without protection and try again.",
   wizardImportWorkspaceButton: "Import workspace file…",
+  wizardAiOffHint:
+    "To create a project from a file or a description, turn on the AI assistant and add an API key in Settings.",
   wizardImportWorkspaceNotice: "Importing {0}: {1} tasks, {2} RAID items, {3} budgets",
   wizardImportWorkspaceClear: "Clear imported workspace {0}",
   wizardImportWorkspaceInvalid: "{0} looks like a workspace file but could not be read.",
