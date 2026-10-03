@@ -5,7 +5,7 @@ import { SegmentedControl } from "./segmented-control";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { ColumnResizeHandle } from "./task-manager-ui";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import {
   ReportCard,
@@ -146,15 +146,7 @@ export function RaidReportPanel({ lang, items, today, resourcesById, embedded = 
   const aging = useColumnResize<AgingCol>("raidReportAging", AGING_COL_WIDTHS);
   const detail = useColumnResize<DetailCol>("raidReportDetail", DETAIL_COL_WIDTHS);
 
-  const resetAllCols = useCallback(() => {
-    severity.resetColWidths();
-    status.resetColWidths();
-    owner.resetColWidths();
-    topOpen.resetColWidths();
-    category.resetColWidths();
-    aging.resetColWidths();
-    detail.resetColWidths();
-  }, [severity, status, owner, topOpen, category, aging, detail]);
+  const resetAllCols = useResetAllColumnWidths(severity, status, owner, topOpen, category, aging, detail);
 
   if (items.length === 0) {
     return (

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { RagDot } from "./rag-dot";
 import {
@@ -122,13 +122,7 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
   const requestorCols = useColumnResize<RequestorCol>("changeReportRequestor", REQUESTOR_COL_WIDTHS);
   const topPendingCols = useColumnResize<TopPendingCol>("changeReportTopPending", TOP_PENDING_COL_WIDTHS);
 
-  const resetAllCols = useCallback(() => {
-    typeCols.resetColWidths();
-    statusCols.resetColWidths();
-    impactCols.resetColWidths();
-    requestorCols.resetColWidths();
-    topPendingCols.resetColWidths();
-  }, [typeCols, statusCols, impactCols, requestorCols, topPendingCols]);
+  const resetAllCols = useResetAllColumnWidths(typeCols, statusCols, impactCols, requestorCols, topPendingCols);
 
   if (items.length === 0) {
     return (

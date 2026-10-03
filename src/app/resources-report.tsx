@@ -6,7 +6,7 @@ import { type Lang, t } from "./i18n";
 import { computeResourceReport, type ReportGroupRow, type ReportPeriodRow, type ReportResourceRow } from "./resource-report";
 import { formatCurrency } from "./resource-cost";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
-import { useColumnResize } from "./use-column-resize";
+import { useColumnResize, useResetAllColumnWidths } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
@@ -108,13 +108,7 @@ export function ResourcesReportPanel({
   const byCombo = useColumnResize<ResReportByComboCol>("resReportByCombo", RES_REPORT_BY_COMBO_WIDTHS);
   const byResource = useColumnResize<ResReportByResourceCol>("resReportByResource", RES_REPORT_BY_RESOURCE_WIDTHS);
 
-  const resetAllCols = useCallback(() => {
-    byPeriod.resetColWidths();
-    byDiscipline.resetColWidths();
-    byGrade.resetColWidths();
-    byCombo.resetColWidths();
-    byResource.resetColWidths();
-  }, [byPeriod, byDiscipline, byGrade, byCombo, byResource]);
+  const resetAllCols = useResetAllColumnWidths(byPeriod, byDiscipline, byGrade, byCombo, byResource);
 
   // Deep-link (§362): a guardrail insight for a resource arms pendingOpen with
   // view "resources" — this report is what actually mounts for that view, but
