@@ -482,8 +482,8 @@ export function parseAnthropicBody(body: AnthropicBody): Reply {
   //     comparison against it would silently be false.
   const usage = normalizeApiUsage(body.usage);
   return {
-    text: blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n"),
-    toolUses: blocks.filter((b) => b.type === "tool_use").length,
+    text: blocks.filter((b) => b?.type === "text").map((b) => b.text ?? "").join("\n"),
+    toolUses: blocks.filter((b) => b?.type === "tool_use").length,
     outputTokens: usage.output_tokens,
     inputTokens: usage.input_tokens,
     cacheWriteTokens: usage.cache_creation_input_tokens,

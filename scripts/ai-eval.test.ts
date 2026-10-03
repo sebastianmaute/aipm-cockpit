@@ -791,6 +791,20 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
     expect(reply.blockTypes).toEqual({ "(untyped)": 2, text: 1 });
   });
 
+  it("tolerates null, undefined and non-object entries in content (§455)", () => {
+    // Arrange — the census guards `b?.type`; the text and tool_use filters
+    //   must be as defensive, or one hostile entry throws and the run exits 2.
+    const body = bodyWithBlocks([null, undefined, 7, "str", { type: "text", text: "a" }, { type: "tool_use" }]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert — each non-object entry is counted as (untyped), as the census does.
+    expect(reply.blockTypes).toEqual({ "(untyped)": 4, text: 1, tool_use: 1 });
+    expect(reply.text).toBe("a");
+    expect(reply.toolUses).toBe(1);
+  });
+
   it("records (no blocks) when the content array is empty", () => {
     // Arrange / Act
     const reply = parseAnthropicBody(bodyWithBlocks([]));
