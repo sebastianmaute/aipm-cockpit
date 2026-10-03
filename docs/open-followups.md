@@ -36030,7 +36030,7 @@ repair of the current arrangement.
 
 ## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — all three fixed on `fix/defect-batch-2026-10b` in `scripts/ai-eval.ts`, each with a test in `scripts/ai-eval.test.ts` and mutation-checked. (1) Both `.filter()` calls in `parseAnthropicBody` use `b?.type`; reverting one turns the null-entry test red with a TypeError. (2) The per-reply census and the run-level aggregate are prototype-free objects, so `__proto__`, `constructor` and `toString` block types are each counted exactly; restoring `{}` turns the test red. (3) The error detail is clipped by a helper that backs off one UTF-16 code unit only when the 500-unit cut really splits a pair, i.e. a high surrogate followed by a low one (the limit still counts code units, so the message may be 499 units long); a lone high surrogate already in the input is kept on purpose; a plain `.slice` turns the emoji-straddle test red.
+**Status:** CLOSED 2026-10-03 — all three fixed on `fix/defect-batch-2026-10b` in `scripts/ai-eval.ts`, each with a test in `scripts/ai-eval.test.ts` and mutation-checked. (1) Both `.filter()` calls in `parseAnthropicBody` use `b?.type`; reverting one turns the null-entry test red with a TypeError. (2) The per-reply census and the run-level aggregate (`summariseResponseShape`, which also builds the stop-reason counts) are prototype-free objects, so `__proto__`, `constructor` and `toString` block types and stop reasons are each counted exactly; restoring `{}` in the per-reply census, the run-level block-type census or the stop-reason counts turns its own test red. (3) The error detail is clipped by a helper that backs off one UTF-16 code unit only when the 500-unit cut really splits a pair, i.e. a high surrogate followed by a low one (the limit still counts code units, so the message may be 499 units long); a lone high surrogate already in the input is kept on purpose; a plain `.slice` turns the emoji-straddle test red.
 
 **Original status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduced. The
 guarded-then-unguarded inconsistency behind (1) is visible directly:
@@ -38085,7 +38085,7 @@ Size S.
 
 ## 494. TypeScript 7 has been published and nothing has been run against it — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — accepted by owner ruling: watch upstream: TypeScript 7 lacks the compiler API the repo's source parsers import and `next build` fails on it, and Dependabot ignores TypeScript majors until both support 7.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: watch upstream: TypeScript 7 lacks the compiler API the repo's source parsers import and `next build` fails on it, and Dependabot ignores TypeScript majors until both support 7. The comment beside that ignore in `.github/dependabot.yml` now states the lift condition and is the only tracker for it.
 
 **Original status:** OPEN — assessed 2026-09-25 on Dependabot PR #413, closed unmerged. TS 7 is the native compiler, and
 its npm package no longer ships the JavaScript compiler API that `src/test/strip-comments.ts`,
