@@ -10,13 +10,6 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
-## [1.15.1] - 2026-10-03 "Cornwell"
-
-A patch release for Jira sync. Switching project while a sync or a conflict resolution is still
-running no longer writes the previous project's tasks into the new one, sync and resolution can
-no longer run at the same time, and the sync buttons show progress while the Jira module
-downloads.
-
 ### Fixed
 
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
