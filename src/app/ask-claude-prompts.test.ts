@@ -54,8 +54,15 @@ describe("ask-claude-prompts", () => {
 
   // Dead prompts are the failure this feature exists to remove: a chip that
   // asks a question no tool can answer.
-  it("has no chips for the views whose read tools are deferred", () => {
+  it("has no chip for timelog, whose read tool is deferred", () => {
     expect(ASK_CLAUDE_PROMPTS.timelog).toBeUndefined();
+  });
+
+  // Not a capability gap: `search_history` shipped and VIEW_AI_SCOPE.activity
+  // says so, so a chip here would satisfy the "tool hints or a digest" test
+  // below. Its absence is a product choice, recorded so nobody infers a missing
+  // tool. If the Activity view gains a chip, delete this test.
+  it("has no activity chip — a product choice, not a missing read tool (§233)", () => {
     expect(ASK_CLAUDE_PROMPTS.activity).toBeUndefined();
   });
 

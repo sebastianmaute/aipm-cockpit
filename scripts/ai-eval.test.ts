@@ -40,7 +40,7 @@ const { priorImportFlag } = vi.hoisted(() => {
   process.env.AI_EVAL_IMPORT = "1";
   return { priorImportFlag: prior };
 });
-import { runEval, parseAnthropicBody, anthropicErrorMessage } from "./ai-eval.ts";
+import { runEval, parseAnthropicBody, anthropicErrorMessage, summariseResponseShape } from "./ai-eval.ts";
 
 // ★★ Put the worker's env back. This is HYGIENE, not a fix for a live leak,
 //    and the first two versions of this comment each asserted a mechanism
@@ -791,6 +791,48 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
     expect(reply.blockTypes).toEqual({ "(untyped)": 2, text: 1 });
   });
 
+  it("tolerates null, undefined and non-object entries in content (§455)", () => {
+    // Arrange — the census guards `b?.type`; the text and tool_use filters
+    //   must be as defensive, or one hostile entry throws and the run exits 2.
+    const body = bodyWithBlocks([null, undefined, 7, "str", { type: "text", text: "a" }, { type: "tool_use" }]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert — each non-object entry is counted as (untyped), as the census does.
+    expect(reply.blockTypes).toEqual({ "(untyped)": 4, text: 1, tool_use: 1 });
+    expect(reply.text).toBe("a");
+    expect(reply.toolUses).toBe(1);
+  });
+
+  it("counts prototype-named block types exactly (§455)", () => {
+    // Arrange — on a plain object literal "__proto__" sets the prototype and
+    //   is never recorded; "constructor"/"toString" would read an inherited
+    //   function as the count.
+    const body = bodyWithBlocks([
+      { type: "__proto__" },
+      { type: "__proto__" },
+      { type: "constructor" },
+      { type: "toString" },
+      { type: "toString" },
+      { type: "toString" },
+      { type: "text", text: "a" },
+    ]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(Object.keys(reply.blockTypes).sort()).toEqual(["__proto__", "constructor", "text", "toString"]);
+    expect(Object.entries(reply.blockTypes).sort()).toEqual([
+      ["__proto__", 2],
+      ["constructor", 1],
+      ["text", 1],
+      ["toString", 3],
+    ]);
+    expect(JSON.stringify(reply.blockTypes)).toBe('{"__proto__":2,"constructor":1,"toString":3,"text":1}');
+  });
+
   it("records (no blocks) when the content array is empty", () => {
     // Arrange / Act
     const reply = parseAnthropicBody(bodyWithBlocks([]));
@@ -919,6 +961,55 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
   });
 });
 
+describe("summariseResponseShape — the run-level census (§455)", () => {
+  it("counts prototype-named block types exactly across replies", () => {
+    // Arrange — the keys are the remote's own strings; on a plain object
+    //   "__proto__" is never recorded and "constructor"/"toString" read an
+    //   inherited function as the count.
+    const protoKeyed = Object.create(null) as Record<string, number>;
+    protoKeyed["__proto__"] = 2;
+    protoKeyed["constructor"] = 1;
+    protoKeyed["toString"] = 3;
+    const other = Object.create(null) as Record<string, number>;
+    other["__proto__"] = 1;
+    other["toString"] = 1;
+    other["text"] = 1;
+
+    // Act
+    const shape = summariseResponseShape([
+      { stopReason: "end_turn", blockTypes: protoKeyed },
+      { stopReason: "end_turn", blockTypes: other },
+    ]);
+
+    // Assert
+    expect(Object.entries(shape.blockTypes).sort()).toEqual([
+      ["__proto__", 3],
+      ["constructor", 1],
+      ["text", 1],
+      ["toString", 4],
+    ]);
+  });
+
+  it("counts prototype-named stop reasons exactly", () => {
+    // Arrange / Act
+    const shape = summariseResponseShape([
+      { stopReason: "__proto__" },
+      { stopReason: "__proto__" },
+      { stopReason: "toString" },
+      { stopReason: "end_turn" },
+      {},
+    ]);
+
+    // Assert
+    expect(Object.entries(shape.stopReasons).sort()).toEqual([
+      ["(unrecorded)", 1],
+      ["__proto__", 2],
+      ["end_turn", 1],
+      ["toString", 1],
+    ]);
+  });
+});
+
 // ★★ MUTATION-PROVED 2026-09-10, same method as the ledger above:
 //      `body.slice(0, ERROR_DETAIL_LIMIT)` -> `body.slice(0, 400)` kills 2
 //      drop the message template's status segment                kills 2
@@ -954,5 +1045,36 @@ describe("anthropicErrorMessage — the bounded failure detail", () => {
     // Assert
     expect(atBound).toBe(overBound);
     expect(atBound.endsWith("y".repeat(500))).toBe(true);
+  });
+
+  it("never ends on a lone high surrogate when an emoji straddles the bound (§455)", () => {
+    // Arrange — 499 units then a surrogate pair: unit 500 is the HIGH half.
+    const body = "x".repeat(499) + String.fromCodePoint(128512) + "tail";
+
+    // Act
+    const msg = anthropicErrorMessage(500, body);
+
+    // Assert — the limit counts UTF-16 code units, so the pair is dropped
+    //   whole rather than split.
+    const last = msg.charCodeAt(msg.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+    expect(msg).toBe(`anthropic 500: ${"x".repeat(499)}`);
+  });
+
+  it("keeps a lone high surrogate the input already carried at the bound (§455)", () => {
+    // Arrange — unit 500 is a high surrogate NOT followed by a low one, so no
+    //   pair is being split and nothing is backed off.
+    const body = "x".repeat(499) + "\ud83d" + "tail";
+
+    // Act / Assert
+    expect(anthropicErrorMessage(500, body)).toBe(`anthropic 500: ${"x".repeat(499)}\ud83d`);
+  });
+
+  it("keeps a whole emoji that fits inside the bound (§455)", () => {
+    // Arrange — the pair occupies units 499-500, so it fits exactly.
+    const body = "x".repeat(498) + String.fromCodePoint(128512) + "tail";
+
+    // Act / Assert
+    expect(anthropicErrorMessage(500, body)).toBe(`anthropic 500: ${"x".repeat(498)}${String.fromCodePoint(128512)}`);
   });
 });

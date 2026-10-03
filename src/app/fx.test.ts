@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur, countUnresolvedBuckets, planCurrencyPerEur } from "./fx";
-import type { FxRates, BudgetBucket } from "./types";
+import { isBudgetCurrency, type FxRates, type BudgetBucket } from "./types";
 
 const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08, GBP: 0.85 } };
 const bucket = (extra: Partial<BudgetBucket> = {}): BudgetBucket =>
@@ -78,8 +78,8 @@ describe("resolveRateSource", () => {
 // `resolveRateSource` so it cannot disagree with the per-bucket marker about
 // which buckets qualify.
 describe("countUnresolvedBuckets", () => {
-  // Missing GBP (unlike the module-level `fx`, which caches all three
-  // supported currencies) — the union is EUR/USD/GBP only, so this is the
+  // Missing GBP and INR (unlike the module-level `fx`, which caches the
+  // supported currencies) — the union is EUR/USD/GBP/INR, so this is the
   // one table that can produce "cached" AND "unresolved" side by side.
   const partialFx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08 } };
 
@@ -124,6 +124,12 @@ describe("conversion", () => {
   });
   test("currencyToEur divides by the rate", () => {
     expect(currencyToEur(108, bucket(), fx)).toBeCloseTo(100, 5);
+  });
+  test("INR is a supported currency and converts at its cached ECB rate (§477)", () => {
+    const inrFx: FxRates = { ...fx, rates: { ...fx.rates, INR: 100 } };
+    const inr = bucket({ currency: "INR" });
+    expect(isBudgetCurrency("INR")).toBe(true);
+    expect(currencyToEur(5000, inr, inrFx)).toBeCloseTo(50, 5);
   });
   test("both conversions are the identity on an EUR bucket with a stale positive override", () => {
     // `toBe`, not `toBeCloseTo` — identity is the claim, and a rate of 1.1 would

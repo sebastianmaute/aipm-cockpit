@@ -17,7 +17,7 @@ describe("SidebarFooter", () => {
   it("renders the storage description (theme control moved to Settings → Appearance)", () => {
     render(<SidebarFooter {...base} />);
     expect(screen.getByText("Local file: lop.json")).toBeTruthy();
-    expect(screen.queryByText("Theme")).toBeNull();
+    expect(screen.queryByText(t("en-US", "theme"))).toBeNull();
   });
 
   it("shows the account name and a sign-out button when signed in", () => {
@@ -75,15 +75,15 @@ describe("SidebarFooter", () => {
     // nothing. Everything below pins that the door exists and opens.
     it("is absent while saving is running", () => {
       render(<SidebarFooter {...base} />);
-      expect(screen.queryByRole("button", { name: /saving paused/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "storageSavingPausedAction") })).toBeNull();
     });
 
     it("names the paused state in TEXT, not by colour alone, and re-opens the notice", () => {
       const onRestoreSavingNotice = vi.fn();
       render(<SidebarFooter {...base} savingPaused onRestoreSavingNotice={onRestoreSavingNotice} />);
-      const btn = screen.getByRole("button", { name: /saving paused/i });
+      const btn = screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") });
       // WCAG 1.4.1: an amber dot alone would be the only cue.
-      expect(btn.textContent).toMatch(/saving paused/i);
+      expect(btn.textContent).toContain(t("en-US", "storageSavingPaused"));
       fireEvent.click(btn);
       expect(onRestoreSavingNotice).toHaveBeenCalledTimes(1);
     });
@@ -95,7 +95,7 @@ describe("SidebarFooter", () => {
       render(<SidebarFooter {...base} collapsed savingPaused onRestoreSavingNotice={onRestoreSavingNotice} />);
       // Control: the rest of the footer really is suppressed here.
       expect(screen.queryByText("Local file: lop.json")).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: /saving paused/i }));
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
       expect(onRestoreSavingNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -106,13 +106,13 @@ describe("SidebarFooter", () => {
       // ResourcePicker) — and the dot's contrast on the dark sidebar is a
       // question jsdom cannot answer. A glyph survives both.
       render(<SidebarFooter {...base} collapsed savingPaused onRestoreSavingNotice={vi.fn()} />);
-      expect(screen.getByRole("button", { name: /saving paused/i }).textContent).toContain("⏸");
+      expect(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }).textContent).toContain("⏸");
     });
 
     it("renders no dead control when there is nowhere to go back to", () => {
       // A button with no handler would draw a false affordance.
       render(<SidebarFooter {...base} savingPaused />);
-      expect(screen.queryByRole("button", { name: /saving paused/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "storageSavingPausedAction") })).toBeNull();
     });
   });
 });

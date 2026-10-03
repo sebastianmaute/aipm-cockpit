@@ -245,13 +245,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§3](#3-optimize_wbs-never-built--owed-from-r4) | `optimize_wbs` never built — owed from R4 | R4 (0.201.0) | ? | open |
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
-| [§6](#6-undo-residuals-audit-11--optional-unscheduled) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | open |
+| [§6](#6-undo-residuals-audit-11--optional-unscheduled--closed-2026-10-03) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | **CLOSED** 2026-10-03 |
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--closed-2026-10-03) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | **CLOSED** 2026-10-03 |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--closed-2026-10-02) | Keyboard move has no preview — band and day grid both | R5 (0.202.2) | M | **CLOSED** 2026-10-02 |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
-| [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
+| [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--closed-2026-10-03) | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | **CLOSED** 2026-10-03 |
 | [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
@@ -270,7 +270,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--closed-2026-10-02) | `RaidItem` has NO storage-side length cap on any path | pre-existing, found 0.210.0 | M | **CLOSED** 2026-10-02 |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--closed-2026-10-02) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link | pre-existing, found 0.210.0 | S–M | **CLOSED** 2026-10-02 |
-| [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
+| [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--closed-2026-10-03) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state | first seen 0.205.0 | M | **CLOSED** 2026-10-03 |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--closed-2026-10-02) | `text-ui-dark-blue` without a mode-appropriate companion | pre-existing, counted 0.211.0 | M–L | **CLOSED** 2026-10-02 |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open |
 | [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
@@ -282,7 +282,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
-| [§51](#51-a-second-load-sensitive-test--use-tasks-dedup-on-confirm--open-narrower-the-recorded-symptom-cannot-recur-the-mechanism-is-unreproduced) | A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced | found 0.211.1 (main #5418) | S–M | open |
+| [§51](#51-a-second-load-sensitive-test--use-tasks-dedup-on-confirm--closed-2026-10-03) | A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" | found 0.211.1 (main #5418) | S–M | **CLOSED** 2026-10-03 |
 | [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--closed-2026-10-02) | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | **CLOSED** 2026-10-02 |
 | [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--closed-2026-09-10-routed-around) | ~~ESLint 10 is blocked upstream by `eslint-plugin-react`~~ | 0.211.2 | — | **CLOSED** 2026-09-10, routed around |
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
@@ -292,7 +292,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) | post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--closed-2026-10-03) | Three residuals from the `use-resource-planner` split, plus one pointer | post-0.212.0 | S | **CLOSED** 2026-10-03 |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--closed-2026-09-30) | Two reference-data handlers have no production consumer | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-09-30 |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
@@ -348,7 +348,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
 | [§115](#115-one-of-the-two-sanitizers-admits-arbitrary-data---closed-2026-08-13-by-140) | One of the two sanitizers admits arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | **CLOSED** 2026-08-13 by §140 |
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
-| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
+| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-pinned-by-a-guard-test--closed-2026-10-03) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) pinned by a guard test | measured 2026-08-08 during the S3a review, all three inert today | M | **CLOSED** 2026-10-03 |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--closed-2026-09-01) | ~~`<a href>` is dropped by both OOXML renderers~~ | pre-existing, confirmed 2026-08-08 during the S3a review | S | **CLOSED** 2026-09-01 |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
@@ -361,8 +361,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§127](#127-two-of-the-six-ai-trigger-hooks-never-abort-on-unmount--closed-2026-08-08) | Two of the six AI trigger hooks never abort on unmount | split out of §121 on 2026-08-08 | S each | **CLOSED** 2026-08-08 |
 | [§128](#128-use-timelog-syncts-clears-busy-from-a-superseded-run--closed-2026-08-31) | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | **CLOSED** 2026-08-31 |
 | [§129](#129-six-of-the-eight-richtexteditor-call-sites-import-it-statically-so-tiptap-ssrs-and-ships-in-the-initial-bundle--closed-2026-08-19) | Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle | — | — | **CLOSED** 2026-08-19 |
-| [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--open-accepted-measured) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured | — | — | open |
-| [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
+| [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--closed-2026-10-03) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed | — | — | **CLOSED** 2026-10-03 |
+| [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--closed-2026-10-03) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 | — | — | **CLOSED** 2026-10-03 |
 | [§132](#132-a-multi-target-successor-fan-out-labels-as-edited-n-items-with-no-entity-word--closed-2026-10-02) | A multi-target successor fan-out labels as "Edited N item(s)" with no entity word | — | — | **CLOSED** 2026-10-02 |
 | [§133](#133-a-redo-created-dangling-dependency-is-repaired-on-two-of-six-backends--closed-2026-10-02) | A redo-created dangling dependency is repaired on two of six backends | — | — | **CLOSED** 2026-10-02 |
 | [§134](#134-one-capturecomposite-caller-flags-no-primary-and-rides-the-positional-fallback--closed-2026-10-02) | ONE `captureComposite` caller flags no primary and rides the positional fallback | — | — | **CLOSED** 2026-10-02 |
@@ -418,7 +418,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
 | [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
-| [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
+| [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned--closed-2026-10-03) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | **CLOSED** 2026-10-03 |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes--closed-2026-10-02) | A block refusal notice outlives the attempt it describes | — | — | **CLOSED** 2026-10-02 |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
@@ -426,15 +426,15 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
 | [§194](#194-the-lazy-editors-queue-has-no-strictmode-coverage-and-the-test-that-would-give-it-must-assert-the-attach-sequence--closed-2026-08-20) | The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE | — | — | **CLOSED** 2026-08-20 |
-| [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | open |
-| [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
+| [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression--closed-2026-10-03) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | **CLOSED** 2026-10-03 |
+| [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture--closed-2026-10-03) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | **CLOSED** 2026-10-03 |
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false--closed-2026-09-27) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | **CLOSED** 2026-09-27 |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time--closed-2026-10-02) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | **CLOSED** 2026-10-02 |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce--closed-2026-10-02) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | **CLOSED** 2026-10-02 |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
-| [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
+| [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate--closed-2026-10-03) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | **CLOSED** 2026-10-03 |
 | [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | **CLOSED** 2026-09-14 |
 | [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | open |
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
@@ -456,7 +456,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck--closed-2026-10-02) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | **CLOSED** 2026-10-02 |
 | [§223](#223-the-asset-mime-allowlist-is-hand-restated-at-every-consumer-with-no-shared-predicate--closed-2026-08-23) | The asset mime allowlist is hand-restated at every consumer, with no shared predicate | — | — | **CLOSED** 2026-08-23 |
 | [§224](#224-timelog-bookings-are-fetched-only-on-demand--no-interval-job-and-no-delta-notice) | Timelog bookings are fetched only on demand — no interval job, and no delta notice | — | — | open |
-| [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | open |
+| [§225](#225-attachassetimages-builds-a-typeless-blob-when-no-metadata-row-matches-leaving-the-mime-to-content-sniffing--closed-2026-10-03) | `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing | — | — | **CLOSED** 2026-10-03 |
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
 | [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair--closed-2026-10-02) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | **CLOSED** 2026-10-02 |
 | [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load--closed-2026-10-02) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | **CLOSED** 2026-10-02 |
@@ -464,7 +464,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
-| [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
+| [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale--closed-2026-10-03) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | **CLOSED** 2026-10-03 |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
 | [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | **CLOSED** 2026-08-30 |
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
@@ -483,7 +483,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html--closed-2026-09-27) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-09-27 |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then---closed-2026-08-25-02601) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-25 (0.260.1) |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path--closed-2026-08-28) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-08-28 |
-| [§252](#252-all-four-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
+| [§252](#252-all-four-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally--closed-2026-10-03) | All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-10-03 |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id--closed-2026-08-28) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-28 |
 | [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely--closed-2026-08-27) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices--closed-2026-08-27) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
@@ -494,7 +494,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§260](#260-the-turso-pipeline-timeout-stopped-at-the-headers-so-a-stalled-response-body-hung-every-caller--closed-2026-08-27) | The Turso pipeline timeout stopped at the headers, so a stalled response BODY hung every caller | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
-| [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
+| [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design--closed-2026-10-03) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-10-03 |
 | [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary--closed-2026-09-30) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | **CLOSED** 2026-09-30 |
 | [§265](#265-stakeholderrecipientinput-has-no-production-caller--closed-2026-09-30) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-09-30 |
 | [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
@@ -537,11 +537,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-27) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-27 |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
-| [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
+| [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--closed-2026-10-03) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | **CLOSED** 2026-10-03 |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31, not a defect |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 | [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions--closed-2026-09-01) | ~~`projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions~~ | — | — | **CLOSED** 2026-09-01 |
-| [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
+| [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only--closed-2026-10-03) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | **CLOSED** 2026-10-03 |
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31, 0.272.0 |
@@ -594,7 +594,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--closed-2026-10-02) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-10-02 |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
-| [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--closed-2026-10-03) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-10-03 |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--closed-2026-09-25) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | closed |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--closed-2026-09-21) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-21 |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--closed-2026-09-25) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | closed |
@@ -637,7 +637,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them--closed-2026-09-08) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-08 |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--closed-2026-09-07) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | **CLOSED** 2026-09-07 |
-| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
+| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--closed-2026-10-03) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | **CLOSED** 2026-10-03 |
 | [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--closed-2026-09-25) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | closed |
 | [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--closed-2026-10-03) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | **CLOSED** 2026-10-03 |
 | [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
@@ -672,7 +672,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§440](#440-a-create-card-discloses-a-title-and-links-only-and-has-no-channel-to-disclose-a-refusal--closed-2026-10-02) | A create card discloses a title and links only, and has no channel to disclose a refusal | found 2026-09-08 while building §439's create-path relation | M — a product change: enumerate the create, give the card a refusal channel, and give the sweep a refused-a-valid-probe kind in the same change so §436 keeps a detector | **CLOSED** 2026-10-02 |
 | [§441](#441-relation-a-cannot-see-a-trespass-that-destroys-rather-than-stores-and-the-property-that-blinds-it-is-the-one-that-keeps-it-exemption-free--open) | Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free | found 2026-09-08 by acceptance mutant 2 of the offered-surface slice, which SURVIVED | M-L — a design call: movement clause plus exemptions, or leave it to the write-path sweep; typed probes for the listed fields | open |
 | [§442](#442-changedecisiondate-is-offered-on-create-unconditionally-discarded-and-disclosed-nowhere--closed-2026-09-09) | `change.decisionDate` is offered on create, unconditionally discarded, and disclosed nowhere | found 2026-09-08 by the create arm of the offered-surface sweep's Relation B | S — closed by WITHDRAWING the field; the title's "unconditionally" was itself false, and the body says so | **CLOSED** 2026-09-09 |
-| [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--open) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | open |
+| [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--closed-2026-10-03) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | **CLOSED** 2026-10-03 |
 | [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `5383186a` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
 | [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach | found 2026-09-09 while closing §442, on a branch that forked before `c5d528e5`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
 | [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--closed-2026-10-02) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | **CLOSED** 2026-10-02 |
@@ -682,7 +682,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
 | [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--closed-2026-09-28) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | **CLOSED** 2026-09-28 |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
-| [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
+| [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--closed-2026-10-03) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **CLOSED** 2026-10-03 |
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
 | [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--closed-2026-09-27) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **CLOSED** 2026-09-27 |
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
@@ -704,9 +704,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
-| [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
+| [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--closed-2026-10-03) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | **CLOSED** 2026-10-03 |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
-| [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
+| [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--closed-2026-10-03) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | **CLOSED** 2026-10-03 |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--closed-2026-09-27) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | **CLOSED** 2026-09-27 |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
@@ -716,12 +716,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
-| [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
+| [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--closed-2026-10-03) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | **CLOSED** 2026-10-03 |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
 | [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
 | [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
 | [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--closed-2026-09-25) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | closed |
-| [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--open) | TypeScript 7 has been published and nothing has been run against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | open |
+| [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--closed-2026-10-03) | TypeScript 7 has been published and nothing has been run against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | **CLOSED** 2026-10-03 |
 | [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--open) | jsdom 30 has been published and the layout-stub suites have not been checked against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | open |
 | [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--closed-2026-09-25) | @testing-library/jest-dom 7 has been published and is unassessed | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | closed |
 | [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--closed-2026-09-25) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | closed |
@@ -749,14 +749,14 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
 | [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
 | [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
-| [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--open) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | open |
+| [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--closed-2026-10-03) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | **CLOSED** 2026-10-03 |
 | [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--open) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | open |
-| [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--open) | The beta programme with UK testers and its feedback route into the backlog are not set up | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | open |
-| [§525](#525-a-recurring-two-weekly-follow-up-with-the-demo-stakeholders-is-not-yet-scheduled--open) | A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-3), GitLab #69; mirrored into the register 2026-09-13 | unestimated (process item) — a calendar series | open |
-| [§526](#526-the-initiative-board-entry-and-the-demo-day-presentation-are-not-yet-scheduled--open) | The initiative-board entry and the Demo Day presentation are not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-4), GitLab #70; mirrored into the register 2026-09-13 | unestimated (process item) — organisational only | open |
+| [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--closed-2026-10-03) | The beta programme with UK testers and its feedback route into the backlog are not set up | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | **CLOSED** 2026-10-03 |
+| [§525](#525-a-recurring-two-weekly-follow-up-with-the-demo-stakeholders-is-not-yet-scheduled--closed-2026-10-03) | A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-3), GitLab #69; mirrored into the register 2026-09-13 | unestimated (process item) — a calendar series | **CLOSED** 2026-10-03 |
+| [§526](#526-the-initiative-board-entry-and-the-demo-day-presentation-are-not-yet-scheduled--closed-2026-10-03) | The initiative-board entry and the Demo Day presentation are not yet scheduled | AI PM Cockpit demo 2026-09-11 (P-4), GitLab #70; mirrored into the register 2026-09-13 | unestimated (process item) — organisational only | **CLOSED** 2026-10-03 |
 | [§527](#527-there-are-no-weekly-user-facing-release-notes-and-nothing-makes-a-user-visible-change-carry-a-changelog-entry--open) | There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry | AI PM Cockpit demo 2026-09-11 (P-5), GitLab #71; mirrored into the register 2026-09-13 | S–M — a release-notes cadence, optionally the changelog excerpt in the GitLab Release description | open |
-| [§528](#528-roadmap-specs-and-follow-ups-still-live-in-markdown-rather-than-gitlab-issues-with-no-issue-templates-or-prioritisation-rules--open) | Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules | AI PM Cockpit demo 2026-09-11 (P-6), GitLab #72; mirrored into the register 2026-09-13 | M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING | open |
-| [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
+| [§528](#528-roadmap-specs-and-follow-ups-still-live-in-markdown-rather-than-gitlab-issues-with-no-issue-templates-or-prioritisation-rules--closed-2026-10-03) | Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules | AI PM Cockpit demo 2026-09-11 (P-6), GitLab #72; mirrored into the register 2026-09-13 | M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING | **CLOSED** 2026-10-03 |
+| [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--closed-2026-10-03) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | **CLOSED** 2026-10-03 |
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `bf186a81` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
@@ -821,11 +821,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--closed-2026-09-19) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | **CLOSED** 2026-09-19 |
 | [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19) | The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load | found 2026-09-19 reading the test's own comment, no failure observed; GitLab #376 | S — a load-independent assertion, or evidence the ceiling holds under CI load | **CLOSED** 2026-09-19 |
 | [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
-| [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
+| [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--closed-2026-10-03) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | **CLOSED** 2026-10-03 |
 | [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
 | [§596](#596-the-ai-chat-tool-loop-runs-its-writes-into-whatever-project-is-in-scope-when-each-tools-turn-comes-and-it-is-unconditional-on-unmount-rather-than-a-race--closed-2026-09-20) | The AI chat tool loop runs its writes into whatever project is in scope when each tool's turn comes, and it is unconditional on unmount rather than a race | recorded as an accepted residual by the 1.12.4 MR in terms that understated it; measured and closed 2026-09-20 on `fix/load-save-residuals` | M — cancel on a swap-driven unmount, and guard the write per tool on the scope epoch | **CLOSED** 2026-09-20 (one named residual: a classic-header backend rebuild still loses an in-flight turn's write) |
 | [§597](#597-the-scaled-sample-workspaces-carried-the-pre-577-curated-budget-variance-insight-for-two-releases-because-no-test-reads-them--closed-2026-09-20) | The scaled sample workspaces carried the pre-§577 curated budget-variance insight for two releases, because no test reads them | found 2026-09-20 reading the three samples across revisions; still live on `origin/main` when filed, closed incidentally by `e879d2ac6` | S — regenerate; the CAUSE (nothing reads them) stays open under §598 | **CLOSED** 2026-09-20 |
-| [§598](#598-the-577-closure-ran-no-repo-wide-sweep-for-the-tests-its-detector-change-invalidated-and-curated-sample-data-is-one-of-the-things-a-detector-change-moves--open) | The §577 closure ran no repo-wide sweep for the tests its detector change invalidated, and curated sample data is one of the things a detector change moves | established 2026-09-20 from pipeline 7271's failure and the commit order; GitLab #379 | S — name the curated-fixture class in the detector-change checklist | open |
+| [§598](#598-the-577-closure-ran-no-repo-wide-sweep-for-the-tests-its-detector-change-invalidated-and-curated-sample-data-is-one-of-the-things-a-detector-change-moves--closed-2026-10-03) | The §577 closure ran no repo-wide sweep for the tests its detector change invalidated, and curated sample data is one of the things a detector change moves | established 2026-09-20 from pipeline 7271's failure and the commit order; GitLab #379 | S — name the curated-fixture class in the detector-change checklist | **CLOSED** 2026-10-03 |
 | [§599](#599-the-curated-sample-insights-severity-is-compared-by-nothing-so-it-can-drift-from-the-detector-exactly-as-variancepct-did--closed-2026-10-01) | The curated sample insight's `severity` is compared by nothing, so it can drift from the detector exactly as `variancePct` did | found 2026-09-20 reading `sample-workspace-budget.test.ts` against the detector; no drift today; GitLab #380 | S — widen the assertion to the fields the upsert refreshes, and prove it can fail | **CLOSED** 2026-10-01 |
 | [§600](#600-the-staged-proposal-apply-path-has-no-scope-guard-and-it-is-the-majority-path-not-the-exception--closed-2026-09-27) | The STAGED proposal-apply path has no scope guard, and it is the majority path, not the exception | — | — | **CLOSED** 2026-09-27 |
 | [§601](#601-a-structurally-valid-workspace-file-that-holds-no-records-defeats-the-empty-load-data-loss-guard-because-decoding-seeds-reference-data-that-the-guard-counts--closed-2026-09-28) | A structurally valid workspace file that holds no records defeats the empty-load data-loss guard, because decoding seeds reference data that the guard counts | found 2026-09-20 alongside §590, read from code with both bounds checked; deliberately narrower than first stated; GitLab #382 | S — decide per call site which question is asked, as §590 had to | **CLOSED** 2026-09-28 |
@@ -839,7 +839,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
-| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
+| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--closed-2026-10-03) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | **CLOSED** 2026-10-03 |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
@@ -1180,11 +1180,11 @@ row that must exist), column resize, and the axe scan. Own batch, carefully.
 
 ---
 
-## 6. Undo residuals (audit #11) — optional, unscheduled
+## 6. Undo residuals (audit #11) — optional, unscheduled — CLOSED 2026-10-03
 
-**Status:** open — a set of optional, unscheduled undo residuals. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the undo residuals (project delete, persisted cross-reload undo, the 25-op retention) are optional and unscheduled by design.
 
-**Work item:** #88
+**Original status:** open — a set of optional, unscheduled undo residuals. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 #11's large part shipped (0.173.0 "Jordan" + 0.174.0 "Egan"): a backend-agnostic in-memory
 undo stack covering all 11 single-entity deletes, bulk edit, clear-all, bulk delete and cascade
@@ -1526,11 +1526,11 @@ request and is not the same condition.
 
 ---
 
-## 12. `list_allocations` dumps the grid; should be a scoped query — open, design
+## 12. `list_allocations` dumps the grid; should be a scoped query — CLOSED 2026-10-03
 
-**Status:** open — an AI tool that dumps the grid instead of scoping a query. Reproduced 2026-08-28 by `grep -n "list_allocations" src/app/chat-tool-defs.ts`.
+**Status:** CLOSED 2026-10-03 — fixed: `list_allocations` now takes optional `resourceIds` and `periodFrom`/`periodTo` (period keys of the plan's granularity, or YYYY-MM-DD dates), which `buildAllocationsSnapshot` validates coerce-or-drop and applies BEFORE the cell cap, so a narrow question gets the whole cap to itself; a scoped result echoes what was applied (`unknownResourceIds`, `droppedResourceIdCount`, `ignored`; long id lists capped with a count), an empty or malformed `resourceIds` is named in `ignored` rather than widening silently, an argument-less call returns the old output unchanged, and the per-resource `truncated` flag is kept. `minPercent` was not added. Each of the four hops from tool call to builder is pinned, and each pin was mutation-checked (dropping `scope` there turns it red): the handler in `chat-tools.test.ts`, the dispatcher hook in `use-chat-dispatcher.test.tsx` (driven through `runTool`), the task-manager getter via the extracted `makeAllocationsSnapshotGetter`, and the builder, both in `alloc-plan.test.ts`. The getter's call site in `task-manager.tsx` is not exercised by any test. (Corrected 2026-10-03: the first closure said "pinned" when only the handler and the builder were.)
 
-**Work item:** #91
+**Original status:** open — an AI tool that dumps the grid instead of scoping a query. Reproduced 2026-08-28 by `grep -n "list_allocations" src/app/chat-tool-defs.ts`.
 
 The tool takes **no arguments at all** — `input_schema: { type: "object", properties: {} }`
 (`chat-tool-defs.ts:368-372`) — and returns the whole planning grid: plan window, granularity, every
@@ -2700,11 +2700,11 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
+## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — CLOSED 2026-10-03
 
-**Status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — closed on CI history; the causation stays unproved. The fix (`6d2ab195f`, wait for `toBeEnabled` before the click) is in every `main` push run since the GitHub cut-over: `gh run list --workflow ci.yml --branch main --event push --limit 100` returns 86 runs, 2026-09-24T09:54Z (first sha `2f5ccd28c`, a descendant of the fix) to 2026-10-03T07:32Z (last sha `841a8a83e`), and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs` shows the `unit` job green in all 86 and `unit-shuffled` green in 84. The two red `unit-shuffled` runs (36130553265 on 2026-09-25, 36257686607 on 2026-09-26) failed in `dashboard-narrative.test.tsx`, not in `timelog-panel.test.tsx`. That is eight recorded failures before the fix against none in 86 runs after it.
 
-**Work item:** #102
+**Original status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -3660,11 +3660,11 @@ write-through field list — is recorded separately as §177, not folded in here
 
 ---
 
-## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced
+## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — CLOSED 2026-10-03
 
-**Status:** open — a load-sensitive test whose recorded symptom cannot recur and whose mechanism is unreproduced. Last asserted 2026-08-20; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the `use-tasks-dedup` test's recorded symptom cannot recur and its load-sensitive mechanism stayed unreproduced.
 
-**Work item:** #110
+**Original status:** open — a load-sensitive test whose recorded symptom cannot recur and whose mechanism is unreproduced. Last asserted 2026-08-20; never machine-verified by a committed probe.
 
 `use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
 the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
@@ -4789,11 +4789,11 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c)
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — CLOSED 2026-10-03
 
-**Status:** open, narrowed 2026-10-02. (d) is DONE by owner decision: the four RAID handlers moved, bodies and dependency arrays unchanged, into `use-raid-items.ts` (`useRaidItems`), which the planner calls and spreads into its return, so every consumer keeps its names. `handleCreateMitigationTaskFromRaid` stayed in the planner because it writes tasks. That move is the "third extraction" (c) predicted: `npm run dup:check` now reports one 10-line, 69-token clone between `use-raid-items.ts` and `use-resource-planner.ts` — the `captureRef`/`allowDestructiveRef` pair — and the gate still passes on its total line percentage (1.17% on 2026-10-02). (c) stays open. Previously: open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — fixed (c) by owner decision: `use-resource-planner.ts`, `use-raid-items.ts`, `use-reference-data.ts` and `use-resource-directory.ts` no longer hand-roll a `useRef(args.x)` + sync-effect pair per arg; each mirrors its whole args bag into ONE visible `argsRef` refreshed after every commit (the shape `use-insight-recommend.ts` already used), so exhaustive-deps still sees a `useRef` and no dependency array or handler name changed. A shared latest-ref helper hook was rejected because the rule recognises only a literal `useRef` callee. A new test in `use-resource-planner.test.tsx` re-renders with a fresh `logActivity` and drives one handler per hook; dropping any one hook's mirror turns it red.
 
-**Work item:** #115
+**Original status:** open, narrowed 2026-10-02. (d) is DONE by owner decision: the four RAID handlers moved, bodies and dependency arrays unchanged, into `use-raid-items.ts` (`useRaidItems`), which the planner calls and spreads into its return, so every consumer keeps its names. `handleCreateMitigationTaskFromRaid` stayed in the planner because it writes tasks. That move is the "third extraction" (c) predicted: `npm run dup:check` now reports one 10-line, 69-token clone between `use-raid-items.ts` and `use-resource-planner.ts` — the `captureRef`/`allowDestructiveRef` pair — and the gate still passes on its total line percentage (1.17% on 2026-10-02). (c) stays open. Previously: open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Left deliberately by §2's move-only extractions. None blocks anything; grouped as one entry because
 they share a cause and would be fixed in one pass.
@@ -9757,11 +9757,11 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ---
 
-## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open
+## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) pinned by a guard test — CLOSED 2026-10-03
 
-**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
+**Status:** CLOSED 2026-10-03 — (a) and (b) were already fixed; (c) was an inert prerequisite (no `src` on the document allow-list), now pinned: a `sanitize-html.test.ts` test feeds `data:image/svg+xml`, `data:text/html` and `data:image/png` image sources through `sanitizeDocumentHtml` and asserts no `src=` survives while `data-asset-id` does. Mutation-checked: adding `src` to `DOCUMENT_ALLOWED_ATTR` turns it red (and the existing https-src test with it); restored. Whoever ships image `src` must constrain `DATA_URI_TAGS`/`FORBID_ATTR` and will have to change that test deliberately. The commit message of `539cd4ce9` still says the mutation check was pending; this closure supersedes it.
 
-**Work item:** #145
+**Original status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -10958,11 +10958,11 @@ its own slice rather than a rider.
 
 ---
 
-## 130. The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured
+## 130. The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — CLOSED 2026-10-03
 
-**Status:** open — a port guard that probes localhost while the killer matches any address. Reproduced 2026-08-28 by `grep -n "isPortAlreadyInUse" scripts/e2e-smoke-prod.mjs`.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the `prod-smoke` port guard probes `localhost` only while the killer matches any address, a measured limit.
 
-**Work item:** #147
+**Original status:** open — a port guard that probes localhost while the killer matches any address. Reproduced 2026-08-28 by `grep -n "isPortAlreadyInUse" scripts/e2e-smoke-prod.mjs`.
 
 **Where:** `scripts/e2e-smoke-prod.mjs` `isPortAlreadyInUse()`; the kill side is `scripts/stop-dev.mjs`.
 
@@ -11003,11 +11003,11 @@ follow is worse than no guard: the comment is what the next reader checks.
 
 ---
 
-## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured
+## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — CLOSED 2026-10-03
 
-**Status:** open — accepted, measured debt in the doc-claims ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the doc-claims ratchet proves a cited line exists but never that it is correct, which is its documented and measured ceiling.
 
-**Work item:** #148
+**Original status:** open — accepted, measured debt in the doc-claims ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
 
@@ -16064,12 +16064,12 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names only the replace rejection. `applyOps` emits the same untranslated shape for delete and move too, so three strings reach that banner and a fix mapping only replace would leave two behind. Reproduced by `grep -rn "was changed by another writer" src/app --include=*.ts`.
 
-## 187. `useDocumentTools` has no test file, and one guard there is unpinned
+## 187. `useDocumentTools` has no test file, and one guard there is unpinned — CLOSED 2026-10-03
 
-**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+**Status:** CLOSED 2026-10-03 — `src/app/use-document-tools.test.ts` now exists: with a `mutateDocuments` spy it asserts `expect` is stripped from AI `delete`, `replace` and `replaceAll` ops, and that `useDocumentEditor.commitBlock` still threads `expect` into its guarded `replace`. Mutation-checked: replacing the strip in `keepOp` with a no-op turns 3 of the 4 tests red (the `expect` key is still present); restored. The commit message of `df42ebb18` still says the mutation check was pending; this closure supersedes it.
+
+**Original status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #176
 
 ★ Correction 2026-08-21: `document_ops` never existed — `grep -rn "document_ops" src scripts e2e` finds
 nothing outside this entry. Earlier text here used that name as shorthand for the per-op item schema.
@@ -16737,11 +16737,11 @@ pending — so `strictmode.meta.test.tsx`'s COROLLARY 2 governs, not the mount-c
 rule the ★★★ cites. `wrapper: StrictMode` was used anyway, because it satisfies both
 and cannot rot into the vacuous shape if that mount timing ever changes.
 
-## 195. `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression
+## 195. `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression — CLOSED 2026-10-03
 
-**Status:** open — a permanent test gap, not a defect. The code is correct today. Reproduced 2026-08-28 by `grep -n "everFocused" src/app/rich-text-editor.tsx`.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: `appendText` reads `everFocused` before building the chain and is correct today, and no test in this repo can observe a regression, a permanent test gap rather than a defect.
 
-**Work item:** #181
+**Original status:** open — a permanent test gap, not a defect. The code is correct today. Reproduced 2026-08-28 by `grep -n "everFocused" src/app/rich-text-editor.tsx`.
 
 §192's fix reads `everFocused` into a local and only THEN builds the Tiptap chain.
 That order is load-bearing. createChain in @tiptap/core 3.x runs each command's body
@@ -16766,11 +16766,11 @@ a "write the test" follow-up. It is a gap with a named cause.
 mechanism and says not to tidy the read down into the ternary. Treat that comment as
 the guard, and do not delete it as redundant with the code.
 
-## 196. The two-routes-agree property §192 exists to establish has NO fixture
+## 196. The two-routes-agree property §192 exists to establish has NO fixture — CLOSED 2026-10-03
 
-**Status:** open — a test gap, not a defect. The behaviour is correct today. Reproduced 2026-08-28 by `grep -c "it(" src/app/rich-text-editor-lazy.queue.test.tsx`.
+**Status:** CLOSED 2026-10-03 — fixture added: `rich-text-editor-lazy.routes.test.tsx` renders two never-focused lazy editors in one test, queues an append on the first before the chunk resolves, appends live to the second after it has, and asserts identical HTML (`<p>existing appended</p>`). Mutation-checked: forcing the append position to the caret (`atCaret` true) turns it red with `<p> appendedexisting</p>` against `<p>existing appended</p>`.
 
-**Work item:** #182
+**Original status:** open — a test gap, not a defect. The behaviour is correct today. Reproduced 2026-08-28 by `grep -c "it(" src/app/rich-text-editor-lazy.queue.test.tsx`.
 
 §192's whole point is that a dictated line lands in the SAME place whether it reached the editor
 through the lazy wrapper's QUEUE (appended before the chunk resolved, replayed at attach) or LIVE
@@ -17342,11 +17342,11 @@ binary media parts of any kind. See `docs/superpowers/specs/2026-08-08-documents
 S3c-1 section ("Out of scope for S3c-1") and `docs/AGENTS/documents.md`'s "Asset images (S3c-1)"
 section for what S3c-1 did ship.
 
-## 203. The asset library is outside axe coverage, and this is unfixable at the gate
+## 203. The asset library is outside axe coverage, and this is unfixable at the gate — CLOSED 2026-10-03
 
-**Status:** open — by construction, not an oversight to close. Reproduced 2026-08-28 by `grep -rn "asset" e2e/a11y.spec.ts`.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the asset library is outside axe coverage by construction, because its Turso-gated surface is never rendered by the file-mode seed.
 
-**Work item:** #187
+**Original status:** open — by construction, not an oversight to close. Reproduced 2026-08-28 by `grep -rn "asset" e2e/a11y.spec.ts`.
 
 `AssetLibrary`'s surface is Turso-gated (`tursoConfig !== null`) and `e2e/a11y.spec.ts`'s
 `A11Y_VIEWS` scan runs against `e2e/seed.ts`'s FILE-mode seed, so the axe gate never renders this
@@ -19440,9 +19440,11 @@ grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts
 grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
 ```
 
-## 225. `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing
+## 225. `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing — CLOSED 2026-10-03
 
-**Status:** open — DELIBERATE, not an oversight. Recorded because the obvious tightening is a
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the typeless `Blob` in `attachAssetImages` is deliberate, because the obvious tightening would regress image rendering that relies on content sniffing.
+
+**Original status:** open — DELIBERATE, not an oversight. Recorded because the obvious tightening is a
 REGRESSION, and the next person to read that line will reach for it. The truthy guard MOVED in
 0.271.0 and did not change: it is now the shared `isBlockedAssetMime` (`document-asset-upload.ts`),
 the ONE definition of "this STORED mime is refused", imported by `document-asset-images.ts` (which
@@ -19455,8 +19457,6 @@ declines the render) and `asset-library.tsx` (which discloses it on the row) so 
 `isBlockedAssetMime`
 has seven importers, not two. The first Verify command no longer matches anything; grep
 `isBlockedAssetMime` instead. The truthy spelling and both pinning tests are unchanged.
-
-**Work item:** #198
 
 `attachAssetImages` (`document-asset-images.ts`) resolves every `<img data-asset-id>` in a rendered
 document by loading its bytes and minting a blob URL. Its mime lookup (`mimeFor`) is optional and can
@@ -20429,12 +20429,12 @@ written without that wait fails against the FIXED code, which reads like a live 
 
 ---
 
-## 233. `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale
+## 233. `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale — CLOSED 2026-10-03
 
-**Status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
+**Status:** CLOSED 2026-10-03 — the cheap half the entry names was taken: `ask-claude-prompts.test.ts` now asserts `timelog` alone under a title about its deferred read tool, and `activity` in its own test titled as a product choice rather than a missing tool. No chip was added; whether Activity wants one stays a product question. Checked by adding an `activity` chip temporarily: the new test and the key-list test went red; the chip was removed.
+
+**Original status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
 it, per that entry's own closing paragraph. **Severity:** low; nothing renders wrong. Reproduced 2026-08-28 by `grep -n "ASK_CLAUDE_PROMPTS" src/app/ask-claude-prompts.ts`.
-
-**Work item:** #201
 
 `ask-claude-prompts.test.ts` asserts two absences under one title:
 
@@ -22142,12 +22142,12 @@ shares an input class with it.
 
 ---
 
-## 252. All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally
+## 252. All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally — CLOSED 2026-10-03
 
-**Status:** OPEN — pre-existing, found 2026-08-25 by the differential suite added in the same
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the four `data-asset-id` patterns treating `/` as an attribute separator is a small pre-existing divergence that was deliberately not fixed.
+
+**Original status:** OPEN — pre-existing, found 2026-08-25 by the differential suite added in the same
 commit, not by review. Small, and deliberately not fixed; see below. Never machine-verified by a committed probe.
-
-**Work item:** #210
 
 **The divergence.** `/` ends an attribute value only when that value was QUOTED. After an UNQUOTED
 value it is an ordinary value character. All four patterns accept it as a separator either way, so:
@@ -22913,12 +22913,12 @@ node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8
 — and note that the remaining large block in the file has its own entry,
 [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting).
 
-## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design
+## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design — CLOSED 2026-10-03
 
-**Status:** open — deliberately excluded, not forgotten. Found 2026-08-27 while re-grounding §248
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the structured `aria-label`s in `budget-panel-totals.tsx` stay untranslated because existing tests select on them.
+
+**Original status:** open — deliberately excluded, not forgotten. Found 2026-08-27 while re-grounding §248
 during closure; recorded so a future sweep does not "complete the pattern" here. Never machine-verified by a committed probe.
-
-**Work item:** #211
 
 `` `budget-${ariaPrefix}` `` and `` `actual-${ariaPrefix}` `` (`budget-panel-totals.tsx`) are
 untranslated, structured strings — and they are QUERY HANDLES that existing tests select by
@@ -26351,9 +26351,11 @@ slices §271 names, the same trade was made earlier and separately at `178471ca`
 two-enlargements note above — so relative to §271 those really are pre-existing; §271 itself enlarged
 `documentVersions` alone.
 
-## 306. Negative test assertions matching quoted English literals go silently vacuous on a reword — open
+## 306. Negative test assertions matching quoted English literals go silently vacuous on a reword — CLOSED 2026-10-03
 
-**Status:** open — enumerated 2026-08-30 with
+**Status:** CLOSED 2026-10-03 — converted in `notifications.test.tsx` (the storage-banner suite) and `sidebar-footer.test.tsx` the in-class NEGATIVE assertions that matched a quoted UI string to derive it from `t("en-US", key)`: the alert names, the Save anyway / Overwrite / Download / Reload buttons, the Theme text, the saving-paused control, and the zero-count document-entries line. Each kept its positive companion. Probed: forcing the conflict banner to render Overwrite with no handler, and the footer's saving-paused control while saving runs, turns the converted assertions red. NOT converted, on purpose: the `Local file: lop.json` negatives (a prop the test passes in, not a UI string, so a reword cannot reach it), free-text regexes with no single string-table key, and the positive locators the entry's own rule leaves alone. No repo-wide gate was built; the entry does not ask for one.
+
+**Original status:** open — enumerated 2026-08-30 with
 `grep -rn "query[A-Za-z]*(" src/app --include=*.test.tsx --include=*.test.ts | grep -i "toBeNull\|not\." | grep '"'`
 ★★★ which is a CANDIDATE list, NOT the class, and reading it as the class is how this entry shipped
 overstated. Its last stage is a bare `grep '"'`, and `t("en-US", "key")` contains two double quotes —
@@ -26366,8 +26368,6 @@ because its pattern missed the `not.toBeInTheDocument` spelling. Anything quoted
 reader's reading wearing the authority of a measurement.
 Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
 nothing can — a vacuous negative passes, which is the entire defect.
-
-**Work item:** #230
 
 A negative assertion — `expect(screen.queryByText("…")).toBeNull()` — that matches a quoted UI
 string stops matching anything the moment that string is reworded, and then passes for the wrong
@@ -26650,12 +26650,12 @@ calls, plus an `expectRowUniqueNames` test with `requireCollisionSeed` seeding t
 share a name. The naming is now uniform across the file, which is the durable win — a single convention
 is the thing the next reader can rely on without reading both lists.
 
-## 310. §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only
+## 310. §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only — CLOSED 2026-10-03
 
-**Status:** open — dev-only, no shipped-user impact, and deliberately left unfixed for the reasons
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: §120's unmount abort suppressing the mount tick under `next dev`'s StrictMode is dev-only with no shipped-user impact.
+
+**Original status:** open — dev-only, no shipped-user impact, and deliberately left unfixed for the reasons
 below. Found 2026-08-31 reviewing `f2f98522`; never machine-verified.
-
-**Work item:** #232
 
 `f2f98522` closed
 [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31)
@@ -29766,16 +29766,16 @@ not a leak.
 
 ★ Degrades gracefully and is not urgent. Recorded because the button LOOKS like it navigates.
 
-## 363. The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row — OPEN
+## 363. The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row — CLOSED 2026-10-03
 
-**Status:** OPEN, narrowed twice — 2026-09-04 and again 2026-09-07. Filed 2026-09-04 from the §347
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: the reconcile freeze guarantee is not absolute, since `MAX_INSIGHTS` can still drop a frozen row, narrowed twice and the residue left as is.
+
+**Original status:** OPEN, narrowed twice — 2026-09-04 and again 2026-09-07. Filed 2026-09-04 from the §347
 review round. Verified by reading, 2026-09-04: `grep -n "MAX_INSIGHTS" src/app/insights/reconcile.ts`
 — the function then ended `return result.slice(0, MAX_INSIGHTS);`. Second narrowing verified by
 command, 2026-09-07: `grep -n "RESERVED_NON_GUARDRAIL\|GUARDRAIL_INSIGHT_TYPES"
 src/app/insights/insight.ts src/app/insights/reconcile.ts` returns the two constants and the
 two-pass admission that replaced that slice. The remaining residue is `never machine-verified`.
-
-**Work item:** #259
 
 An insight the caller declined to certify is carried through byte-for-byte, but it still competes for
 the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
@@ -31877,9 +31877,11 @@ dictionaries as a base/`…One` pair, which is what makes the EN/DE key-parity c
 call-site-verified keys, of which this branch converted a subset. Closing §407 says the
 `taskRowChangesBadge` badge is fixed on both its surfaces; it says nothing about the other keys.
 
-## 408. No Turso connection test exists anywhere in the repo — OPEN
+## 408. No Turso connection test exists anywhere in the repo — CLOSED 2026-10-03
 
-**Status:** OPEN. Verified 2026-09-06 by grep:
+**Status:** CLOSED 2026-10-03 — already fixed: the connection test the entry says does not exist shipped in `fd4497f42` ("a Turso Test connection button, at parity with Jira/Timelog"). `testTursoConnection` in `src/app/turso-pipeline.ts` is called by `runTursoTest` behind the Turso "Test connection" button in `src/app/settings-sections/integrations-section.tsx` and by `src/app/use-storage-turso-ops.ts`; reproduce with `grep -rn testTursoConnection src/app --include=*.ts --include=*.tsx`, which lists those call sites. `canMoveToTurso` is still the configured-shape render gate (`grep -n canMoveToTurso src/app/settings-sections/integrations-section.tsx`), but the entry's headline claim, that no Turso connection test exists anywhere, is false.
+
+**Original status:** OPEN. Verified 2026-09-06 by grep:
 `grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
 returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and `testConnection` in
 `jira-api.ts`, `jira-settings.tsx` and its test — nothing under any of the 20 `turso-*.ts(x)` files
@@ -31887,8 +31889,6 @@ returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and 
 unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
 `learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
 files that are Turso-related but are not the `turso-*` module family this sentence is about.
-
-**Work item:** #271
 
 Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
 `testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
@@ -35224,17 +35224,17 @@ update path wanted the field gone, and only the second fix covers both.
 ★ §446 is the same field family and is NOT closed by this: `decisionBy` is still authored freely with
 no coupling to `status`.
 
-## 443. Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand — OPEN
+## 443. Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-11, narrowed — `startTime` is now resolved (see the paragraph below);
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: `sendInvitations` stays unmeasured by policy, recorded and held in the offered-surface sweep's ledger, and `startTime` was already resolved.
+
+**Original status:** OPEN 2026-09-11, narrowed — `startTime` is now resolved (see the paragraph below);
 `sendInvitations` stays OPEN by policy, recorded by the offered-surface sweep's own finding output, which classifies it `dead`
 rather than dropping it from the axis, and held in that file's both-directions `EXPECTED_FINDINGS`
 ledger, so it is still computed on every run — only the verdict reads the ledger — and the case goes
 red if it stops firing. Reproduce with
 `grep -n "no probe drives calendarEvent.sendInvitations true" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`
 and `grep -n "MAIL_UNSAFE_BOOLEANS" src/test/sweep-probes.ts`.
-
-**Work item:** #283
 
 `calendarEvent.sendInvitations` is unmeasured **BY POLICY**. It is declared, so Relation B drives it,
 and a strict `true` trips `shouldStage` in `chat-proposal.ts` — the one write in this app that leaves
@@ -36033,16 +36033,16 @@ signal and there is no floor to subtract. This entry is about resolution for a D
 how big a drop can be detected, not whether a drop exists — so nothing above should be read as a
 repair of the current arrangement.
 
-## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — OPEN
+## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — CLOSED 2026-10-03
 
-**Status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduce. The
+**Status:** CLOSED 2026-10-03 — all three fixed on `fix/defect-batch-2026-10b` in `scripts/ai-eval.ts`, each with a test in `scripts/ai-eval.test.ts` and mutation-checked. (1) Both `.filter()` calls in `parseAnthropicBody` use `b?.type`; reverting one turns the null-entry test red with a TypeError. (2) The per-reply census and the run-level aggregate (`summariseResponseShape`, which also builds the stop-reason counts) are prototype-free objects, so `__proto__`, `constructor` and `toString` block types and stop reasons are each counted exactly; restoring `{}` in the per-reply census, the run-level block-type census or the stop-reason counts turns its own test red. (3) The error detail is clipped by a helper that backs off one UTF-16 code unit only when the 500-unit cut really splits a pair, i.e. a high surrogate followed by a low one (the limit still counts code units, so the message may be 499 units long); a lone high surrogate already in the input is kept on purpose; a plain `.slice` turns the emoji-straddle test red.
+
+**Original status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduced. The
 guarded-then-unguarded inconsistency behind (1) is visible directly:
 `grep -n "b?.type\|b.type" scripts/ai-eval.ts` returns the census line guarding with
 `b?.type` and the two filters immediately below it using `b.type` bare. Runnable demos for (2) and
 (3) sit in those sections. A differential over 20,178 inputs found all three IDENTICAL on both sides
 of `0c03ee5a`, so none is a regression; they fell out of a review asking a different question.
-
-**Work item:** #291
 
 **1. A `null` entry in `content` throws.** The census loop guards with `b?.type`; the two `.filter()`
 calls immediately after it use `b.type` unguarded, so a null or undefined block raises a TypeError.
@@ -37442,17 +37442,17 @@ every money-bearing figure (nothing records one today), its propagation across a
 the blocked-without-rates guard and its confirmation UI, and the display sweep. INR support is filed
 separately as §477 because it is independent of all of this and ships on its own.
 
-## 477. Only three currencies are supported, and INR is wanted — OPEN
+## 477. Only three currencies are supported, and INR is wanted — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-12 — **never machine-verified**; nothing here has been run against the live
+**Status:** CLOSED 2026-10-03 — fixed on `fix/defect-batch-2026-10b`: `"INR"` was appended to `SUPPORTED_CURRENCIES` in `src/app/types.ts`, which the ECB parser, the sanitizers and the bucket currency select all derive from, so no other consumer needed an edit (no `Record` over the currency union exists). The triage confirmed on 2026-10-03 that the ECB daily feed carries INR. Tests: the parser accepts an INR rate (`ecb.test.ts`), `isBudgetCurrency("INR")` holds and `currencyToEur` converts at the cached INR rate (`fx.test.ts`), and the supported list is pinned (`budget-types.test.ts`). Mutation-checked: dropping INR from the list turns the two new tests red.
+
+**Original status:** OPEN 2026-09-12 — **never machine-verified**; nothing here has been run against the live
 ECB feed, which is the one thing that has to be checked. Presence witnesses run 2026-09-12:
 `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members (`EUR`, `USD`, `GBP`),
 `grep -c "SUPPORTED_CURRENCIES" src/app/ecb.ts` → 3 (the parser filters the live feed to the supported
 set and pins EUR = 1, so a fourth member flows through the fetch, the sanitizer and the cache with no
 further edit), and `grep -c "Intl.NumberFormat" src/app/resource-cost.ts` → 2 (`currencySymbol`
 derives the glyph from the locale, so the rupee sign needs no symbol map entry).
-
-**Work item:** #83
 
 **Requested 2026-09-12**, alongside §476.
 
@@ -37575,14 +37575,14 @@ layout switch, and (c) does not touch it.
 The decision owed is whether a layout switch is a NAVIGATION. (b) says yes and goes home; (c) says no.
 Size S–M.
 
-## 479. Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN
+## 479. Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling, superseded by later releases: tags `v1.14.0` to `v1.14.3` now exist on origin (`git ls-remote --tags origin 'v1.14*'`), so the 1.0.x releases are superseded by later tagged releases; 1.0.1 to 1.0.3 themselves remain untagged and no installer carries them.
+
+**Original status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
 → `1.0.3`, while `git ls-remote --tags origin 'v1*'` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
 → 1 hit, inside the 1.0.1 section, and `grep -n "unverified here" docs/RUNBOOK.md` → 2 hits. Corrected the same
 day: this entry first read `APP_VERSION` as 1.0.2 and prescribed tagging `v1.0.2`, and 1.0.3 landed after that.
-
-**Work item:** #302
 
 `CHANGELOG.md` records 1.0.1 and 1.0.2 (both 2026-09-12) and 1.0.3 (2026-09-13), but the remote carries only
 the `v1.0.0` tag. All three are untagged. The installer is built and published only by a tag pipeline
@@ -37979,12 +37979,12 @@ is modelled.
 
 **Source:** GitLab #42 and its two code-check comments; the 2026-09-13 register triage
 
-## 489. The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN
+## 489. The floating HelpMenu has no deep-link input, and nothing calls for one yet — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — a deferred want with no caller, not a defect. Reproduced by
+**Status:** CLOSED 2026-10-03 — built by owner decision: `HelpMenu` now takes the optional `pendingHelpConcept`/`onHelpConceptConsumed` pair `HelpView` already used, with the same sentinel-seeded render-time reconcile; a request opens the panel, clears its query and scrolls to the entry's section found inside the panel. No production caller passes it yet, so the input is pinned by `help-menu.test.tsx` alone (opens at the entry, unchanged without a request, a still-pending request is honoured by a fresh mount, and a close/reopen does not re-fire a handled request).
+
+**Original status:** OPEN 2026-09-13 — a deferred want with no caller, not a defect. Reproduced by
 `grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature takes `{ lang }` only.
-
-**Work item:** #310
 
 `HelpMenu` owns its query locally, and `HelpContentPane`'s `scrollToSection` is private. So "open Help at
 entry X" is possible only through the in-pane Help view (`requestHelpConcept` → `pendingHelpConcept` →
@@ -38088,19 +38088,19 @@ Size S.
 
 **Source:** `docs/tech-debt-register.md` (TD-1 notes, "Exact-pinned" list)
 
-## 494. TypeScript 7 has been published and nothing has been run against it — OPEN
+## 494. TypeScript 7 has been published and nothing has been run against it — CLOSED 2026-10-03
 
-**Status:** OPEN — assessed 2026-09-25 on Dependabot PR #413, closed unmerged. TS 7 is the native compiler, and
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling: watch upstream: TypeScript 7 lacks the compiler API the repo's source parsers import and `next build` fails on it, and Dependabot ignores TypeScript majors until both support 7. The comment beside that ignore in `.github/dependabot.yml` now states the lift condition and is the only tracker for it.
+
+**Original status:** OPEN — assessed 2026-09-25 on Dependabot PR #413, closed unmerged. TS 7 is the native compiler, and
 its npm package no longer ships the JavaScript compiler API that `src/test/strip-comments.ts`,
 `scripts/src-symbols-lib.mjs`, `src/app/sanitize-point-free.guard.test.ts` and
 `src/app/document-asset-patterns.test.ts` import to parse source; `next build` failed on it too. Dependabot now
 ignores TypeScript majors (`grep -n -A2 "dependency-name: typescript" .github/dependabot.yml`). Lift that ignore,
 and close this entry, once both the parsers and `next` support 7.
 
-Original status: OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
+Earlier status (2026-09-13): OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
 `npm view typescript version` → `7.0.2`. Never machine-verified: no typecheck has been run against 7.
-
-**Work item:** #315
 
 TypeScript 6.0.3 landed on 2026-07-03 with zero tsc errors, but no data exists for 7. Assess first, on
 a branch, before quoting a risk either way:
@@ -38677,9 +38677,11 @@ Size M–L — five layers: type, sanitizer, validation, blank-value consumers a
 
 **Source:** GitLab #64 (O-1, source::demo-2026-09-11)
 
-## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN
+## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented; §521, which blocked it, closed 2026-09-13.
+**Status:** CLOSED 2026-10-03 — already fixed: both halves the entry asked for exist and neither gates project creation. The next-actions provider is `src/app/next-actions/providers/project-meta.ts`, registered in `src/app/next-actions/index.ts`. The Projects-list completeness indicator, with its unknown state and per-device cache, shipped in `25ada4ebb` (`src/app/project-key-facts-meter.tsx`, `src/app/project-key-facts-cache.ts`, wired in `src/app/projects-panel.tsx`). `validateProjectMeta` in `src/app/project-validation.ts` requires only the name ("Only the name is required").
+
+**Original status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented; §521, which blocked it, closed 2026-09-13.
 
 Kai Mindermann asked that missing data be flagged only where a function cannot execute, not used to gate
 project creation. It was accepted.
@@ -38694,8 +38696,6 @@ The Projects view is not in `A11Y_VIEWS`, so unit tests and hand contrast checks
 Size M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache.
 
 **Source:** GitLab #65 (O-2, source::demo-2026-09-11)
-
-**Work item:** #65
 
 ## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN
 
@@ -38717,9 +38717,11 @@ Size S–M — discoverability when AI is off; removing the gate after a proposa
 
 **Work item:** #66
 
-## 524. The beta programme with UK testers and its feedback route into the backlog are not set up — OPEN
+## 524. The beta programme with UK testers and its feedback route into the backlog are not set up — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — never machine-verified; a process item with no code component.
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: the UK beta programme and its feedback route into the backlog.
+
+**Original status:** OPEN 2026-09-13 — never machine-verified; a process item with no code component.
 
 Michael Leather proposed a beta with Richard Priestley and Vinay running the app alongside live projects (Rene
 already uses it), with feedback routed into a backlog. It was accepted.
@@ -38732,11 +38734,11 @@ Size unestimated (process item); an optional "Send feedback" link that pre-fills
 
 **Source:** GitLab #68 (P-2, source::demo-2026-09-11)
 
-**Work item:** #68
+## 525. A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled — CLOSED 2026-10-03
 
-## 525. A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled — OPEN
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: the two-weekly follow-up with the demo stakeholders is a calendar series.
 
-**Status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
+**Original status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
 
 Michael Leather and Kai Mindermann asked for a follow-up every two weeks, and it was agreed on the call.
 Nothing in the repo relates to it.
@@ -38745,11 +38747,11 @@ Size unestimated (process item) — a calendar series.
 
 **Source:** GitLab #69 (P-3, source::demo-2026-09-11)
 
-**Work item:** #69
+## 526. The initiative-board entry and the Demo Day presentation are not yet scheduled — CLOSED 2026-10-03
 
-## 526. The initiative-board entry and the Demo Day presentation are not yet scheduled — OPEN
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: the initiative-board entry and the Demo Day presentation are scheduling only.
 
-**Status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
+**Original status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
 
 Kai Mindermann asked for an initiative-board entry and a Demo Day presentation. His requested cadence is
 biweekly, Tuesday to Thursday; Sebastian proposed Monday. It was agreed in principle, with scheduling
@@ -38758,8 +38760,6 @@ unresolved.
 Size unestimated (process item) — organisational only.
 
 **Source:** GitLab #70 (P-4, source::demo-2026-09-11)
-
-**Work item:** #70
 
 ## 527. There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry — OPEN
 
@@ -38782,9 +38782,11 @@ Size S–M — a release-notes cadence, optionally the changelog excerpt in the 
 
 **Work item:** #71
 
-## 528. Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — OPEN
+## 528. Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — never machine-verified. The register is about 2.7 MB; demo items #38–#74 and the §-titled register
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: moving the roadmap, specs and follow-ups to issue tracking, with templates and prioritisation rules. The repo-side residue (repointing AGENTS.md and CONTRIBUTING at a tracker, templates, prioritisation rules) is dropped with the ruling, since the register is not moving.
+
+**Original status:** OPEN 2026-09-13 — never machine-verified. The register is about 2.7 MB; demo items #38–#74 and the §-titled register
 mirrors are already GitLab issues.
 
 Kai Mindermann asked to move the roadmap and specs from markdown to GitLab issues, so others can take up work in
@@ -38801,11 +38803,11 @@ Size M — pilot the move, then templates and labels, prioritisation rules, and 
 
 **Source:** GitLab #72 (P-6, source::demo-2026-09-11)
 
-**Work item:** #72
+## 529. API key funding is unresolved, and every user must bring and pay for their own Anthropic key — CLOSED 2026-10-03
 
-## 529. API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: API key funding is a funding decision, and a server-side proxy is to be opened as a code item only if a shared key is chosen.
 
-**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found no shared key and no Anthropic proxy
+**Original status:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found no shared key and no Anthropic proxy
 route.
 
 Kai Mindermann raised API key funding: the Claude Teams subscription excludes API tokens, internal or dev keys
@@ -38819,8 +38821,6 @@ with no way to stop them).
 Size unestimated (decision) — a shared key would need a new server-side proxy.
 
 **Source:** GitLab #73 (P-7, source::demo-2026-09-11)
-
-**Work item:** #73
 
 ## 530. There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN
 
@@ -40913,6 +40913,14 @@ started), or (3) both — compare to-date budget vs to-date actual for the breac
 surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
 that is still worth flagging.
 
+**Note 2026-10-03 (added under §598; the closure above is a dated record and is not rewritten):** the
+closure ran no repo-wide sweep for the tests this detector change invalidated, and one was exposed —
+`sample-workspace-budget.test.ts`, which compares the curated `budgetVariance` insight against the live
+detector, went red on the MR pipeline after this change. The sweep is
+`grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`; a detector change owes it up front,
+with each hit labelled DELETE / MIGRATE / RECOMPUTE, and curated sample insights are part of the class.
+The detector-change checklist is the "Changing a detector" bullet in `docs/AGENTS/insights.md`.
+
 ## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — CLOSED 2026-10-02
 
 **Status:** CLOSED 2026-10-02 — fixed by `b9099bd23`, `4a66f896c` and `1c86cae3e`, one per site: `htmlToPlainText`'s
@@ -41484,9 +41492,11 @@ load, tripped exactly once under contention rather than by a real regression in 
 saturated full-suite run, without letting a genuine quadratic regression in the pair-regex walk pass
 silently.
 
-## 594. The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN
+## 594. The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-19 — found converting `document-asset-patterns.differential.test.ts`'s timing
+**Status:** CLOSED 2026-10-03 — deleted the `one huge tag` row from `document-asset-patterns.differential.test.ts` and left a comment where it sat saying why. No mutant could turn it red and no commit names a regression it guards; the file already carries the rows whose quadratic shapes do have a proven mutant (the unterminated `<img` with N ids row and the standalone IMG_TAG test), so re-scoping would only have duplicated them. The remaining five rows are unchanged and green; deleting a guard with no demonstrated kill needs no mutant of its own.
+
+**Original status:** OPEN 2026-09-19 — found converting `document-asset-patterns.differential.test.ts`'s timing
 guards to a scaling ratio (§592, §593 class, `docs/timing-flake-592-593`); machine-verified by
 `npx vitest run src/app/document-asset-patterns.differential.test.ts -t "stays bounded on one huge tag" --maxWorkers=1 --reporter=dot`
 against three reverted-source mutants (predicate, ANY_TAG tag-name class, IMG_TAG without its §253
@@ -41494,8 +41504,6 @@ guard), each staying green; the underlying regression this row is meant to catch
 none is known. That command proves only the green half (the shipped row passes); the red half — that
 no mutant turns it red — comes from the mutant runs recorded on 2026-09-19 with each revert applied by
 hand, and no single command can re-verify it.
-
-**Work item:** #378
 
 The `"one huge tag"` row (`` `<img alt="${"a".repeat(n)}" x=1>` ``) is one of the `ADVERSARIAL` rows
 converted to `expectLinearScaling`. Against all three historical mutants — the predicate widened to
@@ -41612,11 +41620,11 @@ Related: §548, §591.
 
 Related: §577, §598, §599.
 
-## 598. The §577 closure ran no repo-wide sweep for the tests its detector change invalidated, and curated sample data is one of the things a detector change moves — OPEN
+## 598. The §577 closure ran no repo-wide sweep for the tests its detector change invalidated, and curated sample data is one of the things a detector change moves — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-20 — **never machine-verified**, and there is nothing here that could be: the finding is an OMISSION from a closure note, established by reading pipeline 7271's failure against the commit order. No probe can observe a sweep that was not run. What WAS executed, on 2026-09-20, is `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`: it prints five files and **`sample-workspace-budget.test.ts` is among them**, which is a checkable demonstration that the sweep this closure omitted would have found the exact file that went red. That establishes the SCOPE of the risk, not the finding. §577 changed `budgetVarianceInsight` to compare budget and actuals over the same started periods. Pipeline 7271 on MR !506 then went red, on `sample-workspace-budget.test.ts` alone, and the repair (`baabd8d2f`) updated the curated insight in the sample master. Nothing was wrong with the fix or with the test — **the omission is that the closure note never said a detector change moves curated sample data**, so the next person to change a detector has no reason to look.
+**Status:** CLOSED 2026-10-03 — docs only, as the fix shape prescribes: the repo-wide sweep (`grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`, five files today) is now the "Changing a detector" bullet in `docs/AGENTS/insights.md`, naming the curated-sample-data class and the DELETE / MIGRATE / RECOMPUTE labelling, and a dated note under §577 records that its closure owed it. §577 is a closed record, so it was annotated, not rewritten.
 
-**Work item:** #379
+**Original status:** OPEN 2026-09-20 — **never machine-verified**, and there is nothing here that could be: the finding is an OMISSION from a closure note, established by reading pipeline 7271's failure against the commit order. No probe can observe a sweep that was not run. What WAS executed, on 2026-09-20, is `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`: it prints five files and **`sample-workspace-budget.test.ts` is among them**, which is a checkable demonstration that the sweep this closure omitted would have found the exact file that went red. That establishes the SCOPE of the risk, not the finding. §577 changed `budgetVarianceInsight` to compare budget and actuals over the same started periods. Pipeline 7271 on MR !506 then went red, on `sample-workspace-budget.test.ts` alone, and the repair (`baabd8d2f`) updated the curated insight in the sample master. Nothing was wrong with the fix or with the test — **the omission is that the closure note never said a detector change moves curated sample data**, so the next person to change a detector has no reason to look.
 
 **Why this class of test is the easy one to miss.** `sample-workspace-budget.test.ts` does not look like a detector test. It lives outside `insights/`, its describe is about budgets, and its assertion is inside a test titled for closed-bucket plan variance — the curated-insight comparison is the second half of `closed buckets land within 15% of plan, and the curated budgetVariance insight matches the live detector`. A sweep scoped to `insights/` finds nothing; only a repo-wide sweep for the detector's own name does. Re-derive the exposed set with `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`, which finds the callers a detector change can move, including the ones filed under other subsystems.
 
@@ -42061,14 +42069,14 @@ The `dast-zap` job has not been dispatched since this change landed, so end-to-e
 pinned digest still resolves and the job completes) is unverified beyond both digests being
 well-formed and matching a real manifest; treat the next dispatch as the real verification.
 
-## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open
+## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — CLOSED 2026-10-03
 
-**Status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
+**Status:** CLOSED 2026-10-03 — closed on CI history; the cause was never reproduced and this shows no failure after the hedge, not that the hedge removed one. The hedge merged to `main` on 2026-09-23 (`90158a1c2`, PR #5); across the 86 `main` push runs of `ci.yml` from 2026-09-24T09:54Z (`2f5ccd28c`) to 2026-10-03T07:32Z (`841a8a83e`) `unit-shuffled` was green in 84 and `unit` in all 86. The two red `unit-shuffled` runs (36130553265, 36257686607) failed in `dashboard-narrative.test.tsx`, not in `tag-pair-walk.test.ts` or any other `expectLinearScaling` site.
+
+**Original status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
 `npx vitest run src/app/tag-pair-walk.test.ts` (five green runs; three mutants red, ONE run per
 site, so each mutant figure below is a single measurement, not a range); not yet re-proved on a CI
 runner, the cause was not reproduced locally, and the change is a hedge with no shown effect.
-
-**Work item:** #394
 
 **What failed.** GitHub Actions run 35844783726, job `unit-shuffled` (`npm run test:shuffle --
 --maxWorkers=2`, a 2-vCPU `ubuntu-latest` runner), failed 1 of 19,569 tests on correct code:

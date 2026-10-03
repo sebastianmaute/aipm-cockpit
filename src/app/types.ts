@@ -654,7 +654,7 @@ export function isContractPriced(type: BudgetType): boolean {
   return type === "fixed" || type === "e2e";
 }
 
-export const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP"] as const;
+export const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP", "INR"] as const;
 export type BudgetCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 export function isBudgetCurrency(v: unknown): v is BudgetCurrency {

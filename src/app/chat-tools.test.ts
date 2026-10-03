@@ -1770,6 +1770,41 @@ describe("list_allocations", () => {
 
     await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
   });
+
+  // §12: an argument-less call must stay on the unscoped path (scope
+  // undefined, so the snapshot carries no `scope` echo), and a scoped one must
+  // reach the dispatcher with its filters intact — validation is the builder's.
+  it("passes no scope for an argument-less call", async () => {
+    const listAllocations = vi.fn();
+    const d = { listAllocations } as unknown as ToolDispatcher;
+
+    await runTool(d, "list_allocations", {});
+    await runTool(d, "list_allocations", undefined);
+
+    expect(listAllocations).toHaveBeenNthCalledWith(1, undefined);
+    expect(listAllocations).toHaveBeenNthCalledWith(2, undefined);
+  });
+
+  it("forwards resourceIds and the period bounds to the dispatcher", async () => {
+    const listAllocations = vi.fn();
+    const d = { listAllocations } as unknown as ToolDispatcher;
+
+    await runTool(d, "list_allocations", { resourceIds: [2, 5], periodFrom: "2026-08", periodTo: "2026-09" });
+
+    expect(listAllocations).toHaveBeenCalledWith({
+      resourceIds: [2, 5],
+      periodFrom: "2026-08",
+      periodTo: "2026-09",
+    });
+  });
+
+  it("declares the three optional scope parameters, none of them required", () => {
+    const def = TOOL_DEFS.find((t) => t.name === "list_allocations");
+    const schema = def?.input_schema as { properties: Record<string, unknown>; required?: string[] };
+
+    expect(Object.keys(schema.properties).sort()).toEqual(["periodFrom", "periodTo", "resourceIds"]);
+    expect(schema.required).toBeUndefined();
+  });
 });
 
 // NOTE: the plan this test block came from guessed field names (KnowledgeItem

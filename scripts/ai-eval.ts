@@ -445,7 +445,36 @@ const ERROR_DETAIL_LIMIT = 500;
  *  closes over it and passes it only in the request header, so nothing on this
  *  path holds it to spill into a message. */
 export function anthropicErrorMessage(status: number, body: string): string {
-  return `anthropic ${status}: ${body.slice(0, ERROR_DETAIL_LIMIT)}`;
+  return `anthropic ${status}: ${clipDetail(body)}`;
+}
+
+/** `ERROR_DETAIL_LIMIT` counts UTF-16 CODE UNITS. When the cut would end on the high half
+ *  of a surrogate pair, back off one unit so no lone surrogate is left (§455). */
+function clipDetail(body: string): string {
+  const cut = body.slice(0, ERROR_DETAIL_LIMIT);
+  const last = cut.charCodeAt(cut.length - 1);
+  const next = body.charCodeAt(cut.length);
+  const splitsPair = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
+  return splitsPair ? cut.slice(0, -1) : cut;
+}
+
+/** The run-level census over every reply: how many ended on each stop reason, and how many
+ *  blocks of each type came back. Both accumulators are PROTOTYPE-FREE, because the keys are
+ *  the remote's own strings and a plain `{}` would drop `__proto__` and read an inherited
+ *  function as the count for `constructor` / `toString` (§455). */
+export function summariseResponseShape(
+  replies: ReadonlyArray<{ stopReason?: string; blockTypes?: Record<string, number> }>,
+): { stopReasons: Record<string, number>; blockTypes: Record<string, number> } {
+  const stopReasons: Record<string, number> = Object.create(null);
+  const blockTypes: Record<string, number> = Object.create(null);
+  for (const r of replies) {
+    const sr = r.stopReason ?? "(unrecorded)";
+    stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
+    for (const [t, n] of Object.entries(r.blockTypes ?? {})) {
+      blockTypes[t] = (blockTypes[t] ?? 0) + n;
+    }
+  }
+  return { stopReasons, blockTypes };
 }
 
 /** Reduce a decoded response body to the `Reply` everything downstream reads.
@@ -465,7 +494,9 @@ export function parseAnthropicBody(body: AnthropicBody): Reply {
   //     model, but that is a HYPOTHESIS and this census is what settles it on
   //     the next run rather than another round of reading the code. Types and
   //     counts only: block CONTENT is not captured here or anywhere.
-  const blockTypes: Record<string, number> = {};
+  // Prototype-free: on a plain `{}` a block typed "__proto__" sets the prototype
+  // instead of an own key and vanishes from the record (§455).
+  const blockTypes: Record<string, number> = Object.create(null);
   for (const b of blocks) {
     const t = typeof b?.type === "string" ? b.type : "(untyped)";
     blockTypes[t] = (blockTypes[t] ?? 0) + 1;
@@ -482,8 +513,8 @@ export function parseAnthropicBody(body: AnthropicBody): Reply {
   //     comparison against it would silently be false.
   const usage = normalizeApiUsage(body.usage);
   return {
-    text: blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n"),
-    toolUses: blocks.filter((b) => b.type === "tool_use").length,
+    text: blocks.filter((b) => b?.type === "text").map((b) => b.text ?? "").join("\n"),
+    toolUses: blocks.filter((b) => b?.type === "tool_use").length,
     outputTokens: usage.output_tokens,
     inputTokens: usage.input_tokens,
     cacheWriteTokens: usage.cache_creation_input_tokens,
@@ -1244,16 +1275,8 @@ ${armA.turn}`;
     ]),
     ...driftReplies.N, ...driftReplies.R,
   ];
-  const stopReasons: Record<string, number> = {};
-  const blockTypeCensus: Record<string, number> = {};
-  for (const r of allReplies) {
-    const sr = r.stopReason ?? "(unrecorded)";
-    stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
-    for (const [t, n] of Object.entries(r.blockTypes ?? {})) {
-      blockTypeCensus[t] = (blockTypeCensus[t] ?? 0) + n;
-    }
-  }
-  const responseShape = { stopReasons, blockTypes: blockTypeCensus };
+  const responseShape = summariseResponseShape(allReplies);
+  const stopReasons = responseShape.stopReasons;
   // ★★★ WHICH PROBES AND ARMS WERE INSTRUMENT-LIMITED, at the top of the
   //     record. A truncated reply scores a miss whatever the model found, so a
   //     run carrying any is partly measuring its own cap — and that must be

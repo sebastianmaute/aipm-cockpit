@@ -36,7 +36,11 @@ import type { ActivityEntry } from "./activity-log";
 import { searchHistory, type ActivitySummary } from "./history-search";
 import type { TimeZone } from "./timezone";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
-import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import {
+  pickAllocationsScope,
+  type AllocationsScopeInput,
+  type AllocationsSnapshot,
+} from "./alloc-plan/alloc-plan";
 import {
   isDocumentTool,
   runDocumentTool,
@@ -524,7 +528,9 @@ export type ToolDispatcher = {
    *  model's day boundaries without moving the date it reasons from. */
   getTimezone(): string;
   getDashboardSnapshot(): DashboardSnapshot;
-  listAllocations(): AllocationsSnapshot;
+  /** `scope` is undefined for an argument-less call, which returns the whole
+   *  grid exactly as before the §12 filters existed. */
+  listAllocations(scope?: AllocationsScopeInput): AllocationsSnapshot;
   listKnowledgeItems(): KnowledgeSummary[];
   listCalendarEvents(): CalendarEventSummary[];
   listBudgetBuckets(): BudgetBucketSummary[];
@@ -715,8 +721,10 @@ export async function runTool(
     case "list_resources":
       return withRowTokens("resource", d.listResources(), (id) => d.getResourceRow(id));
 
+    // ★ The handler only PICKS the scope; validation needs the plan's granularity,
+    //   so it lives in `buildAllocationsSnapshot` (coerce-or-drop, never throws).
     case "list_allocations":
-      return d.listAllocations();
+      return d.listAllocations(pickAllocationsScope(input));
 
     case "list_knowledge_items":
       return d.listKnowledgeItems();
