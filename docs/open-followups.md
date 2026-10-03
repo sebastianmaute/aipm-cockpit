@@ -37572,7 +37572,7 @@ Size S–M.
 
 ## 479. Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — accepted by owner ruling, superseded by later releases: tags `v1.14.0` to `v1.14.3` now exist on origin (`git ls-remote --tags origin 'v1.14*'`), so the 1.0.x untagged-release premise no longer describes the repo's release state.
+**Status:** CLOSED 2026-10-03 — accepted by owner ruling, superseded by later releases: tags `v1.14.0` to `v1.14.3` now exist on origin (`git ls-remote --tags origin 'v1.14*'`), so the 1.0.x releases are superseded by later tagged releases; 1.0.1 to 1.0.3 themselves remain untagged and no installer carries them.
 
 **Original status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
 → `1.0.3`, while `git ls-remote --tags origin 'v1*'` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
@@ -38094,7 +38094,7 @@ its npm package no longer ships the JavaScript compiler API that `src/test/strip
 ignores TypeScript majors (`grep -n -A2 "dependency-name: typescript" .github/dependabot.yml`). Lift that ignore,
 and close this entry, once both the parsers and `next` support 7.
 
-Original status: OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
+Earlier status (2026-09-13): OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
 `npm view typescript version` → `7.0.2`. Never machine-verified: no typecheck has been run against 7.
 
 TypeScript 6.0.3 landed on 2026-07-03 with zero tsc errors, but no data exists for 7. Assess first, on
@@ -38779,7 +38779,7 @@ Size S–M — a release-notes cadence, optionally the changelog excerpt in the 
 
 ## 528. Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — CLOSED 2026-10-03
 
-**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: moving the roadmap, specs and follow-ups to issue tracking, with templates and prioritisation rules.
+**Status:** CLOSED 2026-10-03 — owner ruling: tracked outside the repo, no code component: moving the roadmap, specs and follow-ups to issue tracking, with templates and prioritisation rules. The repo-side residue (repointing AGENTS.md and CONTRIBUTING at a tracker, templates, prioritisation rules) is dropped with the ruling, since the register is not moving.
 
 **Original status:** OPEN 2026-09-13 — never machine-verified. The register is about 2.7 MB; demo items #38–#74 and the §-titled register
 mirrors are already GitLab issues.
