@@ -99,7 +99,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
 // --- ProjectForm fill helpers (mirrors project-form.test.tsx) -------------
 
 function setText(label: string, value: string) {
-  fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+  fireEvent.change(screen.getByLabelText(label, { exact: false, selector: "input, select, textarea" }), {
     target: { value },
   });
 }
@@ -109,11 +109,11 @@ function fillRequired() {
   setText("Project code", "NEW-1");
   setText("Project manager", "Dana PM");
   setText("Customer", "ACME Corp");
-  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "C" },
   });
   setText("Products", "Widget");
-  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false, selector: "input, select, textarea" }), {
     target: { value: "Cloud" },
   });
   setText("Start date", "2026-01-01");
@@ -207,7 +207,7 @@ describe("ProjectsPanel", () => {
 
     // Prefill: the current project's name appears in the form.
     const nameInput = screen.getByLabelText("Project name", {
-      exact: false,
+      exact: false, selector: "input, select, textarea",
     }) as HTMLInputElement;
     expect(nameInput.value).toBe("Apollo");
 
@@ -654,7 +654,7 @@ describe("ProjectsPanel — key-fact indicator", () => {
     // accessible name is the edit title, AND the name field is prefilled
     // with the current project's name.
     const dialog = screen.getByRole("dialog", { name: "Edit project" });
-    const nameInput = within(dialog).getByLabelText("Project name", { exact: false }) as HTMLInputElement;
+    const nameInput = within(dialog).getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }) as HTMLInputElement;
     expect(nameInput.value).toBe("Apollo");
   });
 
