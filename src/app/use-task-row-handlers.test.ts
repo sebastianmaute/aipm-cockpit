@@ -200,7 +200,8 @@ describe("useTaskRowHandlers", () => {
   // view's task filter, switch to it, and expand a collapsed workspace.
   it("onJumpToChanges arms the change filter, opens the Changes tab and expands the workspace", () => {
     const setActiveTab = vi.fn();
-    vi.mocked(useWorkspaceTab).mockReturnValue({
+    // Once: a persistent return would leak this spy into every later test.
+    vi.mocked(useWorkspaceTab).mockReturnValueOnce({
       activeTab: "chat",
       setActiveTab,
       isPopout: false,
