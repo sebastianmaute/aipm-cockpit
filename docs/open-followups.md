@@ -480,7 +480,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate--closed-2026-10-03) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | **CLOSED** 2026-10-03 |
-| [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
+| [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely--closed-2026-10-04) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | **CLOSED** 2026-10-04 |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--closed-2026-09-27) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | **CLOSED** 2026-09-27 |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--closed-2026-09-27) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | **CLOSED** 2026-09-27 |
@@ -20790,12 +20790,12 @@ does not state.
 
 ---
 
-## 239. An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely
+## 239. An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely — CLOSED 2026-10-04
 
-**Status:** open — an ACCEPTED escape hatch whose cost is written down only in a source comment.
+**Status:** CLOSED 2026-10-04 — verified by `npx vitest run src/app/scheme-tokens.test.ts src/app/color-schemes.test.ts src/app/layout-boot-script.test.ts src/app/scheme-contrast-cues.test.ts src/app/scheme-purple-hover.test.ts src/app/scheme-state-contrast.test.ts src/app/scheme-contrast.test.ts src/app/scheme-import.test.ts src/app/scheme-apply.test.ts --maxWorkers=1` (9 files, 142 tests, exit 0). `resolveSchemeColors` still lets a pinned derived token win, but only while it clears the floor its own derivation targets (4.5 for `-strong`/`-text`, 3 for the three `--control-state-border*`) against the SAME reference (the card, the purple tint for `--ui-purple-strong`, `--line` for borders); one `AaRule` list in `scheme-tokens.ts` feeds both the derivation and this check. A pin below its floor is NUDGED from the pin itself, so its hue (Petrol's purple amber text) is kept and only its lightness moves; a passing pin is kept byte-for-byte. `--muted-foreground` is a copy of `--foreground`, not an AA derivation, so its pin still always wins. Measured: no built-in scheme changes (a parity test pins that); the shipped importable themes in `public/themes/` each had a status-text pin under 4.5 on their card (beacon light red 3.74 / amber 3.94 / green 4.30, mockup light 4.33 / 3.52 / 4.20, petrol light amber 4.08, petrol dark amber 3.20) and now resolve nudged to AA. Mutants (pins win unconditionally, a failing pin replaced by the base-derived value, borders held to 4.5, purple judged against the plain card, `--muted-foreground` given a floor, every pin re-serialised) each turn a test red. The import entry point is unchanged: the fix is at resolve time, so schemes imported before it are covered too.
+
+**Original status:** open — an ACCEPTED escape hatch whose cost is written down only in a source comment.
 **Severity:** low, and self-inflicted: it takes a hand-authored scheme file. Reproduced 2026-08-28 by `grep -n "resolveSchemeColors" src/app/scheme-tokens.ts`.
-
-**Work item:** #205
 
 `deriveAaVariants` nudges `--ui-green-strong`, `--ui-pink-strong`, `--ui-purple-strong` and the three
 `--rag-*-text` tokens to a 4.5:1 ratio. `resolveSchemeColors` then spreads the scheme's OWN colours

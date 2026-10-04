@@ -200,9 +200,16 @@
   add "and `cleanColors` would drop the pin on save-as-new" to that argument — it is FALSE and was
   briefly written here: `--ui-purple-strong` is in `DERIVED_TOKENS`, which `VALID_TOKENS` includes, so
   `cleanColors` KEEPS it (that is exactly how an imported Petrol/Mockup scheme survives a save).
-  `resolveSchemeColors` is now BASE-WINS (`{...deriveAaVariants(colors), ...colors}`): derivation only FILLS
-  missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground`/state-border SURVIVES — that is why
-  Petrol/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
+  `resolveSchemeColors` is now BASE-WINS, HELD TO THE FLOOR: derivation only FILLS missing AA variants, and an
+  explicitly PINNED `-strong`/`-text`/state-border survives ONLY while it clears the floor its own derivation
+  targets (4.5 for text, 3 for a state border) against the SAME reference (the card, the purple tint, `--line`).
+  A pin below it is NUDGED from the pin itself — lightness moves, hue stays — never replaced by the value derived
+  from the base (open-followups §239). One `AaRule` list in `scheme-tokens.ts` feeds both the derivation and
+  the check, so the two cannot measure against different backgrounds. `--muted-foreground` is a COPY of
+  `--foreground`, not an AA derivation, so its pin always wins. ★★ Measured on 2026-10-04: no built-in scheme
+  pin changes, but the shipped importable `public/themes/` beacon, mockup and petrol each pin a status-text
+  colour under 4.5 on their card (Petrol dark's purple amber at 3.20), and those now resolve nudged. Re-measure
+  with the "every shipped importable theme" test in `scheme-tokens.test.ts` rather than trusting these numbers. ★★ `effectiveDark(themeDark, schemeSupportsDark)`
   DROPPED the `style` arg; pin-light = `!activeScheme.supportsDark` (Mockup `supportsDark:false`, honours theme
   for a dark-capable scheme). `use-theme` (sole `.dark` writer) reads `data-scheme-dark` ONLY — the mockup
   `data-style` branch is GONE. `use-style.syncScheme` stays the SOLE apply path (resolves for the CURRENT theme,
@@ -232,9 +239,10 @@
   `color-schemes.ts` (per-device `aipm-cockpit:color-schemes`, hex-validated). Selection hook
   `use-color-schemes.ts` (coverage-excluded).
   ★★ FIVE Phase-2 landmines (do NOT reintroduce):
-  (1) `resolveSchemeColors` is BASE-WINS — a built-in that must reproduce an exact hand-tuned value PINS it in
-  its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES a built-in's
-  pinned `-strong`/`-text`/`muted-foreground`.
+  (1) `resolveSchemeColors` is BASE-WINS (held to the floor since §239) — a built-in that must reproduce an exact
+  hand-tuned value PINS it in its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently
+  OVERWRITES a built-in's pinned `-strong`/`-text`/`muted-foreground`. A pin that fails its floor is nudged, so a
+  hand-tuned value must clear AA on the card to survive byte-for-byte.
   (2) A built-in whose `-strong` values were hand-tuned must PIN them in its map, else `nudgeToAa` re-derives
   different values (the Petrol/Mockup schemes this was learned on are deleted).
   (3) A built-in map holds FLAT hex values for tokens that are `var(--surface)` in globals (e.g.
