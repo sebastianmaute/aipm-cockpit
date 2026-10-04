@@ -142,6 +142,11 @@ longer carries its own changelog comment.
 - **CHANGELOG check and future-clock run, tightened (§527, §149).** A `CHANGELOG.md` change now counts only
   when it adds a line. The weekly future-clock run moved to its own workflow (`future-clock.yml`), so
   it can be started alone, and it annotates each failing test.
+- **Code tidy after batch 4 (§149, §491, §668).** Statements packed onto single lines to stay under the
+  file-size limit are split back out in `use-storage-backend.ts` and `task-manager.tsx`; a 39-line comment
+  moved from `task-manager.tsx` to `docs/AGENTS/storage.md`, and the file's size baseline followed it down to
+  3435. A new test pins that a journal list losing only some rows is still accepted with its valid rows.
+  §149 is closed: the suite passes with the clock 400 days ahead.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

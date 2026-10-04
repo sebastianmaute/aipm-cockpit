@@ -80,6 +80,20 @@ describe("journalWorkspace refuses a journal with any slice that does not decode
     expect(ws?.resources.map((r) => r.id)).toEqual(sample.resources.map((r) => r.id));
   });
 
+  // EVERY row, not some: a list that loses only SOME rows is not detected (the documented limit in
+  // use-unload-journal.ts and docs/AGENTS/storage.md), so a mixed list is accepted with its valid rows.
+  // A some-row rule would refuse these journals.
+  it.each(["disciplines", "grades", "resources"] as const)("accepts %s mixing a valid row with a foreign one, keeping the valid row", (key) => {
+    const sample = jsonToWorkspace(readFileSync(join(process.cwd(), "sample-workspace-small.json"), "utf8"));
+    const rows: readonly { id: unknown }[] = sample[key];
+    const valid = rows[0];
+    expect(valid).toBeDefined();
+    const ws = journalWorkspace(withSlice({ [key]: [valid, { foo: 1 }] }));
+    expect(ws).not.toBeNull();
+    const kept: readonly { id: unknown }[] = ws?.[key] ?? [];
+    expect(kept.map((row) => row.id)).toContain(valid.id);
+  });
+
   it("still accepts a journal whose slices all decode", () => {
     expect(journalWorkspace(withSlice({}))?.tasks.map((t) => t.id)).toEqual([7]);
   });

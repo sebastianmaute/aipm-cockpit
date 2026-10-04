@@ -313,7 +313,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
   //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
   const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
-  const loadPendingRef = useRef(loadPending); useEffect(() => { loadPendingRef.current = loadPending; }, [loadPending]); // §655 — read at click time: the kept restore runs after an AWAITED confirm, so a render-time `loadPending` can be stale
+  // §655 — read at click time: the kept restore runs after an AWAITED confirm, so a render-time `loadPending` can be stale.
+  const loadPendingRef = useRef(loadPending);
+  useEffect(() => { loadPendingRef.current = loadPending; }, [loadPending]);
   // §548 — the scope epoch's reader. The counter (`scopeEpochRef`) and `bumpScopeEpoch` are declared
   // beside `scopeTargetKeyRef` above, but only ONE of the THREE bump sites is up there: (a) is inside
   // `resolveLogModeAndStamp`, (b) is `applyWorkspaceForOp` further down THIS file, and (c) is in
@@ -327,7 +329,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // The UNDO history's epoch: the scope epoch plus one per restore. A restore keeps the project, so it must
   // not move the scope epoch (in-flight AI / Graph writes for this project would be dropped), but it does
   // replace the rows every undo image was taken against: replaying one would silently mix the two versions.
-  const restoreEpochRef = useRef(0); const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []); const resetUndoHistory = () => { restoreEpochRef.current += 1; args.onUndoHistoryReset?.(); };
+  const restoreEpochRef = useRef(0);
+  const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []);
+  const resetUndoHistory = () => {
+    restoreEpochRef.current += 1;
+    args.onUndoHistoryReset?.();
+  };
   // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
   // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
   // holds, and applying it would replace their unsaved edits. By value, never by commit (review I4);
@@ -669,8 +676,28 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
   // §655 — "Restore" on a kept version of the project in scope. The LIVE workspace is kept first, so the restore can be undone from the same notice (nothing is applied when that keep is not written); then the kept one is applied like "Restore anyway" below and saved by the normal path, and its slot is removed.
-  const restoreKeptJournalNow = (entry: OtherJournal): boolean => { if (!otherJournals.isRestorable(entry)) return false; if (!otherJournals.isCurrent(entry)) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreGone")); return true; /* its row is re-listed away: the banner takes focus */ } if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return false; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return false; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return false; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return false; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); return true; };
-  const restoreKeptJournalRef = useRef(restoreKeptJournalNow); useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; }); const restoreKeptJournal = useCallback((entry: OtherJournal): boolean => restoreKeptJournalRef.current(entry), []); // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the live workspace it keeps and the scope it checks are current
+  const restoreKeptJournalNow = (entry: OtherJournal): boolean => {
+    if (!otherJournals.isRestorable(entry)) return false;
+    if (!otherJournals.isCurrent(entry)) {
+      emitToast("error", t(langRef.current, "unloadJournalKeptRestoreGone"));
+      return true; // its row is re-listed away: the banner takes focus
+    }
+    if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return false; }
+    if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return false; }
+    const ws = journalWorkspace(entry.journal);
+    if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return false; }
+    if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return false; }
+    applyWorkspaceFromLoad(ws, "raise", "merge", "restore");
+    resetUndoHistory();
+    otherJournals.restored(entry);
+    emitToast("success", t(langRef.current, "unloadJournalKeptRestored"));
+    return true;
+  };
+  // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the
+  // live workspace it keeps and the scope it checks are current.
+  const restoreKeptJournalRef = useRef(restoreKeptJournalNow);
+  useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; });
+  const restoreKeptJournal = useCallback((entry: OtherJournal): boolean => restoreKeptJournalRef.current(entry), []);
   const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering

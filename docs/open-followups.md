@@ -390,7 +390,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ | — | — | **CLOSED** 2026-08-30 |
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--closed-2026-10-02) | Read-only task-item checked state is a character name to AT, not "checked" | — | — | **CLOSED** 2026-10-02 |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
-| [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
+| [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them--closed-2026-10-04) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | **CLOSED** 2026-10-04 |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--closed-2026-09-27) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | **CLOSED** 2026-09-27 |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
@@ -13083,12 +13083,12 @@ finishes entirely between the two samples still loses —
 And the `abortRef` read assumes `submitPrompt` is single-flight, which it is only effectively —
 [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720).
 
-## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
+## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them — CLOSED 2026-10-04
 
-**Status:** **Update 2026-10-04:** the detector the entry asks for now exists. With `VITEST_CLOCK_OFFSET_DAYS` set, `vitest.setup.ts` hands it to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` that many days ahead in every test (pinned by `src/test/clock-offset.test.ts`; a probe asserting a date past 2027-10-01 passed with the variable at 400 and failed without it). The weekly `unit-future-clock` job runs the suite 400 days ahead; since the post-merge follow-up it is its own workflow, `.github/workflows/future-clock.yml`, so a manual run costs only that suite, and it annotates each failing test on the run. The class stays open until that job has run and the tests it lists are fixed. Before this update: two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
+**Status:** CLOSED 2026-10-04 — verified by `npm run test:run -- --reporter=default --reporter=github-actions`, run with `VITEST_CLOCK_OFFSET_DAYS=400` in the `future-clock` workflow, run 37205656170 on main `d77af0708`: 1276 test files, 21983 tests, all passed (tests added after `d77af0708` first meet the offset in the next weekly run). With every test running 400 days ahead, no test passes only because a hardcoded date is still in the future, so the class has no known member left. The weekly `unit-future-clock` job keeps watching for new ones.
+
+**Original status:** **Update 2026-10-04:** the detector the entry asks for now exists. With `VITEST_CLOCK_OFFSET_DAYS` set, `vitest.setup.ts` hands it to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` that many days ahead in every test (pinned by `src/test/clock-offset.test.ts`; a probe asserting a date past 2027-10-01 passed with the variable at 400 and failed without it). The weekly `unit-future-clock` job runs the suite 400 days ahead; since the post-merge follow-up it is its own workflow, `.github/workflows/future-clock.yml`, so a manual run costs only that suite, and it annotates each failing test on the run. The class stays open until that job has run and the tests it lists are fixed. Before this update: two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
 sweeps for the rest, and the only detector is a red pipeline on the morning it happens. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #159
 
 `rebaseline-popover.test.tsx` asserted the literal `"2026-08-15"` against a fixture task whose
 `dueDate` was that same date. `milestoneRebaselineDate` FLOORS its result at today
@@ -38092,7 +38092,7 @@ Size L if built.
 the 3162 below). The baseline entry is lowered by hand from 6040 to **3467**, the measured length, so `size:check` now
 fails on any growth (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). `--update` was not used: it drops
 the other three rows. The file is still over the LIMIT and the hooks-and-effects consolidation is still owed, so the
-entry stays open. Before this update: OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
+entry stays open. Later the same day a 39-line comment moved out to `docs/AGENTS/storage.md` and packed lines were split; the file measures **3435** and the entry followed it down to **3435**. Before this update: OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
 newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/baselines/file-sizes.json`
 → baseline **6040**, and `grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600.
 

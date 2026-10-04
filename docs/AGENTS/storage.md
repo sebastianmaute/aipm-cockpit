@@ -146,6 +146,58 @@ reported; `steeringCommittee` and `timelogLinks` always sanitize to an object wi
 `sanitizedToNothing` never fires for them (§620's "Limit"). A CSV section with no `config` row or
 a Markdown fence the decoder's regex misses reads as absent (§630's "Known limits").
 
+### The destructive-refusal banner's dismissal (`task-manager.tsx`)
+
+Moved here verbatim from the comment above `destructiveRefusalSeen` in `task-manager.tsx`, to give
+that file headroom under its size baseline. "The SAME render-time reconcile" below refers to the one just
+above it in `task-manager.tsx`, for the truncation banner (`truncationBannerDismissed`).
+
+★★ The SAME render-time reconcile for the OTHER saving-paused cause (an
+effect is impossible — `set-state-in-effect` is banned and fatal). Without
+it the dismissal is sticky ACROSS episodes: dismiss, the refusal RESOLVES,
+and a later, different refusal raises the banner ALREADY HIDDEN. What is
+left is only the transient toast plus whichever standing hint the layout
+has: `hasFooterIndicator` is `layout !== "classic"`, and
+`SavingPausedBanner`'s dismissed branch returns null when that is true — so
+DEFAULT layouts fall back to the footer indicator alone, and classic to the
+compact re-open chip. Neither names the magnitude the banner would.
+
+★★★ KEYED ON THE REFUSAL OBJECT, and what it DEPENDS ON is
+`useDestructiveSaveGuard`'s `sameRefusal` functional setter: identity is
+stable for as long as one refusal stands, so a dismiss survives every
+re-refusal (one per edit while paused) and only a genuinely different
+refusal re-shows the banner. Lose that stability and every re-refusal
+re-shows a banner the user just dismissed.
+
+★★ WHAT THE OBJECT KEY BUYS, MEASURED, IS OVER A **BOOLEAN** KEY — AND ON
+EXACTLY ONE INPUT. `destructiveRefusal !== null` fails only on an ESCALATION
+WITH NO INTERVENING NULL: the refusal never resolves, the user deletes more,
+`evaluate` mints a new object because the counts moved, and the boolean never
+flips, so a dismissed banner stays hidden while the claim it was dismissing
+has changed. A second EPISODE it handles fine — the resolution in between
+flips it. Pinned by "an ESCALATING refusal re-shows a dismissed banner while
+it still stands" in `task-manager.truncation-banner.test.tsx`, the only one of
+that file's three reconcile tests to go red under a boolean key.
+
+★★★ A COUNTS-DERIVED KEY IS EQUIVALENT, NOT WORSE. `sameRefusal` makes object
+identity ⟺ the counts tuple, so NO input separates object from counts: a
+faithful counts key was measured green. Prefer the object key because it does
+not restate `sameRefusal`'s field list — which would drift the day a field is
+added to it — NOT because it catches anything extra.
+
+★ Do not "simplify" it to a nonce: there is none to bump — the guard's state
+IS the event.
+
+★ Resetting on the transition to `null` is deliberate, not sloppiness: the
+banner mounts only while `destructiveRefusal !== null`, so nothing appears
+when a refusal resolves — clearing the flag as the episode ENDS is precisely
+what leaves the NEXT one visible.
+
+★ Seeded `null`, the guard's OWN starting value rather than the live one —
+it mounts in this same render (task-manager calls the hook that owns it), so
+null is what it really is here, and seeding from the live value is the
+remount-swallow shape that drops a pending report.
+
 ### The op hold (`holdDuring`, §548)
 
 Moved verbatim from the comment above `holdDuring` in `use-storage-backend.ts` (2026-10-04), to give that
