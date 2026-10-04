@@ -42,7 +42,7 @@ import { MAX_HTML_TEXT_CHARS, firstCapViolation } from "./document-model";
 import { htmlTextLength } from "./rich-text-plain";
 import { BlockReadOnlyNotice, BlockRefusalNotice, ParagraphCharCount, type BlockRefusal } from "./document-block-notices";
 import { Input, Select } from "./form-controls";
-import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
+import { DATA_SECTION_KEYS, type DataSectionKey } from "./settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "./export-section-labels";
 
 export type BlockEditorProps<B extends DocBlock = DocBlock> = {
@@ -672,13 +672,14 @@ function ParagraphEditorBody({
 export { TableBlockEditor } from "./document-table-editor";
 
 /**
- * A `select` over the fifteen `ExportSectionKey`s — never free text. An
+ * A `select` over the `DataSectionKey`s (every export section but the derived
+ * ones, §545) — never free text. An
  * arbitrary key would resolve to no section at render time
  * (`resolveDataSection` looks it up by exact match) and render as nothing —
  * a silently missing section rather than a visible error — so free text
  * would be actively worse than no editor at all.
  *
- * `EXPORT_SECTION_KEYS` is imported directly from `./settings-types` — the
+ * `DATA_SECTION_KEYS` is imported directly from `./settings-types` — the
  * SAME way `document-model.ts`'s own `isSectionKey` reads it, and NOT
  * through `document-model.ts`, which documents a runtime import cycle
  * through this exact pair of modules ("There is a runtime import cycle
@@ -701,7 +702,7 @@ export function DataSectionBlockEditor({
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "dataSection" }>>) {
   const { value, commitValue, refusal } = useBlockDraft(
-    (b: Extract<DocBlock, { type: "dataSection" }>): ExportSectionKey => b.key,
+    (b: Extract<DocBlock, { type: "dataSection" }>): DataSectionKey => b.key,
     block,
     index,
     (key): DocBlock => ({ type: "dataSection", key }),
@@ -725,9 +726,9 @@ export function DataSectionBlockEditor({
       <Select
         aria-label={`${t(lang, "documentsDataSectionKey")} – ${blockQualifier}`}
         value={value}
-        onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
+        onChange={(e) => commitValue(e.target.value as DataSectionKey)}
       >
-        {EXPORT_SECTION_KEYS.map((k) => (
+        {DATA_SECTION_KEYS.map((k) => (
           <option key={k} value={k}>
             {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
           </option>

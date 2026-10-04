@@ -12,6 +12,7 @@ import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { defaultExportConfig, exportFooterText, type Settings } from "./settings-types";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import type { AppView } from "./nav-config";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
@@ -46,6 +47,8 @@ export interface AppHeaderProps {
    *  action can open it (the classic layout has no Settings view). Omitted ⇒ the menu owns it. */
   settingsMenuOpen?: boolean;
   onSettingsMenuOpenChange?: (open: boolean) => void;
+  /** §545 — the budget forecast for the Export menu (null with the budget module off). */
+  exportForecast?: ForecastBundle | null;
 }
 
 export function AppHeader({
@@ -75,6 +78,7 @@ export function AppHeader({
   trailing,
   settingsMenuOpen,
   onSettingsMenuOpenChange,
+  exportForecast = null,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -158,6 +162,7 @@ export function AppHeader({
             onVoiceError={(msg) => showToast("error", msg)}
             exportConfig={settings.export ?? defaultExportConfig}
             exportFooter={exportFooterText(settings.branding)}
+            exportForecast={exportForecast}
             expertMode={settings.expertMode}
           />
           <SettingsMenu

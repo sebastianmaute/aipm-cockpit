@@ -354,17 +354,35 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
 export const EXPORT_SECTION_KEYS = [
   "project",
   "tasks", "raid", "changes", "milestones", "stakeholders",
-  "budgets", "resources", "roles", "absences", "shifts", "calendarEvents", "status",
+  "budgets", "budgetForecast", "resources", "roles", "absences", "shifts", "calendarEvents", "status",
   "knowledgeItems",
   "insights",
 ] as const;
 export type ExportSectionKey = (typeof EXPORT_SECTION_KEYS)[number];
 export type ExportConfig = Record<ExportSectionKey, boolean>;
 
+/** Export sections that are NOT a `Workspace` slice: computed at export time
+ *  from the dashboard model and handed to `buildExportSections` as
+ *  `ExportExtras` (open-followups §545). */
+export const DERIVED_EXPORT_SECTION_KEYS = ["budgetForecast"] as const;
+export type DerivedExportSectionKey = (typeof DERIVED_EXPORT_SECTION_KEYS)[number];
+
+/** The keys a document `dataSection` block may name: every export section
+ *  except the derived ones. The document renderers receive the workspace but
+ *  not the dashboard model, so a block naming a derived section would always
+ *  render nothing. */
+export const DATA_SECTION_KEYS = EXPORT_SECTION_KEYS.filter(
+  (k): k is Exclude<ExportSectionKey, DerivedExportSectionKey> =>
+    !(DERIVED_EXPORT_SECTION_KEYS as readonly string[]).includes(k),
+);
+export type DataSectionKey = (typeof DATA_SECTION_KEYS)[number];
+
 export const defaultExportConfig: ExportConfig = {
   project: true,
   tasks: true,  raid: true,
   changes: false, milestones: false, stakeholders: false, budgets: false,
+  // §545 — derived; emitted only when a forecast exists and the budget module is on.
+  budgetForecast: true,
   resources: false, roles: false, absences: false, shifts: false, status: false,
   // Calendar events are project data a user expects in an export, like tasks/RAID.
   calendarEvents: true,

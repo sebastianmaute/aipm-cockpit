@@ -17,7 +17,7 @@ import { buildExportSections, type ExportSection } from "./export-sections";
 import {
   EXPORT_SECTION_KEYS,
   type ExportConfig,
-  type ExportSectionKey,
+  type DataSectionKey,
 } from "./settings-types";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -33,8 +33,10 @@ import type { Lang } from "./i18n";
  * rather than a stray heading over an empty table.
  *
  * ★★ THE ZERO-ROW CHECK IS LOAD-BEARING, NOT BELT-AND-BRACES — it is reachable
- * TODAY, and only two of the fifteen builders can reach it. Thirteen gate on
- * `items.length > 0` and so cannot return an empty section. But `project` gates
+ * TODAY, and only two of the builders can reach it. Thirteen gate on
+ * `items.length > 0` and so cannot return an empty section, and the derived
+ * `budgetForecast` is never asked for here (`DataSectionKey` excludes it, §545).
+ * But `project` gates
  * on `ws.project` being PRESENT and `status` on its having any KEYS, while
  * `projectSection` skips every blank/undefined/empty-array field and
  * `statusSection` drops every empty line — so a project whose metadata is all
@@ -45,7 +47,7 @@ import type { Lang } from "./i18n";
  * generated document grows an empty "Project" table.
  */
 export function resolveDataSection(
-  key: ExportSectionKey,
+  key: DataSectionKey,
   ws: Workspace,
   lang: Lang,
 ): ExportSection | null {

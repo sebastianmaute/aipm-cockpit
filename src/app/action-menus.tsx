@@ -10,6 +10,7 @@ import { useWorkspace } from "./workspace-context";
 import { buildExportWorkspace } from "./export-workspace";
 import { defaultExportConfig, type ExportConfig } from "./settings-types";
 import type { ProjectTemplate, SaveTemplateInput } from "./templates";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 
 // Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
 // fetched client-side when the button mounts.
@@ -27,6 +28,8 @@ interface ActionMenusProps {
   exportConfig?: ExportConfig;
   /** Footer line of the PDF/print export, from the same settings as `exportConfig`. */
   exportFooter?: string;
+  /** §545 — the budget forecast for the Export menu's derived section. */
+  exportForecast?: ForecastBundle | null;
   /** Saved + built-in project templates for the Apply menu. Defaults to []
    *  (e.g. in tests) so the Apply trigger renders with its button disabled. */
   templates?: readonly ProjectTemplate[];
@@ -54,6 +57,7 @@ export function ActionMenus({
   onVoiceError,
   exportConfig = defaultExportConfig,
   exportFooter,
+  exportForecast = null,
   templates = [],
   onApplyTemplate,
   onSaveTemplate,
@@ -63,7 +67,7 @@ export function ActionMenus({
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
-      <ExportMenu lang={lang} workspace={workspace} exportConfig={exportConfig} exportFooter={exportFooter} />
+      <ExportMenu lang={lang} workspace={workspace} exportConfig={exportConfig} exportFooter={exportFooter} exportForecast={exportForecast} />
       {expertMode && (
         <>
           <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />

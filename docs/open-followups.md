@@ -337,7 +337,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--closed-2026-10-02) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-02 |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
-| [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
+| [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--closed-2026-10-04) | The preview/print path loads the whole section registry unconditionally | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-04 |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
 | [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--closed-2026-09-27) | `documents` is invisible to both save-time data-loss guards | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | **CLOSED** 2026-09-27 |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
@@ -7539,11 +7539,9 @@ is minutes.
 
 ---
 
-## 96. The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN
+## 96. The preview/print path loads the whole section registry unconditionally — CLOSED 2026-10-04
 
-**Status:** open — a static registry import on every document preview. Reproduced 2026-08-28 by `grep -n "buildExportSections" src/app/doc-data-section.ts`.
-
-**Work item:** #133
+**Status:** CLOSED 2026-10-04 as not worth doing — verified by `grep -n "from \"./export\"" src/app/task-manager.tsx`, which shows the root component value-importing `exportWorkspace` from `export.ts`, and `export.ts` value-imports `export-sections.ts`. So the registry is already in the bundle every session loads, before any document opens, and a dynamic `import()` inside `resolveDataSection` would save no bytes while making three renderers async. Measured the same day with rolldown (minified, browser): bundling `doc-render-html.ts` with `export-sections` stubbed out drops ONE module and 24,649 bytes (7,066 gzipped) of 412,390 (132,478 gzipped). The registry's other dependencies stay, because the preview reaches them through other imports, so the "59 of 60 modules" below was never the marginal cost. Reopen only if the export path itself becomes lazy. Original status: open — a static registry import on every document preview. Reproduced 2026-08-28 by `grep -n "buildExportSections" src/app/doc-data-section.ts`.
 
 `doc-render-html.ts` backs the in-app document PREVIEW and the print-to-PDF path, so its module graph
 loads whenever a user opens a document — not only when they click Download. Extracting
@@ -20719,7 +20717,7 @@ failure mode this register keeps recording.
 
 ## 237. Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project
 
-**Status:** open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
+**Status:** **Update 2026-10-04:** the RACI READ half is DONE — `StakeholderSummary` now carries `raci` (milestone id → letter, a copy of `Stakeholder.raci`), so `list_stakeholders` answers "who is Accountable for milestone X" in general chat; the tool description and the `raci` view reading in `view-ai-scope.ts` say to join it with `list_milestones` and skip ids that list does not return. Pinned by "toStakeholderSummary carries RACI (§237)" in `chat-tools.test.ts` and "points the model at the raci field list_stakeholders returns" in `view-ai-scope.test.ts`. Still open: the model cannot WRITE a RACI (`createStakeholder` hardcodes `raci: {}`; `propose_raci` is the write path), and the cross-project gap below, which stays disclosed rather than fixed. The RACI paragraph below is the pre-fix record. Original status: open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
 **Severity:** low. The model is not wrong, it is blind; for the second gap it is told so. Reproduced 2026-08-28 by `grep -c "raci" src/app/raci-suggest/raci-suggest.ts`.
 
 **Work item:** #203
@@ -39707,7 +39705,7 @@ separately on another branch. Related: §542.
 
 ## 545. The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN
 
-**Status:** **Update 2026-10-03:** the SNAPSHOT half is done — `get_dashboard_snapshot` now carries `forecast` (the € and hours forecasts as `computeForecastBundle` returns them, a rate-mix summary by its driver row, and the budget history capped at the latest 20 changes plus `changeCount`; the EV history series is deliberately left out), and `evm.spi` / `evm.cpi` keep their keys by owner decision but are documented in the type and the tool description as task-effort indices in hours. Pinned by the "budget forecast (open-followups §545)" describe in `ai-dashboard-snapshot.test.ts` (forecast dropped, cap removed, oldest-twenty instead of latest each turn it red). Still owed: the EXPORTS half (CSV/Markdown/JSON/report exports carry no forecast figure) — scope it as its own slice, minding the byte-stable serializers. OPEN 2026-09-15 — deferred by `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §9;
+**Status:** **Update 2026-10-04:** the EXPORTS half is done for the workspace exports — PDF/print, Excel, PowerPoint and Word carry a derived "Budget forecast" section (`budgetForecast`, on by default) built from the dashboard model's `forecastBundle` by `export-forecast-section.ts`: the facts and both EACs with hours beside them, both VACs with their percent of budget, the gap with its extra working days, the booked rate and the fixed-price note. Omitted with the budget module off or no forecast; CSV / Markdown / JSON stay byte-stable because they never receive it. Pinned by `npx vitest run src/app/export-forecast-section.test.ts src/app/export-menu.test.tsx src/app/export-column-labels.test.ts`. Still owed: a DOCUMENT cannot embed the forecast — the renderers get the workspace but not the dashboard model, so `DATA_SECTION_KEYS` deliberately excludes the derived key (a block naming it would always render nothing). Embedding it needs the forecast threaded into the three document renderers and their callers. Earlier: **Update 2026-10-03:** the SNAPSHOT half is done — `get_dashboard_snapshot` now carries `forecast` (the € and hours forecasts as `computeForecastBundle` returns them, a rate-mix summary by its driver row, and the budget history capped at the latest 20 changes plus `changeCount`; the EV history series is deliberately left out), and `evm.spi` / `evm.cpi` keep their keys by owner decision but are documented in the type and the tool description as task-effort indices in hours. Pinned by the "budget forecast (open-followups §545)" describe in `ai-dashboard-snapshot.test.ts` (forecast dropped, cap removed, oldest-twenty instead of latest each turn it red). Still owed: the EXPORTS half (CSV/Markdown/JSON/report exports carry no forecast figure) — scope it as its own slice, minding the byte-stable serializers. OPEN 2026-09-15 — deferred by `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §9;
 the forecast itself ships in MR 2 of that slice. `grep -n -i "forecast" src/app/ai-dashboard-snapshot.ts`
 prints nothing today.
 
@@ -42297,7 +42295,7 @@ too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:
 
 ## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
 
-**Status:** open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
+**Status:** **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
 one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
 naming `@tiptap/react`'s real `setTimeout(…, 1)` editor-destroy and this entry in a comment. This
 hedge is **never machine-verified against the actual race**, and there is no seeded before/after

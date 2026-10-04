@@ -19,7 +19,7 @@
 // each measures either ANOTHER file or this block's LENGTH, and no edit to the
 // header above it can move either one.
 
-import { EXPORT_SECTION_KEYS } from "./settings-types";
+import { DATA_SECTION_KEYS } from "./settings-types";
 
 // ★★★ KEEP THIS IN SYNC WITH `DocBlock` IN document-model.ts BY HAND — this is
 // a JSON-schema literal for the model, not a type derived from DocBlock, so
@@ -72,7 +72,7 @@ const docBlockSchema = {
     // from the sections the app actually exports — see settings-types.ts.
     key: {
       type: "string" as const,
-      enum: [...EXPORT_SECTION_KEYS] as string[],
+      enum: [...DATA_SECTION_KEYS] as string[],
       description: "dataSection only: which live project data section to embed",
     },
   },

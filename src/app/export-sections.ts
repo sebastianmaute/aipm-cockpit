@@ -49,6 +49,7 @@ import {
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
+import { budgetForecastRows, type ExportExtras } from "./export-forecast-section";
 import {
   KV_EXPORT_FIELDS,
   KNOWLEDGE_EXPORT_FIELDS,
@@ -398,7 +399,7 @@ export const TASK_EXPORT_COLUMNS = CSV_COLUMNS.filter((c) => c !== "blockerLog")
 export const EXPORT_SECTION_FIELDS: Readonly<Record<ExportSectionKey, readonly string[]>> = {
   project: KV_EXPORT_FIELDS, status: KV_EXPORT_FIELDS, tasks: TASK_EXPORT_COLUMNS, raid: RAID_EXPORT_COLUMNS,
   milestones: MILESTONES_CSV_COLUMNS, changes: CHANGES_CSV_COLUMNS, stakeholders: STAKEHOLDERS_CSV_COLUMNS,
-  budgets: BUDGETS_CSV_COLUMNS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
+  budgets: BUDGETS_CSV_COLUMNS, budgetForecast: KV_EXPORT_FIELDS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
   absences: ABSENCES_CSV_COLUMNS, shifts: SHIFTS_CSV_COLUMNS, calendarEvents: CALENDAR_EVENT_EXPORT_FIELDS,
   knowledgeItems: KNOWLEDGE_EXPORT_FIELDS, insights: INSIGHT_EXPORT_FIELDS,
 };
@@ -676,7 +677,7 @@ function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): Ex
 // Builder map keyed by ExportSectionKey
 // ---------------------------------------------------------------------------
 
-type SectionBuilder = (ws: Workspace, lang: Lang) => ExportSection | null;
+type SectionBuilder = (ws: Workspace, lang: Lang, extras: ExportExtras) => ExportSection | null;
 
 const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   project: (ws, lang) => (ws.project ? projectSection(ws.project, lang) : null),
@@ -703,6 +704,11 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   budgets: (ws, lang) => {
     const items = ws.budgets ?? [];
     return items.length > 0 ? budgetsSection(items, lang) : null;
+  },
+  // §545 — derived from the dashboard model's forecast, never from `ws`.
+  budgetForecast: (_ws, lang, extras) => {
+    const rows = budgetForecastRows(extras.budgetForecast, lang);
+    return rows.length > 0 ? { key: "budgetForecast", ...heading("budgetForecast", lang), rows } : null;
   },
   knowledgeItems: (ws, lang) => {
     const items = ws.knowledgeItems ?? [];
@@ -757,11 +763,13 @@ export function buildExportSections(
   ws: Workspace,
   cfg: ExportConfig,
   lang: Lang,
+  /** Inputs derived outside the workspace (§545); omitted, derived sections are skipped. */
+  extras: ExportExtras = {},
 ): ExportSection[] {
   const result: ExportSection[] = [];
   for (const key of EXPORT_SECTION_KEYS) {
     if (!cfg[key]) continue;
-    const section = BUILDERS[key](ws, lang);
+    const section = BUILDERS[key](ws, lang, extras);
     if (section !== null) result.push(section);
   }
   return result;
