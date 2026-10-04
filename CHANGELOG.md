@@ -28,6 +28,10 @@ longer carries its own changelog comment.
   task, the way the RAID badge beside it already opens RAID. A `#id ×` chip in the Changes
   toolbar shows the filter and clears it; Reset clears it too. Screen readers now hear the task
   name with the count, so two tasks with the same number of changes no longer sound identical.
+- **The image library shows thumbnails (§482).** Each image in a document's image library now
+  shows a small preview beside its name. Thumbnails load as their rows scroll into view, a few at a
+  time, so a long library does not fetch every image at once. Images whose data is missing or whose
+  format is no longer supported show an empty box.
 
 ### Fixed
 
