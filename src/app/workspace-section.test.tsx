@@ -305,7 +305,7 @@ describe("WorkspaceSection — Changes task filter wiring", () => {
     );
     fireEvent.click(screen.getByTestId("jump-to-changes"));
     // ChangePanel is a lazy panel — the tabpanel mounts empty until it resolves.
-    const chip = await screen.findByRole("button", { name: `#7 – ${t("en-US", "clear")}` });
+    const chip = await screen.findByRole("button", { name: `#7 – ${t("en-US", "taskFilterChipClear")}` });
     fireEvent.click(chip);
     expect(handleClearChangeTaskFilter).toHaveBeenCalledTimes(1);
   });
@@ -323,7 +323,7 @@ describe("WorkspaceSection — Changes task filter wiring", () => {
       { wrapper: Wrapper },
     );
     fireEvent.click(screen.getByTestId("jump-to-changes"));
-    const name = `#7 – ${t("en-US", "clear")}`;
+    const name = `#7 – ${t("en-US", "taskFilterChipClear")}`;
     // Positive control: the chip is there in the scope it was armed in.
     expect(await screen.findByRole("button", { name })).toBeInTheDocument();
     epoch = 1;

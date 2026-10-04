@@ -37677,7 +37677,7 @@ task. Each jump now stamps `getScopeEpoch()` into `raidFilterEpoch` / `changeFil
 `workspace-section.tsx` passes a backlink to its panel only while the epoch is unchanged. Pinned by the two
 "retires the … task filter once the scope epoch moves on" tests in `workspace-section.test.tsx`; removing
 either gate turns its test red. Both chips (`raid-panel-toolbar.tsx`, `change-panel.tsx`) are now named
-"#7 – Clear" and no longer carry `title="Reset filters"`, which screen readers announced as the
+"#7 – Clear task filter" (`taskFilterChipClear`) and no longer carry `title="Reset filters"`, which screen readers announced as the
 description of a control that clears the task filter only.
 
 **Original status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`

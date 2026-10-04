@@ -226,7 +226,7 @@ describe("ChangePanel — task filter from the task-row badge", () => {
       ci({ id: 3, title: "Gamma quality", linkedTaskIds: [8, 7] }),
     ],
   };
-  const chipName = `#7 – ${t("en-US", "clear")}`;
+  const chipName = `#7 – ${t("en-US", "taskFilterChipClear")}`;
 
   it("shows only the changes linked to the filtered task, and a chip naming it", () => {
     const { queryByText, getByRole } = render(

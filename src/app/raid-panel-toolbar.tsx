@@ -150,7 +150,7 @@ export function RaidToolbar({
           // what the ✕ does. No `title`: it was "Reset filters", which this chip does
           // not do — it clears the task backlink only — and a title is announced as
           // the description, so screen readers heard the wrong action.
-          aria-label={`#${filterTaskId} – ${t(lang, "clear")}`}
+          aria-label={`#${filterTaskId} – ${t(lang, "taskFilterChipClear")}`}
           className={`rounded-md border border-ui-purple/40 bg-ui-purple/10 px-2.5 py-1.5 text-xs font-medium text-ui-purple dark:text-ui-purple-strong hover:bg-ui-purple/20 dark:border-ui-purple/50 dark:bg-ui-purple/15 ${INTERACTIVE}`}
         >
           #{filterTaskId} ×

@@ -463,7 +463,7 @@ describe("RaidPanel — task backlink chip", () => {
   it("names the chip by its task id and the clear action, with no misleading title", () => {
     const onClearTaskFilter = vi.fn();
     renderPanel(makeProps({ filterTaskId: 7, onClearTaskFilter }));
-    const chip = screen.getByRole("button", { name: `#7 – ${t("en-US", "clear")}` });
+    const chip = screen.getByRole("button", { name: `#7 – ${t("en-US", "taskFilterChipClear")}` });
     expect(chip).toHaveTextContent("#7 ×");
     expect(chip).not.toHaveAttribute("title");
     fireEvent.click(chip);
