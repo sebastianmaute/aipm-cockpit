@@ -241,4 +241,42 @@ describe("AssetThumbnail", () => {
     await settle();
     expect(container.querySelector("img")).toBeNull();
   });
+
+  // §482 review m1 — out and back in while the first fetch is still running
+  // must reuse that fetch, not start a second one for the same bytes.
+  it("reuses a fetch still running when the row scrolls out and back in", async () => {
+    let release!: (v: string) => void;
+    const loadImage = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { release = r; }));
+    const { container } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={createLoadLimiter(3)} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(1));
+    scrollAllOutOfView();
+    scrollAllIntoView();
+    await settle();
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    // The reused fetch still lands: its bytes become this run's image.
+    await act(async () => { release(TINY_GIF); });
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    expect(created).toHaveLength(1);
+    expect(container.querySelector("img")).toHaveAttribute("src", created[0]);
+  });
+
+  // §482 review m3 — while unavailable the observer is gone, so its last
+  // "in view" is stale; a row that turns available while off-screen must wait
+  // for the new observer instead of loading on it.
+  it("does not load a row that turns available again until it is reported in view", async () => {
+    const loadImage = vi.fn<AssetByteLoader>(async () => TINY_GIF);
+    const limiter = createLoadLimiter(3);
+    const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    rerender(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={true} />);
+    rerender(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    await settle();
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    // Positive control: once the new observer reports it in view, it loads.
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(2));
+  });
 });

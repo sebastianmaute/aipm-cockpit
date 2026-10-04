@@ -8,17 +8,28 @@
 //
 // ★★ Three things bound the cost of fetching each asset's FULL bytes:
 //   1. IN VIEW ONLY — an IntersectionObserver (100px rootMargin) loads a row as
-//      it scrolls in and, staying connected, drops its URL and any queued load
-//      as it scrolls out; it reloads on the way back. Live object URLs are
-//      therefore bounded by the rows in view. With no observer available every
-//      row counts as in view.
+//      it scrolls in and, staying connected, revokes its URL as it scrolls out;
+//      it reloads on the way back. Live object URLs are therefore bounded by the
+//      rows in view. With no observer available every row counts as in view.
 //   2. CAPPED — every load goes through the library's shared `LoadLimiter`, so
 //      a screenful of rows does not fire one request each at the same moment.
-//   3. DROPPED WHEN STALE — a load still queued when its row leaves the view or
-//      unmounts gives its slot back without fetching.
-// ★ Remaining cost, recorded rather than fixed: each visible thumbnail decodes
-// the full stored image (up to `ASSET_STORED_MAX_BYTES`) for a 32px box. A
-// downscale step was considered and not taken: jsdom cannot test it.
+//   3. NO WASTED FETCH — a load still queued when its row leaves the view or
+//      unmounts takes its turn as a no-op that fetches nothing and frees the
+//      slot at once; a row that scrolls back in while its fetch is still
+//      running reuses that fetch rather than starting a second one.
+// ★ Remaining costs, recorded rather than fixed:
+//   - Each visible thumbnail decodes the full stored image (up to
+//     `ASSET_STORED_MAX_BYTES`) for a 32px box. A downscale step was considered
+//     and not taken: jsdom cannot test it.
+//   - The observer uses the default (viewport) root. The browser still clips
+//     each row by its scrolling ancestors, so "in view" and the URL bound are
+//     correct inside the library's modal or page scroller; only the 100px early
+//     start applies at the viewport edge rather than the scroller's, so a row
+//     can pop in empty there. Using the scroller as the root needs the element
+//     that really scrolls vertically, which differs per mount: the table's own
+//     `overflow-auto` wrapper has no height limit and scrolls only sideways, so
+//     using it as the root would count every row as in view. jsdom has no
+//     layout to test a choice like that (§482 review m4).
 //
 // ★ Decorative. The row already names the asset, so the image has `alt=""` and
 // the box is `aria-hidden`; it adds no control and no name to the row.
@@ -56,6 +67,11 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
   // In view (within the observer's rootMargin). No IntersectionObserver (an
   // old browser) → treat the row as always in view.
   const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
+  // The observer is disconnected while the row is unavailable, so the last
+  // reported `inView` goes stale. Forget it, so a row that turns available again
+  // while off-screen waits for the new observer's first report instead of
+  // loading on the stale `true` (§482 review m3).
+  if (unavailable && inView && typeof IntersectionObserver !== "undefined") setInView(false);
   // Tagged with the asset it was minted for, so a render after the id or mime
   // changed never shows the previous asset's (revoked) URL.
   const [shown, setShown] = useState<{ key: string; url: string } | null>(null);
@@ -73,8 +89,15 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
   const loadImageRef = useRef(loadImage);
   useEffect(() => { loadImageRef.current = loadImage; });
 
+  // The fetch currently running for this row, tagged with the asset it is for.
+  // A row that scrolls out and back in while its fetch is still running reuses
+  // that fetch instead of starting a second one (§482 review m1); only the
+  // earlier effect run's result is discarded, never the bytes.
+  const inFlightRef = useRef<{ key: string; bytes: Promise<string | null> } | null>(null);
+
   // ★★ The observer STAYS connected (§482 review I2). A row that scrolls out
-  // drops its URL and any queued load; one that scrolls back in reloads. So the
+  // revokes its URL, and a load it still has queued fetches nothing; one that
+  // scrolls back in reloads. So the
   // live object URLs — each the asset's FULL stored bytes — are bounded by the
   // rows in view, and a fast scroll does not leave every row it passed queued
   // ahead of the ones the user stopped on.
@@ -99,16 +122,26 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
     if (!inView || unavailable) return;
     let cancelled = false;
     let url: string | null = null;
-    limiter
-      .run(async () => {
-        // Queued behind other rows and gone (unmounted or scrolled out)
-        // meanwhile: give the slot back without fetching.
-        if (cancelled) return null;
-        return loadImageRef.current(id).catch((err: unknown) => {
-          logDiag("error", "assetThumbnail.loadFailed", { message: err instanceof Error ? err.message : String(err) });
-          return null;
-        });
-      })
+    const prior = inFlightRef.current;
+    const bytes =
+      prior && prior.key === key
+        ? prior.bytes
+        : limiter.run(async () => {
+            // Queued behind other rows and gone (unmounted or scrolled out)
+            // meanwhile: give the slot back without fetching.
+            if (cancelled) return null;
+            const fetched = loadImageRef.current(id).catch((err: unknown) => {
+              logDiag("error", "assetThumbnail.loadFailed", { message: err instanceof Error ? err.message : String(err) });
+              return null;
+            });
+            const entry = { key, bytes: fetched };
+            inFlightRef.current = entry;
+            void fetched.finally(() => {
+              if (inFlightRef.current === entry) inFlightRef.current = null;
+            });
+            return fetched;
+          });
+    bytes
       .then((base64) => {
         if (cancelled || base64 === null) return;
         const r = assetBytesToObjectUrl(base64, mime);
