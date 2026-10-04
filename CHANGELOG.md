@@ -62,8 +62,10 @@ longer carries its own changelog comment.
 - **Imported colour themes keep readable status text (§239).** A colour theme imported from a
   file could set its own status-text and accent-text colours below the contrast the app needs on
   cards. Those colours are now darkened (or, on a dark theme, lightened) just enough to read,
-  keeping their hue; colours that already pass are kept exactly. The shipped Petrol, Mockup and
-  Beacon theme files change slightly; the built-in schemes do not.
+  keeping their hue where that is enough, and replaced by a readable colour where it is not;
+  colours that already pass are kept exactly. The theme files are unchanged, but the shipped
+  Petrol, Mockup and Beacon themes now display slightly different status text; the built-in
+  schemes do not change.
 - **A withheld deletion can be discarded (§629).** When saving pauses because a large deletion
   was withheld, the banner now offers "Discard this deletion", which reloads the project from
   storage after asking. Its messages used to say "reload the page", which did not help when the

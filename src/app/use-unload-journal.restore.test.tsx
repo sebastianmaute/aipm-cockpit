@@ -738,12 +738,26 @@ describe("§655 — Restore a kept version of the project in scope", () => {
     await advance(25);
     expect(result.current.loadPending).toBe(true); // the premise
     await act(async () => { staleRestore(entry); });
-    expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(1);
+    expect(toastsOf("unloadJournalKeptRestoreLoading")).toHaveLength(1);
+    expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(0);
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
     expect(readJournal(KEPT_KEY)).not.toBeNull();
     expect(numberedKept()).toEqual([]);
     await advance(200);
     await act(async () => { await reload; });
+  });
+
+  it("keeps the version that is live AT the confirm, not the one at the click", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    const handlerAtClick = result.current.restoreKeptJournal; // the banner holds this across its awaited confirm
+    act(() => { result.current.setTasks((prev) => [...prev, { id: 9, taskName: "Arrived during the dialog" } as unknown as Task]); });
+    await act(async () => { handlerAtClick(entry); });
+    expect(numberedKept()).toHaveLength(1);
+    expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1, 9]);
   });
 
   it("when the live version cannot be kept first, nothing is restored", async () => {
@@ -805,6 +819,7 @@ describe("§668 — a corrupt journal is refused, not applied as an empty projec
     expect(localStorage.getItem(JOURNAL_KEY)).not.toBeNull(); // left in place...
     // ...and LISTED, so Download and Discard reach it: nothing else would ever remove it.
     expect(result.current.otherJournals.others.map((e) => e.journal.projectKey)).toEqual(["browser"]);
+    expect(result.current.otherJournals.others[0].unreadable).toBe(true); // its own text: "reload to restore" would only fail again
   });
 
   it("an unreadable journal can be discarded from the notice, and the next load says nothing", async () => {

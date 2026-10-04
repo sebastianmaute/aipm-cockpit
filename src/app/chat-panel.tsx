@@ -1247,7 +1247,7 @@ function ChatPanelInner({
     // unrecognised voice command prefills, and the chat panel stays mounted, so a draft can be there.)
     // An auto-send replaces the box, since it is sent at once.
     const { prompt, autoSend } = chatSeed;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a seed is an external request (another view's requestChat), applied once per seed object
     setInput((draft) => (!autoSend && draft.trim() !== "" ? `${draft.trimEnd()}\n${prompt}` : prompt));
     if (chatSeed.autoSend && !sendGateRef.current.blocked) {
       sendGateRef.current.submit(chatSeed.prompt);

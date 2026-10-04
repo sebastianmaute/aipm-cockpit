@@ -87,7 +87,9 @@ function retagToThisTab(journal: UnloadJournal): void {
  *  did not. Every caller here applies what it gets, so none may decode leniently. */
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    return jsonToWorkspace(journal.workspace, { strict: true });
+    // `diag` keeps the documents / documentVersions containment (§97/§635): with one, a sanitizer throw
+    // drops those slices instead of refusing the whole journal, as the lenient decode did.
+    return jsonToWorkspace(journal.workspace, { strict: true, diag: {} });
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -357,6 +359,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   /** §632 — every key `restoreOnLoad` ran for on this page. use-other-journals.ts leaves these out of
    *  its list: their journal was applied, cleared, or published as the conflict notice. */
   const [restoredKeys, setRestoredKeys] = useState<ReadonlySet<string>>(() => new Set());
+  /** §668 — keys whose journal the load restore found undecodable on this page, so the notice can say
+   *  the record cannot be restored (reloading only fails again). */
+  const [unreadableKeys, setUnreadableKeys] = useState<ReadonlySet<string>>(() => new Set());
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
    *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
@@ -376,7 +381,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     if (journal === null || restored !== null) setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     if (journal === null || restored === null) {
       setConflictRecord(null);
-      if (journal !== null) onUnreadableRef.current?.(); // §668 — refused, and said so
+      if (journal !== null) {
+        onUnreadableRef.current?.(); // §668 — refused, and said so
+        setUnreadableKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
+      }
       return null;
     }
     const loadedFingerprint = fingerprintWorkspace(loaded);
@@ -429,6 +437,6 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
 
   return {
     noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
-    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive,
+    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive, unreadableKeys,
   };
 }

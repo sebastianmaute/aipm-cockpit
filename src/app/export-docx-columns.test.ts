@@ -86,7 +86,7 @@ describe("docxColumnWidths", () => {
     expect(description / id).toBeLessThanOrEqual(10.01);
   });
 
-  it("sizes a column by its longest header word, so a header never breaks mid-word", () => {
+  it("weighs a column by its longest header word, not only its cells", () => {
     const [a, b] = docxColumnWidths(["Responsible", "X"], [["1", "2"]], WIDTH);
     expect(a).toBeGreaterThan(b);
   });

@@ -79,18 +79,21 @@ export function activityLogsStatement(): SqlStmt {
   return { sql: `SELECT project_id, value FROM meta WHERE key = 'activityLog'` };
 }
 
-function decodeLog(projectId: string, raw: string | undefined): ActivityEntry[] {
+type DecodedLog = Pick<ActivityAuditSource, "log" | "logUnreadable" | "entriesDropped">;
+
+function decodeLog(projectId: string, raw: string | undefined): DecodedLog {
   // No row, or a SQL NULL (which `rowObjects` reads as ""): the project has no stored log.
-  if (raw === undefined || raw === "") return [];
+  if (raw === undefined || raw === "") return { log: [] };
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) throw new Error("not an array");
-    return sanitizeActivityLog(parsed);
+    const log: ActivityEntry[] = sanitizeActivityLog(parsed);
+    return parsed.length > log.length ? { log, entriesDropped: parsed.length - log.length } : { log };
   } catch (err) {
-    // One unreadable log must not sink the download of every other project's: it is listed empty
-    // and logged, the same trade a load makes for a corrupt meta blob.
+    // One unreadable log must not sink the download of every other project's: it is listed empty,
+    // FLAGGED so the file cannot read as "no activity", and logged.
     logDiag("warn", "storage.activityAuditLogUnreadable", { projectId, message: err instanceof Error ? err.message : String(err) });
-    return [];
+    return { log: [], logUnreadable: true };
   }
 }
 
@@ -103,5 +106,5 @@ export async function readPortfolioActivityLogs(config: TursoConfig | null): Pro
   const n = results.length;
   const projects = [...rowsToProjectList(results[n - 3]), ...rowsToProjectList(results[n - 2])];
   const logs = new Map(rowObjects(results[n - 1]).map((o) => [o.project_id, o.value]));
-  return projects.map((p) => ({ id: p.id, name: p.meta.name, archived: p.archived, log: decodeLog(p.id, logs.get(p.id)) }));
+  return projects.map((p) => ({ id: p.id, name: p.meta.name, archived: p.archived, ...decodeLog(p.id, logs.get(p.id)) }));
 }

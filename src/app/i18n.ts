@@ -4509,6 +4509,10 @@ const enUS = {
   unloadJournalKeptRestoreConfirmAction: "Restore this version",
   unloadJournalKeptRestored: "Restored the kept version. The version you had open is kept in the notice.",
   unloadJournalKeptRestoreBlocked: "Saving is paused, so this version can't be restored right now.",
+  unloadJournalKeptRestoreLoading: "A project is still loading, so this version can't be restored right now. Try again in a moment.",
+  // §668 — an undecodable journal of the project open now, listed so it can be downloaded or discarded.
+  unloadJournalUnreadableEntry: "{0} — could not be read, from {1}, {2} KB",
+  unloadJournalUnreadableHint: "A draft marked \"could not be read\" cannot be restored, not even by reloading. Download it to keep a copy, or discard it.",
   unloadJournalKeptRestoreUnavailable: "This version could not be read, so nothing was restored. You can still download it.",
   unloadJournalKeptRestoreNotKept: "The version you have open could not be kept first, so nothing was restored.",
   unloadJournalKeyBrowser: "Browser workspace (no project)",

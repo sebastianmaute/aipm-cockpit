@@ -26,6 +26,11 @@ export interface ActivityAuditSource {
   name: string;
   archived: boolean;
   log: readonly ActivityEntry[];
+  /** The STORED log could not be read at all, so `log` is empty for that reason, not for want of
+   *  activity — the file must say so, or an auditor reads "nothing happened". */
+  logUnreadable?: boolean;
+  /** Stored entries the sanitizer dropped (malformed), so `log` is shorter than what was stored. */
+  entriesDropped?: number;
 }
 
 export interface ActivityAuditEntry {
@@ -45,7 +50,7 @@ export interface ActivityAudit {
   exportedAt: string;
   appVersion: string;
   scope: ActivityAuditScope;
-  projects: { id: string; name: string; archived: boolean; entries: ActivityAuditEntry[] }[];
+  projects: { id: string; name: string; archived: boolean; logUnreadable?: true; entriesDropped?: number; entries: ActivityAuditEntry[] }[];
 }
 
 function auditEntry(e: ActivityEntry): ActivityAuditEntry {
@@ -74,6 +79,8 @@ export function buildActivityAudit(scope: ActivityAuditScope, sources: readonly 
         id: s.id,
         name: s.name,
         archived: s.archived,
+        ...(s.logUnreadable ? { logUnreadable: true as const } : {}),
+        ...(s.entriesDropped ? { entriesDropped: s.entriesDropped } : {}),
         entries: [...s.log].sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0)).map(auditEntry),
       })),
   };

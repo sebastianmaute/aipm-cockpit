@@ -31,6 +31,9 @@ export type OtherJournal = {
   /** The registry project's name for the key, or null (a Turso id, `browser`, `turso`) — the notice
    *  then shows the key, with `browser` and `turso` translated. */
   label: string | null;
+  /** §668 — the load restore found this record undecodable: it cannot be restored, only downloaded or
+   *  discarded. */
+  unreadable?: true;
 };
 
 export type UseOtherJournalsArgs = {
@@ -38,14 +41,17 @@ export type UseOtherJournalsArgs = {
   projectKey: string;
   /** Keys whose restore ran on this page — never listed. */
   restoredKeys: ReadonlySet<string>;
+  /** §668 — keys whose journal did not decode on this page (`unreadableKeys` from use-unload-journal.ts). */
+  unreadableKeys?: ReadonlySet<string>;
   /** True once the first load for `projectKey` has applied (so its restore has run). */
   enabled: boolean;
   isPopout: boolean;
 };
 
-function toEntry(journal: UnloadJournal): OtherJournal {
+function toEntry(journal: UnloadJournal, unreadableKeys?: ReadonlySet<string>): OtherJournal {
   const projectId = journalKeyProject(journal.projectKey); // §4 — a kept slot is labelled with its project
-  return { journal, label: loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null };
+  const label = loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null;
+  return unreadableKeys?.has(journal.projectKey) ? { journal, label, unreadable: true } : { journal, label };
 }
 
 /** The download's file name. The key never holds a credential (see `journalProjectKey`); anything
@@ -56,7 +62,7 @@ export function otherJournalFileName(journal: UnloadJournal): string {
   return `aipm-cockpit-unsaved-${safeKey}-${day}.json`;
 }
 
-export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }: UseOtherJournalsArgs) {
+export function useOtherJournals({ projectKey, restoredKeys, unreadableKeys, enabled, isPopout }: UseOtherJournalsArgs) {
   const active = enabled && !isPopout;
   const [others, setOthers] = useState<OtherJournal[]>([]);
   const [expired, setExpired] = useState<OtherJournal[]>([]);
@@ -69,14 +75,14 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     setOthers(listUnloadJournals()
       .filter((j) => isKeptProjectKey(j.projectKey) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a KEPT slot is listed whoever wrote it: no restore ever reads it, so this list is its only way out
       .sort((a, b) => b.savedAt - a.savedAt)
-      .map(toEntry));
-  }, [restoredKeys]);
+      .map((j) => toEntry(j, unreadableKeys)));
+  }, [restoredKeys, unreadableKeys]);
 
   useEffect(() => {
     if (!active) return;
     if (!sweptRef.current) {
       sweptRef.current = true;
-      setExpired(expireUnloadJournals(Date.now(), projectKey).map(toEntry));
+      setExpired(expireUnloadJournals(Date.now(), projectKey).map((j) => toEntry(j)));
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a read of localStorage, re-run when the key in scope or the restored keys change
     relist();

@@ -362,6 +362,19 @@ describe("OtherJournalsBanner — §655 Restore", () => {
     expect(screen.queryByText(t("en-US", "unloadJournalKeptHintRestore"))).toBeNull();
   });
 
+  it("marks an unreadable entry as such, with a hint that reloading cannot restore it (§668)", () => {
+    const unreadable: OtherJournal = { ...entry("browser", null, 1), unreadable: true };
+    render(<OtherJournalsBanner lang="en-US" others={[unreadable, other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/^Browser workspace \(no project\) — could not be read, from /)).toBeTruthy();
+    expect(screen.getByText(t("en-US", "unloadJournalUnreadableHint"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Discard: Browser workspace/ })).toBeTruthy();
+  });
+
+  it("shows no unreadable hint when no entry is unreadable", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.queryByText(t("en-US", "unloadJournalUnreadableHint"))).toBeNull();
+  });
+
   it("offers no Restore at all without a handler", () => {
     render(<OtherJournalsBanner lang="en-US" others={[kept()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => true} />);
     expect(screen.queryByRole("button", { name: /^Restore: / })).toBeNull();

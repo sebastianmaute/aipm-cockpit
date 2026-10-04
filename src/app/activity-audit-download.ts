@@ -23,10 +23,15 @@ export function activityAuditDownloader(portfolioConfig: TursoConfig | null, cur
     scope,
     download: async () => {
       // The project open now contributes its LIVE log on both scopes: the stored one can lag the newest
-      // entries until the next save, and an auditor reading the file would miss them.
-      const sources = portfolioConfig !== null
-        ? (await readPortfolioActivityLogs(portfolioConfig)).map((s) => (s.id === current.id ? { ...s, log: current.log } : s))
-        : [current];
+      // entries until the next save, and an auditor reading the file would miss them. Its stored-log
+      // flags stay (the live log began from that stored one). Not yet in the projects table (never
+      // saved there): it is added, not left out.
+      const stored = portfolioConfig !== null ? await readPortfolioActivityLogs(portfolioConfig) : null;
+      const sources = stored === null
+        ? [current]
+        : stored.some((s) => s.id === current.id)
+          ? stored.map((s) => (s.id === current.id ? { ...s, log: current.log } : s))
+          : [...stored, current];
       const now = new Date();
       return downloadJson(activityAuditFileName(now), JSON.stringify(buildActivityAudit(scope, sources, now, APP_VERSION), null, 2));
     },

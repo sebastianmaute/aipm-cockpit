@@ -17,7 +17,10 @@ document — so it is storage-only on every EXPORT and DOCUMENT path, and it is 
 `activity-audit.ts` builds a JSON file marked internal (`ACTIVITY_AUDIT_CLASSIFICATION`, and INTERNAL in
 the file name) that DOES carry each entry's `changes` — they are the audit detail it exists for. On a
 multi-project Turso database it covers every project in the portfolio, archived ones flagged
-(`readPortfolioActivityLogs` in `turso-portfolio.ts`); on any other storage only the project open now.
+(`readPortfolioActivityLogs` in `turso-portfolio.ts`), and the project open now even before it is in the
+projects table; on any other storage only the project open now. A project whose stored log is unreadable
+carries `logUnreadable: true`, and one whose stored entries the sanitizer partly dropped carries
+`entriesDropped`, so an empty or short list never reads as "no activity".
 It goes through no export config and no export section. ★★ Never wire it into `exportWorkspace`, a
 document renderer, the AI snapshot or the Activity panel's Print — those are the paths the rule above
 guards. ★★ **It is NOT access control**: the app has no roles (§508) and expert mode is a preference

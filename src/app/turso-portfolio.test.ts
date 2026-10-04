@@ -155,6 +155,8 @@ describe("readPortfolioActivityLogs (§510)", () => {
     const out = await readPortfolioActivityLogs(cfg);
     expect(out.map((p) => [p.id, p.name, p.archived, p.log.length])).toEqual([["p1", "Apollo", false, 1], ["p2", "Zeus", true, 0]]);
     expect(out[0].log[0]).toMatchObject({ id: "d-1-1", changes: [{ field: "status", from: "To Do", to: "Done" }] });
+    expect(out[0]).not.toHaveProperty("logUnreadable");
+    expect(out[0]).not.toHaveProperty("entriesDropped");
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts.at(-1)).toEqual(activityLogsStatement());
     expect(stmts.some((s) => /^\s*(INSERT|UPDATE|DELETE)/i.test(s.sql))).toBe(false); // changes no data
@@ -171,6 +173,7 @@ describe("readPortfolioActivityLogs (§510)", () => {
     ]);
     const out = await readPortfolioActivityLogs(cfg);
     expect(out.map((p) => [p.id, p.log.length])).toEqual([["p1", 0]]);
+    expect(out[0].logUnreadable).toBe(true); // flagged: an empty list must not read as "no activity"
     expect(spy).toHaveBeenCalledWith("warn", "storage.activityAuditLogUnreadable", expect.objectContaining({ projectId: "p1" }));
     spy.mockRestore();
   });
@@ -185,8 +188,21 @@ describe("readPortfolioActivityLogs (§510)", () => {
       logsResult([["p1", ""], ["p2", "{\"not\":\"an array\"}"]]),
     ]);
     const out = await readPortfolioActivityLogs(cfg);
-    expect(out.map((p) => [p.id, p.log.length])).toEqual([["p1", 0], ["p2", 0]]);
+    expect(out.map((p) => [p.id, p.log.length, p.logUnreadable ?? false])).toEqual([["p1", 0, false], ["p2", 0, true]]);
     expect(spy.mock.calls.filter((c) => c[1] === "storage.activityAuditLogUnreadable").map((c) => (c[2] as { projectId: string }).projectId)).toEqual(["p2"]);
     spy.mockRestore();
+  });
+
+  it("counts stored entries the sanitizer dropped, so a short log says why", async () => {
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } },
+      logsResult([["p1", JSON.stringify([logEntry, { nonsense: true }])]]),
+    ]);
+    const [p1] = await readPortfolioActivityLogs(cfg);
+    expect(p1.log).toHaveLength(1);
+    expect(p1.entriesDropped).toBe(1);
   });
 });

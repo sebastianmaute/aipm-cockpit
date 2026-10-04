@@ -48,6 +48,13 @@ describe("activityAuditDownloader", () => {
     expect(body.projects.find((p: { id: string }) => p.id === "p2").entries).toEqual([]);
   });
 
+  it("with a portfolio: adds the project open now when it is not in the projects table yet", async () => {
+    vi.mocked(readPortfolioActivityLogs).mockResolvedValueOnce([{ id: "p2", name: "Zeus", archived: false, log: [] }]);
+    await activityAuditDownloader(cfg, current).download();
+    const body = JSON.parse(vi.mocked(downloadJson).mock.calls[0][1]);
+    expect(body.projects.map((p: { id: string }) => p.id).sort()).toEqual(["p1", "p2"]);
+  });
+
   it("passes on the browser's refusal", async () => {
     vi.mocked(downloadJson).mockReturnValueOnce(false);
     expect(await activityAuditDownloader(null, current).download()).toBe(false);

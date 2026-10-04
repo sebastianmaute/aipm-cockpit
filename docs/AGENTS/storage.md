@@ -362,7 +362,9 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
   Discard, and — for a kept version of the project IN SCOPE only (`isRestorable` in
   `use-other-journals.ts`) — Restore, behind a confirm (§655). `restoreKeptJournal`
-  (`use-storage-backend.ts`) refuses over a shut save gate, decodes the record STRICTLY, KEEPS the live
+  (`use-storage-backend.ts`) refuses while a load is in flight (`unloadJournalKeptRestoreLoading`, read through
+  `loadPendingRef`) or over a shut save gate, runs through `restoreKeptJournalRef` so the handler the banner
+  holds across its awaited confirm acts on the LATEST render (the live workspace it keeps first is current), decodes the record STRICTLY, KEEPS the live
   workspace first through `keepLive` (and restores nothing when that keep is not written), then applies
   the kept one like "Restore anyway" and saves it by the normal path, and removes the restored slot. The
   version that was open is then itself a kept version in the same notice, so a restore can be undone
@@ -372,7 +374,11 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
   leaves its key OUT of `restoredKeys`, so the other-journals notice lists it with Download and Discard —
   nothing else would remove it (a confirmed save clears only this tab's records; the key in scope never
-  expires). ★ An EMPTY but readable journal is NOT refused
+  expires). It is marked through `unreadableKeys` (entry text `unloadJournalUnreadableEntry`, hint
+  `unloadJournalUnreadableHint`), since the notice's general "reload to restore" advice would only fail again.
+  ★ This tab's own next journal write under the same key replaces the record. Accepted: it is corrupt, and
+  the toast and notice say so at once. The decode passes a `diag`, so a documents/documentVersions
+  sanitizer throw drops those slices (§97/§635) rather than refusing the whole journal. ★ An EMPTY but readable journal is NOT refused
   — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and

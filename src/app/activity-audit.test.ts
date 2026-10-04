@@ -76,6 +76,20 @@ describe("buildActivityAudit", () => {
   });
 });
 
+describe("buildActivityAudit — unreadable and short logs", () => {
+  it("carries the stored-log flags, so an empty list can be told from no activity", () => {
+    const audit = buildActivityAudit("portfolio", [
+      source({ id: "p1", name: "A", log: [], logUnreadable: true }),
+      source({ id: "p2", name: "B", entriesDropped: 2 }),
+      source({ id: "p3", name: "C" }),
+    ], NOW, "1.15.0");
+    expect(audit.projects[0]).toMatchObject({ id: "p1", logUnreadable: true, entries: [] });
+    expect(audit.projects[1]).toMatchObject({ id: "p2", entriesDropped: 2 });
+    expect(audit.projects[2]).not.toHaveProperty("logUnreadable");
+    expect(audit.projects[2]).not.toHaveProperty("entriesDropped");
+  });
+});
+
 describe("activityAuditFileName", () => {
   it("says internal in the name and carries the day", () => {
     expect(activityAuditFileName(NOW)).toBe("aipm-cockpit-INTERNAL-activity-audit-2026-10-04.json");

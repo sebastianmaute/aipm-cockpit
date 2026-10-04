@@ -219,7 +219,7 @@ function JournalList({
           return (
             <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 break-all">
-                {t(lang, isKeptProjectKey(entry.journal.projectKey) ? "unloadJournalKeptEntry" : "unloadJournalOthersEntry", shown, date, // §4 — a kept version was refused, and no reload restores it
+                {t(lang, entry.unreadable ? "unloadJournalUnreadableEntry" : isKeptProjectKey(entry.journal.projectKey) ? "unloadJournalKeptEntry" : "unloadJournalOthersEntry", shown, date, // §4 — a kept version was refused, and no reload restores it
                   Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
               </span>
               <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${name}`}
@@ -265,6 +265,7 @@ export function OtherJournalsBanner({
       {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
         <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
       )}
+      {others.some((entry) => entry.unreadable) && <p className="mt-1 text-sm">{t(lang, "unloadJournalUnreadableHint")}</p>}
       <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} />
     </AlertBanner>
   );
