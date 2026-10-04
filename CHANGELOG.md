@@ -87,6 +87,10 @@ longer carries its own changelog comment.
   `document-model` cycle. `workspace.ts` re-exports both, so no import path changes.
 - **`task-manager.tsx` size baseline lowered (§491).** Its `size:check` entry drops from 6040 to
   3467, the file's current length, so the ratchet fails on any growth again.
+- **Test name checks read the real accessible name (§279, §308).** The shared test helper behind
+  the duplicate-name and toolbar-order checks now computes each control's accessible name with
+  `dom-accessibility-api` (a new dev dependency), so a `<label for>`, `aria-labelledby`, `title` and
+  hidden content count the way a screen reader hears them.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

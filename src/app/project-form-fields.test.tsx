@@ -234,13 +234,11 @@ describe("contact persons", () => {
     expect(names[1]).toContain("Sofia Ramirez");
   });
 
-  // ★★★ `expectRowUniqueNames` CANNOT SEE THIS CASE, and that is a property of
-  // the helper, not of the fixture: `controlNames` reads the raw `aria-label`
-  // attribute, so "Remove – Bob  Jones" and "Remove – Bob Jones" are two
-  // distinct strings to it and the duplicate scan stays silent whether or not
-  // the tokeniser ran. A screen reader collapses whitespace runs, hears one
-  // name twice, and that is the 2.4.6 failure. Measured, not reasoned: seeded
-  // through that helper this assertion passed against the UNFIXED code.
+  // ★★ Before §279/§308 `expectRowUniqueNames` could not see this case: it read
+  // the raw `aria-label`, so "Remove – Bob  Jones" and "Remove – Bob Jones"
+  // were two distinct strings to it and the duplicate scan stayed silent. It
+  // now reads whitespace-collapsed accessible names, as a screen reader hears
+  // them. This test keeps its own explicit check below.
   //
   // ★ The case is reachable through the form as well as through an import: the
   // add guard `hasName` trims but does not collapse internal runs, so "Bob

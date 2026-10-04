@@ -115,14 +115,13 @@ export function expectRowUniqueNames(opts: RowUniqueOptions): void {
   }
 
   if (requireCollisionSeed) {
-    // ★★ COLLAPSE BEFORE COMPARING, exactly as `buildRowTokens` does. It keys its
-    // collision counts on a whitespace-collapsed name because an accessible name
-    // compares that way, so a fixture seeding "Risk  A" against "Risk A" IS
-    // collision-bearing and the tokeniser correctly qualifies both. Comparing the
-    // stripped names RAW here would make this guard THROW at that fixture — the
-    // guard rejecting the very case it exists to certify. Found by reading, not by
-    // a failing run.
-    const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, "").replace(/\s+/g, " "));
+    // ★★ The names arrive whitespace-collapsed from `controlNames` (the
+    // accessible-name computation collapses and trims), the same way
+    // `buildRowTokens` keys its collision counts. So "Risk  A" against "Risk A"
+    // is the same name here AND in the collision count below; the two halves once
+    // normalised differently, and a fixture could be certified as seeded while
+    // its collision went uncounted (§308).
+    const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, ""));
     const strippedCounts = new Map<string, number>();
     for (const n of stripped) strippedCounts.set(n, (strippedCounts.get(n) ?? 0) + 1);
     if (![...strippedCounts.values()].some((c) => c > 1)) {

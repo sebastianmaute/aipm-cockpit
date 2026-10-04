@@ -138,5 +138,16 @@ describe("expectRowUniqueNames", () => {
         /WCAG 2.4.6/,
       );
     });
+
+    it("counts names that differ only in whitespace as one collision (§308)", () => {
+      // ★★ The seed check and the collision count must agree on what "the same
+      // name" is. They once disagreed: the seed check collapsed whitespace and
+      // the count used raw strings, so "Risk  A" vs "Risk A" was certified as a
+      // seeded collision AND then counted as two distinct names.
+      render(<Rows names={["Delete – Risk  A", "Delete – Risk A"]} />);
+      expect(() => expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true })).toThrow(
+        /WCAG 2.4.6/,
+      );
+    });
   });
 });

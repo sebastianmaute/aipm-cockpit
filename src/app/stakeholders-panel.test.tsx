@@ -512,19 +512,11 @@ describe("StakeholdersPanel — toolbar search vs. Name column header (§261)", 
       roles: ["searchbox", "button", "checkbox"],
     });
 
-    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
-    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
-    // `aria-label || textContent`, and a sort header has no aria-label — so its
-    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
-    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
-    // `stakeholders-panel.tsx` defaults `pf.sort` to null (`?? null` / `?? "off"`),
-    // so every header here renders inactive and scans as the bare column label —
-    // which is the ONLY reason the pre-fix `"Name" x2` collision was visible to
-    // it. Set a default sort on the Name column and that header scans as
-    // "Name ↑" while its REAL accessible name is still "Name": the scan silently
-    // stops detecting the collision and stays green. The positive lookups below
-    // are unaffected — `getByRole({name})` computes the real accessible name —
-    // so they are what would still bite.
+    // ★ The scan reads REAL accessible names (`controlNames`, §279/§308), so a
+    // sort header's aria-hidden ↑/↓ is not part of its scanned name: a default
+    // sort on one of these columns would no longer hide the collision from it.
+    // (Before §279/§308 it read `aria-label || textContent`, and this fixture
+    // sorting nothing was the only reason the scan worked.)
     //
     // Anti-vacuity: name each side of the former collision positively, so a
     // "fix" that merely deleted a label could not pass. The clear ✕ the atom
@@ -555,15 +547,15 @@ describe("StakeholdersPanel — toolbar search vs. Name column header (§261)", 
   // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}`, so the
   // test opens the popover with the "colConfigTitle" gear button, scans all 8
   // toggles, and names that one positively.
-  // ★★ That aria-label is ALSO what makes those checkboxes VISIBLE to this
-  // assertion at all: `controlNames` (`src/test/toolbar-order.ts`) reads
-  // `aria-label || textContent`, NOT the real accessible name, and an <input>
-  // has no textContent — so before the fix all 8 reported "" and opening the
-  // popover would have failed on a spurious `"" x8` duplicate that has nothing
-  // to do with §261.
+  // ★ Without that aria-label each toggle is named by its wrapping <label>,
+  // i.e. the bare column label, and collides with the header of the same name.
+  // The scan sees that since `controlNames` computes real accessible names
+  // (§279/§308); before, it read an <input> as "" and would have failed on a
+  // spurious all-empty duplicate instead.
   // ★★ THE TWO HALVES WERE MUTATION-PROVED SEPARATELY, because the first MASKS
   // the second rather than firing alongside it. Deleting the aria-label outright
-  // fails on that `"" x8` duplicate — `expectRowUniqueNames` throws before the
+  // failed on a `"" x8` duplicate under the old helper (with real names it
+  // collides with the header instead; not re-measured) — `expectRowUniqueNames` throws before the
   // `getByRole` lookup below is ever reached. Passing the raw column KEY
   // instead of its translation gives distinct, non-empty names, so the scan
   // passes and the test fails on the lookup instead. Only the second mutant
