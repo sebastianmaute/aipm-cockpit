@@ -12,6 +12,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The AI assistant can read RACI assignments (§237).** Asked who is Responsible, Accountable,
+  Consulted or Informed for a milestone, the assistant can now answer from the stakeholder list
+  instead of saying it cannot see the RACI matrix. It still cannot set an assignment from chat;
+  use Suggest RACI on the RACI view for that.
 - **Download the activity log for an internal audit (§510).** In expert mode, Settings → Storage
   can download the activity log as a JSON file marked internal, including the old and new value of
   every recorded change. On a shared Turso database with several projects it covers every project,

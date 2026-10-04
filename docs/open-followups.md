@@ -20719,7 +20719,7 @@ failure mode this register keeps recording.
 
 ## 237. Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project
 
-**Status:** open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
+**Status:** **Update 2026-10-04:** the RACI READ half is CLOSED — `StakeholderSummary` now carries `raci` (milestone id → letter, a copy of `Stakeholder.raci`), so `list_stakeholders` answers "who is Accountable for milestone X" in general chat; the tool description and the `raci` view reading in `view-ai-scope.ts` say to join it with `list_milestones` and skip ids that list does not return. Pinned by "toStakeholderSummary carries RACI (§237)" in `chat-tools.test.ts` and "points the model at the raci field list_stakeholders returns" in `view-ai-scope.test.ts`. Still open: the model cannot WRITE a RACI (`createStakeholder` hardcodes `raci: {}`; `propose_raci` is the write path), and the cross-project gap below, which stays disclosed rather than fixed. The RACI paragraph below is the pre-fix record. Original status: open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
 **Severity:** low. The model is not wrong, it is blind; for the second gap it is told so. Reproduced 2026-08-28 by `grep -c "raci" src/app/raci-suggest/raci-suggest.ts`.
 
 **Work item:** #203

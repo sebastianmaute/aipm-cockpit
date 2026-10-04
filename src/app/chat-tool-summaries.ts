@@ -77,6 +77,7 @@ export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
     interest: item.interest,
     organization: item.organization,
     email: item.email,
+    raci: { ...item.raci },
   };
 }
 

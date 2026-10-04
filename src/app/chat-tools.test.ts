@@ -205,7 +205,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id: m.id, name: m.name, date: m.date, achievedDate: m.achievedDate,
     }))),
     listStakeholders: vi.fn(() => [
-      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
+      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low", raci: {} },
     ]),
     // FULL rows, backed by the same makers the summaries above project from,
     // so a token derived here matches what the list tools describe. Ids match
@@ -245,10 +245,10 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ),
     deleteMilestone: vi.fn((id: number) => id === 30),
     createStakeholder: vi.fn((input) => ({
-      id: 41, name: "S", category: "Other", influence: "Medium", interest: "Medium", ...(input as object),
+      id: 41, name: "S", category: "Other", influence: "Medium", interest: "Medium", raci: {}, ...(input as object),
     })),
     updateStakeholder: vi.fn((id: number) =>
-      id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
+      id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium", raci: {} } : null,
     ),
     deleteStakeholder: vi.fn((id: number) => id === 40),
     // Absences and meetings: the four the ROUND_TRIP rows below drive are real
@@ -996,7 +996,7 @@ function statefulStakeholderDispatcher(seed: Stakeholder): ToolDispatcher {
       row = { ...row, ...(patch as Partial<Stakeholder>) };
       return {
         id: row.id, name: row.name, category: row.category,
-        influence: row.influence, interest: row.interest,
+        influence: row.influence, interest: row.interest, raci: { ...row.raci },
       };
     }),
   });
@@ -1429,6 +1429,7 @@ describe("runTool — list_stakeholders", () => {
         category: "Sponsor",
         influence: "High",
         interest: "Low",
+        raci: {},
         expectedToken: FRESH_STAKEHOLDER_TOKEN,
       },
     ]);
@@ -2496,6 +2497,21 @@ describe("a summary-derived token would be a false permit", () => {
       expect(entityToken(kind, a())).not.toBe(entityToken(kind, b()));
     },
   );
+});
+
+// open-followups §237 — general chat could not say who is Accountable for a
+// milestone because no read summary carried Stakeholder.raci.
+describe("toStakeholderSummary carries RACI (§237)", () => {
+  it("returns the stakeholder's raci map", () => {
+    const summary = toStakeholderSummary(makeStakeholder({ raci: { "3": "A", "7": "C" } }));
+    expect(summary.raci).toEqual({ "3": "A", "7": "C" });
+  });
+
+  it("copies the map, so a consumer editing the summary cannot reach the stored row", () => {
+    const row = makeStakeholder({ raci: { "3": "A" } });
+    const summary = toStakeholderSummary(row);
+    expect(summary.raci).not.toBe(row.raci);
+  });
 });
 
 describe("tool descriptions match what the tools actually return", () => {

@@ -48,13 +48,16 @@ describe("VIEW_AI_SCOPE", () => {
     }
   });
 
-  // Neither StakeholderSummary nor MilestoneSummary (chat-tools.ts) exposes
-  // Stakeholder.raci, so no tool can tell the model who is Accountable. The
-  // raci view's reading must disclose that gap instead of inviting the model
-  // to present an assignment count it cannot actually read.
-  it("discloses that RACI assignments are not tool-readable", () => {
-    expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("not");
-    expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("readable");
+  // StakeholderSummary carries Stakeholder.raci since open-followups §237, so
+  // the raci view must point the model at it, and the old "not tool-readable"
+  // disclosure must be gone: left in, it would tell the model to refuse a
+  // question its tools can now answer.
+  it("points the model at the raci field list_stakeholders returns", () => {
+    const reading = VIEW_AI_SCOPE.raci.reading ?? "";
+    expect(reading).toContain("list_stakeholders");
+    expect(reading).toContain("raci");
+    expect(reading).toContain("list_milestones");
+    expect(reading).not.toMatch(/not tool-readable/i);
   });
 
   // Documents shipped with a "there is no tool for this yet" disclosure, which
