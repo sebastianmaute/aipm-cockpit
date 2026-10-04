@@ -357,7 +357,15 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 - **Kept versions.** A version left behind while its saves were refused (a switch away, a rebuild)
   goes to a kept journal slot, `keptProjectKey` (`aipm-cockpit:unload-journal:<key>:kept`, then
   `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
-  Discard. Nothing restores it in the app.
+  Discard, and — for a kept version of the project IN SCOPE only (`isRestorable` in
+  `use-other-journals.ts`) — Restore, behind a confirm (§655). `restoreKeptJournal`
+  (`use-storage-backend.ts`) refuses over a shut save gate, decodes the record STRICTLY, KEEPS the live
+  workspace first through `keepLive` (and restores nothing when that keep is not written), then applies
+  the kept one like "Restore anyway" and saves it by the normal path, and removes the restored slot. The
+  version that was open is then itself a kept version in the same notice, so a restore can be undone
+  there. ★★ `journalWorkspace` is lenient by default: `jsonToWorkspace` answers unparseable text with an
+  EMPTY workspace, not a throw, so a caller that APPLIES a record must pass `strict`, or a corrupt record
+  is restored as an empty project.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
 `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a

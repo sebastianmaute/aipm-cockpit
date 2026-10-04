@@ -2,9 +2,10 @@
 //
 // §632 — the hook that expires and lists unload journals under keys other than the one in scope,
 // and the two notices task-manager mounts for it.
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ConfirmProvider } from "./confirm-dialog";
 import * as diagnostics from "./diagnostics";
 import * as download from "./download-json";
 import { loadI18n, t } from "./i18n";
@@ -162,6 +163,36 @@ describe("useOtherJournals", () => {
     expect(result.current.download(result.current.others[0])).toBe(true);
     expect(spy).toHaveBeenCalledWith(`aipm-cockpit-unsaved-a_b_c-${new Date(NOW).toISOString().slice(0, 10)}.json`, '{"ws":1}');
   });
+
+  // §655 — only a kept version of the project in scope can be put back from here.
+  it("isRestorable: a kept slot of the project in scope, numbered or not — never another project's, never a plain draft", () => {
+    put("current:kept", NOW - 30);
+    put("current:kept:1799999000000", NOW - 20);
+    put("other:kept", NOW - 10);
+    put("other", NOW - 5);
+    const { result } = renderOthers();
+    const verdicts = Object.fromEntries(result.current.others.map((e) => [e.journal.projectKey, result.current.isRestorable(e)]));
+    expect(verdicts).toEqual({ "current:kept": true, "current:kept:1799999000000": true, "other:kept": false, other: false });
+  });
+
+  it("restored(): removes the restored record and re-lists, so the version kept in its place shows", () => {
+    put("current:kept", NOW - 30);
+    const { result } = renderOthers();
+    const [kept] = result.current.others;
+    put("current:kept:1800000000000", NOW, UNLOAD_JOURNAL_TAB_ID); // what the restore kept of the live version
+    act(() => result.current.restored(kept));
+    expect(readUnloadJournal("current:kept")).toBeNull();
+    expect(keys(result.current.others)).toEqual(["current:kept:1800000000000"]);
+  });
+
+  it("restored() leaves a later write under the same key alone", () => {
+    put("current:kept", NOW - 30);
+    const { result } = renderOthers();
+    const [kept] = result.current.others;
+    put("current:kept", NOW, "tab-b");
+    act(() => result.current.restored(kept));
+    expect(readUnloadJournal("current:kept")?.tabId).toBe("tab-b");
+  });
 });
 
 describe("otherJournalFileName", () => {
@@ -227,7 +258,7 @@ describe("OtherJournalsBanner — §4 kept slots", () => {
   });
 
   it("marks a kept entry as not saved (conflict) and says reloading does not restore it, only while one is listed", () => {
-    const hint = "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them; download one to recover your changes.";
+    const hint = "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them: restore one of the project you have open here, or download one to recover your changes.";
     const { rerender } = render(<OtherJournalsBanner lang="en-US" others={[entry("p1:kept", "Apollo", 3000), entry("p2", "Zeus", 10)]}
       onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/^Apollo — not saved \(conflict\), from .*, 3 KB$/)).toBeTruthy();
@@ -278,5 +309,49 @@ describe("ExpiredJournalsBanner", () => {
     expect(screen.getByText(/^Zeus — from /)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalled();
+  });
+});
+
+describe("OtherJournalsBanner — §655 Restore", () => {
+  const kept = () => entry("current:kept", "Apollo", 1);
+  const other = () => entry("other:kept", "Zeus", 1);
+  function renderBanner(onRestore = vi.fn()) {
+    const a = kept();
+    const b = other();
+    render(
+      <ConfirmProvider lang="en-US">
+        <OtherJournalsBanner lang="en-US" others={[a, b]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()}
+          canRestore={(e) => e === a} onRestore={onRestore} />
+      </ConfirmProvider>,
+    );
+    return { a, b, onRestore };
+  }
+
+  it("offers Restore only on an entry canRestore accepts, with a row-unique name that starts with its text", () => {
+    renderBanner();
+    const restore = screen.getAllByRole("button", { name: /^Restore: / });
+    expect(restore.map((b) => b.getAttribute("aria-label"))).toEqual(["Restore: Apollo"]);
+    expect(restore[0].textContent).toBe("Restore");
+  });
+
+  it("restores only after the confirm, with the entry", async () => {
+    const { a, onRestore } = renderBanner();
+    fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
+    expect(onRestore).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(a));
+  });
+
+  it("does nothing when the confirm is cancelled", async () => {
+    const { onRestore } = renderBanner();
+    fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "cancel") }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("offers no Restore at all without a handler", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[kept()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => true} />);
+    expect(screen.queryByRole("button", { name: /^Restore: / })).toBeNull();
   });
 });

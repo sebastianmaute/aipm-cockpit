@@ -80,10 +80,13 @@ function retagToThisTab(journal: UnloadJournal): void {
   writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
 }
 
-/** The journal's workspace, or null when it does not decode — logged, and the key left in place. */
-function journalWorkspace(journal: UnloadJournal): Workspace | null {
+/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
+ *  ★ Not `strict` by default, and that matters: `jsonToWorkspace` then answers unparseable text with an
+ *  EMPTY workspace, not a throw. §655's restore of a kept version passes `strict` so a corrupt record
+ *  is refused rather than applied as an empty project. */
+export function journalWorkspace(journal: UnloadJournal, strict = false): Workspace | null {
   try {
-    return jsonToWorkspace(journal.workspace);
+    return jsonToWorkspace(journal.workspace, { strict });
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -220,6 +223,11 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     }
     return writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
   }, []);
+
+  /** §655 — keeps the LIVE workspace of the key in scope in a kept slot before a kept version is
+   *  restored over it, so that restore can be undone from the same notice. Same write as `keep`, so
+   *  the same outcome: false when nothing was written, and the caller must then not restore. */
+  const keepLive = useCallback((live: Workspace): boolean => keep({ projectKey: projectKeyRef.current, workspace: live, savedAt: Date.now() }), [keep]);
 
   const noteSaveStarted = useCallback((outgoing: Workspace): number => {
     const savedAt = nextSavedAt();
@@ -411,6 +419,6 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   return {
     noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
-    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys,
+    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive,
   };
 }

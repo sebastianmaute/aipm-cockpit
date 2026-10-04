@@ -29,8 +29,8 @@ import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
-import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
-import { useOtherJournals } from "./use-other-journals";
+import { journalWorkspace, resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
+import { useOtherJournals, type OtherJournal } from "./use-other-journals";
 import { useConflictResolution } from "./use-conflict-resolution";
 import { useWorkspaceSync } from "./use-workspace-sync";
 import { enqueueSave, whenSaved } from "./save-queue";
@@ -663,6 +663,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   bypassed by reaching for the obvious one.
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
+  // §655 — "Restore" on a kept version of the project in scope. The LIVE workspace is kept first, so the restore can be undone from the same notice (nothing is applied when that keep is not written); then the kept one is applied like "Restore anyway" below and saved by the normal path, and its slot is removed.
+  const restoreKeptJournal = (entry: OtherJournal): void => { if (!otherJournals.isRestorable(entry)) return; if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return; } const ws = journalWorkspace(entry.journal, true); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); };
   const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
@@ -1588,7 +1590,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
     unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
-    otherJournals, // §632
+    otherJournals, restoreKeptJournal, // §632 · §655
     resolveConflictReload: conflictResolution.resolveConflictReload, resolveConflictOverwrite: conflictResolution.resolveConflictOverwrite, downloadConflictVersion: conflictResolution.downloadConflictVersion, // §4
   };
 }

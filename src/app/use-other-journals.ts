@@ -93,6 +93,21 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     }
   }, [relist]);
 
+  /** §655 — a kept slot of the project IN SCOPE can be put back (use-storage-backend.ts does it).
+   *  Another project's kept slot cannot: its data would land in the wrong project. A plain draft is
+   *  restored by reloading with its project open, as before. */
+  const isRestorable = useCallback((entry: OtherJournal): boolean => (
+    isKeptProjectKey(entry.journal.projectKey) && journalKeyProject(entry.journal.projectKey) === projectKey
+  ), [projectKey]);
+
+  /** §655 — after a restore: removes the record the entry describes (as Discard does) and re-reads
+   *  the list, which now holds the version kept in its place. */
+  const restored = useCallback((entry: OtherJournal): void => {
+    const { journal } = entry;
+    clearUnloadJournal(journal.projectKey, { tabId: journal.tabId, ifSavedAtAtMost: journal.savedAt });
+    relist();
+  }, [relist]);
+
   /** Downloads the entry's workspace JSON as listed (or as it was when it expired). False when the
    *  browser refused. */
   const download = useCallback((entry: OtherJournal): boolean => (
@@ -109,6 +124,8 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     expired,
     discard,
     download,
+    isRestorable,
+    restored,
     dismiss: useCallback(() => setDismissed(true), []),
     dismissExpired: useCallback(() => setExpired([]), []),
   };

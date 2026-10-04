@@ -889,7 +889,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§652](#652-sharepoint-storage-has-never-been-verified-on-a-live-tenant-and-browser-loads-are-likely-blocked-by-the-csp--open) | SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP | — | — | open |
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
 | [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
-| [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--open) | A conflict version that was kept can be downloaded but not restored in the app | — | — | open |
+| [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--closed-2026-10-04) | A conflict version that was kept can be downloaded but not restored in the app | — | — | **CLOSED** 2026-10-04 |
 | [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--closed-2026-10-02) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | **CLOSED** 2026-10-02 |
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--closed-2026-10-03) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | **CLOSED** 2026-10-03 |
 | [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--closed-2026-10-01) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | **CLOSED** 2026-10-01 |
@@ -43740,11 +43740,11 @@ When a rename and a body edit of the same template are saved concurrently, each 
 
 **Source:** the §4 plan's Task 10, 2026-09-30.
 
-## 655. A conflict version that was kept can be downloaded but not restored in the app — open
+## 655. A conflict version that was kept can be downloaded but not restored in the app — CLOSED 2026-10-04
 
-**Status:** open 2026-09-30, split out of §4 when it closed; out of the §4 scope by the owner's ruling. Reproduced by `grep -rn "keptProjectKey(" src/app --include=*.ts --include=*.tsx`, whose only call outside tests is in `use-unload-journal.ts` (the other hits are the definition and a comment in `unload-journal.ts`).
+**Status:** CLOSED 2026-10-04 — verified by `npx vitest run src/app/use-unload-journal.restore.test.tsx src/app/use-other-journals.test.tsx src/app/notifications.test.tsx src/app/i18n-encoding.test.ts src/app/use-unload-journal.test.ts --maxWorkers=1` (5 files, 156 tests, exit 0). `OtherJournalsBanner` now offers Restore, behind a confirm, on a kept version of the project IN SCOPE (`isRestorable` in `use-other-journals.ts`; another project's kept slot keeps Download and Discard only, since its data would land in the wrong project). `restoreKeptJournal` (`use-storage-backend.ts`) follows the entry's own fix direction, never a blind write: it refuses over a shut save gate, decodes the record STRICTLY (the default lenient decode answers corrupt text with an EMPTY workspace), KEEPS the live workspace first through `keepLive` and restores nothing when that keep is not written, then applies the kept workspace like "Restore anyway" and saves it by the normal path, and removes the restored slot. The version that was open is then a kept version in the same notice, so the restore can be undone there. Mutants (any project restorable, no keep first, no save-gate guard, slot not removed, lenient decode, no confirm, `canRestore` ignored) each turn a test red. Not eye-verified in a browser.
 
-**Work item:** #497
+**Original status:** open 2026-09-30, split out of §4 when it closed; out of the §4 scope by the owner's ruling. Reproduced by `grep -rn "keptProjectKey(" src/app --include=*.ts --include=*.tsx`, whose only call outside tests is in `use-unload-journal.ts` (the other hits are the definition and a comment in `unload-journal.ts`).
 
 A version left behind while its saves were refused as stale (a switch away, a rebuild) is written to a kept journal slot (`keptProjectKey`: `aipm-cockpit:unload-journal:<key>:kept`, then `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and Discard, but nothing in the app puts it back into the project. Fix direction: a restore that loads the kept workspace as an unsaved edit on top of the current version, which the user then saves or discards, never a blind write.
 

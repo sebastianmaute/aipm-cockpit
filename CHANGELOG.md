@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **A version kept after a save conflict can be restored (§655).** When a save was refused
+  because the project changed in another tab or on another device, the notice listing the kept
+  "not saved (conflict)" version now offers Restore for the project you have open. After you
+  confirm, the version you had open is kept in the same notice first, so you can switch back,
+  and the restored version is saved.
 - **Voice commands the app does not know go to the AI assistant (§519).** With the AI
   assistant on, a spoken command that is not one of the fixed voice commands is put into the
   assistant's message box for you to check and send, instead of showing "Didn't understand".

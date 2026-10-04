@@ -661,3 +661,97 @@ describe("§644 — a restored journal is sent to other tabs as an edit, a load 
     expect(mainSyncContext().isLoadedValue(result.current.tasks)).toBe(false);
   });
 });
+
+describe("§655 — Restore a kept version of the project in scope", () => {
+  const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}browser:kept`;
+  const KEPT: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Kept" }] as unknown as Task[] };
+  type Result = ReturnType<typeof render>["result"];
+  const entryFor = (result: Result, projectKey: string) => result.current.otherJournals.others.find((e) => e.journal.projectKey === projectKey)!;
+  /** Kept slots of the live version: the numbered ones beside the seeded slot. */
+  const numberedKept = () => Object.keys(localStorage).filter((k) => k.startsWith(`${KEPT_KEY}:`));
+  const toastsOf = (key: string) => showToast.mock.calls.filter((c) => c[1] === t("en-US", key));
+
+  it("keeps the live version first, applies the kept one, saves it, and removes its slot", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    expect(result.current.otherJournals.isRestorable(entry)).toBe(true);
+
+    await act(async () => { result.current.restoreKeptJournal(entry); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 3]);
+    expect(readJournal(KEPT_KEY)).toBeNull();
+    // The version that was open is now a kept version of its own — the way back.
+    expect(numberedKept()).toHaveLength(1);
+    expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1]);
+    expect(result.current.otherJournals.others.map((e) => `${UNLOAD_JOURNAL_PREFIX}${e.journal.projectKey}`)).toEqual(numberedKept());
+    expect(toastsOf("unloadJournalKeptRestored")).toEqual([["success", t("en-US", "unloadJournalKeptRestored")]]);
+
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(savedTaskIds(backend, 0)).toEqual([1, 3]);
+  });
+
+  it("another project's kept version is not restorable here: nothing applied, kept or removed", async () => {
+    const otherKey = `${UNLOAD_JOURNAL_PREFIX}p-other:kept`;
+    seedJournal("", otherKey, "p-other:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "p-other:kept");
+    expect(result.current.otherJournals.isRestorable(entry)).toBe(false);
+    await act(async () => { result.current.restoreKeptJournal(entry); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(otherKey)).not.toBeNull();
+    expect(numberedKept()).toEqual([]);
+  });
+
+  it("while saving is paused it is reported, and nothing is applied, kept or removed", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValueOnce(makeBackend(100)).mockReturnValue(makeBackend(100, "reject"));
+    const { result, rerender } = render();
+    await advance(800);
+    rerender({ args: makeArgs(false, { kind: "browser" }) }); // a new instance whose load fails
+    await advance(800);
+    expect(result.current.loadPause).toBe("load-failed"); // the premise
+    await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+    expect(numberedKept()).toEqual([]);
+  });
+
+  it("when the live version cannot be kept first, nothing is restored", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const realSetItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key.startsWith(`${KEPT_KEY}:`)) throw new Error("QuotaExceededError");
+      realSetItem.call(this, key, value);
+    });
+    try {
+      await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(toastsOf("unloadJournalKeptRestoreNotKept")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+  });
+
+  it("a kept version that does not decode is reported, and nothing is kept or applied", async () => {
+    localStorage.setItem(KEPT_KEY, JSON.stringify({ v: 1, projectKey: "browser:kept", tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint: "", workspace: "{not json" }));
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    expect(toastsOf("unloadJournalKeptRestoreUnavailable")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(numberedKept()).toEqual([]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+  });
+});

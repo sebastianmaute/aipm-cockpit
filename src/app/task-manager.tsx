@@ -531,7 +531,7 @@ function TaskManagerInner() {
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, isSwapInFlight,
-    unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals,
+    unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
     resolveConflictReload, resolveConflictOverwrite, downloadConflictVersion, canOverwriteConflict,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
@@ -3045,7 +3045,7 @@ function TaskManagerInner() {
       )}
       {otherJournals.expired.length > 0 && <ExpiredJournalsBanner lang={lang} expired={otherJournals.expired} onDownload={otherJournals.download} onDismiss={otherJournals.dismissExpired} />}
       {otherJournals.others.length > 0 && (
-        <OtherJournalsBanner lang={lang} others={otherJournals.others} onDownload={otherJournals.download} onDiscard={otherJournals.discard} onDismiss={otherJournals.dismiss} />
+        <OtherJournalsBanner lang={lang} others={otherJournals.others} onDownload={otherJournals.download} onDiscard={otherJournals.discard} onDismiss={otherJournals.dismiss} canRestore={otherJournals.isRestorable} onRestore={restoreKeptJournal} />
       )}
       {!isPopout && loadWasIncomplete && (
         <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
