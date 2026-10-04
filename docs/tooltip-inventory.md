@@ -12,6 +12,46 @@ tree `908e56cf3d2a…`, identical parent) left behind when that commit's message
 resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
 already written into prose — check the citations after any amend.
 
+## Re-measured 2026-10-04, on `dc6c2eb3c`, with a new scanner — and now a ratchet (§109)
+
+★★★ **THIS COLUMN IS NOT COMPARABLE WITH THE THREE BELOW, and that is deliberate.** The counts now come
+from `scripts/tooltip-scan-lib.mjs`, which walks the TypeScript parser's tree instead of the
+character scanner under "Reproduce". That removes both of that scanner's failures: an apostrophe in
+a `//` comment inside an opening tag can no longer drop a control or swallow the next one, and the
+word `<button` in a comment is no longer a row (the 17 "comment prose" rows of earlier columns are
+gone by construction). Two rules also changed: an element with a JSX spread (`{...props}`) is
+treated as possibly titled, since the caller supplies its props (this drops the `Button` and
+`TextButton` primitives' own `<button>`, the "primitive internals" of earlier columns); and the
+file walk is recursive over `src/app`. Reproduce: `node scripts/check-tooltips.mjs --list`.
+
+| measure | 2026-10-04 (parser scan) |
+|---|---|
+| button-family elements scanned | **623** (`button` 266 · `Button` 278 · `IconButton` 45 · `ToggleButton` 34) |
+| …carrying a `title=` or a spread | **194** |
+| **icon/glyph-only** elements | **86** |
+| …with a `title=` — covered | **85** |
+| …**without** `title=` | **1** |
+
+Before this branch the same scan reported **12** untitled icon-only controls: the 2 primitive
+internals (now excluded by the spread rule), **B1** (`settings-menu.tsx`, the classic header's
+settings cog, still held for its product decision), and **9 Class A rows**, each given a `title`
+equal to its existing accessible name, no new strings: `bullets-block-editor.tsx` move up / move
+down / remove item, `document-table-editor.tsx` remove column / remove row,
+`document-block-gutter.tsx` block actions, `create-project-wizard.tsx` clear the imported file, and
+`chat-thread-list.tsx` rename / delete (two `IconButton`s: `IconButton` sets `aria-label` from
+`label` but no `title`).
+
+★★ **THE RATCHET.** `npm run tooltips:check` (a `static` step of `scripts/gate-local.mjs`, so CI runs
+it) fails when any `src/app` file holds more untitled icon-only controls than
+`docs/baselines/untitled-icon-buttons.json` allows; a file absent from the baseline is allowed
+none. The baseline holds B1 alone. `--update` only tightens; raising an allowance is a hand edit
+that shows in review. ★ What it does NOT check, unchanged from "What this document does NOT
+cover" below: non-`<button>` controls, and whether a `title` says anything useful.
+
+★ The four untranslated names this document carried are settled (§109's 2026-10-03 update): the
+two `budget-panel-totals.tsx` machine hooks are translated row-unique names, and the
+`task-editor-raid-mini.tsx` "RAID" prefix stays by decision.
+
 ## Re-measured 2026-09-01, on `22ac25f2` (0.272.1)
 
 ★★ **The 2026-08-21 column below reproduces EXACTLY, and that is the first thing this section

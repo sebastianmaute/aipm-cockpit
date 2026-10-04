@@ -12,6 +12,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
+  remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an
+  imported file in the new-project wizard now show their name when you hover over them.
 - **Download the activity log for an internal audit (§510).** In expert mode, Settings → Storage
   can download the activity log as a JSON file marked internal, including the old and new value of
   every recorded change. On a shared Turso database with several projects it covers every project,
@@ -111,6 +114,9 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Tooltip ratchet (§109).** `npm run tooltips:check`, a `static` gate, fails when a file under `src/app`
+  gains an icon-only button with no hover tooltip (`title`) beyond `docs/baselines/untitled-icon-buttons.json`.
+  It reads the TypeScript syntax tree, so comments can no longer confuse it.
 - **The e2e seed covers every stored slice (§99).** `e2e/seed.ts` now takes its IndexedDB stores and
   keys from `src/app/idb-layout.ts`, the list the browser backend uses, instead of two hand lists that had
   fallen behind, so the steering committee, knowledge items, calendar meetings and activity log reach the

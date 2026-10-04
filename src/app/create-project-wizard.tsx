@@ -392,6 +392,7 @@ export function CreateProjectWizard({
                   variant="ghost"
                   size="sm"
                   aria-label={t(lang, "wizardImportWorkspaceClear", imported.fileName)}
+                  title={t(lang, "wizardImportWorkspaceClear", imported.fileName)}
                   onClick={() => setImported(null)}
                 >
                   <span aria-hidden="true">✕</span>

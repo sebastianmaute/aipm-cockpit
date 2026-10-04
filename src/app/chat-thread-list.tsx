@@ -187,11 +187,12 @@ export function ChatThreadList({
                         <Dot color="bg-ui-dark-blue" size="xs" className={isActive ? "" : "invisible"} />
                         <span className="truncate">{name}</span>
                       </button>
-                      <IconButton label={renameLabel} onClick={() => startRename(th)} className="shrink-0">
+                      <IconButton label={renameLabel} title={renameLabel} onClick={() => startRename(th)} className="shrink-0">
                         <PencilIcon aria-hidden className="h-4 w-4" />
                       </IconButton>
                       <IconButton
                         label={t(lang, "chatThreadDelete", name)}
+                        title={t(lang, "chatThreadDelete", name)}
                         variant="danger"
                         onClick={() => onDelete(th.id)}
                         className="shrink-0"
