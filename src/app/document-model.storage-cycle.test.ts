@@ -42,7 +42,7 @@ import "./storage";
 
 import { describe, it, expect } from "vitest";
 import { sanitizeProjectDocuments } from "./document-model";
-import { EXPORT_SECTION_KEYS } from "./settings-types";
+import { DATA_SECTION_KEYS, EXPORT_SECTION_KEYS } from "./settings-types";
 
 const BASE = {
   id: 1,
@@ -81,12 +81,14 @@ describe("sanitizeProjectDocuments — under the storage import cycle", () => {
     expect(out[0].blocks).toEqual([{ type: "dataSection", key: "tasks" }]);
   });
 
-  it("keeps a dataSection for EVERY key in the registry", () => {
+  // §545 — every key a document block may NAME (`DATA_SECTION_KEYS`), which is
+  // the registry minus its derived sections.
+  it("keeps a dataSection for EVERY key a document block may name", () => {
     // ★ Guards the partial-failure shape too: a fix that resolved only the first
     // key, or that matched on a stale hardcoded subset, passes the test above.
-    const blocks = EXPORT_SECTION_KEYS.map((key) => ({ type: "dataSection", key }));
+    const blocks = DATA_SECTION_KEYS.map((key) => ({ type: "dataSection", key }));
     const out = sanitizeProjectDocuments([{ ...BASE, blocks }]);
-    expect(out[0].blocks).toHaveLength(EXPORT_SECTION_KEYS.length);
+    expect(out[0].blocks).toHaveLength(DATA_SECTION_KEYS.length);
   });
 
   it("still REJECTS an unknown section key on this path", () => {

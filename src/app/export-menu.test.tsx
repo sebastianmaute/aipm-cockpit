@@ -9,6 +9,8 @@ import { readDiagLog, clearDiagLog } from "./diagnostics";
 import { exportWorkspace } from "./export";
 import { emptyWorkspace } from "./workspace";
 import type { ResourcePlan } from "./types";
+import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { ExportExtras } from "./export-forecast-section";
 
 // exportWorkspace is async and can throw (e.g. a dynamic export-ooxml chunk
 // load failure). The menu's `void exportWorkspace(...)` must not swallow that
@@ -84,5 +86,33 @@ describe("export menu — footer", () => {
     expect(vi.mocked(exportWorkspace).mock.calls[0][4]).toBe("Acme GmbH");
     // The menu must export the workspace it was handed, not rebuild one.
     expect(vi.mocked(exportWorkspace).mock.calls[0][0]).toBe(WS);
+  });
+
+  // §545 — the derived Budget forecast section needs the dashboard model's
+  // bundle, which only the caller has.
+  it("hands the budget forecast to exportWorkspace as an extra, and null when none was given", async () => {
+    const forecast = { marker: "bundle" } as unknown as ForecastBundle;
+    const { unmount } = render(
+      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+        <ExportMenu lang="en-US" workspace={WS} exportForecast={forecast} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByText("CSV"));
+    await waitFor(() => expect(exportWorkspace).toHaveBeenCalledTimes(1));
+    const extras: ExportExtras | undefined = vi.mocked(exportWorkspace).mock.calls[0][5];
+    expect(extras?.budgetForecast).toBe(forecast);
+    unmount();
+
+    render(
+      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+        <ExportMenu lang="en-US" workspace={WS} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByText("CSV"));
+    await waitFor(() => expect(exportWorkspace).toHaveBeenCalledTimes(2));
+    const noForecast: ExportExtras | undefined = vi.mocked(exportWorkspace).mock.calls[1][5];
+    expect(noForecast?.budgetForecast).toBeNull();
   });
 });

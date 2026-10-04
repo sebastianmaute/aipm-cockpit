@@ -422,6 +422,15 @@ describe("sanitizeProjectDocuments", () => {
     expect(out[0].blocks).toEqual([]);
   });
 
+  // §545 — a derived export section has no workspace slice, and the document
+  // renderers receive no forecast, so a block naming it would render nothing.
+  it("drops a dataSection naming the derived budgetForecast section", () => {
+    const out = sanitizeProjectDocuments([
+      doc({ blocks: [{ type: "dataSection", key: "budgetForecast" as never }] }),
+    ]);
+    expect(out[0].blocks).toEqual([]);
+  });
+
   it("drops a dataSection whose key is not a string", () => {
     const out = sanitizeProjectDocuments([
       doc({ blocks: [{ type: "dataSection", key: 4 as never }] }),

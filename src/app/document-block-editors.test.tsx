@@ -16,7 +16,7 @@ import { applyDocMutation, type DocOp, type DocState } from "./document-mutation
 import { loadI18n, t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_BULLET_ITEMS, MAX_TEXT_CHARS, MAX_HTML_TEXT_CHARS } from "./document-model";
-import { EXPORT_SECTION_KEYS } from "./settings-types";
+import { DATA_SECTION_KEYS } from "./settings-types";
 import { PARAGRAPH_COUNT_FROM, BlockRefusalNotice } from "./document-block-notices";
 import { htmlTextLength } from "./rich-text-plain";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
@@ -1451,17 +1451,17 @@ describe("DataSectionBlockEditor", () => {
   const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
   const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
 
-  it("offers every export section key and no free text", () => {
+  it("offers every data-section key (no derived section, §545) and no free text", () => {
     render(
       <DataSectionBlockEditor
         lang={LANG}
         index={0}
-        block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+        block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }}
         onCommit={vi.fn()}
       />,
     );
     const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey")) });
-    expect(within(select).getAllByRole("option")).toHaveLength(EXPORT_SECTION_KEYS.length);
+    expect(within(select).getAllByRole("option")).toHaveLength(DATA_SECTION_KEYS.length);
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -1471,13 +1471,13 @@ describe("DataSectionBlockEditor", () => {
       <DataSectionBlockEditor
         lang={LANG}
         index={4}
-        block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+        block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }}
         onCommit={onCommit}
       />,
     );
     const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey"), 5) });
-    await userEvent.selectOptions(select, EXPORT_SECTION_KEYS[1]);
-    expect(onCommit).toHaveBeenCalledWith(4, { type: "dataSection", key: EXPORT_SECTION_KEYS[1] }, expect.anything());
+    await userEvent.selectOptions(select, DATA_SECTION_KEYS[1]);
+    expect(onCommit).toHaveBeenCalledWith(4, { type: "dataSection", key: DATA_SECTION_KEYS[1] }, expect.anything());
   });
 
   // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
@@ -1490,13 +1490,13 @@ describe("DataSectionBlockEditor", () => {
         <DataSectionBlockEditor
           lang={LANG}
           index={0}
-          block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+          block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }}
           onCommit={vi.fn()}
         />
         <DataSectionBlockEditor
           lang={LANG}
           index={1}
-          block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+          block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }}
           onCommit={vi.fn()}
         />
       </>,

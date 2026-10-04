@@ -6,7 +6,7 @@
 //  document-model.ts documents a runtime import cycle through that module, and
 //  widening what it pulls in is the wrong direction.
 //
-// ★ EXHAUSTIVE by type. A sixteenth EXPORT_SECTION_KEYS entry is a compile
+// ★ EXHAUSTIVE by type. A new EXPORT_SECTION_KEYS entry is a compile
 //  error here rather than a section that silently renders its raw key.
 import type { TranslationKey } from "./i18n";
 import type { ExportSectionKey } from "./settings-types";
@@ -19,6 +19,7 @@ export const EXPORT_SECTION_LABEL_KEYS: Record<ExportSectionKey, TranslationKey>
   milestones: "exportLabelMilestones",
   stakeholders: "exportLabelStakeholders",
   budgets: "exportLabelBudgets",
+  budgetForecast: "exportLabelBudgetForecast",
   resources: "exportLabelResources",
   roles: "exportLabelRoles",
   absences: "exportLabelAbsences",

@@ -2186,7 +2186,7 @@ function TaskManagerInner() {
 
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.
-  const exportFooter = exportFooterText(settings.branding);
+  const exportFooter = exportFooterText(settings.branding); const exportForecast = isModuleEnabled("budget", settings.features) ? dashboardModel.forecastBundle : null; // §545
   const handleExportCurrentProject = useCallback(
     (format: string) => {
       // §463 — the same builder as the header Export menu. What keeps this
@@ -2198,9 +2198,9 @@ function TaskManagerInner() {
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
         calendarEvents, knowledgeItems, insights,
       });
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter, { budgetForecast: exportForecast }).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, lang, showToast],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, exportForecast, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),
@@ -2986,7 +2986,7 @@ function TaskManagerInner() {
     handleApplyTemplate,
     undoControl: undoControlEl,
     settingsMenuOpen: isClassicLayout && classicSettingsOpen,
-    onSettingsMenuOpenChange: setClassicSettingsOpen,
+    onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast,
   });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic

@@ -43,7 +43,7 @@ function deps(settings: ShellChromeDeps["settings"]): ShellChromeDeps {
     activeTab: "dashboard", nowCount: 0, setActiveTab: vi.fn(), migrateCurrentProjectToTurso: vi.fn(),
     openPopoutWindow: vi.fn(), requestChat: vi.fn(), projectTemplates: [], handleSaveTemplate: vi.fn(),
     handleApplyTemplate: vi.fn(), undoControl: null,
-    settingsMenuOpen: undefined, onSettingsMenuOpenChange: undefined,
+    settingsMenuOpen: undefined, onSettingsMenuOpenChange: undefined, exportForecast: null,
   };
 }
 

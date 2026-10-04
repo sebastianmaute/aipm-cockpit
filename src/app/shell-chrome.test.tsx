@@ -46,6 +46,7 @@ function makeDeps(overrides: Partial<ShellChromeDeps> = {}): ShellChromeDeps {
     undoControl: null,
     settingsMenuOpen: undefined,
     onSettingsMenuOpenChange: undefined,
+    exportForecast: null,
     ...overrides,
   };
 }

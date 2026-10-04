@@ -136,6 +136,7 @@ const KV_LABELS: LabelsFor<typeof KV_EXPORT_FIELDS> = { field: "exportColField",
 export const EXPORT_COLUMN_LABEL_KEYS: Readonly<Record<ExportSectionKey, Readonly<Record<string, TranslationKey>>>> = {
   project: KV_LABELS,
   status: KV_LABELS,
+  budgetForecast: KV_LABELS,
   tasks: TASK_LABELS,
   raid: RAID_LABELS,
   milestones: MILESTONE_LABELS,
@@ -165,6 +166,7 @@ export const EXPORT_COLUMN_LABEL_KEYS: Readonly<Record<ExportSectionKey, Readonl
 export const EXPORT_SECTION_TITLE_KEYS: Readonly<Record<ExportSectionKey, TranslationKey>> = {
   project: "exportLabelProject", tasks: "tasks", raid: "tabRaid", changes: "navChanges",
   milestones: "navMilestones", stakeholders: "navStakeholders", budgets: "exportLabelBudgets",
+  budgetForecast: "exportLabelBudgetForecast",
   resources: "tabResources", roles: "exportLabelRoles", absences: "exportLabelAbsences",
   shifts: "exportLabelShifts", calendarEvents: "exportLabelCalendarEvents", status: "exportLabelStatus",
   knowledgeItems: "exportLabelKnowledgeItems", insights: "exportLabelInsights",
