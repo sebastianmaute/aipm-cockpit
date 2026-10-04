@@ -268,9 +268,9 @@ npm run size:check          # file-size ratchet — fails on a NEW file over the
                             # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
                             # only compared against its entry when it is over the LIMIT — chat-panel,
                             # tasks-section and workspace-section are governed by the LIMIT alone until they pass
-                            # 1600. Only `task-manager.tsx` is still consulted, and at a 6040 entry, far above the
-                            # file's real length (node one-liner below), it constrains nothing in practice either — read the four as recorded
-                            # intent, not as live limits.
+                            # 1600. Only `task-manager.tsx` is still consulted, and since 2026-10-04 its entry is its
+                            # measured length with NO headroom (§491), so any growth fails the gate — read the
+                            # other three as recorded intent, not as live limits.
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
                             # 1599 is already AT the limit with ZERO headroom. The same +1 applies to a baselined

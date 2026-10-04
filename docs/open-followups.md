@@ -728,7 +728,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--closed-2026-10-03) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | **CLOSED** 2026-10-03 |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
-| [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
+| [§491](#491-task-managertsx-is-3467-lines-over-the-1600-size-limit--open) | task-manager.tsx is 3467 lines, over the 1600 size LIMIT | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
 | [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
 | [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--closed-2026-09-25) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | closed |
 | [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--closed-2026-10-03) | TypeScript 7 has been published and nothing has been run against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | **CLOSED** 2026-10-03 |
@@ -38058,17 +38058,21 @@ Size L if built.
 
 **Source:** `docs/tech-debt-register.md` (TD-2)
 
-## 491. task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN
+## 491. task-manager.tsx is 3467 lines, over the 1600 size LIMIT — OPEN
 
-**Status:** OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
+**Status:** **Update 2026-10-04:** measured on `e76e88914` with the gate's own metric → **3467** (305 lines more than
+the 3162 below). The baseline entry is lowered by hand from 6040 to **3467**, the measured length, so `size:check` now
+fails on any growth (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). `--update` was not used: it drops
+the other three rows. The file is still over the LIMIT and the hooks-and-effects consolidation is still owed, so the
+entry stays open. OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
 newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/baselines/file-sizes.json`
 → baseline **6040**, and `grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600.
 
 **Work item:** #312
 
-The root orchestrator is nearly twice the size LIMIT. Only its baseline entry governs it, and that
-entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom. In practice the file can grow
-almost without limit before any gate notices.
+The root orchestrator is more than twice the size LIMIT. Only its baseline entry governs it. That
+entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom, and the file grew by 305 lines
+unnoticed before the entry was lowered to its measured length on 2026-10-04.
 
 TD-5's recorded judgement still stands. Five move-only extractions have already been done, and further
 slicing of the render tree would only produce pass-through modules. The higher-leverage move is to
