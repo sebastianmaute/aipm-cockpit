@@ -65,7 +65,12 @@ re-resolved by hand.
   secret writes an empty list, and `leaks:check` exits 2 on it — red, never a silent pass. Dependabot
   PRs read `LEAK_LIST` from Dependabot's own secret store. Then
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
-  list — including `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
+  list — including `changelog:check` (§527: app code changed without a `CHANGELOG.md` line fails, unless
+  the PR carries the `no-changelog` label; the label is read LIVE through the API with the job's token,
+  which is why this job alone adds `pull-requests: read` and passes `GH_TOKEN` to the step, where
+  `gate-local.mjs`'s `stepEnv` strips it from every step except `changelog:check` (`passEnv`) — a re-run
+  reuses the original event payload, so a payload read would never see a label added after the first
+  run) and `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
   `desktop/tsconfig.json` then `desktop/tsconfig.test.json`, exiting with the worse of the two —
   covering `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes, PLUS
   `updater.test.ts`/`updater-module-shape.test.ts`, excluded from the root program for the same
@@ -178,6 +183,14 @@ on it and none of its jobs is a required check: a red run is the signal.
   silently drops along with everything after it in the step, summary and failure included (§612/§614)
   — fixed to `--reporter=default`, a straight swap here (unlike `ci.yml`'s `unit-shuffled`, `test:run`
   has no reporter baked in to sit alongside).
+- **`unit-future-clock`** (45 min, §149). Same installs as `unit-shuffled-random`, then
+  `npm run test:run -- --reporter=default` with `VITEST_CLOCK_OFFSET_DAYS=400`: `vitest.setup.ts` passes
+  that to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` 400 days ahead in
+  every test. A test that goes red here passes today only because a hardcoded date is still in the
+  future. Reproduce one with `VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>`. A file that installs
+  its own fake timers still inherits the shift (`vi.useFakeTimers()` starts from the shifted
+  `Date.now()`); only a file that calls `vi.setSystemTime` itself, or restores real timers before it
+  asserts, sets its own clock and is not covered.
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),

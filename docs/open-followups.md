@@ -520,7 +520,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
-| [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
+| [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string--closed-2026-10-04) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | **CLOSED** 2026-10-04 |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag--closed-2026-09-26) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key--closed-2026-09-26) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example--closed-2026-09-27) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | **CLOSED** 2026-09-27 |
@@ -549,7 +549,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--closed-2026-10-03) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | **CLOSED** 2026-10-03 |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31, not a defect |
-| [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
+| [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name--closed-2026-10-04) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | **CLOSED** 2026-10-04 |
 | [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions--closed-2026-09-01) | ~~`projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions~~ | — | — | **CLOSED** 2026-09-01 |
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only--closed-2026-10-03) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | **CLOSED** 2026-10-03 |
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31, 0.272.0 |
@@ -13085,7 +13085,7 @@ And the `abortRef` read assumes `submitPrompt` is single-flight, which it is onl
 
 ## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
 
-**Status:** two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
+**Status:** **Update 2026-10-04:** the detector the entry asks for now exists. With `VITEST_CLOCK_OFFSET_DAYS` set, `vitest.setup.ts` hands it to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` that many days ahead in every test (pinned by `src/test/clock-offset.test.ts`; a probe asserting a date past 2027-10-01 passed with the variable at 400 and failed without it). The weekly `unit-future-clock` job in `.github/workflows/scheduled.yml` runs the suite 400 days ahead. The class stays open until that job has run and the tests it lists are fixed. Before this update: two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
 sweeps for the rest, and the only detector is a red pipeline on the morning it happens. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
 **Work item:** #159
@@ -24168,12 +24168,12 @@ shared test cannot see it.
 floor-guarded assertion passes against a one-row and even a zero-row fixture, which is exactly the
 vacuous shape a "we added the missing panel test" commit produces.
 
-## 279. `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string
+## 279. `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string — CLOSED 2026-10-04
 
-**Status:** open — a TOOLING hazard in the shared test helper, filed 2026-08-28. It shaped three
+**Status:** CLOSED 2026-10-04 — verified by `npx vitest run src/test/toolbar-order.test.tsx src/test/row-unique-names.test.tsx src/app/change-panel.test.tsx src/app/raid-panel.test.tsx src/app/stakeholders-panel.test.tsx src/app/milestones-panel.test.tsx src/app/project-form-fields.test.tsx --maxWorkers=1` (7 files, 189 tests, exit 0). `controlNames` (`src/test/toolbar-order.ts`) now returns `computeAccessibleName` from `dom-accessibility-api`, a declared devDependency on the 0.6.x line (0.5.16, the copy `@testing-library/dom` uses, has no `types` export and cannot be imported under tsc's bundler resolution). An `<input>` named by its `<label for>` now reports that label. Pinned by `toolbar-order.test.tsx`; the old `aria-label || textContent` reds five of its six cases. Fixed together with §308.
+
+**Original status:** open — a TOOLING hazard in the shared test helper, filed 2026-08-28. It shaped three
 tests on the round-3 slice and will shape the next one. Never machine-verified by a committed probe.
-
-**Work item:** #219
 
 `controlNames` (`src/test/toolbar-order.ts`), which `expectRowUniqueNames` is built on, computes each
 control's name as `el.getAttribute("aria-label") || el.textContent || ""`. That is a deliberate
@@ -26488,12 +26488,12 @@ false-coverage class inverted, and the harder direction to catch, because a clai
 UNTESTED invites work rather than stopping an audit. A second prior revision claimed the axe gate
 DID reach the banner, in the same paragraph as the thesis that contradicts it.
 
-## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name
+## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name — CLOSED 2026-10-04
 
-**Status:** open — never machine-verified by a committed probe. Found 2026-08-30 during this slice's
+**Status:** CLOSED 2026-10-04 — verified by `npx vitest run src/test/toolbar-order.test.tsx src/test/row-unique-names.test.tsx src/app/change-panel.test.tsx src/app/raid-panel.test.tsx src/app/stakeholders-panel.test.tsx src/app/milestones-panel.test.tsx src/app/project-form-fields.test.tsx --maxWorkers=1` (7 files, 189 tests, exit 0). With §279's fix all three divergences are gone: `aria-hidden` content is left out, `title` is the last resort and `aria-labelledby` outranks `aria-label`, each pinned by a case in `src/test/toolbar-order.test.tsx`. The seed check in `row-unique-names.ts` no longer collapses whitespace on its own: the computed names arrive collapsed, so the seed check and the collision count compare the same strings (pinned by "counts names that differ only in whitespace as one collision"). Five test files whose comments described the old approximation are corrected. 71 test files use the helper and only those 7 ran locally; the rest run in CI.
+
+**Original status:** open — never machine-verified by a committed probe. Found 2026-08-30 during this slice's
 own row-unique-names work.
-
-**Work item:** #231
 
 `controlNames` (`src/test/toolbar-order.ts`), the shared primitive behind both `expectRowUniqueNames`
 (`src/test/row-unique-names.ts`) and the toolbar-order assertions, reads:
@@ -38832,7 +38832,7 @@ Size unestimated (process item) — organisational only.
 
 ## 527. There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rn "export function buildReleasePayload" scripts/release-publish-lib.mjs` → one hit; the Release
+**Status:** **Update 2026-10-04:** the CHANGELOG half is built. `npm run changelog:check` (`scripts/check-changelog.mjs` over `scripts/changelog-check-lib.mjs`) runs in CI's `static` job through `gate-local.mjs` and BLOCKS a change to app code (`src/`, `desktop/src/`; not tests, test helpers or fixtures) that does not touch `CHANGELOG.md`. The `no-changelog` PR label opts out and is read live, so adding it and re-running the failed job works (owner rulings 2026-10-04: blocking, label opt-out, weekly notes deferred). Pinned by `scripts/changelog-check-lib.test.mjs`. The weekly release-notes half stays open. Before this update: OPEN 2026-09-13 — `grep -rn "export function buildReleasePayload" scripts/release-publish-lib.mjs` → one hit; the Release
 only links to `CHANGELOG.md` at the tag. The absence of a CHANGELOG check in CI is never machine-verified.
 
 Kai Mindermann asked, in writing and as an imperative, for a changelog plus weekly release notes as a regular

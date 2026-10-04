@@ -59,6 +59,8 @@ export const GATE_STEPS = [
   s("static", ["npm", "run", "followups:index:check"]),
   s("static", ["npm", "run", "followups:workitems:check"]),
   s("static", ["npm", "run", "version:check"]),
+  // Reads the PR's labels with CI's GH_TOKEN; it is the ONLY step that receives it (`stepEnv`).
+  s("static", ["npm", "run", "changelog:check"], { passEnv: ["GH_TOKEN"] }),
   // The list lives outside the repository, so most contributors cannot run this step. Locally an
   // unset LEAK_LIST_FILE SKIPS it, visibly; under CI (env CI set) the same state FAILS with code 2,
   // so a workflow that forgot to export it cannot pass by skipping.
@@ -92,8 +94,24 @@ function isUnset(value) {
   return value === undefined || String(value).trim() === "";
 }
 
+/** Secrets CI puts in the static step's environment that only the steps naming them may see. */
+export const SCOPED_ENV = Object.freeze(["GH_TOKEN"]);
+
 /**
- * Run `steps` through `run(argv) → exit status`. Stops at the first failure unless `keepGoing`,
+ * The environment one step runs with: `env` minus every SCOPED_ENV variable the step does not
+ * list in its `passEnv`. So CI's GH_TOKEN reaches `changelog:check` and no other gate's
+ * subprocesses (lint plugins, the build, test workers). Returns a new object; `env` is untouched.
+ */
+export function stepEnv(step, env) {
+  const out = { ...env };
+  for (const key of SCOPED_ENV) {
+    if (!(step.passEnv ?? []).includes(key)) delete out[key];
+  }
+  return out;
+}
+
+/**
+ * Run `steps` through `run(argv, step) → exit status`. Stops at the first failure unless `keepGoing`,
  * which runs everything and reports code 1 when anything failed. A step whose `requiresEnv` is
  * unset is SKIPPED locally and FAILS with code 2 when `env.CI` is set.
  */
@@ -113,7 +131,7 @@ export function runGates(steps, run, { keepGoing = false, env = {}, log = () => 
       continue;
     }
     log(label);
-    const status = run(st.argv);
+    const status = run(st.argv, st);
     if (status === 0) {
       results.push({ label, status: "pass", code: 0, note: null });
       continue;
@@ -198,9 +216,9 @@ function main() {
 
   const result = runGates(
     selectSteps(GATE_STEPS, cli.group),
-    (argv) => {
+    (argv, step) => {
       const { command, args, shell } = buildSpawnInvocation(argv, process.platform);
-      return spawnSync(command, args, { stdio: "inherit", shell }).status;
+      return spawnSync(command, args, { stdio: "inherit", shell, env: stepEnv(step, process.env) }).status;
     },
     { keepGoing: cli.keepGoing, env: process.env, log: (label) => console.log(`\n▶ ${label}`) },
   );

@@ -9,6 +9,7 @@
 //   `order-*` utility. jsdom has no layout engine, so that assumption cannot be
 //   asserted here — a mutation adding `order-first` would slip past.
 import { screen, within } from "@testing-library/react";
+import { computeAccessibleName } from "dom-accessibility-api";
 import { t, type Lang, type TranslationKey } from "../app/i18n";
 
 /** Accessible names of every rendered button, in DOM order. */
@@ -26,21 +27,28 @@ export function buttonNames(scope?: HTMLElement): string[] {
  * roles it is NOT true document order: a caller needing that must not rely on
  * this function for a multi-role query.
  *
- * ★ `aria-label || textContent`, not a real accessible-name computation. That
- * is the convention every caller in this repo already relies on, and it avoids
- * a live hazard: `dom-accessibility-api` is installed TWICE (0.6.3 under
- * jest-dom, 0.5.16 under @testing-library/dom) and is undeclared in
- * package.json, so a bare import could disagree with testing-library's own
- * `{name}` queries. Reproduce: `npm ls dom-accessibility-api`.
+ * ★★ The REAL accessible name (§279, §308), computed by `dom-accessibility-api`'s
+ * `computeAccessibleName` — so `aria-labelledby` outranks `aria-label`, a
+ * `<label for>` names its input, `aria-hidden` content is left out and `title`
+ * is the last resort. The old `aria-label || textContent` approximation got all
+ * four wrong, in both directions: it missed real collisions and reported false
+ * ones.
+ * ★ The package is a declared devDependency on the 0.6.x line, the copy jest-dom
+ * uses for `toHaveAccessibleName`. `@testing-library/dom` keeps its own 0.5.x
+ * copy for `getByRole(…, { name })`; 0.5.16 cannot be imported here because its
+ * `exports` map has no `types` condition, so tsc (bundler resolution) finds no
+ * types. The two lines compute names alike except that 0.6.1 treats
+ * `role="none"` as `presentation`. Check with `npm ls dom-accessibility-api`.
  *
- * ★ `||`, not `??`: aria-label="" returns "" (not null), which would otherwise
- * shadow the textContent fallback and contribute an empty name.
+ * ★ `computeAccessibleName` trims and collapses runs of two or more whitespace
+ * characters itself (pinned by "collapses and trims whitespace" in
+ * `toolbar-order.test.tsx`; an extra `\s+` pass here was mutation-tested and
+ * changed nothing on those cases). A single tab, newline or no-break space
+ * survives as it is. Every consumer compares these strings exactly as returned.
  */
 export function controlNames(roles: readonly string[], scope?: HTMLElement): string[] {
   const q = scope ? within(scope) : screen;
-  return roles
-    .flatMap((role) => q.queryAllByRole(role))
-    .map((el) => el.getAttribute("aria-label") || el.textContent || "");
+  return roles.flatMap((role) => q.queryAllByRole(role)).map((el) => computeAccessibleName(el));
 }
 
 /**

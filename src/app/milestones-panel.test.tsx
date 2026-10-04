@@ -1096,11 +1096,10 @@ describe("MilestonesPanel column-config popover names", () => {
     // configurable column, and the name-column toggle carries its qualified name.
     expect(within(popover).getAllByRole("checkbox")).toHaveLength(4);
     // ★★ THIS LOOKUP IS THE LOAD-BEARING PIN; do not drop it as redundant with
-    //   the scan below. `controlNames` reads `aria-label || textContent`, so a
-    //   toggle regressed to a bare label-named <input> scans as "" rather than
-    //   as its real accessible name. The page-wide scan therefore cannot see
-    //   the header collision. Only this exact-name `getByRole` (which computes
-    //   the real accessible name) catches it.
+    //   the scan below. It pins the toggle's QUALIFIED name. Since §279/§308
+    //   the scan also reads real accessible names, so a toggle regressed to a
+    //   bare label-named <input> would collide with its header there too; only
+    //   this exact-name `getByRole` pins the qualified wording itself.
     screen.getByRole("checkbox", {
       name: t("en-US", "colConfigToggleColumn", t("en-US", "milestonesColName")),
     });

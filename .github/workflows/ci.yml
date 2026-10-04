@@ -27,6 +27,10 @@ jobs:
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # pull-requests: read lets changelog:check read the PR's labels (the no-changelog opt-out).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       # Full history: the commit-message scan below needs the whole range the event introduces.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,6 +53,9 @@ jobs:
           printf '%s\n' "$LEAK_LIST" > "$RUNNER_TEMP/leak-list.txt"
           echo "LEAK_LIST_FILE=$RUNNER_TEMP/leak-list.txt" >> "$GITHUB_ENV"
       - name: Static gates (every step runs; each failure is listed in the summary)
+        env:
+          # Read by changelog:check only, to read the PR's labels; the job's token can read, not write.
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/gate-local.mjs --group static --keep-going
       # leaks:check reads tracked files only; this reads the commit messages the event introduces
       # (§200). A pull request starts at the merge-base with the base branch as fetched (the
