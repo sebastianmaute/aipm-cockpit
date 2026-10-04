@@ -7,8 +7,9 @@
 // queue keeps at most `max` in flight and starts the next as one settles.
 //
 // Pure and i18n-free: no React, no DOM. A task that the caller no longer wants
-// (its row unmounted while queued) still takes its turn — the caller's task
-// checks its own cancelled flag and returns at once, which frees the slot.
+// (its row unmounted, or scrolled out of view, while queued) still takes its
+// turn — the caller's task checks its own cancelled flag and returns at once,
+// which frees the slot.
 
 export interface LoadLimiter {
   /** Runs `task` once fewer than `max` tasks are in flight; settles with it. */

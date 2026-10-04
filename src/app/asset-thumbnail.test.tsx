@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, waitFor } from "@testing-library/react";
 import { AssetThumbnail } from "./asset-thumbnail";
 import { createLoadLimiter } from "./asset-load-limiter";
+import type { AssetByteLoader } from "./document-asset-images";
 
 const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -63,7 +64,7 @@ async function settle() {
 }
 
 function renderThumb(over: Partial<Parameters<typeof AssetThumbnail>[0]> = {}) {
-  const loadImage = vi.fn(async () => TINY_GIF);
+  const loadImage = vi.fn<AssetByteLoader>(async () => TINY_GIF);
   const props = { id: "a1", mime: "image/png", loadImage, limiter: createLoadLimiter(3), unavailable: false, ...over };
   const view = render(<AssetThumbnail {...props} />);
   return { ...view, loadImage: props.loadImage };
@@ -102,7 +103,7 @@ describe("AssetThumbnail", () => {
   // must not render that revoked URL while (or instead of) reloading.
   it("never shows a revoked URL after the row turns unavailable and back", async () => {
     let bytes: string | null = TINY_GIF;
-    const loadImage = vi.fn(async () => bytes);
+    const loadImage = vi.fn<AssetByteLoader>(async () => bytes);
     const limiter = createLoadLimiter(3);
     const props = { id: "a1", mime: "image/png", loadImage, limiter };
     const { container, rerender } = render(<AssetThumbnail {...props} unavailable={false} />);
@@ -137,7 +138,7 @@ describe("AssetThumbnail", () => {
   });
 
   it("shows nothing when the bytes are missing", async () => {
-    const loadImage = vi.fn(async () => null);
+    const loadImage = vi.fn<AssetByteLoader>(async () => null);
     const { container } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -147,7 +148,7 @@ describe("AssetThumbnail", () => {
   });
 
   it("shows nothing when the loader fails", async () => {
-    const loadImage = vi.fn(async () => { throw new Error("offline"); });
+    const loadImage = vi.fn<AssetByteLoader>(async () => { throw new Error("offline"); });
     const { container } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -157,7 +158,7 @@ describe("AssetThumbnail", () => {
 
   it("never mints a URL for bytes that arrive after the row went away", async () => {
     let release!: (v: string) => void;
-    const loadImage = vi.fn(() => new Promise<string>((r) => { release = r; }));
+    const loadImage = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { release = r; }));
     const { unmount } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -171,8 +172,8 @@ describe("AssetThumbnail", () => {
   it("does not fetch for a row that went away while its load was queued", async () => {
     const limiter = createLoadLimiter(1);
     let releaseFirst!: (v: string) => void;
-    const first = vi.fn(() => new Promise<string>((r) => { releaseFirst = r; }));
-    const second = vi.fn(async () => TINY_GIF);
+    const first = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { releaseFirst = r; }));
+    const second = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     render(<AssetThumbnail id="a1" mime="image/png" loadImage={first} limiter={limiter} unavailable={false} />);
     const queued = render(<AssetThumbnail id="a2" mime="image/png" loadImage={second} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
@@ -205,8 +206,8 @@ describe("AssetThumbnail", () => {
   it("drops a queued load whose row scrolls out before its turn", async () => {
     const limiter = createLoadLimiter(1);
     let releaseFirst!: (v: string) => void;
-    const first = vi.fn(() => new Promise<string>((r) => { releaseFirst = r; }));
-    const second = vi.fn(async () => TINY_GIF);
+    const first = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { releaseFirst = r; }));
+    const second = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     render(<AssetThumbnail id="a1" mime="image/png" loadImage={first} limiter={limiter} unavailable={false} />);
     render(<AssetThumbnail id="a2" mime="image/png" loadImage={second} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
@@ -225,7 +226,7 @@ describe("AssetThumbnail", () => {
   // effect cleanup already revoked; that URL must not be shown again.
   it("never shows a revoked URL after the asset changes and changes back", async () => {
     let bytes: string | null = TINY_GIF;
-    const loadImage = vi.fn(async () => bytes);
+    const loadImage = vi.fn<AssetByteLoader>(async () => bytes);
     const limiter = createLoadLimiter(3);
     const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
@@ -239,5 +240,64 @@ describe("AssetThumbnail", () => {
     expect(container.querySelector("img")).toBeNull();
     await settle();
     expect(container.querySelector("img")).toBeNull();
+  });
+
+  // §482 review m1 — out and back in while the first fetch is still running
+  // must reuse that fetch, not start a second one for the same bytes.
+  it("reuses a fetch still running when the row scrolls out and back in", async () => {
+    let release!: (v: string) => void;
+    const loadImage = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { release = r; }));
+    const { container } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={createLoadLimiter(3)} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(1));
+    scrollAllOutOfView();
+    scrollAllIntoView();
+    await settle();
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    // The reused fetch still lands: its bytes become this run's image.
+    await act(async () => { release(TINY_GIF); });
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    expect(created).toHaveLength(1);
+    expect(container.querySelector("img")).toHaveAttribute("src", created[0]);
+  });
+
+  // The reuse is keyed on the asset: a fetch still running for the previous
+  // asset must never stand in for the new one's bytes.
+  it("does not reuse a running fetch for a different asset", async () => {
+    const release: Record<string, (v: string) => void> = {};
+    const loadImage = vi.fn<AssetByteLoader>((id) => new Promise<string>((r) => { release[id] = r; }));
+    const limiter = createLoadLimiter(3);
+    const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledWith("a1"));
+    rerender(<AssetThumbnail id="a2" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    await waitFor(() => expect(loadImage).toHaveBeenCalledWith("a2"));
+    await act(async () => { release.a2(TINY_GIF); });
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const shownUrl = created[0];
+    // a1's bytes arriving late are never minted or shown.
+    await act(async () => { release.a1(TINY_GIF); });
+    await settle();
+    expect(created).toHaveLength(1);
+    expect(container.querySelector("img")).toHaveAttribute("src", shownUrl);
+  });
+
+  // §482 review m3 — while unavailable the observer is gone, so its last
+  // "in view" is stale; a row that turns available while off-screen must wait
+  // for the new observer instead of loading on it.
+  it("does not load a row that turns available again until it is reported in view", async () => {
+    const loadImage = vi.fn<AssetByteLoader>(async () => TINY_GIF);
+    const limiter = createLoadLimiter(3);
+    const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    rerender(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={true} />);
+    rerender(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    await settle();
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    // Positive control: once the new observer reports it in view, it loads.
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(2));
   });
 });
