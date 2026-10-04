@@ -36,7 +36,10 @@ const USER_ID_RE = /^u-(\d+)$/;
 // held to its derivation's AA floor at resolve time: one that falls short is
 // nudged there (its hue kept), or, when nudging cannot reach the floor, replaced
 // by the value derived from the base, or failing that black or white — so a
-// pinned token always resolves at or above its floor.
+// pinned token always resolves at or above its floor AGAINST ITS DERIVATION'S
+// REFERENCE (the card, the purple tint, `--line`). Not against every surface it
+// is drawn on: a hand-edited scheme whose card is lighter than `--surface` can
+// still leave a pin under 4.5 on the plain surface, as an unpinned derivation can.
 const DERIVED_TOKENS = [
   "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",

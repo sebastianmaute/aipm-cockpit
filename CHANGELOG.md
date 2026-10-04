@@ -30,7 +30,8 @@ longer carries its own changelog comment.
 - **Voice commands the app does not know go to the AI assistant (§519).** With the AI
   assistant on, a spoken command that is not one of the fixed voice commands is put into the
   assistant's message box for you to check and send, instead of showing "Didn't understand".
-  With the assistant off, nothing changes. Anything you had already typed there is kept.
+  The app switches to the AI assistant view to show it. With the assistant off, nothing changes.
+  Anything you had already typed there is kept.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
@@ -55,6 +56,17 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Undo after restoring a version (§655 follow-up).** After restoring a kept version, or using
+  "Restore anyway", pressing Undo could replay an edit made to the other version and mix the two.
+  A restore now clears the undo history, and a version already restored or discarded in another
+  tab is not applied again.
+- **Damaged saved changes, partly readable (§668 follow-up).** A copy of unsaved changes that
+  could be read only in part was restored without the part that failed, such as its documents,
+  and the next save could then remove them. It is now refused as a whole.
+- **Word export of roles (§512 follow-up).** Roles tables in Word show discipline and grade names
+  instead of internal numbers.
+- **Internal activity-log download (§510 follow-up).** The file now also flags the open project
+  when its stored activity log could not be read, so an empty list does not look like no activity.
 - **Damaged unsaved changes are no longer restored as an empty project (§668).** If the copy of
   unsaved changes kept from your last session was damaged, reloading the page could restore it as an
   empty project without asking, and "Restore anyway" could do the same. A damaged copy is now never

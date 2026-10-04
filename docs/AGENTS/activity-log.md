@@ -33,7 +33,8 @@ newest entries until the next save.
 - **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
   `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
   `insights`/`documents`), NOT `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` because it
-  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every path**: no
+  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every export and document path** (the §510 internal audit download in Settings is the
+  one exception, see the top of this file): no
   `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
   `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
   `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
