@@ -10,8 +10,11 @@
 // put RTL and the React scheduler on a stopped clock, which has nothing to do
 // with a date rollover. `shouldAdvanceTime` keeps the faked clock moving, so a
 // test that measures an elapsed duration with `Date.now()` still sees time pass.
-// A test file that installs its own fake timers or calls `vi.useRealTimers()`
-// in its own hooks overrides this for itself; such a file is not covered.
+// A test file that installs its own fake timers still inherits the shift:
+// `vi.useFakeTimers()` starts its clock from the current, already shifted
+// `Date.now()` (checked with a probe under the variable). Only a file that calls
+// `vi.setSystemTime` itself, or restores real timers before it asserts, sets its
+// own clock and is not covered.
 
 const DAY_MS = 86_400_000;
 

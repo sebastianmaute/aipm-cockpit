@@ -53,11 +53,19 @@ export function evaluateChangelog({ files, optedOut }) {
  * @returns {Promise<{ code: 0 | 1 | 2, message: string }>}
  */
 export async function runChangelogCheck({ git, fetchLabels, readEvent, env }) {
+  // ★ It guards pull requests. In CI on any other event (a push to main diffs to nothing anyway; a
+  // manual dispatch from a branch has no PR, so no label could ever opt it out) it stands down.
+  // Locally there is no GITHUB_EVENT_NAME, so it runs.
+  if (env.GITHUB_EVENT_NAME && env.GITHUB_EVENT_NAME !== "pull_request") {
+    return { code: 0, message: `changelog:check skipped — event "${env.GITHUB_EVENT_NAME}" is not a pull request` };
+  }
   const baseRef = env.CHANGELOG_BASE_REF || "origin/main";
   let files;
   try {
     const base = git(["merge-base", "HEAD", baseRef]).trim();
-    files = git(["diff", "--name-only", base, "HEAD"]).split(/\r?\n/).filter(Boolean);
+    // ★ --no-renames: a rename reports only its NEW path otherwise, so moving a file out of src/
+    // would hide the src/ side of the change.
+    files = git(["diff", "--name-only", "--no-renames", base, "HEAD"]).split(/\r?\n/).filter(Boolean);
   } catch (err) {
     return { code: 2, message: `changelog:check could not scan: git failed against ${baseRef} (${String(err)})` };
   }
@@ -70,7 +78,9 @@ export async function runChangelogCheck({ git, fetchLabels, readEvent, env }) {
     try {
       const number = readEvent(env.GITHUB_EVENT_PATH ?? "").pull_request.number;
       if (!env.GH_TOKEN) throw new Error("GH_TOKEN is not set");
-      labels = await fetchLabels({ repo: env.GITHUB_REPOSITORY ?? "", number, token: env.GH_TOKEN });
+      const query = { repo: env.GITHUB_REPOSITORY ?? "", number, token: env.GH_TOKEN };
+      // One retry, so a single transient API failure does not turn the check red.
+      labels = await fetchLabels(query).catch(() => fetchLabels(query));
     } catch (err) {
       return { code: 2, message: `changelog:check could not read the PR's labels (${String(err)})` };
     }
@@ -85,6 +95,7 @@ export async function runChangelogCheck({ git, fetchLabels, readEvent, env }) {
       first.appFiles.map((f) => `  ${f}`).join("\n") +
       `\nAdd a line under [Unreleased] in CHANGELOG.md. If the change cannot reach a user (a refactor, ` +
       `tooling), add the "${OPT_OUT_LABEL}" label to the pull request and re-run the failed job; ` +
-      `locally, set CHANGELOG_OPT_OUT=1.`,
+      `locally, set CHANGELOG_OPT_OUT=1. (A local run diffs against your origin/main, so run ` +
+      `git fetch first, or a stale origin/main shifts the merge-base.)`,
   };
 }

@@ -40,11 +40,11 @@ export function buttonNames(scope?: HTMLElement): string[] {
  * types. The two lines compute names alike except that 0.6.1 treats
  * `role="none"` as `presentation`. Check with `npm ls dom-accessibility-api`.
  *
- * ★ The returned names are already whitespace-collapsed and trimmed:
- * `computeAccessibleName` does that itself (pinned by "collapses and trims
- * whitespace" in `toolbar-order.test.tsx`; an extra normalising pass here was
- * mutation-tested and changed nothing). Every consumer compares these strings
- * as they are.
+ * ★ `computeAccessibleName` trims and collapses runs of two or more whitespace
+ * characters itself (pinned by "collapses and trims whitespace" in
+ * `toolbar-order.test.tsx`; an extra `\s+` pass here was mutation-tested and
+ * changed nothing on those cases). A single tab, newline or no-break space
+ * survives as it is. Every consumer compares these strings exactly as returned.
  */
 export function controlNames(roles: readonly string[], scope?: HTMLElement): string[] {
   const q = scope ? within(scope) : screen;

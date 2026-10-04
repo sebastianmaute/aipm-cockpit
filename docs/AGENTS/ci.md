@@ -187,7 +187,9 @@ on it and none of its jobs is a required check: a red run is the signal.
   that to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` 400 days ahead in
   every test. A test that goes red here passes today only because a hardcoded date is still in the
   future. Reproduce one with `VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>`. A file that installs
-  its own fake timers or calls `vi.useRealTimers()` in its own hooks is not covered.
+  its own fake timers still inherits the shift (`vi.useFakeTimers()` starts from the shifted
+  `Date.now()`); only a file that calls `vi.setSystemTime` itself, or restores real timers before it
+  asserts, sets its own clock and is not covered.
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),

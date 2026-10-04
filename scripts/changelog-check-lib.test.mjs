@@ -53,6 +53,29 @@ describe("runChangelogCheck", () => {
     expect(noToken.code).toBe(2);
   });
 
+  it("stands down on CI events other than a pull request", async () => {
+    for (const ev of ["push", "workflow_dispatch"]) {
+      const r = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx"]), fetchLabels: async () => [], readEvent, env: { GITHUB_EVENT_NAME: ev } });
+      expect(r.code, ev).toBe(0);
+      expect(r.message, ev).toContain("skipped");
+    }
+  });
+
+  it("retries the label read once before giving up", async () => {
+    let calls = 0;
+    const fetchLabels = async () => { calls += 1; if (calls === 1) throw new Error("GitHub API 502"); return [OPT_OUT_LABEL]; };
+    const r = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx"]), fetchLabels, readEvent, env: PR_ENV });
+    expect(r.code).toBe(0);
+    expect(calls).toBe(2);
+  });
+
+  it("diffs with --no-renames, so a file moved out of src/ still counts", async () => {
+    const seen = [];
+    const git = (args) => { seen.push(args); return fakeGit(["src/app/a.tsx"])(args); };
+    await runChangelogCheck({ git, fetchLabels: async () => [], readEvent, env: {} });
+    expect(seen.find((a) => a[0] === "diff")).toContain("--no-renames");
+  });
+
   it("exits 2 when git cannot find the base", async () => {
     const git = () => { throw new Error("fatal: Not a valid object name origin/main"); };
     const r = await runChangelogCheck({ git, fetchLabels: async () => [], readEvent, env: {} });

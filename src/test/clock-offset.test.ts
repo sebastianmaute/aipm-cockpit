@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseClockOffsetDays, registerClockOffset } from "./clock-offset";
 
 describe("parseClockOffsetDays", () => {
@@ -23,6 +23,10 @@ describe("parseClockOffsetDays", () => {
 });
 
 describe("registerClockOffset", () => {
+  // ★ Start each case on the REAL clock. In the weekly unit-future-clock job the
+  // setup has already shifted Date before this runs, so a baseline read without
+  // this would itself be 400 days ahead.
+  beforeEach(() => vi.useRealTimers());
   afterEach(() => vi.useRealTimers());
 
   function capture() {

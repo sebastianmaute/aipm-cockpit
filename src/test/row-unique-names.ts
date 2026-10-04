@@ -115,12 +115,11 @@ export function expectRowUniqueNames(opts: RowUniqueOptions): void {
   }
 
   if (requireCollisionSeed) {
-    // ★★ The names arrive whitespace-collapsed from `controlNames` (the
-    // accessible-name computation collapses and trims), the same way
-    // `buildRowTokens` keys its collision counts. So "Risk  A" against "Risk A"
-    // is the same name here AND in the collision count below; the two halves once
-    // normalised differently, and a fixture could be certified as seeded while
-    // its collision went uncounted (§308).
+    // ★★ The seed check and the collision count below compare the SAME strings,
+    // exactly as `controlNames` returns them (the accessible-name computation
+    // trims and collapses runs of whitespace), so "Risk  A" against "Risk A" is
+    // one name in both. The two halves once normalised differently, and a fixture
+    // could be certified as seeded while its collision went uncounted (§308).
     const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, ""));
     const strippedCounts = new Map<string, number>();
     for (const n of stripped) strippedCounts.set(n, (strippedCounts.get(n) ?? 0) + 1);

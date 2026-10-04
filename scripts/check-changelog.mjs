@@ -8,12 +8,14 @@ import { runChangelogCheck } from "./changelog-check-lib.mjs";
 
 const git = (args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
+// The pull request itself, not the issues labels endpoint: GET /pulls/{n} is covered by the
+// `pull-requests: read` scope the static job grants, and its body carries every label.
 async function fetchLabels({ repo, number, token }) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${number}/labels?per_page=100`, {
+  const res = await fetch(`https://api.github.com/repos/${repo}/pulls/${number}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
   });
   if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-  return (await res.json()).map((l) => l.name);
+  return ((await res.json()).labels ?? []).map((l) => l.name);
 }
 
 const readEvent = (path) => JSON.parse(readFileSync(path, "utf8"));
