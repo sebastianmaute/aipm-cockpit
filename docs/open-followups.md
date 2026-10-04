@@ -718,7 +718,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--closed-2026-10-03) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | **CLOSED** 2026-10-03 |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--closed-2026-09-27) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | **CLOSED** 2026-09-27 |
-| [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
+| [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--closed-2026-10-03) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | **CLOSED** 2026-10-03 |
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
 | [§484](#484-storage-and-recovery-have-no-docsagents-reference--closed-2026-09-28) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | **CLOSED** 2026-09-28 |
@@ -37664,14 +37664,38 @@ Size M.
 
 **Source:** `docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md`, `docs/superpowers/specs/2026-09-10-readme-and-releases-design.md`, GitLab #67; audit candidate 2
 
-## 481. The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN
+## 481. The task-row "N changes" badge is a static label with no way to jump to the linked changes — CLOSED 2026-10-03
 
-**Status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`
+**Status:** CLOSED 2026-10-03 — the badge is now `ChangesBadge` (`task-changes-badge.tsx`), a button
+rendered by both the table row and the Kanban card. Its click calls `onJumpToChanges` from
+`use-task-row-handlers.ts`, which sets `changeFilterTaskId` in `FiltersProvider`, switches to the
+`changes` view and expands a collapsed workspace. `ChangePanel` takes that filter as `filterTaskId` and
+shows only changes whose `linkedTaskIds` include the task, with a `#id ×` chip that clears it; Reset and
+applying a saved view clear it too. The handler is threaded as a PROP, the same path as `onOpenDocuments`,
+so the card (outside `RowContextProvider`) gets it. The badge's accessible name is now the count plus the
+row token, so two rows with equal counts no longer share a name (WCAG 2.4.6); the old `<span>`'s name was
+the count alone. Pinned by `task-changes-badge.test.tsx`, the "task filter from the task-row badge"
+describe in `change-panel.test.tsx`, the "Changes task filter wiring" describe in
+`workspace-section.test.tsx`, the `onJumpToChanges` tests in `use-task-row-handlers.test.ts`, and a jump
+test each in `task-row.test.tsx` and `task-kanban-card.test.tsx`. Six mutants were run, one per guard
+(row token dropped from the name, `stopPropagation` removed, the panel filter line removed, Reset no
+longer clearing it, the section not passing `filterTaskId`, the handler not switching view); each turned its
+test red. The prop is REQUIRED on `TasksSection`, so tsc covers the task-manager hop, and the "threads
+onJumpToChanges to every task surface" describe in `tasks-section.test.tsx` covers the table, board and
+swimlane hops (each of the three lines, deleted alone, turns it red).
+★ The branch review also closed a gap this shared with RAID's task filter: `FiltersProvider` is not keyed by
+project, so a "#7" armed in one project used to keep filtering the next project's register by an unrelated
+task. Each jump now stamps `getScopeEpoch()` into `raidFilterEpoch` / `changeFilterEpoch`, and
+`workspace-section.tsx` passes a backlink to its panel only while the epoch is unchanged. Pinned by the two
+"retires the … task filter once the scope epoch moves on" tests in `workspace-section.test.tsx`; removing
+either gate turns its test red. Both chips (`raid-panel-toolbar.tsx`, `change-panel.tsx`) are now named
+"#7 – Clear task filter" (`taskFilterChipClear`) and no longer carry `title="Reset filters"`, which screen readers announced as the
+description of a control that clears the task filter only.
+
+**Original status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`
 → a bare `<span>` with only `title`, `aria-label` and `className`, and no handler.
 `grep -rn "onJumpToChange" src/app --include=*.tsx` → no hits, while `grep -c "onJumpToRaid" src/app/task-row.tsx`
 → 2 (the RAID badge beside it navigates).
-
-**Work item:** #303
 
 The change-log design deferred the jump in so many words: "The badge is display-only; a
 click-to-jump from" it was left for later. The RAID badge next to it already navigates through

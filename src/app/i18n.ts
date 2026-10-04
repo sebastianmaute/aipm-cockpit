@@ -3991,6 +3991,9 @@ const enUS = {
   // the pairing test in `i18n-plural.test.ts`, which counts the `…One` keys
   // from source itself.
   taskRowChangesBadgeOne: "1 change",
+  taskRowChangesBadgeJump: "Show the linked changes",
+  // The "#7 ×" task-backlink chip on the RAID and Changes toolbars; its name says what it clears.
+  taskFilterChipClear: "Clear task filter",
 
   navStakeholders: "Stakeholders",
   stakeholderRaciTitle: "RACI Matrix",

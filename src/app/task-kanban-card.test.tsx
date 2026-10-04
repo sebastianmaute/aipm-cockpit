@@ -313,8 +313,8 @@ describe("TaskKanbanCard changes badge", () => {
   // taskRowChangesBadge key. No German case here: the singular-vs-plural DE
   // stem (not a suffix drop) is already pinned once at that call site
   // (task-row.test.tsx's "uses the German singular stem" test); this card
-  // renders the exact same `changesLabel` computation, so a second DE pin
-  // here would test i18n plumbing this file does not own, not the card.
+  // renders the same shared `ChangesBadge`, so a second DE pin here would
+  // test i18n plumbing this file does not own, not the card.
   it("uses the singular taskRowChangesBadgeOne key for exactly one linked change", () => {
     render(
       <TaskKanbanCard
@@ -334,6 +334,28 @@ describe("TaskKanbanCard changes badge", () => {
     // match by default, so "1 change" cannot be satisfied by "1 changes".
     expect(screen.getByText("1 change")).toBeInTheDocument();
     expect(screen.queryByText("1 changes")).toBeNull();
+  });
+
+  // open-followups §481: the badge is a row-unique button that jumps to the
+  // Changes view — taken as a PROP, since cards render outside RowContext.
+  it("jumps to the task's linked changes from a row-unique badge button", () => {
+    const onJumpToChanges = vi.fn();
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={taskFix()}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+        onJumpToChanges={onJumpToChanges}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "2 changes – Alpha" }));
+    expect(onJumpToChanges).toHaveBeenCalledWith(taskFix().id);
   });
 
   it("uses the plural taskRowChangesBadge key for two linked changes", () => {

@@ -58,6 +58,8 @@ interface TaskKanbanSwimlanesProps {
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
   /** Deep-link to the Documents pane, filtered to one task. Optional, as above. */
   onOpenDocuments?: (taskId: number) => void;
+  /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
+  onJumpToChanges?: (taskId: number) => void;
   /** Swimlane cell drop: the cell identifies BOTH the person (lane) and the
    *  status, so one drop writes both in a single call. */
   onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
@@ -109,6 +111,7 @@ export function TaskKanbanSwimlanes({
   changeByTask,
   documentsByEntity,
   onOpenDocuments,
+  onJumpToChanges,
   onSwimlaneDrop,
   onStatusChange,
   onEdit,
@@ -266,6 +269,7 @@ export function TaskKanbanSwimlanes({
                           changeRefs={changeByTask?.get(task.id)}
                           documentsByEntity={documentsByEntity}
                           onOpenDocuments={onOpenDocuments}
+                          onJumpToChanges={onJumpToChanges}
                           onStatusChange={onStatusChange}
                           onEdit={onEdit}
                           onJumpToRaid={onJumpToRaid}

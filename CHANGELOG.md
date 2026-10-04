@@ -23,6 +23,11 @@ longer carries its own changelog comment.
   and at the current efficiency, the gap between the two, the role driving any rate difference,
   and the latest budget changes. It also tells the assistant that its earned-value indices
   measure task effort in hours, not money.
+- **The "N changes" badge on a task opens its changes (§481).** Clicking the badge on a task
+  row or Kanban card now opens the Changes view showing only the change requests linked to that
+  task, the way the RAID badge beside it already opens RAID. A `#id ×` chip in the Changes
+  toolbar shows the filter and clears it; Reset clears it too. Screen readers now hear the task
+  name with the count, so two tasks with the same number of changes no longer sound identical.
 
 ### Fixed
 
@@ -35,6 +40,10 @@ longer carries its own changelog comment.
   hours box in the Budget view by an internal code such as "budget-1-3-2026-01". They now hear
   the label, the bucket, the role and the period, for example "Actual – PAM – Consulting Senior –
   2026-01", in English or German.
+- **A task filter left over from another project (§481).** Opening RAID or Changes from a task's
+  badge and then switching project kept filtering the new project's register by a task number that
+  belonged to the old one. The filter now ends when you switch project. Its `#id ×` chip is also
+  announced as "Clear task filter" instead of "Reset filters", which it never did.
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
   waiting on Jira when you switched project went on to write the previous project's tasks, status
   changes and sync conflicts into the project you switched to. It now drops its result instead.
