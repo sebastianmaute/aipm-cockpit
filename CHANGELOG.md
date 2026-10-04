@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Download the activity log for an internal audit (§510).** In expert mode, Settings → Storage
+  can download the activity log as a JSON file marked internal, including the old and new value of
+  every recorded change. On a shared Turso database with several projects it covers every project,
+  archived ones included; otherwise it covers the project open now. It is meant for internal audits
+  and is not access control: anyone with access to the storage can read the same data.
 - **Word export is easier to read (§512).** In Word files, each table now shows the columns a
   reader needs (for tasks: id, name, assignee, status, priority, dates, group, blockers and
   description) instead of every stored field, and column widths follow their content instead of

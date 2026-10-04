@@ -15,9 +15,11 @@ import {
 } from "./turso-tenant-schema";
 import { projectSideTableSweepStatements } from "./project-side-tables";
 import { logDiag } from "./diagnostics";
-import type { SqlStmt } from "./turso-schema";
+import { rowObjects, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectMeta } from "./types";
+import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
+import type { ActivityAuditSource } from "./activity-audit";
 
 const ddl = (): SqlStmt[] => tenantSchemaDdl().map((sql) => ({ sql }));
 
@@ -69,4 +71,34 @@ export async function hardDeleteProject(config: TursoConfig | null, id: string):
   } catch (err) {
     logDiag("warn", "storage.projectSideTableSweepFailed", { id, message: err instanceof Error ? err.message : String(err) });
   }
+}
+
+/** §510 — every project's stored activity log, one row per project that has one. The log rides
+ *  `meta` under the `activityLog` key (turso-tenant-schema.ts), scoped by `project_id`. */
+export function activityLogsStatement(): SqlStmt {
+  return { sql: `SELECT project_id, value FROM meta WHERE key = 'activityLog'` };
+}
+
+function decodeLog(projectId: string, raw: string | undefined): ActivityEntry[] {
+  if (raw === undefined) return [];
+  try {
+    return sanitizeActivityLog(JSON.parse(raw));
+  } catch (err) {
+    // One unreadable log must not sink the download of every other project's: it is listed empty
+    // and logged, the same trade a load makes for a corrupt meta blob.
+    logDiag("warn", "storage.activityAuditLogUnreadable", { projectId, message: err instanceof Error ? err.message : String(err) });
+    return [];
+  }
+}
+
+/** §510 — the activity log of every project in the portfolio, archived ones included and flagged, for
+ *  the internal audit download (activity-audit.ts). Changes no data: two project lists and one SELECT,
+ *  after the same CREATE-IF-NOT-EXISTS schema prefix every portfolio call sends. A `meta` row whose
+ *  project is gone (hard-deleted) is not listed: the projects table is the list. */
+export async function readPortfolioActivityLogs(config: TursoConfig | null): Promise<ActivityAuditSource[]> {
+  const results = await runTursoPipeline(config, [...ddl(), listProjectsStatement(), listArchivedProjectsStatement(), activityLogsStatement()]);
+  const n = results.length;
+  const projects = [...rowsToProjectList(results[n - 3]), ...rowsToProjectList(results[n - 2])];
+  const logs = new Map(rowObjects(results[n - 1]).map((o) => [o.project_id, o.value]));
+  return projects.map((p) => ({ id: p.id, name: p.meta.name, archived: p.archived, log: decodeLog(p.id, logs.get(p.id)) }));
 }

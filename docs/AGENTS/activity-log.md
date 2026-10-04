@@ -9,8 +9,21 @@ Does NOT own the undo stack itself, the AI dispatcher's tool surface
 
 ★★★ **IT IS WORKSPACE DATA THAT MUST NEVER BE EXPORTED.** An entry's `changes` carries old/new
 values for up to 12 fields — internal audit detail that must not reach a client-facing
-document — so it is storage-only on every path, and it is absent from `TABLE_NAMES` because
-it has no table of its own, NOT because it sits outside the workspace.
+document — so it is storage-only on every EXPORT and DOCUMENT path, and it is absent from
+`TABLE_NAMES` because it has no table of its own, NOT because it sits outside the workspace.
+
+★★ **THE ONE EXCEPTION IS AN INTERNAL AUDIT DOWNLOAD, NOT AN EXPORT (open-followups §510, owner ruling
+2026-10-04).** Settings → Storage, in expert mode only, offers "Download activity log (internal)":
+`activity-audit.ts` builds a JSON file marked internal (`ACTIVITY_AUDIT_CLASSIFICATION`, and INTERNAL in
+the file name) that DOES carry each entry's `changes` — they are the audit detail it exists for. On a
+multi-project Turso database it covers every project in the portfolio, archived ones flagged
+(`readPortfolioActivityLogs` in `turso-portfolio.ts`); on any other storage only the project open now.
+It goes through no export config and no export section. ★★ Never wire it into `exportWorkspace`, a
+document renderer, the AI snapshot or the Activity panel's Print — those are the paths the rule above
+guards. ★★ **It is NOT access control**: the app has no roles (§508) and expert mode is a preference
+anyone can switch on. What bounds the file is the storage credential: on Turso it holds exactly what a
+SQL client with the same token can already read. ★ The portfolio read is the STORED logs, so the
+project open now contributes its last saved log, not unsaved entries.
 
 - **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
   `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
@@ -19,7 +32,8 @@ it has no table of its own, NOT because it sits outside the workspace.
   `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
   `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
   `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
-  audit detail that must never reach a document handed to a client. Do not add an export key.
+  audit detail that must never reach a document handed to a client. Do not add an export key. (The
+  §510 internal audit download in Settings is the one deliberate exception — see the top of this file.)
   ★★ **Nor an AI-snapshot field.** `runTool`'s `get_app_state` returns `getSnapshot()` verbatim, so the log
   is reachable only through `getActivityLog()` on `ToolDispatcher`. It is CAPPED (`ACTIVITY_MAX_ENTRIES`),
   and discovering that cap is not a licence to "complete the pattern" — the guard rests on per-call size,

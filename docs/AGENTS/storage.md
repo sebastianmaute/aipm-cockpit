@@ -10,7 +10,10 @@ Does NOT own, and links rather than restates:
 - how `documents` / `documentVersions` ride the write paths —
   [`documents.md`](documents.md#persistence--six-write-paths);
 - the activity log's meta-blob persistence and `logMode` —
-  [`activity-log.md`](activity-log.md);
+  [`activity-log.md`](activity-log.md), including the §510 internal audit download in Settings → Storage
+  (expert mode), the one read of the stored logs that is not a load: on a multi-project Turso database it
+  SELECTs every project's `activityLog` `meta` row (`readPortfolioActivityLogs`), changes no data, and is
+  NOT access control;
 - five [`AGENTS.md`](../../AGENTS.md) "Hard constraints" bullets, which stay there because that
   file is always loaded: **New persisted `Workspace` field → SIX write paths**, **New COLUMN on
   existing entity**, **New Turso table NOT workspace data** (with its `idKind` half), **Secrets at

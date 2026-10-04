@@ -368,3 +368,29 @@ describe("SettingsView", () => {
     expect(screen.getByText(t("en-US", "aiViewScopeIntro"))).toBeInTheDocument();
   });
 });
+
+// open-followups §510 — the internal activity-log download sits under Storage, in expert mode only.
+describe("SettingsView — activity audit download (§510)", () => {
+  const audit = { scope: "current" as const, download: vi.fn(async () => true) };
+  const heading = () => screen.queryByRole("heading", { name: t("en-US", "activityAuditTitle") });
+
+  it("shows under Storage in expert mode", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, activityAudit: audit })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
+    expect(heading()).toBeInTheDocument();
+  });
+
+  it("is absent outside expert mode", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: false }, activityAudit: audit })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
+    expect(screen.getByText("storage-stub")).toBeInTheDocument(); // the Storage block itself rendered
+    expect(heading()).toBeNull();
+  });
+
+  it("is absent without a downloader (a popout)", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true } })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
+    expect(screen.getByText("storage-stub")).toBeInTheDocument();
+    expect(heading()).toBeNull();
+  });
+});

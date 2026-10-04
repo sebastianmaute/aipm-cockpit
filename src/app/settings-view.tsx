@@ -31,6 +31,8 @@ import { DictationSection } from "./settings-sections/dictation-section";
 import { ExportSection } from "./settings-sections/export-section";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 import { StorageConfigSection } from "./storage-config";
+import { ActivityAuditSection } from "./settings-sections/activity-audit-section";
+import type { ActivityAuditDownloader } from "./activity-audit-download";
 import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
 import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section";
 import type { UseCommTemplatesResult } from "./use-comm-templates";
@@ -51,6 +53,8 @@ interface SettingsViewProps {
   onRequestStorageSwitch: (kind: StorageKind) => void;
   /** Reload the current project's data from its backend (recovery). Omitted in popouts. */
   onReloadProject?: () => void;
+  /** §510 — the internal activity-log download; shown under Storage in expert mode only. Omitted in a popout. */
+  activityAudit?: ActivityAuditDownloader;
   onMigrateToTurso?: () => void;
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
@@ -404,6 +408,7 @@ export function SettingsView(props: SettingsViewProps) {
               sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
               tursoEnabled={settings.integrations?.turso?.enabled ?? false}
             />
+            {expert && props.activityAudit && <ActivityAuditSection lang={lang} audit={props.activityAudit} />}
           </>
         )}
         {active === "notifications" && (
