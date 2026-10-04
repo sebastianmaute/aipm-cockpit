@@ -149,7 +149,8 @@ a Markdown fence the decoder's regex misses reads as absent (§630's "Known limi
 ### The destructive-refusal banner's dismissal (`task-manager.tsx`)
 
 Moved here verbatim from the comment above `destructiveRefusalSeen` in `task-manager.tsx`, to give
-that file headroom under its size baseline.
+that file headroom under its size baseline. "The SAME render-time reconcile" below refers to the one just
+above it in `task-manager.tsx`, for the truncation banner (`truncationBannerDismissed`).
 
 ★★ The SAME render-time reconcile for the OTHER saving-paused cause (an
 effect is impossible — `set-state-in-effect` is banned and fatal). Without
