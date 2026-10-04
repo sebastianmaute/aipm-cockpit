@@ -69,6 +69,14 @@ describe("runChangelogCheck", () => {
     expect(calls).toBe(2);
   });
 
+  it("exits 2 after two failed label reads in a row, having tried exactly twice", async () => {
+    let calls = 0;
+    const fetchLabels = async () => { calls += 1; throw new Error("GitHub API 502"); };
+    const r = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx"]), fetchLabels, readEvent, env: PR_ENV });
+    expect(r.code).toBe(2);
+    expect(calls).toBe(2);
+  });
+
   it("diffs with --no-renames, so a file moved out of src/ still counts", async () => {
     const seen = [];
     const git = (args) => { seen.push(args); return fakeGit(["src/app/a.tsx"])(args); };

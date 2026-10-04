@@ -67,7 +67,8 @@ re-resolved by hand.
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
   list — including `changelog:check` (§527: app code changed without a `CHANGELOG.md` line fails, unless
   the PR carries the `no-changelog` label; the label is read LIVE through the API with the job's token,
-  which is why this job alone adds `pull-requests: read` and passes `GH_TOKEN` to the step — a re-run
+  which is why this job alone adds `pull-requests: read` and passes `GH_TOKEN` to the step, where
+  `gate-local.mjs`'s `stepEnv` strips it from every step except `changelog:check` (`passEnv`) — a re-run
   reuses the original event payload, so a payload read would never see a label added after the first
   run) and `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
   `desktop/tsconfig.json` then `desktop/tsconfig.test.json`, exiting with the worse of the two —
