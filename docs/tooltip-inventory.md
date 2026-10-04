@@ -50,6 +50,8 @@ that shows in review. ★ What it does NOT check, unchanged from "What this docu
 cover" below: non-`<button>` controls, and whether a `title` says anything useful.
 ★ Nor a control whose only child is an expression that renders an icon (`{open ? <XIcon /> : <PlusIcon />}`):
 the scan reads any non-literal expression as visible text. None exists today.
+★ Nor whether a `title` is real: any `title` attribute counts, `title=""` and `title={undefined}` included, and so
+does any JSX spread (measured 2026-10-04: 7 spread-only sites in `src/app`, none of them an icon-only control).
 
 ★ The four untranslated names this document carried are settled (§109's 2026-10-03 update): the
 two `budget-panel-totals.tsx` machine hooks are translated row-unique names, and the
