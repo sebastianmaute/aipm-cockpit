@@ -537,6 +537,17 @@ describe("useLoadTruncation — undecodable meta slices", () => {
     expect(result.current.decodeFailureCount).toBe(0);
   });
 
+  it("§510 — says whether the activity log was among the slices that failed, and drops it on a clean load", () => {
+    const { result } = render();
+    expect(result.current.activityLogUnreadable).toBe(false);
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.activityLogUnreadable).toBe(false);
+    act(() => { result.current.truncationOps.reportFor(decoding(["activityLog", "insights"])); });
+    expect(result.current.activityLogUnreadable).toBe(true);
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.activityLogUnreadable).toBe(false);
+  });
+
   it("tells the user, and stays quiet on a clean load", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });

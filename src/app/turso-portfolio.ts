@@ -92,7 +92,9 @@ function decodeLog(projectId: string, raw: string | undefined): DecodedLog {
   } catch (err) {
     // One unreadable log must not sink the download of every other project's: it is listed empty,
     // FLAGGED so the file cannot read as "no activity", and logged.
-    logDiag("warn", "storage.activityAuditLogUnreadable", { projectId, message: err instanceof Error ? err.message : String(err) });
+    // The error NAME only: a JSON.parse message quotes part of the input, i.e. audit data (old and new
+    // field values), and the diagnostics ring is a support channel.
+    logDiag("warn", "storage.activityAuditLogUnreadable", { projectId, error: err instanceof Error ? err.name : typeof err });
     return { log: [], logUnreadable: true };
   }
 }

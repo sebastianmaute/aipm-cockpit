@@ -24,14 +24,27 @@ export const DOCX_SECTION_FIELDS: Readonly<Partial<Record<ExportSectionKey, read
   stakeholders: ["name", "organization", "title", "email", "category", "influence", "interest"],
   budgets: ["name", "poNumber", "type", "currency", "fixedPriceAmount", "startDate", "endDate", "status", "percentComplete"],
   resources: ["firstName", "lastName", "title", "department", "company", "email", "location", "isExternal"],
-  roles: ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "internalRateDay", "externalRateDay", "rateBasis"],
+  roles: ["disciplineId", "gradeId", "internalRate", "externalRate", "internalRateDay", "externalRateDay", "rateBasis"],
   absences: ["assignee", "startDate", "endDate", "type", "note"],
   shifts: ["assignee", "monHours", "tueHours", "wedHours", "thuHours", "friHours", "satHours", "sunHours", "note"],
 };
 
+/** What the Word projection needs to turn a role's two foreign keys into names (post-merge review M2):
+ *  the workspace's disciplines and grades, and the translated headers. Passed in, so this module stays
+ *  i18n-free and storage-free. */
+export interface DocxRefs {
+  disciplines: readonly { id: number; name: string }[];
+  grades: readonly { id: number; name: string }[];
+  disciplineLabel: string;
+  gradeLabel: string;
+}
+
 /** The section with only its curated Word columns, in curated order; the section itself when it
- *  has no curated list or is not shaped like an exported section. Never modifies its input. */
-export function docxSection(section: ExportSection): ExportSection {
+ *  has no curated list or is not shaped like an exported section. Never modifies its input. With
+ *  `refs`, a roles section prints discipline and grade NAMES under "Discipline" / "Grade" instead of
+ *  their ids (an id a reader cannot use is exactly what this projection exists to keep out); an id with
+ *  no match prints as stored. */
+export function docxSection(section: ExportSection, refs?: DocxRefs): ExportSection {
   const curated = DOCX_SECTION_FIELDS[section.key];
   if (!curated) return section;
   const fields = EXPORT_SECTION_FIELDS[section.key];
@@ -39,10 +52,27 @@ export function docxSection(section: ExportSection): ExportSection {
   // can be projected by field. Any other shape prints as given rather than misaligned.
   if (section.columns.length !== fields.length) return section;
   const picks = curated.map((f) => fields.indexOf(f)).filter((i) => i >= 0);
-  return {
+  const projected: ExportSection = {
     ...section,
     columns: picks.map((i) => section.columns[i]),
     rows: section.rows.map((row) => picks.map((i) => row[i] ?? "")),
+  };
+  return section.key === "roles" && refs ? withRoleNames(projected, picks.map((i) => fields[i]), refs) : projected;
+}
+
+function withRoleNames(section: ExportSection, fields: readonly string[], refs: DocxRefs): ExportSection {
+  const lookups: Record<string, { list: DocxRefs["disciplines"]; label: string }> = {
+    disciplineId: { list: refs.disciplines, label: refs.disciplineLabel },
+    gradeId: { list: refs.grades, label: refs.gradeLabel },
+  };
+  return {
+    ...section,
+    columns: section.columns.map((label, i) => lookups[fields[i]]?.label ?? label),
+    rows: section.rows.map((row) => row.map((cell, i) => {
+      const lookup = lookups[fields[i]];
+      if (!lookup) return cell;
+      return lookup.list.find((x) => String(x.id) === String(cellText(cell)))?.name ?? cell;
+    })),
   };
 }
 

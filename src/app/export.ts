@@ -26,7 +26,7 @@ import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import { nonceOpenTag, pdfReadyTitleMarkup, pdfWindowName, withScriptNonce } from "./pdf-export-protocol";
 import { readCspNonce } from "./csp-nonce";
 import { filenameStem } from "./filename-stem";
@@ -282,7 +282,8 @@ export async function exportWorkspace(
     const { buildDocx, buildPptx, buildXlsx } = await import("./export-ooxml");
     const sections = buildExportSections(ws, cfg, lang);
     if (format === "docx") {
-      blob = buildDocx(sections);
+      // Role names, not ids, in the roles table (export-docx-columns.ts `DocxRefs`).
+      blob = buildDocx(sections, { disciplines: ws.disciplines, grades: ws.grades, disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });
     } else if (format === "xlsx") {
       blob = buildXlsx(sections);
     } else {

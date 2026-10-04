@@ -386,6 +386,8 @@ describe("§548 — getScopeEpoch: transitions that must NOT move it", () => {
     const { result, rerender } = render(makeArgs({ kind: "browser" }, false));
     const read = result.current.getScopeEpoch;
     const started = read(); // what a writer captures before its first await
+    const undoRead = result.current.getUndoEpoch; // and the undo stack's reader
+    const undoStarted = undoRead();
     expect(started).toBe(0); // pre-hydration is pending, but nothing can have been in flight yet
 
     rerender({ args: makeArgs({ kind: "browser" }, true) }); // same instance → the first load, not a rebuild
@@ -403,6 +405,7 @@ describe("§548 — getScopeEpoch: transitions that must NOT move it", () => {
     expect(result.current.loadPending).toBe(false);
     // …but onto the SAME target, so §591 merged rather than replaced: the project never changed.
     expect(isScopeStale(read, started)).toBe(false);
+    expect(isScopeStale(undoRead, undoStarted)).toBe(false); // nor did the undo history's scope
   });
 
   it("(h2) a SAME-TARGET reloadCurrentProject leaves an in-flight write landing", async () => {
@@ -457,6 +460,10 @@ describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
     await advance(300);
     const read = result.current.getScopeEpoch;
     const started = read();
+    // §628 + post-merge I1 — the undo stack reads getUndoEpoch (the scope epoch plus one per restore):
+    // a project change must move it too, or an undo could cross into the next project.
+    const undoRead = result.current.getUndoEpoch;
+    const undoStarted = undoRead();
     expect(result.current.loadPending).toBe(false);
     expect(isScopeStale(read, started)).toBe(false);
 
@@ -466,6 +473,7 @@ describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
     expect(b.load).toHaveBeenCalledTimes(1); // control: the new target really loaded
     expect(result.current.loadPending).toBe(false);
     expect(isScopeStale(read, started)).toBe(true);
+    expect(isScopeStale(undoRead, undoStarted)).toBe(true);
   });
 
   it("(i2) a held op that applies ANOTHER project's workspace makes an in-flight write stale", async () => {

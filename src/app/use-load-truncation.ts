@@ -282,6 +282,10 @@ export interface LoadTruncationGuard {
    *  `settings_overrides`) and the diagnostics ring already carries them for an
    *  operator. */
   decodeFailureCount: number;
+  /** §510 — the last load could not decode the stored activity log, so the live one began empty. The
+   *  internal audit download flags it, or an empty list would read as "no activity". Cleared with the
+   *  other decode failures, including by "Save anyway". */
+  activityLogUnreadable: boolean;
   /** Bumped once per LOAD that reported at least one undecodable slice — the
    *  identity a dismissal-reconcile needs, and NOT a magnitude.
    *
@@ -837,6 +841,9 @@ export function useLoadTruncation(
   return {
     truncation,
     decodeFailureCount: decodeFailures?.length ?? 0,
+    /** §510 — the last load could not decode the stored activity log, so the live one began empty. The
+     *  internal audit download flags it, or an empty list would read as "no activity". */
+    activityLogUnreadable: decodeFailures?.includes("activityLog") ?? false,
     decodeFailureNonce,
     malformedQuoteCount: malformedQuotes ?? 0,
     malformedQuotesNonce,

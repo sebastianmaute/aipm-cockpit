@@ -174,7 +174,7 @@ describe("readPortfolioActivityLogs (§510)", () => {
     const out = await readPortfolioActivityLogs(cfg);
     expect(out.map((p) => [p.id, p.log.length])).toEqual([["p1", 0]]);
     expect(out[0].logUnreadable).toBe(true); // flagged: an empty list must not read as "no activity"
-    expect(spy).toHaveBeenCalledWith("warn", "storage.activityAuditLogUnreadable", expect.objectContaining({ projectId: "p1" }));
+    expect(spy).toHaveBeenCalledWith("warn", "storage.activityAuditLogUnreadable", { projectId: "p1", error: "SyntaxError" }); // the name, never the message: it quotes stored data
     spy.mockRestore();
   });
 

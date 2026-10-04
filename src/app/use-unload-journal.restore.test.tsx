@@ -760,6 +760,22 @@ describe("§655 — Restore a kept version of the project in scope", () => {
     expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1, 9]);
   });
 
+  it("a version another tab already restored or discarded is not applied again", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    localStorage.removeItem(KEPT_KEY); // another tab resolved it
+    let rowGone: boolean | undefined;
+    await act(async () => { rowGone = result.current.restoreKeptJournal(entry); });
+    expect(rowGone).toBe(true); // its row is re-listed away, so the banner takes focus
+    expect(toastsOf("unloadJournalKeptRestoreGone")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(numberedKept()).toEqual([]);
+    expect(result.current.otherJournals.others.some((e) => e.journal.projectKey === "browser:kept")).toBe(false);
+  });
+
   it("when the live version cannot be kept first, nothing is restored", async () => {
     seedJournal("", KEPT_KEY, "browser:kept", KEPT);
     createBackendMock.mockReturnValue(makeBackend(100));
@@ -874,5 +890,32 @@ describe("§668 — a corrupt journal is refused, not applied as an empty projec
     expect(unreadableToasts()).toHaveLength(0);
     expect(backend.save).not.toHaveBeenCalled();
     expect(result.current.destructiveRefusal).not.toBeNull(); // the banner's Save anyway / Discard
+  });
+});
+
+// Post-merge review I1 — a restore keeps the project but replaces the rows every undo image was taken
+// against, so it moves the UNDO epoch (not the scope epoch) and asks the caller to prune the history.
+describe("a restore resets the undo history, not the project scope", () => {
+  it.each([
+    ["the kept-version restore (§655)", "kept"],
+    ["Restore anyway (§629)", "anyway"],
+  ] as const)("%s", async (_label, path) => {
+    if (path === "kept") seedJournal("", `${UNLOAD_JOURNAL_PREFIX}browser:kept`, "browser:kept", JOURNALED);
+    else seedJournal("changed-elsewhere");
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const onUndoHistoryReset = vi.fn();
+    const { result } = render({ ...makeArgs(), onUndoHistoryReset });
+    await advance(800);
+    const scopeBefore = result.current.getScopeEpoch();
+    const undoBefore = result.current.getUndoEpoch();
+    expect(undoBefore).toBe(scopeBefore); // nothing restored yet
+    await act(async () => {
+      if (path === "kept") result.current.restoreKeptJournal(result.current.otherJournals.others.find((e) => e.journal.projectKey === "browser:kept")!);
+      else result.current.restoreUnloadJournalAnyway();
+    });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]); // the premise: it applied
+    expect(onUndoHistoryReset).toHaveBeenCalledTimes(1);
+    expect(result.current.getUndoEpoch()).toBe(undoBefore + 1); // every pre-restore undo entry is now stale
+    expect(result.current.getScopeEpoch()).toBe(scopeBefore); // in-flight writes for THIS project still land
   });
 });

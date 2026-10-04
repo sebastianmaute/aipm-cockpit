@@ -203,6 +203,9 @@
   `resolveSchemeColors` is now BASE-WINS, HELD TO THE FLOOR: derivation only FILLS missing AA variants, and an
   explicitly PINNED `-strong`/`-text`/state-border survives ONLY while it clears the floor its own derivation
   targets (4.5 for text, 3 for a state border) against the SAME reference (the card, the purple tint, `--line`).
+  ★★ ONLY that reference: the floor is not checked against every surface a token is drawn on. The derivation
+  assumes the card is the harder background; a hand-edited scheme whose card is LIGHTER than `--surface` (light
+  mode) can leave a pin under 4.5 on the plain surface, exactly as an unpinned derivation can.
   A pin below it is NUDGED from the pin itself — lightness moves, hue stays — rather than replaced by the value
   derived from the base (open-followups §239; owner-accepted 2026-10-04, a deviation from the approved "fall back
   to the derived value"). ★ A nudge SCALES channels, so a zero channel never moves and one at 255 cannot rise

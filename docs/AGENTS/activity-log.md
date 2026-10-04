@@ -19,7 +19,9 @@ the file name) that DOES carry each entry's `changes` — they are the audit det
 multi-project Turso database it covers every project in the portfolio, archived ones flagged
 (`readPortfolioActivityLogs` in `turso-portfolio.ts`), and the project open now even before it is in the
 projects table; on any other storage only the project open now. A project whose stored log is unreadable
-carries `logUnreadable: true`, and one whose stored entries the sanitizer partly dropped carries
+carries `logUnreadable: true` — on the portfolio scope from the SELECT, and for the project open now (either
+scope) from the load's own decode report (`activityLogUnreadable`, use-load-truncation.ts; "Save anyway" clears that report, and that save is the moment the unreadable stored log is
+overwritten, so a file downloaded afterwards carries no flag for the entries lost) — and one whose stored entries the sanitizer partly dropped carries
 `entriesDropped`, so an empty or short list never reads as "no activity".
 It goes through no export config and no export section. ★★ Never wire it into `exportWorkspace`, a
 document renderer, the AI snapshot or the Activity panel's Print — those are the paths the rule above
@@ -32,7 +34,8 @@ newest entries until the next save.
 - **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
   `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
   `insights`/`documents`), NOT `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` because it
-  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every path**: no
+  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every export and document path** (the §510 internal audit download in Settings is the
+  one exception, see the top of this file): no
   `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
   `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
   `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal

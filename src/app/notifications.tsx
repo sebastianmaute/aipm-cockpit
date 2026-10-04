@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AriaRole, ReactNode } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
+import { FOCUS_RING } from "./interaction-styles";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
@@ -180,7 +181,7 @@ function journalName(lang: Lang, entry: OtherJournal): string {
 /** §632 — one line per journal (name, date, size) with Download and, when `onDiscard` is given,
  *  Discard; the buttons carry the entry's name. A refused download is named in an alert. */
 function JournalList({
-  lang, entries, onDownload, onDiscard, canRestore, onRestore,
+  lang, entries, onDownload, onDiscard, canRestore, onRestore, onRestored,
 }: {
   lang: Lang;
   entries: readonly OtherJournal[];
@@ -188,7 +189,13 @@ function JournalList({
   onDiscard?: (entry: OtherJournal) => void;
   /** §655 — which entries offer Restore (a kept version of the project in scope). */
   canRestore?: (entry: OtherJournal) => boolean;
-  onRestore?: (entry: OtherJournal) => void;
+  /** False when the restore was refused and its row stays, so focus stays too. A refusal that RE-LISTS
+   *  (the version was already restored or discarded elsewhere, so its row goes) returns true. */
+  onRestore?: (entry: OtherJournal) => boolean | void;
+  /** Called when the row the focus was on goes away: after a Restore that applied, and after one that
+   *  found the version already restored or discarded elsewhere (its row is re-listed away). If that empties
+   *  the notice, the banner unmounts and focus is lost with it; nothing is left to take it. */
+  onRestored?: () => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -201,7 +208,8 @@ function JournalList({
       confirmLabel: t(lang, "unloadJournalKeptRestoreConfirmAction"),
       tone: "default",
     });
-    if (ok) onRestore(entry);
+    if (!ok) return;
+    if (onRestore(entry) !== false) onRestored?.();
   };
   const names = entries.map((entry) => journalName(lang, entry));
   const dates = entries.map((entry) => formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang));
@@ -256,21 +264,24 @@ export function OtherJournalsBanner({
   onDiscard: (entry: OtherJournal) => void;
   onDismiss: () => void;
   canRestore?: (entry: OtherJournal) => boolean;
-  onRestore?: (entry: OtherJournal) => void;
+  onRestore?: (entry: OtherJournal) => boolean | void;
 }) {
   // §668 — an unreadable draft cannot be restored by reloading: when it is all the notice holds, its heading
   // must not say "other projects … reload to restore". It names no project, since the mark outlives a
   // switch to another project on the same page.
   const heading = t(lang, others.length > 0 && others.every((entry) => entry.unreadable) ? "unloadJournalUnreadableOnly" : "unloadJournalOthers");
+  // a11y — a confirmed Restore removes the row whose button had focus; the heading takes it, so focus
+  // does not fall to <body>.
+  const headingRef = useRef<HTMLParagraphElement>(null);
   return (
     <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
+      <p ref={headingRef} tabIndex={-1} className={`text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${FOCUS_RING}`}>{heading}</p>
       {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
         <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
       )}
       {others.some((entry) => entry.unreadable) && <p className="mt-1 text-sm">{t(lang, "unloadJournalUnreadableHint")}</p>}
-      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} />
+      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} onRestored={() => headingRef.current?.focus()} />
     </AlertBanner>
   );
 }

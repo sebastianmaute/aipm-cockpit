@@ -18,7 +18,10 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
 });
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { journalWorkspace } from "./use-unload-journal";
+import { jsonToWorkspace, workspaceToJson } from "./workspace";
 import type { UnloadJournal } from "./unload-journal";
 
 const journal: UnloadJournal = {
@@ -41,5 +44,43 @@ describe("journalWorkspace (§668)", () => {
   it("refuses the whole journal when its documents fail to sanitize, never returning it without them", () => {
     richThrow.on = true;
     expect(journalWorkspace(journal)).toBeNull();
+  });
+});
+
+// Post-merge review (§668 / M4) — a slice that PARSES but does not decode is sanitized to nothing, so
+// strict alone would apply the journal without it. Any failed slice refuses the whole journal.
+describe("journalWorkspace refuses a journal with any slice that does not decode", () => {
+  const withSlice = (extra: Record<string, unknown>): UnloadJournal => ({ ...journal, workspace: JSON.stringify({ tasks: [{ id: 7, taskName: "Kept" }], raid: [], ...extra }) });
+  it.each([
+    ["documents garbled", { documents: "x" }],
+    ["documents in a shape a newer build wrote", { documents: [{ foo: 1 }] }],
+    ["documentVersions in a foreign shape", { documentVersions: [{ foo: 1 }] }],
+    ["the activity log garbled", { activityLog: "x" }],
+    ["a meta slice garbled", { steeringCommittee: "x" }],
+    ["an entity list whose every row is in a foreign shape", { milestones: [{ foo: 1 }] }],
+    ["another entity list emptied the same way", { stakeholders: [{ foo: 1 }, { bar: 2 }] }],
+    // These three are re-seeded or rebuilt by the decode's final migration, so they never come back empty.
+    ["disciplines in a foreign shape (re-seeded with presets after decoding)", { disciplines: [{ foo: 1 }] }],
+    ["grades in a foreign shape (re-seeded with presets after decoding)", { grades: [{ foo: 1 }] }],
+    ["resources in a foreign shape (rebuilt from task names after decoding)", { resources: [{ foo: 1 }] }],
+  ])("%s", (_label, extra) => {
+    expect(journalWorkspace(withSlice(extra))).toBeNull();
+  });
+
+  // The check must never refuse what this build writes: a refuse-everything mutant would pass every
+  // test above. The sample workspace carries real disciplines, grades and resources (the three lists
+  // judged by their row sanitizers) and every other slice.
+  it("accepts a same-build journal of the sample workspace, re-seeded lists included", () => {
+    const sample = jsonToWorkspace(readFileSync(join(process.cwd(), "sample-workspace-small.json"), "utf8"));
+    expect(sample.disciplines.length).toBeGreaterThan(0);
+    expect(sample.grades.length).toBeGreaterThan(0);
+    expect(sample.resources.length).toBeGreaterThan(0);
+    const ws = journalWorkspace({ ...journal, workspace: workspaceToJson(sample) });
+    expect(ws).not.toBeNull();
+    expect(ws?.resources.map((r) => r.id)).toEqual(sample.resources.map((r) => r.id));
+  });
+
+  it("still accepts a journal whose slices all decode", () => {
+    expect(journalWorkspace(withSlice({}))?.tasks.map((t) => t.id)).toEqual([7]);
   });
 });

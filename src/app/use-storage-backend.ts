@@ -324,6 +324,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // The UNDO history's epoch: the scope epoch plus one per restore. A restore keeps the project, so it must
+  // not move the scope epoch (in-flight AI / Graph writes for this project would be dropped), but it does
+  // replace the rows every undo image was taken against: replaying one would silently mix the two versions.
+  const restoreEpochRef = useRef(0); const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []); const resetUndoHistory = () => { restoreEpochRef.current += 1; args.onUndoHistoryReset?.(); };
   // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
   // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
   // holds, and applying it would replace their unsaved edits. By value, never by commit (review I4);
@@ -474,7 +478,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); let base: string | null | undefined; try { const result = await enqueueSave(backend, () => { base = announcedRevision(backend); return backend.save(ws); }, { settleReplacedAsOwn: true }); const revision = backend.revision?.(); if (result !== "superseded" && base != null && revision != null) postRevision(syncContext, revision, base); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below). §656 — a flush that wrote posts its revision like the autosave, or a window mirroring this storage pauses at its next save; `base` stays unset when the job never ran.
+  const { truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); let base: string | null | undefined; try { const result = await enqueueSave(backend, () => { base = announcedRevision(backend); return backend.save(ws); }, { settleReplacedAsOwn: true }); const revision = backend.revision?.(); if (result !== "superseded" && base != null && revision != null) postRevision(syncContext, revision, base); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below). §656 — a flush that wrote posts its revision like the autosave, or a window mirroring this storage pauses at its next save; `base` stays unset when the job never ran.
   // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. ★ Final review I2: when that kept write FAILS (over the cap, quota, codec), the `SaveConflictError` is thrown instead, and every op's flush catch stops on it (no generic flush-failed toast): the user stays on this project behind the pause, whose Download works at any size.
   function keepNotSavedOnSwitch(ws: Workspace, refused?: SaveConflictError): void {
     if (unloadJournal.followLive(ws, true)) { keptOnSwitchForRef.current = backend; emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); return; }
@@ -665,9 +669,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
   // §655 — "Restore" on a kept version of the project in scope. The LIVE workspace is kept first, so the restore can be undone from the same notice (nothing is applied when that keep is not written); then the kept one is applied like "Restore anyway" below and saved by the normal path, and its slot is removed.
-  const restoreKeptJournalNow = (entry: OtherJournal): void => { if (!otherJournals.isRestorable(entry)) return; if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); };
-  const restoreKeptJournalRef = useRef(restoreKeptJournalNow); useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; }); const restoreKeptJournal = useCallback((entry: OtherJournal) => restoreKeptJournalRef.current(entry), []); // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the live workspace it keeps and the scope it checks are current
-  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
+  const restoreKeptJournalNow = (entry: OtherJournal): boolean => { if (!otherJournals.isRestorable(entry)) return false; if (!otherJournals.isCurrent(entry)) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreGone")); return true; /* its row is re-listed away: the banner takes focus */ } if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return false; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return false; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return false; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return false; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); return true; };
+  const restoreKeptJournalRef = useRef(restoreKeptJournalNow); useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; }); const restoreKeptJournal = useCallback((entry: OtherJournal): boolean => restoreKeptJournalRef.current(entry), []); // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the live workspace it keeps and the scope it checks are current
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -1427,72 +1431,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
-  // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
-  //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
-  //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
-  //   `mountedRef`, so a teardown cannot throw (§72).
-  // ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
-  // ★★★ THE RE-DERIVE RECIPE HERE WAS ITSELF A DEFEATED CHECK UNTIL 2026-09-20, in TWO ways, and
-  //   both are worth knowing because the shape recurs. It ran `grep -c` for this function's name
-  //   followed by an open paren, spelled plainly, and claimed the result "counts the wraps plus this
-  //   declaration". (1) THERE IS NO DECLARATION ROW to subtract: the declaration below is spelled
-  //   with an open ANGLE bracket, not a paren, so it never matched — the extra hit being attributed
-  //   to it was THE RECIPE'S OWN COMMENT LINE, matching the pattern it spelled. (2) `grep -c` counts
-  //   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
-  //   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
-  //   explained away by a plausible-sounding subtraction reads as verified forever.
-  // ★★★ EVERY PROSE MENTION OF THIS FUNCTION'S NAME ANYWHERE IN THIS FILE USES THE BRACKET CLASS —
-  //   above this line as well as below it, and that scope is the whole point. This warning used to
-  //   say "every mention BELOW", which describes a REGION while the recipe scans a FILE: a mention
-  //   added 970 lines ABOVE poisoned it just the same, and did, while the warning still read as
-  //   satisfied. A guard whose stated scope is narrower than the thing it guards is a loophole with
-  //   documentation. Match the two, or the hole re-opens on the next edit anywhere in the file.
-  // ★★ It is not decoration either: the first attempt at this correction spelled the old broken
-  //   pattern twice while describing it, which pushed the corrected recipe from 10 back to 12. An
-  //   explanation of a self-matching check can re-poison the check. Count OCCURRENCES, never lines:
-  //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
-  //   It printed 10 on 2026-09-20, re-run after the prose around it was final (it printed 11 in
-  //   between, from the unbracketed prose mention up at the ref declaration — the miss that made
-  //   the scope fix above necessary). Read the hits rather than the number either way —
-  //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
-  // ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
-  //   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
-  //   by ONE caller, `chat-panel.tsx`'s unmount cleanup — also goes true.
-  // ★★★ WHY THE SPLIT EXISTS: A COMPOSITION REGRESSION NO PER-TASK REVIEW COULD SEE. §590 put
-  //   `onPickStorageFile` under the hold and §596 made an unmount-under-hold cancel the in-flight
-  //   AI turn. Each is right alone; composed, a plain Save-As, a CANCELLED OS file dialog and a
-  //   same-project Reload each silently killed a turn — and the "stopped" note lands on an unmounted
-  //   panel, so the user is not even told. That is the exact silent shape §596 existed to undo,
-  //   arriving by another route.
-  // ★★★ THE RULE, and it decides every row below: CANCELLING IS A COST OPTIMISATION — do not pay
-  //   for tokens on a turn whose project is going away. DROPPING a wrong-scope write is the
-  //   CORRECTNESS guarantee and belongs to the scope EPOCH, which runs at resolution and needs no
-  //   prediction. So this flag is biased the safe way: `"same-scope"` is the default posture, and an
-  //   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
-  //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
-  //   wrong towards `"changes-scope"` destroys the user's work silently.
-  // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
-  //   whole rule — read it before reclassifying anything. EVERY `"changes-scope"` op can still
-  //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
-  //   of those false-cancels a turn too. A FAILURE is accepted because it announces itself — the
-  //   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
-  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the axis is
-  //   "does the user learn something went wrong", not "is the outcome certain".
-  // ★★★ THAT AXIS DOES NOT COVER A NO-OP GUARD, and claiming it did was this paragraph's own worked
-  //   example contradicting its rule. Of the three aborts named above, only `guardTurso`'s
-  //   missing-config branch toasts. Its `isPopout` branch and `switchToTursoProject`'s same-target
-  //   return emit NOTHING, so they are silent false-cancels by the definition one line up — the
-  //   thing the rule exists to prevent. They are acceptable on a DIFFERENT and checkable ground:
-  //   neither is reachable from the UI. A popout offers no project ops, and the project picker does
-  //   not offer the project already open. ★★ If either ever becomes reachable, it is not a residual
-  //   any more — it is a B1-shaped defect, and the fix is to move that op to `"same-scope"`, not to
-  //   re-argue this paragraph.
-  //   (The three sites, so the classification can be re-checked rather than re-argued:
-  //   `use-storage-turso-ops.ts`'s `guardTurso` — its `isPopout` and missing-config branches — and
-  //   `switchToTursoProject`'s `deps.tursoProjectId === id` return.)
-  // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
-  //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
-  //   epoch drops its write at resolution. Only the tokens are spent.
+  // ★★ §548 — the op hold: `holdDuring` keeps `loadPending` up for the WHOLE of an op that awaits and then
+  //   replaces the workspace. Its full rationale is in docs/AGENTS/storage.md, "The op hold (`holdDuring`, §548)".
   function holdDuring<A extends unknown[]>(
     op: (...opArgs: A) => Promise<void>,
     scope: "changes-scope" | "same-scope",
@@ -1528,7 +1468,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
   // ★ `conflictPause` below is a TEST SEAM (final review m13): only tests read it; the app reads `loadPause`.
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, isSwapInFlight,
+    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its
@@ -1572,7 +1512,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   epoch — `scope-epoch.ts` says so). If you add a row, add its ground here or the next reader
     //   cannot check your classification.
     onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
-    reloadCurrentProject: reloadHeld, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject: reloadHeld, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —
     //   the B1 regression re-opened for four paths by the very fix that closed it. It has abort
     //   paths AFTER the hold is raised: an unknown id (toast + return), the target already being

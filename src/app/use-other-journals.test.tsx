@@ -175,6 +175,45 @@ describe("useOtherJournals", () => {
     expect(result.current.others.map((e) => [e.journal.tabId, e.unreadable ?? false])).toEqual([["tab-y", false]]);
   });
 
+  it("re-opens a dismissed notice when a NEW unreadable record appears, not on any other change", () => {
+    put("p1", NOW - 10);
+    const { result, rerender } = renderOthers({ unreadableRecords: new Set() });
+    act(() => result.current.dismiss());
+    expect(result.current.others).toEqual([]);
+    const base = { projectKey: "current", restoredKeys: new Set(["current"]), enabled: true, isPopout: false };
+    rerender({ ...base, unreadableRecords: new Set() }); // a new, equally empty set: stays dismissed
+    expect(result.current.others).toEqual([]);
+    rerender({ ...base, unreadableRecords: new Set(["p1|tab-a|" + (NOW - 10)]) });
+    expect(keys(result.current.others)).toEqual(["p1"]);
+  });
+
+  it("does not list another tab's readable record under the key in scope once that key's journal was unreadable", () => {
+    put("current", NOW - 10, "tab-x");
+    const { result, rerender } = renderOthers({ restoredKeys: new Set(), unreadableRecords: new Set([`current|tab-x|${NOW - 10}`]) });
+    expect(result.current.others.map((e) => [e.journal.tabId, e.unreadable ?? false])).toEqual([["tab-x", true]]);
+    put("current", NOW, "tab-y"); // a live tab writes a readable record there
+    rerender({ projectKey: "current", restoredKeys: new Set(), enabled: true, isPopout: false, unreadableRecords: new Set([`current|tab-x|${NOW - 10}`, "re-list"]) });
+    expect(result.current.others).toEqual([]);
+  });
+
+  it("still lists the key in scope when its restore did not run and nothing about it was unreadable", () => {
+    put("current", NOW - 10, "tab-x");
+    const { result } = renderOthers({ restoredKeys: new Set(), unreadableRecords: new Set() });
+    expect(keys(result.current.others)).toEqual(["current"]);
+  });
+
+  it("isCurrent: true while the key holds the listed record; false, and re-listed, once another tab replaced it", () => {
+    put("current:kept", NOW - 30);
+    const { result } = renderOthers();
+    const [kept] = result.current.others;
+    expect(result.current.isCurrent(kept)).toBe(true);
+    put("current:kept", NOW, "tab-b");
+    let current = true;
+    act(() => { current = result.current.isCurrent(kept); });
+    expect(current).toBe(false);
+    expect(result.current.others.map((e) => e.journal.tabId)).toEqual(["tab-b"]);
+  });
+
   it("isRestorable: a kept slot of the project in scope, numbered or not — never another project's, never a plain draft", () => {
     put("current:kept", NOW - 30);
     put("current:kept:1799999000000", NOW - 20);
@@ -325,7 +364,7 @@ describe("ExpiredJournalsBanner", () => {
 describe("OtherJournalsBanner — §655 Restore", () => {
   const kept = () => entry("current:kept", "Apollo", 1);
   const other = () => entry("other:kept", "Zeus", 1);
-  function renderBanner(onRestore = vi.fn()) {
+  function renderBanner(onRestore: (entry: OtherJournal) => boolean | void = vi.fn()) {
     const a = kept();
     const b = other();
     render(
@@ -392,6 +431,23 @@ describe("OtherJournalsBanner — §655 Restore", () => {
   it("shows no unreadable hint when no entry is unreadable", () => {
     render(<OtherJournalsBanner lang="en-US" others={[other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.queryByText(t("en-US", "unloadJournalUnreadableHint"))).toBeNull();
+  });
+
+  it("moves focus to the notice heading after a confirmed Restore, since the focused row goes away", async () => {
+    renderBanner();
+    fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe(t("en-US", "unloadJournalOthers")));
+  });
+
+  it("leaves focus alone when the restore was refused (its row stays)", async () => {
+    renderBanner(vi.fn(() => false));
+    const trigger = screen.getByRole("button", { name: "Restore: Apollo" });
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
+    expect(document.activeElement?.textContent).not.toBe(t("en-US", "unloadJournalOthers"));
+    expect(screen.getByRole("button", { name: "Restore: Apollo" })).toBe(trigger); // the row is still there
   });
 
   it("offers no Restore at all without a handler", () => {

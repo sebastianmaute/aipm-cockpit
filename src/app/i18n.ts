@@ -2910,7 +2910,7 @@ const enUS = {
   activityAuditConfirmTitle: "Download the internal activity log?",
   activityAuditConfirmBody: "The file contains the old and new value of every recorded change. Keep it internal and do not share it with clients.",
   activityAuditConfirmAction: "Download internal file",
-  activityAuditDone: "The activity log was downloaded.",
+  activityAuditDone: "The activity log download has started.",
   activityAuditFailed: "The activity log could not be downloaded.",
   settingsSectionCommTemplates: "Communication templates",
   commTplIntro: "Named email templates with merge fields. Each category's default is used automatically when you draft a message. Stored in Turso.",
@@ -4509,6 +4509,7 @@ const enUS = {
   unloadJournalKeptRestoreConfirmAction: "Restore this version",
   unloadJournalKeptRestored: "Restored the kept version. The version you had open is kept in the notice.",
   unloadJournalKeptRestoreBlocked: "Saving is paused, so this version can't be restored right now.",
+  unloadJournalKeptRestoreGone: "This version was already restored or discarded, perhaps in another tab. The list has been updated.",
   unloadJournalKeptRestoreLoading: "A project is still loading, so this version can't be restored right now. Try again in a moment.",
   // §668 — an undecodable journal of the project open now, listed so it can be downloaded or discarded.
   unloadJournalUnreadableEntry: "{0} — could not be read, from {1}, {2} KB",
