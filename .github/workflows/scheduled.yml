@@ -41,26 +41,6 @@ jobs:
       - run: 'echo "shuffle seed=${{ github.run_id }}  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=${{ github.run_id }})"'
       - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=default
 
-  # §149: the whole suite with Date moved 400 days ahead (src/test/clock-offset.ts). A red test here
-  # passes today only because a hardcoded date is still in the future, and will break on its own.
-  # Reproduce one: VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>
-  unit-future-clock:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-      - run: npm ci
-      - run: npm --prefix desktop ci --ignore-scripts
-      - run: npm run test:run -- --reporter=default
-        env:
-          VITEST_CLOCK_OFFSET_DAYS: "400"
-
   # OWASP ZAP baseline against the running app. Hosted runners have Docker, so no dind service.
   # ★★ Never validated on any CI before this: its first manual dispatch is rollout Task 8.
   dast-zap:

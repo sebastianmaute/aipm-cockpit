@@ -66,6 +66,13 @@ export async function runChangelogCheck({ git, fetchLabels, readEvent, env }) {
     // ★ --no-renames: a rename reports only its NEW path otherwise, so moving a file out of src/
     // would hide the src/ side of the change.
     files = git(["diff", "--name-only", "--no-renames", base, "HEAD"]).split(/\r?\n/).filter(Boolean);
+    // ★ A CHANGELOG.md change only counts as the entry when it ADDS at least one line (git's
+    // --numstat added count). A change that only deletes lines is not an entry (§527 post-merge M5).
+    // A line rewritten in place counts as one added line, so editing an existing entry still passes.
+    if (files.includes("CHANGELOG.md")) {
+      const added = Number(git(["diff", "--numstat", "--no-renames", base, "HEAD", "--", "CHANGELOG.md"]).split("\t")[0]);
+      if (!(added > 0)) files = files.filter((f) => f !== "CHANGELOG.md");
+    }
   } catch (err) {
     return { code: 2, message: `changelog:check could not scan: git failed against ${baseRef} (${String(err)})` };
   }

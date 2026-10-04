@@ -2,8 +2,8 @@
 // hardcoded date is still in the future (open-followups §149).
 //
 // ★ Off unless `VITEST_CLOCK_OFFSET_DAYS` is set, so a normal run is untouched.
-// The weekly `unit-future-clock` job (`.github/workflows/scheduled.yml`) sets it
-// and lists whatever goes red. Reproduce one locally with, for example:
+// The weekly `unit-future-clock` job (`.github/workflows/future-clock.yml`) sets it
+// and annotates whatever goes red. Reproduce one locally with, for example:
 //   VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>
 //
 // ★ Only `Date` is faked, never the timer functions: faking every timer would
