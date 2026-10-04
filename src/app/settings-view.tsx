@@ -56,6 +56,8 @@ interface SettingsViewProps {
    *  Turso database's config (the download covers the whole portfolio), null for any other storage (the
    *  project open now), undefined to hide it (a popout). */
   activityAuditPortfolio?: TursoConfig | null;
+  /** §510 — the open project's stored activity log could not be decoded at load (see use-load-truncation). */
+  activityAuditLogUnreadable?: boolean;
   onMigrateToTurso?: () => void;
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
@@ -410,7 +412,7 @@ export function SettingsView(props: SettingsViewProps) {
               tursoEnabled={settings.integrations?.turso?.enabled ?? false}
             />
             {expert && props.activityAuditPortfolio !== undefined && (
-              <ActivityAuditConnected lang={lang} projectId={props.projectId ?? "default"} portfolio={props.activityAuditPortfolio} />
+              <ActivityAuditConnected lang={lang} projectId={props.projectId ?? "default"} portfolio={props.activityAuditPortfolio} logUnreadable={props.activityAuditLogUnreadable === true} />
             )}
           </>
         )}

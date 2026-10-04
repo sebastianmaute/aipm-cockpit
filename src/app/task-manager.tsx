@@ -527,7 +527,7 @@ function TaskManagerInner() {
     storageDescription, storageReady, workspaceLoaded, loadPause, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     allowDestructiveSaveAnyway, destructiveRefusal,
-    truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
@@ -2874,7 +2874,7 @@ function TaskManagerInner() {
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
-      onReloadProject={isPopout ? undefined : () => { void reloadCurrentProject(); }} activityAuditPortfolio={isPopout ? undefined : portfolioMode === "turso" ? tursoConfig : null} // §510
+      onReloadProject={isPopout ? undefined : () => { void reloadCurrentProject(); }} activityAuditPortfolio={isPopout ? undefined : portfolioMode === "turso" ? tursoConfig : null} activityAuditLogUnreadable={activityLogUnreadable} // §510
       onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}

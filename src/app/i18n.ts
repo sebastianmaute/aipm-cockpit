@@ -2910,7 +2910,7 @@ const enUS = {
   activityAuditConfirmTitle: "Download the internal activity log?",
   activityAuditConfirmBody: "The file contains the old and new value of every recorded change. Keep it internal and do not share it with clients.",
   activityAuditConfirmAction: "Download internal file",
-  activityAuditDone: "The activity log was downloaded.",
+  activityAuditDone: "The activity log download has started.",
   activityAuditFailed: "The activity log could not be downloaded.",
   settingsSectionCommTemplates: "Communication templates",
   commTplIntro: "Named email templates with merge fields. Each category's default is used automatically when you draft a message. Stored in Turso.",

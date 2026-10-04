@@ -5,6 +5,8 @@ import { t } from "../i18n";
 import type { ActivityAuditDownloader } from "../activity-audit-download";
 import { ActivityAuditConnected, ActivityAuditSection } from "./activity-audit-section";
 import { TestProviders } from "../test-providers";
+import * as downloadModule from "../download-json";
+import * as diagnostics from "../diagnostics";
 
 // open-followups §510 — the internal activity-log download in Settings.
 
@@ -52,6 +54,16 @@ describe("ActivityAuditSection", () => {
     expect(download).not.toHaveBeenCalled();
   });
 
+  it("logs a failed portfolio read by error name only, never its message", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    renderSection({ scope: "portfolio", download: vi.fn(async () => { throw new SyntaxError("Unexpected token, \"secret old value\" is not valid JSON"); }) });
+    fireEvent.click(trigger());
+    fireEvent.click(await confirmAction());
+    await screen.findByText(t("en-US", "activityAuditFailed"));
+    expect(spy).toHaveBeenCalledWith("warn", "activityAudit.downloadFailed", { error: "SyntaxError" });
+    spy.mockRestore();
+  });
+
   it.each([
     ["the browser refuses the download", vi.fn(async () => false)],
     ["the portfolio read fails", vi.fn(async () => { throw new Error("turso down"); })],
@@ -77,5 +89,32 @@ describe("ActivityAuditConnected", () => {
     );
     expect(trigger()).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "activityAuditScopeCurrent"))).toBeInTheDocument();
+  });
+});
+
+describe("ActivityAuditConnected — the open project's unreadable stored log (§510)", () => {
+  async function downloadedBody(logUnreadable: boolean) {
+    const spy = vi.spyOn(downloadModule, "downloadJson").mockReturnValue(true);
+    render(
+      <TestProviders>
+        <ConfirmProvider lang="en-US">
+          <ActivityAuditConnected lang="en-US" projectId="p1" portfolio={null} logUnreadable={logUnreadable} />
+        </ConfirmProvider>
+      </TestProviders>,
+    );
+    fireEvent.click(trigger());
+    fireEvent.click(await confirmAction());
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    const body = JSON.parse(spy.mock.calls[0][1]) as { projects: { id: string; logUnreadable?: boolean }[] };
+    spy.mockRestore();
+    return body;
+  }
+
+  it("flags the open project when its stored log failed to decode at load", async () => {
+    expect((await downloadedBody(true)).projects[0]).toMatchObject({ id: "p1", logUnreadable: true });
+  });
+
+  it("does not flag it otherwise", async () => {
+    expect((await downloadedBody(false)).projects[0]).not.toHaveProperty("logUnreadable");
   });
 });

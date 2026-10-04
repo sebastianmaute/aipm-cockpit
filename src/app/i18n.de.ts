@@ -2736,7 +2736,7 @@ export const de: Record<TranslationKey, string> = {
   activityAuditConfirmTitle: "Internes Aktivitätsprotokoll herunterladen?",
   activityAuditConfirmBody: "Die Datei enthält den alten und neuen Wert jeder erfassten Änderung. Behalten Sie sie intern und geben Sie sie nicht an Kunden weiter.",
   activityAuditConfirmAction: "Interne Datei herunterladen",
-  activityAuditDone: "Das Aktivitätsprotokoll wurde heruntergeladen.",
+  activityAuditDone: "Der Download des Aktivitätsprotokolls wurde gestartet.",
   activityAuditFailed: "Das Aktivitätsprotokoll konnte nicht heruntergeladen werden.",
   settingsSectionCommTemplates: "Kommunikationsvorlagen",
   commTplIntro: "Benannte E-Mail-Vorlagen mit Platzhaltern. Die Standardvorlage jeder Kategorie wird beim Verfassen einer Nachricht automatisch verwendet. In Turso gespeichert.",

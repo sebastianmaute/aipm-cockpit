@@ -11,6 +11,7 @@ import { useConfirm } from "../confirm-dialog";
 import { activityAuditDownloader, type ActivityAuditDownloader } from "../activity-audit-download";
 import type { TursoConfig } from "../turso-config";
 import { useWorkspace } from "../workspace-context";
+import { logDiag } from "../diagnostics";
 
 interface ActivityAuditSectionProps {
   lang: Lang;
@@ -36,8 +37,10 @@ export function ActivityAuditSection({ lang, audit }: ActivityAuditSectionProps)
     setOutcome(null);
     try {
       setOutcome((await audit.download()) ? "done" : "failed");
-    } catch {
-      // A failed portfolio read: nothing was downloaded, and the control says so.
+    } catch (err) {
+      // A failed portfolio read: nothing was downloaded, and the control says so. Name only, never the
+      // message: it can quote stored data.
+      logDiag("warn", "activityAudit.downloadFailed", { error: err instanceof Error ? err.name : typeof err });
       setOutcome("failed");
     } finally {
       setBusy(false);
@@ -63,7 +66,9 @@ export function ActivityAuditSection({ lang, audit }: ActivityAuditSectionProps)
 
 /** Reads the project open now from the workspace — its name may be absent before the first load, or
  *  for a store with no project meta — so the Settings view and task-manager need not. */
-export function ActivityAuditConnected({ lang, projectId, portfolio }: { lang: Lang; projectId: string; portfolio: TursoConfig | null }) {
+export function ActivityAuditConnected({ lang, projectId, portfolio, logUnreadable = false }: { lang: Lang; projectId: string; portfolio: TursoConfig | null; logUnreadable?: boolean }) {
   const { project, activityLog } = useWorkspace();
-  return <ActivityAuditSection lang={lang} audit={activityAuditDownloader(portfolio, { id: projectId, name: project?.name ?? "", archived: false, log: activityLog })} />;
+  // `logUnreadable`: the open project's stored log failed to decode at load, so its live log began empty.
+  const current = { id: projectId, name: project?.name ?? "", archived: false, log: activityLog, ...(logUnreadable ? { logUnreadable: true } : {}) };
+  return <ActivityAuditSection lang={lang} audit={activityAuditDownloader(portfolio, current)} />;
 }

@@ -837,6 +837,9 @@ export function useLoadTruncation(
   return {
     truncation,
     decodeFailureCount: decodeFailures?.length ?? 0,
+    /** §510 — the last load could not decode the stored activity log, so the live one began empty. The
+     *  internal audit download flags it, or an empty list would read as "no activity". */
+    activityLogUnreadable: decodeFailures?.includes("activityLog") ?? false,
     decodeFailureNonce,
     malformedQuoteCount: malformedQuotes ?? 0,
     malformedQuotesNonce,
