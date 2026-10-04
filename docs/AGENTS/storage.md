@@ -370,7 +370,9 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   unparseable text with an EMPTY workspace, not a throw, and a corrupt journal used to be applied as an
   empty project by the load restore (no click) and by "Restore anyway". An undecodable journal is now
   never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
-  leaves the record for the next confirmed save to clear. ★ An EMPTY but readable journal is NOT refused
+  leaves its key OUT of `restoredKeys`, so the other-journals notice lists it with Download and Discard —
+  nothing else would remove it (a confirmed save clears only this tab's records; the key in scope never
+  expires). ★ An EMPTY but readable journal is NOT refused
   — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and

@@ -735,6 +735,16 @@ describe("SP1 seed + foundational chips", () => {
     expect(textarea.value).toBe("half-typed question\nPlan the kickoff");
   });
 
+  it("applies a prefill present at mount once, under StrictMode's double effect run", () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()}
+        chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      { reactStrictMode: true },
+    );
+    expect((screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement).value).toBe("Plan the kickoff");
+  });
+
   it("auto-sends the seed when autoSend is true and the key is present", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();

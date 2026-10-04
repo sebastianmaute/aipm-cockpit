@@ -799,7 +799,25 @@ describe("§668 — a corrupt journal is refused, not applied as an empty projec
     expect(unreadableToasts()).toEqual([["error", t("en-US", "unloadJournalUnreadable")]]);
     expect(restoredToast()).toHaveLength(0);
     expect(backend.save).not.toHaveBeenCalled();
-    expect(localStorage.getItem(JOURNAL_KEY)).not.toBeNull(); // left in place; the next confirmed save clears it
+    expect(localStorage.getItem(JOURNAL_KEY)).not.toBeNull(); // left in place...
+    // ...and LISTED, so Download and Discard reach it: nothing else would ever remove it.
+    expect(result.current.otherJournals.others.map((e) => e.journal.projectKey)).toEqual(["browser"]);
+  });
+
+  it("an unreadable journal can be discarded from the notice, and the next load says nothing", async () => {
+    seedCorrupt(matchingBase());
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const first = render();
+    await advance(800);
+    const [entry] = first.result.current.otherJournals.others;
+    act(() => first.result.current.otherJournals.discard(entry));
+    expect(localStorage.getItem(JOURNAL_KEY)).toBeNull();
+    first.unmount();
+    showToast.mockClear();
+    const second = render();
+    await advance(800);
+    expect(unreadableToasts()).toHaveLength(0);
+    expect(second.result.current.otherJournals.others).toEqual([]);
   });
 
   it("base differing: no conflict notice, so \"Restore anyway\" has nothing to apply", async () => {

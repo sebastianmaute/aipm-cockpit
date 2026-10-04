@@ -206,8 +206,10 @@
   A pin below it is NUDGED from the pin itself — lightness moves, hue stays — rather than replaced by the value
   derived from the base (open-followups §239; owner-accepted 2026-10-04, a deviation from the approved "fall back
   to the derived value"). ★ A nudge SCALES channels, so a zero channel never moves and one at 255 cannot rise
-  (`#ff0000` cannot lighten): when the nudged pin still falls short, the base-derived value is used after all. A
-  pin whose base colour the scheme leaves out is held to the floor too (`baseOr`). One `AaRule` list in
+  (`#ff0000` cannot lighten): when the nudged pin still falls short, the base-derived value is used after all, and
+  when that falls short too (a pin whose base colour the scheme leaves out: `baseOr` makes the pin its own base),
+  black or white. A base-less `--ui-purple-strong` pin is measured against a tint of ITSELF, while the CSS
+  paints the tint from the default `--ui-purple`: an approximation for a hand-edited file only. One `AaRule` list in
   `scheme-tokens.ts` feeds both the derivation and the check, so the two cannot measure against different
   backgrounds. `--muted-foreground` is a COPY of
   `--foreground`, not an AA derivation, so its pin always wins. ★★ Measured on 2026-10-04: no built-in scheme

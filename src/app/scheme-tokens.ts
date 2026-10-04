@@ -232,6 +232,12 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   return out;
 }
 
+/** Black or white, whichever contrasts more with `bg` — at least 4.58:1 against any colour, so it clears
+ *  both floors here. The last resort for a pin no nudge can lift. */
+function blackOrWhite(bg: string): string {
+  return ratio("#000000", bg) >= ratio("#ffffff", bg) ? "#000000" : "#ffffff";
+}
+
 export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
   // Base-wins, held to the floor (open-followups §239). Derivation FILLS the
   // AA variants a scheme omits, and a pinned value is kept so an imported
@@ -243,14 +249,18 @@ export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
   // purple), so only its lightness moves — owner-accepted 2026-10-04. A nudge
   // scales channels, so it cannot always get there (a zero channel never moves,
   // and a channel at 255 cannot rise): when the nudged pin still falls short,
-  // the value derived from the base is used, as for a scheme with no pin.
+  // the value derived from the base is used, as for a scheme with no pin — and
+  // when that falls short too (no base: `rule.base` IS the pin), black or white,
+  // whichever contrasts more, which clears every floor here.
   // `--muted-foreground` has no floor, so its pin always wins.
   const out: SchemeColorMap = { ...deriveAaVariants(colors), ...colors };
   for (const rule of aaRules(colors)) {
     const pin = colors[rule.token];
     if (pin === undefined || ratio(pin, rule.reference) >= rule.floor) continue;
     const nudged = rule.nudge(pin);
-    out[rule.token] = ratio(nudged, rule.reference) >= rule.floor ? nudged : rule.nudge(rule.base);
+    if (ratio(nudged, rule.reference) >= rule.floor) { out[rule.token] = nudged; continue; }
+    const derived = rule.nudge(rule.base);
+    out[rule.token] = ratio(derived, rule.reference) >= rule.floor ? derived : blackOrWhite(rule.reference);
   }
   return out;
 }

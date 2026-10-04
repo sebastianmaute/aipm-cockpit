@@ -146,7 +146,7 @@ export type UseUnloadJournalArgs = {
   /** A popout never saves, so it never journals either. */
   isPopout: boolean;
   /** §668 — told when the load restore finds a journal for the key that does not decode. Nothing is
-   *  applied and the key is left in place (the next confirmed save clears it); this lets the user know. */
+   *  applied; the record stays, listed in the other-journals notice (Download / Discard). */
   onUnreadable?: () => void;
 };
 
@@ -368,9 +368,12 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  (or a disabled hook) never restores. */
   const restoreOnLoad = useCallback((loaded: Workspace, key: string, kind: StorageKind): Workspace | null => {
     if (!activeRef.current) return null;
-    setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     const journal = readUnloadJournal(key);
     const restored = journal === null ? null : journalWorkspace(journal);
+    // §668 — an UNDECODABLE journal stays out of `restoredKeys`, so the other-journals notice lists it
+    // with Download and Discard. Nothing else would ever remove it: a confirmed save clears only this
+    // tab's records, and the key in scope never expires.
+    if (journal === null || restored !== null) setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     if (journal === null || restored === null) {
       setConflictRecord(null);
       if (journal !== null) onUnreadableRef.current?.(); // §668 — refused, and said so

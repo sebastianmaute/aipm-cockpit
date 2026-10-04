@@ -1237,8 +1237,12 @@ function ChatPanelInner({
     };
   });
 
+  // The seed this panel already applied. StrictMode runs a mount effect twice in one commit, and the
+  // append below is not idempotent: without this, a seed present at mount would land twice.
+  const appliedSeedRef = useRef<typeof chatSeed>(null);
   useEffect(() => {
-    if (!chatSeed) return;
+    if (!chatSeed || appliedSeedRef.current === chatSeed) return;
+    appliedSeedRef.current = chatSeed;
     // A PREFILL never destroys a draft the user is typing: it goes on a new line after it. (§519 — an
     // unrecognised voice command prefills, and the chat panel stays mounted, so a draft can be there.)
     // An auto-send replaces the box, since it is sent at once.

@@ -188,6 +188,13 @@ describe("resolveSchemeColors — pinned derived tokens are held to their floor 
     expect(contrastRatio(out, "#1b2024")).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("uses black or white when neither the pin nor a missing base can reach the floor", () => {
+    // No --rag-red: the pin is its own base, so the derived fallback is the same failing nudge.
+    const out = resolveSchemeColors({ "--surface-muted": "#1b2024", "--rag-red-text": "#ff0000" })["--rag-red-text"];
+    expect(out).toBe("#ffffff");
+    expect(contrastRatio(out, "#1b2024")).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("holds a pin to its floor even when the scheme leaves out its base colour", () => {
     // No --rag-red at all: the pin is still measured against the card and nudged from itself.
     expect(contrastRatio("#ff9999", "#ffffff")).toBeLessThan(4.5);
