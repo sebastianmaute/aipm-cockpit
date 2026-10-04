@@ -21,8 +21,8 @@ interface Details extends WillNavigationDetails {
 /** A sign-in popup: created as `about:blank` by the app, so it may enter the flow. */
 function popup(opts: { failInstall?: string; openExternal?: () => Promise<void> } = {}) {
   const listeners = new Map<string, (...args: unknown[]) => void>();
-  const target: NavigationEventTarget = {
-    on(event, listener) {
+  const target: NavigationEventTarget<Details> = {
+    on(event: string, listener: (...args: never[]) => void) {
       if (event === opts.failInstall) throw new Error("boom");
       listeners.set(event, listener as (...args: unknown[]) => void);
     },

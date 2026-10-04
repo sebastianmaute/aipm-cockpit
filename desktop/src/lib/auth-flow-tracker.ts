@@ -95,9 +95,27 @@ export interface WillNavigationDetails {
   preventDefault(): void;
 }
 
-/** A WebContents, as far as this wiring needs one. */
-export interface NavigationEventTarget {
-  on(event: string, listener: (...args: never[]) => void): unknown;
+/** `did-fail-load` / `did-fail-provisional-load`, as far as this wiring reads them. */
+export type LoadFailedListener = (
+  event: unknown,
+  errorCode: number,
+  errorDescription: string,
+  validatedURL: string,
+  isMainFrame: boolean,
+) => void;
+
+/** A WebContents, as far as this wiring needs one. ★ One overload PER EVENT, with
+ *  a literal event name, so passing a real `WebContents` makes tsc compare each
+ *  listener with Electron's own overload for that event (desktop:typecheck, at
+ *  main.ts's call): a wrong argument order or details shape fails there. A single
+ *  `on(event: string, …)` signature checked nothing, because method parameters
+ *  are compared bivariantly and every Electron overload fit it. */
+export interface NavigationEventTarget<D extends WillNavigationDetails> {
+  on(event: "will-navigate", listener: (details: D) => void): unknown;
+  on(event: "will-redirect", listener: (details: D) => void): unknown;
+  on(event: "did-navigate", listener: () => void): unknown;
+  on(event: "did-fail-load", listener: LoadFailedListener): unknown;
+  on(event: "did-fail-provisional-load", listener: LoadFailedListener): unknown;
 }
 
 export interface AuthFlowNavigationDeps<D extends WillNavigationDetails> {
@@ -111,14 +129,14 @@ export interface AuthFlowNavigationDeps<D extends WillNavigationDetails> {
 /** Registers the auth-flow navigation guard on one WebContents. Returns a
  *  reader for its current state (tests; main.ts does not need it). */
 export function attachAuthFlowNavigation<D extends WillNavigationDetails>(
-  target: NavigationEventTarget,
+  target: NavigationEventTarget<D>,
   deps: AuthFlowNavigationDeps<D>,
 ): () => AuthFlowState {
   let state = INITIAL_AUTH_FLOW;
 
-  const install = (event: string, listener: (...args: never[]) => void): void => {
+  const install = (event: string, register: () => void): void => {
     try {
-      target.on(event, listener);
+      register();
     } catch (e: unknown) {
       deps.log(`${event} handler install: ${String(e)}`);
     }
@@ -142,21 +160,23 @@ export function attachAuthFlowNavigation<D extends WillNavigationDetails>(
     }
   };
 
-  const loadFailed = (_event: unknown, _code: number, _description: string, validatedURL: string, isMainFrame: boolean): void => {
+  const loadFailed: LoadFailedListener = (_event, _code, _description, validatedURL, isMainFrame) => {
     // Unlike did-navigate, both failure events also fire for subframes.
     if (!isMainFrame) return;
     state = onLoadFailed(state, validatedURL, deps.appOrigin);
   };
 
-  install("will-navigate", guard("will-navigate", onWillNavigate));
-  install("will-redirect", guard("will-redirect", onWillRedirect));
+  install("will-navigate", () => target.on("will-navigate", guard("will-navigate", onWillNavigate)));
+  install("will-redirect", () => target.on("will-redirect", guard("will-redirect", onWillRedirect)));
   // Main-frame only by definition; fires for a programmatic loadURL too, which
   // stages nothing.
-  install("did-navigate", () => {
-    state = onDidNavigate(state);
-  });
-  install("did-fail-load", loadFailed);
-  install("did-fail-provisional-load", loadFailed);
+  install("did-navigate", () =>
+    target.on("did-navigate", () => {
+      state = onDidNavigate(state);
+    }),
+  );
+  install("did-fail-load", () => target.on("did-fail-load", loadFailed));
+  install("did-fail-provisional-load", () => target.on("did-fail-provisional-load", loadFailed));
 
   return () => state;
 }

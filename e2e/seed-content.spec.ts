@@ -2,10 +2,13 @@
 // the running app?
 //
 // ★★★ THIS GUARDS A SILENT, SELF-CONCEALING REGRESSION. `e2e/seed.ts` writes the
-// sample workspace into IndexedDB from two HARDCODED lists (entity stores + a kv
-// map). A slice missing from them is dropped without a word, the view renders its
-// EMPTY STATE, and the axe gate then scans a panel with no rows and no per-row
-// controls — green, over nothing.
+// sample workspace (`e2e/seed-workspace.ts`) into IndexedDB. It used to do so from
+// two HARDCODED lists, and a slice missing from them was dropped without a word:
+// the view rendered its EMPTY STATE, and the axe gate then scanned a panel with no
+// rows and no per-row controls — green, over nothing. Since §99 the stores and kv
+// keys come from `src/app/idb-layout.ts`, and `src/app/idb-layout.test.ts` fails
+// when a slice there reaches the seed with no data. This spec checks the other
+// half: that what was written actually renders in the running app.
 //
 // ★★ "and nothing that could collide" used to be part of that sentence. Dropped
 // 2026-08-08: axe has NO rule for two controls sharing an accessible name (see
@@ -14,16 +17,16 @@
 // DOES check, plus assertions like the one below that axe cannot make.
 //
 // ★★★ THE FAILURE PRESENTS AS PROGRESS, which is why a guard is worth an e2e
-// slot. Drop `documents` from the kv map today and all five Documents axe scans
+// slot. Drop the seeded `documents` and all five Documents axe scans
 // go GREEN — because the violation they currently protect lives in the preview
 // pane, which stops existing once there is nothing to preview. The gate would
 // report an improvement while coverage silently vanished. This spec turns that
 // into a loud, named failure.
 //
-// ★ SCOPED AS THE SEED'S GUARD, not any one view's. BrowserBackend persists TEN
-// optional kv slices and the seed carries four of them; as the rest are seeded
-// (docs/open-followups.md §99) they extend THIS file rather than adding a spec
-// each.
+// ★ SCOPED AS THE SEED'S GUARD, not any one view's. Since §99 the seed carries
+// every optional kv slice except three configuration slices (SEED_UNSEEDED_BY_DESIGN
+// in e2e/seed-workspace.ts); a rendering check for a slice belongs in THIS file
+// rather than a spec of its own. Not every seeded slice has one yet.
 //
 // ★ Asserts CONTENT, never "the seed ran". A seed that runs and writes nothing
 // is exactly the bug.
@@ -34,7 +37,7 @@ test("seeded documents reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
   await openView(page, "Documents");
 
-  // Both titles: one from the sample master, one appended in seed.ts. Naming
+  // Both titles: one from the sample master, one appended in seed-workspace.ts. Naming
   // them individually means a partial seed fails as loudly as a missing one.
   // ★ `exact: true` is REQUIRED, not tidiness. getByRole's `name` matches as a
   // SUBSTRING by default, and every per-row control embeds the title for row
@@ -53,10 +56,10 @@ test("seeded documents reach the app, not just IndexedDB", async ({ page }) => {
 // ★★ INSIGHTS ONLY — and this comment named Time bookings alongside it until
 // 0.245.0. Both were in A11Y_VIEWS and both were scanned against their empty
 // state until 2026-08-08, because neither slice exists in the sample master AND
-// neither was in the seed's kv map. Authoring them in seed.ts fixed both; the
+// neither was in the seed's kv map then. Authoring them in the seed fixed both; the
 // `cfg.enabled` gate then put Time bookings BACK on its empty state (§171), so
 // only Insights still has rows under the scan. This spec is what keeps that
-// true: without it, dropping the `insights` kv row turns those axe scans green
+// true: without it, dropping the seeded `insights` turns those axe scans green
 // again by deleting the rows they are supposed to be checking.
 test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
