@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   GATE_GROUPS, GATE_STEPS, runGates, VITEST_WORKERS, resolveWorkers, parseCliArgs, selectSteps,
   checkDirtyTree, formatStartLine, formatFinalLine, formatSummaryTable, buildSpawnInvocation,
+  SCOPED_ENV, stepEnv,
 } from "./gate-local.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -102,7 +103,7 @@ describe("GATE_STEPS", () => {
       "npm run lint", "npx tsc --noEmit", "npm run desktop:typecheck", "npm run test:coverage", "npm run test:shuffle", "npm run dup:check",
       "npm run size:check", "npm run docs:symbols:check", "npm run docs:claims:check", "npm run docs:scripts:check",
       "npm run followups:status:check", "npm run followups:index:check", "npm run followups:workitems:check",
-      "npm run version:check", "npm run build",
+      "npm run version:check", "npm run changelog:check", "npm run build",
     ]);
   });
 
@@ -289,5 +290,32 @@ describe("buildSpawnInvocation", () => {
   it("keeps the argv array with no shell on non-win32", () => {
     expect(buildSpawnInvocation(["npm", "run", "lint"], "linux"))
       .toEqual({ command: "npm", args: ["run", "lint"], shell: false });
+  });
+});
+
+// §527: CI hands the static step a GH_TOKEN for changelog:check's label read. No other gate's
+// subprocesses may see it.
+describe("stepEnv", () => {
+  const ENV = { GH_TOKEN: "secret", PATH: "/bin", CI: "true" };
+
+  it("hands GH_TOKEN to changelog:check alone", () => {
+    const holders = GATE_STEPS.filter((st) => "GH_TOKEN" in stepEnv(st, ENV)).map((st) => st.argv.join(" "));
+    expect(holders).toEqual(["npm run changelog:check"]);
+  });
+
+  it("keeps every other variable and leaves the input untouched", () => {
+    const lint = GATE_STEPS.find((st) => st.argv[2] === "lint");
+    expect(stepEnv(lint, ENV)).toEqual({ PATH: "/bin", CI: "true" });
+    expect(ENV.GH_TOKEN).toBe("secret");
+  });
+
+  it("scopes GH_TOKEN", () => {
+    expect(SCOPED_ENV).toContain("GH_TOKEN");
+  });
+
+  it("hands each step to the runner, so its environment can be scoped", () => {
+    const seen = [];
+    runGates(GATE_STEPS.slice(0, 2), (...args) => { seen.push(args[1]); return 0; });
+    expect(seen).toEqual(GATE_STEPS.slice(0, 2));
   });
 });
