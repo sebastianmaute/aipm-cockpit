@@ -344,7 +344,16 @@ While the repository is private, Actions runs on GitHub Pro's included minutes w
 exhaustion stops jobs rather than billing. Checks cannot complete, so merging is blocked.
 Fallback: run `npm run gate:local` (with `LEAK_LIST_FILE` set), merge with the admin bypass, and note
 the bypass and the gate line (`gate:local PASS at <sha>`) in the PR. The next month's first push to
-`main` re-runs everything.
+`main` re-runs everything. ★ `gate:local` runs `changelog:check` with no PR context, so the
+`no-changelog` label cannot reach it: on a branch whose PR carries that label, run
+`CHANGELOG_OPT_OUT=1 npm run gate:local` and say so in the PR (§527).
+
+### "changelog:check failed"
+App code changed without a line in `CHANGELOG.md` (§527). Add a line under `[Unreleased]`, or, for a
+change that cannot reach a user, add the `no-changelog` label to the PR. Adding a label does NOT
+start a new CI run: re-run the failed `static` job from the PR's Checks tab (the label is read live,
+so the re-run sees it). A change to `CHANGELOG.md` that only deletes lines does not count; it must
+add (or rewrite) at least one line.
 
 ### "Jira sync fails with 401"
 Cause: stale or revoked Atlassian API token, or the user changed Atlassian
