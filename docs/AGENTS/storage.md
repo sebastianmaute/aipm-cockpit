@@ -445,15 +445,18 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   empty project by the load restore (no click) and by "Restore anyway". An undecodable journal is now
   never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
   leaves its key OUT of `restoredKeys`, so the other-journals notice lists it with Download and Discard —
-  nothing else would remove it (a confirmed save clears only this tab's records; the key in scope never
-  expires). It is marked through `unreadableRecords` (per record — `journalRecordId` — so a readable record another tab writes later under the key is not) (entry text `unloadJournalUnreadableEntry`, hint
+  no confirmation or expiry removes it (a confirmed save clears only this tab's records; the key in scope
+  never expires) — only this tab's own next journal write under the key replaces it (below). It is marked through `unreadableRecords` (per record — `journalRecordId` — so a readable record another tab writes later under the key is not) (entry text `unloadJournalUnreadableEntry`, hint
   `unloadJournalUnreadableHint`), since the notice's general "reload to restore" advice would only fail again.
   ★ This tab's own next journal write under the same key replaces the record. Accepted: it is corrupt, and
-  the toast and notice say so at once. ★★ The decode passes NO `diag`, deliberately: with one, a
-  documents/documentVersions sanitizer throw would be contained and the journal applied WITHOUT those
-  slices, and its save would write the project without documents over the stored ones. Refusing the
-  whole journal keeps the stored documents and the record downloadable. ★ An EMPTY but readable journal is NOT refused
-  — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
+  the toast and notice say so at once. ★★ ALL OR NOTHING: strict alone refuses only
+  unparseable text, a non-object and a missing `tasks`/`raid`, while a slice that parses but does not
+  decode (garbled documents, a shape a newer build wrote, a sanitizer throw) is sanitized to nothing — and
+  applied without it, its save would write the project without that slice over the stored one. So the
+  decode collects every such slice in a `diag` (`decodeFailedSlices`), and any of them refuses the whole
+  journal: stored data stays intact and the record stays downloadable. ★ An EMPTY but readable journal is
+  NOT refused (a Clear all leaves exactly that state) and goes through the save-path mass-deletion guard
+  like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
 `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a

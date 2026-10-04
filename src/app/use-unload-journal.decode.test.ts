@@ -43,3 +43,22 @@ describe("journalWorkspace (§668)", () => {
     expect(journalWorkspace(journal)).toBeNull();
   });
 });
+
+// Post-merge review (§668 / M4) — a slice that PARSES but does not decode is sanitized to nothing, so
+// strict alone would apply the journal without it. Any failed slice refuses the whole journal.
+describe("journalWorkspace refuses a journal with any slice that does not decode", () => {
+  const withSlice = (extra: Record<string, unknown>): UnloadJournal => ({ ...journal, workspace: JSON.stringify({ tasks: [{ id: 7, taskName: "Kept" }], raid: [], ...extra }) });
+  it.each([
+    ["documents garbled", { documents: "x" }],
+    ["documents in a shape a newer build wrote", { documents: [{ foo: 1 }] }],
+    ["documentVersions in a foreign shape", { documentVersions: [{ foo: 1 }] }],
+    ["the activity log garbled", { activityLog: "x" }],
+    ["a meta slice garbled", { steeringCommittee: "x" }],
+  ])("%s", (_label, extra) => {
+    expect(journalWorkspace(withSlice(extra))).toBeNull();
+  });
+
+  it("still accepts a journal whose slices all decode", () => {
+    expect(journalWorkspace(withSlice({}))?.tasks.map((t) => t.id)).toEqual([7]);
+  });
+});

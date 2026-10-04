@@ -49,6 +49,7 @@ import {
   type UnloadJournal,
 } from "./unload-journal";
 import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
+import type { DocTruncationDiag } from "./document-model";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -89,14 +90,23 @@ export function journalRecordId(journal: UnloadJournal): string {
  *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
  *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
  *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
- *  did not. Every caller here applies what it gets, so none may decode leniently. */
+ *  did not. Every caller here applies what it gets, so none may decode leniently — nor accept a slice
+ *  that failed to decode (below). */
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    // ★★ NO `diag`, deliberately: with one, a documents / documentVersions sanitizer throw would be
-    // CONTAINED (those slices dropped) and the journal applied without them, and its save would then
-    // write the project without documents over the stored ones. Without one, strict throws and the
-    // whole journal is refused: stored documents stay intact and the record stays downloadable.
-    return jsonToWorkspace(journal.workspace, { strict: true });
+    // ★★ ALL OR NOTHING. Strict alone refuses only unparseable text, a non-object and a missing
+    // `tasks`/`raid`: a slice that parses but does not decode (garbled documents, a shape from a newer
+    // build, a sanitizer throw) is sanitized to nothing, and the journal applied WITHOUT it — and its save
+    // would then write the project without that slice over the stored one (on Turso, a meta slice absent
+    // from the workspace is not re-inserted). So the decode collects every such slice in `diag`, and ANY
+    // of them refuses the whole journal: stored data stays intact and the record stays downloadable.
+    const diag: DocTruncationDiag = {};
+    const ws = jsonToWorkspace(journal.workspace, { strict: true, diag });
+    if (diag.decodeFailedSlices?.length) {
+      logDiag("warn", "workspace.unloadJournalCorrupt", { projectKey: journal.projectKey, slices: diag.decodeFailedSlices.join(",") });
+      return null;
+    }
+    return ws;
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -384,8 +394,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     const journal = readUnloadJournal(key);
     const restored = journal === null ? null : journalWorkspace(journal);
     // §668 — an UNDECODABLE journal stays out of `restoredKeys`, so the other-journals notice lists it
-    // with Download and Discard. Nothing else would ever remove it: a confirmed save clears only this
-    // tab's records, and the key in scope never expires.
+    // with Download and Discard. No confirmation or expiry removes it (a confirmed save clears only this
+    // tab's records, and the key in scope never expires); only this tab's own next journal write under
+    // the key replaces it, which is accepted — the toast and the notice have already said it is corrupt.
     if (journal === null || restored !== null) setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     if (journal === null || restored === null) {
       setConflictRecord(null);
