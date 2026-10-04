@@ -454,7 +454,7 @@ export const TOOL_DEFS = [
   {
     name: "list_stakeholders",
     description:
-      "List all stakeholders with id, name, category, influence, interest, organization, and email. Read-only.",
+      "List all stakeholders with id, name, category, influence, interest, organization, email, and raci (milestone id -> R, A, C or I; join the ids with list_milestones, ignoring an id it does not list). Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {

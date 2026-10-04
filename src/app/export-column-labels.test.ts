@@ -9,6 +9,7 @@ import { jsonToWorkspace } from "./workspace";
 import { buildXlsx } from "./export-ooxml";
 import { loadI18n, t } from "./i18n";
 import { partText, unzipBytes } from "../test/unzip-bytes";
+import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 
 const ALL_ON = Object.fromEntries(EXPORT_SECTION_KEYS.map((k) => [k, true])) as ExportConfig;
 const SAMPLE = jsonToWorkspace(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
@@ -16,9 +17,10 @@ const SAMPLE = jsonToWorkspace(readFileSync(join(import.meta.dirname, "..", ".."
 beforeAll(async () => { await loadI18n("de"); });
 
 describe.each(["en-US", "de"] as const)("export headers are display labels (§304, %s)", (lang) => {
-  const sections = () => buildExportSections(SAMPLE, ALL_ON, lang);
+  // §545 — the derived budgetForecast section needs a bundle, or it is omitted.
+  const sections = () => buildExportSections(SAMPLE, ALL_ON, lang, { budgetForecast: forecastBundleFixture() });
 
-  // Anti-vacuity: every section is built, so every assertion below runs on all fifteen.
+  // Anti-vacuity: every section is built, so every assertion below runs on all of them.
   it("builds every section from the sample workspace", () => {
     expect(sections().map((s) => s.key)).toEqual([...EXPORT_SECTION_KEYS]);
   });

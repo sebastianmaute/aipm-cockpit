@@ -7,8 +7,9 @@
 //  with no notice (`buildExportSections` cannot tell an absent slice from an
 //  empty one). Both buttons now export this object; the Settings → Export
 //  switches decide what is written, as the section builders always did.
-// ★ Every `ExportSectionKey` is a `Workspace` field of the same name —
-//  `export-workspace.test.ts` derives that per key instead of trusting it.
+// ★ Every `ExportSectionKey` except the DERIVED ones (`DERIVED_EXPORT_SECTION_KEYS`,
+//  §545) is a `Workspace` field of the same name — `export-workspace.test.ts`
+//  derives that per key instead of trusting it.
 
 import type { Workspace } from "./storage";
 

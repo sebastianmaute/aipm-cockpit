@@ -26,7 +26,7 @@
 // passes — `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`,
 // which is what `turso-schema.ts` and the IndexedDB load already do.
 
-import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
+import { DATA_SECTION_KEYS, type DataSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
 import { sanitizeDocEntityRefs, type DocEntityRef } from "./document-ref";
 import { ASSET_IMG_TEST_RE } from "./document-asset-patterns";
@@ -52,7 +52,7 @@ export type DocBlock =
   | { type: "paragraph"; html: string }
   | { type: "bullets"; ordered?: boolean; items: string[] }
   | { type: "table"; caption?: string; columns: string[]; rows: string[][] }
-  | { type: "dataSection"; key: ExportSectionKey }
+  | { type: "dataSection"; key: DataSectionKey }
   | { type: "pageBreak" };
 
 export type ProjectDocument = {
@@ -87,13 +87,13 @@ export type ProjectDocument = {
  *  ★★ A lazily-memoized Set has the SAME failure mode moved to first call: one
  *  early call during module evaluation would memoize an empty set permanently.
  *  Testing the array directly keeps no snapshot to poison, so the bug is
- *  structurally impossible rather than merely unlikely. The list is 15 entries
+ *  structurally impossible rather than merely unlikely. The list is ~15 entries
  *  and this runs only for a dataSection block, so O(n) here is free.
  *
  *  ★ Regression-pinned by document-model.storage-cycle.test.ts, which must
  *  import ./storage FIRST — an assertion in document-model.test.ts cannot fail. */
-function isSectionKey(key: string): key is ExportSectionKey {
-  return (EXPORT_SECTION_KEYS as readonly string[]).includes(key);
+function isSectionKey(key: string): key is DataSectionKey {
+  return (DATA_SECTION_KEYS as readonly string[]).includes(key);
 }
 
 function str(v: unknown, max: number): string {

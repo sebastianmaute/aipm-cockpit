@@ -233,6 +233,21 @@ the orchestrator under the size ratchet, which was 800 at the time. The per-pers
   `grep -n 'className=.*w-14' src/app/budget-panel-totals.tsx` (a bare `w-14` grep also hits the
 comments).
 
+## The forecast in exports (§545)
+
+- **A DERIVED export section.** `budgetForecast` is an `ExportSectionKey` with no `Workspace` slice behind
+  it: `buildExportSections` takes an optional `ExportExtras` argument whose `budgetForecast` is the dashboard
+  model's `forecastBundle`, and `export-forecast-section.ts` turns it into field/value rows. Without extras
+  the section is skipped, which is why the CSV / Markdown / JSON workspace formats never carry it.
+- **Who supplies it.** `task-manager.tsx` passes `dashboardModel.forecastBundle`, or null with the budget
+  module off, to its own export handler and, through `buildShellChrome`, to BOTH header mounts of
+  `ExportMenu` (`AppHeader` and the modern top bar). A new export entry point that omits it exports no
+  forecast, silently.
+- ★★ **Documents cannot name it.** The document renderers get the workspace, not the dashboard model, so
+  `DATA_SECTION_KEYS` (every key minus `DERIVED_EXPORT_SECTION_KEYS`) is what `dataSection` blocks, the
+  block editor and the `create_document` tool enum accept. A new derived section goes into
+  `DERIVED_EXPORT_SECTION_KEYS`; `export-workspace.test.ts` fails otherwise, because it is not a slice.
+
 ## Open register entries
 
 §473 (a non-EUR plan) · §476 (the

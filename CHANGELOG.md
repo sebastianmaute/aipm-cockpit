@@ -15,6 +15,16 @@ longer carries its own changelog comment.
 - **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
   remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an
   imported file in the new-project wizard now show their name when you hover over them.
+- **Exports include the budget forecast (§545).** PDF, Excel, PowerPoint and Word exports now have a
+  Budget forecast section: budget, actuals and remaining, the forecast at current pace and at current
+  efficiency (hours beside the euros) with their variance, the gap between the two forecasts, the
+  average booked rate and, for fixed-price work, a note that the client price does not change. It is on
+  by default and can be switched off in Settings → Export. It is left out when the budget module is off
+  or there is no forecast yet. CSV and Markdown exports, and document data sections, do not include it.
+- **The AI assistant can read RACI assignments (§237).** Asked who is Responsible, Accountable,
+  Consulted or Informed for a milestone, the assistant can now answer from the stakeholder list
+  instead of saying it cannot see the RACI matrix. It still cannot set an assignment from chat;
+  use Suggest RACI on the RACI view for that.
 - **Download the activity log for an internal audit (§510).** In expert mode, Settings → Storage
   can download the activity log as a JSON file marked internal, including the old and new value of
   every recorded change. On a shared Turso database with several projects it covers every project,

@@ -276,7 +276,7 @@ describe("buildExportSections", () => {
     const allOff: ExportConfig = {
       project: false,
       tasks: false, raid: false, changes: false, milestones: false,
-      stakeholders: false, budgets: false, resources: false, roles: false,
+      stakeholders: false, budgets: false, budgetForecast: false, resources: false, roles: false,
       absences: false, shifts: false, calendarEvents: false, status: false,
       knowledgeItems: false,
       insights: false,

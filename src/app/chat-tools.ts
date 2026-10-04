@@ -16,6 +16,7 @@ import {
   type ChangeItem,
   type Milestone,
   type Priority,
+  type RaciRole,
   type RaidEscalation,
   type RaidItem,
   type Resource,
@@ -118,6 +119,10 @@ export type StakeholderSummary = {
   interest: string;
   organization?: string;
   email?: string;
+  /** Milestone id (as a string) -> RACI letter, copied from `Stakeholder.raci`
+   *  (open-followups §237). Sparse, and a key can name a deleted milestone,
+   *  which the RACI view filters at render; join with `list_milestones`. */
+  raci: Record<string, RaciRole>;
 };
 
 /** Loose write-tool inputs: the model supplies these, the dispatcher routes

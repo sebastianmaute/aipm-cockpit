@@ -64,6 +64,8 @@ export interface ShellChromeDeps {
    *  modern shell navigates to the Settings view instead). */
   settingsMenuOpen: AppHeaderProps["settingsMenuOpen"];
   onSettingsMenuOpenChange: AppHeaderProps["onSettingsMenuOpenChange"];
+  /** §545 — the budget forecast both header mounts hand to the Export menu. */
+  exportForecast: AppHeaderProps["exportForecast"];
 }
 
 // NOT a hook — a plain builder that returns render output (JSX). It calls no
@@ -99,6 +101,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
     undoControl,
     settingsMenuOpen,
     onSettingsMenuOpenChange,
+    exportForecast,
   } = deps;
 
   // Session display-timezone switcher. Sits in both header sites alongside the
@@ -117,6 +120,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
         onVoiceError={(msg) => showToast("error", msg)}
         exportConfig={settings.export ?? defaultExportConfig}
         exportFooter={exportFooterText(settings.branding)}
+        exportForecast={exportForecast}
         templates={projectTemplates}
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}
@@ -149,6 +153,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       projectSwitcher={projectSwitcher}
       settingsMenuOpen={settingsMenuOpen}
       onSettingsMenuOpenChange={onSettingsMenuOpenChange}
+      exportForecast={exportForecast}
       trailing={
         // §618 — no `min-w-0` here on purpose. The search wrapper below
         // already carries its own `min-w-0 lg:min-w-56`, which zeroes its

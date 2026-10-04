@@ -26,6 +26,7 @@ import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
+import type { ExportExtras } from "./export-forecast-section";
 import { t, type Lang } from "./i18n";
 import { nonceOpenTag, pdfReadyTitleMarkup, pdfWindowName, withScriptNonce } from "./pdf-export-protocol";
 import { readCspNonce } from "./csp-nonce";
@@ -150,9 +151,11 @@ export function buildPdfHtml(
    *  (§468 packaged-app check — see `nonceOpenTag`). Undefined (every
    *  pre-existing caller) keeps the bare `<style>`, byte-identical. */
   styleNonce?: string,
+  /** Derived inputs such as the budget forecast (§545); omitted, derived sections are skipped. */
+  extras: ExportExtras = {},
 ): string {
   const today = new Date().toISOString().slice(0, 10);
-  const sections = buildExportSections(ws, cfg, lang);
+  const sections = buildExportSections(ws, cfg, lang, extras);
   const sectionsHtml = sections.length === 0
     ? `<p style="color:#939598;font-style:italic">No sections to export.</p>`
     : sections.map(renderSectionHtml).join("\n");
@@ -195,7 +198,7 @@ ${closingScript}
  * same-origin frame, and the tab gives the user a fallback (Ctrl+P) if
  * the auto-print didn't fire.
  */
-function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string): void {
+function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string, extras: ExportExtras): void {
   if (typeof window === "undefined") return;
 
   // ★ §468 — in the desktop shell, Electron refuses the renderer's own
@@ -219,14 +222,14 @@ function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string)
   // popup-blocked fallback below is a FILE, and the live nonce has no business
   // on disk, so that one is built without it (byte-identical to before).
   const nonce = readCspNonce();
-  const html = buildPdfHtml(ws, cfg, lang, footer, withScriptNonce(script, nonce), titleTag, nonce);
+  const html = buildPdfHtml(ws, cfg, lang, footer, withScriptNonce(script, nonce), titleTag, nonce, extras);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so
   // the user can at least open it manually and print from there.
   const w = window.open("", name);
   if (!w) {
-    const fallbackHtml = buildPdfHtml(ws, cfg, lang, footer, script, titleTag);
+    const fallbackHtml = buildPdfHtml(ws, cfg, lang, footer, script, titleTag, undefined, extras);
     const blob = new Blob([fallbackHtml], { type: "text/html;charset=utf-8" });
     triggerDownload(defaultFilename("pdf", ws).replace(/\.pdf$/, ".html"), blob);
     return;
@@ -261,10 +264,13 @@ export async function exportWorkspace(
   lang: Lang = "en-US",
   /** Footer line of the PDF/print export (`exportFooterText(settings.branding)`). */
   footer: string = DEFAULT_EXPORT_FOOTER,
+  /** The budget forecast and any other derived section input (§545). CSV and
+   *  Markdown ignore it: they are storage round-trip formats. */
+  extras: ExportExtras = {},
 ): Promise<void> {
   const cfg = exportConfig ?? defaultExportConfig;
   if (format === "pdf") {
-    exportPdf(ws, cfg, lang, footer);
+    exportPdf(ws, cfg, lang, footer, extras);
     return;
   }
 
@@ -280,7 +286,7 @@ export async function exportWorkspace(
     //
     // Sections are computed once here and shared across all three builders.
     const { buildDocx, buildPptx, buildXlsx } = await import("./export-ooxml");
-    const sections = buildExportSections(ws, cfg, lang);
+    const sections = buildExportSections(ws, cfg, lang, extras);
     if (format === "docx") {
       // Role names, not ids, in the roles table (export-docx-columns.ts `DocxRefs`).
       blob = buildDocx(sections, { disciplines: ws.disciplines, grades: ws.grades, disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });

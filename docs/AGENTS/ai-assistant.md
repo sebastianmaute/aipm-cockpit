@@ -1659,12 +1659,12 @@
   ★★ It reads **`searchDebounced`, not the raw box value** — the rows it counts are filtered on the
   debounced one, so reading raw would under-report on CLEAR (raw empties instantly while the rows stay
   narrowed for ~150 ms, emitting "No filters active"). See the hook's own comment for the asymmetry.
-  ★★ **Two registry entries disclose gaps rather than hinting at tools that cannot answer:**
+  ★★ **A registry entry discloses a gap rather than hinting at a tool that cannot answer:**
   `portfolio-health` (`get_dashboard_snapshot` covers the active project only — there is no cross-project
-  tool) and `raci` (RACI assignments are not tool-readable at all: `Stakeholder.raci` is absent from both
-  `StakeholderSummary` and `MilestoneSummary`, the shapes `list_stakeholders`/`list_milestones` actually
-  return). `activity` and `timelog` likewise state outright that the model cannot read them, rather than
-  staying silent and risking an invented answer.
+  tool). `activity` and `timelog` likewise state outright that the model cannot read them, rather than
+  staying silent and risking an invented answer. `raci` USED to disclose one too, until §237 added
+  `raci` to `StakeholderSummary`; its reading now points at that field, and `view-ai-scope.test.ts`
+  fails if the old "not tool-readable" line comes back.
   - **The chip↔capability rule:** every view in `ASK_CLAUDE_PROMPTS` (`ask-claude-prompts.ts`) must have
     `toolHints` in `VIEW_AI_SCOPE` or a digest behind it in `VIEW_AI_DIGEST` — pinned by
     `ask-claude-prompts.test.ts` ("every chipped view has tool hints or a digest behind it"). A chip
