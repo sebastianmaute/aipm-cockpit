@@ -519,7 +519,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Failure usually means real format change — only regenerate `__fixtures__` when the
   *input* (`sample-workspace-small.json`) legitimately changed, never to mask format diff.
   Renaming/moving sample data or any asset: grep `e2e/` TOO (not just `src scripts README docs`) —
-  `e2e/seed.ts` reads `sample-workspace-small.json` at MODULE TOP-LEVEL, so stale path ENOENTs the
+  `e2e/seed-workspace.ts` (imported by `e2e/seed.ts`) reads `sample-workspace-small.json` at MODULE TOP-LEVEL, so stale path ENOENTs the
   whole e2e job (fails only in CI; `npx playwright test --list` triggers the read without browsers).
 - **Palette:** only sanctioned brand tokens (`globals.css`); no off-palette colors,
   gradients, shadows. a11y gate + palette-sweep test enforce contrast/token use.

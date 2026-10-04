@@ -111,6 +111,10 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **The e2e seed covers every stored slice (§99).** `e2e/seed.ts` now takes its IndexedDB stores and
+  keys from `src/app/idb-layout.ts`, the list the browser backend uses, instead of two hand lists that had
+  fallen behind, so the steering committee, knowledge items, calendar meetings and activity log reach the
+  e2e app too. A unit test fails when a new slice is added without seed data.
 - **The desktop sign-in popup has a unit harness (§547).** Its auth-flow state machine and the
   Electron events that drive it moved from `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts`,
   with tests that replay the three review-found sign-in bugs (M-C, m1, m2); each fails if its fix is reverted.

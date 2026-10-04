@@ -15,25 +15,28 @@
 // idempotently — users coming from earlier versions keep their data and gain
 // the new record stores additively.
 
-const IDB_NAME = "aipm-cockpit";
-const IDB_VERSION = 6;
-const IDB_KV_STORE = "kv";
-export const IDB_TASKS_STORE = "tasks";
-export const IDB_RAID_STORE = "raid";
-export const IDB_ABSENCES_STORE = "absences";
-export const IDB_SHIFTS_STORE = "shifts";
-export const IDB_RESOURCES_STORE = "resources";
-export const IDB_ROLES_STORE = "roles";
-export const IDB_DISCIPLINES_STORE = "disciplines";
-export const IDB_GRADES_STORE = "grades";
-export const KV_PLAN_KEY = "resource-plan";
-export const IDB_BUDGETS_STORE = "budgets";
-export const KV_FXRATES_KEY = "fx-rates";
-export const KV_STATUS_KEY = "project-status";
-export const KV_MILESTONES_KEY = "milestones";
-export const KV_CHANGES_KEY = "changes";
-export const KV_STAKEHOLDERS_KEY = "stakeholders";
-export const KV_PROJECT_KEY = "project";
+// ★ Every name, store and key below comes from idb-layout.ts, the one list the
+// e2e seed also reads (§99). Add a store or kv key THERE, never as a literal here.
+import { IDB_CORE_KV_KEYS, IDB_DB_NAME, IDB_DB_VERSION, IDB_ENTITY_STORES, IDB_KV_STORE } from "./idb-layout";
+
+const IDB_NAME = IDB_DB_NAME;
+const IDB_VERSION = IDB_DB_VERSION;
+export const IDB_TASKS_STORE = IDB_ENTITY_STORES.tasks;
+export const IDB_RAID_STORE = IDB_ENTITY_STORES.raid;
+export const IDB_ABSENCES_STORE = IDB_ENTITY_STORES.absences;
+export const IDB_SHIFTS_STORE = IDB_ENTITY_STORES.shifts;
+export const IDB_RESOURCES_STORE = IDB_ENTITY_STORES.resources;
+export const IDB_ROLES_STORE = IDB_ENTITY_STORES.roles;
+export const IDB_DISCIPLINES_STORE = IDB_ENTITY_STORES.disciplines;
+export const IDB_GRADES_STORE = IDB_ENTITY_STORES.grades;
+export const KV_PLAN_KEY = IDB_CORE_KV_KEYS.plan;
+export const IDB_BUDGETS_STORE = IDB_ENTITY_STORES.budgets;
+export const KV_FXRATES_KEY = IDB_CORE_KV_KEYS.fxRates;
+export const KV_STATUS_KEY = IDB_CORE_KV_KEYS.status;
+export const KV_MILESTONES_KEY = IDB_CORE_KV_KEYS.milestones;
+export const KV_CHANGES_KEY = IDB_CORE_KV_KEYS.changes;
+export const KV_STAKEHOLDERS_KEY = IDB_CORE_KV_KEYS.stakeholders;
+export const KV_PROJECT_KEY = IDB_CORE_KV_KEYS.project;
 
 async function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

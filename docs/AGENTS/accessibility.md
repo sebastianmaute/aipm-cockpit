@@ -256,14 +256,16 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd; an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, open-followups §58) — **133**
   tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
-  browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
+  browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
   `grep -c "a11y:"` over that output splits scans from the guard.
   ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
-  put in IndexedDB, and `e2e/seed.ts` seeds from two HARDCODED lists. A slice absent from them renders
-  its EMPTY STATE at scan time, so the run is green over a panel with no rows, no per-row controls and
-  nothing to collide. Seeding `documents` for the first time immediately turned up a real serious
-  violation the empty state had been hiding. Most of BrowserBackend's optional kv slices are still
-  unseeded — Insights is in this list and affected today (`docs/open-followups.md`).
+  put in IndexedDB. A slice with no data renders its EMPTY STATE at scan time, so the run is green over
+  a panel with no rows, no per-row controls and nothing to collide. Seeding `documents` for the first
+  time immediately turned up a real serious violation the empty state had been hiding. ★ Since §99 the
+  seed takes its stores and kv keys from `src/app/idb-layout.ts`, the list `idb.ts` and
+  `browser-backend.ts` read too, and `idb-layout.test.ts` fails when a slice there reaches the seed
+  (`e2e/seed-workspace.ts`) with no data, unless it is listed in `SEED_UNSEEDED_BY_DESIGN` with a
+  reason (three configuration slices: `fieldVisibility`, `features`, `settingsOverrides`).
   ★★ THE SEED IS FILE MODE, so every control gated on `settings.storageConfig.kind === "turso"` is
   absent from the view loop. The Settings → Integrations Turso controls that exist only there — Apply,
   its blocked-state hint, the "Wrong passphrase." error, and the "Save & switch" blocked hint — are

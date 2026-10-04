@@ -68,25 +68,29 @@ import {
   idbTransaction,
   IDB_KV_STORE_NAME,
 } from "./idb";
+import { IDB_OPTIONAL_KV_KEYS } from "./idb-layout";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 
 // KV slots for two optional workspace singletons that round-trip through the
 // file/Turso codecs but were never persisted by the IndexedDB backend, so both
 // were lost on reload in the default single-project browser storage mode.
-const KV_FIELDVIS_KEY = "fieldVisibility";
-const KV_FEATURES_KEY = "features";
-const KV_STEERING_KEY = "steeringCommittee";
-const KV_TIMELOG_LINKS_KEY = "timelogLinks";
-const KV_KNOWLEDGE_ITEMS_KEY = "knowledgeItems";
-const KV_INSIGHTS_KEY = "insights";
-const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
-const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
-const KV_DOCUMENTS_KEY = "documents";
-const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
-const KV_ACTIVITY_LOG_KEY = "activityLog";
-const KV_BUDGET_HISTORY_KEY = "budgetHistory";
-const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
+// ★ Each key comes from idb-layout.ts's IDB_OPTIONAL_KV_KEYS, which the e2e seed
+// also reads, so a new optional slice is seeded without a second list (§99). A
+// literal here is refused by idb-layout.test.ts.
+const KV_FIELDVIS_KEY = IDB_OPTIONAL_KV_KEYS.fieldVisibility;
+const KV_FEATURES_KEY = IDB_OPTIONAL_KV_KEYS.features;
+const KV_STEERING_KEY = IDB_OPTIONAL_KV_KEYS.steeringCommittee;
+const KV_TIMELOG_LINKS_KEY = IDB_OPTIONAL_KV_KEYS.timelogLinks;
+const KV_KNOWLEDGE_ITEMS_KEY = IDB_OPTIONAL_KV_KEYS.knowledgeItems;
+const KV_INSIGHTS_KEY = IDB_OPTIONAL_KV_KEYS.insights;
+const KV_SETTINGS_OVERRIDES_KEY = IDB_OPTIONAL_KV_KEYS.settingsOverrides;
+const KV_CALENDAR_EVENTS_KEY = IDB_OPTIONAL_KV_KEYS.calendarEvents;
+const KV_DOCUMENTS_KEY = IDB_OPTIONAL_KV_KEYS.documents;
+const KV_DOCUMENT_VERSIONS_KEY = IDB_OPTIONAL_KV_KEYS.documentVersions;
+const KV_ACTIVITY_LOG_KEY = IDB_OPTIONAL_KV_KEYS.activityLog;
+const KV_BUDGET_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.budgetHistory;
+const KV_DOCUMENT_ASSETS_KEY = IDB_OPTIONAL_KV_KEYS.documentAssets;
 // §4 — the integer save revision this backend stamps on every successful
 // save (see `save()` below); missing on load → 0.
 const KV_REVISION_KEY = "revision";
