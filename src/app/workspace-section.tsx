@@ -261,6 +261,7 @@ export function WorkspaceSection({
   // A task backlink applies only in the scope it was armed in: task ids are per
   // project, so after a project switch a stale "#7" would filter the next
   // project's register by an unrelated task. The epoch bumps on every swap.
+  // ★ A render-time read: it relies on every epoch bump happening while this tree is unmounted for the load hold (§548).
   const scopeEpoch = getScopeEpoch();
   const activeRaidFilterTaskId = raidFilterEpoch === scopeEpoch ? raidFilterTaskId : null;
   const activeChangeFilterTaskId = changeFilterEpoch === scopeEpoch ? changeFilterTaskId : null;
