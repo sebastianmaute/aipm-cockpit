@@ -6,18 +6,25 @@
 // injected `loadImage` loader and the same `assetBytesToObjectUrl` decode, so a
 // thumbnail and the lightbox can never disagree on what an asset's bytes are.
 //
-// ★★ Two things bound the cost of fetching each asset's FULL bytes:
-//   1. LAZY — nothing loads until the row scrolls into view (an
-//      IntersectionObserver; with none available it loads at once). A long
-//      library pays only for the rows a user actually sees.
+// ★★ Three things bound the cost of fetching each asset's FULL bytes:
+//   1. IN VIEW ONLY — an IntersectionObserver (100px rootMargin) loads a row as
+//      it scrolls in and, staying connected, drops its URL and any queued load
+//      as it scrolls out; it reloads on the way back. Live object URLs are
+//      therefore bounded by the rows in view. With no observer available every
+//      row counts as in view.
 //   2. CAPPED — every load goes through the library's shared `LoadLimiter`, so
 //      a screenful of rows does not fire one request each at the same moment.
+//   3. DROPPED WHEN STALE — a load still queued when its row leaves the view or
+//      unmounts gives its slot back without fetching.
+// ★ Remaining cost, recorded rather than fixed: each visible thumbnail decodes
+// the full stored image (up to `ASSET_STORED_MAX_BYTES`) for a 32px box. A
+// downscale step was considered and not taken: jsdom cannot test it.
 //
 // ★ Decorative. The row already names the asset, so the image has `alt=""` and
 // the box is `aria-hidden`; it adds no control and no name to the row.
 //
-// ★ Each object URL is revoked when its row unmounts, the asset changes or the
-// row turns unavailable; bytes that arrive after the row went away are never
+// ★ Each object URL is revoked when its row unmounts, leaves the view, changes
+// asset or turns unavailable; bytes that arrive after any of those are never
 // minted into a URL at all.
 //
 // ★ No reload signal: a §212 repair that rewrites the bytes of a row that was
@@ -46,48 +53,56 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
   // so the bytes would only be paid for and thrown away.
   const unavailable = unavailableProp || isBlockedAssetMime(mime);
   const boxRef = useRef<HTMLSpanElement>(null);
-  // No IntersectionObserver (an old browser) → treat the row as visible at once.
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
+  // In view (within the observer's rootMargin). No IntersectionObserver (an
+  // old browser) → treat the row as always in view.
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
   // Tagged with the asset it was minted for, so a render after the id or mime
   // changed never shows the previous asset's (revoked) URL.
   const [shown, setShown] = useState<{ key: string; url: string } | null>(null);
   const key = `${id}|${mime ?? ""}`;
-  // Render-time reconcile (the repo's alternative to set-state-in-effect): going
-  // unavailable revokes the URL in the load effect's cleanup, so drop it here
-  // too — otherwise a row that becomes available again under the SAME key would
-  // render the revoked URL until (or, on a failed reload, instead of) a new one.
-  if (unavailable && shown !== null) setShown(null);
+  // Render-time reconcile (the repo's alternative to set-state-in-effect). The
+  // load effect's cleanup revokes the URL whenever the row turns unavailable,
+  // leaves the view, or changes asset — so drop it here in each case too.
+  // Otherwise a row that comes back under the SAME key (available again, in view
+  // again, or an A→B→A mime change) would render the revoked URL until, or on a
+  // failed reload instead of, a new one.
+  if (shown !== null && (unavailable || !inView || shown.key !== key)) setShown(null);
 
   // The loader is a function prop whose identity can churn on parent renders;
   // read it through a ref so a re-render does not refetch.
   const loadImageRef = useRef(loadImage);
   useEffect(() => { loadImageRef.current = loadImage; });
 
+  // ★★ The observer STAYS connected (§482 review I2). A row that scrolls out
+  // drops its URL and any queued load; one that scrolls back in reloads. So the
+  // live object URLs — each the asset's FULL stored bytes — are bounded by the
+  // rows in view, and a fast scroll does not leave every row it passed queued
+  // ahead of the ones the user stopped on.
   useEffect(() => {
-    if (visible || unavailable) return;
+    if (unavailable) return;
     const el = boxRef.current;
-    if (!el) return;
+    if (!el || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisible(true);
-          io.disconnect();
-        }
+        // One target, so the latest entry is its current state.
+        const latest = entries[entries.length - 1];
+        if (latest) setInView(latest.isIntersecting);
       },
       // Start a little before the row scrolls in, so it rarely pops in empty.
       { rootMargin: THUMBNAIL_ROOT_MARGIN },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [visible, unavailable]);
+  }, [unavailable]);
 
   useEffect(() => {
-    if (!visible || unavailable) return;
+    if (!inView || unavailable) return;
     let cancelled = false;
     let url: string | null = null;
-    void limiter
+    limiter
       .run(async () => {
-        // Queued behind other rows and unmounted meanwhile: give the slot back.
+        // Queued behind other rows and gone (unmounted or scrolled out)
+        // meanwhile: give the slot back without fetching.
         if (cancelled) return null;
         return loadImageRef.current(id).catch((err: unknown) => {
           logDiag("error", "assetThumbnail.loadFailed", { message: err instanceof Error ? err.message : String(err) });
@@ -100,12 +115,17 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
         if (r.kind !== "ok") return;
         url = r.url;
         setShown({ key, url: r.url });
+      })
+      // Nothing above should throw, but a decode or Blob failure must not
+      // surface as an unhandled rejection.
+      .catch((err: unknown) => {
+        logDiag("error", "assetThumbnail.decodeFailed", { message: err instanceof Error ? err.message : String(err) });
       });
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [visible, unavailable, id, mime, key, limiter]);
+  }, [inView, unavailable, id, mime, key, limiter]);
 
   const src = !unavailable && shown?.key === key ? shown.url : null;
   return (

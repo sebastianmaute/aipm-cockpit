@@ -28,6 +28,14 @@ function scrollAllIntoView() {
   });
 }
 
+function scrollAllOutOfView() {
+  act(() => {
+    for (const o of observers) {
+      o.cb(o.targets.map((target) => ({ isIntersecting: false, target }) as IntersectionObserverEntry), {} as IntersectionObserver);
+    }
+  });
+}
+
 let created: string[];
 let revoked: string[];
 beforeEach(() => {
@@ -173,5 +181,63 @@ describe("AssetThumbnail", () => {
     await act(async () => { releaseFirst(TINY_GIF); });
     await settle();
     expect(second).not.toHaveBeenCalled();
+  });
+  // §482 review I2 — live URLs are bounded by the rows in view: a row that
+  // scrolls out gives its URL back, and one that scrolls back in reloads.
+  it("revokes a row's URL when it scrolls out, and reloads it when it scrolls back in", async () => {
+    const { container, loadImage } = renderThumb();
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const first = created[0];
+
+    scrollAllOutOfView();
+    expect(revoked).toContain(first);
+    expect(container.querySelector("img")).toBeNull();
+
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    expect(loadImage).toHaveBeenCalledTimes(2);
+    expect(container.querySelector("img")).toHaveAttribute("src", created[1]);
+  });
+
+  // A fast scroll must not leave every row it passed queued ahead of the rows
+  // the user stopped on.
+  it("drops a queued load whose row scrolls out before its turn", async () => {
+    const limiter = createLoadLimiter(1);
+    let releaseFirst!: (v: string) => void;
+    const first = vi.fn(() => new Promise<string>((r) => { releaseFirst = r; }));
+    const second = vi.fn(async () => TINY_GIF);
+    render(<AssetThumbnail id="a1" mime="image/png" loadImage={first} limiter={limiter} unavailable={false} />);
+    render(<AssetThumbnail id="a2" mime="image/png" loadImage={second} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(first).toHaveBeenCalled());
+    // Only the SECOND row scrolls out while it waits behind the first.
+    act(() => {
+      const o = observers[1];
+      o.cb(o.targets.map((target) => ({ isIntersecting: false, target }) as IntersectionObserverEntry), {} as IntersectionObserver);
+    });
+    await act(async () => { releaseFirst(TINY_GIF); });
+    await settle();
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  // §482 review M2 — an A→B→A mime change returns to a key whose URL the
+  // effect cleanup already revoked; that URL must not be shown again.
+  it("never shows a revoked URL after the asset changes and changes back", async () => {
+    let bytes: string | null = TINY_GIF;
+    const loadImage = vi.fn(async () => bytes);
+    const limiter = createLoadLimiter(3);
+    const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const firstUrl = created[0];
+    bytes = null; // every later load finds nothing
+    rerender(<AssetThumbnail id="a1" mime="image/jpeg" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    await settle();
+    expect(revoked).toContain(firstUrl);
+    rerender(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    expect(container.querySelector("img")).toBeNull();
+    await settle();
+    expect(container.querySelector("img")).toBeNull();
   });
 });
