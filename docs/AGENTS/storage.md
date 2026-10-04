@@ -374,11 +374,13 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
   leaves its key OUT of `restoredKeys`, so the other-journals notice lists it with Download and Discard —
   nothing else would remove it (a confirmed save clears only this tab's records; the key in scope never
-  expires). It is marked through `unreadableKeys` (entry text `unloadJournalUnreadableEntry`, hint
+  expires). It is marked through `unreadableRecords` (per record — `journalRecordId` — so a readable record another tab writes later under the key is not) (entry text `unloadJournalUnreadableEntry`, hint
   `unloadJournalUnreadableHint`), since the notice's general "reload to restore" advice would only fail again.
   ★ This tab's own next journal write under the same key replaces the record. Accepted: it is corrupt, and
-  the toast and notice say so at once. The decode passes a `diag`, so a documents/documentVersions
-  sanitizer throw drops those slices (§97/§635) rather than refusing the whole journal. ★ An EMPTY but readable journal is NOT refused
+  the toast and notice say so at once. ★★ The decode passes NO `diag`, deliberately: with one, a
+  documents/documentVersions sanitizer throw would be contained and the journal applied WITHOUT those
+  slices, and its save would write the project without documents over the stored ones. Refusing the
+  whole journal keeps the stored documents and the record downloadable. ★ An EMPTY but readable journal is NOT refused
   — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and

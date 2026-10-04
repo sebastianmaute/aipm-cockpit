@@ -87,7 +87,7 @@ function decodeLog(projectId: string, raw: string | undefined): DecodedLog {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) throw new Error("not an array");
-    const log: ActivityEntry[] = sanitizeActivityLog(parsed);
+    const log: ActivityEntry[] = sanitizeActivityLog(parsed); // drops malformed entries AND caps at ACTIVITY_MAX_ENTRIES
     return parsed.length > log.length ? { log, entriesDropped: parsed.length - log.length } : { log };
   } catch (err) {
     // One unreadable log must not sink the download of every other project's: it is listed empty,

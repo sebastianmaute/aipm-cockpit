@@ -85,11 +85,18 @@ function retagToThisTab(journal: UnloadJournal): void {
  *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
  *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
  *  did not. Every caller here applies what it gets, so none may decode leniently. */
+/** §668 — one record's identity: its key, writer and save time (what `clearUnloadJournal` guards on too). */
+export function journalRecordId(journal: UnloadJournal): string {
+  return `${journal.projectKey}|${journal.tabId}|${journal.savedAt}`;
+}
+
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    // `diag` keeps the documents / documentVersions containment (§97/§635): with one, a sanitizer throw
-    // drops those slices instead of refusing the whole journal, as the lenient decode did.
-    return jsonToWorkspace(journal.workspace, { strict: true, diag: {} });
+    // ★★ NO `diag`, deliberately: with one, a documents / documentVersions sanitizer throw would be
+    // CONTAINED (those slices dropped) and the journal applied without them, and its save would then
+    // write the project without documents over the stored ones. Without one, strict throws and the
+    // whole journal is refused: stored documents stay intact and the record stays downloadable.
+    return jsonToWorkspace(journal.workspace, { strict: true });
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -359,9 +366,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   /** §632 — every key `restoreOnLoad` ran for on this page. use-other-journals.ts leaves these out of
    *  its list: their journal was applied, cleared, or published as the conflict notice. */
   const [restoredKeys, setRestoredKeys] = useState<ReadonlySet<string>>(() => new Set());
-  /** §668 — keys whose journal the load restore found undecodable on this page, so the notice can say
-   *  the record cannot be restored (reloading only fails again). */
-  const [unreadableKeys, setUnreadableKeys] = useState<ReadonlySet<string>>(() => new Set());
+  /** §668 — the RECORDS (`journalRecordId`) the load restore found undecodable on this page, so the notice
+   *  can say they cannot be restored (reloading only fails again). Per record, not per key: a readable
+   *  record another tab writes later under the same key is not marked. */
+  const [unreadableRecords, setUnreadableRecords] = useState<ReadonlySet<string>>(() => new Set());
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
    *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
@@ -383,7 +391,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       setConflictRecord(null);
       if (journal !== null) {
         onUnreadableRef.current?.(); // §668 — refused, and said so
-        setUnreadableKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
+        const id = journalRecordId(journal);
+        setUnreadableRecords((prev) => (prev.has(id) ? prev : new Set([...prev, id])));
       }
       return null;
     }
@@ -437,6 +446,6 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
 
   return {
     noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
-    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive, unreadableKeys,
+    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive, unreadableRecords,
   };
 }

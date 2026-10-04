@@ -165,6 +165,16 @@ describe("useOtherJournals", () => {
   });
 
   // §655 — only a kept version of the project in scope can be put back from here.
+  // §668 — the unreadable mark belongs to a RECORD, not its key.
+  it("marks the unreadable record, and not a later record another tab writes under the same key", () => {
+    put("other", NOW - 10, "tab-x");
+    const { result, rerender } = renderOthers({ unreadableRecords: new Set([`other|tab-x|${NOW - 10}`]) });
+    expect(result.current.others.map((e) => e.unreadable ?? false)).toEqual([true]);
+    put("other", NOW, "tab-y"); // a readable record replaces it under the same key
+    rerender({ projectKey: "current", restoredKeys: new Set(["current"]), enabled: true, isPopout: false, unreadableRecords: new Set([`other|tab-x|${NOW - 10}`, "re-list"]) });
+    expect(result.current.others.map((e) => [e.journal.tabId, e.unreadable ?? false])).toEqual([["tab-y", false]]);
+  });
+
   it("isRestorable: a kept slot of the project in scope, numbered or not — never another project's, never a plain draft", () => {
     put("current:kept", NOW - 30);
     put("current:kept:1799999000000", NOW - 20);
@@ -368,6 +378,15 @@ describe("OtherJournalsBanner — §655 Restore", () => {
     expect(screen.getByText(/^Browser workspace \(no project\) — could not be read, from /)).toBeTruthy();
     expect(screen.getByText(t("en-US", "unloadJournalUnreadableHint"))).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Discard: Browser workspace/ })).toBeTruthy();
+  });
+
+  it("heads a notice holding only unreadable drafts as this project's, not as other projects'", () => {
+    const unreadable: OtherJournal = { ...entry("browser", null, 1), unreadable: true };
+    const { rerender } = render(<OtherJournalsBanner lang="en-US" others={[unreadable]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalUnreadableOnly"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalOthers"))).toBeNull();
+    rerender(<OtherJournalsBanner lang="en-US" others={[unreadable, other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalOthers"))).toBeTruthy();
   });
 
   it("shows no unreadable hint when no entry is unreadable", () => {

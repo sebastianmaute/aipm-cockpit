@@ -55,6 +55,13 @@ describe("activityAuditDownloader", () => {
     expect(body.projects.map((p: { id: string }) => p.id).sort()).toEqual(["p1", "p2"]);
   });
 
+  it("with a portfolio but no project open (the \"default\" sentinel): adds no phantom project", async () => {
+    vi.mocked(readPortfolioActivityLogs).mockResolvedValueOnce([{ id: "p2", name: "Zeus", archived: false, log: [] }]);
+    await activityAuditDownloader(cfg, { ...current, id: "default" }).download();
+    const body = JSON.parse(vi.mocked(downloadJson).mock.calls[0][1]);
+    expect(body.projects.map((p: { id: string }) => p.id)).toEqual(["p2"]);
+  });
+
   it("passes on the browser's refusal", async () => {
     vi.mocked(downloadJson).mockReturnValueOnce(false);
     expect(await activityAuditDownloader(null, current).download()).toBe(false);

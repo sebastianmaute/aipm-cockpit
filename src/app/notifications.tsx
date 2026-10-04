@@ -258,10 +258,13 @@ export function OtherJournalsBanner({
   canRestore?: (entry: OtherJournal) => boolean;
   onRestore?: (entry: OtherJournal) => void;
 }) {
+  // §668 — an unreadable draft is the OPEN project's, and reloading cannot restore it: when it is all the
+  // notice holds, its heading must not say "other projects … reload to restore".
+  const heading = t(lang, others.length > 0 && others.every((entry) => entry.unreadable) ? "unloadJournalUnreadableOnly" : "unloadJournalOthers");
   return (
-    <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
+    <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
       {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
         <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
       )}

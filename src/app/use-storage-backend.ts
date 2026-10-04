@@ -418,7 +418,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
   const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout, onUnreadable: () => emitToast("error", t(langRef.current, "unloadJournalUnreadable")) }); // §668
   // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
-  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, unreadableKeys: unloadJournal.unreadableKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
+  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, unreadableRecords: unloadJournal.unreadableRecords, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   // ★★ NEVER CALL DURING RENDER (final review, Task 9 M3): it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).

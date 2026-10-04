@@ -26,10 +26,13 @@ export interface ActivityAuditSource {
   name: string;
   archived: boolean;
   log: readonly ActivityEntry[];
-  /** The STORED log could not be read at all, so `log` is empty for that reason, not for want of
-   *  activity — the file must say so, or an auditor reads "nothing happened". */
+  /** The STORED log could not be read at all. For any other project `log` is then empty for that
+   *  reason, not for want of activity — the file must say so, or an auditor reads "nothing happened".
+   *  The project open now contributes its live log instead, so it can carry this flag beside entries:
+   *  the flag still describes the stored row. */
   logUnreadable?: boolean;
-  /** Stored entries the sanitizer dropped (malformed), so `log` is shorter than what was stored. */
+  /** Stored entries missing from `log`: malformed ones the sanitizer dropped, plus any beyond the
+   *  `ACTIVITY_MAX_ENTRIES` cap it keeps. */
   entriesDropped?: number;
 }
 
