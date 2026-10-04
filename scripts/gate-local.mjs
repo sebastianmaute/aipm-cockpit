@@ -59,6 +59,7 @@ export const GATE_STEPS = [
   s("static", ["npm", "run", "followups:index:check"]),
   s("static", ["npm", "run", "followups:workitems:check"]),
   s("static", ["npm", "run", "version:check"]),
+  s("static", ["npm", "run", "changelog:check"]),
   // The list lives outside the repository, so most contributors cannot run this step. Locally an
   // unset LEAK_LIST_FILE SKIPS it, visibly; under CI (env CI set) the same state FAILS with code 2,
   // so a workflow that forgot to export it cannot pass by skipping.

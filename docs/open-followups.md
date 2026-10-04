@@ -38826,7 +38826,7 @@ Size unestimated (process item) — organisational only.
 
 ## 527. There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rn "export function buildReleasePayload" scripts/release-publish-lib.mjs` → one hit; the Release
+**Status:** **Update 2026-10-04:** the CHANGELOG half is built. `npm run changelog:check` (`scripts/check-changelog.mjs` over `scripts/changelog-check-lib.mjs`) runs in CI's `static` job through `gate-local.mjs` and BLOCKS a change to app code (`src/`, `desktop/src/`; not tests, test helpers or fixtures) that does not touch `CHANGELOG.md`. The `no-changelog` PR label opts out and is read live, so adding it and re-running the failed job works (owner rulings 2026-10-04: blocking, label opt-out, weekly notes deferred). Pinned by `scripts/changelog-check-lib.test.mjs`. The weekly release-notes half stays open. OPEN 2026-09-13 — `grep -rn "export function buildReleasePayload" scripts/release-publish-lib.mjs` → one hit; the Release
 only links to `CHANGELOG.md` at the tag. The absence of a CHANGELOG check in CI is never machine-verified.
 
 Kai Mindermann asked, in writing and as an imperative, for a changelog plus weekly release notes as a regular

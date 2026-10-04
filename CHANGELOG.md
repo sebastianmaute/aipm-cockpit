@@ -94,6 +94,8 @@ longer carries its own changelog comment.
 - **A weekly run on a future date (§149).** A new weekly CI job runs the unit tests with the clock
   400 days ahead (`VITEST_CLOCK_OFFSET_DAYS`), to find tests that only pass while a hardcoded date is
   still in the future. It is not a required check.
+- **A CHANGELOG line is now required (§527).** CI fails a pull request that changes app code without a
+  line in `CHANGELOG.md`, unless it carries the `no-changelog` label (`npm run changelog:check`).
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

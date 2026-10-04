@@ -65,7 +65,11 @@ re-resolved by hand.
   secret writes an empty list, and `leaks:check` exits 2 on it — red, never a silent pass. Dependabot
   PRs read `LEAK_LIST` from Dependabot's own secret store. Then
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
-  list — including `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
+  list — including `changelog:check` (§527: app code changed without a `CHANGELOG.md` line fails, unless
+  the PR carries the `no-changelog` label; the label is read LIVE through the API with the job's token,
+  which is why this job alone adds `pull-requests: read` and passes `GH_TOKEN` to the step — a re-run
+  reuses the original event payload, so a payload read would never see a label added after the first
+  run) and `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
   `desktop/tsconfig.json` then `desktop/tsconfig.test.json`, exiting with the worse of the two —
   covering `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes, PLUS
   `updater.test.ts`/`updater-module-shape.test.ts`, excluded from the root program for the same

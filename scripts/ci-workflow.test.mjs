@@ -127,6 +127,15 @@ describe("ci.yml", () => {
     }
   });
 
+  // §527: changelog:check reads the PR's labels live, which needs the job's token and the
+  // pull-requests read scope. The token is read-only, and nothing in the job writes.
+  it("lets the static gates read pull-request labels, and nothing more", () => {
+    const b = jobBlock(CI, "static");
+    expect(b).toMatch(/^ {4}permissions:\n {6}contents: read\n {6}pull-requests: read\n/m);
+    expect(b).toMatch(/GH_TOKEN: \$\{\{ github\.token \}\}/);
+    expect(b).not.toMatch(/: write/);
+  });
+
   it("chains unit-shuffled behind unit, and e2e and prod-smoke behind build", () => {
     expect(jobBlock(CI, "unit-shuffled")).toMatch(/^ {4}needs: unit$/m);
     expect(jobBlock(CI, "e2e")).toMatch(/^ {4}needs: build$/m);
