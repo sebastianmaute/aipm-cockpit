@@ -11,6 +11,7 @@ import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import { bucketIdForTask } from "./budget-task-link";
+import { sanitizeVoiceTranscript } from "./sanitize";
 import {
   useBulkOperations,
   type UseBulkOperationsArgs,
@@ -1236,6 +1237,44 @@ describe("useBulkOperations", () => {
       expect(result.current.workspace.tasks).toHaveLength(1);
       expect(confirmSpy).not.toHaveBeenCalled();
       confirmSpy.mockRestore();
+    });
+  });
+
+  describe("voice: unrecognised commands (§519)", () => {
+    // open-followups §519 — an unrecognised command goes to the AI assistant
+    // (task-manager passes the route only while the assistant is on).
+    it("routes an unrecognised voice command to the AI when a route is given, instead of the error toast", () => {
+      const routeUnknownVoice = vi.fn();
+      const showToast = vi.fn();
+      const { result } = renderBulk({ routeUnknownVoice, showToast });
+      act(() => { result.current.bulk.handleCommand({ kind: "unknown", text: "plan the kickoff" }, "Plan the kickoff"); });
+      // The transcript as spoken (the second argument), the text the error toast quotes.
+      expect(routeUnknownVoice).toHaveBeenCalledWith("Plan the kickoff");
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "voiceRoutedToAi"));
+      expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+    });
+
+    it("clips a routed transcript to the voice transcript limit", () => {
+      const routeUnknownVoice = vi.fn<(text: string) => void>();
+      const { result } = renderBulk({ routeUnknownVoice });
+      const long = "x".repeat(5000);
+      act(() => { result.current.bulk.handleCommand({ kind: "unknown", text: long }, long); });
+      expect(routeUnknownVoice.mock.calls[0][0]).toBe(sanitizeVoiceTranscript(long));
+      expect(routeUnknownVoice.mock.calls[0][0].length).toBeLessThan(long.length);
+    });
+
+    it("keeps the error toast for an unrecognised command when no route is given (AI off)", () => {
+      const showToast = vi.fn();
+      const { result } = renderBulk({ showToast });
+      act(() => { result.current.bulk.handleCommand({ kind: "unknown", text: "plan the kickoff" }, "Plan the kickoff"); });
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "voiceUnknownCommand", "Plan the kickoff"));
+    });
+
+    it("never routes a recognised command", () => {
+      const routeUnknownVoice = vi.fn();
+      const { result } = renderBulk({ routeUnknownVoice });
+      act(() => { result.current.bulk.handleCommand({ kind: "search", query: "kickoff" }, "search kickoff"); });
+      expect(routeUnknownVoice).not.toHaveBeenCalled();
     });
   });
 

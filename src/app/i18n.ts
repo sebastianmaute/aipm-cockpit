@@ -375,6 +375,8 @@ const enUS = {
   voiceListening: "Listening…",
   voiceUnsupported: "Voice input is not supported in this browser.",
   voiceUnknownCommand: "Didn't understand: \"{0}\"",
+  // §519 — an unrecognised command was put into the AI assistant's message box, unsent.
+  voiceRoutedToAi: "Passed to the AI assistant. Check the message, then press Send.",
   voiceTaskNotFound: "Task #{0} not found.",
   voiceFailed: "Voice input failed.",
   voicePermissionDenied: "Microphone permission denied.",

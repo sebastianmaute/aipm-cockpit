@@ -12,6 +12,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Voice commands the app does not know go to the AI assistant (§519).** With the AI
+  assistant on, a spoken command that is not one of the fixed voice commands is put into the
+  assistant's message box for you to check and send, instead of showing "Didn't understand".
+  With the assistant off, nothing changes.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.

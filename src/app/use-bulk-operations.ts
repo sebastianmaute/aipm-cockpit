@@ -79,6 +79,11 @@ export interface UseBulkOperationsArgs {
    *  window.confirm. Undefined ⇒ voice clear-all is a safe no-op (popout / view
    *  not mounted). */
   requestClearAllConfirm?: () => void;
+  /** §519 — where an unrecognised voice command goes instead of the error toast.
+   *  task-manager passes a chat PREFILL (never an auto-send: a misheard phrase
+   *  must not run AI tools unseen) while the AI assistant is on, and nothing
+   *  while it is off, so the toast stays the AI-off behaviour. */
+  routeUnknownVoice?: (text: string) => void;
   /** Day-boundary context for the health filter. task-manager threads the SAME
    *  `today` and `holidaySet` VALUES into the Open Points pane, so two of the
    *  three inputs to `visibleTaskRows()` cannot drift at all.
@@ -119,6 +124,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const setSettingsRef = useRef(args.setSettings);
   const allowDestructiveSaveRef = useRef(args.allowDestructiveSave);
   const requestClearAllConfirmRef = useRef(args.requestClearAllConfirm);
+  const routeUnknownVoiceRef = useRef(args.routeUnknownVoice);
   const captureRef = useRef(args.capture);
   const captureFieldRowsRef = useRef(args.captureFieldRows);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
@@ -129,6 +135,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { setSettingsRef.current = args.setSettings; }, [args.setSettings]);
   useEffect(() => { allowDestructiveSaveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
   useEffect(() => { requestClearAllConfirmRef.current = args.requestClearAllConfirm; }, [args.requestClearAllConfirm]);
+  useEffect(() => { routeUnknownVoiceRef.current = args.routeUnknownVoice; }, [args.routeUnknownVoice]);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
 
@@ -588,9 +595,17 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         case "language":
           setSettingsRef.current((s) => ({ ...s, language: cmd.lang }));
           return;
-        case "unknown":
+        case "unknown": {
+          // The transcript as spoken: the same text the error toast quotes.
+          const route = routeUnknownVoiceRef.current;
+          if (route) {
+            route(sanitizeVoiceTranscript(originalText));
+            showToastRef.current("info", t(lang, "voiceRoutedToAi"));
+            return;
+          }
           showToastRef.current("error", t(lang, "voiceUnknownCommand", originalText));
           return;
+        }
       }
     },
     [tasks, setTaskModalOpen, setForm, setSearchImmediate],

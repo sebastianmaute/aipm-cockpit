@@ -38671,7 +38671,7 @@ Size M — a one-at-a-time mode with position dots and complete-to-advance for e
 
 ## 519. Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rn "export function parseCommand" src/app` → `voice.ts`, a fixed grammar. The unknown-command
+**Status:** **Update 2026-10-04:** an unrecognised voice command no longer stops at the error toast while the AI assistant is on: `useBulkOperations` takes a `routeUnknownVoice` route, and `task-manager.tsx` passes one that PREFILLS the assistant's message box (`requestChat(text, false)`, never an auto-send, by owner ruling 2026-10-04) only when `isAiEnabled(settings.ai)` and not in a popout; with the assistant off the toast is unchanged. The transcript is clipped by `sanitizeVoiceTranscript`. Verified by `npx vitest run src/app/use-bulk-operations.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1` (2 files, 58 tests, exit 0); mutants (no route, no clip, no info toast, a recognised command routed) each turn a test red. The task-manager gate line itself has no unit test. What stays OPEN is the wider intent-first principle the entry records, which is still unestimated. OPEN 2026-09-13 — `grep -rn "export function parseCommand" src/app` → `voice.ts`, a fixed grammar. The unknown-command
 toast is never machine-verified beyond the issue's code check.
 
 Kai Mindermann asked that users express intent rather than operate forms and buttons, citing Smashing

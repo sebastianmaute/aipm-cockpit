@@ -374,6 +374,7 @@ export const de: Record<TranslationKey, string> = {
   voiceListening: "Höre zu…",
   voiceUnsupported: "Spracheingabe wird in diesem Browser nicht unterstützt.",
   voiceUnknownCommand: "Nicht verstanden: \"{0}\"",
+  voiceRoutedToAi: "An den KI-Assistenten übergeben. Prüfen Sie die Nachricht und klicken Sie auf Senden.",
   voiceTaskNotFound: "Aufgabe #{0} nicht gefunden.",
   voiceFailed: "Spracheingabe fehlgeschlagen.",
   voicePermissionDenied: "Mikrofonzugriff verweigert.",

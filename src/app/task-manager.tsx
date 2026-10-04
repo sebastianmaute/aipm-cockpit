@@ -2009,7 +2009,7 @@ function TaskManagerInner() {
     onCancelEdit: handleCancelEdit,
     logActivity: logActivityUser,
     capture: undoApi.capture, captureFieldRows: undoApi.captureFieldRows, commitBuckets,
-    showToast, allowDestructiveSave,
+    showToast, allowDestructiveSave, routeUnknownVoice: !isPopout && isAiEnabled(settings.ai) ? (text: string) => requestChat(text, false) : undefined, // §519: prefill, never auto-send
     // Day-boundary context for the health filter, so the hook's idea of a
     // visible row matches the Open Points pane's exactly.
     today, holidaySet,
