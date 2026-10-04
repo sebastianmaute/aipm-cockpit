@@ -87,12 +87,6 @@ export function journalRecordId(journal: UnloadJournal): string {
   return `${journal.projectKey}|${journal.tabId}|${journal.savedAt}`;
 }
 
-/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
- *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
- *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
- *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
- *  did not. Every caller here applies what it gets, so none may decode leniently — nor accept a slice
- *  that failed to decode (below). */
 /** Entity lists a journal carries row by row. Their decoders filter rows one at a time and record no
  *  slice failure, so a list whose EVERY row fails (rows in a shape a newer build wrote) would come back
  *  empty without a word. ★ Three of them do NOT come back empty: the decode's final migration re-seeds
@@ -107,6 +101,12 @@ const PRE_MIGRATION: Partial<Record<(typeof JOURNAL_ENTITY_LISTS)[number], (row:
   disciplines: sanitizeDiscipline, grades: sanitizeGrade, resources: sanitizeResource,
 };
 
+/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
+ *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
+ *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
+ *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
+ *  did not. Every caller here applies what it gets, so none may decode leniently — nor accept a slice
+ *  that failed to decode (below). */
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
     // ★★ A SLICE LOST IN DECODING REFUSES THE WHOLE JOURNAL. Strict alone refuses only unparseable text, a
