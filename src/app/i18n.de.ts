@@ -3724,6 +3724,8 @@ export const de: Record<TranslationKey, string> = {
   dashboardChangesPending: "{0} ausstehend",
   taskRowChangesBadge: "{0} Änderungen",
   taskRowChangesBadgeOne: "1 Änderung",
+  taskRowChangesBadgeJump: "Verknüpfte Änderungen anzeigen",
+  taskFilterChipClear: "Aufgabenfilter entfernen",
 
   navStakeholders: "Stakeholder",
   stakeholderRaciTitle: "RACI-Matrix",

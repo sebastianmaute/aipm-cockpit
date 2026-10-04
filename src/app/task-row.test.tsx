@@ -876,6 +876,33 @@ describe("TaskRow changes badge", () => {
     expect(queryByText("1 Änderungen")).toBeNull();
   });
 
+  // open-followups §481: the badge is a row-unique button that jumps to the
+  // Changes view filtered to this task, and the click must not open the editor.
+  test("jumps to the task's linked changes from a row-unique badge button", () => {
+    const onEdit = vi.fn();
+    const onJumpToChanges = vi.fn();
+    const ctx = makeContext({ onEdit });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 8 })}
+            rowToken="Sample task"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+            onJumpToChanges={onJumpToChanges}
+          />
+        ),
+      }),
+    );
+    fireEvent.click(getByRole("button", { name: "2 changes – Sample task" }));
+    expect(onJumpToChanges).toHaveBeenCalledWith(8);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   test("renders no changes badge when changeRefs is empty", () => {
     const ctx = makeContext();
     const { queryByText } = render(

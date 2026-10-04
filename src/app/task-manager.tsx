@@ -287,7 +287,7 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const { setRaidFilterTaskId, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
+  const { setRaidFilterTaskId, setChangeFilterTaskId, setRaidFilterEpoch, setChangeFilterEpoch, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -777,7 +777,8 @@ function TaskManagerInner() {
   // ONE reverse index for the linked-documents row badge, threaded down: built
   // per-panel it would be three indexes over one array, per-row it would rebuild.
   const documentsByEntity = useMemo(() => indexDocumentsByEntity(documents), [documents]);
-  // Same index, mirrored for the read-only "N changes" task-row badge.
+  // Same index, mirrored for the "N changes" task-row badge, which jumps to the
+  // Changes view filtered to that task (open-followups §481).
   // Returns an empty map when the changes module is disabled.
   const changeByTask = useMemo(
     () => (changesEnabled ? buildChangeByTaskIndex(changes) : new Map<number, ChangeItem[]>()),
@@ -1871,6 +1872,7 @@ function TaskManagerInner() {
   const {
     pushingIds,
     onJumpToRaid,
+    onJumpToChanges,
     onSendInquiry,
     onPushToJira,
     onStatusChange,
@@ -1878,6 +1880,7 @@ function TaskManagerInner() {
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,
+    handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
   } = useTaskRowHandlers({
     tasksRef,
@@ -1890,6 +1893,10 @@ function TaskManagerInner() {
     openEditModal,
     setTasks,
     setRaidFilterTaskId,
+    setChangeFilterTaskId,
+    setRaidFilterEpoch,
+    setChangeFilterEpoch,
+    getScopeEpoch,
     setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
@@ -2490,6 +2497,7 @@ function TaskManagerInner() {
     contactsList,
     onCreateResource: isPopout ? undefined : handleCreateResource,
     handleClearRaidTaskFilter,
+    handleClearChangeTaskFilter,
     onOpenNotes: openRaidNotes,
     onOpenChangeNotes: openChangeNotes,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
@@ -2776,6 +2784,7 @@ function TaskManagerInner() {
       changeByTask={changeByTask}
       documentsByEntity={documentsByEntity}
       onOpenDocuments={onOpenDocuments}
+      onJumpToChanges={onJumpToChanges}
       jiraEnabled={settings.jira.enabled}
       jiraSyncing={jiraSyncing}
       jiraProjectKey={settings.jira.projectKey}

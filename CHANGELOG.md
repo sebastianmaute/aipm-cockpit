@@ -15,9 +15,18 @@ longer carries its own changelog comment.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
+- **The "N changes" badge on a task opens its changes (§481).** Clicking the badge on a task
+  row or Kanban card now opens the Changes view showing only the change requests linked to that
+  task, the way the RAID badge beside it already opens RAID. A `#id ×` chip in the Changes
+  toolbar shows the filter and clears it; Reset clears it too. Screen readers now hear the task
+  name with the count, so two tasks with the same number of changes no longer sound identical.
 
 ### Fixed
 
+- **A task filter left over from another project (§481).** Opening RAID or Changes from a task's
+  badge and then switching project kept filtering the new project's register by a task number that
+  belonged to the old one. The filter now ends when you switch project. Its `#id ×` chip is also
+  announced as "Clear task filter" instead of "Reset filters", which it never did.
 - **Switching project during a Jira sync (§667).** A sync or a conflict resolution that was still
   waiting on Jira when you switched project went on to write the previous project's tasks, status
   changes and sync conflicts into the project you switched to. It now drops its result instead.
