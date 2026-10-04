@@ -203,9 +203,13 @@
   `resolveSchemeColors` is now BASE-WINS, HELD TO THE FLOOR: derivation only FILLS missing AA variants, and an
   explicitly PINNED `-strong`/`-text`/state-border survives ONLY while it clears the floor its own derivation
   targets (4.5 for text, 3 for a state border) against the SAME reference (the card, the purple tint, `--line`).
-  A pin below it is NUDGED from the pin itself — lightness moves, hue stays — never replaced by the value derived
-  from the base (open-followups §239). One `AaRule` list in `scheme-tokens.ts` feeds both the derivation and
-  the check, so the two cannot measure against different backgrounds. `--muted-foreground` is a COPY of
+  A pin below it is NUDGED from the pin itself — lightness moves, hue stays — rather than replaced by the value
+  derived from the base (open-followups §239; owner-accepted 2026-10-04, a deviation from the approved "fall back
+  to the derived value"). ★ A nudge SCALES channels, so a zero channel never moves and one at 255 cannot rise
+  (`#ff0000` cannot lighten): when the nudged pin still falls short, the base-derived value is used after all. A
+  pin whose base colour the scheme leaves out is held to the floor too (`baseOr`). One `AaRule` list in
+  `scheme-tokens.ts` feeds both the derivation and the check, so the two cannot measure against different
+  backgrounds. `--muted-foreground` is a COPY of
   `--foreground`, not an AA derivation, so its pin always wins. ★★ Measured on 2026-10-04: no built-in scheme
   pin changes, but the shipped importable `public/themes/` beacon, mockup and petrol each pin a status-text
   colour under 4.5 on their card (Petrol dark's purple amber at 3.20), and those now resolve nudged. Re-measure

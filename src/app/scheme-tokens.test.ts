@@ -162,13 +162,38 @@ describe("resolveSchemeColors — pinned derived tokens are held to their floor 
     expect(out["--muted-foreground"]).toBe("#eeeeee");
   });
 
-  it("leaves every built-in scheme exactly as base-wins resolved it", () => {
+  it("cannot change a built-in scheme: none pins a floor-checked token", () => {
+    // The floor check acts only on a PIN, so this is the property that keeps built-ins unchanged.
+    const checked = ["--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong", "--rag-red-text", "--rag-amber-text",
+      "--rag-green-text", "--control-state-border", "--control-state-border-pink", "--control-state-border-green"];
+    let maps = 0;
     for (const scheme of BUILTIN_SCHEMES) {
       for (const map of [scheme.light, scheme.dark]) {
         if (!map) continue;
+        maps += 1;
+        for (const token of checked) expect(map, `${scheme.id} ${token}`).not.toHaveProperty(token);
         expect(resolveSchemeColors(map), scheme.id).toEqual({ ...deriveAaVariants(map), ...map });
       }
     }
+    expect(maps).toBeGreaterThan(0);
+  });
+
+  it("falls back to the base-derived value when nudging the pin cannot reach the floor", () => {
+    // #ff0000 on a dark card: lightening scales channels, the zero ones never move and red is
+    // already at 255, so the nudged pin stays #ff0000 at about 4.1.
+    const colors = { "--rag-red": "#e5484d", "--surface-muted": "#1b2024", "--rag-red-text": "#ff0000" };
+    expect(contrastRatio("#ff0000", "#1b2024")).toBeLessThan(4.5);
+    const out = resolveSchemeColors(colors)["--rag-red-text"];
+    expect(out).toBe(deriveAaVariants(colors)["--rag-red-text"]);
+    expect(contrastRatio(out, "#1b2024")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("holds a pin to its floor even when the scheme leaves out its base colour", () => {
+    // No --rag-red at all: the pin is still measured against the card and nudged from itself.
+    expect(contrastRatio("#ff9999", "#ffffff")).toBeLessThan(4.5);
+    const out = resolveSchemeColors({ "--surface-muted": "#ffffff", "--rag-red-text": "#ff9999" })["--rag-red-text"];
+    expect(out).not.toBe("#ff9999");
+    expect(contrastRatio(out, "#ffffff")).toBeGreaterThanOrEqual(4.5);
   });
 
   it("every shipped importable theme resolves its status text to AA on its card", () => {

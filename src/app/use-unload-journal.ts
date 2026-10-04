@@ -81,12 +81,13 @@ function retagToThisTab(journal: UnloadJournal): void {
 }
 
 /** The journal's workspace, or null when it does not decode — logged, and the key left in place.
- *  ★ Not `strict` by default, and that matters: `jsonToWorkspace` then answers unparseable text with an
- *  EMPTY workspace, not a throw. §655's restore of a kept version passes `strict` so a corrupt record
- *  is refused rather than applied as an empty project. */
-export function journalWorkspace(journal: UnloadJournal, strict = false): Workspace | null {
+ *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
+ *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
+ *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
+ *  did not. Every caller here applies what it gets, so none may decode leniently. */
+export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    return jsonToWorkspace(journal.workspace, { strict });
+    return jsonToWorkspace(journal.workspace, { strict: true });
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -144,9 +145,14 @@ export type UseUnloadJournalArgs = {
   enabled: boolean;
   /** A popout never saves, so it never journals either. */
   isPopout: boolean;
+  /** §668 — told when the load restore finds a journal for the key that does not decode. Nothing is
+   *  applied and the key is left in place (the next confirmed save clears it); this lets the user know. */
+  onUnreadable?: () => void;
 };
 
-export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJournalArgs) {
+export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }: UseUnloadJournalArgs) {
+  const onUnreadableRef = useRef(onUnreadable);
+  useEffect(() => { onUnreadableRef.current = onUnreadable; }, [onUnreadable]);
   // ★ Synced in an EFFECT, not during render, on purpose: the storage hook's save-effect
   //   CLEANUP can flush a save (§589) in the same commit that switches the target, and React
   //   runs every cleanup before any effect body — so that flush still reads the OLD key, the
@@ -367,6 +373,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     const restored = journal === null ? null : journalWorkspace(journal);
     if (journal === null || restored === null) {
       setConflictRecord(null);
+      if (journal !== null) onUnreadableRef.current?.(); // §668 — refused, and said so
       return null;
     }
     const loadedFingerprint = fingerprintWorkspace(loaded);

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ConfirmProvider } from "../confirm-dialog";
 import { t } from "../i18n";
 import type { ActivityAuditDownloader } from "../activity-audit-download";
-import { ActivityAuditSection } from "./activity-audit-section";
+import { ActivityAuditConnected, ActivityAuditSection } from "./activity-audit-section";
+import { TestProviders } from "../test-providers";
 
 // open-followups §510 — the internal activity-log download in Settings.
 
@@ -60,5 +61,21 @@ describe("ActivityAuditSection", () => {
     fireEvent.click(await confirmAction());
     expect(await screen.findByText(t("en-US", "activityAuditFailed"))).toBeInTheDocument();
     expect(trigger()).not.toBeDisabled();
+  });
+});
+
+// Review C1 — the project meta is absent before the first load and for a store without one; reading
+// its name must not throw (an earlier cut read `project.name` in task-manager on every render).
+describe("ActivityAuditConnected", () => {
+  it("renders with no project meta in the workspace", () => {
+    render(
+      <TestProviders>
+        <ConfirmProvider lang="en-US">
+          <ActivityAuditConnected lang="en-US" projectId="default" portfolio={null} />
+        </ConfirmProvider>
+      </TestProviders>,
+    );
+    expect(trigger()).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "activityAuditScopeCurrent"))).toBeInTheDocument();
   });
 });

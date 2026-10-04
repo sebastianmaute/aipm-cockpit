@@ -1239,8 +1239,12 @@ function ChatPanelInner({
 
   useEffect(() => {
     if (!chatSeed) return;
+    // A PREFILL never destroys a draft the user is typing: it goes on a new line after it. (§519 — an
+    // unrecognised voice command prefills, and the chat panel stays mounted, so a draft can be there.)
+    // An auto-send replaces the box, since it is sent at once.
+    const { prompt, autoSend } = chatSeed;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInput(chatSeed.prompt);
+    setInput((draft) => (!autoSend && draft.trim() !== "" ? `${draft.trimEnd()}\n${prompt}` : prompt));
     if (chatSeed.autoSend && !sendGateRef.current.blocked) {
       sendGateRef.current.submit(chatSeed.prompt);
     }

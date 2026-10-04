@@ -30,7 +30,7 @@ longer carries its own changelog comment.
 - **Voice commands the app does not know go to the AI assistant (§519).** With the AI
   assistant on, a spoken command that is not one of the fixed voice commands is put into the
   assistant's message box for you to check and send, instead of showing "Didn't understand".
-  With the assistant off, nothing changes.
+  With the assistant off, nothing changes. Anything you had already typed there is kept.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
@@ -55,6 +55,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Damaged unsaved changes are no longer restored as an empty project (§668).** If the copy of
+  unsaved changes kept from your last session was damaged, reloading the page could restore it as an
+  empty project without asking, and "Restore anyway" could do the same. A damaged copy is now never
+  restored: your project stays as it is and a message says so.
 - **Imported colour themes keep readable status text (§239).** A colour theme imported from a
   file could set its own status-text and accent-text colours below the contrast the app needs on
   cards. Those colours are now darkened (or, on a dark theme, lightened) just enough to read,

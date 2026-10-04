@@ -174,4 +174,19 @@ describe("readPortfolioActivityLogs (§510)", () => {
     expect(spy).toHaveBeenCalledWith("warn", "storage.activityAuditLogUnreadable", expect.objectContaining({ projectId: "p1" }));
     spy.mockRestore();
   });
+
+  it("lists a SQL NULL log as empty without a warning, and a non-array log as empty with one", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      projectsResult("p2", { ...meta(), name: "Zeus" }),
+      logsResult([["p1", ""], ["p2", "{\"not\":\"an array\"}"]]),
+    ]);
+    const out = await readPortfolioActivityLogs(cfg);
+    expect(out.map((p) => [p.id, p.log.length])).toEqual([["p1", 0], ["p2", 0]]);
+    expect(spy.mock.calls.filter((c) => c[1] === "storage.activityAuditLogUnreadable").map((c) => (c[2] as { projectId: string }).projectId)).toEqual(["p2"]);
+    spy.mockRestore();
+  });
 });

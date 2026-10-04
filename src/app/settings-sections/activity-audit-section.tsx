@@ -8,7 +8,9 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { Button } from "../button";
 import { useConfirm } from "../confirm-dialog";
-import type { ActivityAuditDownloader } from "../activity-audit-download";
+import { activityAuditDownloader, type ActivityAuditDownloader } from "../activity-audit-download";
+import type { TursoConfig } from "../turso-config";
+import { useWorkspace } from "../workspace-context";
 
 interface ActivityAuditSectionProps {
   lang: Lang;
@@ -57,4 +59,11 @@ export function ActivityAuditSection({ lang, audit }: ActivityAuditSectionProps)
       </p>
     </section>
   );
+}
+
+/** Reads the project open now from the workspace — its name may be absent before the first load, or
+ *  for a store with no project meta — so the Settings view and task-manager need not. */
+export function ActivityAuditConnected({ lang, projectId, portfolio }: { lang: Lang; projectId: string; portfolio: TursoConfig | null }) {
+  const { project, activityLog } = useWorkspace();
+  return <ActivityAuditSection lang={lang} audit={activityAuditDownloader(portfolio, { id: projectId, name: project?.name ?? "", archived: false, log: activityLog })} />;
 }

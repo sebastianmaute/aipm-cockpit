@@ -258,7 +258,7 @@ describe("OtherJournalsBanner — §4 kept slots", () => {
   });
 
   it("marks a kept entry as not saved (conflict) and says reloading does not restore it, only while one is listed", () => {
-    const hint = "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them: restore one of the project you have open here, or download one to recover your changes.";
+    const hint = "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them; download one to recover your changes.";
     const { rerender } = render(<OtherJournalsBanner lang="en-US" others={[entry("p1:kept", "Apollo", 3000), entry("p2", "Zeus", 10)]}
       onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/^Apollo — not saved \(conflict\), from .*, 3 KB$/)).toBeTruthy();
@@ -348,6 +348,18 @@ describe("OtherJournalsBanner — §655 Restore", () => {
     fireEvent.click(await screen.findByRole("button", { name: t("en-US", "cancel") }));
     await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
     expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("names Restore in the hint only while an entry offers it", () => {
+    renderBanner();
+    expect(screen.getByText(t("en-US", "unloadJournalKeptHintRestore"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalKeptHint"))).toBeNull();
+  });
+
+  it("keeps the plain hint when no listed kept version can be restored here", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => false} onRestore={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalKeptHint"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalKeptHintRestore"))).toBeNull();
   });
 
   it("offers no Restore at all without a handler", () => {

@@ -262,7 +262,9 @@ export function OtherJournalsBanner({
     <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
-      {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && <p className="mt-1 text-sm">{t(lang, "unloadJournalKeptHint")}</p>}
+      {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
+        <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
+      )}
       <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} />
     </AlertBanner>
   );

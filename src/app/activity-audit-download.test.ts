@@ -39,6 +39,15 @@ describe("activityAuditDownloader", () => {
     expect(body.projects.map((p: { id: string; archived: boolean }) => [p.id, p.archived])).toEqual([["p1", false], ["p2", true]]);
   });
 
+  it("with a portfolio: the project open now contributes its LIVE log, not its last saved one", async () => {
+    const live = [{ id: "e-live", timestamp: "2026-10-04T08:00:00.000Z", kind: "task.created", args: [1, "New"] }] as ActivityAuditSource["log"];
+    vi.mocked(readPortfolioActivityLogs).mockResolvedValueOnce([{ ...current, log: [] }, { id: "p2", name: "Zeus", archived: false, log: [] }]);
+    await activityAuditDownloader(cfg, { ...current, log: live }).download();
+    const body = JSON.parse(vi.mocked(downloadJson).mock.calls[0][1]);
+    expect(body.projects.find((p: { id: string }) => p.id === "p1").entries.map((e: { id: string }) => e.id)).toEqual(["e-live"]);
+    expect(body.projects.find((p: { id: string }) => p.id === "p2").entries).toEqual([]);
+  });
+
   it("passes on the browser's refusal", async () => {
     vi.mocked(downloadJson).mockReturnValueOnce(false);
     expect(await activityAuditDownloader(null, current).download()).toBe(false);

@@ -23,7 +23,8 @@ document renderer, the AI snapshot or the Activity panel's Print — those are t
 guards. ★★ **It is NOT access control**: the app has no roles (§508) and expert mode is a preference
 anyone can switch on. What bounds the file is the storage credential: on Turso it holds exactly what a
 SQL client with the same token can already read. ★ The portfolio read is the STORED logs, so the
-project open now contributes its last saved log, not unsaved entries.
+project open now is swapped for its LIVE log (`activityAuditDownloader`): the stored one can lag its
+newest entries until the next save.
 
 - **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
   `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like

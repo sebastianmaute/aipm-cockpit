@@ -154,10 +154,13 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   // dark ones), so clearing AA there guarantees AA on the plain --surface too.
   const surface = colors["--surface-muted"] ?? colors["--surface"] ?? FALLBACK_SURFACE;
   const rules: AaRule[] = [];
-  const green = colors["--ui-green"];
-  const pink = colors["--ui-pink"];
-  if (green) rules.push(aaTextRule("--ui-green-strong", green, surface));
-  if (pink) rules.push(aaTextRule("--ui-pink-strong", pink, surface));
+  // A rule exists whenever its BASE or its PIN does (§239): a pin whose base colour the scheme leaves
+  // out is still held to the floor against the same reference, and nudged from itself.
+  const baseOr = (base: string, token: string): string | undefined => colors[base] ?? colors[token];
+  const greenStrong = baseOr("--ui-green", "--ui-green-strong");
+  const pinkStrong = baseOr("--ui-pink", "--ui-pink-strong");
+  if (greenStrong) rules.push(aaTextRule("--ui-green-strong", greenStrong, surface));
+  if (pinkStrong) rules.push(aaTextRule("--ui-pink-strong", pinkStrong, surface));
   // SC 1.4.11 state borders. Derived here for ToggleButton's dark-blue and pink
   // accents; the third, green, is derived below — see the note there, which is
   // also where the accent set's history lives. §56 measured only the dark-blue
@@ -169,12 +172,13 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   // --line are user-editable (ADVANCED_TOKENS), so today's pass is a property of
   // the built-in values rather than a guarantee. Deriving makes it structural.
   const line = colors["--line"] ?? surface;
-  const darkBlue = colors["--ui-dark-blue"];
+  const darkBlue = baseOr("--ui-dark-blue", "--control-state-border");
   if (darkBlue) {
     rules.push(stateBorderRule("--control-state-border", darkBlue, line));
   }
-  if (pink) {
-    rules.push(stateBorderRule("--control-state-border-pink", pink, line));
+  const pinkBorder = baseOr("--ui-pink", "--control-state-border-pink");
+  if (pinkBorder) {
+    rules.push(stateBorderRule("--control-state-border-pink", pinkBorder, line));
   }
   // The accent set is now THREE. Green joined when the dictation mic adopted
   // ToggleButton: its listening cue had been the icon colour alone, and raw
@@ -188,8 +192,9 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   // --control-state-border, whose dark-blue fails in the DARK schemes and
   // passes in the light. Green is therefore the one accent whose globals.css
   // fallback is NOT its raw base: see the hardcoded value there.
-  if (green) {
-    rules.push(stateBorderRule("--control-state-border-green", green, line));
+  const greenBorder = baseOr("--ui-green", "--control-state-border-green");
+  if (greenBorder) {
+    rules.push(stateBorderRule("--control-state-border-green", greenBorder, line));
   }
   // ★★ --ui-purple-strong is the ONE variant whose reference is NOT the card.
   // Every site that uses it puts it on a PURPLE TINT, not on a plain surface —
@@ -202,7 +207,7 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   // hover state. Deriving against the composited tint is not a special case
   // bolted on for one component — it is simply the correct reference for a
   // token with no non-tinted consumers. Held by scheme-purple-hover.test.ts.
-  const purple = colors["--ui-purple"];
+  const purple = baseOr("--ui-purple", "--ui-purple-strong");
   if (purple) {
     // ONE mode decision, from the surface, driving BOTH the alpha and the nudge
     // direction. Letting nudgeToAa re-derive direction from the composited tint
@@ -212,7 +217,7 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
     rules.push(aaTextRule("--ui-purple-strong", purple, compositeOver(purple, surface, alpha), isDark));
   }
   for (const [base, token] of [["--rag-red", "--rag-red-text"], ["--rag-amber", "--rag-amber-text"], ["--rag-green", "--rag-green-text"]] as const) {
-    const rag = colors[base];
+    const rag = baseOr(base, token);
     if (rag) rules.push(aaTextRule(token, rag, surface));
   }
   return rules;
@@ -235,12 +240,17 @@ export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
   // A pin below it (a hand-edited import, a shipped theme's hand-tuned value,
   // or a base colour edited after the pin was copied) is NUDGED to the floor
   // rather than replaced: its hue is the theme's choice (Petrol's amber text is
-  // purple), so only its lightness moves. `--muted-foreground` has no floor,
-  // so its pin always wins.
+  // purple), so only its lightness moves — owner-accepted 2026-10-04. A nudge
+  // scales channels, so it cannot always get there (a zero channel never moves,
+  // and a channel at 255 cannot rise): when the nudged pin still falls short,
+  // the value derived from the base is used, as for a scheme with no pin.
+  // `--muted-foreground` has no floor, so its pin always wins.
   const out: SchemeColorMap = { ...deriveAaVariants(colors), ...colors };
   for (const rule of aaRules(colors)) {
     const pin = colors[rule.token];
-    if (pin !== undefined && ratio(pin, rule.reference) < rule.floor) out[rule.token] = rule.nudge(pin);
+    if (pin === undefined || ratio(pin, rule.reference) >= rule.floor) continue;
+    const nudged = rule.nudge(pin);
+    out[rule.token] = ratio(nudged, rule.reference) >= rule.floor ? nudged : rule.nudge(rule.base);
   }
   return out;
 }

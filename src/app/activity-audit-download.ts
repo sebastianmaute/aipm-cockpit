@@ -22,7 +22,11 @@ export function activityAuditDownloader(portfolioConfig: TursoConfig | null, cur
   return {
     scope,
     download: async () => {
-      const sources = portfolioConfig !== null ? await readPortfolioActivityLogs(portfolioConfig) : [current];
+      // The project open now contributes its LIVE log on both scopes: the stored one can lag the newest
+      // entries until the next save, and an auditor reading the file would miss them.
+      const sources = portfolioConfig !== null
+        ? (await readPortfolioActivityLogs(portfolioConfig)).map((s) => (s.id === current.id ? { ...s, log: current.log } : s))
+        : [current];
       const now = new Date();
       return downloadJson(activityAuditFileName(now), JSON.stringify(buildActivityAudit(scope, sources, now, APP_VERSION), null, 2));
     },

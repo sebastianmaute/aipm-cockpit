@@ -125,7 +125,7 @@ import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-ed
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
 import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
-import { SettingsView } from "./settings-view"; import { activityAuditDownloader } from "./activity-audit-download";
+import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
@@ -2874,7 +2874,7 @@ function TaskManagerInner() {
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
-      onReloadProject={isPopout ? undefined : () => { void reloadCurrentProject(); }} activityAudit={isPopout ? undefined : activityAuditDownloader(portfolioMode === "turso" ? tursoConfig : null, { id: portfolioCurrentId ?? "default", name: project.name, archived: false, log: activityLog })} // §510
+      onReloadProject={isPopout ? undefined : () => { void reloadCurrentProject(); }} activityAuditPortfolio={isPopout ? undefined : portfolioMode === "turso" ? tursoConfig : null} // §510
       onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}

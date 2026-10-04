@@ -366,9 +366,12 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   workspace first through `keepLive` (and restores nothing when that keep is not written), then applies
   the kept one like "Restore anyway" and saves it by the normal path, and removes the restored slot. The
   version that was open is then itself a kept version in the same notice, so a restore can be undone
-  there. ★★ `journalWorkspace` is lenient by default: `jsonToWorkspace` answers unparseable text with an
-  EMPTY workspace, not a throw, so a caller that APPLIES a record must pass `strict`, or a corrupt record
-  is restored as an empty project.
+  there. ★★ `journalWorkspace` decodes STRICTLY on every path (§668): lenient, `jsonToWorkspace` answers
+  unparseable text with an EMPTY workspace, not a throw, and a corrupt journal used to be applied as an
+  empty project by the load restore (no click) and by "Restore anyway". An undecodable journal is now
+  never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
+  leaves the record for the next confirmed save to clear. ★ An EMPTY but readable journal is NOT refused
+  — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
 `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./settings-view";
 import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
 import { t } from "./i18n";
+import { TestProviders } from "./test-providers";
 
 vi.mock("./jira-settings", () => ({ JiraSettingsSection: () => <div>jira-stub</div> }));
 vi.mock("./storage-config", () => ({ StorageConfigSection: () => <div>storage-stub</div> }));
@@ -371,23 +372,29 @@ describe("SettingsView", () => {
 
 // open-followups §510 — the internal activity-log download sits under Storage, in expert mode only.
 describe("SettingsView — activity audit download (§510)", () => {
-  const audit = { scope: "current" as const, download: vi.fn(async () => true) };
   const heading = () => screen.queryByRole("heading", { name: t("en-US", "activityAuditTitle") });
 
-  it("shows under Storage in expert mode", () => {
-    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, activityAudit: audit })} />);
+  it("shows under Storage in expert mode, naming the project-only scope off a portfolio", () => {
+    render(<TestProviders><SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, activityAuditPortfolio: null })} /></TestProviders>);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
     expect(heading()).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "activityAuditScopeCurrent"))).toBeInTheDocument();
+  });
+
+  it("names the whole portfolio when given a multi-project Turso config", () => {
+    render(<TestProviders><SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, activityAuditPortfolio: { httpUrl: "https://x.turso.io", authToken: "t" } })} /></TestProviders>);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
+    expect(screen.getByText(t("en-US", "activityAuditScopePortfolio"))).toBeInTheDocument();
   });
 
   it("is absent outside expert mode", () => {
-    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: false }, activityAudit: audit })} />);
+    render(<TestProviders><SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: false }, activityAuditPortfolio: null })} /></TestProviders>);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
     expect(screen.getByText("storage-stub")).toBeInTheDocument(); // the Storage block itself rendered
     expect(heading()).toBeNull();
   });
 
-  it("is absent without a downloader (a popout)", () => {
+  it("is absent when no scope is passed (a popout)", () => {
     render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true } })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
     expect(screen.getByText("storage-stub")).toBeInTheDocument();

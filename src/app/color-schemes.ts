@@ -34,7 +34,9 @@ const USER_ID_RE = /^u-(\d+)$/;
 // resolveSchemeColors never re-derives them), so editing a base colour won't
 // refresh the pin — accepted for the faithful-copy intent. Since §239 a pin is
 // held to its derivation's AA floor at resolve time: one that falls short is
-// nudged there (its hue kept), so this escape hatch can no longer lower contrast.
+// nudged there (its hue kept), or, when nudging cannot reach the floor, replaced
+// by the value derived from the base — so a pin can no longer resolve to less
+// contrast than the scheme would get without it.
 const DERIVED_TOKENS = [
   "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",

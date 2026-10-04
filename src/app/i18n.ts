@@ -4492,12 +4492,16 @@ const enUS = {
   unloadJournalRestoreBlocked: "Saving is paused, so the unsaved changes from your last session can't be restored right now. The notice stays so you can try again.",
   unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
   unloadJournalRestoreAnyway: "Restore anyway",
+  // §668 — a journal that does not decode is never applied.
+  unloadJournalUnreadable: "Unsaved changes from your last session could not be read, so nothing was restored. Your project is unchanged.",
   unloadJournalDiscard: "Discard",
   // §632 — journals under other keys (use-other-journals.ts) and the ones expired at load.
   unloadJournalOthers: "This browser still keeps unsaved drafts from earlier sessions for other projects or storage locations. Reload the page with that project open to restore one, or download or discard it here.",
   unloadJournalOthersEntry: "{0} — from {1}, {2} KB",
   unloadJournalKeptEntry: "{0} — not saved (conflict), from {1}, {2} KB",
-  unloadJournalKeptHint: "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them: restore one of the project you have open here, or download one to recover your changes.",
+  unloadJournalKeptHint: "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them; download one to recover your changes.",
+  // §655 — the hint while at least one listed kept version belongs to the project open now (it offers Restore).
+  unloadJournalKeptHintRestore: "Versions marked \"not saved (conflict)\" were refused because the project was changed in another tab or on another device. Reloading does not restore them: restore one of the project you have open here, or download one to recover your changes.",
   // §655 — "Restore" on a kept version of the project in scope (use-storage-backend.ts restoreKeptJournal).
   unloadJournalRestore: "Restore",
   unloadJournalKeptRestoreConfirmTitle: "Restore this version?",

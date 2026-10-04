@@ -725,6 +725,16 @@ describe("SP1 seed + foundational chips", () => {
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
   });
 
+  it("adds a prefill after a draft the user is typing, never replacing it (§519)", () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher: makeDispatcher(), onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn() };
+    const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "half-typed question" } });
+    rerender(<ChatPanel {...props} chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} />);
+    expect(textarea.value).toBe("half-typed question\nPlan the kickoff");
+  });
+
   it("auto-sends the seed when autoSend is true and the key is present", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();

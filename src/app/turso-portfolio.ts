@@ -80,9 +80,12 @@ export function activityLogsStatement(): SqlStmt {
 }
 
 function decodeLog(projectId: string, raw: string | undefined): ActivityEntry[] {
-  if (raw === undefined) return [];
+  // No row, or a SQL NULL (which `rowObjects` reads as ""): the project has no stored log.
+  if (raw === undefined || raw === "") return [];
   try {
-    return sanitizeActivityLog(JSON.parse(raw));
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error("not an array");
+    return sanitizeActivityLog(parsed);
   } catch (err) {
     // One unreadable log must not sink the download of every other project's: it is listed empty
     // and logged, the same trade a load makes for a corrupt meta blob.
