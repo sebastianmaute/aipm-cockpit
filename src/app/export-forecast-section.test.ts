@@ -137,7 +137,7 @@ describe("exportForecastFor — the budget-module gate (§545)", () => {
     expect(src).toContain("const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle);");
     expect(src).toContain("{ budgetForecast: exportForecast }");
     // Whitespace-tolerant: the deps object passed to buildShellChrome names exportForecast.
-    expect(src).toMatch(/buildShellChrome({[^}]*exportForecast[^}]*})/);
+    expect(src).toMatch(/buildShellChrome\(\{[^}]*\bexportForecast\b[^}]*\}\)/);
   });
 });
 
