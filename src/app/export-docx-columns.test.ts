@@ -66,6 +66,30 @@ describe("docxSection", () => {
   });
 });
 
+// Post-merge review M2 — a role prints its discipline and grade NAMES, never their ids.
+describe("docxSection — roles", () => {
+  const refs = { disciplines: [{ id: 3, name: "Consulting" }], grades: [{ id: 2, name: "Senior" }], disciplineLabel: "Discipline", gradeLabel: "Grade" };
+  const rolesRow = () => EXPORT_SECTION_FIELDS.roles.map((f) => (f === "disciplineId" ? "3" : f === "gradeId" ? "2" : f === "id" ? "17" : `v:${f}`));
+
+  it("prints names under Discipline / Grade, and no internal role id", () => {
+    const out = docxSection(section("roles", [rolesRow()]), refs);
+    expect(out.columns.slice(0, 2)).toEqual(["Discipline", "Grade"]);
+    expect(out.rows[0].slice(0, 2)).toEqual(["Consulting", "Senior"]);
+    expect(out.columns).not.toContain("L:id");
+    expect(out.rows[0]).not.toContain("17");
+  });
+
+  it("prints an id with no matching discipline or grade as stored", () => {
+    const out = docxSection(section("roles", [rolesRow()]), { ...refs, grades: [] });
+    expect(out.rows[0].slice(0, 2)).toEqual(["Consulting", "2"]);
+  });
+
+  it("leaves other sections alone when given the lookups", () => {
+    const s = section("milestones", [EXPORT_SECTION_FIELDS.milestones.map((f) => `v:${f}`)]);
+    expect(docxSection(s, refs)).toEqual(docxSection(s));
+  });
+});
+
 describe("docxColumnWidths", () => {
   const WIDTH = 14400;
 

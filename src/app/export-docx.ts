@@ -11,7 +11,7 @@ import {
 } from "./export-ooxml-shared";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { DOC_STYLES, buildDocxPackage, buildDocxTable, docxContentWidth } from "./ooxml-docx-primitives";
-import { docxColumnWidths, docxSection } from "./export-docx-columns";
+import { docxColumnWidths, docxSection, type DocxRefs } from "./export-docx-columns";
 
 // ============================================================================
 // DOCX
@@ -27,9 +27,9 @@ import { docxColumnWidths, docxSection } from "./export-docx-columns";
  *  is lenient, which is how `<w:color/><w:i/>` sat in both paragraphs here
  *  unnoticed. This is the same rule `DOCX_MARK_RPR`'s `rank` table enforces for
  *  the rich path — read its comment before reordering anything here. */
-function buildDocxSection(full: ExportSection, links: LinkSink): string {
+function buildDocxSection(full: ExportSection, links: LinkSink, refs?: DocxRefs): string {
   // §512 — Word prints the curated columns, sized to their content (export-docx-columns.ts).
-  const section = docxSection(full);
+  const section = docxSection(full, refs);
   const widths = docxColumnWidths(section.columns, section.rows, docxContentWidth("landscape"));
   return `
     <w:p>
@@ -55,7 +55,7 @@ function buildDocxSection(full: ExportSection, links: LinkSink): string {
  * per ExportSection. Accepts the pre-computed sections list so the caller
  * (exportWorkspace) can compute it once and share it across all three builders.
  */
-export function buildDocx(sections: ExportSection[]): Blob {
+export function buildDocx(sections: ExportSection[], refs?: DocxRefs): Blob {
   // ★★ ONE sink for the whole document, because `word/_rels/document.xml.rels`
   // is one relationship scope no matter how many sections feed it — a sink per
   // section would mint `rId2` repeatedly and two links would collide on one id.
@@ -69,7 +69,7 @@ export function buildDocx(sections: ExportSection[]): Blob {
   // an upper bound on the media count (`2 + mediaIdCeiling(doc)`). Do not copy
   // that expression here, and do not copy this bare `2` there.
   const links = createLinkSink(2);
-  const sectionsXml = sections.map((section) => buildDocxSection(section, links)).join("");
+  const sectionsXml = sections.map((section) => buildDocxSection(section, links, refs)).join("");
 
   const body = `<w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>

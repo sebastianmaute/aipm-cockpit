@@ -52,7 +52,7 @@ import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import { assetExportPlaceholder } from "./asset-export-placeholder";
 
 /** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
@@ -392,7 +392,7 @@ function renderBlock(
       const resolved = resolveDataSection(block.key, ws, lang);
       if (!resolved) return "";
       // §512 — the same curated, content-sized columns as the workspace export's Word file.
-      const section = docxSection(resolved);
+      const section = docxSection(resolved, { disciplines: ws.disciplines ?? [], grades: ws.grades ?? [], disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });
       return (
         para(section.title, "Heading2") +
         buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links, docxColumnWidths(section.columns, section.rows, CONTENT_WIDTH))

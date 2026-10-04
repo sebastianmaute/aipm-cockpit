@@ -696,6 +696,18 @@ describe("renderDocumentDocx — dataSection blocks", () => {
     expect(textNodes(xml).join(" ")).not.toContain("A task");
   });
 
+  it("prints a role's discipline and grade names, not their ids (post-merge review M2)", async () => {
+    const wsRoles = {
+      tasks: [], raid: [],
+      roles: [{ id: 1, disciplineId: 3, gradeId: 2, internalRate: 100, externalRate: 150, rateBasis: "hour" }],
+      disciplines: [{ id: 3, name: "Consulting" }], grades: [{ id: 2, name: "Senior" }],
+    } as unknown as Workspace;
+    const text = textNodes(await documentXml(doc([{ type: "dataSection", key: "roles" }]), wsRoles));
+    expect(text).toContain("Consulting");
+    expect(text).toContain("Senior");
+    expect(text).toContain(t("en-US", "rolesDiscipline"));
+  });
+
   // §512 — the embedded register prints the same curated, content-sized columns as the export.
   it("prints the curated Word columns, sized to their content", async () => {
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), wsWithRaid);
