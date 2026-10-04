@@ -1427,72 +1427,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
-  // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
-  //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
-  //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
-  //   `mountedRef`, so a teardown cannot throw (§72).
-  // ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
-  // ★★★ THE RE-DERIVE RECIPE HERE WAS ITSELF A DEFEATED CHECK UNTIL 2026-09-20, in TWO ways, and
-  //   both are worth knowing because the shape recurs. It ran `grep -c` for this function's name
-  //   followed by an open paren, spelled plainly, and claimed the result "counts the wraps plus this
-  //   declaration". (1) THERE IS NO DECLARATION ROW to subtract: the declaration below is spelled
-  //   with an open ANGLE bracket, not a paren, so it never matched — the extra hit being attributed
-  //   to it was THE RECIPE'S OWN COMMENT LINE, matching the pattern it spelled. (2) `grep -c` counts
-  //   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
-  //   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
-  //   explained away by a plausible-sounding subtraction reads as verified forever.
-  // ★★★ EVERY PROSE MENTION OF THIS FUNCTION'S NAME ANYWHERE IN THIS FILE USES THE BRACKET CLASS —
-  //   above this line as well as below it, and that scope is the whole point. This warning used to
-  //   say "every mention BELOW", which describes a REGION while the recipe scans a FILE: a mention
-  //   added 970 lines ABOVE poisoned it just the same, and did, while the warning still read as
-  //   satisfied. A guard whose stated scope is narrower than the thing it guards is a loophole with
-  //   documentation. Match the two, or the hole re-opens on the next edit anywhere in the file.
-  // ★★ It is not decoration either: the first attempt at this correction spelled the old broken
-  //   pattern twice while describing it, which pushed the corrected recipe from 10 back to 12. An
-  //   explanation of a self-matching check can re-poison the check. Count OCCURRENCES, never lines:
-  //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
-  //   It printed 10 on 2026-09-20, re-run after the prose around it was final (it printed 11 in
-  //   between, from the unbracketed prose mention up at the ref declaration — the miss that made
-  //   the scope fix above necessary). Read the hits rather than the number either way —
-  //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
-  // ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
-  //   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
-  //   by ONE caller, `chat-panel.tsx`'s unmount cleanup — also goes true.
-  // ★★★ WHY THE SPLIT EXISTS: A COMPOSITION REGRESSION NO PER-TASK REVIEW COULD SEE. §590 put
-  //   `onPickStorageFile` under the hold and §596 made an unmount-under-hold cancel the in-flight
-  //   AI turn. Each is right alone; composed, a plain Save-As, a CANCELLED OS file dialog and a
-  //   same-project Reload each silently killed a turn — and the "stopped" note lands on an unmounted
-  //   panel, so the user is not even told. That is the exact silent shape §596 existed to undo,
-  //   arriving by another route.
-  // ★★★ THE RULE, and it decides every row below: CANCELLING IS A COST OPTIMISATION — do not pay
-  //   for tokens on a turn whose project is going away. DROPPING a wrong-scope write is the
-  //   CORRECTNESS guarantee and belongs to the scope EPOCH, which runs at resolution and needs no
-  //   prediction. So this flag is biased the safe way: `"same-scope"` is the default posture, and an
-  //   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
-  //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
-  //   wrong towards `"changes-scope"` destroys the user's work silently.
-  // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
-  //   whole rule — read it before reclassifying anything. EVERY `"changes-scope"` op can still
-  //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
-  //   of those false-cancels a turn too. A FAILURE is accepted because it announces itself — the
-  //   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
-  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the axis is
-  //   "does the user learn something went wrong", not "is the outcome certain".
-  // ★★★ THAT AXIS DOES NOT COVER A NO-OP GUARD, and claiming it did was this paragraph's own worked
-  //   example contradicting its rule. Of the three aborts named above, only `guardTurso`'s
-  //   missing-config branch toasts. Its `isPopout` branch and `switchToTursoProject`'s same-target
-  //   return emit NOTHING, so they are silent false-cancels by the definition one line up — the
-  //   thing the rule exists to prevent. They are acceptable on a DIFFERENT and checkable ground:
-  //   neither is reachable from the UI. A popout offers no project ops, and the project picker does
-  //   not offer the project already open. ★★ If either ever becomes reachable, it is not a residual
-  //   any more — it is a B1-shaped defect, and the fix is to move that op to `"same-scope"`, not to
-  //   re-argue this paragraph.
-  //   (The three sites, so the classification can be re-checked rather than re-argued:
-  //   `use-storage-turso-ops.ts`'s `guardTurso` — its `isPopout` and missing-config branches — and
-  //   `switchToTursoProject`'s `deps.tursoProjectId === id` return.)
-  // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
-  //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
-  //   epoch drops its write at resolution. Only the tokens are spent.
+  // ★★ §548 — the op hold: `holdDuring` keeps `loadPending` up for the WHOLE of an op that awaits and then
+  //   replaces the workspace. Its full rationale is in docs/AGENTS/storage.md, "The op hold (`holdDuring`, §548)".
   function holdDuring<A extends unknown[]>(
     op: (...opArgs: A) => Promise<void>,
     scope: "changes-scope" | "same-scope",
