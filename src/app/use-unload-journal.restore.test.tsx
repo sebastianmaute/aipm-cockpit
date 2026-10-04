@@ -11,7 +11,7 @@
 //   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, type TranslationKey } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageConfig } from "./storage";
 import type { Task } from "./types";
@@ -669,7 +669,7 @@ describe("§655 — Restore a kept version of the project in scope", () => {
   const entryFor = (result: Result, projectKey: string) => result.current.otherJournals.others.find((e) => e.journal.projectKey === projectKey)!;
   /** Kept slots of the live version: the numbered ones beside the seeded slot. */
   const numberedKept = () => Object.keys(localStorage).filter((k) => k.startsWith(`${KEPT_KEY}:`));
-  const toastsOf = (key: string) => showToast.mock.calls.filter((c) => c[1] === t("en-US", key));
+  const toastsOf = (key: TranslationKey) => showToast.mock.calls.filter((c) => c[1] === t("en-US", key));
 
   it("keeps the live version first, applies the kept one, saves it, and removes its slot", async () => {
     seedJournal("", KEPT_KEY, "browser:kept", KEPT);
