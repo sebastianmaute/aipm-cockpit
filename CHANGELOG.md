@@ -127,6 +127,9 @@ longer carries its own changelog comment.
   still in the future. It is not a required check.
 - **A CHANGELOG line is now required (§527).** CI fails a pull request that changes app code without a
   line in `CHANGELOG.md`, unless it carries the `no-changelog` label (`npm run changelog:check`).
+- **CHANGELOG check and future-clock run, tightened (§527, §149).** A `CHANGELOG.md` change now counts only
+  when it adds a line. The weekly future-clock run moved to its own workflow (`future-clock.yml`), so
+  it can be started alone, and it annotates each failing test.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

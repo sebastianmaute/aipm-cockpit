@@ -248,17 +248,9 @@ describe("scheduled.yml", () => {
     expect(SCHED).not.toMatch(/^ {2}(push|pull_request):/m);
   });
 
-  it("has the five weekly jobs, none of them a required check", () => {
-    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "unit-future-clock", "dast-zap", "register-sync"]);
+  it("has the four weekly jobs, none of them a required check", () => {
+    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "dast-zap", "register-sync"]);
     for (const id of jobIds(SCHED)) expect(REQUIRED).not.toContain(id);
-  });
-
-  // §149: the clock offset only takes effect through this env var, read by vitest.setup.ts.
-  it("runs the future-clock suite with the clock offset set, after installing desktop deps", () => {
-    const b = jobBlock(SCHED, "unit-future-clock");
-    expect(b).toMatch(/VITEST_CLOCK_OFFSET_DAYS: "400"/);
-    expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
-    expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
   });
 
   it("register-sync tolerates its own failure and is dormant until the flip", () => {
@@ -282,6 +274,29 @@ describe("scheduled.yml", () => {
     const b = jobBlock(SCHED, "unit-shuffled-random");
     expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
     expect(b.indexOf("- run: npm --prefix desktop ci")).toBeGreaterThan(b.indexOf("- run: npm ci"));
+    expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
+  });
+});
+
+// §149: its own workflow, so a manual run costs only this suite.
+describe("future-clock.yml", () => {
+  const FUTURE = read(".github/workflows/future-clock.yml");
+  workflowRules("future-clock.yml", FUTURE);
+
+  it("runs weekly and on demand, never on push or pull_request, and is not a required check", () => {
+    expect(FUTURE).toMatch(/cron: "0 4 \* \* 1"/);
+    expect(FUTURE).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(FUTURE).not.toMatch(/^ {2}(push|pull_request):/m);
+    expect(jobIds(FUTURE)).toEqual(["unit-future-clock"]);
+    expect(REQUIRED).not.toContain("unit-future-clock");
+  });
+
+  // The clock offset only takes effect through this env var, read by vitest.setup.ts.
+  it("runs the suite with the clock offset set and annotated failures, after installing desktop deps", () => {
+    const b = jobBlock(FUTURE, "unit-future-clock");
+    expect(b).toMatch(/VITEST_CLOCK_OFFSET_DAYS: "400"/);
+    expect(b).toMatch(/--reporter=github-actions/);
+    expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
     expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
   });
 });

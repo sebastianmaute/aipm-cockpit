@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { evaluateChangelog, isAppCode, OPT_OUT_LABEL, runChangelogCheck } from "./changelog-check-lib.mjs";
 
-/** A fake git: merge-base → "base", diff → the given files. */
-function fakeGit(files) {
+/** A fake git: merge-base → "base", diff → the given files, numstat → `changelogAdded` added lines. */
+function fakeGit(files, changelogAdded = 1) {
   return (args) => {
     if (args[0] === "merge-base") return "base\n";
+    if (args[0] === "diff" && args.includes("--numstat")) return `${changelogAdded}\t3\tCHANGELOG.md\n`;
     if (args[0] === "diff") return files.join("\n") + "\n";
     throw new Error(`unexpected git ${args.join(" ")}`);
   };
@@ -51,6 +52,13 @@ describe("runChangelogCheck", () => {
     expect(r.code).toBe(2);
     const noToken = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx"]), fetchLabels: async () => [OPT_OUT_LABEL], readEvent, env: { ...PR_ENV, GH_TOKEN: "" } });
     expect(noToken.code).toBe(2);
+  });
+
+  it("does not take a CHANGELOG.md change that only deletes lines as the entry", async () => {
+    const r = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx", "CHANGELOG.md"], 0), fetchLabels: async () => [], readEvent, env: {} });
+    expect(r.code).toBe(1);
+    const added = await runChangelogCheck({ git: fakeGit(["src/app/a.tsx", "CHANGELOG.md"], 1), fetchLabels: async () => [], readEvent, env: {} });
+    expect(added.code).toBe(0);
   });
 
   it("stands down on CI events other than a pull request", async () => {

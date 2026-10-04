@@ -29,8 +29,9 @@ and the job ids in `.github/workflows/ci.yml` differ.
 
 ## Jobs
 
-Three workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
-(tag-triggered, see below) and `.github/workflows/scheduled.yml` (weekly, see below). `ci/gitlab-sync.yml`
+Four workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
+(tag-triggered, see below), `.github/workflows/scheduled.yml` (weekly, see below) and
+`.github/workflows/future-clock.yml` (weekly, one job, described with the weekly jobs below). `ci/gitlab-sync.yml`
 is NOT one of them — it is a GitLab-side CI config, run by GitLab's own CI configuration path, that
 pushes GitHub's history into the read-only mirror and then, in a second job (`mirror-releases`, §640),
 creates a GitLab release for every GitHub release that has none yet, with asset links to the GitHub
@@ -183,14 +184,6 @@ on it and none of its jobs is a required check: a red run is the signal.
   silently drops along with everything after it in the step, summary and failure included (§612/§614)
   — fixed to `--reporter=default`, a straight swap here (unlike `ci.yml`'s `unit-shuffled`, `test:run`
   has no reporter baked in to sit alongside).
-- **`unit-future-clock`** (45 min, §149). Same installs as `unit-shuffled-random`, then
-  `npm run test:run -- --reporter=default` with `VITEST_CLOCK_OFFSET_DAYS=400`: `vitest.setup.ts` passes
-  that to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` 400 days ahead in
-  every test. A test that goes red here passes today only because a hardcoded date is still in the
-  future. Reproduce one with `VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>`. A file that installs
-  its own fake timers still inherits the shift (`vi.useFakeTimers()` starts from the shifted
-  `Date.now()`); only a file that calls `vi.setSystemTime` itself, or restores real timers before it
-  asserts, sets its own clock and is not covered.
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),
@@ -209,6 +202,20 @@ on it and none of its jobs is a required check: a red run is the signal.
   than 50 register issues seen). It replaced `followups-gitlab-sync`, which was deleted at the flip
   together with its script and test
   (`docs/superpowers/specs/2026-09-23-issues-migration-design.md`).
+
+`future-clock.yml` (§149) runs one job, `unit-future-clock`, on cron `0 4 * * 1` (Monday 04:00 UTC) and on
+`workflow_dispatch`. It is its own workflow so a manual run costs only that suite's minutes; it is not a
+required check.
+
+- **`unit-future-clock`** (45 min). Same installs as `unit-shuffled-random`, then
+  `npm run test:run -- --reporter=default --reporter=github-actions` (the second reporter annotates each
+  failing test on the run, which is where the findings are recorded) with `VITEST_CLOCK_OFFSET_DAYS=400`: `vitest.setup.ts` passes
+  that to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` 400 days ahead in
+  every test. A test that goes red here passes today only because a hardcoded date is still in the
+  future. Reproduce one with `VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>`. A file that installs
+  its own fake timers still inherits the shift (`vi.useFakeTimers()` starts from the shifted
+  `Date.now()`); only a file that calls `vi.setSystemTime` itself, or restores real timers before it
+  asserts, sets its own clock and is not covered.
 
 ## Operating it
 
