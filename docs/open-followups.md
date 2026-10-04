@@ -37718,7 +37718,7 @@ and `assetBytesToObjectUrl`), so there is no stored thumbnail and nothing new on
 which the ★ note below advised against; the owner chose it on 2026-10-03 over storing a thumbnail at
 upload (a new field on all six write paths plus a backfill), on the condition that it is bounded. What
 bounds it: an `IntersectionObserver` (100px `rootMargin`) loads a row as it comes into view and, staying
-connected, revokes its URL and drops any still-queued load when it leaves, reloading on the way back — so
+connected, revokes its URL when it leaves (a load still queued then fetches nothing), reloading on the way back — so
 live object URLs, each the asset's FULL stored bytes, are bounded by the rows in view (the library itself
 has NO per-workspace cap; `ASSET_MAX_PER_DOCUMENT` caps a document). Loads queue through
 `createLoadLimiter` (`asset-load-limiter.ts`), three at a time per mounted library. Rows already known to be
@@ -37731,7 +37731,12 @@ no cap, a named `alt`, and from the two reviews: no reconcile of the shown URL o
 / another key, leaving the view ignored, the load not gated on view) each turn a test red. The 2026-10-03
 closure was re-dated today because the second review (2026-10-04) changed the behaviour: the first version
 kept every URL until unmount. Notes for a reader of the tests are in `docs/AGENTS/documents.md` beside the
-axe-coverage note. Not eye-verified on a live Turso library.
+axe-coverage note. Not eye-verified on a live Turso library. Follow-up on `fix/556-thumbnail-minors` (the second
+review's optional minors): a row that scrolls back in while its fetch is still running reuses that fetch (m1), and
+a row that turns available again while off-screen waits for the observer instead of loading on a stale "in view"
+(m3); each has a test in `asset-thumbnail.test.tsx` that its mutant turns red. The 100px margin applies at the
+viewport edge rather than the library's scroller (m4); in-view and the URL bound are unaffected, and the
+component's header records why the root stays the viewport.
 
 **Original status:** OPEN 2026-09-13 — `grep -rli thumbnail src/app` → only `src/app/document-asset-upload.test.ts`,
 and `grep -n "No thumbnails in the library table" docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`
@@ -38086,7 +38091,7 @@ Size L if built.
 the 3162 below). The baseline entry is lowered by hand from 6040 to **3467**, the measured length, so `size:check` now
 fails on any growth (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). `--update` was not used: it drops
 the other three rows. The file is still over the LIMIT and the hooks-and-effects consolidation is still owed, so the
-entry stays open. OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
+entry stays open. Before this update: OPEN 2026-09-13 — measured on `00f2a273` with the gate's own metric (file text split on
 newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/baselines/file-sizes.json`
 → baseline **6040**, and `grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600.
 
