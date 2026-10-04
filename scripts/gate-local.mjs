@@ -52,6 +52,7 @@ export const GATE_STEPS = [
   s("unit-shuffled", ["npm", "run", "test:shuffle", "--", `--maxWorkers=${VITEST_WORKERS}`]),
   s("static", ["npm", "run", "dup:check"]),
   s("static", ["npm", "run", "size:check"]),
+  s("static", ["npm", "run", "tooltips:check"]),
   s("static", ["npm", "run", "docs:symbols:check"]),
   s("static", ["npm", "run", "docs:claims:check"]),
   s("static", ["npm", "run", "docs:scripts:check"]),

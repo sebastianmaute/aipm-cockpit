@@ -875,11 +875,13 @@ describe("ActivityLogPanel sortable column headers", () => {
     const cells = Array.from(firstRow.querySelectorAll("td"));
     expect(cells[2]?.textContent).toContain(firstLabel);
   });
-  // ★★★ e2e CANNOT SEE THIS PANEL. `e2e/seed.ts` never seeds `activityLog`, so the
-  // Activity view renders its empty state with no table — measured: the
-  // header-row-uniformity spec reported 11 cells for it, and all 11 were the
-  // unconditionally-mounted RAID panel's, not this one's. This is the only
-  // detector for either property below.
+  // ★★★ e2e DID NOT SEE THIS PANEL when this was written: the seed carried no
+  // `activityLog`, so the Activity view rendered its empty state with no table —
+  // measured: the header-row-uniformity spec reported 11 cells for it, and all 11
+  // were the unconditionally-mounted RAID panel's, not this one's. ★ Since §99 the
+  // seed carries the master's activity log, so the table does render under e2e, but
+  // no e2e spec measures these headers (Activity is not in that spec's views), so
+  // this is still the only detector for either property below.
   //
   // ★ A class assertion is weaker than the computed weight that spec reads. Note
   // this panel now has NO raw `<th>` — all four headers are `SortResizeTh` since

@@ -29,7 +29,7 @@ const VISUAL_VIEWS = ["Dashboard", "Gantt", "Open Points"] as const;
 // fatal for a pixel baseline. A literal copy of today's `FROZEN_NOW` value,
 // decoupled here, means a future bump no longer forces these three baselines
 // to be regenerated. Pick a fresh instant only if it drifts outside the
-// sample data's populated date range (see e2e/seed.ts's `plan`/`budgetHistory`
+// sample data's populated date range (see e2e/seed-workspace.ts's `plan`/`budgetHistory`
 // comments for that range).
 const VISUAL_FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
 
@@ -82,7 +82,7 @@ for (const name of VISUAL_VIEWS) {
 // whole-view snapshots above opens Reports, so this test photographs the Budget
 // report block's chart (stepped line, markers, their labels) and its change table
 // (rows and split rows), after switching orientation, from the history
-// e2e/seed.ts authors. The Budget report puts the table full width BELOW its
+// e2e/seed-workspace.ts authors. The Budget report puts the table full width BELOW its
 // forecast row (card 30% beside chart 70% from `xl`, so side by side at this
 // 1440px viewport), not inside `BurndownChartPanel` — the report sets its
 // `detachChangeTable` and mounts `BurndownChangeTableBlock` under the row.

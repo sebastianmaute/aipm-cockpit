@@ -187,7 +187,7 @@ const rowsOf = (r: PipelineResult | undefined): { value: string }[][] =>
 
 /** ★★ UNIQUE AND UNGUESSABLE-BY-ACCIDENT ON PURPOSE. This exact string exists
  *  nowhere else in the repo — not in `sample-workspace-small.json`, not in
- *  `e2e/seed.ts` — so `expectLiveDocumentFromTurso` finding it in the DOM cannot
+ *  `e2e/seed-workspace.ts` — so `expectLiveDocumentFromTurso` finding it in the DOM cannot
  *  be satisfied by any local fixture. That is what makes it a liveness proof
  *  rather than a rendering check. */
 const DOC_TITLE = "S242 documents-only capture probe";

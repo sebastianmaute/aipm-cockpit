@@ -12,6 +12,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
+  remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an
+  imported file in the new-project wizard now show their name when you hover over them.
 - **Exports include the budget forecast (§545).** PDF, Excel, PowerPoint and Word exports now have a
   Budget forecast section: budget, actuals and remaining, the forecast at current pace and at current
   efficiency (hours beside the euros) with their variance, the gap between the two forecasts, the
@@ -121,6 +124,17 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Tooltip ratchet (§109).** `npm run tooltips:check`, a `static` gate, fails when a file under `src/app`
+  gains an icon-only button with no hover tooltip (`title`) beyond `docs/baselines/untitled-icon-buttons.json`.
+  It reads the TypeScript syntax tree, so comments can no longer confuse it.
+- **The e2e seed covers every stored slice (§99).** `e2e/seed.ts` now takes its IndexedDB stores and
+  keys from `src/app/idb-layout.ts`, the list the browser backend uses, instead of two hand lists that had
+  fallen behind, so the steering committee, knowledge items, calendar meetings and activity log reach the
+  e2e app too. A unit test fails when a new slice is added without seed data.
+- **The desktop sign-in popup has a unit harness (§547).** Its auth-flow state machine and the
+  Electron events that drive it moved from `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts`,
+  with tests that replay the three review-found sign-in bugs (M-C, m1, m2); each fails if its fix is reverted.
+  No behaviour change.
 - **Recent closures are status-checked (§429).** `followups:status:check` now also reads the
   `**Status:**` line of a register entry closed on or after 2026-10-04: it must open with CLOSED, carry a
   date and cite an executed command, or, for a decision closure, open its reason with `owner decision <date>` (a real date).

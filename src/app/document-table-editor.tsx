@@ -147,6 +147,7 @@ export function TableBlockEditor({
                     variant="secondary"
                     size="xs"
                     aria-label={qualify(t(lang, "documentsRemoveColumn", String(c + 1)))}
+                    title={qualify(t(lang, "documentsRemoveColumn", String(c + 1)))}
                     disabled={value.columns.length <= 1}
                     className="ml-1"
                     onClick={() => removeColumn(c)}
@@ -192,6 +193,7 @@ export function TableBlockEditor({
                     variant="secondary"
                     size="xs"
                     aria-label={qualify(t(lang, "documentsRemoveRow", String(r + 1)))}
+                    title={qualify(t(lang, "documentsRemoveRow", String(r + 1)))}
                     disabled={value.rows.length <= 1}
                     onClick={() => removeRow(r)}
                   >

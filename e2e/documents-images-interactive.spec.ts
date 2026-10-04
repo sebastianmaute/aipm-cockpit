@@ -220,7 +220,7 @@ const PNG_DROP = {
   base64: "iVBORw0KGgoAAAANSUhEUgAAAAcAAAACCAIAAAAb/VE3AAAAEUlEQVR4nGOQWxWFiRiwigIAWdsP3dZXAIYAAAAASUVORK5CYII=",
 } as const;
 
-/** The e2e-only document seeded in seed.ts that already carries image blocks.
+/** The e2e-only document seeded in seed-workspace.ts that already carries image blocks.
  *  Selected EXPLICITLY: documents-panel.tsx falls back to `selectionPool[0]`,
  *  the UNSORTED `documents` array, which is the sample master's document — not
  *  this one. */
@@ -401,7 +401,7 @@ test.describe("document images — live Turso", () => {
     // URL on a machine with no database — a confusing failure in the one
     // situation this file is supposed to stay quiet in.
     if (!LIVE) return;
-    // The two assets `e2e/seed.ts` puts in the workspace METADATA have no bytes
+    // The two assets `e2e/seed-workspace.ts` puts in the workspace METADATA have no bytes
     // in any real database, so without this every seeded image is dangling and
     // the render tests would measure a seeding gap rather than the product.
     // Written under E2E_PROJECT_ID — if that key is wrong the images do not

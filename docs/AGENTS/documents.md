@@ -970,7 +970,7 @@ is why they can be kept divergent on purpose without drifting by accident. ★ I
 global regex carries `lastIndex` across `.test` calls and would drop every OTHER image-only
 paragraph in a document.
 ★★ Consequence for any e2e or fixture work: BEFORE this fix a seeded image-only paragraph did not
-survive to render, so a spec written against one went vacuously green. `e2e/seed.ts` now seeds BOTH
+survive to render, so a spec written against one went vacuously green. `e2e/seed-workspace.ts` now seeds BOTH
 shapes — a captioned figure AND an image-only paragraph — and **they are not interchangeable, so do
 not "simplify" the seed down to one.** The captioned figure is valid whatever the block-drop rules
 do, which makes it the stable carrier of the CSP/render assertion above. The image-only paragraph
@@ -1721,12 +1721,12 @@ canonical section. The canonical copies are this file's version-model, "Asset im
   compose. ★★ A NEWLY INSERTED paragraph is never image-bearing, so §199's "an inserted paragraph
   becomes the selection" is unaffected — do not merge the two rules into one invariant.
   ★★★ **THE SEEDED KICKOFF DOCUMENT DOES EXERCISE THE COLLAPSE, and this line said it could not.**
-  The sample master has ONE paragraph so nothing collapses there — but `e2e/seed.ts`'s Kickoff
+  The sample master has ONE paragraph so nothing collapses there — but `e2e/seed-workspace.ts`'s Kickoff
   document has THREE paragraphs of which only TWO carry `data-asset-id`, and the collapse has no
   content term whatever: `collapseParagraph={narrow && index !== selected}` turns on width and
   selection ALONE. So its plain paragraph collapses at a narrow pane and is fully editable when
   selected. The image-bearing read-only rule above is TRUE and unaffected; it was the CONCLUSION
-  drawn from it that was wrong. Reproduce: `grep -n 'type: "paragraph"' e2e/seed.ts` (index 1 is
+  drawn from it that was wrong. Reproduce: `grep -n 'type: "paragraph"' e2e/seed-workspace.ts` (index 1 is
   plain) and `grep -n "collapseParagraph={" src/app/document-editor.tsx`. ★ A probe is still better
   off seeding its own plain-paragraph document — for the fixture's clarity, not because the seeded
   ones are incapable. ★★ A

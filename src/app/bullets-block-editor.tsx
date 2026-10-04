@@ -122,6 +122,7 @@ export function BulletsBlockEditor({
               variant="secondary"
               size="xs"
               aria-label={qualify(t(lang, "documentsMoveItemUp", String(i + 1)))}
+              title={qualify(t(lang, "documentsMoveItemUp", String(i + 1)))}
               disabled={i === 0}
               onClick={() => moveItem(i, i - 1)}
             >
@@ -131,6 +132,7 @@ export function BulletsBlockEditor({
               variant="secondary"
               size="xs"
               aria-label={qualify(t(lang, "documentsMoveItemDown", String(i + 1)))}
+              title={qualify(t(lang, "documentsMoveItemDown", String(i + 1)))}
               disabled={i === value.items.length - 1}
               onClick={() => moveItem(i, i + 1)}
             >
@@ -140,6 +142,7 @@ export function BulletsBlockEditor({
               variant="secondary"
               size="xs"
               aria-label={qualify(t(lang, "documentsRemoveItem", String(i + 1)))}
+              title={qualify(t(lang, "documentsRemoveItem", String(i + 1)))}
               // ★ Mirrors document-table-editor.tsx's remove-row/remove-column
               //  bounds. Removing the last item produces `items: []`, which
               //  document-model.ts drops on load — the block would render for

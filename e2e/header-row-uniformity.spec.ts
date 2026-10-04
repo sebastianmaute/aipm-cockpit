@@ -22,10 +22,12 @@
 //     this app mounts UNCONDITIONALLY and merely `hidden`s — so EVERY view was
 //     silently measuring the RAID header row on top of its own. Measured: it added
 //     11 cells to every count.
-// (4) `Activity` was in the list and contributed NOTHING. `e2e/seed.ts` never seeds
-//     `activityLog`, so that view renders its empty state with no table at all —
+// (4) `Activity` was in the list and contributed NOTHING. The seed did not carry
+//     `activityLog` then, so that view rendered its empty state with no table at all —
 //     its '11 cells' were the hidden RAID table's, every run. Its header classes
-//     are covered by a unit test in `activity-log-panel.test.tsx` instead.
+//     are covered by a unit test in `activity-log-panel.test.tsx` instead. ★ Since
+//     §99 the seed DOES carry the master's activity log, so the view now has a table
+//     and could be added back; it has not been, and that run is not measured here.
 //
 // ★★★ Read that list before adding a view: FOUR different wrong cuts all reported
 // success. Check the logged cell COUNT and TEXTS against the table you meant —

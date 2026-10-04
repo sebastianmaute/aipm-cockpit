@@ -123,6 +123,7 @@ export function DocumentBlockGutter({
           variant="ghost"
           size="xs"
           aria-label={rowName("documentsBlockActions")}
+          title={rowName("documentsBlockActions")}
           // ★★ `dialog`, matching the role the PopoverPanel below actually
           //  renders. `aria-expanded` alone says a thing is open or shut
           //  without saying there is anything to open, and axe flags neither

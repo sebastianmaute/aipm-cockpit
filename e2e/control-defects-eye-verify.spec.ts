@@ -201,7 +201,7 @@ test.describe("control-defects eye-verify (§414)", () => {
 
     // ★★★ READ THIS BEFORE TRUSTING THIS TEST. `sawAnyBadge` proves the loop
     //     RAN; it does NOT prove the loop asserted the property under test.
-    //     Measured against `sample-workspace-small.json` + `e2e/seed.ts`: the
+    //     Measured against `sample-workspace-small.json` + `e2e/seed-workspace.ts`: the
     //     maximum number of `.whitespace-nowrap` badges in ANY task's ID cell
     //     under this seed is ONE — `RaidBadge` and `DocumentBadge` each render
     //     a single AGGREGATE badge rather than one per ref, and the Jira badge
@@ -223,7 +223,7 @@ test.describe("control-defects eye-verify (§414)", () => {
   // `documents-panel.tsx` wraps the rendered document in
   // `<div hidden={bodyCollapsed}>` (Task 5, commit 16237df9); clicking the
   // OPEN document's own name toggles `bodyCollapsed` (`handleSelect`).
-  // ★ The fixture carries TWO documents, not one — `e2e/seed.ts` spreads
+  // ★ The fixture carries TWO documents, not one — `e2e/seed-workspace.ts` spreads
   // `SAMPLE_WORKSPACE.documents` and appends "Kickoff pack" (an earlier
   // revision of this comment said "exactly one document", which is false).
   // The anchor below is unaffected, and for a reason that does not depend on

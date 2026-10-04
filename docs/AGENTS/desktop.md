@@ -94,11 +94,13 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   opens externally. Once in the flow ANY https host renders in-app (federated IdPs), until the popup
   navigates back to the app's origin or a load of it fails. The main window cannot enter: it has no
   `windowFacts` entry.
-- ★★ **The flow flag is staged, then committed.** An allowed `will-*` hop stages it in `pendingAuthFlow`;
-  `did-navigate` commits it; `did-fail-load` and `did-fail-provisional-load` discard it through
-  `discardStagedAuthFlow`. `will-redirect` reads the staged value before the committed one. Three bugs in
-  this wiring were found by review and none by a test, because it lives in `main.ts`. §547 files the
-  missing harness.
+- ★★ **The flow flag is staged, then committed.** An allowed `will-*` hop stages it;
+  `did-navigate` commits it; `did-fail-load` and `did-fail-provisional-load` discard it (`onLoadFailed`).
+  `will-redirect` reads the staged value before the committed one (`onWillRedirect`). The state machine
+  AND its event wiring live in `desktop/src/lib/auth-flow-tracker.ts` (`attachAuthFlowNavigation`, which
+  `main.ts` calls once per WebContents), so a missing event registration is under test too: the three
+  review-found bugs (M-C, m1, m2) each have a test in `auth-flow-tracker.test.ts` that fails when the fix
+  is reverted (§547, closed).
 - ★★ **Never script a page the shell does not own.** `isAppPage` gates the two Version-panel scripts,
   the only ones sent to a window other than the main window or the PDF tab: the `did-finish-load` prime
   and Help → Version. The sign-in popup can sit on any https host, and the script would hand it the
