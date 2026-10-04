@@ -239,9 +239,17 @@ describe("scheduled.yml", () => {
     expect(SCHED).not.toMatch(/^ {2}(push|pull_request):/m);
   });
 
-  it("has the four weekly jobs, none of them a required check", () => {
-    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "dast-zap", "register-sync"]);
+  it("has the five weekly jobs, none of them a required check", () => {
+    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "unit-future-clock", "dast-zap", "register-sync"]);
     for (const id of jobIds(SCHED)) expect(REQUIRED).not.toContain(id);
+  });
+
+  // §149: the clock offset only takes effect through this env var, read by vitest.setup.ts.
+  it("runs the future-clock suite with the clock offset set, after installing desktop deps", () => {
+    const b = jobBlock(SCHED, "unit-future-clock");
+    expect(b).toMatch(/VITEST_CLOCK_OFFSET_DAYS: "400"/);
+    expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
+    expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
   });
 
   it("register-sync tolerates its own failure and is dormant until the flip", () => {

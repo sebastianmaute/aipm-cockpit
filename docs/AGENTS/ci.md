@@ -178,6 +178,12 @@ on it and none of its jobs is a required check: a red run is the signal.
   silently drops along with everything after it in the step, summary and failure included (§612/§614)
   — fixed to `--reporter=default`, a straight swap here (unlike `ci.yml`'s `unit-shuffled`, `test:run`
   has no reporter baked in to sit alongside).
+- **`unit-future-clock`** (45 min, §149). Same installs as `unit-shuffled-random`, then
+  `npm run test:run -- --reporter=default` with `VITEST_CLOCK_OFFSET_DAYS=400`: `vitest.setup.ts` passes
+  that to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` 400 days ahead in
+  every test. A test that goes red here passes today only because a hardcoded date is still in the
+  future. Reproduce one with `VITEST_CLOCK_OFFSET_DAYS=400 npx vitest run <file>`. A file that installs
+  its own fake timers or calls `vi.useRealTimers()` in its own hooks is not covered.
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),

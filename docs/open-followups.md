@@ -13084,7 +13084,7 @@ And the `abortRef` read assumes `submitPrompt` is single-flight, which it is onl
 
 ## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
 
-**Status:** two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
+**Status:** **Update 2026-10-04:** the detector the entry asks for now exists. With `VITEST_CLOCK_OFFSET_DAYS` set, `vitest.setup.ts` hands it to `registerClockOffset` (`src/test/clock-offset.ts`), which moves only `Date` that many days ahead in every test (pinned by `src/test/clock-offset.test.ts`; a probe asserting a date past 2027-10-01 passed with the variable at 400 and failed without it). The weekly `unit-future-clock` job in `.github/workflows/scheduled.yml` runs the suite 400 days ahead. The class stays open until that job has run and the tests it lists are fixed. two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
 sweeps for the rest, and the only detector is a red pipeline on the morning it happens. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
 **Work item:** #159

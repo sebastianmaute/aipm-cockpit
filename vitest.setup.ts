@@ -1,7 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { server } from "./src/test/msw-server";
+import { parseClockOffsetDays, registerClockOffset } from "./src/test/clock-offset";
+
+// §149 — off unless VITEST_CLOCK_OFFSET_DAYS is set (the weekly
+// `unit-future-clock` job); then every test runs with `Date` moved that many
+// days ahead. See src/test/clock-offset.ts.
+const clockOffsetDays = parseClockOffsetDays(process.env.VITEST_CLOCK_OFFSET_DAYS);
+if (clockOffsetDays !== null) registerClockOffset(clockOffsetDays, { beforeEach, afterEach }, vi);
 
 // ★★ Testing Library's async budget (`waitFor`, `findBy*`) is SEPARATE from
 // vitest's `testTimeout`, and raising one does not raise the other. This suite
