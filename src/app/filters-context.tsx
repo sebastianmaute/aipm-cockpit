@@ -49,6 +49,13 @@ interface FiltersValue {
   sortKey: SortKey;
   sortDir: SortDir;
   raidFilterTaskId: number | null;
+  /** The Changes view's task filter, armed by the task-row "N changes" badge (open-followups §481). */
+  changeFilterTaskId: number | null;
+  /** The scope epoch (`getScopeEpoch()`) each task backlink was armed in. A backlink only
+   *  applies while the epoch is unchanged, so a project switch retires it — task ids are
+   *  per project, and a stale "#7" would silently filter the next project's register. */
+  raidFilterEpoch: number | null;
+  changeFilterEpoch: number | null;
 
   // React.Dispatch<SetStateAction<...>> so callers can use either the
   // direct-value form (setX(value)) or the updater form (setX(prev =>
@@ -66,9 +73,12 @@ interface FiltersValue {
   setSortKey: Dispatch<SetStateAction<SortKey>>;
   setSortDir: Dispatch<SetStateAction<SortDir>>;
   setRaidFilterTaskId: Dispatch<SetStateAction<number | null>>;
+  setChangeFilterTaskId: Dispatch<SetStateAction<number | null>>;
+  setRaidFilterEpoch: Dispatch<SetStateAction<number | null>>;
+  setChangeFilterEpoch: Dispatch<SetStateAction<number | null>>;
 
   /** Clears exactly the row-HIDING state (search + the five filters + the RAID
-   *  backlink) and LEAVES the sort alone. For callers that are about to apply a
+   *  and Changes task backlinks) and LEAVES the sort alone. For callers that are about to apply a
    *  filter of their own and only need the stale ones out of the way — a sort
    *  cannot hide a row, so resetting it just discards a deliberate user choice. */
   resetFilterValues: () => void;
@@ -107,6 +117,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
+  const [changeFilterTaskId, setChangeFilterTaskId] = useState<number | null>(null);
+  const [raidFilterEpoch, setRaidFilterEpoch] = useState<number | null>(null);
+  const [changeFilterEpoch, setChangeFilterEpoch] = useState<number | null>(null);
 
   const resetFilterValues = useCallback(() => {
     setSearch("");
@@ -117,6 +130,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setLabelFilter("All");
     setHealthFilter("all");
     setRaidFilterTaskId(null);
+    setChangeFilterTaskId(null);
   }, []);
 
   // Delegates rather than repeating the setter list, so the two resets cannot
@@ -142,6 +156,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       sortKey,
       sortDir,
       raidFilterTaskId,
+      changeFilterTaskId,
+      raidFilterEpoch,
+      changeFilterEpoch,
       setSearch,
       setSearchImmediate,
       setPriorityFilter,
@@ -152,6 +169,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       setSortKey,
       setSortDir,
       setRaidFilterTaskId,
+      setChangeFilterTaskId,
+      setRaidFilterEpoch,
+      setChangeFilterEpoch,
       resetFilterValues,
       resetFilters,
     }),
@@ -166,6 +186,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       sortKey,
       sortDir,
       raidFilterTaskId,
+      changeFilterTaskId,
+      raidFilterEpoch,
+      changeFilterEpoch,
       setSearchImmediate,
       resetFilterValues,
       resetFilters,

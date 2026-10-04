@@ -136,6 +136,12 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
    *  this panel is `memo`'d and a context consumer re-renders on ANY context
    *  change regardless of the parent's bailout. */
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Show only changes linked to this task — armed by the task-row "N changes"
+   *  badge (open-followups §481). Lives in `FiltersProvider`, a PARENT, because
+   *  this panel mounts fresh on every visit; null/absent = no task filter. */
+  filterTaskId?: number | null;
+  /** Clears `filterTaskId` (chip ✕, Reset, applying a saved view). */
+  onClearTaskFilter?: () => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -193,6 +199,8 @@ function ChangePanelBody({
   onAiEdit,
   aiEditEnabled,
   documentsByEntity,
+  filterTaskId = null,
+  onClearTaskFilter,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
@@ -237,6 +245,7 @@ function ChangePanelBody({
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = changes.filter((c) => {
+      if (filterTaskId !== null && !c.linkedTaskIds.includes(filterTaskId)) return false;
       if (typeFilter !== "All" && c.type !== typeFilter) return false;
       if (statusFilter !== "All" && c.status !== statusFilter) return false;
       if (q && !(searchHaystack.get(c.id) ?? "").includes(q)) return false;
@@ -248,7 +257,7 @@ function ChangePanelBody({
       : filtered
           .slice()
           .sort((a, b) => compareChange(a, b, "raisedDate", "desc") || a.id - b.id);
-  }, [changes, typeFilter, statusFilter, search, sort, searchHaystack]);
+  }, [changes, filterTaskId, typeFilter, statusFilter, search, sort, searchHaystack]);
 
   const visibleIds = useMemo(() => visible.map((c) => c.id), [visible]);
 
@@ -401,7 +410,7 @@ function ChangePanelBody({
   const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:change-size");
 
   const filtersActive =
-    search.trim() !== "" || typeFilter !== "All" || statusFilter !== "All";
+    search.trim() !== "" || typeFilter !== "All" || statusFilter !== "All" || filterTaskId !== null;
 
   const toolbar = (
     <PaneToolbar>
@@ -440,8 +449,21 @@ function ChangePanelBody({
           </option>
         ))}
       </Select>
+      {filterTaskId !== null && (
+        <button
+          type="button"
+          onClick={() => onClearTaskFilter?.()}
+          // Visible "#7 ×"; the name leads with the same "#7" (WCAG 2.5.3) and
+          // says what the ✕ does, which the glyph alone cannot. No `title`: the
+          // chip clears the task filter only, not every filter (cf. Reset).
+          aria-label={`#${filterTaskId} – ${t(lang, "taskFilterChipClear")}`}
+          className={`rounded-md border border-ui-blue/40 bg-ui-blue/10 px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-ui-blue/20 dark:border-ui-blue/50 dark:bg-ui-blue/15 dark:text-ui-light-grey ${INTERACTIVE}`}
+        >
+          #{filterTaskId} ×
+        </button>
+      )}
       <ColumnConfigPopover lang={lang} cols={CHANGE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
-      <PanelViewsControl lang={lang} view="changes" />
+      <PanelViewsControl lang={lang} view="changes" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
       <CalendarSyncControls
         lang={lang}
         entityLabelKey="calendarSyncEntityChange"
@@ -458,7 +480,10 @@ function ChangePanelBody({
       {filtersActive && (
         <button
           type="button"
-          onClick={() => pf.resetFilters()}
+          onClick={() => {
+            pf.resetFilters();
+            if (filterTaskId !== null) onClearTaskFilter?.();
+          }}
           title={t(lang, "resetFiltersHint")}
           className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >

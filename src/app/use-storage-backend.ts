@@ -940,7 +940,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
     //   arms the destructive-save guard one-shot to bypass them; on refusal the backend keeps the
-    //   data, so a reload restores it.
+    //   data, so a PROJECT reload (`reloadCurrentProject`, the banner's Discard) restores it.
+    //   ★ Not a PAGE reload when an unload journal holds the deletion: the load effect
+    //   re-applies the journal and the guard refuses again (§629).
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
     if (!mayCommitAfterIncompleteLoad()) { return; } // ★★★ The bypass is ALREADY SPENT — at the top of this effect, not here. It has to be: this guard is STICKY, so an arm surviving the return would be carried for hours (use-load-truncation.ts). That is why the hoist above is safe for this return and not merely tidier.

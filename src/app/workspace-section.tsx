@@ -113,6 +113,7 @@ export function WorkspaceSection({
   contactsList,
   onCreateResource,
   handleClearRaidTaskFilter,
+  handleClearChangeTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
   onSendRaidInquiry,
@@ -256,7 +257,14 @@ export function WorkspaceSection({
   // `settings` stays device for non-overridable reads.
   const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
-  const { raidFilterTaskId } = useFilters();
+  const { raidFilterTaskId, changeFilterTaskId, raidFilterEpoch, changeFilterEpoch } = useFilters();
+  // A task backlink applies only in the scope it was armed in: task ids are per
+  // project, so after a project switch a stale "#7" would filter the next
+  // project's register by an unrelated task. The epoch bumps on every swap.
+  // ★ A render-time read: it relies on every epoch bump happening while this tree is unmounted for the load hold (§548).
+  const scopeEpoch = getScopeEpoch();
+  const activeRaidFilterTaskId = raidFilterEpoch === scopeEpoch ? raidFilterTaskId : null;
+  const activeChangeFilterTaskId = changeFilterEpoch === scopeEpoch ? changeFilterTaskId : null;
   // Directory map for resolving a linked owner/assignee's LIVE name in the
   // panels routed here (e.g. the standalone RAID By-Owner report) — the stored
   // owner/assignee string is only a stale-able cache.
@@ -516,7 +524,7 @@ export function WorkspaceSection({
             contacts={contactsList}
             onCreateResource={onCreateResource}
             today={today}
-            filterTaskId={raidFilterTaskId}
+            filterTaskId={activeRaidFilterTaskId}
             onClearTaskFilter={handleClearRaidTaskFilter}
             onSave={handleSaveRaidItem}
             onDelete={handleDeleteRaidItem}
@@ -674,6 +682,8 @@ export function WorkspaceSection({
               raid={raidEnabledForChanges ? raid : []}
               changes={changes}
               documentsByEntity={documentsByEntity}
+              filterTaskId={activeChangeFilterTaskId}
+              onClearTaskFilter={handleClearChangeTaskFilter}
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}

@@ -207,6 +207,87 @@ describe("ChangePanel", () => {
   });
 });
 
+// The task-row "N changes" badge jumps here with `filterTaskId` armed
+// (open-followups §481) — the Changes twin of RAID's task filter.
+describe("ChangePanel — task filter from the task-row badge", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  const linked = {
+    ...base,
+    changes: [
+      ci({ id: 1, title: "Alpha scope", linkedTaskIds: [7] }),
+      ci({ id: 2, title: "Beta cost", linkedTaskIds: [8] }),
+      ci({ id: 3, title: "Gamma quality", linkedTaskIds: [8, 7] }),
+    ],
+  };
+  const chipName = `#7 – ${t("en-US", "taskFilterChipClear")}`;
+
+  it("shows only the changes linked to the filtered task, and a chip naming it", () => {
+    const { queryByText, getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(queryByText("Alpha scope")).toBeTruthy();
+    expect(queryByText("Gamma quality")).toBeTruthy();
+    expect(queryByText("Beta cost")).toBeNull();
+    expect(getByRole("button", { name: chipName })).toHaveTextContent("#7 ×");
+  });
+
+  it("shows every change and no chip when no task filter is armed", () => {
+    const { queryByText, queryByRole } = render(
+      <ChangePanel {...linked} filterTaskId={null} onClearTaskFilter={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(queryByText("Alpha scope")).toBeTruthy();
+    expect(queryByText("Beta cost")).toBeTruthy();
+    expect(queryByText("Gamma quality")).toBeTruthy();
+    expect(queryByRole("button", { name: chipName })).toBeNull();
+  });
+
+  it("clears the task filter from its chip", () => {
+    const onClear = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={onClear} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: chipName }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  // A saved view describes the panel's own filters; applying one must not leave
+  // a task backlink silently narrowing it.
+  it("clears the task filter when a saved view is applied", () => {
+    const onClear = vi.fn();
+    const { getByText, getByLabelText, getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={onClear} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByText("Save current view"));
+    fireEvent.change(getByLabelText("View name"), { target: { value: "Mine" } });
+    fireEvent.click(getByText("Save"));
+    expect(onClear).not.toHaveBeenCalled();
+    const option = getByRole("option", { name: "Mine" }) as HTMLOptionElement;
+    fireEvent.change(getByLabelText("Apply a saved view"), { target: { value: option.value } });
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts the task filter as active, so Reset shows and clears it", () => {
+    const onClear = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={onClear} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: t("en-US", "ganttResetFilters") }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("ChangePanel — inline status select", () => {
   const originalScrollIntoView = Element.prototype.scrollIntoView;
   beforeEach(() => {

@@ -29,8 +29,13 @@ vi.mock("./task-row", () => ({
   // rowToken is exposed as data-row-token so a table-mode test can assert
   // tasks-section actually threads a distinct token per row (the wiring
   // this stub otherwise hides, since TaskRow itself renders no real cells).
-  TaskRow: ({ task, rowToken }: { task: { id: number; taskName: string }; rowToken: string }) => (
-    <tr data-deeplink-row={task.id} data-row-token={rowToken}><td>{task.taskName}</td></tr>
+  // ★ The jump hook is a plain cell click (no role), so this stub adds no control
+  // to the row-unique-name scans elsewhere in this file.
+  TaskRow: ({ task, rowToken, onJumpToChanges }: { task: { id: number; taskName: string }; rowToken: string; onJumpToChanges?: (id: number) => void }) => (
+    <tr data-deeplink-row={task.id} data-row-token={rowToken}>
+      <td>{task.taskName}</td>
+      <td data-testid={`row-jump-changes-${task.id}`} onClick={() => onJumpToChanges?.(task.id)} />
+    </tr>
   ),
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
@@ -244,6 +249,7 @@ function makeProps(): TasksSectionProps {
     changeByTask: new Map(),
     documentsByEntity: new Map(),
     onOpenDocuments: vi.fn(),
+    onJumpToChanges: vi.fn(),
     // jira
     jiraEnabled: false,
     jiraSyncing: false,
@@ -879,6 +885,37 @@ describe("TasksSection", () => {
     expect(
       screen.getByRole("heading", { name: new RegExp(t("en-US", "statusToDo")) }),
     ).toBeInTheDocument();
+  });
+
+  // open-followups §481 — the "N changes" badge's jump must reach every task
+  // surface. The prop is threaded three ways (table rows, board, swimlanes), and
+  // a dropped hop leaves a focusable badge that silently does nothing.
+  describe("threads onJumpToChanges to every task surface", () => {
+    const task = { id: 1, taskName: "T1", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" };
+    const change = { id: 5, title: "C", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-05-01", linkedTaskIds: [1], linkedRaidIds: [], stakeholderIds: [] };
+    const propsWithChange = () => ({
+      ...makeProps(),
+      changeByTask: new Map([[1, [change]]]) as TasksSectionProps["changeByTask"],
+      onJumpToChanges: vi.fn(),
+    });
+
+    it("table rows", () => {
+      stubSettings({ tasksViewMode: "table" });
+      stubWorkspace([task], [task]);
+      const props = propsWithChange();
+      render(<TasksSection {...props} />);
+      fireEvent.click(screen.getByTestId("row-jump-changes-1"));
+      expect(props.onJumpToChanges).toHaveBeenCalledWith(1);
+    });
+
+    it.each(["board", "swimlane"] as const)("%s cards", (mode) => {
+      stubSettings({ tasksViewMode: mode });
+      stubWorkspace([task], [task]);
+      const props = propsWithChange();
+      render(<TasksSection {...props} />);
+      fireEvent.click(screen.getByRole("button", { name: /^1 change – / }));
+      expect(props.onJumpToChanges).toHaveBeenCalledWith(1);
+    });
   });
 
   it("renders the table when tasksViewMode is 'table'", () => {

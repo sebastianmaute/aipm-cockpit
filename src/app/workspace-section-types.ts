@@ -184,6 +184,8 @@ export interface WorkspaceSectionProps {
   contactsList: Contact[];
   onCreateResource?: (name: string, email: string) => number;
   handleClearRaidTaskFilter: () => void;
+  /** Clears the Changes view's task filter armed by the task-row "N changes" badge (open-followups §481). */
+  handleClearChangeTaskFilter: () => void;
   // isNew carries the modal's create/edit intent (id-mint race fix — see
   // entity-id-mint.ts); non-modal callers (bulk edit) omit it.
   /** Returns the committed id (re-minted on an id collision), or undefined when refused. */

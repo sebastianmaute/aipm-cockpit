@@ -48,6 +48,8 @@ interface TaskKanbanProps {
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
   /** Deep-link to the Documents pane, filtered to one task. Optional, as above. */
   onOpenDocuments?: (taskId: number) => void;
+  /** Jump to the Changes view filtered to this task's linked changes (open-followups §481). */
+  onJumpToChanges?: (taskId: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   /** Deep-link to the RAID register for a task. Optional so lightweight callers
@@ -91,6 +93,7 @@ export function TaskKanban({
   changeByTask,
   documentsByEntity,
   onOpenDocuments,
+  onJumpToChanges,
   onStatusChange,
   onEdit,
   onJumpToRaid = NOOP_JUMP_TO_RAID,
@@ -150,6 +153,7 @@ export function TaskKanban({
                     changeRefs={changeByTask?.get(task.id)}
                     documentsByEntity={documentsByEntity}
                     onOpenDocuments={onOpenDocuments}
+                    onJumpToChanges={onJumpToChanges}
                     onStatusChange={onStatusChange}
                     onEdit={onEdit}
                     onJumpToRaid={onJumpToRaid}

@@ -756,6 +756,60 @@ describe("SavingPausedBanner", () => {
     await waitFor(() => expect(confirmState.lastOpts?.message).toBe(t("de", "storageConflictOverwriteConfirm")));
     expect(t("de", "storageConflictOverwriteConfirm")).not.toBe(t("en-US", "storageConflictOverwriteConfirm"));
   });
+
+  // §629 — a restored journal whose save-back the guard refuses came back on
+  // every page reload, and the refusal's own copy told the user to reload. The
+  // way out that DOES drop it is reloading the project from storage, so the
+  // banner offers it as Discard, and the copy points there instead.
+  describe("Discard on a refused deletion (§629)", () => {
+    it.each([["mass deletion", MASS_DELETE], ["full wipe", FULL_WIPE]] as const)(
+      "%s: Discard asks first, then discards, and never saves",
+      async (_label, cause) => {
+        const onDiscard = vi.fn();
+        const onSaveAnyway = vi.fn();
+        renderDestructive({ cause, onDiscard, onSaveAnyway });
+        fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveDiscard") }));
+        await waitFor(() => expect(onDiscard).toHaveBeenCalledTimes(1));
+        expect(confirmState.lastOpts).toMatchObject({
+          title: t("en-US", "storageDestructiveDiscardConfirmTitle"),
+          message: t("en-US", "storageDestructiveDiscardConfirmBody"),
+          confirmLabel: t("en-US", "storageDestructiveDiscardConfirmAction"),
+        });
+        expect(onSaveAnyway).not.toHaveBeenCalled();
+      },
+    );
+
+    it("does nothing when the Discard confirmation is cancelled", async () => {
+      confirmState.result = false;
+      const onDiscard = vi.fn();
+      renderDestructive({ onDiscard });
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveDiscard") }));
+      await waitFor(() => expect(confirmState.calls).toBe(1));
+      expect(onDiscard).not.toHaveBeenCalled();
+    });
+
+    it("offers no Discard without a handler", () => {
+      renderDestructive();
+      expect(screen.queryByRole("button", { name: t("en-US", "storageDestructiveDiscard") })).toBeNull();
+    });
+
+    // The trigger stays mounted behind the open dialog, so the dialog's commit
+    // must not share its name (WCAG 2.4.6, which axe cannot see).
+    it("keeps the dialog's commit label distinct from the trigger", () => {
+      expect(t("en-US", "storageDestructiveDiscardConfirmAction")).not.toBe(t("en-US", "storageDestructiveDiscard"));
+    });
+
+    it.each(["en-US", "de"] as const)("%s: no refusal copy sends the user to a page reload", async (lang) => {
+      await loadI18n("de");
+      const discard = t(lang, "storageDestructiveDiscard");
+      for (const key of ["storageDestructiveConfirmBody", "storageDestructiveWipeConfirmBody"] as const) {
+        expect(t(lang, key)).toContain(discard);
+      }
+      for (const key of ["storageRefusedWipe", "storageDestructiveConfirmBody", "storageDestructiveWipeConfirmBody"] as const) {
+        expect(t(lang, key)).not.toMatch(lang === "de" ? /Seite neu/ : /reload the page/i);
+      }
+    });
+  });
 });
 
 describe("UnloadJournalConflictBanner (§629)", () => {

@@ -15,6 +15,7 @@ import { ratioHealth, cellHealth } from "./budget-health";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useCommitDraft } from "./use-commit-draft";
 import { actualHoursIn } from "./actual-hours";
+import { rowLabel } from "./row-tokens";
 
 /** The leading RAG-dot column, and the fixed Total column that follows the role
  *  label. Neither is in BUDGET_COL_WIDTHS: they are not resizable, so they mint
@@ -84,10 +85,15 @@ export function displayHours(v: number | undefined, readOnly: boolean | undefine
 }
 
 function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
+  cellName, budget, actual, onBudget, onActual, lang, readOnly,
   periodEnd, today, actualReadOnlyReason,
 }: {
-  ariaPrefix: string;
+  /** Row-unique qualifier for both inputs' accessible names (§109): bucket,
+   *  row and period, e.g. "PAM – Consulting Senior – 2026-01". The names lead
+   *  with the visible Budget / Actual label (WCAG 2.5.3); this tail is what
+   *  makes each one unique across the table (2.4.6). It replaced a machine
+   *  hook ("budget-1-3-2026-01") that screen readers read out verbatim. */
+  cellName: string;
   budget: number | undefined;
   actual: number | undefined;
   onBudget: (v: number) => void;
@@ -149,7 +155,7 @@ function HoursCell({
           {t(lang, "budgetCellBudget")}
         </span>
         <input
-          aria-label={`budget-${ariaPrefix}`}
+          aria-label={rowLabel(t(lang, "budgetCellBudget"), cellName)}
           type="number"
           value={readOnly ? displayHours(budget, readOnly) : budgetDraft.value}
           readOnly={readOnly}
@@ -165,7 +171,7 @@ function HoursCell({
           {t(lang, "budgetCellActual")}
         </span>
         <input
-          aria-label={`actual-${ariaPrefix}`}
+          aria-label={rowLabel(t(lang, "budgetCellActual"), cellName)}
           type="number"
           value={actualReadOnly ? displayHours(actual, true) : actualDraft.value}
           readOnly={actualReadOnly}
@@ -185,11 +191,11 @@ function HoursCell({
 }
 
 // A period `<td>` wrapping a HoursCell — shared by the role rows and the
-// discipline (blended) rows, which differ only in ariaPrefix + the setter.
+// discipline (blended) rows, which differ only in cellName + the setter.
 export function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today, actualReadOnlyReason,
+  cellName, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today, actualReadOnlyReason,
 }: {
-  ariaPrefix: string;
+  cellName: string;
   budget: number | undefined;
   actual: number | undefined;
   onBudget: (v: number) => void;
@@ -203,7 +209,7 @@ export function HoursTd({
   return (
     <td className="px-3 py-2">
       <HoursCell
-        ariaPrefix={ariaPrefix}
+        cellName={cellName}
         budget={budget}
         actual={actual}
         onBudget={onBudget}
