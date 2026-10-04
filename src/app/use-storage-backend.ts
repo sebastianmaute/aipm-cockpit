@@ -324,6 +324,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // The UNDO history's epoch: the scope epoch plus one per restore. A restore keeps the project, so it must
+  // not move the scope epoch (in-flight AI / Graph writes for this project would be dropped), but it does
+  // replace the rows every undo image was taken against: replaying one would silently mix the two versions.
+  const restoreEpochRef = useRef(0); const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []); const resetUndoHistory = () => { restoreEpochRef.current += 1; args.onUndoHistoryReset?.(); };
   // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
   // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
   // holds, and applying it would replace their unsaved edits. By value, never by commit (review I4);
@@ -665,9 +669,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
   // §655 — "Restore" on a kept version of the project in scope. The LIVE workspace is kept first, so the restore can be undone from the same notice (nothing is applied when that keep is not written); then the kept one is applied like "Restore anyway" below and saved by the normal path, and its slot is removed.
-  const restoreKeptJournalNow = (entry: OtherJournal): void => { if (!otherJournals.isRestorable(entry)) return; if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); };
+  const restoreKeptJournalNow = (entry: OtherJournal): void => { if (!otherJournals.isRestorable(entry)) return; if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); };
   const restoreKeptJournalRef = useRef(restoreKeptJournalNow); useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; }); const restoreKeptJournal = useCallback((entry: OtherJournal) => restoreKeptJournalRef.current(entry), []); // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the live workspace it keeps and the scope it checks are current
-  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); resetUndoHistory(); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -1464,7 +1468,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
   // ★ `conflictPause` below is a TEST SEAM (final review m13): only tests read it; the app reads `loadPause`.
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, isSwapInFlight,
+    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its

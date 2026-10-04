@@ -530,14 +530,14 @@ function TaskManagerInner() {
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
-    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, isSwapInFlight,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
     resolveConflictReload, resolveConflictOverwrite, downloadConflictVersion, canOverwriteConflict,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry, onUndoHistoryReset: undoApi.pruneStale });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
-  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; getScopeEpochRef.current = getScopeEpoch; }, [allowDestructiveSave, isPopout, loadPending, getScopeEpoch]);
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; getScopeEpochRef.current = getUndoEpoch; }, [allowDestructiveSave, isPopout, loadPending, getUndoEpoch]); // the UNDO epoch: also moves on a restore
   usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale); // §628 — a project switch drops the previous project's undo entries; a hold that kept the project drops none.
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW

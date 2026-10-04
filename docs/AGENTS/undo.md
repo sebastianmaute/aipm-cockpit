@@ -196,6 +196,12 @@ undo block the redo, and the next undo then spliced in a second copy.
     and passes it as `readEpoch`; `pushEntry` refuses a push whose stamp is already stale. ★ The
     refusal is whole-batch: rows the batch wrote into the new project after a mid-batch switch get no
     undo either. That they land there at all is the proposal-apply gap, §600 (open).
+  - ★★ The epoch the stack reads is NOT the raw scope epoch: `task-manager.tsx` fills its reader
+    with `useStorageBackend`'s `getUndoEpoch` — the scope epoch PLUS one per RESTORE (a kept version
+    §655, or "Restore anyway" §629). A restore keeps the project, so it must not move the scope epoch
+    (in-flight AI / Graph writes for this project would be dropped), but it replaces the rows every
+    undo image was taken against: replaying one after it silently mixed the two versions. Each restore
+    then calls `onUndoHistoryReset` (= `pruneStale`), so the history clears at once.
   - `usePruneUndoOnScopeChange(loadPending, pruneStale)`, a render-time reconcile called after
     `useStorageBackend`, removes the stale entries from BOTH stacks on each falling edge of the load
     hold, and only those. The epoch moves only on a real scope change, so history survives Save-As, a
