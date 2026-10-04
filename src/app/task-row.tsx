@@ -44,7 +44,6 @@ export { RowContextProvider, useTaskRowContext, useTaskLookup, type RowContextVa
  *  contacts are threaded into the row, so a stable empty list is passed. */
 const EMPTY_CONTACTS: Contact[] = [];
 
-
 // Marker re-export so TaskRow consumers can pass a typed `RaidItem[]` prop
 // without importing from `./types` separately.
 export type { RaidItem };
