@@ -1006,12 +1006,13 @@ hard-constraint bullet), so even a hypothetical future scan could not catch a ro
 here. `asset-library.test.tsx`'s ≥2-row unique-name test is the only detector this surface will
 ever have (§203).
 
-★★ **Row thumbnails (§482) fetch FULL bytes, so they are lazy and capped.** `AssetThumbnail`
+★★ **Row thumbnails (§482) fetch FULL bytes, so they load only in view and are capped.** `AssetThumbnail`
 (`asset-thumbnail.tsx`) goes through the same injected `loadImage` and `assetBytesToObjectUrl` as the
 preview lightbox — there is no thumbnail-sized copy at rest, by choice (a stored one would be a new
-field on all six write paths, plus a backfill for every existing asset). A row loads only once an
-`IntersectionObserver` reports it in view, and every load queues through the library's
-`createLoadLimiter` (`asset-load-limiter.ts`, three at a time, with a 100px `rootMargin`). Rows already known
+field on all six write paths, plus a backfill for every existing asset). An `IntersectionObserver` with a
+100px `rootMargin` loads a row as it comes into view and, staying connected, revokes its URL and drops any
+still-queued load when it leaves; the row reloads when it comes back. Every load queues through the library's
+`createLoadLimiter` (`asset-load-limiter.ts`, three at a time). Rows already known
 to be dangling (the dangling diff is async, so a row in view before it lands is fetched once and gets null)
 and refused mimes are never fetched. The image is decorative (`alt=""`, box `aria-hidden`), so it adds no control or name to a row.
 ★ TEST CONSEQUENCE: `vitest.setup.ts`'s `IntersectionObserver` stub never reports anything, so no
@@ -1019,9 +1020,12 @@ thumbnail loads in any test that does not install its own observer — which is 
 tests' `loadImage` assertions meaningful. A test that wants thumbnails swaps in a controllable observer
 (see `asset-thumbnail.test.tsx`). And because the limiter starts a task on a microtask, a
 "loader not called" assertion must settle pending work first or it passes vacuously.
-★ COST, recorded rather than optimised: a library holds at most `ASSET_MAX_PER_DOCUMENT` (20) images, so
-lazy loading saves little there; each visible row keeps a blob of the FULL stored bytes (up to
-`ASSET_STORED_MAX_BYTES`) for the life of the mount; `AssetLibraryModal` remounts on every open, so it
+★ COST, recorded rather than optimised: the library lists EVERY asset in the workspace and has no
+per-workspace cap (`ASSET_MAX_PER_DOCUMENT` caps one DOCUMENT's images, not the library — an earlier
+revision of this note said the opposite). What bounds memory is the in-view rule above: live object URLs
+are held only by rows in view, each a blob of the FULL stored bytes (up to `ASSET_STORED_MAX_BYTES`). The
+remaining cost: each visible thumbnail DECODES at full size for a 32px box — no downscale step, because
+jsdom cannot test one. `AssetLibraryModal` remounts on every open, so it
 refetches its visible rows and builds a new limiter, and with the inline library also mounted up to six loads
 can run at once (two mounts × three) plus the lightbox. ★ No reload signal: a §212 repair that rewrites
 bytes of a row never marked dangling keeps the old thumbnail until the library remounts — the library's own
