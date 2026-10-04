@@ -32,7 +32,11 @@ const USER_ID_RE = /^u-(\d+)$/;
 // look survives import; the editor still edits only CORE+ADVANCED. Trade-off: a
 // scheme seeded from an imported theme keeps these pins on save (base-wins
 // resolveSchemeColors never re-derives them), so editing a base colour won't
-// refresh the pin — accepted for the faithful-copy intent.
+// refresh the pin — accepted for the faithful-copy intent. Since §239 a pin is
+// held to its derivation's AA floor at resolve time: one that falls short is
+// nudged there (its hue kept), or, when nudging cannot reach the floor, replaced
+// by the value derived from the base, or failing that black or white — so a
+// pinned token always resolves at or above its floor.
 const DERIVED_TOKENS = [
   "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",

@@ -2,9 +2,10 @@
 //
 // §632 — the hook that expires and lists unload journals under keys other than the one in scope,
 // and the two notices task-manager mounts for it.
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ConfirmProvider } from "./confirm-dialog";
 import * as diagnostics from "./diagnostics";
 import * as download from "./download-json";
 import { loadI18n, t } from "./i18n";
@@ -162,6 +163,46 @@ describe("useOtherJournals", () => {
     expect(result.current.download(result.current.others[0])).toBe(true);
     expect(spy).toHaveBeenCalledWith(`aipm-cockpit-unsaved-a_b_c-${new Date(NOW).toISOString().slice(0, 10)}.json`, '{"ws":1}');
   });
+
+  // §655 — only a kept version of the project in scope can be put back from here.
+  // §668 — the unreadable mark belongs to a RECORD, not its key.
+  it("marks the unreadable record, and not a later record another tab writes under the same key", () => {
+    put("other", NOW - 10, "tab-x");
+    const { result, rerender } = renderOthers({ unreadableRecords: new Set([`other|tab-x|${NOW - 10}`]) });
+    expect(result.current.others.map((e) => e.unreadable ?? false)).toEqual([true]);
+    put("other", NOW, "tab-y"); // a readable record replaces it under the same key
+    rerender({ projectKey: "current", restoredKeys: new Set(["current"]), enabled: true, isPopout: false, unreadableRecords: new Set([`other|tab-x|${NOW - 10}`, "re-list"]) });
+    expect(result.current.others.map((e) => [e.journal.tabId, e.unreadable ?? false])).toEqual([["tab-y", false]]);
+  });
+
+  it("isRestorable: a kept slot of the project in scope, numbered or not — never another project's, never a plain draft", () => {
+    put("current:kept", NOW - 30);
+    put("current:kept:1799999000000", NOW - 20);
+    put("other:kept", NOW - 10);
+    put("other", NOW - 5);
+    const { result } = renderOthers();
+    const verdicts = Object.fromEntries(result.current.others.map((e) => [e.journal.projectKey, result.current.isRestorable(e)]));
+    expect(verdicts).toEqual({ "current:kept": true, "current:kept:1799999000000": true, "other:kept": false, other: false });
+  });
+
+  it("restored(): removes the restored record and re-lists, so the version kept in its place shows", () => {
+    put("current:kept", NOW - 30);
+    const { result } = renderOthers();
+    const [kept] = result.current.others;
+    put("current:kept:1800000000000", NOW, UNLOAD_JOURNAL_TAB_ID); // what the restore kept of the live version
+    act(() => result.current.restored(kept));
+    expect(readUnloadJournal("current:kept")).toBeNull();
+    expect(keys(result.current.others)).toEqual(["current:kept:1800000000000"]);
+  });
+
+  it("restored() leaves a later write under the same key alone", () => {
+    put("current:kept", NOW - 30);
+    const { result } = renderOthers();
+    const [kept] = result.current.others;
+    put("current:kept", NOW, "tab-b");
+    act(() => result.current.restored(kept));
+    expect(readUnloadJournal("current:kept")?.tabId).toBe("tab-b");
+  });
 });
 
 describe("otherJournalFileName", () => {
@@ -278,5 +319,83 @@ describe("ExpiredJournalsBanner", () => {
     expect(screen.getByText(/^Zeus — from /)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalled();
+  });
+});
+
+describe("OtherJournalsBanner — §655 Restore", () => {
+  const kept = () => entry("current:kept", "Apollo", 1);
+  const other = () => entry("other:kept", "Zeus", 1);
+  function renderBanner(onRestore = vi.fn()) {
+    const a = kept();
+    const b = other();
+    render(
+      <ConfirmProvider lang="en-US">
+        <OtherJournalsBanner lang="en-US" others={[a, b]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()}
+          canRestore={(e) => e === a} onRestore={onRestore} />
+      </ConfirmProvider>,
+    );
+    return { a, b, onRestore };
+  }
+
+  it("offers Restore only on an entry canRestore accepts, with a row-unique name that starts with its text", () => {
+    renderBanner();
+    const restore = screen.getAllByRole("button", { name: /^Restore: / });
+    expect(restore.map((b) => b.getAttribute("aria-label"))).toEqual(["Restore: Apollo"]);
+    expect(restore[0].textContent).toBe("Restore");
+  });
+
+  it("restores only after the confirm, with the entry", async () => {
+    const { a, onRestore } = renderBanner();
+    fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
+    expect(onRestore).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(a));
+  });
+
+  it("does nothing when the confirm is cancelled", async () => {
+    const { onRestore } = renderBanner();
+    fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "cancel") }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("names Restore in the hint only while an entry offers it", () => {
+    renderBanner();
+    expect(screen.getByText(t("en-US", "unloadJournalKeptHintRestore"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalKeptHint"))).toBeNull();
+  });
+
+  it("keeps the plain hint when no listed kept version can be restored here", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => false} onRestore={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalKeptHint"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalKeptHintRestore"))).toBeNull();
+  });
+
+  it("marks an unreadable entry as such, with a hint that reloading cannot restore it (§668)", () => {
+    const unreadable: OtherJournal = { ...entry("browser", null, 1), unreadable: true };
+    render(<OtherJournalsBanner lang="en-US" others={[unreadable, other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/^Browser workspace \(no project\) — could not be read, from /)).toBeTruthy();
+    expect(screen.getByText(t("en-US", "unloadJournalUnreadableHint"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Discard: Browser workspace/ })).toBeTruthy();
+  });
+
+  it("heads a notice holding only unreadable drafts as this project's, not as other projects'", () => {
+    const unreadable: OtherJournal = { ...entry("browser", null, 1), unreadable: true };
+    const { rerender } = render(<OtherJournalsBanner lang="en-US" others={[unreadable]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalUnreadableOnly"))).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "unloadJournalOthers"))).toBeNull();
+    rerender(<OtherJournalsBanner lang="en-US" others={[unreadable, other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "unloadJournalOthers"))).toBeTruthy();
+  });
+
+  it("shows no unreadable hint when no entry is unreadable", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[other()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.queryByText(t("en-US", "unloadJournalUnreadableHint"))).toBeNull();
+  });
+
+  it("offers no Restore at all without a handler", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[kept()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => true} />);
+    expect(screen.queryByRole("button", { name: /^Restore: / })).toBeNull();
   });
 });

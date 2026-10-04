@@ -31,6 +31,7 @@ import { DictationSection } from "./settings-sections/dictation-section";
 import { ExportSection } from "./settings-sections/export-section";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 import { StorageConfigSection } from "./storage-config";
+import { ActivityAuditConnected } from "./settings-sections/activity-audit-section";
 import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
 import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section";
 import type { UseCommTemplatesResult } from "./use-comm-templates";
@@ -51,6 +52,10 @@ interface SettingsViewProps {
   onRequestStorageSwitch: (kind: StorageKind) => void;
   /** Reload the current project's data from its backend (recovery). Omitted in popouts. */
   onReloadProject?: () => void;
+  /** §510 — the internal activity-log download, shown under Storage in expert mode only: the multi-project
+   *  Turso database's config (the download covers the whole portfolio), null for any other storage (the
+   *  project open now), undefined to hide it (a popout). */
+  activityAuditPortfolio?: TursoConfig | null;
   onMigrateToTurso?: () => void;
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
@@ -404,6 +409,9 @@ export function SettingsView(props: SettingsViewProps) {
               sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
               tursoEnabled={settings.integrations?.turso?.enabled ?? false}
             />
+            {expert && props.activityAuditPortfolio !== undefined && (
+              <ActivityAuditConnected lang={lang} projectId={props.projectId ?? "default"} portfolio={props.activityAuditPortfolio} />
+            )}
           </>
         )}
         {active === "notifications" && (

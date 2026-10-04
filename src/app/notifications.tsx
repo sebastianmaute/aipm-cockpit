@@ -180,14 +180,29 @@ function journalName(lang: Lang, entry: OtherJournal): string {
 /** §632 — one line per journal (name, date, size) with Download and, when `onDiscard` is given,
  *  Discard; the buttons carry the entry's name. A refused download is named in an alert. */
 function JournalList({
-  lang, entries, onDownload, onDiscard,
+  lang, entries, onDownload, onDiscard, canRestore, onRestore,
 }: {
   lang: Lang;
   entries: readonly OtherJournal[];
   onDownload: (entry: OtherJournal) => boolean;
   onDiscard?: (entry: OtherJournal) => void;
+  /** §655 — which entries offer Restore (a kept version of the project in scope). */
+  canRestore?: (entry: OtherJournal) => boolean;
+  onRestore?: (entry: OtherJournal) => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const askThenRestore = async (entry: OtherJournal) => {
+    if (!onRestore) return;
+    const ok = await confirm({
+      title: t(lang, "unloadJournalKeptRestoreConfirmTitle"),
+      message: t(lang, "unloadJournalKeptRestoreConfirmBody"),
+      // Distinct from the row's own label, which stays on screen behind the dialog.
+      confirmLabel: t(lang, "unloadJournalKeptRestoreConfirmAction"),
+      tone: "default",
+    });
+    if (ok) onRestore(entry);
+  };
   const names = entries.map((entry) => journalName(lang, entry));
   const dates = entries.map((entry) => formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang));
   // §4 — two kept versions of one project share a name: the buttons then add the date, so each is row-unique.
@@ -204,13 +219,18 @@ function JournalList({
           return (
             <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 break-all">
-                {t(lang, isKeptProjectKey(entry.journal.projectKey) ? "unloadJournalKeptEntry" : "unloadJournalOthersEntry", shown, date, // §4 — a kept version was refused, and no reload restores it
+                {t(lang, entry.unreadable ? "unloadJournalUnreadableEntry" : isKeptProjectKey(entry.journal.projectKey) ? "unloadJournalKeptEntry" : "unloadJournalOthersEntry", shown, date, // §4 — a kept version was refused, and no reload restores it
                   Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
               </span>
               <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${name}`}
                 onClick={() => setDownloadFailed(onDownload(entry) ? null : name)}>
                 {t(lang, "unloadJournalDownload")}
               </Button>
+              {onRestore && canRestore?.(entry) && (
+                <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalRestore")}: ${name}`} onClick={() => { void askThenRestore(entry); }}>
+                  {t(lang, "unloadJournalRestore")}
+                </Button>
+              )}
               {onDiscard && (
                 <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDiscard")}: ${name}`} onClick={() => onDiscard(entry)}>
                   {t(lang, "unloadJournalDiscard")}
@@ -228,20 +248,29 @@ function JournalList({
 /** §632 — unload journals kept under OTHER keys (use-other-journals.ts), each with Download and
  *  Discard. Dismiss hides the notice for this page only; the records stay. */
 export function OtherJournalsBanner({
-  lang, others, onDownload, onDiscard, onDismiss,
+  lang, others, onDownload, onDiscard, onDismiss, canRestore, onRestore,
 }: {
   lang: Lang;
   others: readonly OtherJournal[];
   onDownload: (entry: OtherJournal) => boolean;
   onDiscard: (entry: OtherJournal) => void;
   onDismiss: () => void;
+  canRestore?: (entry: OtherJournal) => boolean;
+  onRestore?: (entry: OtherJournal) => void;
 }) {
+  // §668 — an unreadable draft cannot be restored by reloading: when it is all the notice holds, its heading
+  // must not say "other projects … reload to restore". It names no project, since the mark outlives a
+  // switch to another project on the same page.
+  const heading = t(lang, others.length > 0 && others.every((entry) => entry.unreadable) ? "unloadJournalUnreadableOnly" : "unloadJournalOthers");
   return (
-    <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
+    <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
-      {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && <p className="mt-1 text-sm">{t(lang, "unloadJournalKeptHint")}</p>}
-      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} />
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
+      {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
+        <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
+      )}
+      {others.some((entry) => entry.unreadable) && <p className="mt-1 text-sm">{t(lang, "unloadJournalUnreadableHint")}</p>}
+      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} />
     </AlertBanner>
   );
 }

@@ -80,10 +80,23 @@ function retagToThisTab(journal: UnloadJournal): void {
   writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
 }
 
-/** The journal's workspace, or null when it does not decode — logged, and the key left in place. */
-function journalWorkspace(journal: UnloadJournal): Workspace | null {
+/** §668 — one record's identity: its key, writer and save time (what `clearUnloadJournal` guards on too). */
+export function journalRecordId(journal: UnloadJournal): string {
+  return `${journal.projectKey}|${journal.tabId}|${journal.savedAt}`;
+}
+
+/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
+ *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
+ *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
+ *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
+ *  did not. Every caller here applies what it gets, so none may decode leniently. */
+export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    return jsonToWorkspace(journal.workspace);
+    // ★★ NO `diag`, deliberately: with one, a documents / documentVersions sanitizer throw would be
+    // CONTAINED (those slices dropped) and the journal applied without them, and its save would then
+    // write the project without documents over the stored ones. Without one, strict throws and the
+    // whole journal is refused: stored documents stay intact and the record stays downloadable.
+    return jsonToWorkspace(journal.workspace, { strict: true });
   } catch (err) {
     logDiag("warn", "workspace.unloadJournalCorrupt", {
       projectKey: journal.projectKey,
@@ -141,9 +154,14 @@ export type UseUnloadJournalArgs = {
   enabled: boolean;
   /** A popout never saves, so it never journals either. */
   isPopout: boolean;
+  /** §668 — told when the load restore finds a journal for the key that does not decode. Nothing is
+   *  applied; the record stays, listed in the other-journals notice (Download / Discard). */
+  onUnreadable?: () => void;
 };
 
-export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJournalArgs) {
+export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }: UseUnloadJournalArgs) {
+  const onUnreadableRef = useRef(onUnreadable);
+  useEffect(() => { onUnreadableRef.current = onUnreadable; }, [onUnreadable]);
   // ★ Synced in an EFFECT, not during render, on purpose: the storage hook's save-effect
   //   CLEANUP can flush a save (§589) in the same commit that switches the target, and React
   //   runs every cleanup before any effect body — so that flush still reads the OLD key, the
@@ -220,6 +238,11 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     }
     return writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
   }, []);
+
+  /** §655 — keeps the LIVE workspace of the key in scope in a kept slot before a kept version is
+   *  restored over it, so that restore can be undone from the same notice. Same write as `keep`, so
+   *  the same outcome: false when nothing was written, and the caller must then not restore. */
+  const keepLive = useCallback((live: Workspace): boolean => keep({ projectKey: projectKeyRef.current, workspace: live, savedAt: Date.now() }), [keep]);
 
   const noteSaveStarted = useCallback((outgoing: Workspace): number => {
     const savedAt = nextSavedAt();
@@ -343,6 +366,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   /** §632 — every key `restoreOnLoad` ran for on this page. use-other-journals.ts leaves these out of
    *  its list: their journal was applied, cleared, or published as the conflict notice. */
   const [restoredKeys, setRestoredKeys] = useState<ReadonlySet<string>>(() => new Set());
+  /** §668 — the RECORDS (`journalRecordId`) the load restore found undecodable on this page, so the notice
+   *  can say they cannot be restored (reloading only fails again). Per record, not per key: a readable
+   *  record another tab writes later under the same key is not marked. */
+  const [unreadableRecords, setUnreadableRecords] = useState<ReadonlySet<string>>(() => new Set());
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
    *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
@@ -354,11 +381,19 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  (or a disabled hook) never restores. */
   const restoreOnLoad = useCallback((loaded: Workspace, key: string, kind: StorageKind): Workspace | null => {
     if (!activeRef.current) return null;
-    setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     const journal = readUnloadJournal(key);
     const restored = journal === null ? null : journalWorkspace(journal);
+    // §668 — an UNDECODABLE journal stays out of `restoredKeys`, so the other-journals notice lists it
+    // with Download and Discard. Nothing else would ever remove it: a confirmed save clears only this
+    // tab's records, and the key in scope never expires.
+    if (journal === null || restored !== null) setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     if (journal === null || restored === null) {
       setConflictRecord(null);
+      if (journal !== null) {
+        onUnreadableRef.current?.(); // §668 — refused, and said so
+        const id = journalRecordId({ ...journal, projectKey: key }); // keyed by where it is STORED, as the listing reads it
+        setUnreadableRecords((prev) => (prev.has(id) ? prev : new Set([...prev, id])));
+      }
       return null;
     }
     const loadedFingerprint = fingerprintWorkspace(loaded);
@@ -411,6 +446,6 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   return {
     noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
-    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys,
+    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive, unreadableRecords,
   };
 }

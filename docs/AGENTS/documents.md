@@ -1768,6 +1768,11 @@ canonical section. The canonical copies are this file's version-model, "Asset im
   cycle is gone).
   ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
   `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
+  ★ In WORD (both the workspace export's `.docx` and a `dataSection` block in `doc-render-docx.ts`) each section is
+  then projected by `docxSection` to the curated reader-facing fields in `DOCX_SECTION_FIELDS`
+  (`export-docx-columns.ts`) and sized by `docxColumnWidths` (content-proportional, clamped, summing to the page
+  width) — open-followups §512 (a). CSV, XLSX, PPTX and HTML keep every exported field. A hand-built section whose
+  columns do not match `EXPORT_SECTION_FIELDS` one-for-one is printed as given, never projected by position.
   ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`: see [the version model](#the-version-model-document-versionsts) and [the six write paths](#persistence--six-write-paths) above.
   ★★ **Document images (S3c-1, Turso-gated)**: see [Asset images (S3c-1)](#asset-images-s3c-1) above, and open it before touching anything under `document-asset*`.
   ★★ **Image BYTES in every export format (S3c-2)**: see [Image bytes in every export format (S3c-2)](#image-bytes-in-every-export-format-s3c-2) above.

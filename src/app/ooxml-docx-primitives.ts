@@ -512,12 +512,15 @@ export function buildDocxTable(
    *  plain run it always did — which is what keeps the byte-pinned workspace
    *  export unchanged until its own caller passes a sink. */
   links?: LinkSink,
+  /** §512 — per-column widths in twips (`docxColumnWidths`). Used only when there is one per
+   *  column; otherwise the page width is shared evenly, as every caller without it always had. */
+  columnWidths?: readonly number[],
 ): string {
-  // Fallback width when we have no pixel hint: share page width evenly.
+  // Fallback width when we have no width per column: share page width evenly.
   const colWidth = columns.length > 0
     ? Math.floor(contentWidthTwips / columns.length)
     : contentWidthTwips;
-  const colWidths = columns.map(() => colWidth);
+  const colWidths = columnWidths && columnWidths.length === columns.length ? [...columnWidths] : columns.map(() => colWidth);
 
   const tableHeader = `
     <w:tr>

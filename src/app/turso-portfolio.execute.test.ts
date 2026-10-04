@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { tenantSchemaDdl, hardDeleteProjectStatements } from "./turso-tenant-schema";
 import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements } from "./project-side-tables";
 import type { SqlStmt } from "./turso-schema";
+import { activityLogsStatement } from "./turso-portfolio";
 
 function run(db: DatabaseSync, statements: readonly SqlStmt[]): void {
   for (const s of statements) {
@@ -42,5 +43,20 @@ describe("hardDeleteProject statements against a real engine (open-followups §2
       expect(count(db, table, "p1"), table).toBe(0);
       expect(count(db, table, "p2"), table).toBe(1);
     }
+  });
+});
+
+// open-followups §510 — the activity-log SELECT against a real engine: every project's log row,
+// nothing else stored in meta.
+describe("activityLogsStatement against a real engine (open-followups §510)", () => {
+  it("returns each project's activityLog row and no other meta key", () => {
+    const db = new DatabaseSync(":memory:");
+    run(db, tenantSchemaDdl().map((sql) => ({ sql })));
+    const put = db.prepare("INSERT INTO meta (key, value, project_id) VALUES (?, ?, ?)");
+    put.run("activityLog", "[1]", "p1");
+    put.run("insights", "[2]", "p1");
+    put.run("activityLog", "[3]", "p2");
+    const rows = db.prepare(activityLogsStatement().sql).all() as { project_id: string; value: string }[];
+    expect(rows.map((r) => [r.project_id, r.value]).sort()).toEqual([["p1", "[1]"], ["p2", "[3]"]]);
   });
 });

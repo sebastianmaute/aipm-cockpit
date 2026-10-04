@@ -12,6 +12,25 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Download the activity log for an internal audit (§510).** In expert mode, Settings → Storage
+  can download the activity log as a JSON file marked internal, including the old and new value of
+  every recorded change. On a shared Turso database with several projects it covers every project,
+  archived ones included; otherwise it covers the project open now. It is meant for internal audits
+  and is not access control: anyone with access to the storage can read the same data.
+- **Word export is easier to read (§512).** In Word files, each table now shows the columns a
+  reader needs (for tasks: id, name, assignee, status, priority, dates, group, blockers and
+  description) instead of every stored field, and column widths follow their content instead of
+  being equal. This applies to the workspace export and to registers embedded in a document.
+  CSV, Excel, PowerPoint and PDF exports keep every column.
+- **A version kept after a save conflict can be restored (§655).** When a save was refused
+  because the project changed in another tab or on another device, the notice listing the kept
+  "not saved (conflict)" version now offers Restore for the project you have open. After you
+  confirm, the version you had open is kept in the same notice first, so you can switch back,
+  and the restored version is saved.
+- **Voice commands the app does not know go to the AI assistant (§519).** With the AI
+  assistant on, a spoken command that is not one of the fixed voice commands is put into the
+  assistant's message box for you to check and send, instead of showing "Didn't understand".
+  With the assistant off, nothing changes. Anything you had already typed there is kept.
 - **RACI chips press like buttons (§110).** All six RACI picker controls (the collapsed
   chip, R, A, C, I and clear) now give the same press feedback as other icon buttons. The
   clear chip is now a shared `IconButton` and still renders as the same 20px circle.
@@ -36,6 +55,17 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Damaged unsaved changes are no longer restored as an empty project (§668).** If the copy of
+  unsaved changes kept from your last session was damaged, reloading the page could restore it as an
+  empty project without asking, and "Restore anyway" could do the same. A damaged copy is now never
+  restored: your project stays as it is and a message says so.
+- **Imported colour themes keep readable status text (§239).** A colour theme imported from a
+  file could set its own status-text and accent-text colours below the contrast the app needs on
+  cards. Those colours are now darkened (or, on a dark theme, lightened) just enough to read,
+  keeping their hue where that is enough, and replaced by a readable colour where it is not;
+  colours that already pass are kept exactly. The theme files are unchanged, but the shipped
+  Petrol, Mockup and Beacon themes now display slightly different status text; the built-in
+  schemes do not change.
 - **A withheld deletion can be discarded (§629).** When saving pauses because a large deletion
   was withheld, the banner now offers "Discard this deletion", which reloads the project from
   storage after asking. Its messages used to say "reload the page", which did not help when the

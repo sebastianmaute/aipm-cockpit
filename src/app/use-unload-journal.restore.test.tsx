@@ -11,7 +11,7 @@
 //   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { t, type Lang } from "./i18n";
+import { t, type Lang, type TranslationKey } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageConfig } from "./storage";
 import type { Task } from "./types";
@@ -659,5 +659,220 @@ describe("§644 — a restored journal is sent to other tabs as an edit, a load 
     await act(async () => { result.current.restoreUnloadJournalAnyway(); });
     expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
     expect(mainSyncContext().isLoadedValue(result.current.tasks)).toBe(false);
+  });
+});
+
+describe("§655 — Restore a kept version of the project in scope", () => {
+  const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}browser:kept`;
+  const KEPT: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Kept" }] as unknown as Task[] };
+  type Result = ReturnType<typeof render>["result"];
+  const entryFor = (result: Result, projectKey: string) => result.current.otherJournals.others.find((e) => e.journal.projectKey === projectKey)!;
+  /** Kept slots of the live version: the numbered ones beside the seeded slot. */
+  const numberedKept = () => Object.keys(localStorage).filter((k) => k.startsWith(`${KEPT_KEY}:`));
+  const toastsOf = (key: TranslationKey) => showToast.mock.calls.filter((c) => c[1] === t("en-US", key));
+
+  it("keeps the live version first, applies the kept one, saves it, and removes its slot", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    expect(result.current.otherJournals.isRestorable(entry)).toBe(true);
+
+    await act(async () => { result.current.restoreKeptJournal(entry); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 3]);
+    expect(readJournal(KEPT_KEY)).toBeNull();
+    // The version that was open is now a kept version of its own — the way back.
+    expect(numberedKept()).toHaveLength(1);
+    expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1]);
+    expect(result.current.otherJournals.others.map((e) => `${UNLOAD_JOURNAL_PREFIX}${e.journal.projectKey}`)).toEqual(numberedKept());
+    expect(toastsOf("unloadJournalKeptRestored")).toEqual([["success", t("en-US", "unloadJournalKeptRestored")]]);
+
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(savedTaskIds(backend, 0)).toEqual([1, 3]);
+  });
+
+  it("another project's kept version is not restorable here: nothing applied, kept or removed", async () => {
+    const otherKey = `${UNLOAD_JOURNAL_PREFIX}p-other:kept`;
+    seedJournal("", otherKey, "p-other:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "p-other:kept");
+    expect(result.current.otherJournals.isRestorable(entry)).toBe(false);
+    await act(async () => { result.current.restoreKeptJournal(entry); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(otherKey)).not.toBeNull();
+    expect(numberedKept()).toEqual([]);
+  });
+
+  it("while saving is paused it is reported, and nothing is applied, kept or removed", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValueOnce(makeBackend(100)).mockReturnValue(makeBackend(100, "reject"));
+    const { result, rerender } = render();
+    await advance(800);
+    rerender({ args: makeArgs(false, { kind: "browser" }) }); // a new instance whose load fails
+    await advance(800);
+    expect(result.current.loadPause).toBe("load-failed"); // the premise
+    await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+    expect(numberedKept()).toEqual([]);
+  });
+
+  it("while a load is in flight (§548) it is refused, and nothing is applied, kept or removed", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    // A RELOAD of the same instance: saves stay allowed throughout, so only the load hold refuses here.
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    // Taken BEFORE the reload, as the banner's handler is: the restore runs after an awaited confirm,
+    // so it must read the load hold live, not the value its closure captured.
+    const staleRestore = result.current.restoreKeptJournal;
+    let reload: Promise<void> | undefined;
+    act(() => { reload = result.current.reloadCurrentProject(); });
+    await advance(25);
+    expect(result.current.loadPending).toBe(true); // the premise
+    await act(async () => { staleRestore(entry); });
+    expect(toastsOf("unloadJournalKeptRestoreLoading")).toHaveLength(1);
+    expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(0);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+    expect(numberedKept()).toEqual([]);
+    await advance(200);
+    await act(async () => { await reload; });
+  });
+
+  it("keeps the version that is live AT the confirm, not the one at the click", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    const handlerAtClick = result.current.restoreKeptJournal; // the banner holds this across its awaited confirm
+    act(() => { result.current.setTasks((prev) => [...prev, { id: 9, taskName: "Arrived during the dialog" } as unknown as Task]); });
+    await act(async () => { handlerAtClick(entry); });
+    expect(numberedKept()).toHaveLength(1);
+    expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1, 9]);
+  });
+
+  it("when the live version cannot be kept first, nothing is restored", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const realSetItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key.startsWith(`${KEPT_KEY}:`)) throw new Error("QuotaExceededError");
+      realSetItem.call(this, key, value);
+    });
+    try {
+      await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(toastsOf("unloadJournalKeptRestoreNotKept")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+  });
+
+  it("a kept version that does not decode is reported, and nothing is kept or applied", async () => {
+    localStorage.setItem(KEPT_KEY, JSON.stringify({ v: 1, projectKey: "browser:kept", tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint: "", workspace: "{not json" }));
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    await act(async () => { result.current.restoreKeptJournal(entryFor(result, "browser:kept")); });
+    expect(toastsOf("unloadJournalKeptRestoreUnavailable")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(numberedKept()).toEqual([]);
+    expect(readJournal(KEPT_KEY)).not.toBeNull();
+  });
+});
+
+// open-followups §668 — a journal that does not decode is never applied. Lenient decoding turned it
+// into an EMPTY workspace: applied with no click when its base matched, and the payload of "Restore
+// anyway" when it did not.
+describe("§668 — a corrupt journal is refused, not applied as an empty project", () => {
+  /** A record the field check accepts, whose workspace text is not a workspace. */
+  function seedCorrupt(baseFingerprint: string, workspace = "{not json"): void {
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify({ v: 1, projectKey: "browser", tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint, workspace }));
+  }
+  const unreadableToasts = () => showToast.mock.calls.filter((c) => c[1] === t("en-US", "unloadJournalUnreadable"));
+
+  it.each([
+    ["unparseable text", "{not json"],
+    ["JSON that is not a workspace object", "[1, 2, 3]"],
+  ])("load restore, base matching: %s leaves the project as loaded, says so, and writes nothing", async (_label, workspace) => {
+    seedCorrupt(matchingBase(), workspace);
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(unreadableToasts()).toEqual([["error", t("en-US", "unloadJournalUnreadable")]]);
+    expect(restoredToast()).toHaveLength(0);
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(localStorage.getItem(JOURNAL_KEY)).not.toBeNull(); // left in place...
+    // ...and LISTED, so Download and Discard reach it: nothing else would ever remove it.
+    expect(result.current.otherJournals.others.map((e) => e.journal.projectKey)).toEqual(["browser"]);
+    expect(result.current.otherJournals.others[0].unreadable).toBe(true); // its own text: "reload to restore" would only fail again
+  });
+
+  it("an unreadable journal can be discarded from the notice, and the next load says nothing", async () => {
+    seedCorrupt(matchingBase());
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const first = render();
+    await advance(800);
+    const [entry] = first.result.current.otherJournals.others;
+    act(() => first.result.current.otherJournals.discard(entry));
+    expect(localStorage.getItem(JOURNAL_KEY)).toBeNull();
+    first.unmount();
+    showToast.mockClear();
+    const second = render();
+    await advance(800);
+    expect(unreadableToasts()).toHaveLength(0);
+    expect(second.result.current.otherJournals.others).toEqual([]);
+  });
+
+  it("base differing: no conflict notice, so \"Restore anyway\" has nothing to apply", async () => {
+    seedCorrupt("changed-elsewhere");
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(unreadableToasts()).toHaveLength(1);
+  });
+
+  // The EMPTY case is not refused here: a deliberate Clear all journals an empty workspace, and the
+  // existing save-path guard (isMassDeletion, §629) decides — with "Save anyway" / "Discard" as recourse.
+  it("a deliberate clear of a small project is restored and saved, like any edit", async () => {
+    seedJournal(matchingBase(), JOURNAL_KEY, "browser", emptyWorkspace());
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks).toEqual([]);
+    expect(unreadableToasts()).toHaveLength(0);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  it("a deliberate clear of a large project is restored, and its save meets the mass-deletion guard", async () => {
+    const many = { ...STORED, tasks: Array.from({ length: 400 }, (_, i) => ({ id: i + 1, taskName: `T${i}` })) as unknown as Task[] };
+    seedJournal(fingerprintWorkspace(many as unknown as Workspace), JOURNAL_KEY, "browser", emptyWorkspace());
+    const backend = makeBackend(100, "resolve", many);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks).toEqual([]);
+    expect(unreadableToasts()).toHaveLength(0);
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).not.toBeNull(); // the banner's Save anyway / Discard
   });
 });

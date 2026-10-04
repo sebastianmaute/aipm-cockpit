@@ -4,8 +4,9 @@ vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn() }));
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   listProjects, listArchivedProjects, createProject, updateProjectMeta,
-  archiveProject, restoreProject, hardDeleteProject,
+  archiveProject, restoreProject, hardDeleteProject, readPortfolioActivityLogs, activityLogsStatement,
 } from "./turso-portfolio";
+import * as diagnostics from "./diagnostics";
 import { upsertProjectStatement } from "./turso-tenant-schema";
 import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
 import type { ProjectMeta } from "./types";
@@ -23,8 +24,8 @@ function meta(): ProjectMeta {
 }
 
 /** A projects-table SELECT result mirroring upsertProjectStatement's columns. */
-function projectsResult(id: string, m: ProjectMeta) {
-  const up = upsertProjectStatement(m, id, false);
+function projectsResult(id: string, m: ProjectMeta, archived = false) {
+  const up = upsertProjectStatement(m, id, archived);
   const cols = up.sql.match(/\(([^)]+)\) VALUES/)![1].split(",").map((c) => ({ name: c.trim().replace(/"/g, "") }));
   return { type: "ok" as const, response: { type: "execute", result: { cols, rows: [up.args!.map((a) => ({ value: a.value }))] } } };
 }
@@ -130,5 +131,78 @@ describe("turso-portfolio", () => {
     expect(list).toHaveLength(1);
     const stmts = vi.mocked(runTursoPipeline).mock.calls.at(-1)![1];
     expect(stmts.some((s) => s.sql.includes("\"archived\" = '1'"))).toBe(true);
+  });
+});
+
+// open-followups §510 — the portfolio read behind the internal activity-log download.
+describe("readPortfolioActivityLogs (§510)", () => {
+  beforeEach(() => vi.mocked(runTursoPipeline).mockReset());
+
+  const logEntry = { id: "d-1-1", timestamp: "2026-10-03T08:00:00.000Z", kind: "task.updated", args: [7, "Kickoff"], actor: "user", changes: [{ field: "status", from: "To Do", to: "Done" }] };
+  const logsResult = (rows: [string, string][]) => ({
+    type: "ok" as const,
+    response: { type: "execute", result: { cols: [{ name: "project_id" }, { name: "value" }], rows: rows.map(([id, v]) => [{ value: id }, { value: v }]) } },
+  });
+
+  it("lists every project, archived ones flagged, each with its own decoded log — and only projects that exist", async () => {
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      projectsResult("p2", { ...meta(), name: "Zeus" }, true),
+      logsResult([["p1", JSON.stringify([logEntry])], ["gone", JSON.stringify([logEntry])]]),
+    ]);
+    const out = await readPortfolioActivityLogs(cfg);
+    expect(out.map((p) => [p.id, p.name, p.archived, p.log.length])).toEqual([["p1", "Apollo", false, 1], ["p2", "Zeus", true, 0]]);
+    expect(out[0].log[0]).toMatchObject({ id: "d-1-1", changes: [{ field: "status", from: "To Do", to: "Done" }] });
+    expect(out[0]).not.toHaveProperty("logUnreadable");
+    expect(out[0]).not.toHaveProperty("entriesDropped");
+    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    expect(stmts.at(-1)).toEqual(activityLogsStatement());
+    expect(stmts.some((s) => /^\s*(INSERT|UPDATE|DELETE)/i.test(s.sql))).toBe(false); // changes no data
+  });
+
+  it("lists a project whose stored log does not decode as empty, and logs it, rather than failing the download", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } },
+      logsResult([["p1", "{not json"]]),
+    ]);
+    const out = await readPortfolioActivityLogs(cfg);
+    expect(out.map((p) => [p.id, p.log.length])).toEqual([["p1", 0]]);
+    expect(out[0].logUnreadable).toBe(true); // flagged: an empty list must not read as "no activity"
+    expect(spy).toHaveBeenCalledWith("warn", "storage.activityAuditLogUnreadable", expect.objectContaining({ projectId: "p1" }));
+    spy.mockRestore();
+  });
+
+  it("lists a SQL NULL log as empty without a warning, and a non-array log as empty with one", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      projectsResult("p2", { ...meta(), name: "Zeus" }),
+      logsResult([["p1", ""], ["p2", "{\"not\":\"an array\"}"]]),
+    ]);
+    const out = await readPortfolioActivityLogs(cfg);
+    expect(out.map((p) => [p.id, p.log.length, p.logUnreadable ?? false])).toEqual([["p1", 0, false], ["p2", 0, true]]);
+    expect(spy.mock.calls.filter((c) => c[1] === "storage.activityAuditLogUnreadable").map((c) => (c[2] as { projectId: string }).projectId)).toEqual(["p2"]);
+    spy.mockRestore();
+  });
+
+  it("counts stored entries the sanitizer dropped, so a short log says why", async () => {
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      projectsResult("p1", meta()),
+      { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } },
+      logsResult([["p1", JSON.stringify([logEntry, { nonsense: true }])]]),
+    ]);
+    const [p1] = await readPortfolioActivityLogs(cfg);
+    expect(p1.log).toHaveLength(1);
+    expect(p1.entriesDropped).toBe(1);
   });
 });

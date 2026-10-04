@@ -24,13 +24,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
 import { loadRegistry } from "./projects-registry";
 import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, journalKeyProject, listUnloadJournals, type UnloadJournal } from "./unload-journal";
-import { UNLOAD_JOURNAL_TAB_ID } from "./use-unload-journal";
+import { UNLOAD_JOURNAL_TAB_ID, journalRecordId } from "./use-unload-journal";
 
 export type OtherJournal = {
   journal: UnloadJournal;
   /** The registry project's name for the key, or null (a Turso id, `browser`, `turso`) — the notice
    *  then shows the key, with `browser` and `turso` translated. */
   label: string | null;
+  /** §668 — the load restore found this record undecodable: it cannot be restored, only downloaded or
+   *  discarded. */
+  unreadable?: true;
 };
 
 export type UseOtherJournalsArgs = {
@@ -38,14 +41,17 @@ export type UseOtherJournalsArgs = {
   projectKey: string;
   /** Keys whose restore ran on this page — never listed. */
   restoredKeys: ReadonlySet<string>;
+  /** §668 — records that did not decode on this page (`unreadableRecords` from use-unload-journal.ts). */
+  unreadableRecords?: ReadonlySet<string>;
   /** True once the first load for `projectKey` has applied (so its restore has run). */
   enabled: boolean;
   isPopout: boolean;
 };
 
-function toEntry(journal: UnloadJournal): OtherJournal {
+function toEntry(journal: UnloadJournal, unreadableRecords?: ReadonlySet<string>): OtherJournal {
   const projectId = journalKeyProject(journal.projectKey); // §4 — a kept slot is labelled with its project
-  return { journal, label: loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null };
+  const label = loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null;
+  return unreadableRecords?.has(journalRecordId(journal)) ? { journal, label, unreadable: true } : { journal, label };
 }
 
 /** The download's file name. The key never holds a credential (see `journalProjectKey`); anything
@@ -56,7 +62,7 @@ export function otherJournalFileName(journal: UnloadJournal): string {
   return `aipm-cockpit-unsaved-${safeKey}-${day}.json`;
 }
 
-export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }: UseOtherJournalsArgs) {
+export function useOtherJournals({ projectKey, restoredKeys, unreadableRecords, enabled, isPopout }: UseOtherJournalsArgs) {
   const active = enabled && !isPopout;
   const [others, setOthers] = useState<OtherJournal[]>([]);
   const [expired, setExpired] = useState<OtherJournal[]>([]);
@@ -69,14 +75,14 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     setOthers(listUnloadJournals()
       .filter((j) => isKeptProjectKey(j.projectKey) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a KEPT slot is listed whoever wrote it: no restore ever reads it, so this list is its only way out
       .sort((a, b) => b.savedAt - a.savedAt)
-      .map(toEntry));
-  }, [restoredKeys]);
+      .map((j) => toEntry(j, unreadableRecords)));
+  }, [restoredKeys, unreadableRecords]);
 
   useEffect(() => {
     if (!active) return;
     if (!sweptRef.current) {
       sweptRef.current = true;
-      setExpired(expireUnloadJournals(Date.now(), projectKey).map(toEntry));
+      setExpired(expireUnloadJournals(Date.now(), projectKey).map((j) => toEntry(j)));
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a read of localStorage, re-run when the key in scope or the restored keys change
     relist();
@@ -91,6 +97,21 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     } else {
       relist();
     }
+  }, [relist]);
+
+  /** §655 — a kept slot of the project IN SCOPE can be put back (use-storage-backend.ts does it).
+   *  Another project's kept slot cannot: its data would land in the wrong project. A plain draft is
+   *  restored by reloading with its project open, as before. */
+  const isRestorable = useCallback((entry: OtherJournal): boolean => (
+    isKeptProjectKey(entry.journal.projectKey) && journalKeyProject(entry.journal.projectKey) === projectKey
+  ), [projectKey]);
+
+  /** §655 — after a restore: removes the record the entry describes (as Discard does) and re-reads
+   *  the list, which now holds the version kept in its place. */
+  const restored = useCallback((entry: OtherJournal): void => {
+    const { journal } = entry;
+    clearUnloadJournal(journal.projectKey, { tabId: journal.tabId, ifSavedAtAtMost: journal.savedAt });
+    relist();
   }, [relist]);
 
   /** Downloads the entry's workspace JSON as listed (or as it was when it expired). False when the
@@ -109,6 +130,8 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
     expired,
     discard,
     download,
+    isRestorable,
+    restored,
     dismiss: useCallback(() => setDismissed(true), []),
     dismissExpired: useCallback(() => setExpired([]), []),
   };

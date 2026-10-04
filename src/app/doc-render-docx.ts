@@ -36,6 +36,7 @@ import {
 import { bulletMarker } from "./rich-text-runs";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { resolveDataSection } from "./doc-data-section";
+import { docxColumnWidths, docxSection } from "./export-docx-columns";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import {
@@ -388,11 +389,13 @@ function renderBlock(
       // register's rich column arrives here as the same `RichCell` the
       // workspace exporter lays out. Passing the sink is what makes an embedded
       // register's links survive identically on both paths.
-      const section = resolveDataSection(block.key, ws, lang);
-      if (!section) return "";
+      const resolved = resolveDataSection(block.key, ws, lang);
+      if (!resolved) return "";
+      // §512 — the same curated, content-sized columns as the workspace export's Word file.
+      const section = docxSection(resolved);
       return (
         para(section.title, "Heading2") +
-        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links)
+        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links, docxColumnWidths(section.columns, section.rows, CONTENT_WIDTH))
       );
     }
     case "pageBreak":

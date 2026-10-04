@@ -29,8 +29,8 @@ import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
-import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
-import { useOtherJournals } from "./use-other-journals";
+import { journalWorkspace, resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
+import { useOtherJournals, type OtherJournal } from "./use-other-journals";
 import { useConflictResolution } from "./use-conflict-resolution";
 import { useWorkspaceSync } from "./use-workspace-sync";
 import { enqueueSave, whenSaved } from "./save-queue";
@@ -313,6 +313,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
   //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
   const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
+  const loadPendingRef = useRef(loadPending); useEffect(() => { loadPendingRef.current = loadPending; }, [loadPending]); // §655 — read at click time: the kept restore runs after an AWAITED confirm, so a render-time `loadPending` can be stale
   // §548 — the scope epoch's reader. The counter (`scopeEpochRef`) and `bumpScopeEpoch` are declared
   // beside `scopeTargetKeyRef` above, but only ONE of the THREE bump sites is up there: (a) is inside
   // `resolveLogModeAndStamp`, (b) is `applyWorkspaceForOp` further down THIS file, and (c) is in
@@ -415,9 +416,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const savesAllowed = savesAllowedFor !== null && savesAllowedFor === backend;
   // §629 — the unload journal (use-unload-journal.ts). Re-read per storage config: an op commits the registry in the same tick as the config change.
   const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
-  const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
+  const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout, onUnreadable: () => emitToast("error", t(langRef.current, "unloadJournalUnreadable")) }); // §668
   // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
-  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
+  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, unreadableRecords: unloadJournal.unreadableRecords, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   // ★★ NEVER CALL DURING RENDER (final review, Task 9 M3): it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).
@@ -663,6 +664,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   bypassed by reaching for the obvious one.
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
+  // §655 — "Restore" on a kept version of the project in scope. The LIVE workspace is kept first, so the restore can be undone from the same notice (nothing is applied when that keep is not written); then the kept one is applied like "Restore anyway" below and saved by the normal path, and its slot is removed.
+  const restoreKeptJournalNow = (entry: OtherJournal): void => { if (!otherJournals.isRestorable(entry)) return; if (loadPendingRef.current) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreLoading")); return; } if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreBlocked")); return; } const ws = journalWorkspace(entry.journal); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreUnavailable")); return; } if (!unloadJournal.keepLive(currentWorkspace())) { emitToast("error", t(langRef.current, "unloadJournalKeptRestoreNotKept")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); otherJournals.restored(entry); emitToast("success", t(langRef.current, "unloadJournalKeptRestored")); };
+  const restoreKeptJournalRef = useRef(restoreKeptJournalNow); useEffect(() => { restoreKeptJournalRef.current = restoreKeptJournalNow; }); const restoreKeptJournal = useCallback((entry: OtherJournal) => restoreKeptJournalRef.current(entry), []); // §655 — the banner calls this AFTER an awaited confirm: route to the LATEST render's handler, so the live workspace it keeps and the scope it checks are current
   const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
@@ -1588,7 +1592,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
     unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
-    otherJournals, // §632
+    otherJournals, restoreKeptJournal, // §632 · §655
     resolveConflictReload: conflictResolution.resolveConflictReload, resolveConflictOverwrite: conflictResolution.resolveConflictOverwrite, downloadConflictVersion: conflictResolution.downloadConflictVersion, // §4
   };
 }

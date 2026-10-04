@@ -19,7 +19,8 @@ import { readZipEntries } from "./unzip";
 import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
-import type { ExportSection } from "./export-sections";
+import { EXPORT_SECTION_FIELDS, type ExportSection } from "./export-sections";
+import { DOCX_SECTION_FIELDS } from "./export-docx-columns";
 import type { ProjectDocument, DocBlock } from "./document-model";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { DocumentAsset } from "./document-asset";
@@ -693,6 +694,15 @@ describe("renderDocumentDocx — dataSection blocks", () => {
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), both);
     expect(textNodes(xml)).toContain("Vendor delay");
     expect(textNodes(xml).join(" ")).not.toContain("A task");
+  });
+
+  // §512 — the embedded register prints the same curated, content-sized columns as the export.
+  it("prints the curated Word columns, sized to their content", async () => {
+    const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), wsWithRaid);
+    const grid = [...xml.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].map((m) => Number(m[1]));
+    expect(grid).toHaveLength(DOCX_SECTION_FIELDS.raid!.length);
+    expect(grid.length).toBeLessThan(EXPORT_SECTION_FIELDS.raid.length);
+    expect(new Set(grid).size).toBeGreaterThan(1); // not one even share
   });
 });
 

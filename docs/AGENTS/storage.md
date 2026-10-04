@@ -10,7 +10,10 @@ Does NOT own, and links rather than restates:
 - how `documents` / `documentVersions` ride the write paths —
   [`documents.md`](documents.md#persistence--six-write-paths);
 - the activity log's meta-blob persistence and `logMode` —
-  [`activity-log.md`](activity-log.md);
+  [`activity-log.md`](activity-log.md), including the §510 internal audit download in Settings → Storage
+  (expert mode), the one read of the stored logs that is not a load: on a multi-project Turso database it
+  SELECTs every project's `activityLog` `meta` row (`readPortfolioActivityLogs`), changes no data, and is
+  NOT access control;
 - five [`AGENTS.md`](../../AGENTS.md) "Hard constraints" bullets, which stay there because that
   file is always loaded: **New persisted `Workspace` field → SIX write paths**, **New COLUMN on
   existing entity**, **New Turso table NOT workspace data** (with its `idKind` half), **Secrets at
@@ -357,7 +360,28 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 - **Kept versions.** A version left behind while its saves were refused (a switch away, a rebuild)
   goes to a kept journal slot, `keptProjectKey` (`aipm-cockpit:unload-journal:<key>:kept`, then
   `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
-  Discard. Nothing restores it in the app.
+  Discard, and — for a kept version of the project IN SCOPE only (`isRestorable` in
+  `use-other-journals.ts`) — Restore, behind a confirm (§655). `restoreKeptJournal`
+  (`use-storage-backend.ts`) refuses while a load is in flight (`unloadJournalKeptRestoreLoading`, read through
+  `loadPendingRef`) or over a shut save gate, runs through `restoreKeptJournalRef` so the handler the banner
+  holds across its awaited confirm acts on the LATEST render (the live workspace it keeps first is current), decodes the record STRICTLY, KEEPS the live
+  workspace first through `keepLive` (and restores nothing when that keep is not written), then applies
+  the kept one like "Restore anyway" and saves it by the normal path, and removes the restored slot. The
+  version that was open is then itself a kept version in the same notice, so a restore can be undone
+  there. ★★ `journalWorkspace` decodes STRICTLY on every path (§668): lenient, `jsonToWorkspace` answers
+  unparseable text with an EMPTY workspace, not a throw, and a corrupt journal used to be applied as an
+  empty project by the load restore (no click) and by "Restore anyway". An undecodable journal is now
+  never applied: the load restore raises no conflict notice for it, toasts `unloadJournalUnreadable`, and
+  leaves its key OUT of `restoredKeys`, so the other-journals notice lists it with Download and Discard —
+  nothing else would remove it (a confirmed save clears only this tab's records; the key in scope never
+  expires). It is marked through `unreadableRecords` (per record — `journalRecordId` — so a readable record another tab writes later under the key is not) (entry text `unloadJournalUnreadableEntry`, hint
+  `unloadJournalUnreadableHint`), since the notice's general "reload to restore" advice would only fail again.
+  ★ This tab's own next journal write under the same key replaces the record. Accepted: it is corrupt, and
+  the toast and notice say so at once. ★★ The decode passes NO `diag`, deliberately: with one, a
+  documents/documentVersions sanitizer throw would be contained and the journal applied WITHOUT those
+  slices, and its save would write the project without documents over the stored ones. Refusing the
+  whole journal keeps the stored documents and the record downloadable. ★ An EMPTY but readable journal is NOT refused
+  — a Clear all journals exactly that — and goes through the save-path mass-deletion guard like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
 `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a
