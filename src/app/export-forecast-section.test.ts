@@ -136,8 +136,14 @@ describe("exportForecastFor — the budget-module gate (§545)", () => {
     const src = readFileSync(join(process.cwd(), "src", "app", "task-manager.tsx"), "utf8");
     expect(src).toContain("const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle);");
     expect(src).toContain("{ budgetForecast: exportForecast }");
-    // Whitespace-tolerant: the deps object passed to buildShellChrome names exportForecast.
-    expect(src).toMatch(/buildShellChrome\(\{[^}]*\bexportForecast\b[^}]*\}\)/);
+    // The deps object passed to buildShellChrome carries `exportForecast` as a
+    // SHORTHAND property, so it is the gated local itself (not `undefined`, and
+    // not merely a value under some other key). Sliced to the call's own `});`
+    // so braces inside earlier entries cannot cut it short; whitespace-tolerant.
+    const start = src.indexOf("buildShellChrome({");
+    expect(start).toBeGreaterThan(-1);
+    const deps = src.slice(start, src.indexOf("});", start));
+    expect(deps).toMatch(/[{,]\s*exportForecast\s*(?:,|$)/);
   });
 });
 
