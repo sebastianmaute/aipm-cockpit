@@ -57,7 +57,7 @@ export function docxSection(section: ExportSection, refs?: DocxRefs): ExportSect
     columns: picks.map((i) => section.columns[i]),
     rows: section.rows.map((row) => picks.map((i) => row[i] ?? "")),
   };
-  return section.key === "roles" && refs ? withRoleNames(projected, curated, refs) : projected;
+  return section.key === "roles" && refs ? withRoleNames(projected, picks.map((i) => fields[i]), refs) : projected;
 }
 
 function withRoleNames(section: ExportSection, fields: readonly string[], refs: DocxRefs): ExportSection {

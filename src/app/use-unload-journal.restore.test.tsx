@@ -767,7 +767,9 @@ describe("§655 — Restore a kept version of the project in scope", () => {
     await advance(800);
     const entry = entryFor(result, "browser:kept");
     localStorage.removeItem(KEPT_KEY); // another tab resolved it
-    await act(async () => { result.current.restoreKeptJournal(entry); });
+    let rowGone: boolean | undefined;
+    await act(async () => { rowGone = result.current.restoreKeptJournal(entry); });
+    expect(rowGone).toBe(true); // its row is re-listed away, so the banner takes focus
     expect(toastsOf("unloadJournalKeptRestoreGone")).toHaveLength(1);
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
     expect(numberedKept()).toEqual([]);

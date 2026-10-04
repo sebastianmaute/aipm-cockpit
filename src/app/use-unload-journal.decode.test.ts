@@ -18,7 +18,10 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
 });
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { journalWorkspace } from "./use-unload-journal";
+import { jsonToWorkspace, workspaceToJson } from "./workspace";
 import type { UnloadJournal } from "./unload-journal";
 
 const journal: UnloadJournal = {
@@ -62,6 +65,19 @@ describe("journalWorkspace refuses a journal with any slice that does not decode
     ["resources in a foreign shape (rebuilt from task names after decoding)", { resources: [{ foo: 1 }] }],
   ])("%s", (_label, extra) => {
     expect(journalWorkspace(withSlice(extra))).toBeNull();
+  });
+
+  // The check must never refuse what this build writes: a refuse-everything mutant would pass every
+  // test above. The sample workspace carries real disciplines, grades and resources (the three lists
+  // judged by their row sanitizers) and every other slice.
+  it("accepts a same-build journal of the sample workspace, re-seeded lists included", () => {
+    const sample = jsonToWorkspace(readFileSync(join(process.cwd(), "sample-workspace-small.json"), "utf8"));
+    expect(sample.disciplines.length).toBeGreaterThan(0);
+    expect(sample.grades.length).toBeGreaterThan(0);
+    expect(sample.resources.length).toBeGreaterThan(0);
+    const ws = journalWorkspace({ ...journal, workspace: workspaceToJson(sample) });
+    expect(ws).not.toBeNull();
+    expect(ws?.resources.map((r) => r.id)).toEqual(sample.resources.map((r) => r.id));
   });
 
   it("still accepts a journal whose slices all decode", () => {

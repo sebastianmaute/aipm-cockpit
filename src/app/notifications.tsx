@@ -192,7 +192,9 @@ function JournalList({
   /** False when the restore was refused and its row stays, so focus stays too. A refusal that RE-LISTS
    *  (the version was already restored or discarded elsewhere, so its row goes) returns true. */
   onRestore?: (entry: OtherJournal) => boolean | void;
-  /** Called after a Restore that happened: the row the focus was on is gone, so the banner takes it. */
+  /** Called when the row the focus was on goes away: after a Restore that applied, and after one that
+   *  found the version already restored or discarded elsewhere (its row is re-listed away). If that empties
+   *  the notice, the banner unmounts and focus is lost with it; nothing is left to take it. */
   onRestored?: () => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);

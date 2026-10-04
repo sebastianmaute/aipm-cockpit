@@ -474,8 +474,10 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   entity list that was non-empty and lost every row (`JOURNAL_ENTITY_LISTS`; for `disciplines`, `grades`
   and `resources`, which the final migration re-seeds or rebuilds when empty, judged by the row sanitizer
   before it). ★ NOT detected: a list
-  that loses only SOME rows, and an object slice in a newer shape (`steeringCommittee`, `timelogLinks`),
-  which sanitizes to its fixed keys — §620's limit, above. ★ An EMPTY but readable journal is
+  that loses only SOME rows; `tasks` and `raid` rows in a foreign shape (mapped and defaulted, never
+  filtered); `plan` in a foreign shape (dates and currency reset to defaults); `fxRates` (dropped to null);
+  and an object slice in a newer shape (`steeringCommittee`, `timelogLinks`), which sanitizes to its fixed
+  keys — §620's limit, above. ★ An EMPTY but readable journal is
   NOT refused (a Clear all leaves exactly that state) and goes through the save-path mass-deletion guard
   like any edit.
 

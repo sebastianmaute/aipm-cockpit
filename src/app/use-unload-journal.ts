@@ -100,7 +100,7 @@ export function journalRecordId(journal: UnloadJournal): string {
  *  absence names, so for those the check reads the ROW sanitizer's own result (`PRE_MIGRATION`) rather
  *  than the decoded list. */
 const JOURNAL_ENTITY_LISTS = [
-  "tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets",
+  "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets",
   "milestones", "changes", "stakeholders", "calendarEvents", "documentAssets",
 ] as const;
 const PRE_MIGRATION: Partial<Record<(typeof JOURNAL_ENTITY_LISTS)[number], (row: unknown) => unknown>> = {
@@ -115,8 +115,11 @@ export function journalWorkspace(journal: UnloadJournal): Workspace | null {
     // slice over the stored one (on Turso, a meta slice absent from the workspace is not re-inserted).
     // Refused: every slice the decoder reports in `diag` (the meta slices, and a documents /
     // documentVersions sanitizer throw), and every entity list that was non-empty and decoded to nothing.
-    // ★ NOT detected, and recorded as such: a list that loses only SOME rows, and an object slice in a
-    // newer shape (`steeringCommittee`, `timelogLinks`), which sanitizes to its fixed keys (§620's limit).
+    // ★ NOT detected, and recorded as such (docs/AGENTS/storage.md): a list that loses only SOME rows;
+    // `tasks` and `raid` rows in a foreign shape, which are mapped and defaulted, never filtered (so they
+    // are not in the list above); `plan` in a foreign shape (its dates and currency reset to defaults);
+    // `fxRates` (dropped to null); and an object slice in a newer shape (`steeringCommittee`,
+    // `timelogLinks`), which sanitizes to its fixed keys (§620's limit).
     const diag: DocTruncationDiag = {};
     const ws = jsonToWorkspace(journal.workspace, { strict: true, diag });
     const raw = JSON.parse(journal.workspace) as Record<string, unknown>; // strict has already parsed it
