@@ -14,7 +14,7 @@ longer carries its own changelog comment.
 
 - **Exports include the budget forecast (§545).** PDF, Excel, PowerPoint and Word exports now have a
   Budget forecast section: budget, actuals and remaining, the forecast at current pace and at current
-  efficiency with their variance (hours beside the euros), the gap between the two forecasts, the
+  efficiency (hours beside the euros) with their variance, the gap between the two forecasts, the
   average booked rate and, for fixed-price work, a note that the client price does not change. It is on
   by default and can be switched off in Settings → Export. It is left out when the budget module is off
   or there is no forecast yet. CSV and Markdown exports, and document data sections, do not include it.

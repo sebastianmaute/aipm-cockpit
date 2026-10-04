@@ -3940,7 +3940,7 @@ export const de: Record<TranslationKey, string> = {
   aiMaxTurnsHint: "Wie viele Tool-/Fortsetzungsdurchläufe der Assistent nutzen darf, um eine Nachricht zu beantworten (1–50). Höhere Werte ermöglichen komplexere mehrstufige Arbeit, kosten aber mehr Token.",
 
   settingsSectionExport: "Export",
-  exportSectionHint: "Legen Sie fest, welche Abschnitte in Dokumentexporte (XLSX, DOCX, PDF, PPTX, Markdown) einbezogen werden. Standard: Aufgaben, RAID, Kalendertermine und Budgetprognose. Die Budgetprognose erscheint nur in XLSX, DOCX, PDF und PPTX.",
+  exportSectionHint: "Legen Sie fest, welche Abschnitte in Dokumentexporte (XLSX, DOCX, PDF, PPTX, Markdown) einbezogen werden. Standard: Projektdetails, Aufgaben, RAID, Kalendertermine und Budgetprognose. Die Budgetprognose erscheint nur in XLSX, DOCX, PDF und PPTX.",
   exportLabelTasks: "Aufgaben",
   exportLabelRaid: "RAID",
   exportLabelChanges: "Änderungen",

@@ -19,6 +19,7 @@ import {
 import { formatCurrency } from "./resource-cost";
 import { formatHours, formatSignedPercent, signedFigure } from "./forecast-format";
 import { rateFactValue } from "./budget-rate-mix-text";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 
 /** What `buildExportSections` needs beyond the workspace. */
 export type ExportExtras = {
@@ -26,6 +27,18 @@ export type ExportExtras = {
    *  off or no forecast exists — in which case the section is omitted. */
   budgetForecast?: ForecastBundle | null;
 };
+
+/** The forecast an export may carry: the dashboard model's bundle, or null
+ *  with the budget module OFF. The model computes a forecast from the raw
+ *  budgets whatever the module says (see the gate in ai-dashboard-snapshot.ts),
+ *  so without this gate a user who turned the module off would still export
+ *  euro forecasts. Every export entry point goes through here. */
+export function exportForecastFor(
+  features: readonly FeatureModuleId[],
+  bundle: ForecastBundle | null | undefined,
+): ForecastBundle | null {
+  return isModuleEnabled("budget", features) ? (bundle ?? null) : null;
+}
 
 type Leg = "pace" | "efficiency";
 
@@ -79,7 +92,10 @@ export function budgetForecastRows(bundle: ForecastBundle | null | undefined, la
     const pctText = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(eur.gap.percentOfBac);
     rows.push([
       t(lang, "exportForecastGap"),
-      t(lang, eur.gap.severity === "warning" ? "forecastGapWarning" : "forecastGapInfo", money(eur.gap.eacDifference), pctText),
+      [t(lang, eur.gap.severity === "warning" ? "forecastGapWarning" : "forecastGapInfo", money(eur.gap.eacDifference), pctText),
+        // The same extra-days clause the dashboard card's GapLine shows.
+        eur.gap.extraWorkingDays === null ? null : t(lang, "forecastGapExtraDays", String(eur.gap.extraWorkingDays)),
+      ].filter((part): part is string => part !== null).join(" "),
     ]);
   }
   if (bundle.mix) rows.push([t(lang, "forecastFactRate"), rateFactValue(lang, bundle.mix)]);

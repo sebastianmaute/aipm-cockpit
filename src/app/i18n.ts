@@ -4187,7 +4187,7 @@ const enUS = {
   aiMaxTurnsHint: "How many tool/continuation round-trips the assistant may take to answer one message (1–50). Higher allows more complex multi-step work but costs more tokens.",
 
   settingsSectionExport: "Export",
-  exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Tasks, RAID, Calendar events and Budget forecast. Budget forecast appears in XLSX, DOCX, PDF and PPTX only.",
+  exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Project details, Tasks, RAID, Calendar events and Budget forecast. Budget forecast appears in XLSX, DOCX, PDF and PPTX only.",
   exportLabelTasks: "Tasks",
   exportLabelRaid: "RAID",
   exportLabelChanges: "Changes",

@@ -62,3 +62,17 @@ describe("both top bars hand the Export menu the configured footer", () => {
     expect(seen.props.at(-1)!.exportFooter).toBe(DEFAULT_EXPORT_FOOTER);
   });
 });
+
+// §545 — the same two-mount guard for the budget forecast. The prop is optional
+// on ActionMenus, AppHeader and ExportMenu, so a mount that stopped passing it
+// would export no forecast with tsc and every leaf test green.
+describe("both top bars hand the Export menu the budget forecast (§545)", () => {
+  it.each(["topBarMenus", "appHeaderEl"] as const)("%s", (which) => {
+    seen.props.length = 0;
+    const forecast = { marker: "bundle" } as unknown as ShellChromeDeps["exportForecast"];
+    const built = buildShellChrome({ ...deps(defaultSettings), exportForecast: forecast });
+    render(<>{built[which]}</>, { wrapper: Wrapper });
+    expect(seen.props.length).toBeGreaterThan(0);
+    expect(seen.props.at(-1)!.exportForecast).toBe(forecast);
+  });
+});

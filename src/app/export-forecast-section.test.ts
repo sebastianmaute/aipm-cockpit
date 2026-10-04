@@ -1,7 +1,9 @@
 // open-followups §545 — the exports half: the budget forecast as a derived
 // export section, built from the dashboard model's forecast bundle.
 import { beforeAll, describe, expect, it } from "vitest";
-import { budgetForecastRows } from "./export-forecast-section";
+import { budgetForecastRows, exportForecastFor } from "./export-forecast-section";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { buildExportSections } from "./export-sections";
 import { loadI18n } from "./i18n";
 import {
@@ -111,5 +113,36 @@ describe("the budgetForecast export section (§545)", () => {
   it("cannot be named by a document dataSection block, whose renderers have no forecast", () => {
     expect(DATA_SECTION_KEYS as readonly string[]).not.toContain("budgetForecast");
     expect(DATA_SECTION_KEYS as readonly string[]).toContain("budgets");
+  });
+});
+
+describe("exportForecastFor — the budget-module gate (§545)", () => {
+  it("passes the bundle through with the budget module on", () => {
+    const b = bundle();
+    expect(exportForecastFor(["budget"], b)).toBe(b);
+    expect(exportForecastFor(["budget"], undefined)).toBeNull();
+  });
+
+  it("withholds it with the budget module off, though the model still computed one", () => {
+    expect(exportForecastFor([], bundle())).toBeNull();
+  });
+
+  // The gate only protects an export entry point that calls it. task-manager is
+  // the one that holds the dashboard model; pin its call, and that the value it
+  // gates is the one both its own handler and the header mounts receive.
+  it("is what task-manager hands every export entry point", () => {
+    const src = readFileSync(join(process.cwd(), "src", "app", "task-manager.tsx"), "utf8");
+    expect(src).toContain("const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle);");
+    expect(src).toContain("{ budgetForecast: exportForecast }");
+    expect(src).toMatch(/onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast,/);
+  });
+});
+
+describe("the gap row", () => {
+  it("adds the extra-working-days clause the dashboard card shows", () => {
+    const eur = { ...EUR, gap: { eacDifference: 4000, percentOfBac: 0.2, severity: "info" as const, extraWorkingDays: 7 } };
+    const gap = value(budgetForecastRows(bundle({ eur }), "en-US"), "Pace vs efficiency");
+    expect(gap).toMatch(/^The pace and efficiency forecasts differ by €4,000/);
+    expect(gap).toContain("needs 7 working days beyond the planned end");
   });
 });

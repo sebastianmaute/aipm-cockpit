@@ -154,7 +154,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { exportForecastFor } from "./export-forecast-section"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -2186,7 +2186,7 @@ function TaskManagerInner() {
 
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.
-  const exportFooter = exportFooterText(settings.branding); const exportForecast = isModuleEnabled("budget", settings.features) ? dashboardModel.forecastBundle : null; // §545
+  const exportFooter = exportFooterText(settings.branding); const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle); // §545
   const handleExportCurrentProject = useCallback(
     (format: string) => {
       // §463 — the same builder as the header Export menu. What keeps this
