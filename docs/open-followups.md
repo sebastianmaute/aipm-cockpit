@@ -38536,7 +38536,7 @@ Size L — template reading for both renderers, plus a picker over SharePoint, O
 
 ## 512. The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rln "buildDocxTable" src/app` → `ooxml-docx-primitives.ts`, `export-docx.ts`,
+**Status:** **Update 2026-10-04:** part (a) is done: the Word paths (the workspace export's `.docx` and a document's `dataSection` block) now print a curated set of reader-facing columns per register (`DOCX_SECTION_FIELDS` in `export-docx-columns.ts`: no sync stamps, calendar ids, link lists or linked-row id lists), sized to their content by `docxColumnWidths` (longest cell text or longest header word, clamped to 4..40 characters, summing exactly to the page width). CSV, XLSX, PPTX and HTML keep every exported field. The headers were already display labels (§304, closed). Verified by `npx vitest run src/app/export-docx-columns.test.ts src/app/export-ooxml.test.ts src/app/ooxml-docx-primitives.test.ts src/app/doc-render-docx.test.ts src/app/doc-data-section.test.ts --maxWorkers=1` (5 files, 222 tests, exit 0); 8 mutants each turn a test red. Not opened in Word. What stays OPEN is part (b), DEFERRED by the owner on 2026-10-04: a branded header and footer (logo, project name, page number), which needs header/footer parts and a media part. OPEN 2026-09-13 — `grep -rln "buildDocxTable" src/app` → `ooxml-docx-primitives.ts`, `export-docx.ts`,
 `doc-render-docx.ts` and others; the layout itself is never machine-verified in Word.
 
 Observed in the demo: the Word export needs branding, fewer columns (content compresses until unreadable) and a

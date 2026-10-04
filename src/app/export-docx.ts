@@ -10,7 +10,8 @@ import {
   xmlEscape,
 } from "./export-ooxml-shared";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
-import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primitives";
+import { DOC_STYLES, buildDocxPackage, buildDocxTable, docxContentWidth } from "./ooxml-docx-primitives";
+import { docxColumnWidths, docxSection } from "./export-docx-columns";
 
 // ============================================================================
 // DOCX
@@ -26,7 +27,10 @@ import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primi
  *  is lenient, which is how `<w:color/><w:i/>` sat in both paragraphs here
  *  unnoticed. This is the same rule `DOCX_MARK_RPR`'s `rank` table enforces for
  *  the rich path — read its comment before reordering anything here. */
-function buildDocxSection(section: ExportSection, links: LinkSink): string {
+function buildDocxSection(full: ExportSection, links: LinkSink): string {
+  // §512 — Word prints the curated columns, sized to their content (export-docx-columns.ts).
+  const section = docxSection(full);
+  const widths = docxColumnWidths(section.columns, section.rows, docxContentWidth("landscape"));
   return `
     <w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
@@ -42,7 +46,7 @@ function buildDocxSection(section: ExportSection, links: LinkSink): string {
       </w:r>
     </w:p>
     <w:p/>
-    ${buildDocxTable(section.columns, section.rows, undefined, links)}
+    ${buildDocxTable(section.columns, section.rows, undefined, links, widths)}
     <w:p/>`;
 }
 

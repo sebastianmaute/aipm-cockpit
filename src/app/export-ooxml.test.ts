@@ -24,6 +24,8 @@ import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { jsonToWorkspace } from "./workspace";
+import { DOCX_SECTION_FIELDS } from "./export-docx-columns";
+import { EXPORT_SECTION_FIELDS } from "./export-sections";
 import { buildExportWorkspace } from "./export-workspace";
 
 // ---------------------------------------------------------------------------
@@ -199,6 +201,21 @@ function makeBaseWorkspace(): Workspace {
 // ---------------------------------------------------------------------------
 
 describe("buildDocx", () => {
+  // §512 — Word prints a curated set of reader-facing columns per register, sized to their
+  // content, where CSV/XLSX keep every exported field.
+  it("prints the tasks register's curated columns at content-sized widths that fill the page", async () => {
+    const ws: Workspace = { ...makeBaseWorkspace(), tasks: [makeTask(1)] };
+    const sections = buildExportSections(ws, { ...defaultExportConfig, project: false, raid: false, calendarEvents: false }, "en-US");
+    const doc = (await unzipBlob(buildDocx(sections))).get("word/document.xml")!;
+    const tables = doc.split("<w:tbl>").slice(1);
+    expect(tables).toHaveLength(1); // the tasks table alone, so the grid below is its
+    const grid = [...tables[0].matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].map((m) => Number(m[1]));
+    expect(grid).toHaveLength(DOCX_SECTION_FIELDS.tasks!.length);
+    expect(grid.length).toBeLessThan(EXPORT_SECTION_FIELDS.tasks.length);
+    expect(grid.reduce((a, b) => a + b, 0)).toBe(14520);
+    expect(new Set(grid).size).toBeGreaterThan(1);
+  });
+
   it("with defaultExportConfig — tasks + RAID content present, milestones absent", async () => {
     const ws: Workspace = {
       ...makeBaseWorkspace(),

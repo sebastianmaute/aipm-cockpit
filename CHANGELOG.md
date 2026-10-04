@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Word export is easier to read (§512).** In Word files, each table now shows the columns a
+  reader needs (for tasks: id, name, assignee, status, priority, dates, group, blockers and
+  description) instead of every stored field, and column widths follow their content instead of
+  being equal. This applies to the workspace export and to registers embedded in a document.
+  CSV, Excel, PowerPoint and PDF exports keep every column.
 - **A version kept after a save conflict can be restored (§655).** When a save was refused
   because the project changed in another tab or on another device, the notice listing the kept
   "not saved (conflict)" version now offers Restore for the project you have open. After you
