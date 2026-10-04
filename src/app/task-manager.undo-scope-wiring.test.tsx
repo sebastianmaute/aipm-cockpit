@@ -8,11 +8,19 @@
 //   reader answers 0 until a switch, which is exactly what the `() => 0` fallback answers too, so
 //   an identity-free check against it could not tell the two apart.
 //
+// ★ Since the batch-4 post-merge fix I1 the undo stack reads the storage hook's UNDO epoch
+//   (`getUndoEpoch`: the scope epoch plus one per restore), not `getScopeEpoch` itself; that a scope
+//   change moves it is pinned in `use-storage-backend.load-pending.test.tsx` (i). The sentinel therefore
+//   replaces `getUndoEpoch`, and `getScopeEpoch` keeps its real value (0 here) so a wiring that reads the
+//   wrong one answers 0, never 7.
+//
 // Mutations (each named, each turns one assertion red on its own):
 //   MU1 — drop `getScopeEpoch: readScopeEpochForUndo` from the `useUndoStack({…})` deps:
 //         "the undo stack reads the storage hook's epoch" is red (reader undefined).
-//   MU2 — drop `getScopeEpochRef.current = getScopeEpoch;` from the forward-ref effect:
-//         the same test is red (the fallback answers 0, never 7).
+//   MU2 — drop `getScopeEpochRef.current = getUndoEpoch;` from the forward-ref effect, or fill it with
+//         `getScopeEpoch` instead: the same test is red (0, never 7).
+//   MU5 — drop `onUndoHistoryReset: undoApi.pruneStale` from the `useStorageBackend({…})` args:
+//         "a restore prunes this undo stack" is red.
 //   MU3 — delete the `usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale)` line:
 //         "the scope-change prune is wired" is red.
 //   MU4 — `useUndoBatch(undoApi, readScopeEpochForUndo)` → `useUndoBatch(undoApi)`:
@@ -27,6 +35,7 @@ const captured = vi.hoisted(() => {
     storageLoadPending: undefined as boolean | undefined,
     undoReader: undefined as (() => number) | undefined,
     undoPrune: undefined as unknown,
+    historyReset: undefined as unknown,
     batchReader: undefined as unknown,
     holdCalls: [] as { loadPending: boolean; prune: unknown }[],
   };
@@ -38,7 +47,8 @@ vi.mock("./use-storage-backend", async (importOriginal) => {
   function useStorageBackend(args: Parameters<typeof actual.useStorageBackend>[0]) {
     const result = actual.useStorageBackend(args);
     captured.storageLoadPending = result.loadPending;
-    return { ...result, getScopeEpoch: captured.sentinel };
+    captured.historyReset = args.onUndoHistoryReset;
+    return { ...result, getUndoEpoch: captured.sentinel };
   }
   return { ...actual, useStorageBackend };
 });
@@ -94,6 +104,11 @@ describe("§628 task-manager scopes the undo stack", () => {
     expect(captured.undoReader!()).toBe(7);
     captured.epoch = 9;
     expect(captured.undoReader!()).toBe(9);
+  });
+
+  it("a restore prunes this undo stack (MU5)", () => {
+    expect(typeof captured.undoPrune).toBe("function"); // anti-vacuity
+    expect(captured.historyReset).toBe(captured.undoPrune);
   });
 
   it("the undo batch gets the same reader the undo stack reads (MU4)", () => {
