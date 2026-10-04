@@ -11,10 +11,10 @@ import { IDB_CORE_KV_KEYS, IDB_ENTITY_STORES, IDB_OPTIONAL_KV_KEYS } from "./idb
 
 const source = (file: string): string => readFileSync(join(process.cwd(), "src/app", file), "utf8");
 
-/** `const KV_X_KEY = <rhs>` and `const IDB_X_STORE = <rhs>`, exported or not, with or without a type
- *  annotation. */
+/** `const|let|var KV_X_KEY = <rhs>` and the same for `IDB_X_STORE`, exported or not, with or without a
+ *  type annotation. */
 function declaredKeysIn(text: string): { name: string; rhs: string }[] {
-  const re = /^(?:export )?const ((?:KV|IDB)_\w+_(?:KEY|STORE))(?:\s*:\s*[^=\r\n]+?)?\s*=\s*([^;\r\n]+);/gm;
+  const re = /^(?:export )?(?:const|let|var) ((?:KV|IDB)_\w+_(?:KEY|STORE))(?:\s*:\s*[^=\r\n]+?)?\s*=\s*([^;\r\n]+);/gm;
   return [...text.matchAll(re)].map((m) => ({ name: m[1], rhs: m[2] }));
 }
 const declaredKeys = (file: string): { name: string; rhs: string }[] => declaredKeysIn(source(file));
@@ -22,18 +22,21 @@ const declaredKeys = (file: string): { name: string; rhs: string }[] => declared
 const isPresent = (v: unknown): boolean => (Array.isArray(v) ? v.length > 0 : v != null);
 
 describe("idb-layout — the backend declares no store or kv key of its own", () => {
-  it("the declaration scan reads plain, exported and type-annotated declarations, and nothing else", () => {
+  it("the declaration scan reads const, let and var, exported and type-annotated, and nothing else", () => {
     const text = [
       `const KV_A_KEY = "a";`,
       `export const IDB_B_STORE: string = "b";`,
       `const KV_C_KEY: "c" = IDB_OPTIONAL_KV_KEYS.c;`,
       `const KV_D_KEY_LIST = ["d"];`, // the name does not end in _KEY
-      `let KV_E_KEY = "e";`, // not a const
+      `export let KV_E_KEY = "e";`,
+      `var IDB_F_STORE = "f";`,
     ].join("\n");
     expect(declaredKeysIn(text)).toEqual([
       { name: "KV_A_KEY", rhs: `"a"` },
       { name: "IDB_B_STORE", rhs: `"b"` },
       { name: "KV_C_KEY", rhs: "IDB_OPTIONAL_KV_KEYS.c" },
+      { name: "KV_E_KEY", rhs: `"e"` },
+      { name: "IDB_F_STORE", rhs: `"f"` },
     ]);
   });
 
