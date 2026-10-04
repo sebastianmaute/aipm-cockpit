@@ -13,6 +13,15 @@
 import { type DashboardModel, type SubStatus, hasNoActiveScope } from "./dashboard";
 import { type CostUnknownReason, type ProjectReport, costIsKnowable } from "./budget-report";
 import { type Health } from "./health";
+import type { BudgetForecast } from "./budget-forecast";
+import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { BudgetHistoryEntry, ProjectBac } from "./budget-history";
+import type { RateMix, RateMixRow } from "./budget-rate-mix";
+
+/** The latest budget changes the snapshot carries (§545). The recorded series
+ *  is uncapped, and this payload stays in the chat transcript for the rest of
+ *  the turn; `changeCount` says how many there are in all. */
+export const SNAPSHOT_BUDGET_CHANGES = 20;
 
 export interface DashboardSnapshotBudget {
   budgetHours: number;
@@ -28,6 +37,55 @@ export interface DashboardSnapshotBudget {
   /** EV / AC; null when earnedValue is null or actual cost is 0. */
   costPerformanceIndex: number | null;
   costUnknownReason: CostUnknownReason | null;
+}
+
+/** The budget forecast the Budget report and the dashboard show (§545). The
+ *  `eur` and `hours` forecasts are the engine's own output, unchanged. The
+ *  earned-value history series is left out: it is a chart series, long, and
+ *  nothing a model needs to state a forecast. */
+export interface DashboardSnapshotForecast {
+  eur: BudgetForecast;
+  hours: BudgetForecast;
+  /** Booked versus planned rate, summarised by the role or discipline driving
+   *  the difference; the per-row table is the Budget report's job. */
+  rateMix: (Pick<RateMix, "triggered" | "direction" | "severity" | "drift" | "bookedRate" | "plannedRate" | "excludedActualHours"> & {
+    driver: Pick<RateMixRow, "kind" | "name" | "plannedRate" | "plannedShare" | "bookedShare" | "difference"> | null;
+  }) | null;
+  /** null before a baseline is recorded; with a baseline and no change yet it
+   *  is an object with `changeCount: 0`. */
+  budgetHistory: {
+    baselineDate: string;
+    baseline: ProjectBac;
+    attributed: ProjectBac;
+    changeCount: number;
+    /** The latest `SNAPSHOT_BUDGET_CHANGES`, oldest first. */
+    recentChanges: readonly BudgetHistoryEntry[];
+  } | null;
+}
+
+function snapshotForecast(bundle: ForecastBundle | null | undefined): DashboardSnapshotForecast | null {
+  if (!bundle) return null;
+  const { mix, history } = bundle;
+  return {
+    eur: bundle.eur,
+    hours: bundle.hours,
+    rateMix: mix === null ? null : {
+      triggered: mix.triggered, direction: mix.direction, severity: mix.severity,
+      drift: mix.drift, bookedRate: mix.bookedRate, plannedRate: mix.plannedRate,
+      excludedActualHours: mix.excludedActualHours,
+      driver: mix.driver === null ? null : {
+        kind: mix.driver.kind, name: mix.driver.name, plannedRate: mix.driver.plannedRate,
+        plannedShare: mix.driver.plannedShare, bookedShare: mix.driver.bookedShare, difference: mix.driver.difference,
+      },
+    },
+    budgetHistory: history === null ? null : {
+      baselineDate: history.baselineDate,
+      baseline: history.baseline,
+      attributed: history.attributed,
+      changeCount: history.changes.length,
+      recentChanges: history.changes.slice(-SNAPSHOT_BUDGET_CHANGES),
+    },
+  };
 }
 
 export interface DashboardSnapshot {
@@ -46,6 +104,11 @@ export interface DashboardSnapshot {
    *  `noActiveScope` is true when the project HAS tasks but none are in scope,
    *  so the model is not handed a bare 0 that reads as "not started yet". */
   progress: { total: number; inScope: number; completed: number; percent: number; noActiveScope: boolean };
+  /** TASK-EFFORT earned value, in HOURS, from task estimates (`evm.ts`). Its
+   *  `spi` / `cpi` are effort indices — not the budget's money CPI
+   *  (`budget.costPerformanceIndex`) and not the forecast's efficiency
+   *  indices. The keys keep their names because scheduled-job prompts read them
+   *  (§545); the tool description says what they measure. */
   evm: {
     pv: number;
     ev: number;
@@ -56,6 +119,9 @@ export interface DashboardSnapshot {
   };
   /** null when the budget module is off. */
   budget: DashboardSnapshotBudget | null;
+  /** null when the budget module is off, or the dashboard has no forecast
+   *  (no budget, or no report and burndown to build one from). */
+  forecast: DashboardSnapshotForecast | null;
   counts: {
     overdueTasks: number;
     dueSoonTasks: number;
@@ -131,6 +197,11 @@ export function buildDashboardSnapshot(
             costPerformanceIndex: project.costPerformanceIndex,
             costUnknownReason: project.costUnknownReason,
           },
+    // Gated on the rollup like `budget`: the dashboard model computes its
+    // forecast from the raw budgets even with the budget module OFF (the panel
+    // hides it by passing no budgets), so without this gate a user who turned
+    // the module off would still have the assistant read out € forecasts.
+    forecast: project === null ? null : snapshotForecast(model.forecastBundle),
     counts: {
       overdueTasks: model.overdue.length,
       dueSoonTasks: model.dueSoon.length,

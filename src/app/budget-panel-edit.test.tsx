@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
-import type { BudgetBucket, Role, ResourcePlan, Task } from "./types";
+import type { BudgetBucket, Discipline, Role, ResourcePlan, Task } from "./types";
 
 // The edit modal's header controls read field visibility from the workspace,
 // so any render that can open the modal needs Workspace/Filters providers.
@@ -27,10 +27,12 @@ function Harness({
   initial,
   onChangeSpy,
   tasks,
+  disciplines = [{ id: 1, name: "Consulting" }],
 }: {
   initial: BudgetBucket[];
   onChangeSpy: (next: BudgetBucket[]) => void;
   tasks?: readonly Task[];
+  disciplines?: Discipline[];
 }) {
   const [buckets, setBuckets] = useState<BudgetBucket[]>(initial);
   return (
@@ -38,7 +40,7 @@ function Harness({
       lang="en-US"
       buckets={buckets}
       roles={roles}
-      disciplines={[{ id: 1, name: "Consulting" }]}
+      disciplines={disciplines}
       grades={[{ id: 1, name: "Senior" }]}
       resources={[]}
       plan={plan}
@@ -87,7 +89,7 @@ describe("BudgetPanel editing", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const cell = screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement;
+    const cell = screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/) as HTMLInputElement;
     // Controlled input starts at the prop value.
     expect(cell.value).toBe("80");
     fireEvent.change(cell, { target: { value: "90" } });
@@ -95,7 +97,7 @@ describe("BudgetPanel editing", () => {
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].allocations[0].actualHours["2026-01"]).toBe(90);
     // Re-render reflects the new controlled value.
-    expect((screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement).value).toBe("90");
+    expect((screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/) as HTMLInputElement).value).toBe("90");
   });
 
   test("Edit button opens the modal for that bucket", async () => {
@@ -144,7 +146,7 @@ describe("BudgetPanel editing", () => {
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const input = screen.getByLabelText("budget-1-d1-2026-01") as HTMLInputElement;
+    const input = screen.getByLabelText(/^Budget – Blend – .+ – 2026-01$/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
@@ -160,7 +162,7 @@ describe("BudgetPanel editing", () => {
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const input = screen.getByLabelText("actual-1-d1-2026-01") as HTMLInputElement;
+    const input = screen.getByLabelText(/^Actual – Blend – .+ – 2026-01$/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "30" } });
     fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
@@ -175,7 +177,7 @@ describe("BudgetPanel editing", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
-    const cell = screen.getByLabelText("actual-1-3-2026-01");
+    const cell = screen.getByLabelText(/^Actual – PAM – .+ – 2026-01$/);
     await user.clear(cell);
     await user.type(cell, "40");
     expect(spy).not.toHaveBeenCalled();
@@ -196,6 +198,53 @@ describe("BudgetPanel editing", () => {
       allocations: [],
     },
   ];
+
+  // §109 — the hours inputs used to be named by a machine hook
+  // ("budget-1-3-2026-01") that screen readers read out verbatim. Two buckets
+  // holding the SAME role are the collision seed: the names must lead with the
+  // visible Budget / Actual label and differ by bucket.
+  test("names every hours input by its label, bucket, row and period, uniquely", () => {
+    const sameRole = twoBuckets.map((b) => ({
+      ...b,
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: {} }],
+    }));
+    render(<Harness initial={sameRole} onChangeSpy={vi.fn()} />, { wrapper });
+    const names = screen
+      .getAllByRole("spinbutton")
+      .map((el) => el.getAttribute("aria-label") ?? "")
+      .filter((n) => /^(Budget|Actual) – /.test(n));
+    expect(names).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^Budget – Design – .+ – 2026-01$/),
+      expect.stringMatching(/^Actual – Design – .+ – 2026-01$/),
+      expect.stringMatching(/^Budget – Build – .+ – 2026-01$/),
+      expect.stringMatching(/^Actual – Build – .+ – 2026-01$/),
+    ]));
+    expect(new Set(names).size).toBe(names.length);
+    // The bucket already tells the two apart, so no "(n)" suffix is added.
+    expect(names.filter((n) => /\(\d+\)/.test(n))).toEqual([]);
+    expect(screen.queryAllByLabelText(/^(budget|actual)-/)).toHaveLength(0);
+  });
+
+  // Two disciplines may share a NAME (distinct ids) in one blended bucket;
+  // their hours inputs must still be named apart.
+  test("names a blended bucket's same-named disciplines apart", () => {
+    const blended: BudgetBucket[] = [{
+      id: 1, name: "Blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+        { disciplineId: 2, resourceIds: [], budgetHours: {}, actualHours: {} },
+      ],
+    }];
+    render(
+      <Harness initial={blended} onChangeSpy={vi.fn()} disciplines={[{ id: 1, name: "Consulting" }, { id: 2, name: "Consulting" }]} />,
+      { wrapper },
+    );
+    const names = screen.getAllByLabelText(/^Budget – Blend – /).map((el) => el.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+  });
 
   test("each bucket's manual % input carries a row-UNIQUE accessible name", () => {
     render(<Harness initial={twoBuckets} onChangeSpy={vi.fn()} />, { wrapper });

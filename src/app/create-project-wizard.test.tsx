@@ -134,6 +134,13 @@ describe("CreateProjectWizard", () => {
     ).toBeNull();
   });
 
+  // §523 — with AI off the Describe step never shows, so step 1 says how to
+  // reach it instead of leaving AI-assisted creation undiscoverable.
+  it("tells a user without AI how to create from a file or description", () => {
+    setup();
+    expect(screen.getByText(t("en-US", "wizardAiOffHint"))).toBeInTheDocument();
+  });
+
   it("Step 1 storage step shows the Turso recommendation note", () => {
     setup();
     expect(screen.getByText(/Turso recommended/i)).toBeInTheDocument();
@@ -525,6 +532,18 @@ describe("CreateProjectWizard AI Step 0", () => {
     ).not.toBeInTheDocument();
   });
 
+  // §523 — the AI-off hint is for users who CANNOT reach Describe; one who
+  // skipped it has Back, so the hint would be noise on the same step 1.
+  it("shows no AI-off hint on step 1 when AI is on", () => {
+    renderWithKey();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    // Positive control: this IS step 1 (the project name field renders).
+    expect(
+      screen.getByLabelText("Project name", { exact: false, selector: "input, select, textarea" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "wizardAiOffHint"))).toBeNull();
+  });
+
   it("ingests an uploaded file and runs the proposal with content blocks", async () => {
     generateMock.mockResolvedValue({
       meta: { name: "From File Project" },
@@ -627,6 +646,18 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     expect(
       screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") }),
     ).toBeInTheDocument();
+  });
+
+  // §523 — the AI-off hint must not sit beside the key-free import's notice,
+  // where it would read as if that file route needed AI.
+  it("hides the AI-off hint while an imported workspace is pending", async () => {
+    setup();
+    expect(screen.getByText(t("en-US", "wizardAiOffHint"))).toBeInTheDocument();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "wizardAiOffHint"))).toBeNull();
   });
 
   it("imports a workspace file from Step 1 and creates the project with its content", async () => {

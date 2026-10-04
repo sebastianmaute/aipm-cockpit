@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
+import type { BudgetForecast } from "./budget-forecast";
+import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { BudgetHistoryEntry } from "./budget-history";
+import type { RateMix, RateMixRow } from "./budget-rate-mix";
 
 function model(over: Partial<DashboardModel> = {}): DashboardModel {
   return {
@@ -177,5 +181,96 @@ describe("no-active-scope disclosure (open-followups §64)", () => {
     // `total === 0` is deliberately excluded — an empty project must keep
     // reading 0%, not "no active scope".
     expect(snap.progress.noActiveScope).toBe(false);
+  });
+});
+
+// §545 — the budget forecast the Budget report and the dashboard show was
+// absent from the payload, so the model could not answer "where will we land".
+describe("budget forecast (open-followups §545)", () => {
+  const eurForecast: BudgetForecast = {
+    facts: { bac: 20000, ac: 9000, remaining: 11000, ev: 7000, percentComplete: 35 },
+    pace: {
+      burnRatePerDay: 300, windowDays: 20, windowStart: "2026-06-01", windowEnd: "2026-06-30",
+      spreadPeriodHoursUsed: false, workingDaysLeft: 40,
+      etc: 12000, eac: 21000, vac: -1000, runOutDate: "2026-08-20", daysBeforePlannedEnd: 5,
+    },
+    efficiency: { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 2, name: "Build" }] },
+    gap: null,
+    hasFixedPrice: false,
+  };
+  const hoursForecast: BudgetForecast = { ...eurForecast, facts: { ...eurForecast.facts, bac: 200, ac: 90, remaining: 110 } };
+  const driver: RateMixRow = {
+    key: "r3", kind: "role", id: 3, name: "Consulting Senior", plannedRate: 100,
+    budgetHours: 200, actualHours: 90, plannedShare: 0.5, bookedShare: 0.7, difference: 0.2, usedOfBudget: 0.45,
+  };
+  const mix: RateMix = {
+    triggered: true, direction: "eur-worse", severity: "warning",
+    drift: 0.05, bookedRate: 105, plannedRate: 100, budgetHours: 200, actualHours: 90,
+    budgetValue: 20000, bookedValue: 9450, rows: [driver, { ...driver, key: "r4", id: 4, name: "Other" }],
+    driver, excludedActualHours: 0,
+  };
+  function entry(i: number): BudgetHistoryEntry {
+    return {
+      id: `h${i}`, at: `2026-05-${String((i % 28) + 1).padStart(2, "0")}T10:00:00.000Z`, date: "2026-05-01",
+      kind: "created", bucketId: i, bucketName: `B${i}`,
+      projectBacHours: 100 + i, projectBacValue: 10000 + i, deltaHours: 1, deltaValue: 100,
+    };
+  }
+  function bundle(changeCount: number): ForecastBundle {
+    return {
+      eur: eurForecast, hours: hoursForecast, mix,
+      evHistory: { available: true, points: [] },
+      history: changeCount < 0 ? null : {
+        baselineDate: "2026-04-01",
+        baseline: { hours: 100, value: 10000 },
+        attributed: { hours: 120, value: 12000 },
+        changes: Array.from({ length: changeCount }, (_, i) => entry(i)),
+      },
+    };
+  }
+
+  it("carries the € and hours forecasts exactly as the engine computed them", () => {
+    const snap = buildDashboardSnapshot(model({ forecastBundle: bundle(2) }), report(), "2026-07-25");
+    expect(snap.forecast?.eur).toEqual(eurForecast);
+    expect(snap.forecast?.hours).toEqual(hoursForecast);
+  });
+
+  it("summarises the rate mix by its driver instead of every row", () => {
+    const snap = buildDashboardSnapshot(model({ forecastBundle: bundle(2) }), report(), "2026-07-25");
+    expect(snap.forecast?.rateMix).toEqual({
+      triggered: true, direction: "eur-worse", severity: "warning",
+      drift: 0.05, bookedRate: 105, plannedRate: 100, excludedActualHours: 0,
+      driver: { kind: "role", name: "Consulting Senior", plannedRate: 100, plannedShare: 0.5, bookedShare: 0.7, difference: 0.2 },
+    });
+    expect(JSON.stringify(snap.forecast)).not.toContain("\"Other\"");
+  });
+
+  it("caps the budget change history at the latest 20 and says how many there are", () => {
+    const snap = buildDashboardSnapshot(model({ forecastBundle: bundle(25) }), report(), "2026-07-25");
+    const history = snap.forecast?.budgetHistory;
+    expect(history?.changeCount).toBe(25);
+    expect(history?.recentChanges).toHaveLength(20);
+    // The LATEST twenty: the first five are the ones dropped.
+    expect(history?.recentChanges[0].id).toBe("h5");
+    expect(history?.recentChanges[19].id).toBe("h24");
+    expect(history?.baseline).toEqual({ hours: 100, value: 10000 });
+    expect(history?.attributed).toEqual({ hours: 120, value: 12000 });
+  });
+
+  it("emits a short history whole, and null before the first recorded change", () => {
+    expect(buildDashboardSnapshot(model({ forecastBundle: bundle(3) }), report(), "2026-07-25")
+      .forecast?.budgetHistory?.recentChanges).toHaveLength(3);
+    expect(buildDashboardSnapshot(model({ forecastBundle: bundle(-1) }), report(), "2026-07-25")
+      .forecast?.budgetHistory).toBeNull();
+  });
+
+  // The model holds a forecast whenever budgets exist, module on or off; the
+  // rollup (`project`) is null exactly when the budget module is off.
+  it("emits forecast: null when the budget module is off, even though the model holds one", () => {
+    expect(buildDashboardSnapshot(model({ forecastBundle: bundle(2) }), null, "2026-07-25").forecast).toBeNull();
+  });
+
+  it("emits forecast: null when the dashboard has no forecast", () => {
+    expect(buildDashboardSnapshot(model({ forecastBundle: null }), report(), "2026-07-25").forecast).toBeNull();
   });
 });
