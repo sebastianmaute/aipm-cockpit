@@ -261,6 +261,27 @@ describe("AssetThumbnail", () => {
     expect(container.querySelector("img")).toHaveAttribute("src", created[0]);
   });
 
+  // The reuse is keyed on the asset: a fetch still running for the previous
+  // asset must never stand in for the new one's bytes.
+  it("does not reuse a running fetch for a different asset", async () => {
+    const release: Record<string, (v: string) => void> = {};
+    const loadImage = vi.fn<AssetByteLoader>((id) => new Promise<string>((r) => { release[id] = r; }));
+    const limiter = createLoadLimiter(3);
+    const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    scrollAllIntoView();
+    await waitFor(() => expect(loadImage).toHaveBeenCalledWith("a1"));
+    rerender(<AssetThumbnail id="a2" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
+    await waitFor(() => expect(loadImage).toHaveBeenCalledWith("a2"));
+    await act(async () => { release.a2(TINY_GIF); });
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const shownUrl = created[0];
+    // a1's bytes arriving late are never minted or shown.
+    await act(async () => { release.a1(TINY_GIF); });
+    await settle();
+    expect(created).toHaveLength(1);
+    expect(container.querySelector("img")).toHaveAttribute("src", shownUrl);
+  });
+
   // §482 review m3 — while unavailable the observer is gone, so its last
   // "in view" is stale; a row that turns available while off-screen must wait
   // for the new observer instead of loading on it.

@@ -92,7 +92,9 @@ export function AssetThumbnail({ id, mime, loadImage, limiter, unavailable: unav
   // The fetch currently running for this row, tagged with the asset it is for.
   // A row that scrolls out and back in while its fetch is still running reuses
   // that fetch instead of starting a second one (§482 review m1); only the
-  // earlier effect run's result is discarded, never the bytes.
+  // earlier effect run's result is discarded, never the bytes. The trade-off: a
+  // fetch that never settles is never retried while the row stays mounted under
+  // the same asset; scrolling out and back in no longer starts a fresh one.
   const inFlightRef = useRef<{ key: string; bytes: Promise<string | null> } | null>(null);
 
   // ★★ The observer STAYS connected (§482 review I2). A row that scrolls out
