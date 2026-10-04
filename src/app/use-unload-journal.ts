@@ -92,18 +92,36 @@ export function journalRecordId(journal: UnloadJournal): string {
  *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
  *  did not. Every caller here applies what it gets, so none may decode leniently — nor accept a slice
  *  that failed to decode (below). */
+/** Entity lists a journal carries row by row. Their decoders filter rows one at a time and record no
+ *  slice failure, so a list whose EVERY row fails (rows in a shape a newer build wrote) would come back
+ *  empty without a word. */
+const JOURNAL_ENTITY_LISTS = [
+  "tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets",
+  "milestones", "changes", "stakeholders", "calendarEvents", "documentAssets",
+] as const;
+
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
-    // ★★ ALL OR NOTHING. Strict alone refuses only unparseable text, a non-object and a missing
-    // `tasks`/`raid`: a slice that parses but does not decode (garbled documents, a shape from a newer
-    // build, a sanitizer throw) is sanitized to nothing, and the journal applied WITHOUT it — and its save
-    // would then write the project without that slice over the stored one (on Turso, a meta slice absent
-    // from the workspace is not re-inserted). So the decode collects every such slice in `diag`, and ANY
-    // of them refuses the whole journal: stored data stays intact and the record stays downloadable.
+    // ★★ A SLICE LOST IN DECODING REFUSES THE WHOLE JOURNAL. Strict alone refuses only unparseable text, a
+    // non-object and a missing `tasks`/`raid`; a slice that parses but does not decode is sanitized to
+    // nothing, and the journal applied WITHOUT it — and its save would then write the project without that
+    // slice over the stored one (on Turso, a meta slice absent from the workspace is not re-inserted).
+    // Refused: every slice the decoder reports in `diag` (the meta slices, and a documents /
+    // documentVersions sanitizer throw), and every entity list that was non-empty and decoded to nothing.
+    // ★ NOT detected, and recorded as such: a list that loses only SOME rows, and an object slice in a
+    // newer shape (`steeringCommittee`, `timelogLinks`), which sanitizes to its fixed keys (§620's limit).
     const diag: DocTruncationDiag = {};
     const ws = jsonToWorkspace(journal.workspace, { strict: true, diag });
-    if (diag.decodeFailedSlices?.length) {
-      logDiag("warn", "workspace.unloadJournalCorrupt", { projectKey: journal.projectKey, slices: diag.decodeFailedSlices.join(",") });
+    const raw = JSON.parse(journal.workspace) as Record<string, unknown>; // strict has already parsed it
+    const decoded = ws as unknown as Record<string, unknown>;
+    const emptied = JOURNAL_ENTITY_LISTS.filter((k) => {
+      const before = raw[k];
+      const after = decoded[k];
+      return Array.isArray(before) && before.length > 0 && !(Array.isArray(after) && after.length > 0);
+    });
+    const failed = [...(diag.decodeFailedSlices ?? []), ...emptied];
+    if (failed.length) {
+      logDiag("warn", "workspace.unloadJournalCorrupt", { projectKey: journal.projectKey, slices: failed.join(",") });
       return null;
     }
     return ws;

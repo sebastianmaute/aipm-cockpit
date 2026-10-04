@@ -54,6 +54,8 @@ describe("journalWorkspace refuses a journal with any slice that does not decode
     ["documentVersions in a foreign shape", { documentVersions: [{ foo: 1 }] }],
     ["the activity log garbled", { activityLog: "x" }],
     ["a meta slice garbled", { steeringCommittee: "x" }],
+    ["an entity list whose every row is in a foreign shape", { milestones: [{ foo: 1 }] }],
+    ["another entity list emptied the same way", { stakeholders: [{ foo: 1 }, { bar: 2 }] }],
   ])("%s", (_label, extra) => {
     expect(journalWorkspace(withSlice(extra))).toBeNull();
   });

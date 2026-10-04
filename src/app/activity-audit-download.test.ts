@@ -62,6 +62,13 @@ describe("activityAuditDownloader", () => {
     expect(body.projects.map((p: { id: string }) => p.id)).toEqual(["p2"]);
   });
 
+  it("with a portfolio: keeps the open project's own unreadable flag when its live log replaces the stored one", async () => {
+    vi.mocked(readPortfolioActivityLogs).mockResolvedValueOnce([{ ...current, log: [] }]);
+    await activityAuditDownloader(cfg, { ...current, logUnreadable: true }).download();
+    const body = JSON.parse(vi.mocked(downloadJson).mock.calls[0][1]);
+    expect(body.projects[0]).toMatchObject({ id: "p1", logUnreadable: true });
+  });
+
   it("passes on the browser's refusal", async () => {
     vi.mocked(downloadJson).mockReturnValueOnce(false);
     expect(await activityAuditDownloader(null, current).download()).toBe(false);

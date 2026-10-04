@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { AriaRole, ReactNode } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
+import { FOCUS_RING } from "./interaction-styles";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
@@ -188,8 +189,9 @@ function JournalList({
   onDiscard?: (entry: OtherJournal) => void;
   /** §655 — which entries offer Restore (a kept version of the project in scope). */
   canRestore?: (entry: OtherJournal) => boolean;
-  onRestore?: (entry: OtherJournal) => void;
-  /** Called after a confirmed Restore: the row the focus was on is gone, so the banner takes it. */
+  /** False when the restore was refused (its row then stays, and so does focus). */
+  onRestore?: (entry: OtherJournal) => boolean | void;
+  /** Called after a Restore that happened: the row the focus was on is gone, so the banner takes it. */
   onRestored?: () => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
@@ -204,8 +206,7 @@ function JournalList({
       tone: "default",
     });
     if (!ok) return;
-    onRestore(entry);
-    onRestored?.();
+    if (onRestore(entry) !== false) onRestored?.();
   };
   const names = entries.map((entry) => journalName(lang, entry));
   const dates = entries.map((entry) => formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang));
@@ -260,7 +261,7 @@ export function OtherJournalsBanner({
   onDiscard: (entry: OtherJournal) => void;
   onDismiss: () => void;
   canRestore?: (entry: OtherJournal) => boolean;
-  onRestore?: (entry: OtherJournal) => void;
+  onRestore?: (entry: OtherJournal) => boolean | void;
 }) {
   // §668 — an unreadable draft cannot be restored by reloading: when it is all the notice holds, its heading
   // must not say "other projects … reload to restore". It names no project, since the mark outlives a
@@ -272,7 +273,7 @@ export function OtherJournalsBanner({
   return (
     <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
-      <p ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
+      <p ref={headingRef} tabIndex={-1} className={`text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${FOCUS_RING}`}>{heading}</p>
       {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
         <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
       )}

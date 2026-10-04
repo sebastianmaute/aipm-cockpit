@@ -149,13 +149,16 @@ a Markdown fence the decoder's regex misses reads as absent (§630's "Known limi
 ### The op hold (`holdDuring`, §548)
 
 Moved verbatim from the comment above `holdDuring` in `use-storage-backend.ts` (2026-10-04), to give that
-file room under the size limit.
+file room under the size limit. In it, "this file" is `use-storage-backend.ts`, "this function" and "the
+declaration below" are `holdDuring`, and "every row below" is the op list it wraps.
 
 ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
   `mountedRef`, so a teardown cannot throw (§72).
+
 ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
+
 ★★★ THE RE-DERIVE RECIPE HERE WAS ITSELF A DEFEATED CHECK UNTIL 2026-09-20, in TWO ways, and
   both are worth knowing because the shape recurs. It ran `grep -c` for this function's name
   followed by an open paren, spelled plainly, and claimed the result "counts the wraps plus this
@@ -165,29 +168,38 @@ file room under the size limit.
   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
   explained away by a plausible-sounding subtraction reads as verified forever.
+
 ★★★ EVERY PROSE MENTION OF THIS FUNCTION'S NAME ANYWHERE IN THIS FILE USES THE BRACKET CLASS —
   above this line as well as below it, and that scope is the whole point. This warning used to
   say "every mention BELOW", which describes a REGION while the recipe scans a FILE: a mention
   added 970 lines ABOVE poisoned it just the same, and did, while the warning still read as
   satisfied. A guard whose stated scope is narrower than the thing it guards is a loophole with
   documentation. Match the two, or the hole re-opens on the next edit anywhere in the file.
+
 ★★ It is not decoration either: the first attempt at this correction spelled the old broken
   pattern twice while describing it, which pushed the corrected recipe from 10 back to 12. An
   explanation of a self-matching check can re-poison the check. Count OCCURRENCES, never lines:
-    grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
+
+```
+grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
+```
+
   It printed 10 on 2026-09-20, re-run after the prose around it was final (it printed 11 in
   between, from the unbracketed prose mention up at the ref declaration — the miss that made
   the scope fix above necessary). Read the hits rather than the number either way —
   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
+
 ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
   by ONE caller, `chat-panel.tsx`'s unmount cleanup — also goes true.
+
 ★★★ WHY THE SPLIT EXISTS: A COMPOSITION REGRESSION NO PER-TASK REVIEW COULD SEE. §590 put
   `onPickStorageFile` under the hold and §596 made an unmount-under-hold cancel the in-flight
   AI turn. Each is right alone; composed, a plain Save-As, a CANCELLED OS file dialog and a
   same-project Reload each silently killed a turn — and the "stopped" note lands on an unmounted
   panel, so the user is not even told. That is the exact silent shape §596 existed to undo,
   arriving by another route.
+
 ★★★ THE RULE, and it decides every row below: CANCELLING IS A COST OPTIMISATION — do not pay
   for tokens on a turn whose project is going away. DROPPING a wrong-scope write is the
   CORRECTNESS guarantee and belongs to the scope EPOCH, which runs at resolution and needs no
@@ -195,6 +207,7 @@ file room under the size limit.
   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
   wrong towards `"changes-scope"` destroys the user's work silently.
+
 ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
   whole rule — read it before reclassifying anything. EVERY `"changes-scope"` op can still
   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
@@ -202,6 +215,7 @@ file room under the size limit.
   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the axis is
   "does the user learn something went wrong", not "is the outcome certain".
+
 ★★★ THAT AXIS DOES NOT COVER A NO-OP GUARD, and claiming it did was this paragraph's own worked
   example contradicting its rule. Of the three aborts named above, only `guardTurso`'s
   missing-config branch toasts. Its `isPopout` branch and `switchToTursoProject`'s same-target
@@ -214,6 +228,7 @@ file room under the size limit.
   (The three sites, so the classification can be re-checked rather than re-argued:
   `use-storage-turso-ops.ts`'s `guardTurso` — its `isPopout` and missing-config branches — and
   `switchToTursoProject`'s `deps.tursoProjectId === id` return.)
+
 ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
   epoch drops its write at resolution. Only the tokens are spent.
@@ -451,12 +466,14 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   never expires) — only this tab's own next journal write under the key replaces it (below). It is marked through `unreadableRecords` (per record — `journalRecordId` — so a readable record another tab writes later under the key is not) (entry text `unloadJournalUnreadableEntry`, hint
   `unloadJournalUnreadableHint`), since the notice's general "reload to restore" advice would only fail again.
   ★ This tab's own next journal write under the same key replaces the record. Accepted: it is corrupt, and
-  the toast and notice say so at once. ★★ ALL OR NOTHING: strict alone refuses only
-  unparseable text, a non-object and a missing `tasks`/`raid`, while a slice that parses but does not
-  decode (garbled documents, a shape a newer build wrote, a sanitizer throw) is sanitized to nothing — and
-  applied without it, its save would write the project without that slice over the stored one. So the
-  decode collects every such slice in a `diag` (`decodeFailedSlices`), and any of them refuses the whole
-  journal: stored data stays intact and the record stays downloadable. ★ An EMPTY but readable journal is
+  the toast and notice say so at once. ★★ A SLICE LOST IN DECODING REFUSES THE JOURNAL: strict
+  alone refuses only unparseable text, a non-object and a missing `tasks`/`raid`, while a slice that parses
+  but does not decode is sanitized to nothing — and applied without it, its save would write the project
+  without that slice over the stored one. Refused: every slice the decoder reports in a `diag`
+  (`decodeFailedSlices`: the meta slices, and a documents/documentVersions sanitizer throw), and every
+  entity list that was non-empty and decoded to nothing (`JOURNAL_ENTITY_LISTS`). ★ NOT detected: a list
+  that loses only SOME rows, and an object slice in a newer shape (`steeringCommittee`, `timelogLinks`),
+  which sanitizes to its fixed keys — §620's limit, above. ★ An EMPTY but readable journal is
   NOT refused (a Clear all leaves exactly that state) and goes through the save-path mass-deletion guard
   like any edit.
 

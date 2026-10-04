@@ -34,7 +34,7 @@ export function activityAuditDownloader(portfolioConfig: TursoConfig | null, cur
       const sources = stored === null
         ? [current]
         : stored.some((s) => s.id === current.id)
-          ? stored.map((s) => (s.id === current.id ? { ...s, log: current.log } : s))
+          ? stored.map((s) => (s.id === current.id ? { ...s, log: current.log, ...(current.logUnreadable ? { logUnreadable: true } : {}) } : s))
           : current.id === NO_PROJECT_ID ? stored : [...stored, current];
       const now = new Date();
       return downloadJson(activityAuditFileName(now), JSON.stringify(buildActivityAudit(scope, sources, now, APP_VERSION), null, 2));

@@ -227,7 +227,7 @@ function TaskManagerInner() {
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
   // §628 — same forward-ref shape; filled below with `useStorageBackend`'s stable reader, and `usePruneUndoOnScopeChange` sits after that call for the same ordering reason.
-  const getScopeEpochRef = useRef<() => number>(() => 0);
+  const getScopeEpochRef = useRef<() => number>(() => 0); // holds useStorageBackend's UNDO epoch (getUndoEpoch: the scope epoch + one per restore), filled below
   const readScopeEpochForUndo = useCallback(() => getScopeEpochRef.current(), []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo });
   // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document

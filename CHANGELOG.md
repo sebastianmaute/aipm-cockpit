@@ -60,9 +60,9 @@ longer carries its own changelog comment.
   "Restore anyway", pressing Undo could replay an edit made to the other version and mix the two.
   A restore now clears the undo history, and a version already restored or discarded in another
   tab is not applied again.
-- **Damaged saved changes, partly readable (§668 follow-up).** A copy of unsaved changes that
-  could be read only in part was restored without the part that failed, such as its documents,
-  and the next save could then remove them. It is now refused as a whole.
+- **Damaged saved changes, partly readable (§668 follow-up).** A copy of unsaved changes in which a
+  whole part could not be read, such as its documents or its list of milestones, was restored
+  without that part, and the next save could then remove it. Such a copy is now refused as a whole.
 - **Word export of roles (§512 follow-up).** Roles tables in Word show discipline and grade names
   instead of internal numbers.
 - **Internal activity-log download (§510 follow-up).** The file now also flags the open project

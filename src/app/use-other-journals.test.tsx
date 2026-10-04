@@ -364,7 +364,7 @@ describe("ExpiredJournalsBanner", () => {
 describe("OtherJournalsBanner — §655 Restore", () => {
   const kept = () => entry("current:kept", "Apollo", 1);
   const other = () => entry("other:kept", "Zeus", 1);
-  function renderBanner(onRestore = vi.fn()) {
+  function renderBanner(onRestore: (entry: OtherJournal) => boolean | void = vi.fn()) {
     const a = kept();
     const b = other();
     render(
@@ -438,6 +438,15 @@ describe("OtherJournalsBanner — §655 Restore", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore: Apollo" }));
     fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe(t("en-US", "unloadJournalOthers")));
+  });
+
+  it("leaves focus alone when the restore was refused (its row stays)", async () => {
+    renderBanner(vi.fn(() => false));
+    const trigger = screen.getByRole("button", { name: "Restore: Apollo" });
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
+    expect(document.activeElement?.textContent).not.toBe(t("en-US", "unloadJournalOthers"));
   });
 
   it("offers no Restore at all without a handler", () => {
