@@ -395,7 +395,7 @@ describe("AssetLibrary — image preview", () => {
 
   it("opens the preview from a row and starts on that row's image", async () => {
     const user = userEvent.setup();
-    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    render(<AssetLibrary {...base} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />);
     const openers = screen.getAllByRole("button", { name: /^Preview – / });
     expect(openers.length).toBe(base.assets.length);
     await user.click(openers[1]);
@@ -422,7 +422,7 @@ describe("AssetLibrary — image preview", () => {
   //     fixture order, so row 0 is a2 under sort and a1 without it.
   it("walks the SORTED order, not the incoming asset order", async () => {
     const user = userEvent.setup();
-    const loadImage = vi.fn(async () => TINY_GIF);
+    const loadImage = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     render(<AssetLibrary {...base} loadImage={loadImage} />);
 
     await user.click(screen.getByRole("button", { name: /size/i }));
@@ -456,7 +456,7 @@ describe("AssetLibrary — image preview", () => {
   //     caught.
   it("keeps the preview control's accessible name row-unique from every other control", () => {
     const { container } = render(
-      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
+      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />,
     );
     // 11 → 13 when the asset name itself became a preview control: the floor
     // is kept at its EXACT measured value, because a loose one is what lets a
@@ -491,7 +491,7 @@ describe("AssetLibrary — image preview", () => {
     "contains the visible label inside the preview control's accessible name (%s)",
     async (lang) => {
       await loadI18n(lang);
-      render(<AssetLibrary {...base} lang={lang} loadImage={vi.fn(async () => TINY_GIF)} />);
+      render(<AssetLibrary {...base} lang={lang} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />);
       const visible = t(lang, "documentsPreview");
       // Anti-vacuity: a blank visible label is contained in everything.
       expect(visible.trim().length).toBeGreaterThan(0);
@@ -525,7 +525,7 @@ describe("AssetLibrary — image preview", () => {
   // the opener all along, so the final assertion passed with the restore
   // deleted. The wait below makes focus actually leave the opener first.
   it("returns focus to the row control that opened the preview", async () => {
-    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    render(<AssetLibrary {...base} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />);
     const opener = screen.getAllByRole("button", { name: /^Preview – / })[0];
     await userEvent.click(opener);
     const dialog = await screen.findByRole("dialog");
@@ -542,7 +542,7 @@ describe("AssetLibrary — image preview", () => {
   //   say which of the two this is.
   it("opens the preview when the asset name is clicked", async () => {
     const user = userEvent.setup();
-    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    render(<AssetLibrary {...base} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />);
     await user.click(screen.getByRole("button", { name: "image.png (1)" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
@@ -568,7 +568,7 @@ describe("AssetLibrary — image preview", () => {
   //     would catch it too, but only as an anonymous "two names collide".
   it("keeps the name control distinct from the Preview control", () => {
     const { container } = render(
-      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
+      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)} />,
     );
     const nameControl = screen.getByRole("button", { name: "image.png (1)" });
     const previewControl = screen.getAllByRole("button", { name: /^Preview – / })[0];
@@ -692,7 +692,7 @@ describe("AssetLibrary — row thumbnails", () => {
   });
 
   it("adds no control or name to the row", async () => {
-    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_PNG)} />);
+    render(<AssetLibrary {...base} loadImage={vi.fn<AssetByteLoader>(async () => TINY_PNG)} />);
     scrollAllIntoView();
     await waitFor(() => expect(rowFor("a1").querySelector("img")).not.toBeNull());
     // Decorative: hidden from assistive tech, so the row's accessible content
@@ -701,7 +701,7 @@ describe("AssetLibrary — row thumbnails", () => {
   });
 
   it("does not fetch a dangling row's bytes", async () => {
-    const loadImage = vi.fn(async () => TINY_PNG);
+    const loadImage = vi.fn<AssetByteLoader>(async () => TINY_PNG);
     render(<AssetLibrary {...base} danglingIds={new Set(["a2"])} loadImage={loadImage} />);
     scrollAllIntoView();
     await waitFor(() => expect(rowFor("a1").querySelector("img")).not.toBeNull());
@@ -712,7 +712,7 @@ describe("AssetLibrary — row thumbnails", () => {
   // The cap is what stops a screenful of rows firing one full-size fetch each.
   it("loads at most three thumbnails at once", async () => {
     const many = Array.from({ length: 5 }, (_, i) => ({ ...assets[0], id: `m${i}`, hash: `hm${i}` }));
-    const loadImage = vi.fn(() => new Promise<string | null>(() => {}));
+    const loadImage = vi.fn<AssetByteLoader>(() => new Promise<string | null>(() => {}));
     render(<AssetLibrary {...base} assets={many} usage={{}} loadImage={loadImage} />);
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalledTimes(3));

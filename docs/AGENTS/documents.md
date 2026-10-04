@@ -1010,11 +1010,17 @@ ever have (§203).
 (`asset-thumbnail.tsx`) goes through the same injected `loadImage` and `assetBytesToObjectUrl` as the
 preview lightbox — there is no thumbnail-sized copy at rest, by choice (a stored one would be a new
 field on all six write paths, plus a backfill for every existing asset). An `IntersectionObserver` with a
-100px `rootMargin` loads a row as it comes into view and, staying connected, revokes its URL and drops any
-still-queued load when it leaves; the row reloads when it comes back. Every load queues through the library's
+100px `rootMargin` loads a row as it comes into view and, staying connected, revokes its URL when it leaves; a
+load still queued then takes its turn as a no-op that fetches nothing, and the row reloads when it comes back,
+reusing its earlier fetch if that is still running. A row that turns available again while off-screen waits for
+the observer's next report rather than loading on its last one. Every load queues through the library's
 `createLoadLimiter` (`asset-load-limiter.ts`, three at a time). Rows already known
 to be dangling (the dangling diff is async, so a row in view before it lands is fetched once and gets null)
 and refused mimes are never fetched. The image is decorative (`alt=""`, box `aria-hidden`), so it adds no control or name to a row.
+★ The observer's root is the viewport, so the 100px early start applies at the viewport edge, not at the edge
+of the modal or page that scrolls the library. Scrolling ancestors still clip each row, so "in view" and the URL
+bound hold. The table's own `overflow-auto` wrapper must NOT become the root: it has no height limit and scrolls
+only sideways, so every row would count as in view. The component header records this (§482 review m4).
 ★ TEST CONSEQUENCE: `vitest.setup.ts`'s `IntersectionObserver` stub never reports anything, so no
 thumbnail loads in any test that does not install its own observer — which is what keeps the preview
 tests' `loadImage` assertions meaningful. A test that wants thumbnails swaps in a controllable observer

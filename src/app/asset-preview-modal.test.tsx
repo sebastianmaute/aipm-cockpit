@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import { t } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
+import type { AssetByteLoader } from "./document-asset-images";
 import { rowLabel } from "./row-tokens";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -31,7 +32,7 @@ function renderModal(over: Partial<Parameters<typeof AssetPreviewModal>[0]> = {}
       onClose={onClose}
       assets={[asset("a", "Alpha"), asset("b", "Beta")]}
       startIndex={0}
-      loadImage={vi.fn(async () => TINY_GIF)}
+      loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)}
       {...over}
     />,
   );
@@ -85,7 +86,7 @@ describe("AssetPreviewModal — shell", () => {
         <AssetPreviewModal
           lang="en-US" open onClose={vi.fn()}
           assets={[asset("a", "Alpha"), asset("b", "Beta")]}
-          startIndex={0} loadImage={vi.fn(async () => TINY_GIF)}
+          startIndex={0} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)}
         />,
       );
       await screen.findByRole("dialog", { name: /Alpha/ });
@@ -138,13 +139,13 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
   // renders, so none of them can see this defect — this is the only one
   // that varies the loader's identity between renders of the SAME asset.
   it("does not revoke or re-mint the visible URL when only the loadImage identity changes", async () => {
-    const loader1 = vi.fn(async () => TINY_GIF);
+    const loader1 = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     const { rerender } = renderModal({ loadImage: loader1 });
     const img = await screen.findByRole("img", { name: "Alpha" });
     const shownUrl = img.getAttribute("src")!;
     expect(created).toHaveLength(1);
 
-    const loader2 = vi.fn(async () => TINY_GIF);
+    const loader2 = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     rerender(
       <AssetPreviewModal
         lang="en-US" open onClose={vi.fn()}
@@ -188,7 +189,7 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     const props = {
       lang: "en-US" as const,
       onClose: vi.fn(),
-      loadImage: vi.fn(async () => TINY_GIF),
+      loadImage: vi.fn<AssetByteLoader>(async () => TINY_GIF),
     };
     const { container, rerender } = render(
       <AssetPreviewModal {...props} assets={two} open startIndex={1} />,
@@ -215,7 +216,7 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
       <AssetPreviewModal
         lang="en-US" open={false} onClose={vi.fn()}
         assets={[asset("a", "Alpha"), asset("b", "Beta")]}
-        startIndex={0} loadImage={vi.fn(async () => TINY_GIF)}
+        startIndex={0} loadImage={vi.fn<AssetByteLoader>(async () => TINY_GIF)}
       />,
     );
     expect(revoked).toContain(created[created.length - 1]);
@@ -270,7 +271,7 @@ describe("AssetPreviewModal — navigation", () => {
       lang: "en-US" as const,
       onClose: vi.fn(),
       assets: [asset("a", "Alpha"), asset("b", "Beta")],
-      loadImage: vi.fn(async () => "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+      loadImage: vi.fn<AssetByteLoader>(async () => "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
     };
     const { rerender } = render(<AssetPreviewModal {...props} open startIndex={0} />);
     await screen.findByText(t("en-US", "assetPreviewPosition", 1, 2));
@@ -292,7 +293,7 @@ describe("AssetPreviewModal — navigation", () => {
 
 describe("AssetPreviewModal — degraded assets", () => {
   it("states that the data is missing rather than rendering a broken image", async () => {
-    renderModal({ loadImage: vi.fn(async () => null) });
+    renderModal({ loadImage: vi.fn<AssetByteLoader>(async () => null) });
     expect(await screen.findByText(t("en-US", "assetPreviewUnavailable"))).toBeInTheDocument();
     expect(screen.queryByRole("img")).toBeNull();
   });
@@ -306,7 +307,7 @@ describe("AssetPreviewModal — degraded assets", () => {
   // §633 — the type is decided before the fetch, so a refused asset never
   //  costs a load, and one whose bytes are also gone still reads "blocked".
   it("never loads the bytes of a blocked asset", async () => {
-    const loadImage = vi.fn(async () => null);
+    const loadImage = vi.fn<AssetByteLoader>(async () => null);
     renderModal({ assets: [asset("a", "Alpha", "image/svg+xml")], loadImage });
     expect(await screen.findByText(t("en-US", "assetPreviewBlocked"))).toBeInTheDocument();
     expect(loadImage).not.toHaveBeenCalled();
@@ -315,7 +316,7 @@ describe("AssetPreviewModal — degraded assets", () => {
   // ★★ Navigation must still work PAST a broken asset — otherwise one missing
   // image strands the user on it.
   it("navigates past an unavailable asset", async () => {
-    const loadImage = vi.fn(async (id: string) => (id === "a" ? null : TINY_GIF));
+    const loadImage = vi.fn<AssetByteLoader>(async (id: string) => (id === "a" ? null : TINY_GIF));
     renderModal({ loadImage });
     await screen.findByText(t("en-US", "assetPreviewUnavailable"));
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
