@@ -4254,7 +4254,7 @@ export const de: Record<TranslationKey, string> = {
   unloadJournalKeptRestoreBlocked: "Das Speichern ist pausiert, daher kann diese Version gerade nicht wiederhergestellt werden.",
   unloadJournalKeptRestoreLoading: "Ein Projekt wird noch geladen, daher kann diese Version gerade nicht wiederhergestellt werden. Versuchen Sie es gleich noch einmal.",
   unloadJournalUnreadableEntry: "{0} — nicht lesbar, vom {1}, {2} KB",
-  unloadJournalUnreadableOnly: "Nicht gespeicherte Änderungen aus Ihrer letzten Sitzung für dieses Projekt konnten nicht gelesen werden.",
+  unloadJournalUnreadableOnly: "Nicht gespeicherte Änderungen aus einer früheren Sitzung konnten nicht gelesen werden.",
   unloadJournalUnreadableHint: "Ein als \"nicht lesbar\" markierter Entwurf kann nicht wiederhergestellt werden, auch nicht durch Neuladen. Laden Sie ihn herunter, um eine Kopie zu behalten, oder verwerfen Sie ihn.",
   unloadJournalKeptRestoreUnavailable: "Diese Version konnte nicht gelesen werden, daher wurde nichts wiederhergestellt. Sie können sie weiterhin herunterladen.",
   unloadJournalKeptRestoreNotKept: "Die geöffnete Version konnte nicht zuvor aufbewahrt werden, daher wurde nichts wiederhergestellt.",

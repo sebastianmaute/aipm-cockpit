@@ -80,16 +80,16 @@ function retagToThisTab(journal: UnloadJournal): void {
   writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
 }
 
-/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
- *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
- *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
- *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
- *  did not. Every caller here applies what it gets, so none may decode leniently. */
 /** §668 — one record's identity: its key, writer and save time (what `clearUnloadJournal` guards on too). */
 export function journalRecordId(journal: UnloadJournal): string {
   return `${journal.projectKey}|${journal.tabId}|${journal.savedAt}`;
 }
 
+/** The journal's workspace, or null when it does not decode — logged, and the key left in place.
+ *  ★★ STRICT, always (§668). Lenient, `jsonToWorkspace` answers unparseable text — or JSON that is not
+ *  an object — with an EMPTY workspace instead of a throw, so a corrupt journal used to be APPLIED as an
+ *  empty project: by the load restore with no click when its base matched, by "Restore anyway" when it
+ *  did not. Every caller here applies what it gets, so none may decode leniently. */
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
     // ★★ NO `diag`, deliberately: with one, a documents / documentVersions sanitizer throw would be
@@ -391,7 +391,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       setConflictRecord(null);
       if (journal !== null) {
         onUnreadableRef.current?.(); // §668 — refused, and said so
-        const id = journalRecordId(journal);
+        const id = journalRecordId({ ...journal, projectKey: key }); // keyed by where it is STORED, as the listing reads it
         setUnreadableRecords((prev) => (prev.has(id) ? prev : new Set([...prev, id])));
       }
       return null;

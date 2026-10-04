@@ -258,8 +258,9 @@ export function OtherJournalsBanner({
   canRestore?: (entry: OtherJournal) => boolean;
   onRestore?: (entry: OtherJournal) => void;
 }) {
-  // §668 — an unreadable draft is the OPEN project's, and reloading cannot restore it: when it is all the
-  // notice holds, its heading must not say "other projects … reload to restore".
+  // §668 — an unreadable draft cannot be restored by reloading: when it is all the notice holds, its heading
+  // must not say "other projects … reload to restore". It names no project, since the mark outlives a
+  // switch to another project on the same page.
   const heading = t(lang, others.length > 0 && others.every((entry) => entry.unreadable) ? "unloadJournalUnreadableOnly" : "unloadJournalOthers");
   return (
     <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
