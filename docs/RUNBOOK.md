@@ -157,6 +157,38 @@ that no longer matches the per-request CSP header.
 There is no `/healthz` endpoint. The home page rendering successfully is the
 health check.
 
+### Microsoft 365 sign-in smoke (manual)
+
+Nothing in CI signs in to a real Microsoft 365 tenant: MSAL is exercised only by
+unit tests with a mocked client (open-followups §498). Run this by hand against a
+tenant with the app registration from
+[Microsoft 365 integration setup](#microsoft-365-integration-setup):
+
+- after **every** `@azure/msal-browser` bump (check the lockfile diff of the PR);
+- after any change to the sign-in flow or to the CSP hosts MSAL calls
+  (`src/proxy.ts`);
+- before a desktop release that touches either.
+
+Steps, in a browser AND in the packaged desktop app (its sign-in runs in its own
+popup window, so the browser result says nothing about it):
+
+1. Settings → Integrations: enter the Client ID and Tenant ID, then click
+   **Sign in with Microsoft**. The popup opens, accepts the tenant account and
+   closes by itself; the settings show "Signed in as" and the account.
+2. Read something through Microsoft Graph: with Outlook sync turned on in a
+   pane that has it (Milestones, for example), click **Pull from Outlook**, or
+   open **Import Outlook contacts**. It loads without a sign-in or permission
+   error.
+3. Reload the page. The account is still signed in (the MSAL cache survived) and
+   the same read works without another popup.
+4. Click **Sign out**. The account is gone, and the next Graph read asks you to
+   sign in again.
+5. Keep the browser console open throughout: no CSP violation and no MSAL error.
+
+Record the run in §498 (date, app version, `@azure/msal-browser` version, browser
+or desktop). A failed step is a release blocker for anything that depends on
+Microsoft 365.
+
 ## Rollback
 
 Because the server tier is stateless and user data lives in the browser:

@@ -205,6 +205,42 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(result.current.destructiveRefusal).not.toBeNull();
   });
 
+  // §629 — the LOOP this guards: a restored journal the guard refuses is
+  // re-tagged to this tab and never written, so a PAGE reload restores it and is
+  // refused again. The banner's "Discard this deletion" runs reloadCurrentProject,
+  // whose `dropUnconfirmed` must remove that record: the next page load then
+  // restores nothing and nothing is refused.
+  it("refused restore → Reload project (the banner's Discard) removes the journal: the next page load restores nothing", async () => {
+    const many = { ...STORED, tasks: Array.from({ length: 400 }, (_, i) => ({ id: i + 1, taskName: `T${i}` })) as unknown as Task[] };
+    seedJournal(fingerprintWorkspace(many as unknown as Workspace));
+    const backend = makeBackend(100, "resolve", many);
+    createBackendMock.mockReturnValue(backend);
+    const first = render();
+    await advance(800);
+    // The premise: restored, refused, and the journal still there to loop on.
+    expect(first.result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(first.result.current.destructiveRefusal).not.toBeNull();
+    expect(readJournal()).not.toBeNull();
+
+    let reload: Promise<void> | undefined;
+    act(() => { reload = first.result.current.reloadCurrentProject(); });
+    await advance(200);
+    await act(async () => { await reload; });
+    expect(first.result.current.tasks).toHaveLength(400);
+    expect(first.result.current.destructiveRefusal).toBeNull();
+    expect(readJournal()).toBeNull();
+    first.unmount();
+    showToast.mockClear(); // the first page's restore toast is the premise, not the result
+
+    const next = makeBackend(100, "resolve", many);
+    createBackendMock.mockReturnValue(next);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks).toHaveLength(400);
+    expect(restoredToast()).toHaveLength(0);
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
   it("mismatch: the loaded workspace applies as today, the journal is kept untouched, and the notice is published", async () => {
     const seeded = seedJournal("changed-elsewhere");
     const backend = makeBackend(100);
