@@ -719,7 +719,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--closed-2026-10-03) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | **CLOSED** 2026-10-03 |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--closed-2026-09-27) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | **CLOSED** 2026-09-27 |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
-| [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--closed-2026-10-03) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | **CLOSED** 2026-10-03 |
+| [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--closed-2026-10-04) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | **CLOSED** 2026-10-04 |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
 | [§484](#484-storage-and-recovery-have-no-docsagents-reference--closed-2026-09-28) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | **CLOSED** 2026-09-28 |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
@@ -37683,25 +37683,29 @@ Size S.
 
 **Source:** `docs/superpowers/specs/2026-06-03-change-log-register-design.md`; audit candidate 3
 
-## 482. The document asset library table shows no image thumbnails — CLOSED 2026-10-03
+## 482. The document asset library table shows no image thumbnails — CLOSED 2026-10-04
 
-**Status:** CLOSED 2026-10-03 — each library row now shows a 32px image beside the asset name:
+**Status:** CLOSED 2026-10-04 — verified by `npx vitest run src/app/asset-thumbnail.test.tsx src/app/asset-load-limiter.test.ts src/app/asset-library.test.tsx --maxWorkers=1` (3 files, 60 tests, exit 0). Each library row shows a 32px image beside the asset name:
 `AssetThumbnail` (`asset-thumbnail.tsx`), rendered by `asset-library.tsx` wherever a `loadImage` loader
 is passed, the same gate as the Preview control. It reuses the lightbox's byte path (the injected loader
 and `assetBytesToObjectUrl`), so there is no stored thumbnail and nothing new on any write path. ★ This DOES fetch bytes per row,
 which the ★ note below advised against; the owner chose it on 2026-10-03 over storing a thumbnail at
-upload (a new field on all six write paths plus a backfill), on the condition that it is bounded. Because
-each thumbnail fetches the asset's full bytes, a row loads only once an `IntersectionObserver` reports it
-in view, and loads queue through `createLoadLimiter` (`asset-load-limiter.ts`), three at a time per
-mounted library. Rows already known to be dangling and refused mimes are never fetched (a row in view
-before the async dangling diff lands is fetched once and gets null); each object URL is revoked when its
-row unmounts or turns unavailable, and bytes arriving after the row went away are never minted. Decorative: `alt=""` and an
-`aria-hidden` box. Pinned by `asset-load-limiter.test.ts`, `asset-thumbnail.test.tsx` and the "row
-thumbnails" describe in `asset-library.test.tsx`; eight mutants (eager load, no revoke, no cancel check
-on arrival, no cancel check while queued, no refused-mime guard, the library not marking dangling rows, no
-cap, a named `alt`) each turn a test red, as does a ninth from the branch review (no clear of the shown URL
-when a row turns unavailable, which rendered the revoked URL on the way back). Notes for a reader of the tests are in
-`docs/AGENTS/documents.md` beside the axe-coverage note. Not eye-verified on a live Turso library.
+upload (a new field on all six write paths plus a backfill), on the condition that it is bounded. What
+bounds it: an `IntersectionObserver` (100px `rootMargin`) loads a row as it comes into view and, staying
+connected, revokes its URL and drops any still-queued load when it leaves, reloading on the way back — so
+live object URLs, each the asset's FULL stored bytes, are bounded by the rows in view (the library itself
+has NO per-workspace cap; `ASSET_MAX_PER_DOCUMENT` caps a document). Loads queue through
+`createLoadLimiter` (`asset-load-limiter.ts`), three at a time per mounted library. Rows already known to be
+dangling and refused mimes are never fetched (a row in view before the async dangling diff lands is fetched
+once and gets null); bytes arriving after a row went away are never minted. Remaining cost, recorded: each
+visible thumbnail decodes the full image for a 32px box (no downscale step; jsdom cannot test one).
+Decorative: `alt=""` and an `aria-hidden` box. Pinned by those three test files; mutants (eager load, no
+revoke, no cancel while queued or on arrival, no refused-mime guard, the library not marking dangling rows,
+no cap, a named `alt`, and from the two reviews: no reconcile of the shown URL on unavailable / out of view
+/ another key, leaving the view ignored, the load not gated on view) each turn a test red. The 2026-10-03
+closure was re-dated today because the second review (2026-10-04) changed the behaviour: the first version
+kept every URL until unmount. Notes for a reader of the tests are in `docs/AGENTS/documents.md` beside the
+axe-coverage note. Not eye-verified on a live Turso library.
 
 **Original status:** OPEN 2026-09-13 — `grep -rli thumbnail src/app` → only `src/app/document-asset-upload.test.ts`,
 and `grep -n "No thumbnails in the library table" docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`
