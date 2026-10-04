@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, waitFor } from "@testing-library/react";
 import { AssetThumbnail } from "./asset-thumbnail";
 import { createLoadLimiter } from "./asset-load-limiter";
+import type { AssetByteLoader } from "./document-asset-images";
 
 const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -63,7 +64,7 @@ async function settle() {
 }
 
 function renderThumb(over: Partial<Parameters<typeof AssetThumbnail>[0]> = {}) {
-  const loadImage = vi.fn(async () => TINY_GIF);
+  const loadImage = vi.fn<AssetByteLoader>(async () => TINY_GIF);
   const props = { id: "a1", mime: "image/png", loadImage, limiter: createLoadLimiter(3), unavailable: false, ...over };
   const view = render(<AssetThumbnail {...props} />);
   return { ...view, loadImage: props.loadImage };
@@ -102,7 +103,7 @@ describe("AssetThumbnail", () => {
   // must not render that revoked URL while (or instead of) reloading.
   it("never shows a revoked URL after the row turns unavailable and back", async () => {
     let bytes: string | null = TINY_GIF;
-    const loadImage = vi.fn(async () => bytes);
+    const loadImage = vi.fn<AssetByteLoader>(async () => bytes);
     const limiter = createLoadLimiter(3);
     const props = { id: "a1", mime: "image/png", loadImage, limiter };
     const { container, rerender } = render(<AssetThumbnail {...props} unavailable={false} />);
@@ -137,7 +138,7 @@ describe("AssetThumbnail", () => {
   });
 
   it("shows nothing when the bytes are missing", async () => {
-    const loadImage = vi.fn(async () => null);
+    const loadImage = vi.fn<AssetByteLoader>(async () => null);
     const { container } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -147,7 +148,7 @@ describe("AssetThumbnail", () => {
   });
 
   it("shows nothing when the loader fails", async () => {
-    const loadImage = vi.fn(async () => { throw new Error("offline"); });
+    const loadImage = vi.fn<AssetByteLoader>(async () => { throw new Error("offline"); });
     const { container } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -157,7 +158,7 @@ describe("AssetThumbnail", () => {
 
   it("never mints a URL for bytes that arrive after the row went away", async () => {
     let release!: (v: string) => void;
-    const loadImage = vi.fn(() => new Promise<string>((r) => { release = r; }));
+    const loadImage = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { release = r; }));
     const { unmount } = renderThumb({ loadImage });
     scrollAllIntoView();
     await waitFor(() => expect(loadImage).toHaveBeenCalled());
@@ -171,8 +172,8 @@ describe("AssetThumbnail", () => {
   it("does not fetch for a row that went away while its load was queued", async () => {
     const limiter = createLoadLimiter(1);
     let releaseFirst!: (v: string) => void;
-    const first = vi.fn(() => new Promise<string>((r) => { releaseFirst = r; }));
-    const second = vi.fn(async () => TINY_GIF);
+    const first = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { releaseFirst = r; }));
+    const second = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     render(<AssetThumbnail id="a1" mime="image/png" loadImage={first} limiter={limiter} unavailable={false} />);
     const queued = render(<AssetThumbnail id="a2" mime="image/png" loadImage={second} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
@@ -205,8 +206,8 @@ describe("AssetThumbnail", () => {
   it("drops a queued load whose row scrolls out before its turn", async () => {
     const limiter = createLoadLimiter(1);
     let releaseFirst!: (v: string) => void;
-    const first = vi.fn(() => new Promise<string>((r) => { releaseFirst = r; }));
-    const second = vi.fn(async () => TINY_GIF);
+    const first = vi.fn<AssetByteLoader>(() => new Promise<string>((r) => { releaseFirst = r; }));
+    const second = vi.fn<AssetByteLoader>(async () => TINY_GIF);
     render(<AssetThumbnail id="a1" mime="image/png" loadImage={first} limiter={limiter} unavailable={false} />);
     render(<AssetThumbnail id="a2" mime="image/png" loadImage={second} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
@@ -225,7 +226,7 @@ describe("AssetThumbnail", () => {
   // effect cleanup already revoked; that URL must not be shown again.
   it("never shows a revoked URL after the asset changes and changes back", async () => {
     let bytes: string | null = TINY_GIF;
-    const loadImage = vi.fn(async () => bytes);
+    const loadImage = vi.fn<AssetByteLoader>(async () => bytes);
     const limiter = createLoadLimiter(3);
     const { container, rerender } = render(<AssetThumbnail id="a1" mime="image/png" loadImage={loadImage} limiter={limiter} unavailable={false} />);
     scrollAllIntoView();
