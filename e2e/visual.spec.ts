@@ -29,7 +29,7 @@ const VISUAL_VIEWS = ["Dashboard", "Gantt", "Open Points"] as const;
 // fatal for a pixel baseline. A literal copy of today's `FROZEN_NOW` value,
 // decoupled here, means a future bump no longer forces these three baselines
 // to be regenerated. Pick a fresh instant only if it drifts outside the
-// sample data's populated date range (see e2e/seed.ts's `plan`/`budgetHistory`
+// sample data's populated date range (see e2e/seed-workspace.ts's `plan`/`budgetHistory`
 // comments for that range).
 const VISUAL_FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
 

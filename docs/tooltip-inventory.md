@@ -32,9 +32,10 @@ file walk is recursive over `src/app`. Reproduce: `node scripts/check-tooltips.m
 | …with a `title=` — covered | **85** |
 | …**without** `title=` | **1** |
 
-Before this branch the same scan reported **12** untitled icon-only controls: the 2 primitive
-internals (now excluded by the spread rule), **B1** (`settings-menu.tsx`, the classic header's
-settings cog, still held for its product decision), and **9 Class A rows**, each given a `title`
+Run over `origin/main` before this branch (`dc6c2eb3c`), the same scan reports **10** untitled icon-only
+controls (the 2 primitive internals are already excluded by the spread rule): **B1**
+(`settings-menu.tsx`, the classic header's settings cog, still held for its product decision), and
+**9 Class A rows**, each given a `title`
 equal to its existing accessible name, no new strings: `bullets-block-editor.tsx` move up / move
 down / remove item, `document-table-editor.tsx` remove column / remove row,
 `document-block-gutter.tsx` block actions, `create-project-wizard.tsx` clear the imported file, and
@@ -47,6 +48,8 @@ it) fails when any `src/app` file holds more untitled icon-only controls than
 none. The baseline holds B1 alone. `--update` only tightens; raising an allowance is a hand edit
 that shows in review. ★ What it does NOT check, unchanged from "What this document does NOT
 cover" below: non-`<button>` controls, and whether a `title` says anything useful.
+★ Nor a control whose only child is an expression that renders an icon (`{open ? <XIcon /> : <PlusIcon />}`):
+the scan reads any non-literal expression as visible text. None exists today.
 
 ★ The four untranslated names this document carried are settled (§109's 2026-10-03 update): the
 two `budget-panel-totals.tsx` machine hooks are translated row-unique names, and the
