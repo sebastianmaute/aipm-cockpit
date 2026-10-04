@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AriaRole, ReactNode } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
@@ -180,7 +180,7 @@ function journalName(lang: Lang, entry: OtherJournal): string {
 /** §632 — one line per journal (name, date, size) with Download and, when `onDiscard` is given,
  *  Discard; the buttons carry the entry's name. A refused download is named in an alert. */
 function JournalList({
-  lang, entries, onDownload, onDiscard, canRestore, onRestore,
+  lang, entries, onDownload, onDiscard, canRestore, onRestore, onRestored,
 }: {
   lang: Lang;
   entries: readonly OtherJournal[];
@@ -189,6 +189,8 @@ function JournalList({
   /** §655 — which entries offer Restore (a kept version of the project in scope). */
   canRestore?: (entry: OtherJournal) => boolean;
   onRestore?: (entry: OtherJournal) => void;
+  /** Called after a confirmed Restore: the row the focus was on is gone, so the banner takes it. */
+  onRestored?: () => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -201,7 +203,9 @@ function JournalList({
       confirmLabel: t(lang, "unloadJournalKeptRestoreConfirmAction"),
       tone: "default",
     });
-    if (ok) onRestore(entry);
+    if (!ok) return;
+    onRestore(entry);
+    onRestored?.();
   };
   const names = entries.map((entry) => journalName(lang, entry));
   const dates = entries.map((entry) => formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang));
@@ -262,15 +266,18 @@ export function OtherJournalsBanner({
   // must not say "other projects … reload to restore". It names no project, since the mark outlives a
   // switch to another project on the same page.
   const heading = t(lang, others.length > 0 && others.every((entry) => entry.unreadable) ? "unloadJournalUnreadableOnly" : "unloadJournalOthers");
+  // a11y — a confirmed Restore removes the row whose button had focus; the heading takes it, so focus
+  // does not fall to <body>.
+  const headingRef = useRef<HTMLParagraphElement>(null);
   return (
     <AlertBanner severity="info" ariaLabel={heading} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
+      <p ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</p>
       {others.some((entry) => isKeptProjectKey(entry.journal.projectKey)) && (
         <p className="mt-1 text-sm">{t(lang, onRestore && canRestore && others.some(canRestore) ? "unloadJournalKeptHintRestore" : "unloadJournalKeptHint")}</p>
       )}
       {others.some((entry) => entry.unreadable) && <p className="mt-1 text-sm">{t(lang, "unloadJournalUnreadableHint")}</p>}
-      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} />
+      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} canRestore={canRestore} onRestore={onRestore} onRestored={() => headingRef.current?.focus()} />
     </AlertBanner>
   );
 }

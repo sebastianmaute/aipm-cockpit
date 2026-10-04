@@ -434,7 +434,9 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
   Discard, and — for a kept version of the project IN SCOPE only (`isRestorable` in
   `use-other-journals.ts`) — Restore, behind a confirm (§655). `restoreKeptJournal`
-  (`use-storage-backend.ts`) refuses while a load is in flight (`unloadJournalKeptRestoreLoading`, read through
+  (`use-storage-backend.ts`) first re-checks that the slot still holds the listed record (`isCurrent`;
+  another tab may have restored or discarded it — then the list is re-read and nothing is applied), refuses
+  while a load is in flight (`unloadJournalKeptRestoreLoading`, read through
   `loadPendingRef`) or over a shut save gate, runs through `restoreKeptJournalRef` so the handler the banner
   holds across its awaited confirm acts on the LATEST render (the live workspace it keeps first is current), decodes the record STRICTLY, KEEPS the live
   workspace first through `keepLive` (and restores nothing when that keep is not written), then applies

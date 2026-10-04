@@ -4252,6 +4252,7 @@ export const de: Record<TranslationKey, string> = {
   unloadJournalKeptRestoreConfirmAction: "Diese Version wiederherstellen",
   unloadJournalKeptRestored: "Die aufbewahrte Version wurde wiederhergestellt. Die zuvor geöffnete Version ist im Hinweis aufbewahrt.",
   unloadJournalKeptRestoreBlocked: "Das Speichern ist pausiert, daher kann diese Version gerade nicht wiederhergestellt werden.",
+  unloadJournalKeptRestoreGone: "Diese Version wurde bereits wiederhergestellt oder verworfen, vielleicht in einem anderen Tab. Die Liste wurde aktualisiert.",
   unloadJournalKeptRestoreLoading: "Ein Projekt wird noch geladen, daher kann diese Version gerade nicht wiederhergestellt werden. Versuchen Sie es gleich noch einmal.",
   unloadJournalUnreadableEntry: "{0} — nicht lesbar, vom {1}, {2} KB",
   unloadJournalUnreadableOnly: "Nicht gespeicherte Änderungen aus einer früheren Sitzung konnten nicht gelesen werden.",

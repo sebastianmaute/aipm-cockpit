@@ -760,6 +760,20 @@ describe("§655 — Restore a kept version of the project in scope", () => {
     expect(jsonToWorkspace(readJournal(numberedKept()[0])!.workspace).tasks.map((x) => x.id)).toEqual([1, 9]);
   });
 
+  it("a version another tab already restored or discarded is not applied again", async () => {
+    seedJournal("", KEPT_KEY, "browser:kept", KEPT);
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    const entry = entryFor(result, "browser:kept");
+    localStorage.removeItem(KEPT_KEY); // another tab resolved it
+    await act(async () => { result.current.restoreKeptJournal(entry); });
+    expect(toastsOf("unloadJournalKeptRestoreGone")).toHaveLength(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(numberedKept()).toEqual([]);
+    expect(result.current.otherJournals.others.some((e) => e.journal.projectKey === "browser:kept")).toBe(false);
+  });
+
   it("when the live version cannot be kept first, nothing is restored", async () => {
     seedJournal("", KEPT_KEY, "browser:kept", KEPT);
     createBackendMock.mockReturnValue(makeBackend(100));

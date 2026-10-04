@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
 import { loadRegistry } from "./projects-registry";
-import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, journalKeyProject, listUnloadJournals, type UnloadJournal } from "./unload-journal";
+import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, journalKeyProject, listUnloadJournals, readUnloadJournal, type UnloadJournal } from "./unload-journal";
 import { UNLOAD_JOURNAL_TAB_ID, journalRecordId } from "./use-unload-journal";
 
 export type OtherJournal = {
@@ -68,15 +68,27 @@ export function useOtherJournals({ projectKey, restoredKeys, unreadableRecords, 
   const [expired, setExpired] = useState<OtherJournal[]>([]);
   const [dismissed, setDismissed] = useState(false);
   const sweptRef = useRef(false);
+  // §668 — a NEWLY unreadable record re-opens a dismissed notice: its toast points the user here, and
+  // this notice is the record's only way out. Render-time reconcile (set-state-in-effect is banned).
+  const [seenUnreadable, setSeenUnreadable] = useState(unreadableRecords);
+  if (unreadableRecords !== seenUnreadable) {
+    setSeenUnreadable(unreadableRecords);
+    if ((unreadableRecords?.size ?? 0) > (seenUnreadable?.size ?? 0)) setDismissed(false);
+  }
 
   /** Re-reads the list from storage: every journal except those under a key whose restore ran on this
    *  page (use-unload-journal.ts owns those) and those this page wrote. Newest first. */
   const relist = useCallback((): void => {
+    // §668 — the key in scope stays out of `restoredKeys` only because its journal was UNREADABLE. A
+    // readable record another live tab writes there later is that tab's, and the next load restores it,
+    // so it is not offered here under "other projects" (where Discard would delete that tab's draft).
+    const unreadableInScope = unreadableRecords !== undefined && [...unreadableRecords].some((id) => id.startsWith(`${projectKey}|`));
     setOthers(listUnloadJournals()
       .filter((j) => isKeptProjectKey(j.projectKey) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a KEPT slot is listed whoever wrote it: no restore ever reads it, so this list is its only way out
+      .filter((j) => !(unreadableInScope && j.projectKey === projectKey && !unreadableRecords?.has(journalRecordId(j))))
       .sort((a, b) => b.savedAt - a.savedAt)
       .map((j) => toEntry(j, unreadableRecords)));
-  }, [restoredKeys, unreadableRecords]);
+  }, [restoredKeys, unreadableRecords, projectKey]);
 
   useEffect(() => {
     if (!active) return;
@@ -114,6 +126,15 @@ export function useOtherJournals({ projectKey, restoredKeys, unreadableRecords, 
     relist();
   }, [relist]);
 
+  /** §655 — whether the key still holds the record the entry describes. Another tab may have restored or
+   *  discarded it since this list was read; then the list is re-read and the caller does nothing. */
+  const isCurrent = useCallback((entry: OtherJournal): boolean => {
+    const live = readUnloadJournal(entry.journal.projectKey);
+    const same = live !== null && live.tabId === entry.journal.tabId && live.savedAt === entry.journal.savedAt;
+    if (!same) relist();
+    return same;
+  }, [relist]);
+
   /** Downloads the entry's workspace JSON as listed (or as it was when it expired). False when the
    *  browser refused. */
   const download = useCallback((entry: OtherJournal): boolean => (
@@ -131,6 +152,7 @@ export function useOtherJournals({ projectKey, restoredKeys, unreadableRecords, 
     discard,
     download,
     isRestorable,
+    isCurrent,
     restored,
     dismiss: useCallback(() => setDismissed(true), []),
     dismissExpired: useCallback(() => setExpired([]), []),
