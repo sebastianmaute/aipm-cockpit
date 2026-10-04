@@ -447,6 +447,7 @@ describe("OtherJournalsBanner — §655 Restore", () => {
     fireEvent.click(await screen.findByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") }));
     await waitFor(() => expect(screen.queryByRole("button", { name: t("en-US", "unloadJournalKeptRestoreConfirmAction") })).toBeNull());
     expect(document.activeElement?.textContent).not.toBe(t("en-US", "unloadJournalOthers"));
+    expect(screen.getByRole("button", { name: "Restore: Apollo" })).toBe(trigger); // the row is still there
   });
 
   it("offers no Restore at all without a handler", () => {

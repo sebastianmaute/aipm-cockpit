@@ -50,6 +50,7 @@ import {
 } from "./unload-journal";
 import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
 import type { DocTruncationDiag } from "./document-model";
+import { sanitizeDiscipline, sanitizeGrade, sanitizeResource } from "./sanitize";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -94,11 +95,17 @@ export function journalRecordId(journal: UnloadJournal): string {
  *  that failed to decode (below). */
 /** Entity lists a journal carries row by row. Their decoders filter rows one at a time and record no
  *  slice failure, so a list whose EVERY row fails (rows in a shape a newer build wrote) would come back
- *  empty without a word. */
+ *  empty without a word. ★ Three of them do NOT come back empty: the decode's final migration re-seeds
+ *  an empty `disciplines` / `grades` with the presets and rebuilds an empty `resources` from task and
+ *  absence names, so for those the check reads the ROW sanitizer's own result (`PRE_MIGRATION`) rather
+ *  than the decoded list. */
 const JOURNAL_ENTITY_LISTS = [
   "tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets",
   "milestones", "changes", "stakeholders", "calendarEvents", "documentAssets",
 ] as const;
+const PRE_MIGRATION: Partial<Record<(typeof JOURNAL_ENTITY_LISTS)[number], (row: unknown) => unknown>> = {
+  disciplines: sanitizeDiscipline, grades: sanitizeGrade, resources: sanitizeResource,
+};
 
 export function journalWorkspace(journal: UnloadJournal): Workspace | null {
   try {
@@ -116,8 +123,11 @@ export function journalWorkspace(journal: UnloadJournal): Workspace | null {
     const decoded = ws as unknown as Record<string, unknown>;
     const emptied = JOURNAL_ENTITY_LISTS.filter((k) => {
       const before = raw[k];
+      if (!Array.isArray(before) || before.length === 0) return false;
+      const rowSanitizer = PRE_MIGRATION[k];
+      if (rowSanitizer) return before.every((row) => rowSanitizer(row) === null);
       const after = decoded[k];
-      return Array.isArray(before) && before.length > 0 && !(Array.isArray(after) && after.length > 0);
+      return !(Array.isArray(after) && after.length > 0);
     });
     const failed = [...(diag.decodeFailedSlices ?? []), ...emptied];
     if (failed.length) {

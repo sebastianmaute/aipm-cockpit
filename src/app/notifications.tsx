@@ -189,7 +189,8 @@ function JournalList({
   onDiscard?: (entry: OtherJournal) => void;
   /** §655 — which entries offer Restore (a kept version of the project in scope). */
   canRestore?: (entry: OtherJournal) => boolean;
-  /** False when the restore was refused (its row then stays, and so does focus). */
+  /** False when the restore was refused and its row stays, so focus stays too. A refusal that RE-LISTS
+   *  (the version was already restored or discarded elsewhere, so its row goes) returns true. */
   onRestore?: (entry: OtherJournal) => boolean | void;
   /** Called after a Restore that happened: the row the focus was on is gone, so the banner takes it. */
   onRestored?: () => void;

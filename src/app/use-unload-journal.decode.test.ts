@@ -56,6 +56,10 @@ describe("journalWorkspace refuses a journal with any slice that does not decode
     ["a meta slice garbled", { steeringCommittee: "x" }],
     ["an entity list whose every row is in a foreign shape", { milestones: [{ foo: 1 }] }],
     ["another entity list emptied the same way", { stakeholders: [{ foo: 1 }, { bar: 2 }] }],
+    // These three are re-seeded or rebuilt by the decode's final migration, so they never come back empty.
+    ["disciplines in a foreign shape (re-seeded with presets after decoding)", { disciplines: [{ foo: 1 }] }],
+    ["grades in a foreign shape (re-seeded with presets after decoding)", { grades: [{ foo: 1 }] }],
+    ["resources in a foreign shape (rebuilt from task names after decoding)", { resources: [{ foo: 1 }] }],
   ])("%s", (_label, extra) => {
     expect(journalWorkspace(withSlice(extra))).toBeNull();
   });

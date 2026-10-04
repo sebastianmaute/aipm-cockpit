@@ -471,7 +471,9 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   but does not decode is sanitized to nothing — and applied without it, its save would write the project
   without that slice over the stored one. Refused: every slice the decoder reports in a `diag`
   (`decodeFailedSlices`: the meta slices, and a documents/documentVersions sanitizer throw), and every
-  entity list that was non-empty and decoded to nothing (`JOURNAL_ENTITY_LISTS`). ★ NOT detected: a list
+  entity list that was non-empty and lost every row (`JOURNAL_ENTITY_LISTS`; for `disciplines`, `grades`
+  and `resources`, which the final migration re-seeds or rebuilds when empty, judged by the row sanitizer
+  before it). ★ NOT detected: a list
   that loses only SOME rows, and an object slice in a newer shape (`steeringCommittee`, `timelogLinks`),
   which sanitizes to its fixed keys — §620's limit, above. ★ An EMPTY but readable journal is
   NOT refused (a Clear all leaves exactly that state) and goes through the save-path mass-deletion guard
