@@ -730,11 +730,14 @@ describe("§655 — Restore a kept version of the project in scope", () => {
     const { result } = render();
     await advance(800);
     const entry = entryFor(result, "browser:kept");
+    // Taken BEFORE the reload, as the banner's handler is: the restore runs after an awaited confirm,
+    // so it must read the load hold live, not the value its closure captured.
+    const staleRestore = result.current.restoreKeptJournal;
     let reload: Promise<void> | undefined;
     act(() => { reload = result.current.reloadCurrentProject(); });
     await advance(25);
     expect(result.current.loadPending).toBe(true); // the premise
-    await act(async () => { result.current.restoreKeptJournal(entry); });
+    await act(async () => { staleRestore(entry); });
     expect(toastsOf("unloadJournalKeptRestoreBlocked")).toHaveLength(1);
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
     expect(readJournal(KEPT_KEY)).not.toBeNull();

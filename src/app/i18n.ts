@@ -4493,7 +4493,7 @@ const enUS = {
   unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
   unloadJournalRestoreAnyway: "Restore anyway",
   // §668 — a journal that does not decode is never applied.
-  unloadJournalUnreadable: "Unsaved changes from your last session could not be read, so nothing was restored. Your project is unchanged.",
+  unloadJournalUnreadable: "Unsaved changes from your last session could not be read, so nothing was restored. Your project is unchanged. Download or discard them in the unsaved-drafts notice.",
   unloadJournalDiscard: "Discard",
   // §632 — journals under other keys (use-other-journals.ts) and the ones expired at load.
   unloadJournalOthers: "This browser still keeps unsaved drafts from earlier sessions for other projects or storage locations. Reload the page with that project open to restore one, or download or discard it here.",

@@ -4239,7 +4239,7 @@ export const de: Record<TranslationKey, string> = {
   unloadJournalRestoreBlocked: "Das Speichern ist pausiert, daher können die nicht gespeicherten Änderungen aus Ihrer letzten Sitzung gerade nicht wiederhergestellt werden. Der Hinweis bleibt bestehen, damit Sie es erneut versuchen können.",
   unloadJournalConflict: "Nicht gespeicherte Änderungen aus der letzten Sitzung konnten nicht automatisch wiederhergestellt werden, weil dieses Projekt inzwischen anderswo geändert wurde.",
   unloadJournalRestoreAnyway: "Trotzdem wiederherstellen",
-  unloadJournalUnreadable: "Nicht gespeicherte Änderungen aus Ihrer letzten Sitzung konnten nicht gelesen werden, daher wurde nichts wiederhergestellt. Ihr Projekt ist unverändert.",
+  unloadJournalUnreadable: "Nicht gespeicherte Änderungen aus Ihrer letzten Sitzung konnten nicht gelesen werden, daher wurde nichts wiederhergestellt. Ihr Projekt ist unverändert. Sie können sie im Hinweis zu nicht gespeicherten Entwürfen herunterladen oder verwerfen.",
   unloadJournalDiscard: "Verwerfen",
   unloadJournalOthers: "Dieser Browser bewahrt noch nicht gespeicherte Entwürfe aus früheren Sitzungen für andere Projekte oder Speicherorte auf. Laden Sie die Seite bei geöffnetem Projekt neu, um einen wiederherzustellen, oder laden Sie ihn hier herunter bzw. verwerfen Sie ihn.",
   unloadJournalOthersEntry: "{0} — vom {1}, {2} KB",
