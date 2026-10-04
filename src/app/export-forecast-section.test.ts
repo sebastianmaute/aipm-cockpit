@@ -48,6 +48,8 @@ describe("budgetForecastRows (§545)", () => {
     const rows = budgetForecastRows(bundle(), "en-US");
     expect(value(rows, "Pace vs efficiency")).toContain("€4,000");
     expect(value(rows, "Pace vs efficiency")).toMatch(/^Warning:/);
+    // extraWorkingDays is null in the fixture: no clause, and never "null working days".
+    expect(value(rows, "Pace vs efficiency")).not.toContain("working days");
     expect(value(rows, "Avg rate booked")).toContain("€105/h");
     expect(value(rows, "Note")).toBeUndefined();
   });
