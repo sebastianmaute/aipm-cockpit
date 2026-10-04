@@ -14,8 +14,8 @@ import { join } from "node:path";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, probedAppVersion, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
+import { attachAuthFlowNavigation, type WillNavigationDetails } from "./lib/auth-flow-tracker";
 import {
-  decideNavigation,
   decideWindowOpen,
   isAppOpenerFrame,
   isAppPage,
@@ -60,19 +60,6 @@ let updater: Updater | null = null;
 // error dialog claiming the background service had stopped unexpectedly.
 let quitting = false;
 
-// ★ PER-WEBCONTENTS AUTH-FLOW STATE, keyed by the WebContents object itself
-// (never by `.id`: ids are only unique among LIVE WebContents and Electron
-// reuses them, so a numeric key could read a closed popup's flow state as a
-// brand-new one's). A `WeakMap` rather than a `Map` on purpose: a popup
-// closes and its WebContents is garbage-collected without this file ever
-// being told to delete an entry -- the window-close/webContents-destroyed
-// events exist, but nothing here needs them if the map cannot leak. Read via
-// `authFlowFor` below, which is also where "no entry yet" becomes `false`.
-const authFlowState = new WeakMap<WebContents, boolean>();
-function authFlowFor(contents: WebContents): boolean {
-  return authFlowState.get(contents) === true;
-}
-
 // ★★★ N-I1 FIX (review-3-fix1-report.md). Facts latched ONCE per child
 // webContents, at the moment `did-create-window` fires on the OPENER --
 // "emitted _after_ successful creation of a window via window.open"
@@ -82,12 +69,10 @@ function authFlowFor(contents: WebContents): boolean {
 // !== null` (a live read COOP on an identity host's response can sever
 // mid-flow).
 //
-// ★ Keyed by `.id`, per the brief -- unlike `authFlowState` above, which is
-// keyed by the WebContents object itself. Both are safe against id reuse
-// (this Map deletes its entry on `destroyed`, so a reused id never finds a
-// stale fact), but the object key would work here too; the id key is what
-// M-A asked for and makes the lifecycle (`delete` on `destroyed`) explicit
-// rather than relying on GC.
+// ★ Keyed by `.id`, per the brief. Safe against id reuse: this Map deletes its
+// entry on `destroyed`, so a reused id never finds a stale fact. (The auth-flow
+// flag needs no map at all: lib/auth-flow-tracker.ts keeps it in a closure per
+// WebContents, collected with it.)
 interface WindowFacts {
   // Was this window's FIRST committed/initial URL `about:blank` or empty --
   // the shape `window.open("about:blank", ...)` and MSAL's own popup
@@ -109,48 +94,6 @@ interface WindowFacts {
 const windowFacts = new Map<number, WindowFacts>();
 function factsFor(contents: WebContents): WindowFacts {
   return windowFacts.get(contents.id) ?? { createdAsBlankPopup: false, openerFrame: null };
-}
-
-// ★★★ M-C FIX. The auth-flow flag now commits on `did-navigate` (a main-
-// frame navigation completing), never inside `will-navigate`/`will-redirect`
-// themselves -- round 1 wrote `authFlowState` the moment a will-* decision
-// ALLOWED a hop, before Chromium had actually committed it. A later
-// `will-redirect` denial, or the navigation simply failing (offline, DNS),
-// left the flag on `true` with the page still showing whatever it showed
-// before, which widens exactly the window N-I1 closes. `pendingAuthFlow`
-// holds the NEXT value for an in-flight, not-yet-committed navigation;
-// `did-navigate` commits it, `did-fail-load` (main frame) discards it
-// without touching the confirmed `authFlowState`.
-const pendingAuthFlow = new WeakMap<WebContents, boolean>();
-
-// ★★★ m2/n2 FIX (review-3-fix2-report.md), called from BOTH `did-fail-load`
-// and `did-fail-provisional-load` (m2: a CANCELLED navigation -- e.g. a
-// later navigation superseding it, or `preventDefault()` from a will-*
-// denial -- fires `did-fail-provisional-load`, NOT `did-fail-load`;
-// electron.d.ts's doc on the former: "This event is like `did-fail-load`
-// but emitted when the load was cancelled (e.g. `window.stop()` was
-// invoked)." Without also discarding here, a `pendingAuthFlow` staged by an
-// entry hop that was then denied/redirected-away-from could survive
-// indefinitely, uncommitted, until some LATER unrelated navigation's
-// `did-navigate` wrongly committed it).
-//
-// n2: a failed ATTEMPT to return to `APP_ORIGIN` (the local server briefly
-// unreachable, offline, etc.) still ends the flow -- the flow's purpose is
-// over the moment the popup tries to come home, whether or not that
-// specific attempt lands; retrying only re-attempts the same return, and
-// there is no benefit to leaving `authFlowState` on `true` against
-// whatever error page Chromium shows instead. This COMMITS `false`
-// directly (not via `pendingAuthFlow`, which is simply discarded) because
-// there is nothing further to wait for.
-function discardStagedAuthFlow(contents: WebContents, validatedURL: string): void {
-  pendingAuthFlow.delete(contents);
-  try {
-    if (new URL(validatedURL).origin === APP_ORIGIN) {
-      authFlowState.set(contents, false);
-    }
-  } catch {
-    // Empty or unparsable: not a return to the app, nothing to end.
-  }
 }
 
 const logDir = resolveLogDir(process.env);
@@ -755,8 +698,8 @@ if (!app.requestSingleInstanceLock()) {
           // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
           // -- this comment used to say "the only" one, which stopped being true once
           // the navigation guards below could reach it too): this case, the
-          // `will-navigate`/`will-redirect` `open-external` branches further down this
-          // file, and the updater's "Open releases page" button on its error dialog
+          // `will-navigate`/`will-redirect` `open-external` branches (lib/auth-flow-tracker.ts,
+          // handed `shell.openExternal` further down this file), and the updater's "Open releases page" button on its error dialog
           // (updater.ts, shown only when a manual "Check for updates…" check fails). The
           // Help menu's "Check for updates…" item itself no longer opens a browser --
           // `helpMenuClick` routes it to `updater?.check("manual")` -- so it is not a
@@ -992,9 +935,10 @@ if (!app.requestSingleInstanceLock()) {
     // `decideNavigation`'s doc comment) and continue it through a SERVER
     // redirect (a federated IdP forwarding back to login.microsoftonline.com,
     // or vice versa) with no navigation event of the other kind in between.
-    // `inAuthFlow` is NOT read here -- each call site below passes its own
-    // (see the m1 fix at `will-redirect`), so this only assembles the two
-    // fields that never differ between them.
+    // `inAuthFlow` is NOT read here -- the tracker passes the flag each event
+    // is judged under (committed for will-navigate, staged-first for
+    // will-redirect: the m1 fix), so this only assembles the two fields that
+    // never differ between them.
     //
     // ★ m3 FIX: `isAppOpenerFrame` (window-open-policy.ts), not an object-
     // reference comparison -- see its doc comment and `WindowFacts.
@@ -1006,7 +950,7 @@ if (!app.requestSingleInstanceLock()) {
     // satisfies `isAppOpenerFrame`'s `FrameIdentity` parameter type (a
     // `WebFrameMain` has every property that shape asks for).
     const navContextFor = (
-      details: { initiator?: WebFrameMain | null },
+      details: WillNavigationDetails & { initiator?: WebFrameMain | null },
       inAuthFlow: boolean,
     ): NavigationContext => {
       const facts = factsFor(contents);
@@ -1017,191 +961,23 @@ if (!app.requestSingleInstanceLock()) {
       };
     };
 
-    // ★ GUARDS PLAIN-LINK NAVIGATION (no `target`, so no `window.open` and
-    // no `setWindowOpenHandler` call) of the TOP-LEVEL frame -- the gap the
-    // handler above cannot close. Confirmed in electron.d.ts:
-    // `WebContentsWillNavigateEventParams` "does not fire for same document
-    // navigations using window.history api and reference fragment
-    // navigations", so this app's own `#hash` view routing (nav-config.ts /
-    // task-manager's hash-based view switch) and Next's client-side routing
-    // are both untouched -- neither is a top-level navigation in Electron's
-    // sense. Also where MSAL's `location.assign(authorityUrl)` on its
-    // pre-opened `about:blank` popup lands (see `decideNavigation`), which is
-    // why this now carries auth-flow context rather than the plain
-    // `decideWindowOpen` this commit's first cut used.
-    //
-    // ★ DELIBERATELY SCOPED TO `isMainFrame`: this shell renders no
-    // cross-origin `<iframe>` of its own (`git grep -n iframe src/app`
-    // outside comments returns nothing), and the one cross-origin subframe
-    // this app ever loads -- MSAL's `acquireTokenSilent` hidden iframe
-    // (`use-ms-auth.ts:266`) -- is governed by `frame-src` in `src/proxy.ts`,
-    // not by top-level navigation guards. A subframe guard is out of scope
-    // by that reasoning, not merely unimplemented; add one only if a
-    // same-origin iframe embedding untrusted content is ever introduced.
-    //
-    // ★★★ M-C: `allow-in-app` no longer writes `authFlowState` directly --
-    // it stashes the NEXT value in `pendingAuthFlow` and lets `did-navigate`
-    // (below) commit it once Chromium confirms the navigation actually
-    // landed. `deny`/`open-external` never touch `pendingAuthFlow` at all:
-    // the navigation is cancelled either way, so there is nothing pending to
-    // stash, and `authFlowState` is simply left as it was (its value is
-    // already the committed truth from whatever DID land last).
-    try {
-      contents.on("will-navigate", (details) => {
-        if (!details.isMainFrame) return;
-        // ★ COMMITTED state only -- unlike will-redirect below (the m1
-        // fix), a will-navigate always starts a NEW top-level navigation,
-        // so there is no earlier `pendingAuthFlow` for THIS attempt to
-        // inherit; whatever is in `pendingAuthFlow` right now belongs to
-        // whatever the PREVIOUS navigation staged (already superseded).
-        const ctx = navContextFor(details, authFlowFor(contents));
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, ctx);
-        if (decision === "allow-in-app") {
-          pendingAuthFlow.set(contents, authFlow);
-          return;
-        }
-        details.preventDefault();
-        if (decision === "open-external") {
-          void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
-            log(`will-navigate: ${String(e)}`);
-          });
-        } else {
-          log(`will-navigate: denied ${originOnly(details.url)}`);
-        }
-      });
-    } catch (e: unknown) {
-      log(`will-navigate handler install: ${String(e)}`);
-    }
-
-    // ★★★ SERVER REDIRECTS ARE A SEPARATE EVENT FROM `will-navigate`, and
-    // before this commit nothing policed them: `will-navigate` only sees the
-    // navigation's INITIAL URL, so a same-origin/allow-in-app page (or a
-    // popout) that received a 30x to another origin would render that other
-    // origin in-app and chromeless -- exactly what this whole file exists to
-    // prevent, and exactly the shape an OAuth authorize response takes
-    // (Azure AD redirects to a federated IdP, then back). Confirmed in
-    // electron.d.ts: "Emitted when a server side redirect occurs during
-    // navigation. ... Calling event.preventDefault() will prevent the
-    // navigation (not just the redirect)." -- so `preventDefault()` here
-    // cancels the WHOLE in-flight navigation, not merely this one hop, which
-    // is why the `open-external`/`deny` branches below never also need to
-    // stop a later `did-navigate`. No open redirect exists in this app today
-    // (`grep -rn "NextResponse.redirect\|redirect(\|Response.redirect"
-    // src/proxy.ts src/app/api` is empty), so this is defence in depth
-    // against a future one, not a fix for a reachable bug -- and it is load-
-    // bearing for I-1: MSAL's popup navigates to login.microsoftonline.com
-    // and Azure AD then 30x's it to the tenant's federated IdP, a SERVER
-    // redirect this event is the only guard for.
-    try {
-      contents.on("will-redirect", (details) => {
-        if (!details.isMainFrame) return;
-        // ★★★ m1 FIX. STAGED value first, falling back to committed --
-        // `pendingAuthFlow.get(contents) ?? authFlowFor(contents)`. A
-        // redirect belongs to the SAME in-flight navigation that a
-        // preceding will-navigate may have just staged: Azure AD can answer
-        // MSAL's `location.assign(authorityUrl)` with a DIRECT 30x to a
-        // tenant's federated IdP (home-realm-discovery auto-acceleration),
-        // arriving here before any `did-navigate` has committed anything.
-        // Reading only the COMMITTED flag (round 2's behaviour) made that
-        // hop `open-external` -- a regression from round 1, where the flag
-        // was written at will-navigate time and so was already `true` here.
-        // ★ N3-1 (review-3-fix3-report.md): scoped to a staged `true`. A
-        // staged `false` is NOT limited to a `createdAsBlankPopup` +
-        // opener-initiated navigation -- `decideNavigation`'s "return to the
-        // app" branch stages `false` for ANY ordinary same-origin
-        // `will-navigate`/`will-redirect`, main window included (it never
-        // gets a `windowFacts` entry, so it always reads
-        // `createdAsBlankPopup: false`). Harmless either way: a staged
-        // `false` and a committed `false` are indistinguishable to this `??`
-        // fallback and to every downstream decision, and a fresh `true` can
-        // still only be MINTED by that one entry condition (see
-        // `decideNavigation`'s own doc comment for the induction) -- this
-        // fallback never invents a `true` for an ordinary page.
-        const inAuthFlow = pendingAuthFlow.get(contents) ?? authFlowFor(contents);
-        const ctx = navContextFor(details, inAuthFlow);
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, ctx);
-        if (decision === "allow-in-app") {
-          pendingAuthFlow.set(contents, authFlow);
-          return;
-        }
-        details.preventDefault();
-        if (decision === "open-external") {
-          void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
-            log(`will-redirect: ${String(e)}`);
-          });
-        } else {
-          log(`will-redirect: denied ${originOnly(details.url)}`);
-        }
-      });
-    } catch (e: unknown) {
-      log(`will-redirect handler install: ${String(e)}`);
-    }
-
-    // ★★★ M-C, THE COMMIT HALF. "Emitted when a main frame navigation is
-    // done" (electron.d.ts's `did-navigate` doc) -- this event is inherently
-    // main-frame-only (unlike will-navigate/will-redirect, it has no
-    // `isMainFrame` parameter to check), and fires exactly once a navigation
-    // has actually landed, whether that navigation was ever seen by
-    // `will-navigate` at all (a programmatic `loadURL`, e.g. `win.loadURL(
-    // APP_ORIGIN)` at startup, never fires will-navigate, but DOES fire
-    // did-navigate) -- so a missing `pendingAuthFlow` entry here is the
-    // ordinary case, not an error, and is silently ignored.
-    try {
-      contents.on("did-navigate", () => {
-        const pending = pendingAuthFlow.get(contents);
-        if (pending === undefined) return;
-        authFlowState.set(contents, pending);
-        pendingAuthFlow.delete(contents);
-      });
-    } catch (e: unknown) {
-      log(`did-navigate handler install: ${String(e)}`);
-    }
-
-    // ★★★ M-C/n2, THE DISCARD HALF. A main-frame load that fails (offline,
-    // DNS, a denied navigation that still left something in flight) never
-    // reaches `did-navigate`, so without this the flag some `will-*`
-    // decision staged would sit in `pendingAuthFlow` uncommitted --
-    // harmless on its own (never read again until the next navigation
-    // overwrites it), but a stale entry is exactly the kind of state this
-    // fix removes elsewhere. `discardStagedAuthFlow` (module scope, shared
-    // with `did-fail-provisional-load` below) also ends a COMMITTED flow
-    // outright if the failed load's `validatedURL` origin is `APP_ORIGIN`
-    // (n2). Explicit `isMainFrame` check here: unlike `did-navigate`,
-    // `did-fail-load` DOES fire for subframes.
-    try {
-      contents.on(
-        "did-fail-load",
-        (_event, _errorCode, _errorDescription, validatedURL, isMainFrame) => {
-          if (!isMainFrame) return;
-          discardStagedAuthFlow(contents, validatedURL);
-        },
-      );
-    } catch (e: unknown) {
-      log(`did-fail-load handler install: ${String(e)}`);
-    }
-
-    // ★★★ m2 FIX. `did-fail-load` does NOT fire for a CANCELLED navigation
-    // -- Electron emits `did-fail-provisional-load` for that instead
-    // ("This event is like `did-fail-load` but emitted when the load was
-    // cancelled (e.g. `window.stop()` was invoked)", electron.d.ts, the doc
-    // comment immediately above the event). A `will-redirect` denial calls
-    // `preventDefault()`, which cancels the navigation this way -- so
-    // without this handler, an entry hop that staged `true` and then got
-    // redirected somewhere this policy denies would leave `pendingAuthFlow`
-    // stuck, uncommitted, for a LATER unrelated navigation's `did-navigate`
-    // to wrongly commit. Same signature, same `isMainFrame` guard, same
-    // shared discard/n2 logic as `did-fail-load` above.
-    try {
-      contents.on(
-        "did-fail-provisional-load",
-        (_event, _errorCode, _errorDescription, validatedURL, isMainFrame) => {
-          if (!isMainFrame) return;
-          discardStagedAuthFlow(contents, validatedURL);
-        },
-      );
-    } catch (e: unknown) {
-      log(`did-fail-provisional-load handler install: ${String(e)}`);
-    }
+    // ★★★ THE SIGN-IN POPUP AUTH-FLOW GUARD (§547): will-navigate / will-redirect
+    // police plain-link navigation and server redirects of the TOP-LEVEL frame (the
+    // gap `setWindowOpenHandler` above cannot close), and did-navigate / did-fail-load /
+    // did-fail-provisional-load stage, commit and discard the per-WebContents flow
+    // flag. The state machine, its event wiring and the three review-found bugs it
+    // fixes (M-C, m1, m2) live in lib/auth-flow-tracker.ts, which is unit-tested.
+    // ★ DELIBERATELY SCOPED TO THE MAIN FRAME: this shell renders no cross-origin
+    // `<iframe>` of its own, and the one cross-origin subframe this app ever loads --
+    // MSAL's `acquireTokenSilent` hidden iframe -- is governed by `frame-src` in
+    // `src/proxy.ts`, not by top-level navigation guards. Add a subframe guard only if
+    // a same-origin iframe embedding untrusted content is ever introduced.
+    attachAuthFlowNavigation(contents, {
+      appOrigin: APP_ORIGIN,
+      contextFor: navContextFor,
+      openExternal: (url) => shell.openExternal(url),
+      log,
+    });
   });
 
   // ★★★ THE .catch IS LOAD-BEARING. Without it, a throw anywhere in start()

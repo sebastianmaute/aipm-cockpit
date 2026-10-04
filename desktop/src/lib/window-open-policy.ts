@@ -210,12 +210,12 @@ export function isAppPage(url: string, appOrigin: string): boolean {
 //   block a FEDERATED hop if this check were required to continue rather
 //   than only to ENTER).
 // - `inAuthFlow`: is this webContents currently inside a Microsoft sign-in
-//   flow? For `will-navigate`, the COMMITTED state (set by main.ts on
+//   flow? For `will-navigate`, the COMMITTED state (set by auth-flow-tracker.ts on
 //   `did-navigate`, not optimistically at `will-navigate` time -- a will-*
 //   decision can still be reversed by a later redirect denial or a load
-//   failure before anything commits). For `will-redirect`, main.ts feeds
-//   the STAGED value when one exists (`pendingAuthFlow.get(contents) ??
-//   authFlowFor(contents)`) -- see the m1 fix at the `will-redirect` wiring:
+//   failure before anything commits). For `will-redirect`, auth-flow-tracker.ts
+//   feeds the STAGED value when one exists (`staged ?? committed`, its
+//   `onWillRedirect`) -- the m1 fix:
 //   a server redirect that arrives before the FIRST commit belongs to the
 //   navigation that just staged that value, not to whatever committed
 //   before it.

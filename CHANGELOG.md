@@ -111,6 +111,10 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **The desktop sign-in popup has a unit harness (§547).** Its auth-flow state machine and the
+  Electron events that drive it moved from `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts`,
+  with tests that replay the three review-found sign-in bugs (M-C, m1, m2); each fails if its fix is reverted.
+  No behaviour change.
 - **Recent closures are status-checked (§429).** `followups:status:check` now also reads the
   `**Status:**` line of a register entry closed on or after 2026-10-04: it must open with CLOSED, carry a
   date and cite an executed command, or, for a decision closure, open its reason with `owner decision <date>` (a real date).
