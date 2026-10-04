@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetLibrary } from "./asset-library";
+import type { AssetByteLoader } from "./document-asset-images";
 import { ConfirmProvider } from "./confirm-dialog";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -679,7 +680,7 @@ describe("AssetLibrary — row thumbnails", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("shows each row's own image once the rows are in view", async () => {
-    const loadImage = vi.fn(async () => TINY_PNG);
+    const loadImage = vi.fn<AssetByteLoader>(async () => TINY_PNG);
     render(<AssetLibrary {...base} loadImage={loadImage} />);
     expect(loadImage).not.toHaveBeenCalled();
     scrollAllIntoView();
