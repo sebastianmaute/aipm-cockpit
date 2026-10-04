@@ -236,7 +236,7 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
   }
 });
 
-// ★★ §557: seed.ts authors a `budgetHistory` slice (a baseline plus three
+// ★★ §557: seed-workspace.ts authors a `budgetHistory` slice (a baseline plus three
 // changes) so the Reports budget block renders its history surfaces in the
 // browser. Which run sees what:
 //   change table + split rows → this test, the Reports axe scans (default

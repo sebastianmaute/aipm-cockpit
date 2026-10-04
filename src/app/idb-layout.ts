@@ -1,6 +1,10 @@
 // The IndexedDB layout BrowserBackend reads and writes: database name and
-// version, the entity record stores and every kv key, each keyed by the
-// Workspace field it holds. ★ No imports and no browser API, on purpose: the
+// version, the entity record stores, and the kv key of every WORKSPACE SLICE,
+// each keyed by the Workspace field it holds. ★ The `kv` store holds two other
+// keys this layout does NOT own, because neither is workspace data and neither
+// is seeded: `revision` (browser-backend.ts's KV_REVISION_KEY, the save
+// revision) and `file-handle:<kind>` (local-file-backend.ts, a picked file's
+// handle). ★ No imports and no browser API, on purpose: the
 // e2e seed (e2e/seed.ts) imports this to write the sample workspace in exactly
 // this shape, so a store or kv slice added here is seeded without anyone
 // editing a second list (§99). idb.ts and browser-backend.ts take their

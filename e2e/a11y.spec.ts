@@ -159,7 +159,7 @@ const comboLabel = (combo: (typeof COMBOS)[number]): string =>
 //     version. Both sides use process.cwd(): the webServer has no `cwd`, so
 //     Playwright starts `npm run dev` in the config's directory (the repo root),
 //     a hand-started `npm run dev` runs in the package root, and this suite
-//     already requires the runner to sit at the repo root (seed.ts reads
+//     already requires the runner to sit at the repo root (seed-workspace.ts reads
 //     sample-workspace-small.json from process.cwd()).
 //     An ABSENT data-checkout fails too, unless PLAYWRIGHT_NO_WEBSERVER is set
 //     (judgeServedCheckout / runStartsDevServer in checkout-token.ts). That env
@@ -417,7 +417,7 @@ test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", asyn
 // ★★ WHICH document this opens is NOT the seeded 9001: documents-panel.tsx
 // falls back to `selectionPool[0]`, and `selectionPool` is the UNSORTED
 // `documents` array, so it lands on the sample master's id 1 — which already
-// carries all six DocBlock kinds. e2e/seed.ts seeds all six on 9001 as well,
+// carries all six DocBlock kinds. e2e/seed-workspace.ts gives 9001 all six as well,
 // so this scan covers every per-kind editor whichever one wins that fallback.
 test("a11y: harbor-light — Documents (block editor)", async ({ page }) => {
   await page.addInitScript(seedScript(COMBOS[0]));
@@ -460,7 +460,7 @@ test("a11y: harbor-light — Documents (block editor)", async ({ page }) => {
 
 // §557: the Budget report's chart draws the recorded budget history (stepped
 // line, change markers) only in the CUMULATIVE orientation, and the Reports
-// scan in the A11Y_VIEWS loop sees the default burn-down. e2e/seed.ts seeds the
+// scan in the A11Y_VIEWS loop sees the default burn-down. e2e/seed-workspace.ts authors the
 // history; this scan switches orientation and checks those surfaces too.
 // ★ Same axe configuration as every scan above; harbor-light only, like the
 // two scans before it.

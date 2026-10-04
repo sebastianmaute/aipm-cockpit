@@ -970,7 +970,7 @@ is why they can be kept divergent on purpose without drifting by accident. ★ I
 global regex carries `lastIndex` across `.test` calls and would drop every OTHER image-only
 paragraph in a document.
 ★★ Consequence for any e2e or fixture work: BEFORE this fix a seeded image-only paragraph did not
-survive to render, so a spec written against one went vacuously green. `e2e/seed.ts` now seeds BOTH
+survive to render, so a spec written against one went vacuously green. `e2e/seed-workspace.ts` now seeds BOTH
 shapes — a captioned figure AND an image-only paragraph — and **they are not interchangeable, so do
 not "simplify" the seed down to one.** The captioned figure is valid whatever the block-drop rules
 do, which makes it the stable carrier of the CSP/render assertion above. The image-only paragraph

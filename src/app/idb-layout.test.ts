@@ -19,6 +19,17 @@ function declaredKeysIn(text: string): { name: string; rhs: string }[] {
 }
 const declaredKeys = (file: string): { name: string; rhs: string }[] => declaredKeysIn(source(file));
 
+/** Every kv read/write call (`idbGet` / `idbSet` / `idbDelete`, and `kv.get` / `kv.put` / `kv.delete` inside a
+ *  transaction), with its argument text. A key written inline as a string literal bypasses the KV_ constants,
+ *  so the declaration scan above cannot see it. ★ Still not seen: a key built in a variable with another name
+ *  and passed in, or a call through a differently named store handle; both would be unusual here, since every
+ *  key argument in these two files is a KV_ constant today. */
+function kvCallsIn(text: string): { call: string; args: string }[] {
+  const re = /\b(?:idbGet|idbSet|idbDelete|kv\.(?:get|put|delete))(?:<[^>()]*>)?\(([^)]*)\)/g;
+  return [...text.matchAll(re)].map((m) => ({ call: m[0], args: m[1] }));
+}
+const hasLiteral = (args: string): boolean => /["'`]/.test(args);
+
 const isPresent = (v: unknown): boolean => (Array.isArray(v) ? v.length > 0 : v != null);
 
 describe("idb-layout — the backend declares no store or kv key of its own", () => {
@@ -38,6 +49,28 @@ describe("idb-layout — the backend declares no store or kv key of its own", ()
       { name: "KV_E_KEY", rhs: `"e"` },
       { name: "IDB_F_STORE", rhs: `"f"` },
     ]);
+  });
+
+  it("the kv call scan finds literal keys in each call shape, and not constant ones", () => {
+    const text = [
+      `await idbGet<Plan>("plan-x");`,
+      `await idbSet('fx', value);`,
+      `kv.put(value, \`k\`);`,
+      `kv.delete(KV_X_KEY);`,
+      `await idbGet(KV_PLAN_KEY);`,
+    ].join("\n");
+    expect(kvCallsIn(text).filter((c) => hasLiteral(c.args)).map((c) => c.call)).toEqual([
+      `idbGet<Plan>("plan-x")`,
+      `idbSet('fx', value)`,
+      "kv.put(value, `k`)",
+    ]);
+    expect(kvCallsIn(text)).toHaveLength(5);
+  });
+
+  it.each(["idb.ts", "browser-backend.ts"])("%s passes no kv key as an inline literal", (file) => {
+    const calls = kvCallsIn(source(file));
+    if (file === "browser-backend.ts") expect(calls.length).toBeGreaterThan(10); // the scan read the real calls
+    expect(calls.filter((c) => hasLiteral(c.args)), "use a KV_ constant from idb-layout.ts, so e2e/seed.ts seeds it").toEqual([]);
   });
 
   it.each(["idb.ts", "browser-backend.ts"])("%s takes every store and kv key from idb-layout.ts", (file) => {

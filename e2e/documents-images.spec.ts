@@ -32,7 +32,7 @@
 // `d183be6d`, which added the survival predicate `sanitizeBlock` tests. Before
 // that fix, every user-inserted image was silently deleted on the next load, on
 // all six write paths. Revert it and this spec's second image simply is not in
-// the DOM, so the suite reports it. See the seeded blocks' comments in seed.ts.
+// the DOM, so the suite reports it. See the seeded blocks' comments in seed-workspace.ts.
 // ★ At `d183be6d` that predicate was `ASSET_IMG_RE`, module-private in
 // `document-model.ts` — the spelling this comment used to carry, which greps to
 // nothing today. It is now `ASSET_IMG_TEST_RE`, exported from
@@ -43,7 +43,7 @@ import {
   E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY,
 } from "./seed";
 
-/** The e2e-only document seeded in seed.ts that carries the image blocks.
+/** The e2e-only document seeded in seed-workspace.ts that carries the image blocks.
  *  Selected EXPLICITLY rather than relied upon by position: documents-panel.tsx
  *  falls back to `selectionPool[0]`, the UNSORTED `documents` array, which is
  *  the sample master's document — not this one. */

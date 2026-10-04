@@ -48,43 +48,54 @@ export function measure(files, read = (f) => readFileSync(f, "utf8")) {
   return { scanned, counts, sites };
 }
 
-function main(argv) {
+/**
+ * The CLI, with its inputs injectable so every exit path is unit-tested
+ * (check-tooltips.test.mjs). Defaults are the real tree and baseline.
+ */
+export function run(argv, {
+  files = listSources(),
+  read = (f) => readFileSync(f, "utf8"),
+  baselinePath = BASELINE,
+  minScanned = MIN_SCANNED,
+  log = (line) => console.log(line),
+  error = (line) => console.error(line),
+} = {}) {
   const list = argv.includes("--list");
   const update = argv.includes("--update");
-  const { scanned, counts, sites } = measure(listSources());
-  if (scanned < MIN_SCANNED) {
-    console.error(`tooltips:check: scanned only ${scanned} button-family elements (floor ${MIN_SCANNED}); could not scan`);
+  const { scanned, counts, sites } = measure(files, read);
+  if (scanned < minScanned) {
+    error(`tooltips:check: scanned only ${scanned} button-family elements (floor ${minScanned}); could not scan`);
     return 2;
   }
   let baseline;
   try {
-    baseline = JSON.parse(readFileSync(BASELINE, "utf8"));
+    baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
     if (baseline === null || typeof baseline !== "object" || Array.isArray(baseline)) throw new Error("not an object");
   } catch (e) {
-    console.error(`tooltips:check: cannot read ${BASELINE}: ${String(e)}`);
+    error(`tooltips:check: cannot read ${baselinePath}: ${String(e)}`);
     return 2;
   }
   const { grew, shrank } = compareToBaseline(counts, baseline);
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  console.log(`tooltips:check: ${scanned} button-family elements scanned, ${total} icon-only without a title, in ${Object.keys(counts).length} files`);
-  if (list) for (const s of sites) console.log(`  ${s}`);
+  log(`tooltips:check: ${scanned} button-family elements scanned, ${total} icon-only without a title, in ${Object.keys(counts).length} files`);
+  if (list) for (const site of sites) log(`  ${site}`);
   for (const g of grew) {
-    console.error(`  GREW ${g.file}: ${g.count} icon-only control(s) without a title, baseline allows ${g.allowed}. Add a title.`);
+    error(`  GREW ${g.file}: ${g.count} icon-only control(s) without a title, baseline allows ${g.allowed}. Add a title.`);
   }
   if (grew.length > 0) {
-    if (update) console.error("tooltips:check: --update refused: it can only tighten the baseline");
+    if (update) error("tooltips:check: --update refused: it can only tighten the baseline");
     return 1;
   }
   if (update) {
     const sorted = Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
-    writeFileSync(BASELINE, `${JSON.stringify(sorted, null, 2)}\n`);
-    console.log(`tooltips:check: baseline rewritten (${Object.keys(sorted).length} files)`);
+    writeFileSync(baselinePath, `${JSON.stringify(sorted, null, 2)}\n`);
+    log(`tooltips:check: baseline rewritten (${Object.keys(sorted).length} files)`);
     return 0;
   }
   if (shrank.length > 0) {
-    console.log(`tooltips:check: ${shrank.length} file(s) below the baseline; tighten it with --update`);
+    log(`tooltips:check: ${shrank.length} file(s) below the baseline; tighten it with --update`);
   }
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main(process.argv.slice(2)));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(run(process.argv.slice(2)));
