@@ -10,6 +10,7 @@ import {
   xmlEscape,
 } from "./export-ooxml-shared";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
+import { createNumberingSink, type NumberingSink } from "./ooxml-docx-numbering";
 import { DOC_STYLES, buildDocxPackage, buildDocxTable, docxContentWidth } from "./ooxml-docx-primitives";
 import { docxColumnWidths, docxSection, type DocxRefs } from "./export-docx-columns";
 
@@ -27,7 +28,7 @@ import { docxColumnWidths, docxSection, type DocxRefs } from "./export-docx-colu
  *  is lenient, which is how `<w:color/><w:i/>` sat in both paragraphs here
  *  unnoticed. This is the same rule `DOCX_MARK_RPR`'s `rank` table enforces for
  *  the rich path — read its comment before reordering anything here. */
-function buildDocxSection(full: ExportSection, links: LinkSink, refs?: DocxRefs): string {
+function buildDocxSection(full: ExportSection, links: LinkSink, numbering: NumberingSink, refs?: DocxRefs): string {
   // §512 — Word prints the curated columns, sized to their content (export-docx-columns.ts).
   const section = docxSection(full, refs);
   const widths = docxColumnWidths(section.columns, section.rows, docxContentWidth("landscape"));
@@ -46,7 +47,7 @@ function buildDocxSection(full: ExportSection, links: LinkSink, refs?: DocxRefs)
       </w:r>
     </w:p>
     <w:p/>
-    ${buildDocxTable(section.columns, section.rows, undefined, links, widths)}
+    ${buildDocxTable(section.columns, section.rows, undefined, links, widths, numbering)}
     <w:p/>`;
 }
 
@@ -69,7 +70,9 @@ export function buildDocx(sections: ExportSection[], refs?: DocxRefs): Blob {
   // an upper bound on the media count (`2 + mediaIdCeiling(doc)`). Do not copy
   // that expression here, and do not copy this bare `2` there.
   const links = createLinkSink(2);
-  const sectionsXml = sections.map((section) => buildDocxSection(section, links, refs)).join("");
+  // §154 — one numbering part per document, like the relationship part above.
+  const numbering = createNumberingSink();
+  const sectionsXml = sections.map((section) => buildDocxSection(section, links, numbering, refs)).join("");
 
   const body = `<w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
@@ -130,5 +133,5 @@ export function buildDocx(sections: ExportSection[], refs?: DocxRefs): Blob {
   // ★ `"landscape"` and `[]` are this file's long-standing defaults spelled out
   // because `links` is positional and trails them; both are the values the
   // two-argument call resolved to, so a link-free workspace is unmoved.
-  return buildDocxPackage(body, DOC_STYLES, "landscape", [], links.rels());
+  return buildDocxPackage(body, DOC_STYLES, "landscape", [], links.rels(), numbering.partXml());
 }

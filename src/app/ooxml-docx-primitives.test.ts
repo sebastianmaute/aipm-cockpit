@@ -30,6 +30,8 @@ import {
   docxRichParagraphs,
 } from "./ooxml-docx-primitives";
 import { createLinkSink } from "./ooxml-links";
+import { createNumberingSink } from "./ooxml-docx-numbering";
+import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { buildDocx } from "./export-docx";
 import type { ExportSection } from "./export-sections";
 import { readZipEntries } from "./unzip";
@@ -468,6 +470,37 @@ describe("docxRichParagraphs — §157 marker-only list head", () => {
     const xml = docxRichParagraphs("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
     const texts = [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]!.trim());
     expect(texts.filter((x) => x !== "")).toEqual(["1.", "•", "n", "2.", "b"]);
+  });
+});
+
+describe("docxRichParagraphs — §154 Word numbering", () => {
+  const texts = (xml: string) =>
+    [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]!.trim()).filter((x) => x !== "");
+  const numPrs = (xml: string) =>
+    [...xml.matchAll(/<w:ilvl w:val="(\d+)"\/><w:numId w:val="(\d+)"\/>/g)].map((m) => `${m[1]}:${m[2]}`);
+
+  it("numbers an item's first line and indents its continuation, with no marker run", () => {
+    const xml = docxRichParagraphs("<ol><li><p>first</p><p>more</p></li><li>b</li></ol>", undefined, createNumberingSink());
+    expect(texts(xml)).toEqual(["first", "more", "b"]);
+    expect(numPrs(xml)).toEqual(["0:1", "0:1"]);
+    // The head takes its indent from the numbering level; the continuation
+    // sits at the level's text position and carries no number.
+    expect(xml).toContain(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>`);
+    expect(xml).toContain(`<w:pPr><w:pStyle w:val="ListParagraph"/><w:ind w:left="720"/></w:pPr>`);
+  });
+
+  it("keeps a task item's literal box, since Word numbering has no checked state", () => {
+    const sink = createNumberingSink();
+    const xml = docxRichParagraphs('<ul data-type="taskList"><li data-checked="true"><p>done</p></li></ul>', undefined, sink);
+    expect(xml).not.toContain("<w:numPr>");
+    expect(texts(xml)).toEqual([TASK_MARK_CHECKED.trim(), "done"]);
+    expect(sink.partXml()).toBeUndefined();
+  });
+
+  it("numbers a marker-only head (§157) and its nested list on separate levels", () => {
+    const xml = docxRichParagraphs("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>", undefined, createNumberingSink());
+    expect(texts(xml)).toEqual(["n", "b"]);
+    expect(numPrs(xml)).toEqual(["0:1", "1:2", "0:1"]);
   });
 });
 

@@ -404,15 +404,16 @@ register's fix to another is how two of them broke. Read the note that names you
   (`isMarkerOnlyLine`), or it emits an empty paragraph — `export-sections.ts`'s two flat/runs
   projections do; and `isBlankLine` (`doc-render-pptx-slides.ts`) treats every `li` as content, or
   the PPTX blank strip would delete the head and its number with it.
-  ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
-  `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
-  **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure
+  ★★ **`bulletMarker` HAS THREE PRODUCTION CALL SITES**, and this line once said two, then four. The
+  one in `doc-render-pptx.ts` that reads `block.items` takes a `bullets` **`DocBlock`**, which has no
+  `continuation` to guard on (its DOCX twin stopped calling it in §154, when DOCX lists became native
+  Word numbering) — no defect, but an under-counted call-site enumeration is the failure
   mode this file records elsewhere in the `sanitizeRaidItem` sweep, where passing the sanitizer by
   REFERENCE into `buildList` hid a call site from a bare-name grep and under-counted it. The sweep it used to attach
   (`grep -rn "continuation"` over the two files that already carry the guard) was scoped so it could
   only ever CONFIRM the sentence; a sweep that cannot fail is not a sweep. Use:
   `grep -rn "bulletMarker(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
-  — **five** lines, the fifth being the `export function bulletMarker(` declaration itself.
+  — **four** lines, the fourth being the `export function bulletMarker(` declaration itself.
   ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
   their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
   for an indent — and since §156 (closed 2026-10-02) they still get it: `nestBlocksUnder` stamps the
@@ -476,8 +477,9 @@ register's fix to another is how two of them broke. Read the note that names you
   slides (`buildPptxSummarySlides`, which deliberately leave rich fields off), and every row with
   rich content gets detail slides (`buildPptxRowSlides`) carrying EVERY field, continued onto
   "(n/total)" slides rather than cut. Before that, a `slice(2, 8)` cap kept three of the seven rich
-  fields — `Task.description` among them — off every slide. What remains is native bullets: list
-  markers are literal text, as in DOCX (§154).
+  fields — `Task.description` among them — off every slide. What remains is native bullets: PPTX list
+  markers are literal text. DOCX numbers natively since §154 (`ooxml-docx-numbering.ts`; task items
+  keep their literal box).
   ★★ The row-slide builder is also the function that stopped being flat (§330), so its fields
   carry runs and live links.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:

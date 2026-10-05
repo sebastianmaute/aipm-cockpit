@@ -15,6 +15,7 @@ import { buildDocx } from "./export-docx";
 import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
+import { validateDocxPackage } from "../test/docx-package-validator";
 import { readZipEntries } from "./unzip";
 import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
@@ -64,6 +65,10 @@ function parseXml(xml: string): Document {
   if (err) throw new Error(`malformed XML: ${err.textContent ?? ""}`);
   return parsed;
 }
+
+/** Every w:numId value in document order (§154). */
+const numIds = (xml: string): (string | null)[] =>
+  Array.from(parseXml(xml).getElementsByTagName("w:numId")).map((n) => n.getAttribute("w:val"));
 
 /** The path of the ONE relationship part every id in document.xml resolves in. */
 const DOC_RELS = "word/_rels/document.xml.rels";
@@ -392,27 +397,52 @@ describe("renderDocumentDocx — blocks", () => {
     expect(textNodes(xml).join(" ")).toContain("< 5k");
   });
 
-  it("renders unordered bullets as indented list paragraphs with a marker", async () => {
-    const xml = await documentXml(doc([{ type: "bullets", items: ["alpha", "beta"] }]));
+  // §154 — a bullets block is a real Word list: each item carries <w:numPr>
+  // and Word draws the marker from word/numbering.xml, so no marker is
+  // spelled into the text.
+  it("renders unordered bullets as Word list paragraphs", async () => {
+    const d = doc([{ type: "bullets", items: ["alpha", "beta"] }]);
+    const xml = await documentXml(d);
     const used = Array.from(parseXml(xml).getElementsByTagName("w:pStyle")).map((n) =>
       n.getAttribute("w:val"),
     );
     expect(used.filter((s) => s === "ListParagraph")).toHaveLength(2);
-    const text = textNodes(xml);
-    expect(text).toContain("• alpha");
-    expect(text).toContain("• beta");
+    expect(textNodes(xml)).toEqual(["Report", "alpha", "beta"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
+    expect(await part(d, "word/numbering.xml")).toContain(
+      `<w:num w:numId="1"><w:abstractNumId w:val="0"/>`,
+    );
   });
 
   it("numbers ordered bullets instead of repeating a dot", async () => {
     // block.ordered is part of the model; rendering it identically to an
     // unordered list silently discards what the author chose.
-    const xml = await documentXml(
-      doc([{ type: "bullets", ordered: true, items: ["first", "second"] }]),
+    const d = doc([{ type: "bullets", ordered: true, items: ["first", "second"] }]);
+    const xml = await documentXml(d);
+    expect(textNodes(xml)).toEqual(["Report", "first", "second"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
+    // abstractNum 1 is the decimal definition.
+    expect(await part(d, "word/numbering.xml")).toContain(
+      `<w:num w:numId="1"><w:abstractNumId w:val="1"/>`,
     );
-    const text = textNodes(xml);
-    expect(text).toContain("1. first");
-    expect(text).toContain("2. second");
-    expect(text.join(" ")).not.toContain("•");
+  });
+
+  it("restarts the count for a second ordered list", async () => {
+    // Word counts per w:num, so two lists sharing one would number 1-4.
+    const xml = await documentXml(
+      doc([
+        { type: "bullets", ordered: true, items: ["a", "b"] },
+        { type: "bullets", ordered: true, items: ["c", "d"] },
+      ]),
+    );
+    expect(numIds(xml)).toEqual(["1", "1", "2", "2"]);
+  });
+
+  it("adds no numbering part to a document without a list", async () => {
+    const files = await parts(doc([{ type: "paragraph", html: "<p>plain</p>" }]));
+    expect(files.has("word/numbering.xml")).toBe(false);
+    expect(files.get("[Content_Types].xml")).not.toContain("numbering");
+    expect(files.get(DOC_RELS)).not.toContain("numbering");
   });
 
   it("renders a table, including its caption", async () => {
@@ -618,7 +648,7 @@ describe("renderDocumentDocx — XML escaping", () => {
 
   it("escapes bullet items", async () => {
     const xml = await documentXml(doc([{ type: "bullets", items: [HOSTILE] }]));
-    expect(textNodes(xml)).toContain(`• ${HOSTILE}`);
+    expect(textNodes(xml)).toContain(HOSTILE);
   });
 
   it("escapes table headers and cells", async () => {
@@ -904,8 +934,10 @@ describe("renderDocumentDocx — headings and lists inside a paragraph block", (
     const xml = await documentXml(
       doc([{ type: "paragraph", html: "<ol><li><p>first</p></li><li><p>second</p></li></ol>" }]),
     );
-    expect(paraTexts(xml)).toEqual(["Report", "1. first", "2. second"]);
+    // §154 — numbered by Word (one w:num for the list), not by a marker run.
+    expect(paraTexts(xml)).toEqual(["Report", "first", "second"]);
     expect(pStyles(xml)).toEqual(["Title", "ListParagraph", "ListParagraph"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
   });
 
   it("styles a heading inside a document paragraph block", async () => {
@@ -938,6 +970,10 @@ describe("renderDocumentDocx — headings and lists inside a paragraph block", (
 //      properties dropped by less forgiving consumers than Word.
 //   3. ST_Jc's vocabulary is `left | center | right | both`. "justify" is not a
 //      member; Word drops an unrecognised value and renders left-aligned.
+// ★ Since §154 the same three, plus content types, relationships and the
+// numbering part, are also checked over the whole PACKAGE by
+// `validateDocxPackage` (src/test/docx-package-validator.ts). That is still a
+// structural check, not Word: the one real Word open is recorded on §154.
 //
 // ★★ EVERY test here iterates over matches, and a loop over ZERO matches passes
 // vacuously — which would report coverage that does not exist, the one outcome
@@ -1072,6 +1108,30 @@ describe("DOCX invariants Word fails silently on", () => {
     return { block, cell, styles, exported };
   }
 
+  // §154 — the PACKAGE, not a string inside it. `validateDocxPackage` walks
+  // content types, relationships, declared styles, ST_Jc, the CT_PPr / CT_RPr /
+  // numbering sequences and numId resolution; each of those is a way Word
+  // fails silently while every substring assertion stays green.
+  it("writes packages the structural validator accepts, numbering part included", async () => {
+    const blocks: DocBlock[] = [
+      { type: "paragraph", html: EVERY_SHAPE_HTML },
+      { type: "bullets", items: ["unordered"] },
+      { type: "bullets", ordered: true, items: ["ordered", "two"] },
+      { type: "table", caption: "Cap", columns: ["C"], rows: [["v"]] },
+    ];
+    const rendered = renderDocumentDocx(doc(blocks), ws, "en-US");
+    const exported = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]] },
+    ]);
+    for (const blob of [rendered, exported]) {
+      expect(await validateDocxPackage(blob)).toEqual([]);
+      const entries = await readZipEntries(await blob.arrayBuffer());
+      // Not vacuous: both packages really carry numbered paragraphs.
+      expect(entries.has("word/numbering.xml")).toBe(true);
+      expect(decodeUtf8(entries.get("word/document.xml")!)).toContain("<w:numPr>");
+    }
+  });
+
   it("declares every paragraph style any emission path can name", async () => {
     // ★★★ INVARIANT 1. `docxStyleFor` names Heading1-Heading4, ListParagraph,
     // Quote and CodeBlock; `renderBlock` adds Title and Caption; buildDocxTable
@@ -1113,7 +1173,7 @@ describe("DOCX invariants Word fails silently on", () => {
     // <w:pPr> in both emission paths AND in styles.xml — the style declarations
     // drifted out of sequence independently of the emitters once already,
     // because nothing was looking at them.
-    const ORDER = ["w:pStyle", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
+    const ORDER = ["w:pStyle", "w:numPr", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
     const { block, cell, styles, exported } = await renderEverySupportedShape();
     let seen = 0;
     let widest = 0;

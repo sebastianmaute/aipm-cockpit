@@ -12,6 +12,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Word lists are real Word lists (§154).** Bulleted and numbered lists in exported Word files and in
+  documents downloaded as Word now use Word's own list numbering, so they renumber when you edit them
+  and take Word's list styles. Each numbered list starts at 1. Checklist items keep their box.
 - **The AI assistant says where to change a RACI (§237).** Chat cannot set RACI assignments. Asked to, it now
   points you to the RACI view, where you edit the grid or use Suggest RACI, instead of reporting a change it
   could not make.
