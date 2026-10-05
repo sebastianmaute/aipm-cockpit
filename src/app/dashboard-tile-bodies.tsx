@@ -59,6 +59,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import type { Insight, InsightActions, InsightEntityRef } from "./insights/insight";
 import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
+import { buildRowTokens } from "./row-tokens";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -129,6 +130,9 @@ export interface TileBodyArgs {
  */
 export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId, ReactNode>> {
   const { lang, dc, model } = a;
+  // §316 — two pending changes can share a title, so each row button is named
+  // by a row-unique token.
+  const changeTokens = buildRowTokens(model.topChanges.map((c) => ({ id: c.id, name: c.title })));
 
   return {
     kpi: (
@@ -225,7 +229,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
                   {a.onOpenChange ? (
                     <button
                       type="button"
-                      aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
+                      aria-label={t(lang, "dashboardOpenChangeItem", changeTokens.get(c.id) ?? c.title)}
                       onClick={() => a.onOpenChange!(c.id)}
                       className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >

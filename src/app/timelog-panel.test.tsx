@@ -1396,7 +1396,7 @@ describe("TimelogPanel", () => {
 
       // sync.projectRefs supplies ForgeOps (id 9) — a project with NO prior link,
       // proving project matching is bootstrappable from fetched bookings.
-      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps · PO-1`;
       expect(screen.getByRole("combobox", { name: expectedLabel })).toBeInTheDocument();
     });
 
@@ -1411,7 +1411,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
 
-      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps · PO-1`;
       const select = screen.getByRole("combobox", { name: expectedLabel });
 
       // Map ForgeOps (id 9) to bucket 10 (Alpha Project)
@@ -1869,7 +1869,7 @@ describe("TimelogPanel", () => {
       expect(window.localStorage.getItem("aipm-cockpit:timelog-picker")).toBeNull();
 
       const box = await screen.findByRole("checkbox", {
-        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps · PO-1`,
       });
       await act(async () => { fireEvent.click(box); });
 
@@ -1897,7 +1897,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       const box = await screen.findByRole("checkbox", {
-        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps · PO-1`,
       });
       await act(async () => { fireEvent.click(box); });
       expect((box as HTMLInputElement).checked).toBe(true);
@@ -1959,7 +1959,7 @@ describe("TimelogPanel", () => {
       fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
       expect(btn).toBeDisabled();
       // Tick a project → enabled.
-      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps \(PO-1\)/ }));
+      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps · PO-1/ }));
       await waitFor(() => expect(btn).toBeEnabled());
       await act(async () => { fireEvent.click(btn); });
       expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String));
@@ -1992,12 +1992,12 @@ describe("TimelogPanel", () => {
       );
       const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
       fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
-      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps \(PO-1\)/ }));
+      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps · PO-1/ }));
       await waitFor(() => expect(btn).toBeEnabled());
       await act(async () => { fireEvent.click(btn); }); // fetch now pending
 
       // Edit a project link WHILE the fetch is in-flight (ForgeOps id 9 → bucket 10).
-      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps · PO-1`;
       act(() => { fireEvent.change(screen.getByRole("combobox", { name: editLabel }), { target: { value: "10" } }); });
 
       // Resolve the fetch → the functional updater must merge scope onto the
@@ -2026,7 +2026,7 @@ describe("TimelogPanel", () => {
       );
       const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
       fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
-      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps \(PO-1\)/ }));
+      fireEvent.click(await screen.findByRole("checkbox", { name: /ForgeOps · PO-1/ }));
       await waitFor(() => expect(btn).toBeEnabled());
       await act(async () => { fireEvent.click(btn); });
       await waitFor(() => {

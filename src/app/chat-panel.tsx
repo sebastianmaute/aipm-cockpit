@@ -93,6 +93,7 @@ import {
 } from "./chat-proposal-stage";
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { buildRowTokens } from "./row-tokens";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -414,6 +415,8 @@ function ChatPanelInner({
   }
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
+  // §316 — two pasted screenshots are both "image.png"; name each Remove by a token.
+  const attachmentTokens = useMemo(() => buildRowTokens(attachments.map((a) => ({ id: a.id, name: a.name }))), [attachments]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Passphrase-unlock state: when the saved Anthropic key is passphrase-wrapped
@@ -1593,8 +1596,8 @@ function ChatPanelInner({
               <IconButton
                 variant="danger"
                 onClick={() => removeAttachment(a.id)}
-                label={t(lang, "chatAttachmentRemove", a.name)}
-                title={t(lang, "chatAttachmentRemove", a.name)}
+                label={t(lang, "chatAttachmentRemove", attachmentTokens.get(a.id) ?? a.name)}
+                title={t(lang, "chatAttachmentRemove", attachmentTokens.get(a.id) ?? a.name)}
                 className="shrink-0 font-semibold"
               >
                 ×

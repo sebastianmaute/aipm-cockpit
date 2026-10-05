@@ -9,6 +9,7 @@ import { isSafeHttpUrl, type KnowledgeItem, type KnowledgeLink, type KnowledgeLi
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { INTERACTIVE } from "./interaction-styles";
@@ -26,6 +27,9 @@ import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
+
+/** One shared empty list, so `kItems` keeps its identity across renders and the card-token memo holds. */
+const NO_KNOWLEDGE_ITEMS: readonly KnowledgeItem[] = [];
 
 const SOURCE_LABEL = {
   task: "documentsSourceTask",
@@ -173,7 +177,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
   const [linkTaskIds, setLinkTaskIds] = useState<number[]>([]);
   const manualValid = manualName.trim() !== "" && isSafeHttpUrl(manualUrl.trim());
   const isStandalone = targetKey === STANDALONE_KEY;
-  const kItems: readonly KnowledgeItem[] = ws.knowledgeItems ?? [];
+  const kItems: readonly KnowledgeItem[] = ws.knowledgeItems ?? NO_KNOWLEDGE_ITEMS;
   const targets: DocSource[] = useMemo(
     () => [
       ...tasks.map((x) => ({ kind: "task" as const, id: x.id, name: x.taskName, view: "open-points" as const })),
@@ -310,10 +314,26 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
   const counts = sourceCounts(docs);
   const chipKinds = SOURCE_ORDER.filter((k) => counts[k] > 0);
   const effFilter = effectiveSourceFilter(sourceFilter, counts);
-  const visible = sortDocs(
-    filterDocs(docs, effFilter, query),
-    sort,
-    (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
+  // Memoised so the card-token map below keeps its identity between renders.
+  const visible = useMemo(
+    () =>
+      sortDocs(
+        filterDocs(docs, effFilter, query),
+        sort,
+        (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
+      ),
+    [docs, effFilter, query, sort, lang],
+  );
+  // §316 — two cards can carry the same document name, in one grid or across
+  // the library and the attached grid, and both Remove controls share one verb.
+  // One token map over both grids, in render order, keeps every card apart.
+  const cardTokens = useMemo(
+    () =>
+      buildRowTokens([
+        ...kItems.map((it, idx) => ({ id: `k:${idx}`, name: it.name })),
+        ...visible.map((r, i) => ({ id: `d:${i}`, name: r.link.name })),
+      ]),
+    [kItems, visible],
   );
 
   // §331 — the source filter is a SINGLE choice (`setSourceFilter` replaces
@@ -575,7 +595,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                     <Card key={`${it.id}:${idx}`} className="relative flex flex-col gap-2 p-3">
                       <IconButton
                         variant="danger"
-                        label={`${t(lang, "documentsRemove")} – ${it.name}`}
+                        label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`k:${idx}`) ?? it.name}`}
                         title={t(lang, "documentsRemove")}
                         onClick={() => removeStandalone(idx)}
                         className="absolute right-2 top-2 text-xs"
@@ -587,6 +607,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                         {safe ? (
                           <a
                             href={it.url}
+                            aria-label={rowLabel(t(lang, "documentsOpen"), cardTokens.get(`k:${idx}`) ?? it.name)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
@@ -602,7 +623,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                           so this can never be a `<label>`. Named per card so N
                           cards don't announce N identical groups. */}
                       <FieldGroup
-                        name={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
+                        name={`${t(lang, "knowledgeLinkedTasks")} – ${cardTokens.get(`k:${idx}`) ?? it.name}`}
                         className="flex flex-col gap-1 text-xs text-muted-foreground"
                         caption={<span>{t(lang, "knowledgeLinkedTasks")}</span>}
                       >
@@ -614,7 +635,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                           onRemove={(id) =>
                             setStandaloneTasks(idx, (it.taskIds ?? []).filter((x) => x !== id))
                           }
-                          label={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
+                          label={`${t(lang, "knowledgeLinkedTasks")} – ${cardTokens.get(`k:${idx}`) ?? it.name}`}
                         />
                       </FieldGroup>
                     </Card>
@@ -641,7 +662,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                   >
                     <IconButton
                       variant="danger"
-                      label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
+                      label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
                       title={t(lang, "documentsRemove")}
                       onClick={() => remove(r)}
                       className="absolute right-2 top-2 text-xs"
@@ -655,6 +676,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                       {safe ? (
                         <a
                           href={r.link.url}
+                          aria-label={rowLabel(t(lang, "documentsOpen"), cardTokens.get(`d:${i}`) ?? r.link.name)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
@@ -668,6 +690,9 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                     <button
                       type="button"
                       onClick={() => requestOpen(r.source.view, r.source.id)}
+                      // §316 — two different source items can share a name, so the
+                      // button also names the document this card holds.
+                      aria-label={`${t(lang, SOURCE_LABEL[r.source.kind])}: ${r.source.name} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
                       className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ui-dark-blue hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                     >
                       {t(lang, SOURCE_LABEL[r.source.kind])}: {r.source.name}

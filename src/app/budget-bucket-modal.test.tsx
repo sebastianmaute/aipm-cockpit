@@ -690,6 +690,32 @@ describe("BudgetBucketModal — row-unique control names (§276)", () => {
     expectRowUniqueNames({ minControls: 15, requireCollisionSeed: true });
   });
 
+  test("names each resource checkbox by person and block, so two blocks do not repeat a name (§316)", () => {
+    setup({
+      bucket: {
+        ...baseBucket,
+        allocations: [
+          { roleId: 3, resourceIds: [], budgetHours: {}, actualHours: {} },
+          { roleId: 5, resourceIds: [], budgetHours: {}, actualHours: {} },
+        ],
+      },
+      roles: [
+        { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+        { id: 5, disciplineId: 1, gradeId: 1, internalRate: 110, externalRate: 160 },
+      ],
+      // Two roles on one (discipline, grade) pair, so the BLOCKS also read alike.
+      disciplines: [{ id: 1, name: "Consulting" }],
+      grades: [{ id: 1, name: "Junior" }],
+      // Two people who share a name, listed in both blocks.
+      resources: [
+        { id: 1, firstName: "Sam", lastName: "Lee" },
+        { id: 2, firstName: "Sam", lastName: "Lee" },
+      ] as unknown as React.ComponentProps<typeof BudgetBucketModal>["resources"],
+    }, "full");
+    expect(screen.getByRole("checkbox", { name: "Sam Lee (2) – Consulting Junior (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 4, roles: ["checkbox"], requireCollisionSeed: true });
+  });
+
   test("keeps every control distinct when two discipline allocations share a name", () => {
     setup({
       bucket: {

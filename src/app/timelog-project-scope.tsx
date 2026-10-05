@@ -5,7 +5,8 @@
 // carries an accessible name (row-unique per project).
 "use client";
 import { t, type Lang } from "./i18n";
-import type { TimelogProjectRef } from "./timelog-match";
+import { timelogProjectLabel, type TimelogProjectRef } from "./timelog-match";
+import { useRowTokens } from "./use-row-tokens";
 import { FOCUS_RING, PRESS, TRANSITION } from "./interaction-styles";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -39,6 +40,9 @@ export function TimelogProjectScope({
 }: TimelogProjectScopeProps) {
   const allSelected = projects.length > 0 && projects.every((p) => selectedIds.has(p.id));
   const off = disabled || !hasCustomer;
+  // §316 — the project number tells same-named projects apart, but it can be
+  // empty, so the label is a row token over name and number.
+  const projectTokens = useRowTokens(projects, timelogProjectLabel);
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
@@ -107,7 +111,7 @@ export function TimelogProjectScope({
                   onChange={() => onToggle(p.id)}
                   disabled={off}
                   className={`accent-ui-dark-blue ${FOCUS_RING}`}
-                  aria-label={`${t(lang, "timelogProjectScopeLabel")} – ${p.name}${p.no ? ` (${p.no})` : ""}`}
+                  aria-label={`${t(lang, "timelogProjectScopeLabel")} – ${projectTokens.get(p.id) ?? timelogProjectLabel(p)}`}
                 />
                 <span className="truncate">
                   {p.name}

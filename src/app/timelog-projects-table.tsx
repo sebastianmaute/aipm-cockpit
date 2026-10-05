@@ -9,9 +9,10 @@ import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 import { canLoadManagedProjects } from "./timelog-guards";
-import type { TimelogProjectRef } from "./timelog-match";
+import { timelogProjectLabel, type TimelogProjectRef } from "./timelog-match";
 import type { BudgetBucket } from "./types";
 import { ROW_RULE_CLASS } from "./table-styles";
+import { useRowTokens } from "./use-row-tokens";
 
 /** Effective project→budget link (auto or manual, manual wins). */
 type ProjectLinkView = { timelogProjectId: number; bucketId: number | null; manual: boolean };
@@ -45,6 +46,10 @@ export function TimelogProjectsTable({
   confirming,
   onLoadManagedProjects,
 }: TimelogProjectsTableProps) {
+  // §316 — TimeLog project names repeat across customers, so the row controls
+  // carry the project number, as `timelog-project-scope.tsx` does, and a
+  // row token for the case where two rows still read alike.
+  const projectTokens = useRowTokens(knownProjectRefs, timelogProjectLabel);
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -92,8 +97,9 @@ export function TimelogProjectsTable({
               {knownProjectRefs.map((p) => {
                 const pLink = effectiveProjectLinks.find((l) => l.timelogProjectId === p.id);
                 const displayId = p.name;
-                const selectLabel = `${t(lang, "timelogMatchProjects")} – ${displayId}`;
-                const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
+                const token = projectTokens.get(p.id) ?? displayId;
+                const selectLabel = `${t(lang, "timelogMatchProjects")} – ${token}`;
+                const clearLabel = `${t(lang, "timelogMatchClear")} – ${token}`;
                 return (
                   <tr key={p.id} className={ROW_RULE_CLASS}>
                     <td className="py-2 pr-3 text-foreground">{displayId}</td>

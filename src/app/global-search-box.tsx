@@ -18,6 +18,7 @@ import { ClearableSearchInput } from "./clearable-search-input";
 import { useWorkspace } from "./workspace-context";
 import { TOUR_ANCHORS } from "./app-tour";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { buildRowTokens } from "./row-tokens";
 
 // --- Hydration-safe platform detection for the decorative shortcut hint ---
 // Module-level so the getSnapshot identities are stable (an unstable getSnapshot
@@ -130,6 +131,12 @@ export function GlobalSearchBox({
   // The unified list backing the listbox: recents when the box is empty, else
   // the live search results.
   const items = showingRecents ? recentsToShow : results;
+  // §316 — two results of one type can share a title (two tasks called "Review"),
+  // and an option is announced by its label alone, so each takes a row token.
+  const optionTokens = useMemo(
+    () => buildRowTokens(items.map((r) => ({ id: `${r.type}-${r.id}`, name: `${t(lang, typeLabelKey(r.type))} – ${r.title}` }))),
+    [items, lang],
+  );
 
   const { open, setOpen, highlight, rootRef, inputRef, moveHighlight } = useCombobox(
     query,
@@ -283,7 +290,7 @@ export function GlobalSearchBox({
                 id={`${listId}-opt-${i}`}
                 role="option"
                 aria-selected={i === highlight}
-                aria-label={`${t(lang, typeLabelKey(r.type))} – ${r.title}`}
+                aria-label={optionTokens.get(`${r.type}-${r.id}`) ?? `${t(lang, typeLabelKey(r.type))} – ${r.title}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => select(r)}
                 // Same fix as entity-link-picker (which copied this pattern from

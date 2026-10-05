@@ -86,6 +86,29 @@ describe("GlobalSearchBox", () => {
     for (const o of options) expect(o.querySelector("button")).toBeNull();
   });
 
+  it("names two results of one type with one title apart (§316)", async () => {
+    const twins = [
+      { id: 1, taskName: "Review", assignee: "Alice" },
+      { id: 2, taskName: "Review", assignee: "Bob" },
+    ] as unknown as Task[];
+    render(
+      <GlobalSearchBox
+        lang="en-US"
+        tasks={twins}
+        raid={raid}
+        changes={changes}
+        milestones={milestones}
+        stakeholders={stakeholders}
+        budgets={budgets}
+        resources={resources}
+        onSelect={vi.fn()}
+      />,
+    );
+    await userEvent.type(screen.getByRole("combobox"), "review");
+    const names = screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
+    expect(names.sort()).toEqual(["Task – Review (1)", "Task – Review (2)"]);
+  });
+
   it("surfaces budget and resource results and deep-links them (#16)", async () => {
     const { onSelect, input } = renderBox();
     // Resource by composed name.

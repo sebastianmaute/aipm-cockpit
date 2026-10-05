@@ -17,6 +17,7 @@ import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
 import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select } from "../form-controls";
+import { useRowTokens } from "../use-row-tokens";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -50,15 +51,20 @@ function defaultDailyCadence(): JobCadence {
   return { kind: "daily", timeOfDay: DEFAULT_TIME };
 }
 
+const nameOfJob = (job: ScheduledJob) => job.name;
+
 function JobRow({
   lang,
   job,
+  token,
   busy,
   onUpdate,
   onDelete,
 }: {
   lang: Lang;
   job: ScheduledJob;
+  /** §316 — the job name made row-unique across the list; every control here is named by it. */
+  token: string;
   busy: boolean;
   onUpdate: (id: number, patch: Partial<Omit<ScheduledJob, "id">>) => void;
   onDelete: (id: number) => void;
@@ -93,7 +99,7 @@ function JobRow({
           size="xs"
           type="text"
           value={job.name}
-          aria-label={`${t(lang, "scheduledJobName")} – ${job.name}`}
+          aria-label={`${t(lang, "scheduledJobName")} – ${token}`}
           onChange={(e) => onUpdate(job.id, { name: e.target.value })}
           className="flex-1"
         />
@@ -101,7 +107,7 @@ function JobRow({
         <label className="flex items-center gap-1 text-xs text-foreground">
           <input
             type="checkbox"
-            aria-label={`${t(lang, "scheduledJobEnabled")} – ${job.name}`}
+            aria-label={`${t(lang, "scheduledJobEnabled")} – ${token}`}
             checked={job.enabled}
             onChange={() => onUpdate(job.id, { enabled: !job.enabled })}
           />
@@ -112,7 +118,7 @@ function JobRow({
           type="button"
           onClick={() => onDelete(job.id)}
           disabled={busy}
-          aria-label={`${t(lang, "delete")} – ${job.name}`}
+          aria-label={`${t(lang, "delete")} – ${token}`}
           className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "delete")}
@@ -123,7 +129,7 @@ function JobRow({
         <Select
           size="xs"
           value={cadence.kind}
-          aria-label={`${t(lang, "scheduledJobsTitle")} – ${job.name}`}
+          aria-label={`${t(lang, "scheduledJobsTitle")} – ${token}`}
           onChange={(e) => setCadenceKind(e.target.value as JobCadence["kind"])}
         >
           <option value="daily">{t(lang, "cadenceDaily")}</option>
@@ -136,7 +142,7 @@ function JobRow({
             size="xs"
             type="time"
             value={cadence.timeOfDay}
-            aria-label={`${t(lang, "cadenceTime")} – ${job.name}`}
+            aria-label={`${t(lang, "cadenceTime")} – ${token}`}
             onChange={(e) => setTime(e.target.value)}
           />
         </label>
@@ -147,7 +153,7 @@ function JobRow({
             <Select
               size="xs"
               value={cadence.dayOfWeek}
-              aria-label={`${t(lang, "cadenceDay")} – ${job.name}`}
+              aria-label={`${t(lang, "cadenceDay")} – ${token}`}
               onChange={(e) => setDay(Number(e.target.value))}
             >
               {WEEKDAY_KEYS.map((key, idx) => (
@@ -181,7 +187,7 @@ function JobRow({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${job.name}`}
+            aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${token}`}
             className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, expanded ? "showLess" : "showMore")}
@@ -209,6 +215,8 @@ function JobRow({
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
   const { jobs, busy, createJob, updateJob, deleteJob } = useScheduledJobs({ config });
+  // §316 — every new job starts with the same default name.
+  const jobTokens = useRowTokens(jobs, nameOfJob);
 
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
@@ -257,6 +265,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     key={job.id}
                     lang={lang}
                     job={job}
+                    token={jobTokens.get(job.id) ?? job.name}
                     busy={busy}
                     onUpdate={(id, patch) => void updateJob(id, patch)}
                     onDelete={(id) => void deleteJob(id)}

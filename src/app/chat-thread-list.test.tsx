@@ -55,6 +55,32 @@ describe("ChatThreadList", () => {
     expectRowUniqueNames({ minControls: 7 });
   });
 
+  it("keeps the row controls apart when two threads share a name, and when two are untitled (§316)", () => {
+    // Every new thread reads "Untitled chat" until it is named, so a second
+    // blank thread is the ordinary case, not an edge one.
+    const untitledB2: ChatThread = { ...threadB, id: "b2" };
+    const sameNameA2: ChatThread = { ...threadA, id: "a2" };
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA, threadB, untitledB2, sameNameA2]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: 'Open "Untitled chat (2)"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Delete "Q1 budget (2)"' })).toBeInTheDocument();
+    // The visible row text keeps the plain name.
+    expect(screen.getAllByText("Untitled chat")).toHaveLength(2);
+    // Not `requireCollisionSeed`: these names close with a quote after the
+    // "(N)", which its suffix strip does not reach. The fixture above seeds both
+    // collisions, and the two getByRole lookups fail on the plain names.
+    expectRowUniqueNames({ minControls: 13 });
+  });
+
   it("renders the thread rows inside a role=list container (Tailwind Preflight strips native list semantics)", () => {
     render(
       <ChatThreadList
