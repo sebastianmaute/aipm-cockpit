@@ -5,6 +5,8 @@ import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-
 import { MAX_DOCUMENTS, MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
 import userEvent from "@testing-library/user-event";
+import { ExportExtrasProvider } from "./export-extras-context";
+import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { ConfirmProvider } from "./confirm-dialog";
 import { ToastProvider } from "./toast-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -684,6 +686,31 @@ describe("DocumentsPanel", () => {
     for (const c of calls) expect(c[5]).toBe("Acme GmbH");
   });
 
+  // §545 — the forecast reaches the download through ExportExtrasProvider,
+  // from the toolbar and from a row alike; without it the extras are empty.
+  it("hands the provided budget forecast to the download, from the toolbar and from a row", () => {
+    const forecast = forecastBundleFixture();
+    render(
+      <ExportExtrasProvider forecast={forecast}>
+        <PanelHost>
+          <DocumentsPanel
+            lang="en-US"
+            documents={[doc(1, "Alpha")]}
+            mutateDocuments={inertMutate}
+            documentVersions={[]}
+            ws={emptyWorkspace()}
+            onResetSize={() => {}}
+          />
+        </PanelHost>
+      </ExportExtrasProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download – Alpha" }));
+    const calls = vi.mocked(downloadDocument).mock.calls;
+    expect(calls).toHaveLength(2);
+    for (const c of calls) expect(c[6]).toEqual({ budgetForecast: forecast });
+  });
+
   it("downloads the SELECTED document from the toolbar, in the default format", () => {
     renderPanel([doc(1, "Alpha"), doc(2, "Beta")]);
     fireEvent.click(screen.getByRole("button", { name: "Beta" }));
@@ -705,6 +732,7 @@ describe("DocumentsPanel", () => {
       // would "fix" it by deleting the very argument this slice adds.
       undefined,
       undefined, // SIXTH: the export footer — this pane was rendered without one
+      {}, // SEVENTH: the export extras — no ExportExtrasProvider, so none (§545)
     );
   });
 
@@ -760,6 +788,7 @@ describe("DocumentsPanel", () => {
       // would "fix" it by deleting the very argument this slice adds.
       undefined,
       undefined, // SIXTH: the export footer — this pane was rendered without one
+      {}, // SEVENTH: the export extras — no ExportExtrasProvider, so none (§545)
     );
   });
 
@@ -778,7 +807,7 @@ describe("DocumentsPanel", () => {
       </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US", undefined, undefined);
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US", undefined, undefined, {});
   });
 
   // ★★ EVERY format must actually REACH downloadDocument. A test that only
@@ -800,6 +829,7 @@ describe("DocumentsPanel", () => {
         "en-US",
         undefined,
         undefined, // SIXTH: the export footer — this pane was rendered without one
+        {}, // SEVENTH: the export extras — no ExportExtrasProvider, so none (§545)
       );
     },
   );
@@ -821,7 +851,7 @@ describe("DocumentsPanel", () => {
     // And it must reach the DOWNLOAD, not merely repaint the control: a restore
     // that fixed the select but not the state would look identical here.
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pptx", expect.anything(), "en-US", undefined, undefined);
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pptx", expect.anything(), "en-US", undefined, undefined, {});
   });
 
   it("ignores a corrupt stored format rather than passing it through", () => {
@@ -837,7 +867,7 @@ describe("DocumentsPanel", () => {
     window.localStorage.setItem("aipm-cockpit:documents-format", "exe");
     renderPanel([doc(1, "Alpha")]);
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "docx", expect.anything(), "en-US", undefined, undefined);
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "docx", expect.anything(), "en-US", undefined, undefined, {});
   });
 
   it("passes the picked format to a ROW download too", () => {
@@ -848,7 +878,7 @@ describe("DocumentsPanel", () => {
       target: { value: "html" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Download – Alpha" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "html", expect.anything(), "en-US", undefined, undefined);
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "html", expect.anything(), "en-US", undefined, undefined, {});
   });
 
   it("disables the toolbar download when there is nothing to download", () => {

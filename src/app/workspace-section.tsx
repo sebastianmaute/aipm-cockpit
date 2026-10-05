@@ -90,6 +90,7 @@ import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
+import { ExportExtrasProvider } from "./export-extras-context";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -101,6 +102,7 @@ const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
 export function WorkspaceSection({
   today,
+  exportForecast,
   holidaySet,
   workspaceRef,
   resetWorkspaceSize,
@@ -357,6 +359,7 @@ export function WorkspaceSection({
     : "min-h-0 flex-1 overflow-y-auto pt-4";
 
   return (
+    <ExportExtrasProvider forecast={exportForecast}>
     <section
       ref={workspaceRef}
       className={
@@ -1074,5 +1077,6 @@ export function WorkspaceSection({
         </span>
       )}
     </section>
+    </ExportExtrasProvider>
   );
 }

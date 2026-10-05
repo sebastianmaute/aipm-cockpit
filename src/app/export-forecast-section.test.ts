@@ -8,6 +8,7 @@ import { buildExportSections } from "./export-sections";
 import { loadI18n } from "./i18n";
 import {
   DATA_SECTION_KEYS,
+  SLICE_EXPORT_SECTION_KEYS,
   EXPORT_SECTION_KEYS,
   defaultExportConfig,
   sanitizeExportConfig,
@@ -112,9 +113,12 @@ describe("the budgetForecast export section (§545)", () => {
     expect(sanitizeExportConfig({ budgetForecast: false }).budgetForecast).toBe(false);
   });
 
-  it("cannot be named by a document dataSection block, whose renderers have no forecast", () => {
-    expect(DATA_SECTION_KEYS as readonly string[]).not.toContain("budgetForecast");
+  // §545 documents half — the renderers take the same extras, so a document
+  // block may name the derived section; it stays out of the slice list.
+  it("can be named by a document dataSection block, but is no workspace slice", () => {
+    expect(DATA_SECTION_KEYS as readonly string[]).toContain("budgetForecast");
     expect(DATA_SECTION_KEYS as readonly string[]).toContain("budgets");
+    expect(SLICE_EXPORT_SECTION_KEYS as readonly string[]).not.toContain("budgetForecast");
   });
 });
 
@@ -144,6 +148,16 @@ describe("exportForecastFor — the budget-module gate (§545)", () => {
     expect(start).toBeGreaterThan(-1);
     const deps = src.slice(start, src.indexOf("});", start));
     expect(deps).toMatch(/[{,]\s*exportForecast\s*(?:,|$)/);
+  });
+
+  // §545 documents half — the same gated local rides `workspaceProps`, which
+  // WorkspaceSection turns into ExportExtrasProvider for the document leaves.
+  it("is what task-manager hands WorkspaceSection for the documents", () => {
+    const src = readFileSync(join(process.cwd(), "src", "app", "task-manager.tsx"), "utf8");
+    const start = src.indexOf("const workspaceProps = {");
+    expect(start).toBeGreaterThan(-1);
+    const props = src.slice(start, src.indexOf("};", start));
+    expect(props).toMatch(/[{,]\s*exportForecast\s*(?:,|$)/m);
   });
 });
 

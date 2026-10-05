@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
@@ -49,13 +50,18 @@ vi.mock("./use-settings", () => ({
 // Records the props it was handed so the Turso wiring below can be asserted
 // end to end — mirrors the budgetPanelMock capture pattern below (`vi.hoisted`
 // because `vi.mock` factories are hoisted above every const in this file).
-const chatPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./chat-panel", () => ({
-  ChatPanel: (p: Record<string, unknown>) => {
-    chatPanelMock.props.push(p);
-    return <div data-testid="chat-panel" />;
-  },
-}));
+const chatPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], extras: [] as unknown[] }));
+vi.mock("./chat-panel", async () => {
+  // §545 — records what ExportExtrasProvider hands the leaves under it.
+  const { useExportExtras } = await import("./export-extras-context");
+  return {
+    ChatPanel: (p: Record<string, unknown>) => {
+      chatPanelMock.props.push(p);
+      chatPanelMock.extras.push(useExportExtras());
+      return <div data-testid="chat-panel" />;
+    },
+  };
+});
 vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
 // Exposes the task backlink it was handed, for the scope-epoch test below.
@@ -756,6 +762,16 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
     await screen.findByTestId("chat-panel");
     expect(chatPanelMock.props.at(-1)!.exportFooter).toBe("Acme GmbH");
+  });
+
+  // §545 — the section provides the forecast it was handed to every document
+  // leaf under it (the chat card here; the Documents pane the same way).
+  it("provides its exportForecast to the leaves through ExportExtrasProvider", async () => {
+    chatPanelMock.extras.length = 0;
+    const forecast = forecastBundleFixture();
+    render(<WorkspaceSection {...makeProps({ mode: "file" })} exportForecast={forecast} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    expect(chatPanelMock.extras.at(-1)).toEqual({ budgetForecast: forecast });
   });
 
   // ★ Pins that with valid Turso credentials but NEITHER OR-operand set to

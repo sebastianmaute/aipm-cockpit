@@ -367,15 +367,20 @@ export type ExportConfig = Record<ExportSectionKey, boolean>;
 export const DERIVED_EXPORT_SECTION_KEYS = ["budgetForecast"] as const;
 export type DerivedExportSectionKey = (typeof DERIVED_EXPORT_SECTION_KEYS)[number];
 
-/** The keys a document `dataSection` block may name: every export section
- *  except the derived ones. The document renderers receive the workspace but
- *  not the dashboard model, so a block naming a derived section would always
- *  render nothing. */
-export const DATA_SECTION_KEYS = EXPORT_SECTION_KEYS.filter(
+/** The export sections that ARE a `Workspace` slice: every key except the
+ *  derived ones. */
+export const SLICE_EXPORT_SECTION_KEYS = EXPORT_SECTION_KEYS.filter(
   (k): k is Exclude<ExportSectionKey, DerivedExportSectionKey> =>
     !(DERIVED_EXPORT_SECTION_KEYS as readonly string[]).includes(k),
 );
-export type DataSectionKey = (typeof DATA_SECTION_KEYS)[number];
+
+/** The keys a document `dataSection` block may name: every export section,
+ *  the derived ones included. The document renderers take the same
+ *  `ExportExtras` the workspace export does (open-followups §545), so a
+ *  `budgetForecast` block renders the live forecast; with the budget module
+ *  off or no forecast it renders nothing, like an empty register. */
+export const DATA_SECTION_KEYS = EXPORT_SECTION_KEYS;
+export type DataSectionKey = ExportSectionKey;
 
 export const defaultExportConfig: ExportConfig = {
   project: true,

@@ -36,6 +36,7 @@ import {
 import { bulletMarker } from "./rich-text-runs";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { resolveDataSection } from "./doc-data-section";
+import type { ExportExtras } from "./export-forecast-section";
 import { docxColumnWidths, docxSection } from "./export-docx-columns";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
@@ -366,6 +367,7 @@ function renderBlock(
   byId: ReadonlyMap<string, DocumentAsset>,
   drawingFor: (id: string) => string | null,
   links: LinkSink,
+  extras: ExportExtras,
 ): string {
   switch (block.type) {
     case "heading":
@@ -389,7 +391,7 @@ function renderBlock(
       // register's rich column arrives here as the same `RichCell` the
       // workspace exporter lays out. Passing the sink is what makes an embedded
       // register's links survive identically on both paths.
-      const resolved = resolveDataSection(block.key, ws, lang);
+      const resolved = resolveDataSection(block.key, ws, lang, extras);
       if (!resolved) return "";
       // §512 — the same curated, content-sized columns as the workspace export's Word file.
       const section = docxSection(resolved, { disciplines: ws.disciplines ?? [], grades: ws.grades ?? [], disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });
@@ -436,6 +438,8 @@ export function renderDocumentDocx(
    *  placeholders rather than breaking — an export that has not resolved bytes
    *  (no Turso config, Safe Mode) passes nothing. */
   assets: ExportAssets = NO_EXPORT_ASSETS,
+  /** What a derived `dataSection` needs (§545): the budget forecast. */
+  extras: ExportExtras = {},
 ): Blob {
   const byId = new Map((ws.documentAssets ?? []).map((a) => [a.id, a]));
   const { drawingFor, parts } = createMediaMinter(assets, byId);
@@ -454,7 +458,7 @@ export function renderDocumentDocx(
 
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links)).join("");
+    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, extras)).join("");
 
   // ★ `parts` is populated BY the body render above — read it AFTER, never
   //   before. Building the package first ships an empty media list against a

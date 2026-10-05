@@ -11,6 +11,7 @@
 
 import type { ProjectDocument } from "./document-model";
 import { renderDocumentHtml } from "./doc-render-html";
+import type { ExportExtras } from "./export-forecast-section";
 import { canEmbedDocxAsset, renderDocumentDocx } from "./doc-render-docx";
 import { canEmbedPptxAsset, renderDocumentPptx } from "./doc-render-pptx";
 import {
@@ -45,14 +46,19 @@ const HTML_MIME = "text/html;charset=utf-8";
 // here for the callers that already import it from this module.
 export { MAX_FILENAME_STEM };
 
-/** `<slug>-<today>.<ext>`. `today` is passed in rather than read from a clock,
- *  so the function is pure and its tests cannot drift with the date. */
+/** `[<code>-]<slug>-<today>.<ext>`. `today` is passed in rather than read from
+ *  a clock, so the function is pure and its tests cannot drift with the date.
+ *  §509 — the project code, when set, leads the name so documents from
+ *  different projects do not collide in one folder. */
 export function documentFilename(
   doc: ProjectDocument,
   format: DocFormat,
   today: string,
+  projectCode?: string,
 ): string {
-  return `${filenameStem(doc.title, "document")}-${today}.${format}`;
+  const code = filenameStem(projectCode ?? "", "");
+  const prefix = code === "" ? "" : `${code}-`;
+  return `${prefix}${filenameStem(doc.title, "document")}-${today}.${format}`;
 }
 
 /** The auto-print harness, injected only into the tab we open ourselves.
@@ -236,6 +242,9 @@ export async function downloadDocument(
   /** Footer line of the HTML/PDF/PowerPoint render (`exportFooterText(settings.branding)`);
    *  omitted means the built-in default. */
   footer?: string,
+  /** What a derived `dataSection` block needs (§545): the budget forecast.
+   *  Omitted, a `budgetForecast` block renders nothing. */
+  extras: ExportExtras = {},
 ): Promise<void> {
   if (typeof window === "undefined") return;
   const today = new Date().toISOString().slice(0, 10);
@@ -269,8 +278,8 @@ export async function downloadDocument(
       // opens the print dialog by itself when double-clicked is hostile; the
       // user prints it when they decide to.
       triggerDownload(
-        documentFilename(doc, "html", today),
-        new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer)], { type: HTML_MIME }),
+        documentFilename(doc, "html", today, ws.project?.code),
+        new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer, extras)], { type: HTML_MIME }),
       );
       return;
     }
@@ -279,7 +288,7 @@ export async function downloadDocument(
     let finalHtml: string;
     try {
       const assets = await assetsFor(doc, ws, format, load);
-      const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
+      const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer, extras);
       // ★★★ §468 packaged-app check — the tab inherits this page's nonce-only
       // production CSP, so the document's own <style> and the auto-print
       // <script> carry the page's nonce or neither applies. Only the tab gets
@@ -287,7 +296,7 @@ export async function downloadDocument(
       const nonce = readCspNonce();
       finalHtml = withStyleNonce(
         isDesktop
-          ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
+          ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today, ws.project?.code)))
           : withClosingScript(html, withScriptNonce(AUTO_PRINT_SCRIPT, nonce)),
         nonce,
       );
@@ -318,12 +327,12 @@ export async function downloadDocument(
   const assets = await assetsFor(doc, ws, format, load);
   const blob =
     format === "html"
-      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer)], { type: HTML_MIME })
+      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer, extras)], { type: HTML_MIME })
       : format === "docx"
-        ? renderDocumentDocx(doc, ws, lang, assets)
-        : renderDocumentPptx(doc, ws, lang, assets, footer);
+        ? renderDocumentDocx(doc, ws, lang, assets, extras)
+        : renderDocumentPptx(doc, ws, lang, assets, footer, extras);
 
-  triggerDownload(documentFilename(doc, format, today), blob);
+  triggerDownload(documentFilename(doc, format, today, ws.project?.code), blob);
 }
 
 /** Disclose a `downloadDocument` rejection to the user.

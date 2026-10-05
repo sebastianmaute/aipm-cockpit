@@ -83,7 +83,8 @@ describe("DocumentPreview", () => {
     const { rerender } = render(<DocumentPreview lang="en-US" doc={d} ws={ws} />);
     rerender(<DocumentPreview lang="de" doc={d} ws={ws} />);
     expect(renderDocumentHtml).toHaveBeenCalledTimes(2);
-    expect(renderDocumentHtml).toHaveBeenLastCalledWith(d, ws, "de", "preview");
+    // §545 — the trailing three are assets, footer and the (provider-less, empty) export extras.
+    expect(renderDocumentHtml).toHaveBeenLastCalledWith(d, ws, "de", "preview", undefined, undefined, {});
   });
 
   it("names the scrollable region after the document it shows", () => {

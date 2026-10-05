@@ -60,18 +60,31 @@ const MIME: Record<Exclude<ExportFormat, "pdf">, string> = {
  *  sections. Both export buttons now carry `project` (`buildExportWorkspace`,
  *  §463), so both are named after it; a workspace without a project name
  *  keeps the old name. All six formats share this, so one export's PDF and
- *  DOCX never disagree about their name. */
-export function exportFilename(format: ExportFormat, today: string, projectName?: string): string {
+ *  DOCX never disagree about their name.
+ *
+ *  §509 — the project CODE leads the stem when one is set, so exports from
+ *  different PMs' projects do not collide once they are gathered in one
+ *  folder: `aipm-cockpit-project-<code>-<name>-<date>`. Either half may be
+ *  blank; each is slugged by the same rule and an empty half is dropped. */
+export function exportFilename(
+  format: ExportFormat,
+  today: string,
+  projectName?: string,
+  projectCode?: string,
+): string {
   // A name that slugs to nothing ("???") keeps the tasks name rather than
   // producing "aipm-cockpit-project--<date>" or "…-project-project-…".
-  const stem = filenameStem(projectName ?? "", "");
+  const stem = [projectCode, projectName]
+    .map((part) => filenameStem(part ?? "", ""))
+    .filter((part) => part !== "")
+    .join("-");
   return stem === ""
     ? `aipm-cockpit-tasks-${today}.${EXT[format]}`
     : `aipm-cockpit-project-${stem}-${today}.${EXT[format]}`;
 }
 
 function defaultFilename(format: ExportFormat, ws: Workspace): string {
-  return exportFilename(format, new Date().toISOString().slice(0, 10), ws.project?.name);
+  return exportFilename(format, new Date().toISOString().slice(0, 10), ws.project?.name, ws.project?.code);
 }
 
 /** The browser-tab auto-print harness, byte-identical to what `buildPdfHtml`

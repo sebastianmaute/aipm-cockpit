@@ -10,6 +10,7 @@ import { type Lang, t, tPlural } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
+import { useExportExtras } from "./export-extras-context";
 import { useToastContext } from "./toast-context";
 import { loadAssetData } from "./document-assets-store";
 import type { TursoConfig } from "./turso-config";
@@ -342,6 +343,9 @@ function DocumentCard({
   exportFooter?: string;
 }) {
   const ws = useWorkspace();
+  // §545 — the same budget forecast the Documents pane embeds, so a card's
+  //   download and the pane's never differ on a `budgetForecast` block.
+  const exportExtras = useExportExtras();
   // ★ This card renders inside the chat transcript, which owns no toast of its
   //   own, so it reads the ambient one. `useToastContext` defaults to a no-op,
   //   so a transcript mounted with no provider still renders.
@@ -428,7 +432,7 @@ function DocumentCard({
                 // ★★ THE SAME DISCLOSURE THE DOCUMENTS PANE GIVES. Without it a
                 //   rejected export is silent here too — and this button has
                 //   already had to be fixed once for diverging from that pane.
-                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader, exportFooter)
+                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader, exportFooter, exportExtras)
                   .catch((e) => reportDownloadFailure(showToast, lang, e));
               }}
               aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}

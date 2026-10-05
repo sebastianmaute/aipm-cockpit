@@ -1,6 +1,7 @@
 // Props contract for workspace-section.tsx (WorkspaceSection). Extracted so
 // the component file stays focused on view routing.
 import type React from "react";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { InsightActions } from "./insights/insight";
 import type {
   ToolDispatcher,
@@ -122,6 +123,10 @@ export interface EntityPaneCalendarHintsProps extends EntityPaneHintsProps {
 
 export interface WorkspaceSectionProps {
   today: string;
+  /** §545 — the budget forecast a document `dataSection` block embeds
+   *  (`exportForecastFor(...)`, null with the budget module off). Provided to
+   *  the document leaves through `ExportExtrasProvider`. */
+  exportForecast?: ForecastBundle | null;
   holidaySet: Set<string>;
   workspaceRef: React.RefObject<HTMLElement | null>;
   resetWorkspaceSize: () => void;

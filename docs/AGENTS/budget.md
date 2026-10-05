@@ -243,16 +243,23 @@ comments).
   module off, to its own export handler and, through `buildShellChrome`, to BOTH header mounts of
   `ExportMenu` (`AppHeader` and the modern top bar). A new export entry point that omits it exports no
   forecast, silently.
-- ★★ **Documents cannot name it.** The document renderers get the workspace, not the dashboard model, so
-  `DATA_SECTION_KEYS` (every key minus `DERIVED_EXPORT_SECTION_KEYS`) is what `dataSection` blocks, the
-  block editor and the `create_document` tool enum accept. A new derived section goes into
-  `DERIVED_EXPORT_SECTION_KEYS`; `export-workspace.test.ts` fails otherwise, because it is not a slice.
+- **Documents embed it too.** `DATA_SECTION_KEYS` is every export key, so a `dataSection` block, the block
+  editor and the `create_document` tool enum accept `budgetForecast`. The renderers (`renderDocumentHtml`,
+  `renderDocumentDocx`, `renderDocumentPptx`) and `downloadDocument` take the same `ExportExtras` as an
+  optional trailing argument and pass it to `resolveDataSection`. The document leaves read it from
+  `ExportExtrasProvider` (`export-extras-context.tsx`), which `WorkspaceSection` provides from the
+  `exportForecast` that `task-manager.tsx` puts in `workspaceProps`: the preview, the history row's
+  preview, the Documents pane's downloads and the chat document card. ★★ A NEW leaf that renders or
+  downloads a document must call `useExportExtras()` and pass the result on. The argument is optional,
+  so a leaf that forgets it compiles and renders the block as nothing, with no error. The block also
+  renders nothing with no provider (a popout) or with the budget module off.
+- ★ A new derived section goes into `DERIVED_EXPORT_SECTION_KEYS`; `SLICE_EXPORT_SECTION_KEYS` is every key
+  minus those, and `export-workspace.test.ts` fails if a key is in neither list, because it is not a slice.
 
 ## Open register entries
 
 §473 (a non-EUR plan) · §476 (the
 baseline currency is hardcoded EUR) · §500 (budget
-forecast hours cannot be imported from a spreadsheet) · §545 (the AI
-dashboard snapshot and the exports carry no budget forecast figures) · §551 (the dead snapshot
+forecast hours cannot be imported from a spreadsheet) · §551 (the dead snapshot
 `currency` column). This list was read off the register on 2026-09-27 and is not gated. Re-check
 it against the headings, since a `budget` search also returns entries about other budgets.

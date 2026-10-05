@@ -56,6 +56,7 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
+import type { ExportExtras } from "./export-forecast-section";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import { sanitizeDocumentHtml } from "./sanitize-html";
@@ -162,7 +163,7 @@ function tableHtml(
   return `<table>${cap}<thead><tr>${head}</tr></thead><tbody>\n${body}\n</tbody></table>`;
 }
 
-function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
+function renderBlock(block: DocBlock, ws: Workspace, lang: Lang, extras: ExportExtras): string {
   switch (block.type) {
     case "heading":
       return `<h${block.level}>${htmlEscape(block.text)}</h${block.level}>`;
@@ -203,7 +204,7 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
       // fresh project — render nothing at all. Emitting the <h2> and an empty
       // table would make a new project sprout a stray "RAID" heading over
       // nothing.
-      const section = resolveDataSection(block.key, ws, lang);
+      const section = resolveDataSection(block.key, ws, lang, extras);
       if (!section) return "";
       return `<h2>${htmlEscape(section.title)}</h2>${tableHtml(section.columns, section.rows)}`;
     }
@@ -361,9 +362,12 @@ export function renderDocumentHtml(
   assets: ExportAssets = NO_EXPORT_ASSETS,
   /** Footer line of a standalone render (`exportFooterText(settings.branding)`). */
   footer: string = DEFAULT_EXPORT_FOOTER,
+  /** What a derived `dataSection` needs (§545): the budget forecast. Omitted,
+   *  a `budgetForecast` block renders nothing. */
+  extras: ExportExtras = {},
 ): string {
   const body = doc.blocks
-    .map((b) => renderBlock(b, ws, lang))
+    .map((b) => renderBlock(b, ws, lang, extras))
     .filter((s) => s !== "")
     .join("\n");
 

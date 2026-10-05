@@ -33,6 +33,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { TursoConfig } from "./turso-config";
 import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./document-versions";
 import { renderDocumentHtml } from "./doc-render-html";
+import { useExportExtras } from "./export-extras-context";
 import { attachAssetImages } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
@@ -159,6 +160,9 @@ interface HistoryRowProps {
 function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }: HistoryRowProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewId = `documents-history-preview-${v.id}`;
+  // §545 — a version's `budgetForecast` block previews the CURRENT forecast,
+  //   as every other dataSection resolves against the current workspace.
+  const exportExtras = useExportExtras();
 
   // ★★★ RENDERED THROUGH `doc-render-html`'s PREVIEW MODE, WHICH IS WHERE THE
   // SINK SANITIZE LIVES — `renderBlock`'s `paragraph` case runs
@@ -215,9 +219,12 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
             ws ?? emptyWorkspace(),
             lang,
             "preview",
+            undefined,
+            undefined,
+            exportExtras,
           )
         : "",
-    [previewOpen, v, ws, lang],
+    [previewOpen, v, ws, lang, exportExtras],
   );
 
   // ★★★ MEMOIZED FOR ITS IDENTITY, NOT TO SAVE AN ALLOCATION — and `html`
