@@ -1327,6 +1327,19 @@ describe("document attachments", () => {
     expect(screen.queryByText("notes.txt")).toBeNull();
   });
 
+  it("names each Remove apart when two staged attachments share a file name (§316)", async () => {
+    const { container } = renderWithKey();
+    const a = new File(["first"], "notes.txt", { type: "text/plain" });
+    const b = new File(["second"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(fileInputOf(container), { target: { files: [a, b] } });
+    await waitFor(() => expect(screen.getAllByText("notes.txt")).toHaveLength(2));
+    expect(screen.getByRole("button", { name: "Remove notes.txt (1)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove notes.txt (2)" }));
+    // One chip left, and its name is plain again.
+    await waitFor(() => expect(screen.getAllByText("notes.txt")).toHaveLength(1));
+    expect(screen.getByRole("button", { name: "Remove notes.txt" })).toBeInTheDocument();
+  });
+
   it("sends the attachment as a text document block, then clears the chip", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve({

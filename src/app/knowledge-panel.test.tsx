@@ -13,6 +13,7 @@ import { t } from "./i18n";
 import type { KnowledgeItem, KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 afterEach(() => {
   window.localStorage.clear();
@@ -169,6 +170,24 @@ describe("KnowledgePanel", () => {
     fireEvent.click(remove);
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/Library only\.docx/)).not.toBeInTheDocument();
+  });
+
+  it("keeps cards apart when a library item and an attached document share a name (§316)", () => {
+    const item: KnowledgeItem = { ...LINK, id: "ki-same" };
+    const second: KnowledgeLink = { ...LINK, id: "dl-2", url: "https://example.sharepoint.com/v2/Spec.docx" };
+    render(
+      <>
+        <SeedTasks tasks={[seededTask([LINK, second])]} />
+        <SeedKnowledgeItems items={[item]} />
+        <KnowledgePanel />
+      </>,
+      { wrapper },
+    );
+    const remove = t("en-US", "documentsRemove");
+    expect(screen.getByRole("button", { name: `${remove} – Spec.docx (1)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${remove} – Spec.docx (3)` })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Spec.docx (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 3, roles: ["link"], requireCollisionSeed: true });
   });
 
   it("navigates to the source via requestOpen when the source button is clicked", () => {

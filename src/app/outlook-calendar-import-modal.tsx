@@ -8,6 +8,7 @@ import { dedupeKey, type OutlookEvent } from "./outlook-calendar";
 import { ABSENCE_TYPES, type AbsenceType } from "./types";
 import { useImportSelection } from "./use-import-selection";
 import { PickListImportModal } from "./pick-list-import-modal";
+import { buildRowTokens } from "./row-tokens";
 
 export interface OutlookCalendarImportModalProps {
   lang: Lang;
@@ -66,6 +67,12 @@ export function OutlookCalendarImportModal({
 
   const dateRange = (e: OutlookEvent) =>
     e.startDate === e.endDate ? e.startDate : `${e.startDate} – ${e.endDate}`;
+  // §316 — a recurring meeting imports as many events under one subject, so the
+  // per-row controls are named by subject AND dates, made row-unique in case
+  // even those repeat.
+  const rowTokens = buildRowTokens(
+    events.map((e) => ({ id: e.sourceId, name: `${e.subject || t(lang, "outlookCalImportNoSubject")} ${dateRange(e)}` })),
+  );
 
   return (
     <PickListImportModal
@@ -95,17 +102,18 @@ export function OutlookCalendarImportModal({
       {events.map((e) => {
         const exists = existingKeys.has(dedupeKey(targetAssignee, e.startDate, e.endDate));
         const label = e.subject || t(lang, "outlookCalImportNoSubject");
+        const token = rowTokens.get(e.sourceId) ?? `${label} ${dateRange(e)}`;
         return (
           <li key={e.sourceId} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-surface-muted">
             <Checkbox
-              aria-label={`${label} ${dateRange(e)}`}
+              aria-label={token}
               checked={sel.isChecked(e.sourceId)}
               onChange={() => sel.toggle(e.sourceId)}
             />
             <span className="min-w-0 flex-1 truncate font-medium text-foreground" title={label}>{label}</span>
             <span className="shrink-0 text-xs text-muted-foreground">{dateRange(e)}</span>
             <select
-              aria-label={`${t(lang, "outlookCalImportType")} ${label}`}
+              aria-label={`${t(lang, "outlookCalImportType")} ${token}`}
               value={types[e.sourceId] ?? "vacation"}
               onChange={(ev) => setType(e.sourceId, ev.target.value as AbsenceType)}
               className="shrink-0 rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"

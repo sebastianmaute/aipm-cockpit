@@ -153,6 +153,40 @@ describe("SteeringCommitteePanel", () => {
     expectRowUniqueNames({ minControls: 9 });
   });
 
+  it("keeps meeting, schedule and member controls apart when their names repeat (§316)", () => {
+    // A recurring committee meeting usually keeps one title; two schedules and
+    // two people can share a name too.
+    const repeated: SteeringCommittee = {
+      ...committee,
+      memberResourceIds: [1, 3],
+      meetings: [
+        { id: 1, date: "2026-07-01", title: "SteerCo" },
+        { id: 2, date: "2026-08-01", title: "SteerCo" },
+      ],
+      infoSchedules: [
+        { id: 1, label: "Board pack", leadDays: 3 },
+        { id: 2, label: "Board pack", leadDays: 7 },
+      ],
+    };
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={repeated}
+        onChange={() => {}}
+        resources={[...RESOURCES, res(3, "Ada", "Lovelace")]}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – SteerCo (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – SteerCo (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Board pack (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "remove")} – Ada Lovelace (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: `${t("en-US", "committeeMeetingTitle")} – SteerCo (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 9, requireCollisionSeed: true });
+    expectRowUniqueNames({ minControls: 6, roles: ["textbox", "spinbutton"], requireCollisionSeed: true });
+  });
+
   it("shows a due info reminder", () => {
     // Board pack for Kickoff (2026-07-01) is well within range -> a reminder appears.
     render(

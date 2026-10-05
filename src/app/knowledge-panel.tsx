@@ -9,6 +9,7 @@ import { isSafeHttpUrl, type KnowledgeItem, type KnowledgeLink, type KnowledgeLi
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
+import { buildRowTokens } from "./row-tokens";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { INTERACTIVE } from "./interaction-styles";
@@ -315,6 +316,13 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
     sort,
     (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
   );
+  // §316 — two cards can carry the same document name, in one grid or across
+  // the library and the attached grid, and both Remove controls share one verb.
+  // One token map over both grids, in render order, keeps every card apart.
+  const cardTokens = buildRowTokens([
+    ...kItems.map((it, idx) => ({ id: `k:${idx}`, name: it.name })),
+    ...visible.map((r, i) => ({ id: `d:${i}`, name: r.link.name })),
+  ]);
 
   // §331 — the source filter is a SINGLE choice (`setSourceFilter` replaces
   // the selection), so it is the shared radio group: one Tab stop, arrow keys,
@@ -575,7 +583,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                     <Card key={`${it.id}:${idx}`} className="relative flex flex-col gap-2 p-3">
                       <IconButton
                         variant="danger"
-                        label={`${t(lang, "documentsRemove")} – ${it.name}`}
+                        label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`k:${idx}`) ?? it.name}`}
                         title={t(lang, "documentsRemove")}
                         onClick={() => removeStandalone(idx)}
                         className="absolute right-2 top-2 text-xs"
@@ -587,6 +595,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                         {safe ? (
                           <a
                             href={it.url}
+                            aria-label={cardTokens.get(`k:${idx}`) ?? it.name}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
@@ -641,7 +650,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                   >
                     <IconButton
                       variant="danger"
-                      label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
+                      label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
                       title={t(lang, "documentsRemove")}
                       onClick={() => remove(r)}
                       className="absolute right-2 top-2 text-xs"
@@ -655,6 +664,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                       {safe ? (
                         <a
                           href={r.link.url}
+                          aria-label={cardTokens.get(`d:${i}`) ?? r.link.name}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"

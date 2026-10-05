@@ -12,6 +12,7 @@ import type { CalendarEvent } from "./calendar-event";
 import { nearestOccurrence } from "./recurrence";
 import { recurrenceFrequencyText } from "./calendar-recurrence-labels";
 import { DataTable } from "./data-table";
+import { buildRowTokens } from "./row-tokens";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
@@ -112,6 +113,9 @@ export function CalendarSeriesList({ lang, events, today, onEdit }: CalendarSeri
   }
 
   const th = useSortHeaderProps(sort.key, sort.dir, onSort);
+  // §316 — two series can share a title (a weekly and a monthly "Sync"), so the
+  // Edit control is named by a row-unique token in the order the rows render.
+  const rowTokens = useMemo(() => buildRowTokens(rows.map(({ event }) => ({ id: event.id, name: event.title }))), [rows]);
 
   return (
     // Defaults OPEN (unlike the version-history `<details>` this pattern is
@@ -162,7 +166,7 @@ export function CalendarSeriesList({ lang, events, today, onEdit }: CalendarSeri
                         variant="secondary"
                         size="xs"
                         onClick={() => onEdit(e)}
-                        aria-label={`${t(lang, "edit")} – ${e.title}`}
+                        aria-label={`${t(lang, "edit")} – ${rowTokens.get(e.id) ?? e.title}`}
                       >
                         {t(lang, "edit")}
                       </Button>

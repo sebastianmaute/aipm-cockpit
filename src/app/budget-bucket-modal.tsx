@@ -234,6 +234,14 @@ export function BudgetBucketModal({
     })),
   );
 
+  // §316 — every allocation block lists every resource, so with two blocks each
+  // person has two checkboxes whose name was the person alone. Each checkbox is
+  // named by the person, then the block it sits in; the person is a token too,
+  // since two people can share a name.
+  const resourceTokens = buildRowTokens(resources.map((r) => ({ id: r.id, name: resourceDisplayName(r) })));
+  const resourceInBlock = (resourceId: number, fallback: string, block: string) =>
+    `${resourceTokens.get(resourceId) ?? fallback} – ${block}`;
+
   const addLinkedTask = (taskId: number) =>
     setDraft((d) => ({ ...d, taskIds: [...(d.taskIds ?? []), taskId] }));
 
@@ -708,6 +716,7 @@ export function BudgetBucketModal({
                           className="flex items-center gap-1 text-xs"
                         >
                           <Checkbox
+                            aria-label={resourceInBlock(r.id, resourceDisplayName(r), allocationTokens.get(a.roleId) ?? `#${a.roleId}`)}
                             checked={a.resourceIds.includes(r.id)}
                             onChange={() => toggleResource(a.roleId, r.id)}
                           />
@@ -787,6 +796,7 @@ export function BudgetBucketModal({
                         {resources.map((r) => (
                           <label key={r.id} className="flex items-center gap-1 text-xs">
                             <Checkbox
+                              aria-label={resourceInBlock(r.id, resourceDisplayName(r), disciplineAllocationTokens.get(a.disciplineId) ?? `#${a.disciplineId}`)}
                               checked={a.resourceIds.includes(r.id)}
                               onChange={() => toggleDisciplineResource(a.disciplineId, r.id)}
                             />

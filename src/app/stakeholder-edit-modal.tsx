@@ -37,6 +37,7 @@ import { FieldGroup, HintedLabel, Input, Select, Textarea } from "./form-control
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
+import { useRowTokens } from "./use-row-tokens";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -92,6 +93,8 @@ function normalizeStakeholderNotes(value: string | undefined): string | undefine
   return describeTextCap(value ?? "", TEXTAREA_MAX).value || undefined;
 }
 
+const nameOfMilestone = (m: Milestone) => m.name;
+
 export function StakeholderEditModal({
   lang,
   draft,
@@ -106,6 +109,8 @@ export function StakeholderEditModal({
   onJumpToComms,
 }: StakeholderEditModalProps) {
   const [error, setError] = useState<string | null>(null);
+  // §316 — two milestones can share a name, and each RACI select is named by it.
+  const milestoneTokens = useRowTokens(milestones, nameOfMilestone);
   // The email the modal OPENED with — the stored value the changed-only rule
   // judges against. Controlled modal (the parent owns `draft`), so it is
   // captured per record by render-time reconcile on `draft.id`.
@@ -447,7 +452,7 @@ export function StakeholderEditModal({
                     <div key={m.id} className="flex items-center gap-3 text-sm">
                       <span className="w-40 truncate text-foreground">{m.name}</span>
                       <Select
-                        aria-label={`${m.name} (RACI)`}
+                        aria-label={`${milestoneTokens.get(m.id) ?? m.name} (RACI)`}
                         value={draft.raci[String(m.id)] ?? ""}
                         onChange={(e) => {
                           const val = e.target.value;

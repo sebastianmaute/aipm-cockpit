@@ -11,7 +11,7 @@
 // The row-unique accessible names (WCAG 2.4.6) and the non-colour active
 // marker (WCAG 1.4.1) below are pinned ONLY by chat-thread-list.test.tsx.
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PencilIcon, TrashIcon, PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
@@ -21,6 +21,7 @@ import { Input } from "./form-controls";
 import { Dot } from "./dot";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ChatThread, normalizeThreadName } from "./chat-threads";
+import { buildRowTokens } from "./row-tokens";
 
 export interface ChatThreadListProps {
   lang: Lang;
@@ -92,6 +93,12 @@ export function ChatThreadList({
   // synchronous scope — see that test's comment for the mutation proof
   // (guard deleted ⇒ test goes RED, onRename called twice).
   const renamingIdRef = useRef<string | null>(null);
+  // §316 — two threads can share a name, and every thread not yet named reads
+  // "Untitled chat", so the row controls take a row-unique token, not the name.
+  const rowTokens = useMemo(
+    () => buildRowTokens(threads.map((th) => ({ id: th.id, name: displayName(lang, th.name) }))),
+    [threads, lang],
+  );
 
   function startRename(th: ChatThread) {
     renamingIdRef.current = th.id;
@@ -145,7 +152,8 @@ export function ChatThreadList({
               const name = displayName(lang, th.name);
               const isActive = th.id === activeThreadId;
               const isRenaming = renamingId === th.id;
-              const renameLabel = t(lang, "chatThreadRename", name);
+              const token = rowTokens.get(th.id) ?? name;
+              const renameLabel = t(lang, "chatThreadRename", token);
 
               return (
                 <li key={th.id}>
@@ -174,7 +182,7 @@ export function ChatThreadList({
                       <button
                         type="button"
                         onClick={() => onSelect(th.id)}
-                        aria-label={t(lang, "chatThreadOpen", name)}
+                        aria-label={t(lang, "chatThreadOpen", token)}
                         aria-current={isActive ? "true" : undefined}
                         className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm text-foreground ${INTERACTIVE}`}
                       >
@@ -191,8 +199,8 @@ export function ChatThreadList({
                         <PencilIcon aria-hidden className="h-4 w-4" />
                       </IconButton>
                       <IconButton
-                        label={t(lang, "chatThreadDelete", name)}
-                        title={t(lang, "chatThreadDelete", name)}
+                        label={t(lang, "chatThreadDelete", token)}
+                        title={t(lang, "chatThreadDelete", token)}
                         variant="danger"
                         onClick={() => onDelete(th.id)}
                         className="shrink-0"

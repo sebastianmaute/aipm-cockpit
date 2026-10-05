@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import { dedupeKey, type OutlookEvent } from "./outlook-calendar";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const events: OutlookEvent[] = [
   { sourceId: "1", subject: "Vacation", startDate: "2026-06-01", endDate: "2026-06-03", isAllDay: true, showAs: "oof" },
@@ -33,6 +34,21 @@ describe("OutlookCalendarImportModal", () => {
     expect(selects).toHaveLength(2);
     expect((selects[0] as HTMLSelectElement).value).toBe("vacation");
     expect(screen.getByText(/\(no subject\)/i)).toBeInTheDocument();
+  });
+
+  it("names each row's checkbox and type select row-uniquely when a recurring subject repeats (§316)", () => {
+    const recurring: OutlookEvent[] = [
+      { sourceId: "a", subject: "Offsite", startDate: "2026-06-01", endDate: "2026-06-01", isAllDay: true, showAs: "oof" },
+      { sourceId: "b", subject: "Offsite", startDate: "2026-06-08", endDate: "2026-06-08", isAllDay: true, showAs: "oof" },
+      { sourceId: "c", subject: "Offsite", startDate: "2026-06-08", endDate: "2026-06-08", isAllDay: true, showAs: "oof" },
+    ];
+    render(<OutlookCalendarImportModal {...base({ events: recurring })} />);
+    // The subject alone used to name every type select.
+    expect(screen.getByRole("combobox", { name: "Type Offsite 2026-06-01" })).toBeInTheDocument();
+    // Same subject AND same date still splits by occurrence.
+    expect(screen.getByRole("checkbox", { name: "Offsite 2026-06-08 (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 3, roles: ["combobox"], requireCollisionSeed: true });
+    expectRowUniqueNames({ minControls: 4, roles: ["checkbox"], requireCollisionSeed: true });
   });
 
   it("confirm passes checked rows with their chosen types", () => {

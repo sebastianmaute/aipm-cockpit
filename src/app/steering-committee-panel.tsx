@@ -25,6 +25,7 @@ import type { MeetingReportBag } from "./use-meeting-report-actions";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 import { ROW_RULE_CLASS } from "./table-styles";
+import { buildRowTokens } from "./row-tokens";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -166,6 +167,15 @@ export function SteeringCommitteePanel({
     .map((id) => resources.find((r) => r.id === id))
     .filter((r): r is Resource => !!r);
 
+  // §316 — row-unique names. A recurring committee meeting usually keeps one
+  // title, two schedules can share a label, and two people can share a name, so
+  // every per-row control is named by a token, never by the raw value.
+  const memberTokens = buildRowTokens(memberRows.map((r) => ({ id: r.id, name: resourceDisplayName(r) })));
+  const meetingTokens = buildRowTokens(c.meetings.map((m) => ({ id: m.id, name: m.title || m.date })));
+  const scheduleTokens = buildRowTokens(c.infoSchedules.map((s) => ({ id: s.id, name: s.label || String(s.id) })));
+  const meetingToken = (m: CommitteeMeeting) => meetingTokens.get(m.id) ?? (m.title || m.date);
+  const scheduleToken = (s: InfoSchedule) => scheduleTokens.get(s.id) ?? (s.label || String(s.id));
+
   function addMember(id: number) {
     if (c.memberResourceIds.includes(id)) return;
     update({ memberResourceIds: [...c.memberResourceIds, id] });
@@ -282,7 +292,7 @@ export function SteeringCommitteePanel({
                       variant="secondary"
                       size="xs"
                       onClick={() => removeMember(r.id)}
-                      aria-label={`${t(lang, "remove")} – ${name}`}
+                      aria-label={`${t(lang, "remove")} – ${memberTokens.get(r.id) ?? name}`}
                     >
                       {t(lang, "remove")}
                     </Button>
@@ -337,7 +347,7 @@ export function SteeringCommitteePanel({
                         size="xs"
                         value={m.date}
                         onChange={(e) => patchMeeting(m.id, { date: e.target.value })}
-                        aria-label={`${t(lang, "committeeMeetingDate")} – ${m.title || m.date}`}
+                        aria-label={`${t(lang, "committeeMeetingDate")} – ${meetingToken(m)}`}
                       />
                     </td>
                     <td>
@@ -347,7 +357,7 @@ export function SteeringCommitteePanel({
                         value={m.title}
                         maxLength={200}
                         onChange={(e) => patchMeeting(m.id, { title: e.target.value })}
-                        aria-label={`${t(lang, "committeeMeetingTitle")} – ${m.title || m.date}`}
+                        aria-label={`${t(lang, "committeeMeetingTitle")} – ${meetingToken(m)}`}
                         className="w-full"
                       />
                     </td>
@@ -358,7 +368,7 @@ export function SteeringCommitteePanel({
                         value={m.location ?? ""}
                         maxLength={300}
                         onChange={(e) => patchMeeting(m.id, { location: e.target.value })}
-                        aria-label={`${t(lang, "committeeMeetingLocation")} – ${m.title || m.date}`}
+                        aria-label={`${t(lang, "committeeMeetingLocation")} – ${meetingToken(m)}`}
                         className="w-full"
                       />
                     </td>
@@ -371,7 +381,7 @@ export function SteeringCommitteePanel({
                             setReportMeetingId(m.id);
                             setReportVersions(report.tursoActive ? await report.loadVersions(m.id) : []);
                           }}
-                          aria-label={`${t(lang, "reportStatusReport")} – ${m.title || m.date}`}
+                          aria-label={`${t(lang, "reportStatusReport")} – ${meetingToken(m)}`}
                         >
                           {t(lang, "reportStatusReport")}
                         </Button>
@@ -381,12 +391,12 @@ export function SteeringCommitteePanel({
                       <PushRowCell
                         lang={lang}
                         onClick={() => outlookPush.onPushRow!({ kind: "meeting", id: m.id })}
-                        label={m.title || m.date}
+                        label={meetingToken(m)}
                         busy={outlookPush.pushingTarget === committeePushKey({ kind: "meeting", id: m.id })}
                         disabled={outlookPush.pushingTarget !== null}
                       />
                     )}
-                    <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
+                    <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={meetingToken(m)} />
                   </tr>
                 ))}
             </DataTable>
@@ -452,7 +462,7 @@ export function SteeringCommitteePanel({
                         value={s.label}
                         maxLength={200}
                         onChange={(e) => patchSchedule(s.id, { label: e.target.value })}
-                        aria-label={`${t(lang, "committeeScheduleLabel")} – ${s.label || s.id}`}
+                        aria-label={`${t(lang, "committeeScheduleLabel")} – ${scheduleToken(s)}`}
                         className="w-full"
                       />
                     </td>
@@ -463,7 +473,7 @@ export function SteeringCommitteePanel({
                         min={0}
                         value={s.leadDays}
                         onChange={(e) => patchSchedule(s.id, { leadDays: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-                        aria-label={`${t(lang, "committeeScheduleLeadDays")} – ${s.label || s.id}`}
+                        aria-label={`${t(lang, "committeeScheduleLeadDays")} – ${scheduleToken(s)}`}
                         className="w-24"
                       />
                     </td>
@@ -471,12 +481,12 @@ export function SteeringCommitteePanel({
                       <PushRowCell
                         lang={lang}
                         onClick={() => outlookPush.onPushRow!({ kind: "schedule", id: s.id })}
-                        label={s.label || String(s.id)}
+                        label={scheduleToken(s)}
                         busy={outlookPush.pushingTarget === committeePushKey({ kind: "schedule", id: s.id })}
                         disabled={outlookPush.pushingTarget !== null}
                       />
                     )}
-                    <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
+                    <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={scheduleToken(s)} />
                   </tr>
                 ))}
             </DataTable>
@@ -559,7 +569,7 @@ export function SteeringCommitteePanel({
         ? (() => {
             const m = c.meetings.find((mm) => mm.id === reportMeetingId);
             if (!m) return null;
-            const title = `${t(lang, "reportStatusReport")} – ${m.title || m.date}`;
+            const title = `${t(lang, "reportStatusReport")} – ${meetingToken(m)}`;
             return (
               <Modal open onClose={closeReport} ariaLabel={title} align="center">
                 {/* print-root so @media print isn't blank; the panel behind drops

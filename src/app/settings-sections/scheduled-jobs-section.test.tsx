@@ -4,6 +4,7 @@ import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
@@ -118,6 +119,16 @@ describe("ScheduledJobsSection", () => {
     expect(screen.getByLabelText(`${t("en-US", "delete")} – Beta`)).toBeInTheDocument();
     expect(screen.getByLabelText(`${t("en-US", "scheduledJobEnabled")} – Alpha`)).toBeInTheDocument();
     expect(screen.getByLabelText(`${t("en-US", "scheduledJobEnabled")} – Beta`)).toBeInTheDocument();
+  });
+
+  it("keeps the controls of two same-named jobs apart (§316)", () => {
+    // A new job starts with the default name, so two unedited jobs collide.
+    mockJobs = [job({ id: 1, name: "Weekly review" }), job({ id: 2, name: "Weekly review" })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByLabelText(`${t("en-US", "delete")} – Weekly review (2)`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`${t("en-US", "scheduledJobName")} – Weekly review (1)`)).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+    expectRowUniqueNames({ minControls: 4, roles: ["textbox", "checkbox", "combobox"], requireCollisionSeed: true });
   });
 
   it("shows 'never run' when a job has no history", () => {

@@ -924,6 +924,28 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     expect(onOpenChange).toHaveBeenCalledWith(7);
   });
 
+  it("names two Top Changes rows with one title apart (§316)", () => {
+    const onOpenChange = vi.fn();
+    const change = (id: number) => ({
+      id, title: "Scope cut", description: "", type: "Scope", status: "Proposed",
+      impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+    });
+    render(
+      <DashboardPanel
+        {...fullProps}
+        showChanges
+        changes={[change(7), change(8)] as ChangeItem[]}
+        onOpenChange={onOpenChange}
+      />,
+      { wrapper },
+    );
+    const rows = screen.getAllByRole("button", { name: /^Open change Scope cut/ });
+    expect(rows.map((b) => b.getAttribute("aria-label")).sort()).toEqual([
+      "Open change Scope cut (1)",
+      "Open change Scope cut (2)",
+    ]);
+  });
+
 });
 
 // ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its

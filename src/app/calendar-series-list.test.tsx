@@ -84,6 +84,12 @@ describe("CalendarSeriesList", () => {
     expectRowUniqueNames({ minControls: 4 });
   });
 
+  it("keeps the edit buttons apart when two series share a title (§316)", () => {
+    const events = [makeEvent(1, { title: "Sync" }), makeEvent(2, { title: "Sync" })];
+    render(<CalendarSeriesList lang="en-US" events={events} today={today} onEdit={() => {}} />);
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
+
   it("renders no edit affordance when onEdit is omitted (read-only mirror)", () => {
     render(<CalendarSeriesList lang="en-US" events={[makeEvent(1)]} today={today} />);
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();

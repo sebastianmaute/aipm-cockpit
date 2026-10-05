@@ -10,6 +10,7 @@
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
+import { buildRowTokens } from "./row-tokens";
 
 interface AppliedRow {
   id: number;
@@ -63,6 +64,9 @@ export function CalendarPullSummaryModal({
   onTakeOutlook,
 }: CalendarPullSummaryModalProps) {
   const title = t(lang, "calendarPullSummaryTitle");
+  // §316 — two conflicting items can share a name (two tasks called "Review"),
+  // so Keep and Take are named by a row-unique token.
+  const conflictTokens = buildRowTokens(conflicts.map((c) => ({ id: c.id, name: c.name })));
 
   return (
     <Modal open={open} onClose={onClose} ariaLabel={title}>
@@ -127,7 +131,7 @@ export function CalendarPullSummaryModal({
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        aria-label={`${t(lang, "calendarPullKeepApp")} – ${c.name}`}
+                        aria-label={`${t(lang, "calendarPullKeepApp")} – ${conflictTokens.get(c.id) ?? c.name}`}
                         onClick={() =>
                           onKeepApp({
                             id: c.id,
@@ -142,7 +146,7 @@ export function CalendarPullSummaryModal({
                       </button>
                       <button
                         type="button"
-                        aria-label={`${t(lang, "calendarPullTakeOutlook")} – ${c.name}`}
+                        aria-label={`${t(lang, "calendarPullTakeOutlook")} – ${conflictTokens.get(c.id) ?? c.name}`}
                         onClick={() =>
                           onTakeOutlook({
                             id: c.id,

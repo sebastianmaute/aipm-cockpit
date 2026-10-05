@@ -104,6 +104,14 @@ describe("StakeholderEditModal", () => {
     fireEvent.change(screen.getByLabelText("Go-Live (RACI)"), { target: { value: "A" } });
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ raci: { "10": "A" } }));
   });
+  it("names the RACI selects of two same-named milestones apart (§316)", () => {
+    const p = setupFull({
+      milestones: [...milestones, { id: 11, name: "Go-Live", date: "2026-12-01", linkedTaskIds: [] }],
+    });
+    fireEvent.change(screen.getByLabelText("Go-Live (2) (RACI)"), { target: { value: "C" } });
+    expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ raci: { "11": "C" } }));
+    expect(screen.getByLabelText("Go-Live (1) (RACI)")).toBeInTheDocument();
+  });
   it("picks influence and interest together from the matrix", () => {
     const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
     fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));

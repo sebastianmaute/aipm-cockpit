@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Modal is a pure shell — mock it so there is no portal/focus-trap complexity;
 // the content under test is the three sections and the per-conflict buttons.
@@ -101,6 +102,15 @@ describe("CalendarPullSummaryModal", () => {
       eventId: "evt-2",
       outlookDate: "2026-09-15",
     });
+  });
+
+  it("names Keep and Take apart for two conflicts with one name (§316)", () => {
+    const { onTakeOutlook } = setup({
+      conflicts: [CONFLICTS[0], { ...CONFLICTS[0], id: 4, eventId: "evt-4", outlookDate: "2026-09-20" }],
+    });
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "calendarPullTakeOutlook")} – Design review (2)` }));
+    expect(onTakeOutlook).toHaveBeenCalledWith(expect.objectContaining({ id: 4, outlookDate: "2026-09-20" }));
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
   });
 
   it("renders a deletion row with name and the removed note", () => {
