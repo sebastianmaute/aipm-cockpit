@@ -47,8 +47,18 @@ export function filenameStem(title: string, fallback: string): string {
     // Leading dots would make a dotfile; leading/trailing dashes are noise.
     .replace(/^[-.]+/, "")
     .replace(/[-.]+$/, "");
-  // Trim again after the cut: slicing mid-word can leave a dangling separator.
-  return slug.slice(0, MAX_FILENAME_STEM).replace(/-+$/, "") || fallback;
+  return capStem(slug, MAX_FILENAME_STEM) || fallback;
+}
+
+/** The first `max` UTF-16 units of a stem, cut so it never ends inside a
+ *  character or on a separator.
+ *
+ *  ★ `NON_PRINTABLE` keeps U+D800–DFFF, so an emoji or other astral character
+ *  is TWO units here, and a plain `slice` can stop between them — leaving a
+ *  lone high surrogate, i.e. a broken character, at the end of the name. Trim
+ *  it, then trim again: slicing mid-word can also leave a dangling "-". */
+function capStem(stem: string, max: number): string {
+  return stem.slice(0, max).replace(/[\uD800-\uDBFF]$/, "").replace(/-+$/, "");
 }
 
 /** A project code → its filename stem, held to HALF of `MAX_FILENAME_STEM`.
@@ -57,7 +67,7 @@ export function filenameStem(title: string, fallback: string): string {
 export const MAX_CODE_STEM = MAX_FILENAME_STEM / 2;
 
 export function projectCodeStem(code: string | undefined): string {
-  return filenameStem(code ?? "", "").slice(0, MAX_CODE_STEM).replace(/-+$/, "");
+  return capStem(filenameStem(code ?? "", ""), MAX_CODE_STEM);
 }
 
 /** Already-slugged stems → ONE stem, joined with "-", empty ones dropped, and
@@ -67,9 +77,5 @@ export function projectCodeStem(code: string | undefined): string {
  *  LAST stem, so pass the code first via `projectCodeStem`, which leaves the
  *  title at least half the budget. */
 export function joinFilenameStems(...stems: readonly string[]): string {
-  return stems
-    .filter((s) => s !== "")
-    .join("-")
-    .slice(0, MAX_FILENAME_STEM)
-    .replace(/-+$/, "");
+  return capStem(stems.filter((s) => s !== "").join("-"), MAX_FILENAME_STEM);
 }

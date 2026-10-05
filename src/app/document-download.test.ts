@@ -233,6 +233,20 @@ describe("documentFilename", () => {
     expect(documentFilename(doc, "docx", "2026-08-06", "???")).toBe("q1-status-review-2026-08-06.docx");
   });
 
+  // An emoji is two UTF-16 units; a cut that lands between them would leave a
+  // broken character at the end of the name. "a" first puts every high
+  // surrogate on an odd index, so both the 80 and the 40 cut fall inside one.
+  it("never ends a capped stem inside a character", () => {
+    const LONE_HIGH = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
+    const emojis = "a" + "\u{1F600}".repeat(50);
+    const titled = documentFilename(named(emojis), "html", "2026-08-06");
+    expect(titled).toMatch(/^a\u{1F600}+-2026-08-06\.html$/u);
+    expect(titled).not.toMatch(LONE_HIGH);
+    const coded = documentFilename(doc, "html", "2026-08-06", emojis);
+    expect(coded).toMatch(/^a\u{1F600}+-q1-status-review-2026-08-06\.html$/u);
+    expect(coded).not.toMatch(LONE_HIGH);
+  });
+
   it("caps the joined code and title at MAX_FILENAME_STEM", () => {
     const name = documentFilename(named("word ".repeat(60)), "pptx", "2026-08-06", "code ".repeat(40));
     const stem = name.replace("-2026-08-06.pptx", "");
