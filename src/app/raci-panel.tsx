@@ -19,7 +19,7 @@ import {
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
-import { buildRowTokens } from "./row-tokens";
+import { buildRowTokens, collapse } from "./row-tokens";
 import { useResizable } from "./use-resizable";
 import { useSettings } from "./use-settings";
 import { useRaciSuggest } from "./use-raci-suggest";
@@ -116,16 +116,23 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     [visibleStakeholders],
   );
 
+  // People the picker can still add: everyone not already in the filter (the
+  // datalist offers exactly these, so they are the only candidates that count).
+  const offeredPeople = (): Stakeholder[] => stakeholders.filter((s) => !filtered.has(s.id));
+
   function addPerson(rawName: string) {
     const trimmed = rawName.trim();
     if (trimmed === "") return;
-    // The picker's own label wins (unique by construction). A bare name is
-    // accepted only when exactly ONE person carries it: with two "Sam"s it would
-    // otherwise silently pick the first. A `(#id)` suffix still resolves an id.
-    const needle = trimmed.toLowerCase();
-    const byName = stakeholders.filter((s) => s.name.trim().toLowerCase() === needle);
+    // The picker's own label wins (unique by construction; re-adding someone
+    // already filtered is a no-op that clears the field). A bare name is accepted
+    // only when exactly ONE person not yet in the filter carries it: with two
+    // "Sam"s it would otherwise silently pick the first. A `(#id)` suffix still
+    // resolves an id. Both sides are folded the way the tokens are (whitespace
+    // runs and case), so typing what a screen reader says matches.
+    const needle = collapse(trimmed);
+    const byName = offeredPeople().filter((s) => collapse(s.name.trim()) === needle);
     let match: Stakeholder | undefined =
-      stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
+      stakeholders.find((s) => collapse(labelFor(s)) === needle) ??
       (byName.length === 1 ? byName[0] : undefined);
     if (!match) {
       const idm = trimmed.match(/\(#(\d+)\)\s*$/);
@@ -199,14 +206,18 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
               onChange={(e) => {
                 const v = e.target.value;
                 setFilterInput(v);
-                // Picking a datalist option fires change with the full label → add
-                // it. Typing reaches the same text one key at a time, so add only on
-                // an EXACT label that does not also start a longer one: otherwise
-                // typing "Sam (1) (2)" would add "Sam (1)" on the way, and typing a
-                // bare "Sam" would add the first of two. Enter commits anything else.
-                const needle = v.trim().toLowerCase();
-                const labels = stakeholders.map((s) => labelFor(s).toLowerCase());
-                if (labels.includes(needle) && !labels.some((l) => l !== needle && l.startsWith(needle))) {
+                // A datalist PICK sets the whole label at once: add it. TYPING
+                // reaches the same text one key at a time, so while typing add only
+                // on an exact label that starts no longer offered one — otherwise
+                // typing "Samantha" would add "Sam" on the way. Enter commits the rest.
+                // A pick is told apart by inputType: "insertReplacementText" in
+                // browsers, absent on a programmatic change. An ALLOWLIST, because
+                // IME typing sends "insertCompositionText" on every keystroke.
+                const inputType = (e.nativeEvent as InputEvent).inputType;
+                const picked = !inputType || inputType === "insertReplacementText";
+                const needle = collapse(v.trim());
+                const labels = offeredPeople().map((s) => collapse(labelFor(s)));
+                if (labels.includes(needle) && (picked || !labels.some((l) => l !== needle && l.startsWith(needle)))) {
                   addPerson(v);
                 }
               }}

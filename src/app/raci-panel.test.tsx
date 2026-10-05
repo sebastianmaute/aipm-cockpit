@@ -176,11 +176,12 @@ describe("RaciPanel", () => {
     expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
   });
 
-  // §669 — with both Sams in the filter, their two remove chips read alike.
   // §669 review 6 — the picker added a person as soon as the typed text matched
   // ANY name, so typing "Sam (2)" key by key added the FIRST Sam at "Sam". Typing
   // must reach the second Sam, a token that starts another token must not commit
-  // early, and an ambiguous bare name must not silently pick one person.
+  // early, and an ambiguous bare name must not silently pick one person. Review 7:
+  // a datalist PICK must still add at once, people already filtered must not
+  // count, and typed text is folded like the tokens are.
   describe("typing into the person filter", () => {
     const person = (id: number, name: string): Stakeholder =>
       ({ id, name, category: "Internal", influence: "Low", interest: "Low", raci: {} });
@@ -205,8 +206,75 @@ describe("RaciPanel", () => {
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "ana{Enter}");
       expect(chips()).toEqual([]);
     });
+
+    // A datalist pick fires an input event whose inputType is insertReplacementText.
+    const pick = (value: string) =>
+      fireEvent.input(screen.getByRole("combobox", { name: /filter people/i }), {
+        target: { value },
+        inputType: "insertReplacementText",
+      });
+
+    it("adds a picked name at once even when it starts a longer one", () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      pick("Sam");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam")]);
+    });
+
+    it("types a longer name past a shorter one without adding the shorter", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Samantha");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Samantha")]);
+    });
+
+    it("ignores people already in the filter when deciding what typing means", async () => {
+      render(
+        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />,
+      );
+      const input = screen.getByRole("combobox", { name: /filter people/i });
+      pick("Samantha");
+      pick("Sam (1)");
+      // Only the second Sam is left to offer, so a bare "Sam" + Enter means them.
+      await userEvent.type(input, "Sam{Enter}");
+      expect(chips()).toEqual([
+        t("en-US", "raciFilterRemove", "Sam (1)"),
+        t("en-US", "raciFilterRemove", "Samantha"),
+        t("en-US", "raciFilterRemove", "Sam (2)"),
+      ]);
+    });
+
+    it("adds a typed name at once when the longer name it starts is already filtered", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      pick("Samantha");
+      // Samantha is no longer offered, so "Sam" starts no offered name: no Enter needed.
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam"), t("en-US", "raciFilterRemove", "Samantha")]);
+    });
+
+    it("folds whitespace runs in typed text, as the tokens do", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam  Lee (2){Enter}");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam Lee (2)")]);
+    });
+
+    it("matches typed text the way a screen reader says the name", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "sam lee (1){Enter}");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam  Lee (1)")]);
+    });
+
+    it("lets Enter commit a label that starts another, and a label beats a bare name", async () => {
+      render(
+        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
+      );
+      // "Sam (1)" is person 1's label AND person 3's bare name; the label wins,
+      // since it is what the chips and cells announce.
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam (1){Enter}");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam (1)")]);
+      expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
+    });
   });
 
+  // §669 — with both Sams in the filter, their two remove chips read alike.
   it("names the remove chips of two same-named people in the filter apart", () => {
     const dup: Stakeholder[] = [
       { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
