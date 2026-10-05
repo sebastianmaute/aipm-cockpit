@@ -303,10 +303,13 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
                             # is worse than one with a known blind spot.
                             # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
-                            # to 1 unresolvable + 2 out-of-range (from 11 + 8), and ALL survivors sit
-                            # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
-                            # as such and deliberately NOT renumbered, because rewriting a signed
-                            # record to match today's tree destroys the only thing it is good for.
+                            # from 11 unresolvable + 8 out-of-range, and every survivor sits in one of
+                            # two DATED SNAPSHOTS: docs/security/findings-2026-07.md (an audit) and
+                            # docs/handrolled-ui-inventory.md (archived 2026-09-13; its two survivors
+                            # point past the end of `tasks-section.tsx` after the §492 split). Both are
+                            # bannered as such and deliberately NOT renumbered, because rewriting a
+                            # dated record to match today's tree destroys the only thing it is good
+                            # for. Read today's counts off the gate's own summary line, not off here.
                             # A third bucket, `thirdParty`, holds cites into dompurify/
                             # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
                             # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS
@@ -750,7 +753,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      factory (parameterizing divergent security guards is where a config slip silently weakens a guard).
   5. **Panel split (gantt pattern).** A panel crossing ~700 lines splits into orchestrator + `*-rows` +
      `*-toolbar` (+ a `*-columns` leaf for shared metadata) WELL BEFORE it reaches the size ratchet — rows
-     and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel.
+     and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel,
+     tasks-section (`tasks-section-toolbar.tsx` + `tasks-section-rows.tsx`, §492).
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
   ★ Before creating `<name>.ts`, check for existing `<name>.tsx` (and vice versa) — a bare `./<name>`

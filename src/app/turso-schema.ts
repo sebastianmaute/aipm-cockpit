@@ -38,6 +38,7 @@ import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
 import { noteDecodeFailure, sanitizedToNothing } from "./meta-slice-decode";
+import { rethrowIfDomUnavailable } from "./dom-unavailable-error";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -220,6 +221,8 @@ export function rowsToWorkspace(
       }
       return out;
     } catch (err) {
+      // §97 — a missing DOM is not an unreadable slice: fail the load.
+      rethrowIfDomUnavailable(err);
       reportUnreadableSlice(key, err);
       return undefined;
     }

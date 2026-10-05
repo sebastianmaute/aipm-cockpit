@@ -27,10 +27,13 @@
  * sanitizeNoteFields -> sanitizeRichHtml -> DOMPurify (sanitize-html.ts).
  * DOMPurify binds its `window` ONCE, at the moment the "dompurify" package
  * is first imported (module-eval time, not per-call) — under bare Node
- * (no DOM) that bind fails, sanitize() throws, and jsonToWorkspace's own
- * catch-all silently swallows the throw into an EMPTY workspace. A scaled
- * "empty" workspace would still "succeed" and write near-empty big/huge
- * JSON with no error.
+ * (no DOM) that bind fails and the sanitizers throw (since §97 the named
+ * `DomUnavailableError`, from `requireDom()`, before DOMPurify is called). Until §97, jsonToWorkspace's
+ * own catch-all silently swallowed that throw into an EMPTY workspace, so a
+ * scaled "empty" workspace would still "succeed" and write near-empty big/huge
+ * JSON with no error. Since §97 it throws `DomUnavailableError` instead, so a
+ * missing DOM now fails this script loudly; the install below is still what
+ * makes it work.
  *
  * We avoid this by installing a minimal jsdom window/document as globals
  * BEFORE "../src/app/sample-workspace-variants" (and, through workspace.ts,

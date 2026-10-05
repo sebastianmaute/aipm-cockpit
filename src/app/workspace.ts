@@ -46,6 +46,7 @@ import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectD
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 import { noteDecodeFailure, noteIfSanitizedToNothing } from "./meta-slice-decode";
+import { rethrowIfDomUnavailable } from "./dom-unavailable-error";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break a script that loads this module with no DOM
 // (ai-eval.ts, update-ooxml-manifest.ts; the sample generator installs JSDOM
@@ -748,8 +749,9 @@ export function jsonToWorkspace(
     // pass applies DOMPurify to the paragraph HTML. Running only the first
     // would persist `<script>` from a crafted .json verbatim. An all-garbage or
     // empty list stays off the key rather than emitting [].
-    // ★★★ The rich-field pass is the ONLY DOM-dependent step in this decoder, and
-    // it needs its OWN catch. Without one, a throw here reaches the outer
+    // ★★★ The rich-field pass needs DOMPurify, like the task, RAID, change and
+    // milestone rich-field passes above (which run `sanitizeRichHtml` on every
+    // string-valued rich field, an empty string included, outside any local catch), and it needs its OWN catch. Without one, a throw here reaches the outer
     // catch-all below, which answers a non-strict load with `emptyWorkspace()` —
     // so one unsanitizable document discarded every task, RAID item and
     // milestone in the file, silently. Measured: tasks 0. CSV, Markdown and
@@ -767,6 +769,9 @@ export function jsonToWorkspace(
         if (docs.length) raw.documents = docs;
         noteIfDropped("documents", p.documents, docs);
       } catch (err) {
+        // §97 — a missing DOM is not a document that failed to decode: it fails
+        // the load, strict or not, `diag` or not (the outer catch rethrows it too).
+        rethrowIfDomUnavailable(err);
         // ★★ strict must stay LOUD for a caller with no accumulator. The sample
         // generator decodes with { strict: true } so a bad load fails the build
         // rather than writing a near-empty artifact; rethrowing lets the outer
@@ -816,6 +821,7 @@ export function jsonToWorkspace(
         if (versions.length) raw.documentVersions = versions;
         noteIfDropped("documentVersions", p.documentVersions, versions);
       } catch (err) {
+        rethrowIfDomUnavailable(err); // §97, as for documents
         // §635: same rule as documents — loud only without an accumulator.
         if (strict && !opts?.diag) throw err;
         logDiag("error", "workspace.documentVersionsDropped", {
@@ -853,6 +859,8 @@ export function jsonToWorkspace(
     return migrateWorkspaceV10(raw);
   } catch (err) {
     if (err instanceof WorkspaceParseError) throw err;
+    // §97 — never answer a missing DOM with emptyWorkspace(): that is every task lost.
+    rethrowIfDomUnavailable(err);
     if (strict) throw new WorkspaceParseError("shape");
     return emptyWorkspace();
   }

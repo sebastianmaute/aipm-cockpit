@@ -345,7 +345,9 @@
   ],
   "knownOutOfRange": [
     "docs/security/findings-2026-07.md :: timelog/_helpers.ts:184",
-    "docs/security/findings-2026-07.md :: timelog/_helpers.ts:185"
+    "docs/security/findings-2026-07.md :: timelog/_helpers.ts:185",
+    "docs/handrolled-ui-inventory.md :: tasks-section.tsx:1027",
+    "docs/handrolled-ui-inventory.md :: tasks-section.tsx:958"
   ],
   "thirdParty": [
     "docs/open-followups.md :: @vitest/runner/dist/chunk-artifact.js:2442",

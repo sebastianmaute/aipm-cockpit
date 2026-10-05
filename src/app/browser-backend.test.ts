@@ -78,7 +78,9 @@ vi.mock("./idb", async (importOriginal) => {
 
 // §620 fix round 1 — forces the documents/documentVersions rich-field pass to
 // throw, for the containment tests below. Mirrors `forceRichFieldThrow` in
-// workspace.documents.test.ts (same cause: DOMPurify without a bound window).
+// workspace.documents.test.ts. It simulates a sanitizer that throws for any reason
+// OTHER than a missing DOM: since §97 a real missing DOM throws
+// `DomUnavailableError`, which the load rethrows (dom-unavailable.load-paths.test.ts).
 // It delegates to the REAL implementation unless the flag is set, so every
 // other test in this file still exercises the genuine DOMPurify pass.
 const richFieldCtl = vi.hoisted(() => ({ throwOnce: false }));
@@ -87,7 +89,7 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
   return {
     ...actual,
     sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
-      if (richFieldCtl.throwOnce) throw new TypeError("DOMPurify.sanitize is not a function");
+      if (richFieldCtl.throwOnce) throw new TypeError("simulated rich-field sanitizer failure");
       return actual.sanitizeDocumentRichFields(doc);
     },
   };

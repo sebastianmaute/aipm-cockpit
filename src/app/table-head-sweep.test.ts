@@ -13,7 +13,9 @@ const FORBIDDEN_HEADS = [
 
 // Files swept so far. Grown in Tasks 5 and 6.
 const SWEPT_FILES = [
-  "tasks-section.tsx",
+  // The Open Points table moved to tasks-section-rows.tsx in the §492 split;
+  // tasks-section.tsx is now the header-less orchestrator.
+  "tasks-section-rows.tsx",
   // The RAID table markup (with TABLE_HEAD_CLASS) moved to raid-panel-rows.tsx
   // in the Phase 3 split; raid-panel.tsx is now the header-less orchestrator.
   "raid-panel-rows.tsx",

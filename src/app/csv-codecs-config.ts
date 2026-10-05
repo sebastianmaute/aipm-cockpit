@@ -258,13 +258,13 @@ export function csvToDocuments(
   // the same document decoding to different in-memory HTML depending on the
   // backend it came from — and a CSV→JSON migration then WROTE the unfiltered
   // markup into a backend that would have cleaned it.
-  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-  // SILENT. Measured both ways with the generator's exact arrangement: with
-  // JSDOM installed first, documents decode and come back sanitized; with no
-  // DOM the DOMPurify call throws, the catch in `decodeMetaJson` swallows it,
-  // and documents decode to UNDEFINED — dropped whole, no error, and (since
-  // §630) reported only through `diag.decodeFailedSlices` when a caller passes
-  // one. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT. Measured both ways with the
+  // generator's exact arrangement: with JSDOM installed first, documents decode
+  // and come back sanitized. With no DOM the failure USED to be silent — the
+  // catch in `decodeMetaJson` swallowed the DOMPurify throw and documents
+  // decoded to UNDEFINED, reported only through `diag.decodeFailedSlices` when a
+  // caller passed one. Since §97 the sanitizer throws `DomUnavailableError` and
+  // `decodeMetaJson` rethrows it, so the whole decode fails loudly instead. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
   // install JSDOM into globalThis BEFORE they dynamically import src/app. But
   // two scripts reach this module with NO DOM: update-ooxml-manifest.ts (via
   // storage) and ai-eval.ts (via turso-schema). §624 measured on 2026-09-28,
@@ -310,15 +310,15 @@ export function csvToDocumentVersions(
   // independent createdAt/updatedAt, so it is passed through a synthetic
   // ProjectDocument-shaped wrapper with savedAt standing in for both — mirrors
   // the JSON path's load boundary (workspace.ts).
-  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-  // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
-  // throws, the catch in `decodeMetaJson` swallows it, and history decodes to
-  // UNDEFINED — dropped whole, no error, and (since §630) reported only through
-  // `diag.decodeFailedSlices` when a caller passes one. The generator,
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, exactly like csvToDocuments:
+  // without a DOM the rich-field pass throws `DomUnavailableError`, which
+  // `decodeMetaJson` rethrows since §97 (before it, history silently decoded to
+  // UNDEFINED). The generator,
   // regen-golden-fixtures.ts and sample-link-exports.ts install JSDOM before
   // importing src/app, but update-ooxml-manifest.ts and ai-eval.ts reach this
   // module with NO DOM (see csvToDocuments above and open-followups §624); a
-  // decode there would silently lose every version.
+  // decode there would throw `DomUnavailableError` (before §97 it silently lost
+  // every version).
   // ★ Same accumulator as csvToDocuments above, but here it fills
   // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
   // sanitizeDocumentVersions sanitizes one version at a time — and, since

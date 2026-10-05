@@ -18,8 +18,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const kv = vi.hoisted(() => new Map<string, unknown>());
 
-// §635: forces the documents rich-field pass to throw (the no-DOM DOMPurify
-// failure), delegating to the real pass unless the flag is set. Reset after
+// §635: forces the documents rich-field pass to throw — a sanitizer that throws
+// for any reason OTHER than a missing DOM (since §97 a real missing DOM throws
+// `DomUnavailableError` and fails the load) — delegating to the real pass unless the flag is set. Reset after
 // every test that sets it, so no other test in this file sees it on.
 const richThrow = vi.hoisted(() => ({ on: false }));
 vi.mock("./document-rich-fields", async (importOriginal) => {
@@ -27,7 +28,7 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
   return {
     ...actual,
     sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
-      if (richThrow.on) throw new TypeError("DOMPurify.sanitize is not a function");
+      if (richThrow.on) throw new TypeError("simulated rich-field sanitizer failure");
       return actual.sanitizeDocumentRichFields(doc);
     },
   };

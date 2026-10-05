@@ -42,6 +42,7 @@
 // ADD_URI_SAFE_ATTR, and value-constrained by ATTR_VALUES in the hook — see
 // GUARDED_LINK_ATTR.
 import DOMPurify from "dompurify";
+import { DomUnavailableError } from "./dom-unavailable-error";
 
 /** THE rich-text allow-list — the ONE array every rich surface is converging on:
  *  the seven rich entity fields (`Task.description` + the six in `AI_RICH_FIELDS`),
@@ -149,6 +150,16 @@ const LINK_ATTR: ReadonlySet<string> = new Set(GUARDED_LINK_ATTR);
 
 let attrHookRegistered = false;
 
+/** §97 — throw the NAMED error when DOMPurify has no DOM. Without one it is a
+ *  stub whose `sanitize` and `addHook` are undefined, so the call would die on an
+ *  opaque TypeError that every load-path catch reads as bad data. Called first by
+ *  `ensureAttrHook` (so by both DOMPurify sanitizers, `sanitizeRichHtml` and
+ *  `sanitizeDocumentHtml`) and by `htmlToText`; `plainToHtml` is DOM-free and
+ *  never reaches it. */
+function requireDom(): void {
+  if (!DOMPurify.isSupported) throw new DomUnavailableError();
+}
+
 /** Registers the value-allow-list hook exactly once, LAZILY.
  *
  *  ★★★ NEVER CALL DOMPurify.addHook AT MODULE EVAL. With no DOM it is
@@ -184,6 +195,7 @@ let attrHookRegistered = false;
  *  an `<img>` would be dropped as a TAG, so that assertion would pass for a
  *  reason unrelated to the attribute name test. */
 function ensureAttrHook(): void {
+  requireDom();
   if (attrHookRegistered) return;
   attrHookRegistered = true;
   DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
@@ -403,6 +415,7 @@ export function plainToHtml(text: string): string {
  *  projection's extra entity/NBSP decode running BEFORE its collapse: "x\n&nbsp;\ny"
  *  leaves this function untouched and normalises to "x\ny" there. */
 export function htmlToText(html: string, opts?: { preserveBreaks?: boolean }): string {
+  requireDom();
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   if (opts?.preserveBreaks !== true) return stripped.replace(/\s+/g, " ").trim();
   return stripped

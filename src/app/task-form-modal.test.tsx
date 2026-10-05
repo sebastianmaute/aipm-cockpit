@@ -227,9 +227,11 @@ describe("TaskFormModal — cancel in create mode", () => {
 });
 
 describe("TaskFormModal — submit name does not collide with the editor openers", () => {
-  // WCAG 2.4.6. `tasks-section.tsx` renders TWO openers (toolbar `AddButton`
-  // and the table's trailing add row), both named `addTaskButton` = "Add task",
-  // and BOTH discard the in-progress edit via `handleCancelEdit()`. The submit
+  // WCAG 2.4.6. The Open Points pane renders THREE openers (the toolbar
+  // `AddButton` in tasks-section-toolbar.tsx, the table's trailing add row in
+  // tasks-section-rows.tsx, and the empty-state box), all named from
+  // `addTaskButton` and ALL discarding the in-progress edit through the
+  // orchestrator's `openTaskEditor` (`handleCancelEdit()`). The submit
   // sits over them in the same accessibility tree; speech input does not scope
   // by `aria-modal`. So the submit's name must differ from theirs.
   const openerName = t(EN, "addTaskButton");

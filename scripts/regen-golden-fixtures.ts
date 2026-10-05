@@ -8,9 +8,10 @@
  *   npx vite-node scripts/regen-golden-fixtures.ts
  *
  * ★★★ IT MUST INSTALL A DOM BEFORE DECODING, AND MUST ASSERT THE DECODE IS
- * NON-EMPTY. `jsonToWorkspace` sanitises rich text through DOMPurify and, with
- * no `document` in scope, returns an EMPTY workspace rather than throwing.
- * Measured 2026-09-20: a first cut of this script ran under bare vite-node,
+ * NON-EMPTY. `jsonToWorkspace` sanitises rich text through DOMPurify. With no
+ * `document` in scope it USED to return an EMPTY workspace rather than throw;
+ * since §97 it throws `DomUnavailableError`. The assertion stays because it is
+ * cheap and catches any other route to an empty decode. Measured 2026-09-20: a first cut of this script ran under bare vite-node,
  * printed "regenerated golden fixtures", exited 0, and wrote fixtures for a
  * workspace of ZERO tasks — deleting 126 CSV rows and 653 Markdown lines. A
  * silent truncation that reports success is exactly the shape the golden files
