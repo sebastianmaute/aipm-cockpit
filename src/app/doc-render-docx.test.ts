@@ -16,6 +16,7 @@ import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { validateDocxPackage } from "../test/docx-package-validator";
+import { createNumberingSink } from "./ooxml-docx-numbering";
 import { readZipEntries } from "./unzip";
 import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
@@ -755,9 +756,15 @@ describe("renderDocumentDocx — dataSection blocks", () => {
 // numbering or alignment. These tests drive `buildDocxTable` directly, because
 // that is the boundary both the workspace exporter and a document's own
 // `table`/`dataSection` blocks go through.
+// ★★ WITH A NUMBERING SINK, as both of those callers pass one since §154. A
+// sink-less table spells list markers as literal runs — a path no production
+// caller takes any more — so a regression in NUMBERED output (a head mistaken
+// for a continuation, so no `w:numPr`) would leave sink-less tests green.
 describe("rich entity cells in a DOCX table (§141(b))", () => {
   const cellXml = (html: string): string =>
-    wrapWordXml(buildDocxTable(["description"], [[{ html, text: "ignored" }]]));
+    wrapWordXml(
+      buildDocxTable(["description"], [[{ html, text: "ignored" }]], undefined, undefined, undefined, createNumberingSink()),
+    );
 
   /** The BODY cell's paragraphs. The single header column contributes exactly
    *  one paragraph, so dropping the first entry leaves the cell's own.
@@ -769,6 +776,18 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
    *  over the raw string can NEVER pass. Concatenating the `<w:t>`s within one
    *  `<w:p>` is what asserts the reader actually sees "1. first" on one line. */
   const cellParas = (html: string): string[] => paraTexts(cellXml(html)).slice(1);
+
+  /** The body cell's paragraphs, a numbered one prefixed `ilvl:numId` (§154) —
+   *  what Word numbers it by, now that no marker is spelled into the text. */
+  const listParas = (html: string): string[] =>
+    Array.from(parseXml(cellXml(html)).getElementsByTagName("w:p"))
+      .slice(1)
+      .map((para) => {
+        const text = Array.from(para.getElementsByTagName("w:t")).map((n) => n.textContent ?? "").join("").trim();
+        const ilvl = para.getElementsByTagName("w:ilvl")[0]?.getAttribute("w:val");
+        const numId = para.getElementsByTagName("w:numId")[0]?.getAttribute("w:val");
+        return ilvl === undefined ? text : `${ilvl}:${numId} ${text}`;
+      });
 
   /** Every `<w:ind w:left>` in the fragment, in document order. */
   const indents = (html: string): (string | null)[] =>
@@ -786,32 +805,33 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(cellParas("<h4>Deep</h4>")).toEqual(["Deep"]);
   });
 
-  it("numbers an ordered list as literal marker text", () => {
+  it("numbers an ordered list as one Word list", () => {
     // ★★ THE EDITOR'S REAL SHAPE. Tiptap stores `<li><p>text</p></li>`; a
     // fixture using a bare `<li>` cannot see a defect in the transparency arm,
     // which is how a CRITICAL already hid in this slice.
-    expect(cellParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
-      "1. first",
-      "2. second",
+    expect(listParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
+      "0:1 first",
+      "0:1 second",
     ]);
   });
 
   it("numbers a bare <li> the same way the editor's nested <p> is numbered", () => {
     // The golden fixtures and legacy stored values carry this flatter form, so
     // both shapes must reach the same bytes.
-    expect(cellParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
-      "1. first",
-      "2. second",
+    expect(listParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
+      "0:1 first",
+      "0:1 second",
     ]);
   });
 
   it("bullets an unordered list instead of numbering it", () => {
-    expect(cellParas("<ul><li><p>one</p></li></ul>")).toEqual(["• one"]);
+    expect(listParas("<ul><li><p>one</p></li></ul>")).toEqual(["0:1 one"]);
+    expect(cellXml("<ul><li><p>one</p></li></ul>")).not.toContain("•");
   });
 
   it("indents a nested list item one further step", () => {
     const nested = "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>";
-    expect(cellParas(nested)).toEqual(["• a", "• b"]);
+    expect(listParas(nested)).toEqual(["0:1 a", "1:2 b"]);
     expect(indents(nested)).toEqual(["720", "1440"]);
   });
 
@@ -822,7 +842,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     // wraps to. Before this it restarted as a bare `p`, so a client-facing DOCX
     // showed an unmarked, unindented orphan BETWEEN two numbered items.
     const wrapped = "<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>";
-    expect(cellParas(wrapped)).toEqual(["1. a", "b", "2. c"]);
+    expect(listParas(wrapped)).toEqual(["0:1 a", "b", "0:1 c"]);
     expect(indents(wrapped)).toEqual(["720", "720", "720"]);
   });
 
@@ -834,9 +854,9 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     // exported list's first visible number was "2." with an unmarked line above
     // it and no "1." anywhere. `promoteItemHead` makes the first line the item
     // DID emit its head.
-    expect(cellParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
-      "1. x",
-      "2. y",
+    expect(listParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
+      "0:1 x",
+      "0:1 y",
     ]);
   });
 
@@ -851,7 +871,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
 
   it("indents a second paragraph in the same item at the item's depth", () => {
     const twoParas = "<ul><li><p>a</p><p>b</p></li></ul>";
-    expect(cellParas(twoParas)).toEqual(["• a", "b"]);
+    expect(listParas(twoParas)).toEqual(["0:1 a", "b"]);
     expect(indents(twoParas)).toEqual(["720", "720"]);
   });
 
@@ -869,7 +889,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
 
   it("orders <w:pPr>'s children by the schema, not by the order they are added", () => {
     // ★★★ CT_PPr's children are an xsd:sequence, exactly like the `<w:rPr>`
-    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> ind -> jc. Every
+    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> numPr -> ind -> jc. Every
     // string assertion in this describe passes whatever the order, so this is
     // the only thing pinning it.
     const li = '<ol><li><p data-align="center">x</p></li></ol>';
@@ -879,6 +899,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(pPr).toBeDefined();
     expect(Array.from(pPr!.children).map((el) => el.tagName)).toEqual([
       "w:pStyle",
+      "w:numPr",
       "w:ind",
       "w:jc",
     ]);
@@ -1169,7 +1190,7 @@ describe("DOCX invariants Word fails silently on", () => {
   it("orders every <w:pPr>'s children by the CT_PPr sequence", async () => {
     // ★★★ INVARIANT 2. CT_PPrBase is an xsd:sequence, so the RANK of each child
     // is fixed by the schema and not by the order a builder happens to push
-    // them: pStyle · pBdr · spacing · ind · jc · outlineLvl. This sweeps EVERY
+    // them: pStyle · numPr · pBdr · spacing · ind · jc · outlineLvl. This sweeps EVERY
     // <w:pPr> in both emission paths AND in styles.xml — the style declarations
     // drifted out of sequence independently of the emitters once already,
     // because nothing was looking at them.

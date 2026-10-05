@@ -34,7 +34,7 @@ import {
   docxRichParagraphs,
 } from "./ooxml-docx-primitives";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
-import { createNumberingSink, type NumberingSink } from "./ooxml-docx-numbering";
+import { createNumberingSink, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
 import { resolveDataSection } from "./doc-data-section";
 import type { ExportExtras } from "./export-forecast-section";
 import { docxColumnWidths, docxSection } from "./export-docx-columns";
@@ -385,7 +385,7 @@ function renderBlock(
       return block.items
         .map((item, i) => {
           const numPr = numbering.numPrFor({ ordered: block.ordered === true, depth: 0, index: i });
-          return `<w:p><w:pPr><w:pStyle w:val="ListParagraph"/>${numPr}</w:pPr><w:r>${docxCellRuns(item)}</w:r></w:p>`;
+          return `<w:p><w:pPr><w:pStyle w:val="ListParagraph"/>${numPr}${listHeadIndent(0)}</w:pPr><w:r>${docxCellRuns(item)}</w:r></w:p>`;
         })
         .join("");
     case "table":

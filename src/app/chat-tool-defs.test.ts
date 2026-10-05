@@ -81,7 +81,8 @@ describe("the stakeholder tools disclose that RACI is not writable", () => {
       const description = TOOL_DEFS.find((def) => def.name === toolName)!.description;
       expect(description).toMatch(/cannot set RACI/);
       expect(description).toContain("RACI view");
-      expect(description).toContain("Suggest RACI");
+      // Not the English label: the button is "RACI vorschlagen" in German.
+      expect(description).toContain("AI suggestion button");
     });
   }
 });

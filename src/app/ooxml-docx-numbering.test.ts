@@ -1,6 +1,6 @@
 // open-followups §154 — the numbering sink: one `w:num` per list instance.
 import { describe, expect, it } from "vitest";
-import { createNumberingSink } from "./ooxml-docx-numbering";
+import { createNumberingSink, listHeadIndent } from "./ooxml-docx-numbering";
 
 const numId = (numPr: string) => Number(/w:numId w:val="(\d+)"/.exec(numPr)?.[1]);
 const ilvl = (numPr: string) => Number(/w:ilvl w:val="(\d+)"/.exec(numPr)?.[1]);
@@ -43,6 +43,23 @@ describe("createNumberingSink (§154)", () => {
     // A list first seen mid-count starts where the parser says it is.
     expect(sink.partXml()).toContain(`<w:num w:numId="${ordered}"><w:abstractNumId w:val="1"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="3"/>`);
     expect(sink.partXml()).toContain(`<w:num w:numId="${bullet}"><w:abstractNumId w:val="0"/>`);
+  });
+
+  it("starts a new instance when the count skips, so it does not continue an older list", () => {
+    // Task items keep their literal box and never reach the sink, but they
+    // spend ordinals: a numbered item after them arrives at index 1.
+    const sink = createNumberingSink();
+    const first = [0, 1].map((index) => numId(sink.numPrFor({ ordered: true, depth: 0, index })));
+    const after = numId(sink.numPrFor({ ordered: true, depth: 0, index: 1 }));
+    expect(first).toEqual([1, 1]);
+    expect(after).toBe(2);
+    expect(sink.partXml()).toContain(`<w:num w:numId="2"><w:abstractNumId w:val="1"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="2"/>`);
+  });
+
+  it("restates the level's indent directly on a list head", () => {
+    expect(listHeadIndent(0)).toBe(`<w:ind w:left="720" w:hanging="360"/>`);
+    expect(listHeadIndent(2)).toBe(`<w:ind w:left="2160" w:hanging="360"/>`);
+    expect(listHeadIndent(12)).toBe(listHeadIndent(8));
   });
 
   it("clamps a depth past Word's nine levels to the last one", () => {

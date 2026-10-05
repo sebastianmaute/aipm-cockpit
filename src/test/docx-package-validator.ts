@@ -50,6 +50,13 @@ const ABSTRACT_NUM_SEQUENCE = ["nsid", "multiLevelType", "tmpl", "name", "styleL
 const NUM_SEQUENCE = ["abstractNumId", "lvlOverride"];
 const NUMBERING_SEQUENCE = ["numPicBullet", "abstractNum", "num", "numIdMacAtCleanup"];
 
+/** The Override content type each WordprocessingML part this repo writes must carry. */
+const EXPECTED_CONTENT_TYPES: Record<string, string> = {
+  "word/document.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+  "word/styles.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml",
+  "word/numbering.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+};
+
 /** ST_Jc (§17.18.44). `justify` is NOT a member — Word drops it. */
 const ST_JC = new Set([
   "start", "center", "end", "both", "mediumKashida", "distribute", "numTab", "highKashida",
@@ -142,6 +149,16 @@ export async function validateDocxPackage(blob: Blob): Promise<string[]> {
     }
     for (const part of overrides) {
       if (!entries.has(part)) problems.push(`[Content_Types].xml: override for missing part /${part}`);
+    }
+    // A content type that is PRESENT but wrong is the same silent failure as a
+    // missing one: Word does not treat the part as what it is.
+    for (const o of Array.from(types.getElementsByTagName("Override"))) {
+      const part = (o.getAttribute("PartName") ?? "").slice(1);
+      const expected = EXPECTED_CONTENT_TYPES[part];
+      const actual = o.getAttribute("ContentType");
+      if (expected !== undefined && actual !== expected) {
+        problems.push(`[Content_Types].xml: /${part} has content type "${actual}", expected "${expected}"`);
+      }
     }
   }
 

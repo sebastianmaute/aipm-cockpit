@@ -37,7 +37,7 @@ import {
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import type { LinkRel, LinkSink } from "./ooxml-links";
-import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, type NumberingSink } from "./ooxml-docx-numbering";
+import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
 
 /** One cell's text as Word runs, mapping the export projection's newlines to
  *  <w:br/>. A cell with no newline emits exactly the single <w:t> it always
@@ -289,7 +289,8 @@ function markedRun(run: RenderRun): string {
  *  ★★ `heading` is deliberately ABSENT from this record and resolved by
  *  `docxStyleFor` instead: its style id depends on the line's `level`, which a
  *  kind→id map cannot express. `li` IS here — every depth wears
- *  `ListParagraph` and the depth rides `<w:ind>`, not a per-depth style. */
+ *  `ListParagraph`, and the depth rides `<w:ind>` (plus, on a numbered item's
+ *  first line, `w:numPr`'s `w:ilvl` — §154), never a per-depth style. */
 const DOCX_LINE_STYLE: Partial<Record<RichLineKind, string>> = {
   blockquote: "Quote",
   pre: "CodeBlock",
@@ -339,10 +340,9 @@ const JC_VALUE: Record<Align, string> = {
  *
  *  ★★ WITH A `numbering` SINK (§154) a list item's first line is a real Word
  *  list paragraph: it carries `<w:numPr>` (after `w:pStyle`, before `w:ind`
- *  in CT_PPr's sequence) and no marker run, and its indent comes from the
- *  numbering level, so it emits no `w:ind` of its own — a direct one would
- *  override the level's hanging indent. Continuation lines keep `w:ind` at the
- *  level's text position. A TASK item keeps the literal path: Word numbering
+ *  in CT_PPr's sequence) and no marker run, plus a direct `w:ind` that
+ *  restates its numbering level's hanging indent (`listHeadIndent` says why).
+ *  Continuation lines keep `w:ind` at the level's text position. A TASK item keeps the literal path: Word numbering
  *  has no checked state.
  *  ★★ WITHOUT a sink the marker is LITERAL TEXT in its own `<w:r>`, as it
  *  always was, so a sink-less caller is byte-identical. `bulletMarker` is the
@@ -361,7 +361,7 @@ export function docxRichParagraph(
   if (style) parts.push(`<w:pStyle w:val="${style}"/>`);
   const numbered = line.kind === "li" && numbering !== undefined && line.task === undefined;
   if (numbered && !line.continuation) {
-    parts.push(numbering.numPrFor(line));
+    parts.push(numbering.numPrFor(line), listHeadIndent(line.depth));
   } else if (line.kind === "li") {
     parts.push(`<w:ind w:left="${LIST_INDENT_TWIPS * (line.depth + 1)}"/>`);
   } else if (line.listDepth !== undefined) {

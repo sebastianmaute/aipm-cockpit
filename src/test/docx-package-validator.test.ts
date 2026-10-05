@@ -108,6 +108,15 @@ describe("validateDocxPackage (§154)", () => {
     expect(problems).toContain("word/_rels/document.xml.rels: rId1 targets missing part word/styles.xml");
   });
 
+  it("reports a part whose content type is present but wrong", async () => {
+    const { numPr, xml } = listPart();
+    const blob = await rezip(pkg(`<w:p><w:pPr>${numPr}</w:pPr></w:p>`, xml), (parts) => {
+      const types = parts.get("[Content_Types].xml")!;
+      parts.set("[Content_Types].xml", types.replace("wordprocessingml.numbering+xml", "wordprocessingml.numbring+xml"));
+    });
+    await expectOneProblem(blob, `/word/numbering.xml has content type`);
+  });
+
   it("reports a relationship whose target part is missing", async () => {
     const blob = await rezip(pkg("<w:p/>"), (parts) => {
       const rels = parts.get("word/_rels/document.xml.rels")!;

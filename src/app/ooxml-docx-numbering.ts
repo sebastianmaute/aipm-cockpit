@@ -41,18 +41,33 @@ export const LIST_INDENT_TWIPS = 720;
 /** The marker hangs this far left of the text. */
 const LIST_HANGING_TWIPS = 360;
 
+/** The direct `<w:ind>` a numbered list item's first line carries — the SAME
+ *  indent its numbering level declares.
+ *
+ *  ★★ DELIBERATELY REDUNDANT. Word ranks a numbering level's indent above the
+ *  paragraph style's (`ListParagraph` sets `w:left="720"`), but ECMA-376's
+ *  property hierarchy as written applies paragraph-style properties AFTER
+ *  numbering, so a reader that follows the text would put every depth at 720
+ *  while its continuation lines sit deeper. Direct formatting wins in every
+ *  reader, so stating the level's indent here removes the question. */
+export function listHeadIndent(depth: number): string {
+  const level = Math.min(Math.max(depth, 0), MAX_LEVEL);
+  return `<w:ind w:left="${LIST_INDENT_TWIPS * (level + 1)}" w:hanging="${LIST_HANGING_TWIPS}"/>`;
+}
+
 const ABSTRACT_BULLET = 0;
 const ABSTRACT_DECIMAL = 1;
 
 export type NumberingSink = {
   /** The `<w:numPr>` for a list item's FIRST line. Continuation lines take
-   *  none — a list item has one marker however many lines it wraps to. */
+   *  none — a list item has one marker however many lines it wraps to. Pair
+   *  it with `listHeadIndent`. */
   numPrFor(item: { ordered: boolean; depth: number; index: number }): string;
   /** The `word/numbering.xml` part, or undefined when nothing was minted. */
   partXml(): string | undefined;
 };
 
-type Instance = { numId: number; ordered: boolean; level: number; start: number };
+type Instance = { numId: number; ordered: boolean; level: number; start: number; next: number };
 
 export function createNumberingSink(): NumberingSink {
   const instances: Instance[] = [];
@@ -63,11 +78,16 @@ export function createNumberingSink(): NumberingSink {
     numPrFor({ ordered, depth, index }) {
       const level = Math.min(Math.max(depth, 0), MAX_LEVEL);
       let inst = open.get(level);
-      if (!inst || index === 0 || inst.ordered !== ordered) {
-        inst = { numId: instances.length + 1, ordered, level, start: index + 1 };
+      // ★ `index !== inst.next` covers `index === 0` (a restarted list) AND a
+      // count that skipped: items a NUMBERED path never saw (task items, which
+      // keep their literal box) spent ordinals, so the next numbered item must
+      // start where the parser says, not continue an older list's count.
+      if (!inst || index !== inst.next || inst.ordered !== ordered) {
+        inst = { numId: instances.length + 1, ordered, level, start: index + 1, next: index };
         instances.push(inst);
         open.set(level, inst);
       }
+      inst.next = index + 1;
       return `<w:numPr><w:ilvl w:val="${level}"/><w:numId w:val="${inst.numId}"/></w:numPr>`;
     },
     partXml() {

@@ -66,7 +66,7 @@ describe("VIEW_AI_SCOPE", () => {
   it("tells the model RACI is changed in the RACI view, not by chat", () => {
     const reading = VIEW_AI_SCOPE.raci.reading ?? "";
     expect(reading).toMatch(/cannot set RACI/);
-    expect(reading).toContain("Suggest RACI");
+    expect(reading).toContain("AI suggestion button");
   });
 
   // Documents shipped with a "there is no tool for this yet" disclosure, which

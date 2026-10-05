@@ -483,9 +483,9 @@ describe("docxRichParagraphs — §154 Word numbering", () => {
     const xml = docxRichParagraphs("<ol><li><p>first</p><p>more</p></li><li>b</li></ol>", undefined, createNumberingSink());
     expect(texts(xml)).toEqual(["first", "more", "b"]);
     expect(numPrs(xml)).toEqual(["0:1", "0:1"]);
-    // The head takes its indent from the numbering level; the continuation
-    // sits at the level's text position and carries no number.
-    expect(xml).toContain(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>`);
+    // The head restates its level's hanging indent directly (listHeadIndent);
+    // the continuation sits at the level's text position and carries no number.
+    expect(xml).toContain(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:ind w:left="720" w:hanging="360"/></w:pPr>`);
     expect(xml).toContain(`<w:pPr><w:pStyle w:val="ListParagraph"/><w:ind w:left="720"/></w:pPr>`);
   });
 
