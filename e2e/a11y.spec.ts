@@ -249,7 +249,7 @@ for (const combo of COMBOS) {
       await page.addInitScript(seedScript(combo));
       // §171: without the integration switched on, this view renders only its
       // not-configured screen and the tables' controls reach no gate.
-      if (name === "Time bookings") await seedTimelogSettings(page);
+      const timelog = name === "Time bookings" ? await seedTimelogSettings(page) : null;
 
       await gotoApp(page);
       const hash = HASH_VIEW[name];
@@ -287,8 +287,11 @@ for (const combo of COMBOS) {
         await openView(page, name);
       }
       // ★ The table must be on screen, or this scan is the empty state again.
-      if (name === "Time bookings") {
+      if (timelog) {
         await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
+        // Let the mount-time project-list call settle first (seedTimelogSettings),
+        // so the scan never lands mid-update.
+        await expect.poll(() => timelog.paths()).toContain("/v1/project/get-all");
       }
 
       const results = await new AxeBuilder({ page })

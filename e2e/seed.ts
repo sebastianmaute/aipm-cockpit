@@ -280,22 +280,26 @@ function ok(cols: string[], rows: string[][]) {
  * its projects and people tables instead of the not-configured screen (§171).
  * timelog-panel.tsx gates on `cfg.enabled` alone, and the seeded
  * `timelogLinks` then surface as rows: linked-but-unfetched projects are merged
- * in under their id, so 701 and 702 render without any network call.
+ * in under their id, so 701 and 702 render without a bookings fetch.
  *
  * ★ The token is a dummy, but it is NOT blank on purpose: a blank token makes
  * `isMisconfigured` true, which disables the fetch toolbar, and axe skips
  * colour-contrast on disabled controls. With it, the toolbar renders live.
  *
- * ★★ Nothing may reach `/api/timelog`. Every Timelog call goes through that
- * one same-origin proxy (timelog-api.ts), only on a click, so the route answers
- * 503 and counts. A test asserting `calls() === 0` proves the scan saw the
- * unfetched state rather than a half-loaded one.
+ * ★★ ONE CALL GOES OUT ON MOUNT, and the seed causes it. The seeded links carry
+ * `customerId: 42`, so `useTimelogPickerScope` seeds the picker from them and its
+ * mount effect loads that customer's projects (`/v1/project/get-all`). Every
+ * Timelog call goes through the one same-origin proxy (timelog-api.ts), so the
+ * route answers each with an empty 200 page and records its `path`. An error
+ * status here would raise a "could not load projects" toast at an unpredictable
+ * moment in the axe scan. A test can then assert that nothing fetched bookings
+ * or registrations, which is what keeps the scanned rows the seeded ones.
  *
  * Call BEFORE gotoApp — the init script has to land before the app boots.
  * Settings are a SHALLOW merge over defaults (see installAssetByteStore), so
  * this key alone leaves everything else at its default.
  */
-export async function seedTimelogSettings(page: Page): Promise<{ calls: () => number }> {
+export async function seedTimelogSettings(page: Page): Promise<{ paths: () => string[] }> {
   await page.addInitScript(() => {
     localStorage.setItem(
       "aipm-cockpit:settings",
@@ -311,12 +315,13 @@ export async function seedTimelogSettings(page: Page): Promise<{ calls: () => nu
       }),
     );
   });
-  let calls = 0;
+  const paths: string[] = [];
   await page.route("**/api/timelog", async (route) => {
-    calls += 1;
-    await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+    const body = route.request().postDataJSON() as { path?: unknown } | null;
+    paths.push(typeof body?.path === "string" ? body.path : "<no path>");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ Entities: [] }) });
   });
-  return { calls: () => calls };
+  return { paths: () => [...paths] };
 }
 
 /** Primary sidebar views worth smoke-checking. Names match their accessible labels. */

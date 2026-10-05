@@ -8927,8 +8927,6 @@ judgement calls rather than defects, and the ratchet itself. The one name defect
 (`602a00e4`) and **eleven of the fifteen** hardcoded-English names are gone (`602a00e4`, `396f9de7`) —
 both were held open by name here until 2026-09-01.
 
-**Work item:** #141
-
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
 main took 105–108 as well. Every commit message on that branch says §103 and none can be edited.
@@ -14986,9 +14984,7 @@ choice between "stabilise every handler prop" and "delete the memo" is still ope
 
 ## 171. The axe gate scanned the Time bookings EMPTY STATE, not the table — CLOSED 2026-10-05
 
-**Status:** CLOSED 2026-10-05 — the first way out below was taken. `seedTimelogSettings` (`e2e/seed.ts`) switches the integration on for one test, with a dummy token so the fetch toolbar renders live rather than disabled (axe skips colour contrast on disabled controls), and routes `/api/timelog` to a counting 503 stub. The "Time bookings" scan in `e2e/a11y.spec.ts` calls it and first asserts the `Clear link – 701` row is visible, so the scan cannot fall back to the empty state silently. `e2e/seed-content.spec.ts` asserts the `701`/`702` rows again, plus zero Timelog calls, and keeps a second test that pins the not-configured screen under the default settings. ★ Residual: the PEOPLE table still renders empty under the scan, because its rows come only from a network fetch (`sync.users`); its row names stay pinned by `timelog-panel.test.tsx` alone. Verified by CI's `e2e` job, not by a local run. Earlier: open — an axe-scanned view that renders its not-configured gate. Reproduced 2026-08-28 by `grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx`.
-
-**Work item:** #170
+**Status:** CLOSED 2026-10-05 — the first way out below was taken. `seedTimelogSettings` (`e2e/seed.ts`) switches the integration on for one test, with a dummy token so the fetch toolbar renders live rather than disabled (axe skips colour contrast on disabled controls), and answers `/api/timelog` with an empty 200 page, recording each request's `path`. The "Time bookings" scan in `e2e/a11y.spec.ts` calls it and first asserts the `Clear link – 701` row is visible, so the scan cannot fall back to the empty state silently. `e2e/seed-content.spec.ts` asserts the `701`/`702` rows again and that no bookings or registrations were fetched (the one mount-time call is the seeded customer's project list, `/v1/project/get-all`, which both tests wait for), and keeps a second test that pins the not-configured screen under the default settings. ★ Residual: the PEOPLE table still renders empty under the scan, because its rows come only from a network fetch (`sync.users`); its row names stay pinned by `timelog-panel.test.tsx` alone. Verification is owed to CI's `e2e` job on the PR; nothing ran locally. Earlier: open — an axe-scanned view that renders its not-configured gate. Reproduced 2026-08-28 by `grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx`.
 
 `e2e/seed.ts` seeds file mode and never enables the Timelog integration, and 0.245.0 gated the page
 on `cfg.enabled`, returning `TimelogNotConfigured` when it is off. "Time bookings" is in

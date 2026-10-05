@@ -155,9 +155,12 @@ test("seeded timelog project links reach the app, not just IndexedDB", async ({ 
   await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Clear link – 702", exact: true })).toBeVisible();
   await expect(page.getByText("The Timelog integration is switched off", { exact: false })).toHaveCount(0);
-  // ★ Rendering the rows must not have called Timelog: the rows come from the
-  // seed alone, which is what makes this the unfetched state the axe scan sees.
-  expect(timelog.calls()).toBe(0);
+  // ★ The one mount-time call is the seeded customer's project list (see
+  // seedTimelogSettings). Waiting for it also proves the stub is wired, so the
+  // check below is not vacuous.
+  await expect.poll(() => timelog.paths()).toContain("/v1/project/get-all");
+  // ★ Nothing fetched bookings or registrations, so the rows are the seeded ones.
+  expect(timelog.paths().filter((path) => /time-|timesheet/.test(path))).toEqual([]);
 });
 
 test("Time bookings renders the not-configured gate when the integration is off", async ({ page }) => {
