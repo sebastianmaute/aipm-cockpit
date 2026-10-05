@@ -704,7 +704,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`
   (Analyze-with-AI + weight-suggestion context + scheduled-job runner),
   `use-insight-recommendations.ts` (entity resolution + the insight-recommendation confirm/replay
-  path), `shell-chrome.tsx`
+  path), `use-insight-lifecycle.ts` (the insight detect → reconcile runner + the acknowledge / act / logged-as-RAID /
+  dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
