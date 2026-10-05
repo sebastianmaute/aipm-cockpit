@@ -704,14 +704,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`
   (Analyze-with-AI + weight-suggestion context + scheduled-job runner),
   `use-insight-recommendations.ts` (entity resolution + the insight-recommendation confirm/replay
-  path), `shell-chrome.tsx`
+  path), `use-insight-lifecycle.ts` (the insight detection input + the detect → reconcile runner + the acknowledge / act / logged-as-RAID /
+  dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
   handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. ★★ The fourth, `use-insight-recommendations.ts`, is NOT excluded: it was until §275 (closed), but its confirm path filters replayed calls through `ALLOWED_REC_TOOLS`, a security boundary, and an excluded file hides even an uncovered guard. Its own `renderHook` test pins that filter. A fifth, `use-insight-lifecycle.ts` (§491), holds the insight detect →
   reconcile runner and the four lifecycle handlers; it is also coverage-GATED, with the runner driven through
-  `TaskManager` by `task-manager.guardrail-reconcile.test.tsx` and the handlers pinned by its own `renderHook` test. The
+  `TaskManager` by `task-manager.guardrail-reconcile.test.tsx` and the handlers pinned by its own `renderHook` test. A sixth,
+  `use-outlook-imports.ts` (§491), holds the Outlook contacts and calendar import flows (modal state, fetch, error-key
+  mapping, confirm); it is coverage-GATED and pinned by its own `renderHook` test. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

@@ -200,6 +200,9 @@ longer carries its own changelog comment.
   the acknowledge, act, logged-as-RAID and dismiss handlers move, unchanged, to a new hook,
   `use-insight-lifecycle.ts`, with its own handler tests; the file's size baseline follows it down to 3182.
   §458 is closed: the help-popover Tab test flake was already fixed by waiting for the dialog's initial focus.
+- **Outlook import flows moved out of `task-manager.tsx` (§491).** The Outlook contacts and calendar import
+  flows move, unchanged, to a new hook, `use-outlook-imports.ts`, with its own tests; the file's size baseline
+  follows it down to 3066.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

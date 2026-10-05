@@ -6,7 +6,7 @@ import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
 import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
-import { t, tPlural } from "./i18n";
+import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
@@ -130,15 +130,11 @@ import { useCommSend } from "./use-comm-send";
 import { CommSendPreviewModal } from "./comm-send-preview-modal";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
-import { useOutlookContacts } from "./use-outlook-contacts";
+import { useOutlookImports } from "./use-outlook-imports";
 import { OutlookImportModal } from "./outlook-import-modal";
-import { contactsFromImported, canImportOutlookContacts, type OutlookContact } from "./outlook-contacts";
-import { upsertContact } from "./contacts";
-import { useOutlookCalendar } from "./use-outlook-calendar";
+import { canImportOutlookContacts } from "./outlook-contacts";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
-import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
-import { isoAddDays } from "./due-dates";
-import type { AbsenceType, ProjectMeta } from "./types";
+import type { ProjectMeta } from "./types";
 import {
   loadRegistry,
   saveRegistry,
@@ -1272,130 +1268,18 @@ function TaskManagerInner() {
   const m365Enabled = settings.integrations?.m365?.enabled ?? false;
   const msAuth = useMsAuth(m365Enabled, { clientId: settings.integrations?.m365?.clientId, tenantId: settings.integrations?.m365?.tenantId });
   const commSend = useCommSend({ mode: settings.commTemplateSendMode ?? "mailto", msAuth, lang, showToast });
-  const { fetchContacts: fetchOutlookContacts } = useOutlookContacts(msAuth.acquireToken);
-
-  const [importOpen, setImportOpen] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importContacts, setImportContacts] = useState<OutlookContact[]>([]);
-
-  const handleOpenOutlookImport = useCallback(async () => {
-    const knownKeys = [
-      "outlookSignInRequired",
-      "outlookSignInExpired",
-      "outlookPermissionDenied",
-      "outlookFetchFailed",
-    ] as const;
-    setImportOpen(true);
-    setImportError(null);
-    setImportContacts([]);
-    setImportLoading(true);
-    try {
-      const fetched = await fetchOutlookContacts();
-      setImportContacts(fetched);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      const key = (knownKeys as readonly string[]).includes(msg)
-        ? (msg as (typeof knownKeys)[number])
-        : "outlookFetchFailed";
-      setImportError(t(lang, key));
-    } finally {
-      setImportLoading(false);
-    }
-  }, [fetchOutlookContacts, lang, setImportOpen, setImportError, setImportContacts, setImportLoading]);
-
-  const existingResourceEmails = useMemo(
-    () =>
-      new Set(
-        resources
-          .map((r) => (r.email ?? "").trim().toLowerCase())
-          .filter((e) => e !== ""),
-      ),
-    [resources],
-  );
-
-  const handleConfirmOutlookImport = useCallback(
-    (selected: OutlookContact[]) => {
-      handleImportResources(selected);
-      setContacts((prev) =>
-        contactsFromImported(selected).reduce(
-          (acc, c) => upsertContact(acc, c.name, c.email),
-          prev,
-        ),
-      );
-      setImportOpen(false);
-      showToast("info", t(lang, "outlookImportedN", selected.length));
-    },
-    [handleImportResources, setContacts, showToast, lang, setImportOpen],
-  );
+  const {
+    importOpen, setImportOpen, importLoading, importError, importContacts,
+    handleOpenOutlookImport, existingResourceEmails, handleConfirmOutlookImport,
+    calImportOpen, setCalImportOpen, calImportLoading, calImportError, calImportEvents,
+    calendarTarget, calendarExistingKeys, handleOpenCalendarImport, handleConfirmCalendarImport,
+  } = useOutlookImports({
+    lang, today, msAuth, resources, absences, setContacts,
+    handleImportResources, handleImportAbsences, showToast,
+  });
 
   const outlookCalendarEnabled =
     m365Enabled && (settings.integrations?.m365?.outlookCalendar ?? false);
-  const { fetchEvents: fetchOutlookEvents } = useOutlookCalendar(msAuth.acquireToken);
-
-  const [calImportOpen, setCalImportOpen] = useState(false);
-  const [calImportLoading, setCalImportLoading] = useState(false);
-  const [calImportError, setCalImportError] = useState<string | null>(null);
-  const [calImportEvents, setCalImportEvents] = useState<OutlookEvent[]>([]);
-
-  const calendarTarget = useMemo<AbsenceImportTarget>(() => {
-    const email = (msAuth.account?.username ?? "").trim();
-    const lower = email.toLowerCase();
-    const match = email
-      ? resources.find((r) => (r.email ?? "").trim().toLowerCase() === lower)
-      : undefined;
-    return {
-      assignee: match ? resourceDisplayName(match) : (msAuth.account?.name ?? email),
-      assigneeEmail: email || undefined,
-      resourceId: match?.id,
-    };
-  }, [msAuth.account, resources]);
-
-  const calendarExistingKeys = useMemo(() => {
-    const key = calendarTarget.assignee.trim().toLowerCase();
-    return new Set(
-      absences
-        .filter((a) => a.assignee.trim().toLowerCase() === key)
-        .map((a) => dedupeKey(a.assignee, a.startDate, a.endDate)),
-    );
-  }, [absences, calendarTarget.assignee]);
-
-  const handleOpenCalendarImport = useCallback(async () => {
-    const knownKeys = [
-      "outlookSignInRequired",
-      "outlookSignInExpired",
-      "outlookCalendarPermissionDenied",
-      "outlookCalendarFetchFailed",
-    ] as const;
-    setCalImportOpen(true);
-    setCalImportError(null);
-    setCalImportEvents([]);
-    setCalImportLoading(true);
-    try {
-      const events = await fetchOutlookEvents({
-        startDateTime: `${isoAddDays(today, -30)}T00:00:00Z`,
-        endDateTime: `${isoAddDays(today, 180)}T00:00:00Z`,
-      });
-      setCalImportEvents(events);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      const key = (knownKeys as readonly string[]).includes(msg)
-        ? (msg as (typeof knownKeys)[number])
-        : "outlookCalendarFetchFailed";
-      setCalImportError(t(lang, key));
-    } finally {
-      setCalImportLoading(false);
-    }
-  }, [fetchOutlookEvents, today, lang, setCalImportOpen, setCalImportError, setCalImportEvents, setCalImportLoading]);
-
-  const handleConfirmCalendarImport = useCallback(
-    (rows: { event: OutlookEvent; type: AbsenceType }[]) => {
-      handleImportAbsences(rows, calendarTarget);
-      setCalImportOpen(false);
-      showToast("info", tPlural(lang, "outlookCalImportedN", rows.length, rows.length));
-    },
-    [handleImportAbsences, calendarTarget, showToast, lang, setCalImportOpen],
-  );
 
   const tasksRef = useRef(tasks);
   useEffect(() => {
