@@ -203,6 +203,9 @@ longer carries its own changelog comment.
 - **Outlook import flows moved out of `task-manager.tsx` (§491).** The Outlook contacts and calendar import
   flows move, unchanged, to a new hook, `use-outlook-imports.ts`, with its own tests; the file's size baseline
   follows it down to 3066.
+- **Portfolio project wiring moved out of `task-manager.tsx` (§491).** The multi-project handlers, the
+  mode-aware project lists and the key-facts snapshot effect move, unchanged, to a new hook,
+  `use-portfolio-projects.ts`, with its own tests; the file's size baseline follows it down to 2928.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.

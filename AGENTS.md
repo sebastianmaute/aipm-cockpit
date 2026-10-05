@@ -705,7 +705,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (Analyze-with-AI + weight-suggestion context + scheduled-job runner),
   `use-insight-recommendations.ts` (entity resolution + the insight-recommendation confirm/replay
   path), `use-insight-lifecycle.ts` (the insight detection input + the detect → reconcile runner + the acknowledge / act / logged-as-RAID /
-  dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `shell-chrome.tsx`
+  dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `use-portfolio-projects.ts`
+  (the multi-project handlers, the mode-aware project lists, the key-facts snapshot effect and the `useTursoProjects`
+  composition), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -714,7 +716,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   reconcile runner and the four lifecycle handlers; it is also coverage-GATED, with the runner driven through
   `TaskManager` by `task-manager.guardrail-reconcile.test.tsx` and the handlers pinned by its own `renderHook` test. A sixth,
   `use-outlook-imports.ts` (§491), holds the Outlook contacts and calendar import flows (modal state, fetch, error-key
-  mapping, confirm); it is coverage-GATED and pinned by its own `renderHook` test. The
+  mapping, confirm); it is coverage-GATED and pinned by its own `renderHook` test. A seventh, `use-portfolio-projects.ts`
+  (§491), holds the multi-project wiring (the delete's survivor switch, the mode-aware lists, the key-facts snapshot
+  effect); it is coverage-GATED and pinned by its own `renderHook` test. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
