@@ -61,6 +61,7 @@ export function SettingsMenu({
         type="button"
         onClick={() => setOpen(!open)}
         aria-label={t(lang, "settings")}
+        title={t(lang, "settings")}
         aria-expanded={open}
         className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
       >

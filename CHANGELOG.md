@@ -96,6 +96,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The classic header's settings cog shows a tooltip (§109).** Hovering it now shows "Settings", like
+  every other icon-only button in the app.
 - **Undo after restoring a version (§655 follow-up).** After restoring a kept version, or using
   "Restore anyway", pressing Undo could replay an edit made to the other version and mix the two.
   A restore now clears the undo history, and a version already restored or discarded in another
