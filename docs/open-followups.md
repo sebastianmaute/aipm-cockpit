@@ -338,7 +338,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--closed-2026-10-02) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-02 |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--closed-2026-10-04) | The preview/print path loads the whole section registry unconditionally | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | **CLOSED** 2026-10-04 |
-| [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
+| [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--closed-2026-10-05) | The DOM constraint INVERTED for the document load paths | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-10-05 |
 | [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--closed-2026-09-27) | `documents` is invisible to both save-time data-loss guards | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | **CLOSED** 2026-09-27 |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--closed-2026-10-04) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | **CLOSED** 2026-10-04 |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--closed-2026-08-31) | ~~Tab ejects focus from a portaled popover opened inside a modal~~ | field controls → modal header, unreleased | M | **CLOSED** 2026-08-31 |
@@ -7580,9 +7580,11 @@ there is evidence of a user-visible problem. Measure before scheduling it, and c
 
 ---
 
-## 97. The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)
+## 97. The DOM constraint INVERTED for the document load paths — CLOSED 2026-10-05
 
-**Status:** open — a load path that requires a DOM and swallows the failure. Reproduced 2026-08-28 by `grep -n "import DOMPurify" src/app/sanitize-html.ts`.
+**Status:** CLOSED 2026-10-05 (branch `fix/batch6-peer`) by fix option (c) below. `sanitize-html.ts` now throws the named `DomUnavailableError` (`dom-unavailable-error.ts`) when DOMPurify has no DOM, in place of the opaque "addHook is not a function". Every catch on a document load path rethrows it through `rethrowIfDomUnavailable`: `decodeMetaJson` (CSV and Markdown), Turso's `decodeMeta`, the documents and versions catches in `jsonToWorkspace` and `BrowserBackend.load`, and the OUTER catches of both, which would otherwise turn the rethrow into `emptyWorkspace()` or "IDB unavailable". So a caller with no DOM now fails loudly whether or not it passes a `diag`, and no path can lose documents silently for want of one. A genuinely unreadable slice still degrades and is reported. Verified by `npx vitest run src/app/dom-unavailable.load-paths.test.ts --maxWorkers=2` (exit 0, 19 passed; node environment, with a heading-only control and an unreadable-slice control), by deleting each of the ten guards in turn (the eight rethrows and both `requireDom` calls; 10 of 10 mutants killed), and by the nine existing documents, sanitizer and decode test files (exit 0, 295 passed). Considered and rejected: making `diag` required, which churns ~280 test calls and still reports nothing outside a browser. The original status and entry are kept below as the record.
+
+**Original status:** open — a load path that requires a DOM and swallows the failure. Reproduced 2026-08-28 by `grep -n "import DOMPurify" src/app/sanitize-html.ts`.
 
 ★ Narrowed 2026-09-28 (register sweep): the "silent even though a reporting channel exists" half is
 closed. A DOM throw in the documents rich-field pass is now recorded in `diag.decodeFailedSlices` on
@@ -7592,8 +7594,6 @@ The load paths that call `reportFor` then pause saving. The 2026-08-28 text corr
 `DocTruncationDiag` now carries that field and the catch writes to it. Still open: with no DOM the
 documents are still dropped (`grep -n 'from "dompurify"' src/app/sanitize-html.ts`), and a CSV, Markdown,
 IndexedDB or Turso caller that passes no `diag` gets no report (JSON still logs to the diagnostics ring).
-
-**Work item:** #134
 
 **Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
 four specific call sites**, and the failure it produces is silent.

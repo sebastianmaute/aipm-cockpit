@@ -138,8 +138,14 @@ why `strict` exists. Before §635 the two file backends failed the whole load in
 ★★ **Browser versus no DOM.** `logDiag` returns at once when `typeof window === "undefined"`
 (`grep -n 'typeof window' src/app/diagnostics.ts`), so outside a browser every "logged" cell above
 logs nothing, and `noteDecodeFailure` is a no-op without a `diag`. In the browser both run, and the
-slice key reaches the pause. The documents rich-field pass needs DOMPurify, so its throw is the
-no-DOM case in practice; register §624 tracks the scripts that reach it without a DOM.
+slice key reaches the pause. ★★ A MISSING DOM IS THE EXCEPTION to every cell above (§97): the
+sanitizers in `sanitize-html.ts` throw the named `DomUnavailableError` when DOMPurify has no DOM, and
+every catch on these load paths, the outer ones in `jsonToWorkspace` and `BrowserBackend.load`
+included, rethrows it through `rethrowIfDomUnavailable` — so the load FAILS, strict or not, `diag` or
+not, instead of degrading to "documents dropped" with no report. Enumerate the sites with
+`grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test`; each is pinned by a
+mutant in `dom-unavailable.load-paths.test.ts`, which runs in the node environment on purpose.
+A genuinely unreadable slice still degrades and is reported as above.
 
 ★ Partial loss stays silent on every path. A slice whose sanitizer keeps some entries is not
 reported; `steeringCommittee` and `timelogLinks` always sanitize to an object with fixed keys, so

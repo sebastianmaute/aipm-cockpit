@@ -11,6 +11,7 @@
 //  a value that carried something, and lost all of it, is reported.
 
 import type { DocTruncationDiag } from "./document-model";
+import { rethrowIfDomUnavailable } from "./dom-unavailable-error";
 
 /** True when a parsed JSON value carries anything a sanitizer could lose: a
  *  non-empty string, any number or boolean, or an array/object holding such a
@@ -110,7 +111,9 @@ export function decodeMetaJson<T>(
   try {
     raw = JSON.parse(json);
     sanitized = sanitize(raw);
-  } catch {
+  } catch (err) {
+    // §97 — a missing DOM is not a slice that failed to decode: fail the load.
+    rethrowIfDomUnavailable(err);
     noteDecodeFailure(key, diag);
     return undefined;
   }

@@ -11,6 +11,7 @@ import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
 import { noteDecodeFailure, noteIfSanitizedToNothing } from "./meta-slice-decode";
+import { rethrowIfDomUnavailable } from "./dom-unavailable-error";
 import { logDiag } from "./diagnostics";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
@@ -413,6 +414,7 @@ export class BrowserBackend implements StorageBackend {
         noteIfDropped("documents", idbDocuments, docs);
         documents = docs.length ? docs : undefined;
       } catch (err) {
+        rethrowIfDomUnavailable(err); // §97 — a missing DOM fails the load
         logDiag("error", "workspace.documentsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
@@ -439,6 +441,7 @@ export class BrowserBackend implements StorageBackend {
         noteIfDropped("documentVersions", idbDocumentVersions, versions);
         documentVersions = versions.length ? versions : undefined;
       } catch (err) {
+        rethrowIfDomUnavailable(err); // §97
         logDiag("error", "workspace.documentVersionsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
@@ -471,7 +474,10 @@ export class BrowserBackend implements StorageBackend {
       // do NOT prevent this: they swallow their own throw and continue, so a
       // dropped rich-field slice does not make the CORE data read a failure.
       dataLoadSucceeded = true;
-    } catch {
+    } catch (err) {
+      // §97 — a missing DOM is not "IDB unavailable": falling through would hand
+      // back blank state and the next save would delete the stored workspace.
+      rethrowIfDomUnavailable(err);
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
       // also empty we just hand back blank state.
