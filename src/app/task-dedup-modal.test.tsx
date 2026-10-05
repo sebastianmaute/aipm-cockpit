@@ -87,4 +87,14 @@ describe("TaskDedupModal — row names", () => {
     expect(screen.getByRole("checkbox", { name: `${t("en-US", "taskDedupInclude")} – Ship the docs (2)` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
   });
+
+  it("names a row by the survivor title it shows, the proposed unified name when there is one", () => {
+    renderModal([
+      group({ keepTitle: "Docs v1", unified: { taskName: "Ship the docs" } }),
+      group({ keepId: 5, merged: [{ id: 6, title: "Docs" }] }),
+    ]);
+    // Both rows show "Keep: Ship the docs", so both get a number.
+    expect(screen.getByRole("checkbox", { name: `${t("en-US", "taskDedupInclude")} – Ship the docs (1)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
+  });
 });

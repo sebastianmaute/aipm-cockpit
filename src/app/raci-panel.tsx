@@ -277,7 +277,9 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                   </td>
                   {row.cells.filter((c) => visibleIds.has(c.stakeholderId)).map((cell) => {
                     const stakeholder = stakeholderMap.get(cell.stakeholderId);
-                    const stakeholderName = stakeholder?.name ?? String(cell.stakeholderId);
+                    // §669 — labelFor adds the id when two people share a name, so the
+                    // cells (and their popovers) of two "Sam" columns read apart.
+                    const stakeholderName = stakeholder ? labelFor(stakeholder) : String(cell.stakeholderId);
                     const ariaLabel = `${row.milestone.name} · ${stakeholderName}`;
                     return (
                       <td key={cell.stakeholderId} className="px-3 py-2">

@@ -78,10 +78,17 @@ export interface RolesEditorProps {
 
 const nameOfRefItem = (it: { id: number; name: string }): string => it.name;
 
+/** A rate-card row's discipline and grade names, "n/a" when the reference is gone. */
+function roleNames(r: Role, disciplines: readonly Discipline[], grades: readonly Grade[]) {
+  return {
+    disciplineName: disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a",
+    gradeName: grades.find((g) => g.id === r.gradeId)?.name ?? "n/a",
+  };
+}
+
 /** A rate-card row's context: its discipline and grade names. */
 function roleContext(r: Role, disciplines: readonly Discipline[], grades: readonly Grade[]): string {
-  const disciplineName = disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a";
-  const gradeName = grades.find((g) => g.id === r.gradeId)?.name ?? "n/a";
+  const { disciplineName, gradeName } = roleNames(r, disciplines, grades);
   return `${disciplineName} / ${gradeName}`;
 }
 
@@ -299,11 +306,10 @@ export function RolesEditor({
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
-                const disciplineName = disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a";
-                const gradeName = grades.find((g) => g.id === r.gradeId)?.name ?? "n/a";
+                const { disciplineName, gradeName } = roleNames(r, disciplines, grades);
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
-                const rowCtx = roleTokens.get(r.id) ?? roleContext(r, disciplines, grades);
+                const rowCtx = roleTokens.get(r.id) ?? `${disciplineName} / ${gradeName}`;
                 // The GRIP is the drag source AND the keyboard entry point, so
                 // `handleProps` lands on IT (see REORDER_HANDLE_CLASS); the row
                 // is only the drop target. The handle renders only while the
@@ -463,7 +469,10 @@ function RefList({
               title={t(lang, "reorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             />
+            {/* The rename field had no name at all (an unlabelled control); it is
+                named by the same row token as the grip and Delete beside it. */}
             <input defaultValue={it.name}
+              aria-label={rowLabel(t(lang, "rename"), itemTokens.get(it.id) ?? it.name)}
               onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
               onBlur={(e) => {
                 renameIfChanged(it, e.target.value);

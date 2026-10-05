@@ -297,6 +297,8 @@ describe("SharePointPickerModal row names", () => {
         value: [
           { id: "f1", name: "Specs", webUrl: "https://c.sharepoint.com/a", folder: {}, parentReference: { driveId: "d1" } },
           { id: "f2", name: "Specs", webUrl: "https://c.sharepoint.com/b", folder: {}, parentReference: { driveId: "d1" } },
+          { id: "f3", name: "Plan.docx", webUrl: "https://c.sharepoint.com/c", file: { mimeType: "application/msword" }, parentReference: { driveId: "d1" } },
+          { id: "f4", name: "Plan.docx", webUrl: "https://c.sharepoint.com/d", file: { mimeType: "application/msword" }, parentReference: { driveId: "d1" } },
         ],
       },
     );
@@ -307,6 +309,7 @@ describe("SharePointPickerModal row names", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Documents" }));
     const open = t("en-US", "spPickerOpenFolder");
     expect(await screen.findByRole("button", { name: `${open} – Specs (2)` })).toBeInTheDocument();
-    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+    expect(screen.getByRole("button", { name: `${t("en-US", "spPickerSelectFile")} – Plan.docx (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
   });
 });

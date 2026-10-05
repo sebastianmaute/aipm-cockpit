@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Stakeholder, Milestone } from "./types";
 
 // "Suggest RACI" (use-raci-suggest) reads settings.ai via useSettings(); mocked
@@ -124,6 +125,19 @@ describe("RaciPanel", () => {
     fireEvent.change(input, { target: { value: "Sam (#3)" } });
     expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
     expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
+  });
+
+  // §669 — two "Sam" columns with no role set gave both grid cells one name.
+  it("names the grid cells of two same-named people apart", () => {
+    const dup: Stakeholder[] = [
+      { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
+      { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+    ];
+    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+    const set = t("en-US", "raciSetLabel");
+    expect(screen.getByRole("button", { name: `Go-Live · Sam (#1) — ${set}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Go-Live · Sam (#3) — ${set}` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
   });
 
   // §669 — with both Sams in the filter, their two remove chips read alike.

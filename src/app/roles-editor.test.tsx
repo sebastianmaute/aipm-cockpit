@@ -634,5 +634,7 @@ describe("RolesEditor row names (§669)", () => {
     expectRowUniqueNames({ minControls: 8, roles: ["textbox", "spinbutton"], scope: table });
     // The two disciplines called "Engineering" in the reference list.
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering (2)` })).toBeInTheDocument();
+    // The rename field beside them had no name at all.
+    expect(screen.getByRole("textbox", { name: `${t("en-US", "rename")} – Engineering (2)` })).toHaveValue("Engineering");
   });
 });
