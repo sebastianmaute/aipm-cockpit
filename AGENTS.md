@@ -707,7 +707,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   path), `use-insight-lifecycle.ts` (the insight detection input + the detect → reconcile runner + the acknowledge / act / logged-as-RAID /
   dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `use-portfolio-projects.ts`
   (the multi-project handlers, the mode-aware project lists, the key-facts snapshot effect and the `useTursoProjects`
-  composition), `shell-chrome.tsx`
+  composition), `use-next-actions.ts` (the workload alerts, the next-actions engine run, its grouping and the
+  group-aware snooze), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -719,7 +720,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   mapping, confirm); it is coverage-GATED and pinned by its own `renderHook` test. A seventh, `use-portfolio-projects.ts`
   (§491), holds the multi-project wiring (the delete's survivor switch, the mode-aware lists, the key-facts snapshot
   effect); it is coverage-GATED and pinned by its own `renderHook` test, and it keeps its inline `useCallback`/`useMemo`
-  memoization ON PURPOSE, against convention 1 below (move-only; its header says why). The
+  memoization ON PURPOSE, against convention 1 below (move-only; its header says why). An eighth, `use-next-actions.ts`
+  (§491), holds the next-actions wiring (the engine input, the comms-pending ids, the group-aware snooze and its store);
+  it is coverage-GATED, pinned by its own `renderHook` test, and keeps its memoization on purpose for the same reason. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
