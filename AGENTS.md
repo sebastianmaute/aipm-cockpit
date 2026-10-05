@@ -750,7 +750,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      factory (parameterizing divergent security guards is where a config slip silently weakens a guard).
   5. **Panel split (gantt pattern).** A panel crossing ~700 lines splits into orchestrator + `*-rows` +
      `*-toolbar` (+ a `*-columns` leaf for shared metadata) WELL BEFORE it reaches the size ratchet — rows
-     and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel.
+     and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel,
+     tasks-section (`tasks-section-toolbar.tsx` + `tasks-section-rows.tsx`, §492).
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
   ★ Before creating `<name>.ts`, check for existing `<name>.tsx` (and vice versa) — a bare `./<name>`

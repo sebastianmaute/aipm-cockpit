@@ -1,19 +1,15 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, CheckCircleIcon, EyeSlashIcon, PlusIcon } from "./icons";
-import { type Lang, type TranslationKey, priorityLabel, t, tPlural } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
+import { type Lang, t, tPlural } from "./i18n";
+import { type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
-import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
 import { UNASSIGNED_LANE, laneResourceIds, type KanbanLane } from "./task-kanban";
 import { resourceDisplayName } from "./resource-foundation";
 import { CalendarSyncControls } from "./calendar-sync-controls";
-import { ToggleButton } from "./toggle-button";
-import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
 import { useEffectiveSettings } from "./use-effective-settings";
 import { getAppearanceSnapshot, saveProjectAppearance, subscribeAppearance } from "./project-appearance-prefs";
@@ -27,9 +23,9 @@ import type { ToolDispatcher } from "./chat-tools";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
-import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
+import { RowContextProvider, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
-import { filterTasksByHealth, type HealthFilter } from "./health";
+import { filterTasksByHealth } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
 import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-patch";
@@ -44,28 +40,15 @@ import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor, withCalendarEnabled } from "./calendar-sync-config";
 import { isPushableTask } from "./calendar-pushable";
-import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
-import { SavedViewsControl } from "./saved-views-control";
-import { INTERACTIVE } from "./interaction-styles";
-import { ColumnConfigPopover } from "./column-config-popover";
-import { Select } from "./form-controls";
-import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
-import { IconButton } from "./icon-button";
 import type { SuggestedAction } from "./next-actions/types";
-import {
-  EraserIcon,
-  PrintButton,
-  ResetColWidthsButton,
-  ResetSizeButton,
-  Th,
-} from "./task-manager-ui";
-import { SortResizeTh, useSortHeaderProps } from "./report-table";
-import { TOUR_ANCHORS } from "./app-tour";
-import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
+import { useSortHeaderProps } from "./report-table";
+import { tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
+import { TasksSelectionBar, TasksToolbar } from "./tasks-section-toolbar";
+import { TasksTable } from "./tasks-section-rows";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
@@ -75,24 +58,7 @@ const EMPTY_RESOURCES: readonly Resource[] = [];
 // closure every render, defeating its useMemo and tripping exhaustive-deps.
 const nameOfTask = (task: Task) => task.taskName;
 
-// ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
-export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
-  { key: "status",         labelKey: "health" },
-  { key: "id",             labelKey: "id" },
-  { key: "assignee",       labelKey: "assignee" },
-  { key: "startDate",      labelKey: "start" },
-  { key: "dueDate",        labelKey: "due" },
-  { key: "lastUpdateDate", labelKey: "lastUpdate" },
-  { key: "createdDate",    labelKey: "colCreatedDate" },
-  { key: "priority",       labelKey: "priority" },
-  { key: "taskStatus",     labelKey: "colTaskStatus" },
-  { key: "blockers",       labelKey: "blockers" },
-  { key: "description",    labelKey: "description" },
-  { key: "notesLog",       labelKey: "noteLogTitle" },
-  { key: "depRelations",   labelKey: "depRelations" },
-  { key: "estimate",       labelKey: "taskOriginalEstimate" },
-  { key: "spent",          labelKey: "taskTimeSpent" },
-];
+export { CONFIGURABLE_COLS } from "./tasks-section-toolbar";
 
 export interface TasksSectionProps {
   lang: Lang;
@@ -633,6 +599,12 @@ export function TasksSection({
     }
   }, [handledClearNonce, clearAllRequestNonce, onClearAllRequestConsumed]);
 
+  // ONE opener for every "+ Add task" control: discards any in-progress edit, then opens the editor.
+  const openTaskEditor = () => {
+    handleCancelEdit();
+    setTaskModalOpen(true);
+  };
+
   return (
     <section
       ref={tableRef}
@@ -662,184 +634,57 @@ export function TasksSection({
           onLearnMore={onLearnMoreHint}
         />
       )}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <AddButton
-          onClick={() => {
-            handleCancelEdit();
-            setTaskModalOpen(true);
-          }}
-          aria-label={t(lang, "addTaskButton")}
-          title={t(lang, "addTaskButton")}
-        >
-          + {t(lang, "addTaskButton")}
-        </AddButton>
-        {jiraEnabled && (
-          <button
-            type="button"
-            onClick={handleJiraSync}
-            disabled={jiraSyncing || !jiraProjectKey}
-            title={
-              jiraProjectKey
-                ? t(lang, "jiraSync")
-                : t(lang, "jiraSyncNoScope")
-            }
-            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-          >
-            <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`} />
-            {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
-          </button>
-        )}
-        {dedup.button}
-        <ToggleButton lang={lang}
-          pressed={hideFinished}
-          onToggle={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
-          icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-        >
-          {t(lang, "hideFinishedTasks")}
-        </ToggleButton>
-        <ToggleButton lang={lang}
-          pressed={hideExternal}
-          onToggle={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
-          icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-        >
-          {t(lang, "hideExternalTasks")}
-        </ToggleButton>
-        <SegmentedControl
-          value={tasksViewMode}
-          options={[
-            { value: "table", label: t(lang, "tasksViewTable") },
-            { value: "board", label: t(lang, "tasksViewBoard") },
-            { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
-          ]}
-          onChange={setTasksViewMode}
-          ariaLabel={t(lang, "tasksViewModeLabel")}
-          dataTourId={TOUR_ANCHORS.tasksViewMode}
-        />
-        {tasksViewMode === "swimlane" && (
-          <TaskSwimlaneToolbar
+      <TasksToolbar
+        lang={lang}
+        onAdd={openTaskEditor}
+        jiraEnabled={jiraEnabled}
+        handleJiraSync={handleJiraSync}
+        jiraSyncing={jiraSyncing}
+        jiraProjectKey={jiraProjectKey}
+        dedupButton={dedup.button}
+        hideFinished={hideFinished}
+        onToggleHideFinished={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
+        hideExternal={hideExternal}
+        onToggleHideExternal={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
+        tasksViewMode={tasksViewMode}
+        setTasksViewMode={setTasksViewMode}
+        assignableResources={assignableResources}
+        laneIds={laneIds}
+        addLane={addLane}
+        search={search}
+        setSearch={setSearch}
+        priorityFilter={priorityFilter}
+        setPriorityFilter={setPriorityFilter}
+        effectiveFilters={effectiveFilters}
+        setAssigneeFilter={setAssigneeFilter}
+        setGroupFilter={setGroupFilter}
+        setLabelFilter={setLabelFilter}
+        uniqueAssignees={uniqueAssignees}
+        uniqueGroups={uniqueGroups}
+        uniqueLabels={uniqueLabels}
+        healthFilter={healthFilter}
+        setHealthFilter={setHealthFilter}
+        hiddenCols={hiddenCols}
+        setHiddenCols={setHiddenCols}
+        calendarControls={
+          <CalendarSyncControls
             lang={lang}
-            resources={assignableResources}
-            laneResourceIds={laneIds}
-            onAddLane={addLane}
+            entityLabelKey="calendarSyncEntityTask"
+            m365Configured={m365Configured}
+            isPopout={isPopout}
+            calendarEnabled={calendarTaskEnabled}
+            onToggleCalendar={(enabled) => setSettings((s) => withCalendarEnabled(s, "task", enabled))}
+            onPushCalendar={() => void pushTasksToOutlook()}
+            calendarPushBusy={calPushBusy}
+            onPullCalendar={() => void taskPull.pull()}
+            calendarPullBusy={taskPull.busy}
           />
-        )}
-        <PaneSearchInput
-          value={search}
-          onChange={setSearch}
-          ariaLabel={t(lang, "searchPlaceholder")}
-          clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
-          title={t(lang, "tasksSearchHint")}
-        />
-        <Select
-          size="xs"
-          value={priorityFilter}
-          onChange={(e) =>
-            setPriorityFilter(e.target.value as Priority | "All")
-          }
-          title={t(lang, "priorityFilterHint")}
-        >
-          <option value="All">{t(lang, "allPriorities")}</option>
-          {PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {priorityLabel(lang, p)}
-            </option>
-          ))}
-        </Select>
-        <Select
-          size="xs"
-          value={effectiveFilters.assignee}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          title={t(lang, "assigneeFilterHint")}
-        >
-          <option value="All">{t(lang, "allAssignees")}</option>
-          {/* uniqueAssignees KEEPS blanks, so label the unassigned option (value stays ""). */}
-          {uniqueAssignees.map((a) => (
-            <option key={a} value={a}>{a === "" ? t(lang, "assigneeNone") : a}</option>
-          ))}
-        </Select>
-        <Select
-          size="xs"
-          value={effectiveFilters.group}
-          onChange={(e) => setGroupFilter(e.target.value)}
-          title={t(lang, "tasksGroupFilterHint")}
-        >
-          <option value="All">{t(lang, "allGroups")}</option>
-          <option value="">{t(lang, "groupNone")}</option>
-          {uniqueGroups.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </Select>
-        <Select
-          size="xs"
-          value={effectiveFilters.label}
-          onChange={(e) => setLabelFilter(e.target.value)}
-          title={t(lang, "tasksLabelFilterHint")}
-        >
-          <option value="All">{t(lang, "allLabels")}</option>
-          {uniqueLabels.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </Select>
-        <Select
-          size="xs"
-          value={healthFilter}
-          onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
-          aria-label={t(lang, "healthFilterLabel")}
-          title={t(lang, "healthFilterHint")}
-        >
-          <option value="all">{t(lang, "allHealth")}</option>
-          <option value="red">{t(lang, "healthRed")}</option>
-          <option value="amber">{t(lang, "healthAmber")}</option>
-          <option value="green">{t(lang, "healthGreen")}</option>
-        </Select>
-        <ColumnConfigPopover
-          lang={lang}
-          cols={CONFIGURABLE_COLS}
-          hidden={hiddenCols}
-          onToggle={(key) =>
-            setHiddenCols((prev) => {
-              const next = new Set(prev);
-              if (next.has(key)) { next.delete(key); } else { next.add(key); }
-              return next;
-            })
-          }
-        />
-        <SavedViewsControl
-          lang={lang}
-          hiddenCols={hiddenCols}
-          setHiddenCols={setHiddenCols}
-          dataTourId={TOUR_ANCHORS.savedViews}
-        />
-        <CalendarSyncControls
-          lang={lang}
-          entityLabelKey="calendarSyncEntityTask"
-          m365Configured={m365Configured}
-          isPopout={isPopout}
-          calendarEnabled={calendarTaskEnabled}
-          onToggleCalendar={(enabled) => setSettings((s) => withCalendarEnabled(s, "task", enabled))}
-          onPushCalendar={() => void pushTasksToOutlook()}
-          calendarPushBusy={calPushBusy}
-          onPullCalendar={() => void taskPull.pull()}
-          calendarPullBusy={taskPull.busy}
-        />
-        <IconButton
-          variant="dangerBordered"
-          size="md"
-          onClick={() => setClearConfirmOpen(true)}
-          disabled={tasks.length === 0}
-          label={t(lang, "clearAll")}
-          title={t(lang, "clearAll")}
-        >
-          <EraserIcon />
-        </IconButton>
-        <PrintButton lang={lang} />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        <ResetSizeButton onClick={resetTableSize} lang={lang} />
-      </div>
+        }
+        onClearAll={() => setClearConfirmOpen(true)}
+        clearDisabled={tasks.length === 0}
+        resetColWidths={resetColWidths}
+        resetTableSize={resetTableSize}
+      />
 
       {clearConfirmOpen && (
         <TypeToConfirmDialog
@@ -857,37 +702,15 @@ export function TasksSection({
       )}
 
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-muted p-3">
-          <span className="text-sm font-medium text-ui-dark-blue dark:text-ui-light-grey">
-            {t(lang, "selectionCount", selectedIds.size)}
-          </span>
-          <div className="ml-auto flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleBulkSendInquiry}
-              className={`rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:opacity-90 ${INTERACTIVE}`}
-            >
-              {t(lang, "bulkSendInquiries")}
-            </button>
-            <ToggleButton lang={lang} pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
-              {t(lang, "bulkEdit")}
-            </ToggleButton>
-            <button
-              type="button"
-              onClick={() => setDeleteSelectedConfirmOpen(true)}
-              className={`rounded-md border border-ui-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/5 ${INTERACTIVE}`}
-            >
-              {t(lang, "deleteSelected")}
-            </button>
-            <button
-              type="button"
-              onClick={clearSelection}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-            >
-              {t(lang, "clearSelection")}
-            </button>
-          </div>
-        </div>
+        <TasksSelectionBar
+          lang={lang}
+          selectedCount={selectedIds.size}
+          handleBulkSendInquiry={handleBulkSendInquiry}
+          bulkEditOpen={bulkEditOpen}
+          onToggleBulkEdit={() => setBulkEditOpen((o) => !o)}
+          onDeleteSelected={() => setDeleteSelectedConfirmOpen(true)}
+          clearSelection={clearSelection}
+        />
       )}
 
       {deleteSelectedConfirmOpen && (
@@ -985,123 +808,37 @@ export function TasksSection({
           // Empty → clickable dashed box (budget/gantt empty-state convention):
           // descriptive text + "+ Add task…", the box opens the task editor.
           <AddFirstItemButton
-            onAdd={() => {
-              handleCancelEdit();
-              setTaskModalOpen(true);
-            }}
+            onAdd={openTaskEditor}
             text={t(lang, "noTasks")}
             addLabel={`+ ${t(lang, "addTaskButton")}…`}
             rounded="xl"
           />
         ) : (
         <RowContextProvider value={rowContextValue} tasksById={tasksById}>
-          <table
-            className="divide-y divide-line text-left text-sm"
-            style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
-          >
-            <colgroup>
-              {/* Gutter for the hover Ask-Claude cell; a missing <col> shifts every width to its
-                  neighbour. ★ Uses the same GUTTER_WIDTH_PX that tableMinWidthPx sums, not a class. */}
-              <col style={{ width: GUTTER_WIDTH_PX }} />
-              {visibleCols.map((col) => (
-                <col key={col} style={{ width: colWidthStyle(col, sizedWidths) }} />
-              ))}
-            </colgroup>
-            <thead className={TABLE_HEAD_CLASS}>
-              <tr>
-                {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
-                <th className="w-7" aria-hidden="true" />
-                <Th padding="tight" onResize={(e) => startColResize("sel", e)}>
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={toggleSelectAllVisible}
-                    aria-label={t(lang, "selectAllVisible")}
-                    data-tour-id={TOUR_ANCHORS.selectAll}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
-                  />
-                </Th>
-                {!hiddenCols.has("status") && <Th padding="tight" onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
-                {!hiddenCols.has("id") && <SortResizeTh {...th} label={t(lang, "id")} sortCol="id" title={t(lang, "sortBy", t(lang, "id"))} />}
-                <SortResizeTh {...th} label={t(lang, "task")} sortCol="taskName" title={t(lang, "sortBy", t(lang, "task"))} />
-                {!hiddenCols.has("assignee") && <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="assignee" title={t(lang, "sortBy", t(lang, "assignee"))} />}
-                {!hiddenCols.has("startDate") && <SortResizeTh {...th} label={t(lang, "start")} sortCol="startDate" title={t(lang, "sortBy", t(lang, "start"))} />}
-                {!hiddenCols.has("dueDate") && <SortResizeTh {...th} label={t(lang, "due")} sortCol="dueDate" title={t(lang, "sortBy", t(lang, "due"))} />}
-                {!hiddenCols.has("lastUpdateDate") && <SortResizeTh {...th} label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
-                {!hiddenCols.has("createdDate") && <SortResizeTh {...th} label={t(lang, "colCreatedDate")} sortCol="createdDate" title={t(lang, "sortBy", t(lang, "colCreatedDate"))} />}
-                {!hiddenCols.has("priority") && <SortResizeTh {...th} label={t(lang, "priority")} sortCol="priority" title={t(lang, "sortBy", t(lang, "priority"))} />}
-                {!hiddenCols.has("taskStatus") && <SortResizeTh {...th} label={t(lang, "colTaskStatus")} sortCol="taskStatus" title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
-                {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
-                {!hiddenCols.has("description") && <Th onResize={(e) => startColResize("description", e)}>{t(lang, "description")}</Th>}
-                {!hiddenCols.has("notesLog") && <Th onResize={(e) => startColResize("notesLog", e)}>{t(lang, "noteLogTitle")}</Th>}
-                {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
-                {!hiddenCols.has("estimate") && <SortResizeTh {...th} label={t(lang, "colEstimate")} sortCol="estimate" title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
-                {!hiddenCols.has("spent") && <SortResizeTh {...th} label={t(lang, "colSpent")} sortCol="spent" title={t(lang, "sortBy", t(lang, "colSpent"))} />}
-                <Th>
-                  <span className="sr-only">{t(lang, "colActions")}</span>
-                </Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {visibleRows.length === 0 && (
-                <tr>
-                  <td colSpan={visibleColumnCount + 1} className="p-10 text-center text-sm text-muted-foreground">
-                    {t(lang, "noTasksFiltered")}
-                  </td>
-                </tr>
-              )}
-              {visibleRows.map((task, i) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  // `tableTokens` is built above from `visibleRows` (the very
-                  // array this `.map` iterates), so `task.id` is always a key —
-                  // the fallback cannot fire today. Kept anyway: the two are
-                  // independently typed props/locals, so nothing structurally
-                  // binds a future edit to keep them in sync.
-                  rowToken={tableTokens.get(task.id) ?? task.taskName}
-                  isSelected={selectedIds.has(task.id)}
-                  isEditing={editingId === task.id}
-                  isPushing={pushingIds.has(task.id)}
-                  raidRefs={raidByTask.get(task.id)}
-                  changeRefs={changeByTask.get(task.id)}
-                  documentsByEntity={documentsByEntity}
-                  onOpenDocuments={onOpenDocuments}
-                  onJumpToChanges={onJumpToChanges}
-                  isStriped={i % 2 === 1}
-                  isFlashed={flashId === task.id}
-                />
-              ))}
-              <tr>
-                <td colSpan={visibleColumnCount + 1}>
-                  <button
-                    type="button"
-                    onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
-                    // `addTaskButton`, NOT `addTask`. The two keys carry the
-                    // same STRING in EN and DE but not the same MEANING:
-                    // `addTask` is the task modal's SUBMIT verb, `addTaskButton`
-                    // is the label of every control that OPENS the editor. This
-                    // row is an opener (it runs `handleCancelEdit()` — which
-                    // DISCARDS an in-progress edit — then opens the modal), so
-                    // it wears the opener key. It was mis-keyed to `addTask`,
-                    // which put the submit's name on a control that throws the
-                    // submit's work away.
-                    // ★ This row and the toolbar `AddButton` above deliberately
-                    // KEEP one shared accessible name: identical purpose,
-                    // identical handler. WCAG 2.4.6 permits that, and this
-                    // repo's rule says a repeated name is a QUESTION, not an
-                    // automatic fix — the answer here is that they are the same
-                    // action rendered twice. Do not disambiguate them.
-                    aria-label={t(lang, "addTaskButton")}
-                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:hover:bg-white/5 ${INTERACTIVE}`}
-                  >
-                    <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-                    {t(lang, "addTaskButton")}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <TasksTable
+            lang={lang}
+            visibleCols={visibleCols}
+            sizedWidths={sizedWidths}
+            tableMinWidth={tableMinWidth}
+            th={th}
+            hiddenCols={hiddenCols}
+            startColResize={startColResize}
+            allVisibleSelected={allVisibleSelected}
+            toggleSelectAllVisible={toggleSelectAllVisible}
+            visibleRows={visibleRows}
+            visibleColumnCount={visibleColumnCount}
+            tableTokens={tableTokens}
+            selectedIds={selectedIds}
+            editingId={editingId}
+            pushingIds={pushingIds}
+            raidByTask={raidByTask}
+            changeByTask={changeByTask}
+            documentsByEntity={documentsByEntity}
+            onOpenDocuments={onOpenDocuments}
+            onJumpToChanges={onJumpToChanges}
+            flashId={flashId}
+            onAdd={openTaskEditor}
+          />
         </RowContextProvider>
         )}
       </div>
