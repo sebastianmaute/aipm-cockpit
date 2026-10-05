@@ -207,7 +207,9 @@ describe("RaciPanel", () => {
       expect(chips()).toEqual([]);
     });
 
-    // A datalist pick fires an input event whose inputType is insertReplacementText.
+    // Models a datalist pick as an input event with inputType insertReplacementText,
+    // which Chromium and Firefox are expected to send. Not eye-verified in a real
+    // browser: see §669 in docs/open-followups.md.
     const pick = (value: string) =>
       fireEvent.input(screen.getByRole("combobox", { name: /filter people/i }), {
         target: { value },
