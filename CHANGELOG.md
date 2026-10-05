@@ -183,6 +183,10 @@ longer carries its own changelog comment.
   moved from `task-manager.tsx` to `docs/AGENTS/storage.md`, and the file's size baseline followed it down to
   3435. A new test pins that a journal list losing only some rows is still accepted with its valid rows.
   §149 is closed: the suite passes with the clock 400 days ahead.
+- **Insight lifecycle moved out of `task-manager.tsx` (§491, §458).** The insight detect → reconcile runner and
+  the acknowledge, act, logged-as-RAID and dismiss handlers move, unchanged, to a new hook,
+  `use-insight-lifecycle.ts`, with its own handler tests; the file's size baseline follows it down to 3182.
+  §458 is closed: the help-popover Tab test flake was already fixed by waiting for the dialog's initial focus.
 - **Dependencies.** jsdom 30.1.1 (from 29.1.1), with Vitest and `@vitest/coverage-v8` 5.0.3.
   Vitest 5.0.2's `URL.createObjectURL` shim for jsdom cannot read a jsdom 30 Blob, so jsdom 30
   needs 5.0.3.
