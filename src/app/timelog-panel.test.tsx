@@ -1396,7 +1396,7 @@ describe("TimelogPanel", () => {
 
       // sync.projectRefs supplies ForgeOps (id 9) — a project with NO prior link,
       // proving project matching is bootstrappable from fetched bookings.
-      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps (PO-1)`;
       expect(screen.getByRole("combobox", { name: expectedLabel })).toBeInTheDocument();
     });
 
@@ -1411,7 +1411,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
 
-      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps (PO-1)`;
       const select = screen.getByRole("combobox", { name: expectedLabel });
 
       // Map ForgeOps (id 9) to bucket 10 (Alpha Project)
@@ -1997,7 +1997,7 @@ describe("TimelogPanel", () => {
       await act(async () => { fireEvent.click(btn); }); // fetch now pending
 
       // Edit a project link WHILE the fetch is in-flight (ForgeOps id 9 → bucket 10).
-      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps (PO-1)`;
       act(() => { fireEvent.change(screen.getByRole("combobox", { name: editLabel }), { target: { value: "10" } }); });
 
       // Resolve the fetch → the functional updater must merge scope onto the

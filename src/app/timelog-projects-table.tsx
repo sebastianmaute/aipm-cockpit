@@ -9,10 +9,10 @@ import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 import { canLoadManagedProjects } from "./timelog-guards";
-import type { TimelogProjectRef } from "./timelog-match";
+import { timelogProjectLabel, type TimelogProjectRef } from "./timelog-match";
 import type { BudgetBucket } from "./types";
 import { ROW_RULE_CLASS } from "./table-styles";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 
 /** Effective project→budget link (auto or manual, manual wins). */
 type ProjectLinkView = { timelogProjectId: number; bucketId: number | null; manual: boolean };
@@ -49,9 +49,7 @@ export function TimelogProjectsTable({
   // §316 — TimeLog project names repeat across customers, so the row controls
   // carry the project number, as `timelog-project-scope.tsx` does, and a
   // row token for the case where two rows still read alike.
-  const projectTokens = buildRowTokens(
-    knownProjectRefs.map((p) => ({ id: p.id, name: p.no ? `${p.name} (${p.no})` : p.name })),
-  );
+  const projectTokens = useRowTokens(knownProjectRefs, timelogProjectLabel);
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between gap-3">

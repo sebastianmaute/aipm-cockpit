@@ -25,7 +25,7 @@ import type { MeetingReportBag } from "./use-meeting-report-actions";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 import { ROW_RULE_CLASS } from "./table-styles";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -38,6 +38,9 @@ const EMPTY_COMMITTEE: SteeringCommittee = {
   meetings: [],
   infoSchedules: [],
 };
+
+const nameOfMeeting = (m: CommitteeMeeting) => m.title || m.date;
+const nameOfSchedule = (s: InfoSchedule) => s.label || String(s.id);
 
 function nextMaxId(items: ReadonlyArray<{ id: number }>): number {
   return items.reduce((max, x) => Math.max(max, x.id), 0) + 1;
@@ -170,11 +173,11 @@ export function SteeringCommitteePanel({
   // §316 — row-unique names. A recurring committee meeting usually keeps one
   // title, two schedules can share a label, and two people can share a name, so
   // every per-row control is named by a token, never by the raw value.
-  const memberTokens = buildRowTokens(memberRows.map((r) => ({ id: r.id, name: resourceDisplayName(r) })));
-  const meetingTokens = buildRowTokens(c.meetings.map((m) => ({ id: m.id, name: m.title || m.date })));
-  const scheduleTokens = buildRowTokens(c.infoSchedules.map((s) => ({ id: s.id, name: s.label || String(s.id) })));
-  const meetingToken = (m: CommitteeMeeting) => meetingTokens.get(m.id) ?? (m.title || m.date);
-  const scheduleToken = (s: InfoSchedule) => scheduleTokens.get(s.id) ?? (s.label || String(s.id));
+  const memberTokens = useRowTokens(memberRows, resourceDisplayName);
+  const meetingTokens = useRowTokens(c.meetings, nameOfMeeting);
+  const scheduleTokens = useRowTokens(c.infoSchedules, nameOfSchedule);
+  const meetingToken = (m: CommitteeMeeting) => meetingTokens.get(m.id) ?? nameOfMeeting(m);
+  const scheduleToken = (s: InfoSchedule) => scheduleTokens.get(s.id) ?? nameOfSchedule(s);
 
   function addMember(id: number) {
     if (c.memberResourceIds.includes(id)) return;

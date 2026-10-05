@@ -10,7 +10,7 @@
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 
 interface AppliedRow {
   id: number;
@@ -50,6 +50,8 @@ interface CalendarPullSummaryModalProps {
   }) => void;
 }
 
+const nameOfConflict = (c: ConflictRow) => c.name;
+
 const BUTTON_CLASS =
   "rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted";
 
@@ -66,7 +68,7 @@ export function CalendarPullSummaryModal({
   const title = t(lang, "calendarPullSummaryTitle");
   // §316 — two conflicting items can share a name (two tasks called "Review"),
   // so Keep and Take are named by a row-unique token.
-  const conflictTokens = buildRowTokens(conflicts.map((c) => ({ id: c.id, name: c.name })));
+  const conflictTokens = useRowTokens(conflicts, nameOfConflict);
 
   return (
     <Modal open={open} onClose={onClose} ariaLabel={title}>

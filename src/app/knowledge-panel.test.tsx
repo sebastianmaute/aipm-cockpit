@@ -187,12 +187,25 @@ describe("KnowledgePanel", () => {
     expect(screen.getByRole("button", { name: `${remove} – Spec.docx (1)` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${remove} – Spec.docx (3)` })).toBeInTheDocument();
     const open = t("en-US", "documentsOpen");
-    // The links close with the new-tab hint, so the trailing-suffix seed check
-    // cannot see their "(N)"; name all three instead.
-    for (const k of [1, 2, 3]) {
-      expect(screen.getByRole("link", { name: `Spec.docx (${k}) – ${open}` })).toBeInTheDocument();
-    }
-    expectRowUniqueNames({ minControls: 3, roles: ["link"] });
+    expect(screen.getByRole("link", { name: `${open} – Spec.docx (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 3, roles: ["link"], requireCollisionSeed: true });
+  });
+
+  it("numbers a library card's Linked tasks field by the same token as its Remove (§316)", () => {
+    const item = (id: string, name: string): KnowledgeItem => ({ ...LINK, id, name });
+    render(
+      <>
+        <SeedTasks tasks={[seededTask([])]} />
+        <SeedKnowledgeItems items={[item("k1", "Other.docx"), item("k2", "Doc.docx"), item("k3", "Doc.docx")]} />
+        <KnowledgePanel />
+      </>,
+      { wrapper },
+    );
+    const linked = t("en-US", "knowledgeLinkedTasks");
+    // The first Doc card is the second card in the grid; it must still read (1).
+    expect(screen.getByRole("button", { name: `${t("en-US", "documentsRemove")} – Doc.docx (1)` })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: `${linked} – Doc.docx (1)` })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: `${linked} – Other.docx` })).toBeInTheDocument();
   });
 
   it("names the source buttons of two same-named tasks apart (§316)", () => {

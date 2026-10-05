@@ -29,6 +29,7 @@ import {
 import { TaskLinkPicker } from "./task-link-picker";
 import { roleLabel, resourceDisplayName } from "./resource-foundation";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
@@ -238,7 +239,7 @@ export function BudgetBucketModal({
   // person has two checkboxes whose name was the person alone. Each checkbox is
   // named by the person, then the block it sits in; the person is a token too,
   // since two people can share a name.
-  const resourceTokens = buildRowTokens(resources.map((r) => ({ id: r.id, name: resourceDisplayName(r) })));
+  const resourceTokens = useRowTokens(resources, resourceDisplayName);
   const resourceInBlock = (resourceId: number, fallback: string, block: string) =>
     `${resourceTokens.get(resourceId) ?? fallback} – ${block}`;
 

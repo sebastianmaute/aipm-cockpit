@@ -32,6 +32,8 @@ const TYPE_LABEL_KEY: Record<AbsenceType, string> = {
 };
 
 const eventId = (e: OutlookEvent) => e.sourceId;
+const dateRange = (e: OutlookEvent) =>
+  e.startDate === e.endDate ? e.startDate : `${e.startDate} – ${e.endDate}`;
 
 export function OutlookCalendarImportModal({
   lang,
@@ -65,13 +67,15 @@ export function OutlookCalendarImportModal({
   const setType = (id: string, type: AbsenceType) =>
     setTypes((prev) => ({ ...prev, [id]: type }));
 
-  const dateRange = (e: OutlookEvent) =>
-    e.startDate === e.endDate ? e.startDate : `${e.startDate} – ${e.endDate}`;
   // §316 — a recurring meeting imports as many events under one subject, so the
   // per-row controls are named by subject AND dates, made row-unique in case
   // even those repeat.
-  const rowTokens = buildRowTokens(
-    events.map((e) => ({ id: e.sourceId, name: `${e.subject || t(lang, "outlookCalImportNoSubject")} ${dateRange(e)}` })),
+  const rowTokens = useMemo(
+    () =>
+      buildRowTokens(
+        events.map((e) => ({ id: e.sourceId, name: `${e.subject || t(lang, "outlookCalImportNoSubject")} ${dateRange(e)}` })),
+      ),
+    [events, lang],
   );
 
   return (

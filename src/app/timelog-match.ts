@@ -58,6 +58,11 @@ export function resolveCustomerByName<T extends { id: number; name: string }>(
 
 export type TimelogProjectRef = { id: number; name: string; no: string };
 
+/** A TimeLog project as a row label: its name, then its project number when it has one. Names repeat across customers; the number tells them apart (§316). */
+export function timelogProjectLabel(p: TimelogProjectRef): string {
+  return p.no ? `${p.name} (${p.no})` : p.name;
+}
+
 export function autoMatchProjects(
   tlProjects: readonly TimelogProjectRef[],
   buckets: readonly BudgetBucket[],

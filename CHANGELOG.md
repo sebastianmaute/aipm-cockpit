@@ -18,10 +18,12 @@ longer carries its own changelog comment.
 - **The AI assistant says where to change a RACI (§237).** Chat cannot set RACI assignments. Asked to, it now
   points you to the RACI view, where you edit the grid or use Suggest RACI, instead of reporting a change it
   could not make.
-- **Screen readers tell same-named rows apart in 13 more places (§316).** Where two rows share a name, such
+- **Screen readers tell same-named rows apart in 14 more places (§316).** Where two rows share a name, such
   as two untitled chat threads, a recurring committee meeting, two new scheduled jobs or two pasted
   `image.png` attachments, each row's buttons and fields now add a number, "(1)" and "(2)", so they no
-  longer all sound the same. The budget bucket's resource checkboxes also say which allocation they
+  longer all sound the same. Some names also say more even when nothing repeats: TimeLog projects
+  include their project number, a knowledge card's source button names the card's document, its link
+  says it opens in a new tab, and the budget bucket's resource checkboxes say which allocation they
   belong to.
 - **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
   remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an

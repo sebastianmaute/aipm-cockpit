@@ -15,7 +15,7 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 
 ## Totals
 
-198 sites: **136 fine**, **36 fixed on this branch**, **26 filed as §669**.
+198 sites: **135 fine**, **37 fixed on this branch**, **26 filed as §669**.
 
 - **fine**: the value cannot repeat, for the reason given.
 - **fixed**: free text that repeats in ordinary use. Each fix has a test that seeds
@@ -24,18 +24,29 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
   rather than fixed here, to keep this branch reviewable.
 
 The scanner's two known blind spots were checked as part of this pass. A control
-rendered for one row only (under `isSelected`) is listed as `SINGLE` above. A
-`COVERED` marker was never taken as proof. The scanner listed all 13 fixed files as
-covered (8 by their own test, 5 through a parent), and four of them already called
+rendered for one row only (under `isSelected`) is judged fine with the reason
+"renders once per surface" in the table below. A
+`COVERED` marker was never taken as proof. The scanner listed all 14 fixed files as
+covered (8 by their own test, 6 through a parent), and four of them already called
 `expectRowUniqueNames` (chat threads, calendar series, steering committee, budget
 bucket) over fixtures that never repeated the value fixed here. The budget bucket
 tests did seed repeated role names, but rendered no resources at all.
 
 **The scanner cannot confirm the fixes.** It recognises a token only by certain
 names, so most fixed sites stay in `DATA`. Before this branch it printed `DATA 198 |
-TOKENIZED 72`; after it, `DATA 186 | TOKENIZED 77`. The fixes are proved by their
+TOKENIZED 72`; after it, `DATA 184 | TOKENIZED 79`. The fixes are proved by their
 tests and mutants, not by that count, and this table is the record of which `DATA`
 sites have been judged.
+
+★ **One fixed file has left the report altogether.** `scheduled-jobs-section.tsx`
+(sites 150–156) now names its controls through a `token` prop, which the scanner
+does not classify, so its seven sites are gone and the totals fell from 275 sites
+in 113 files to 268 in 112. A later regression there will not show up in
+`rownames:check`; only `scheduled-jobs-section.test.tsx` would catch it.
+
+★ `dashboard-tile-bodies.tsx` builds its token map without `useMemo`, unlike the
+other fixed files, because `buildTileBodies` is a plain builder, not a component,
+and cannot call a hook. The map holds the top changes only, a handful of rows.
 
 ## Every site
 
@@ -232,7 +243,7 @@ sites have been judged.
 | 189 | `timelog-people-table.tsx` | 126 | `Select` | fine | already routed through a row token |
 | 190 | `timelog-people-table.tsx` | 155 | `button` | fine | already routed through a row token |
 | 191 | `timelog-people-table.tsx` | 174 | `IconButton` | fine | already routed through a row token |
-| 192 | `timelog-project-scope.tsx` | 104 | `input` | fine | qualified by an id or other unique value in the name |
+| 192 | `timelog-project-scope.tsx` | 104 | `input` | fixed | the checkbox carries the project name and number, as a row token; the number can be empty |
 | 193 | `timelog-projects-table.tsx` | 101 | `Select` | fixed | select and Clear carry the project name and number, as a row token |
 | 194 | `timelog-projects-table.tsx` | 129 | `button` | fixed | select and Clear carry the project name and number, as a row token |
 | 195 | `tour-catalog.tsx` | 26 | `button` | fine | fixed key or enum label; one entry per key |
