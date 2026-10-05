@@ -62,6 +62,12 @@ function setup(over: Partial<Omit<OutlookImportsDeps, "setContacts">> = {}) {
   return { ...hook, handleImportResources, handleImportAbsences, showToast };
 }
 
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   fetchContacts.mockReset();
   fetchEvents.mockReset();
@@ -88,6 +94,23 @@ describe("useOutlookImports — contacts", () => {
     fetchContacts.mockRejectedValueOnce(new Error("boom"));
     await act(() => result.current.imports.handleOpenOutlookImport());
     expect(result.current.imports.importError).toBe(t(LANG, "outlookFetchFailed"));
+  });
+
+  it("reopening after a failure clears the error and the list, and shows loading while the fetch is pending", async () => {
+    const { result } = setup();
+    fetchContacts.mockResolvedValueOnce([contact("Ada Lovelace", "ada@x.io")]);
+    await act(() => result.current.imports.handleOpenOutlookImport());
+    fetchContacts.mockRejectedValueOnce(new Error("outlookPermissionDenied"));
+    await act(() => result.current.imports.handleOpenOutlookImport());
+    expect(result.current.imports.importError).not.toBeNull();
+
+    const pending = deferred<OutlookContact[]>();
+    fetchContacts.mockReturnValueOnce(pending.promise);
+    let open!: Promise<void>;
+    act(() => { open = result.current.imports.handleOpenOutlookImport(); });
+    expect(result.current.imports).toMatchObject({ importError: null, importContacts: [], importLoading: true });
+    await act(async () => { pending.resolve([]); await open; });
+    expect(result.current.imports.importLoading).toBe(false);
   });
 
   it("confirm imports the resources, adds them to the address book, closes and toasts", async () => {
@@ -172,6 +195,23 @@ describe("useOutlookImports — calendar", () => {
     fetchEvents.mockRejectedValueOnce(new Error("outlookPermissionDenied"));
     await act(() => result.current.imports.handleOpenCalendarImport());
     expect(result.current.imports.calImportError).toBe(t(LANG, "outlookCalendarFetchFailed"));
+  });
+
+  it("reopening after a failure clears the error and the events, and shows loading while the fetch is pending", async () => {
+    const { result } = setup();
+    fetchEvents.mockResolvedValueOnce([EVENT]);
+    await act(() => result.current.imports.handleOpenCalendarImport());
+    fetchEvents.mockRejectedValueOnce(new Error("outlookCalendarPermissionDenied"));
+    await act(() => result.current.imports.handleOpenCalendarImport());
+    expect(result.current.imports.calImportError).not.toBeNull();
+
+    const pending = deferred<OutlookEvent[]>();
+    fetchEvents.mockReturnValueOnce(pending.promise);
+    let open!: Promise<void>;
+    act(() => { open = result.current.imports.handleOpenCalendarImport(); });
+    expect(result.current.imports).toMatchObject({ calImportError: null, calImportEvents: [], calImportLoading: true });
+    await act(async () => { pending.resolve([]); await open; });
+    expect(result.current.imports.calImportLoading).toBe(false);
   });
 
   it("confirm imports the rows for the target, closes and toasts", async () => {
