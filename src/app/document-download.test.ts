@@ -21,6 +21,8 @@ import {
 import { triggerDownload } from "./download";
 import { EXPORT_INLINE_BUDGET_BYTES, loadExportAssets } from "./document-export-assets";
 import { unzipBytes } from "../test/unzip-bytes";
+import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
+import { t } from "./i18n";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
@@ -218,6 +220,43 @@ describe("documentFilename", () => {
   it("never leaves a leading dot, so the file cannot land as a dotfile", () => {
     expect(documentFilename(named(".env"), "html", "2026-08-06")).toBe("env-2026-08-06.html");
   });
+
+  // §509 — files from different projects must not collide once gathered in
+  // one folder, so the project code leads the name when one is set.
+  it("leads with the project code when one is set", () => {
+    expect(documentFilename(doc, "docx", "2026-08-06", "AZ-17")).toBe("az-17-q1-status-review-2026-08-06.docx");
+  });
+
+  it("drops a blank code or one that slugs to nothing", () => {
+    expect(documentFilename(doc, "docx", "2026-08-06", "")).toBe("q1-status-review-2026-08-06.docx");
+    expect(documentFilename(doc, "docx", "2026-08-06", "  ")).toBe("q1-status-review-2026-08-06.docx");
+    expect(documentFilename(doc, "docx", "2026-08-06", "???")).toBe("q1-status-review-2026-08-06.docx");
+  });
+
+  // An emoji is two UTF-16 units; a cut that lands between them would leave a
+  // broken character at the end of the name. "a" first puts every high
+  // surrogate on an odd index, so both the 80 and the 40 cut fall inside one.
+  it("never ends a capped stem inside a character", () => {
+    const LONE_HIGH = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
+    const emojis = "a" + "\u{1F600}".repeat(50);
+    const titled = documentFilename(named(emojis), "html", "2026-08-06");
+    expect(titled).toMatch(/^a\u{1F600}+-2026-08-06\.html$/u);
+    expect(titled).not.toMatch(LONE_HIGH);
+    const coded = documentFilename(doc, "html", "2026-08-06", emojis);
+    expect(coded).toMatch(/^a\u{1F600}+-q1-status-review-2026-08-06\.html$/u);
+    expect(coded).not.toMatch(LONE_HIGH);
+  });
+
+  it("caps the joined code and title at MAX_FILENAME_STEM", () => {
+    const name = documentFilename(named("word ".repeat(60)), "pptx", "2026-08-06", "code ".repeat(40));
+    const stem = name.replace("-2026-08-06.pptx", "");
+    expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
+    expect(stem.startsWith("code-code")).toBe(true);
+    expect(stem.endsWith("-")).toBe(false);
+    // A long code takes at most half the budget, so the title still shows.
+    expect(stem.indexOf("-word")).toBeGreaterThan(0);
+    expect(stem.indexOf("-word")).toBeLessThanOrEqual(40);
+  });
 });
 
 describe("withAutoPrint", () => {
@@ -365,6 +404,62 @@ describe("downloadDocument", () => {
     // downloaded file that opens the print dialog by itself is hostile. The
     // user opens it and prints when they choose to.
     expect(await blob.text()).not.toContain("window.print");
+  });
+
+  // §509 — each of the three naming sites passes the workspace's project code.
+  describe("names the file with the project code (§509)", () => {
+    const coded: Workspace = { ...ws, project: { ...(ws.project ?? {}), name: "P", code: "AZ-17" } as Workspace["project"] };
+
+    it("on a direct download", async () => {
+      await downloadDocument(doc, "docx", coded, "en-US");
+      expect(downloads()[0][0]).toMatch(/^az-17-q1-status-review-\d{4}-\d{2}-\d{2}\.docx$/);
+    });
+
+    it("on the popup-blocked PDF fallback", async () => {
+      vi.stubGlobal("open", vi.fn(() => null));
+      await downloadDocument(doc, "pdf", coded, "en-US");
+      expect(downloads()[0][0]).toMatch(/^az-17-q1-status-review-\d{4}-\d{2}-\d{2}\.html$/);
+    });
+
+    it("in the desktop PDF's suggested save name", async () => {
+      const tab = fakeTab();
+      vi.stubGlobal("open", vi.fn(() => tab.win));
+      const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+      try {
+        await downloadDocument(doc, "pdf", coded, "en-US");
+        expect(tab.html).toMatch(new RegExp(`<title>${PDF_READY_TITLE_PREFIX}az-17-q1-status-review-\\d{4}-\\d{2}-\\d{2}\\.pdf</title>`));
+      } finally {
+        ua.mockRestore();
+      }
+    });
+  });
+
+  // §545 — every format's renderer receives the extras downloadDocument was
+  // handed, so a `budgetForecast` block embeds the forecast in each file.
+  describe("hands the export extras to every renderer (§545)", () => {
+    const forecastDoc: ProjectDocument = { ...doc, blocks: [{ type: "dataSection", key: "budgetForecast" }] };
+    const extras = { budgetForecast: forecastBundleFixture() };
+    const BAC = t("en-US", "forecastFactBac");
+    const fileText = async (blob: Blob): Promise<string> => {
+      if (blob.type.startsWith("text/html")) return blob.text();
+      const dec = new TextDecoder();
+      return [...(await unzipBytes(blob)).values()].map((b) => dec.decode(b)).join("\n");
+    };
+
+    it.each(["html", "docx", "pptx"] as const)("%s", async (format) => {
+      await downloadDocument(forecastDoc, format, ws, "en-US", undefined, undefined, extras);
+      expect(await fileText(downloads()[0][1])).toContain(BAC);
+    });
+
+    it("pdf, in the print tab and in the popup-blocked fallback", async () => {
+      const tab = fakeTab();
+      vi.stubGlobal("open", vi.fn(() => tab.win));
+      await downloadDocument(forecastDoc, "pdf", ws, "en-US", undefined, undefined, extras);
+      expect(tab.html).toContain(BAC);
+      vi.stubGlobal("open", vi.fn(() => null));
+      await downloadDocument(forecastDoc, "pdf", ws, "en-US", undefined, undefined, extras);
+      expect(await fileText(downloads()[0][1])).toContain(BAC);
+    });
   });
 
   it("does nothing at all without a window (SSR)", async () => {

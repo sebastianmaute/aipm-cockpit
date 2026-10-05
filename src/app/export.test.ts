@@ -12,6 +12,7 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { buildPdfHtml, exportFilename, exportWorkspace } from "./export";
+import { MAX_FILENAME_STEM } from "./filename-stem";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
@@ -584,6 +585,29 @@ describe("exportFilename", () => {
     expect(exportFilename("pdf", "2026-09-26", "???")).toBe("aipm-cockpit-tasks-2026-09-26.pdf");
   });
 
+  // §509 — the project code leads the stem so exports from different PMs'
+  // projects do not collide in one folder; each half is optional.
+  it("leads the stem with the project code when one is set", () => {
+    expect(exportFilename("xlsx", "2026-09-26", "Apollo Rollout", "AZ-17")).toBe(
+      "aipm-cockpit-project-az-17-apollo-rollout-2026-09-26.xlsx",
+    );
+    expect(exportFilename("pdf", "2026-09-26", "", "AZ-17")).toBe("aipm-cockpit-project-az-17-2026-09-26.pdf");
+    expect(exportFilename("pdf", "2026-09-26", "Apollo", "???")).toBe("aipm-cockpit-project-apollo-2026-09-26.pdf");
+    expect(exportFilename("pdf", "2026-09-26", "???", "  ")).toBe("aipm-cockpit-tasks-2026-09-26.pdf");
+  });
+
+  // The code and the name together stay within the one-stem cap.
+  it("caps the joined code and name at MAX_FILENAME_STEM, with no trailing separator", () => {
+    const name = exportFilename("pdf", "2026-09-26", "word ".repeat(40), "code ".repeat(40));
+    const stem = name.replace(/^aipm-cockpit-project-/, "").replace("-2026-09-26.pdf", "");
+    expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
+    expect(stem.length).toBeGreaterThan(MAX_FILENAME_STEM - 5);
+    expect(stem.endsWith("-")).toBe(false);
+    // A long code takes at most half, so the name still shows.
+    expect(stem.startsWith("code-")).toBe(true);
+    expect(stem).toContain("-word");
+  });
+
   // The Open Points export menu (export-menu.tsx) builds its workspace with NO
   // `project` key; its file must keep the tasks name.
   it("keeps the tasks name through exportWorkspace when the workspace has no project", async () => {
@@ -608,6 +632,22 @@ describe("exportFilename", () => {
 
     expect(tab.html).toMatch(
       new RegExp(`<title>${PDF_READY_TITLE_PREFIX}aipm-cockpit-project-apollo-rollout-\\d{4}-\\d{2}-\\d{2}\\.pdf</title>`),
+    );
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  // §509 — the call site passes the project code, not only the name.
+  it("puts the project code in the desktop PDF's suggested save name", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+    const ws = { ...makeBaseWorkspace(), project: { name: "Apollo Rollout", code: "AZ-17" } as ProjectMeta };
+
+    await exportWorkspace(ws, "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toMatch(
+      new RegExp(`<title>${PDF_READY_TITLE_PREFIX}aipm-cockpit-project-az-17-apollo-rollout-\\d{4}-\\d{2}-\\d{2}\\.pdf</title>`),
     );
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

@@ -88,6 +88,7 @@ import { htmlEscape } from "./download";
 // reason (and that module never exported it — it kept a private copy).
 import { createLinkSink } from "./ooxml-links";
 import { resolveDataSection } from "./doc-data-section";
+import type { ExportExtras } from "./export-forecast-section";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import type { DocumentAsset } from "./document-asset";
@@ -353,7 +354,7 @@ function blockLines(block: DocBlock, ctx: RenderCtx): SlideLine[] {
       return tableLines(block.columns, block.rows, block.caption);
 
     case "dataSection": {
-      const section = resolveDataSection(block.key, ws, lang);
+      const section = resolveDataSection(block.key, ws, lang, ctx.extras);
       // An empty register renders as nothing, not as a bare heading with no
       // rows under it — a fresh project would otherwise grow one per deck.
       if (!section) return [];
@@ -407,6 +408,8 @@ export function renderDocumentPptx(
   /** The export footer (`exportFooterText(settings.branding)`): printed on every
    *  slide and naming the theme. */
   footer: string = DEFAULT_EXPORT_FOOTER,
+  /** What a derived `dataSection` needs (§545): the budget forecast. */
+  extras: ExportExtras = {},
 ): Blob {
   const ctx: RenderCtx = {
     ws,
@@ -414,6 +417,7 @@ export function renderDocumentPptx(
     byId: new Map((ws.documentAssets ?? []).map((a) => [a.id, a])),
     assets,
     footer,
+    extras,
   };
   const slideMedia = createDeckMedia(ctx);
   // ★ The title slide carries no image, so an image-free document still

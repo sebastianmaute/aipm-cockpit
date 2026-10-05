@@ -38,6 +38,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
+import { useExportExtras } from "./export-extras-context";
 import { attachAssetImages } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
@@ -184,9 +185,11 @@ export function DocumentPreview({
   // return is a rules-of-hooks violation and `npm run lint` is `--max-warnings=0`
   // in CI, so the guard moves INTO the memo body rather than the hook moving
   // below the guard.
+  // §545 — what a `budgetForecast` dataSection block embeds.
+  const exportExtras = useExportExtras();
   const html = useMemo(
-    () => (doc ? renderDocumentHtml(doc, ws, lang, "preview") : ""),
-    [doc, ws, lang],
+    () => (doc ? renderDocumentHtml(doc, ws, lang, "preview", undefined, undefined, exportExtras) : ""),
+    [doc, ws, lang, exportExtras],
   );
 
   // ★★★ MEMOIZED FOR ITS IDENTITY, NOT FOR THE ALLOCATION — and without it NO

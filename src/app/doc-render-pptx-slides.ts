@@ -46,6 +46,7 @@ import type { ExportAssets } from "./document-export-assets";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import type { ExportExtras } from "./export-forecast-section";
 
 /**
  * One body line on its way to a slide.
@@ -723,6 +724,8 @@ export type RenderCtx = {
   assets: ExportAssets;
   /** The export footer every slide carries; omitted means the built-in default. */
   footer?: string;
+  /** What a derived `dataSection` needs (§545): the budget forecast. */
+  extras?: ExportExtras;
 };
 
 /**

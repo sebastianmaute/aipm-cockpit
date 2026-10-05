@@ -2435,7 +2435,7 @@ function TaskManagerInner() {
   // Shared props for WorkspaceSection. Spread into both the classic (no
   // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
   const workspaceProps = {
-    today,
+    today, exportForecast, // §545 — documents embed the forecast
     holidaySet,
     workspaceRef,
     resetWorkspaceSize,

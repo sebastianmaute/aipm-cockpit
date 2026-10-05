@@ -1656,6 +1656,12 @@ do not read a green registry run as proof all six carry the slice.
 ★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
 describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
 
+★★ Added 2026-10-05, not part of the moved text: a NEW surface that renders or downloads a document must
+read `useExportExtras()` and pass it to the renderer or `downloadDocument`, or a `budgetForecast` data
+section renders as nothing with no error (§545). The rule is in
+[budget.md](budget.md#the-forecast-in-exports-545); list today's readers with
+`grep -rn "useExportExtras()" src/app --include=*.tsx | grep -v test`.
+
 ★ One fact, one doc: the moved text's `documentVersions`, S3c-1 and S3c-2 paragraphs were cut to
 one-line pointers on 2026-09-13, because the S3c-2 one had become an older copy that contradicted its
 canonical section. The canonical copies are this file's version-model, "Asset images (S3c-1)" and

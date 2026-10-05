@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ExportExtrasProvider } from "./export-extras-context";
+import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { ToolBlock } from "./chat-tool-block";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -444,6 +446,21 @@ describe("ToolBlock — document file card", () => {
     );
     await user.click(screen.getByRole("button", { name: downloadName("Steering deck", 4) }));
     expect(vi.mocked(downloadDocument).mock.calls.at(-1)![5]).toBe("Acme GmbH");
+  });
+
+  // §545 — a card's download must embed the same forecast the pane's does.
+  it("passes the provided budget forecast on to the download", async () => {
+    const user = userEvent.setup();
+    const forecast = forecastBundleFixture();
+    const result = JSON.stringify({ id: 4, title: "Steering deck", blockCount: 12 });
+    renderTree(
+      [doc(4, "Steering deck", 12)],
+      <ExportExtrasProvider forecast={forecast}>
+        <ToolBlock name="create_document" input={{}} result={result} error={false} lang="en-US" />
+      </ExportExtrasProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: downloadName("Steering deck", 4) }));
+    expect(vi.mocked(downloadDocument).mock.calls.at(-1)![6]).toEqual({ budgetForecast: forecast });
   });
 
   // ★ The other branch of the same guard. In file mode there is no byte store,

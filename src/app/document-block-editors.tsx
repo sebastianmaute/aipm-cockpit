@@ -672,8 +672,8 @@ function ParagraphEditorBody({
 export { TableBlockEditor } from "./document-table-editor";
 
 /**
- * A `select` over the `DataSectionKey`s (every export section but the derived
- * ones, §545) — never free text. An
+ * A `select` over the `DataSectionKey`s (every export section, the derived
+ * `budgetForecast` included since §545) — never free text. An
  * arbitrary key would resolve to no section at render time
  * (`resolveDataSection` looks it up by exact match) and render as nothing —
  * a silently missing section rather than a visible error — so free text

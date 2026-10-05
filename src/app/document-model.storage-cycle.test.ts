@@ -81,8 +81,8 @@ describe("sanitizeProjectDocuments — under the storage import cycle", () => {
     expect(out[0].blocks).toEqual([{ type: "dataSection", key: "tasks" }]);
   });
 
-  // §545 — every key a document block may NAME (`DATA_SECTION_KEYS`), which is
-  // the registry minus its derived sections.
+  // §545 — every key a document block may NAME (`DATA_SECTION_KEYS`): the whole
+  // registry, the derived `budgetForecast` included.
   it("keeps a dataSection for EVERY key a document block may name", () => {
     // ★ Guards the partial-failure shape too: a fix that resolved only the first
     // key, or that matched on a stale hardcoded subset, passes the test above.

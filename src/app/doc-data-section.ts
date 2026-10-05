@@ -14,6 +14,7 @@
 // this way: renderers → here, never here → a renderer.
 
 import { buildExportSections, type ExportSection } from "./export-sections";
+import type { ExportExtras } from "./export-forecast-section";
 import {
   EXPORT_SECTION_KEYS,
   type ExportConfig,
@@ -35,8 +36,8 @@ import type { Lang } from "./i18n";
  * ★★ THE ZERO-ROW CHECK IS LOAD-BEARING, NOT BELT-AND-BRACES — it is reachable
  * TODAY, and only two of the builders can reach it. Thirteen gate on
  * `items.length > 0` and so cannot return an empty section, and the derived
- * `budgetForecast` is never asked for here (`DataSectionKey` excludes it, §545).
- * But `project` gates
+ * `budgetForecast` is omitted, not emptied, when `extras` carries no forecast
+ * (§545). But `project` gates
  * on `ws.project` being PRESENT and `status` on its having any KEYS, while
  * `projectSection` skips every blank/undefined/empty-array field and
  * `statusSection` drops every empty line — so a project whose metadata is all
@@ -50,10 +51,14 @@ export function resolveDataSection(
   key: DataSectionKey,
   ws: Workspace,
   lang: Lang,
+  /** What a derived section needs beyond the workspace (§545): the budget
+   *  forecast. A caller without it renders a `budgetForecast` block as
+   *  nothing. */
+  extras: ExportExtras = {},
 ): ExportSection | null {
   const cfg = Object.fromEntries(
     EXPORT_SECTION_KEYS.map((k) => [k, k === key]),
   ) as ExportConfig;
-  const section = buildExportSections(ws, cfg, lang).find((s) => s.key === key);
+  const section = buildExportSections(ws, cfg, lang, extras).find((s) => s.key === key);
   return section && section.rows.length > 0 ? section : null;
 }

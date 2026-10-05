@@ -20,7 +20,16 @@ longer carries its own changelog comment.
   efficiency (hours beside the euros) with their variance, the gap between the two forecasts, the
   average booked rate and, for fixed-price work, a note that the client price does not change. It is on
   by default and can be switched off in Settings → Export. It is left out when the budget module is off
-  or there is no forecast yet. CSV and Markdown exports, and document data sections, do not include it.
+  or there is no forecast yet. CSV and Markdown exports do not include it.
+- **Documents can embed the budget forecast (§545).** A document's data section can now be "Budget
+  forecast", in the block editor and when the AI assistant writes a document. It shows the same
+  figures as the exports, live in the preview and in every download format. It shows nothing when
+  the budget module is off or there is no forecast yet. Open a project containing such a
+  document only in this release or later: an older version drops the block when it loads the project,
+  even if nobody opens that document, and saves the project without it.
+- **Export and document file names start with the project code (§509).** When the project has a
+  code, exported files are named `aipm-cockpit-project-<code>-<name>-<date>` and downloaded documents
+  `<code>-<title>-<date>`, so files from different projects do not collide in one folder.
 - **The AI assistant can read RACI assignments (§237).** Asked who is Responsible, Accountable,
   Consulted or Informed for a milestone, the assistant can now answer from the stakeholder list
   instead of saying it cannot see the RACI matrix. It still cannot set an assignment from chat;

@@ -36,6 +36,7 @@ import { resolveDocRef } from "./document-ref";
 import { displayRejected } from "./document-refusal-text";
 import { useDocumentEntityFilter } from "./use-document-entity-filter";
 import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
+import { useExportExtras } from "./export-extras-context";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
@@ -209,6 +210,8 @@ export function DocumentsPanel({
   // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
   // is banned).
   const [format, setFormat] = useState<DocFormat>(() => readStoredFormat(initialFormat));
+  // §545 — what a `budgetForecast` dataSection block embeds in a download.
+  const exportExtras = useExportExtras();
 
   // ★ Persist on CHOICE, in the handler — never from an effect. An effect would
   // fire on mount too and write back a value the user never picked, which is
@@ -649,7 +652,7 @@ export function DocumentsPanel({
       <DocumentsToolbar
         lang={lang}
         onNew={handleCreate}
-        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane), exportFooter).catch((e) => reportDownloadFailure(showToast, lang, e)); }}
+        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane), exportFooter, exportExtras).catch((e) => reportDownloadFailure(showToast, lang, e)); }}
         canDownload={selected !== null}
         format={format}
         onFormatChange={chooseFormat}
@@ -695,7 +698,7 @@ export function DocumentsPanel({
           onRename={(doc) => setRenaming({ id: doc.id, draft: doc.title })}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
-          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane), exportFooter).catch((e) => reportDownloadFailure(showToast, lang, e))}
+          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane), exportFooter, exportExtras).catch((e) => reportDownloadFailure(showToast, lang, e))}
           onOpenHistory={handleOpenHistory}
           isReadOnly={isReadOnly}
           flashId={flashId}
