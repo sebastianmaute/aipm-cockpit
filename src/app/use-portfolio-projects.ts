@@ -11,6 +11,9 @@
 // reads them before this point. Called unconditionally with the live closure
 // values via a typed `deps` object; the inline `useCallback`/`useMemo` keep
 // the exact memoization the code had inline. Move-only: no behaviour change.
+// ★ That memoization departs from Extraction convention 1 (non-memoized
+// handlers) on purpose: the move keeps the identities the Projects view, the
+// switcher and the empty state already received, so re-renders are unchanged.
 //
 // ★ Coverage-GATED on purpose (not in `coverage.exclude`): the delete handler's
 // survivor switch, the mode-aware list mapping and the snapshot gate are real
