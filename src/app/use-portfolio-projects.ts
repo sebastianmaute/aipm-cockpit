@@ -3,10 +3,12 @@
 // Deps-object hook factory extracted from task-manager.tsx (Phase 3 convention,
 // §491). Holds the multi-project (portfolio) wiring task-manager hands to the
 // Projects view, the project switcher and the empty state: the empty-state /
-// project handlers (edit / new / load-from-file / restore / delete), the mode-aware
+// project handlers (new / load-from-file / restore / delete), the mode-aware
 // project and archive lists, the per-device key-facts snapshot effect, the
 // mode-aware switch, and the create / update / archive / restore / hard-delete
-// handlers it composes from `useTursoProjects`. The registry copy, the Turso
+// handlers it composes from `useTursoProjects` (the edit handler,
+// `handleUpdateCurrentProject`, is internal: it goes to `useTursoProjects` as
+// the file-mode update and is not returned). The registry copy, the Turso
 // project lists and `refreshTursoProjects` stay in task-manager, which also
 // reads them before this point. Called unconditionally with the live closure
 // values via a typed `deps` object; the inline `useCallback`/`useMemo` keep
