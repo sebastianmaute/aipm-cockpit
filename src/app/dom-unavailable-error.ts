@@ -8,8 +8,12 @@
 //  with no `diag` (a bare-node script, a node-environment test) lost every
 //  document with no report at all, because `logDiag` is a no-op without a
 //  `window` too (§624). `sanitize-html.ts` throws this instead of DOMPurify's
-//  opaque "addHook is not a function", and every catch on a load path rethrows
-//  it, so the caller fails loudly whether or not it passed a `diag`.
+//  opaque "addHook is not a function", and each catch that used to turn a
+//  sanitizer throw into dropped data rethrows it — the document and version
+//  passes, the meta-slice decoders, `decodeNoteLog`, and the outer catches of
+//  `jsonToWorkspace` and `BrowserBackend.load` — so the caller fails loudly
+//  whether or not it passed a `diag`. Enumerate them with
+//    grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test
 //
 // ★ Its own module with no imports, so the DOM-free codec graph
 //  (`meta-slice-decode.ts`, the CSV and Markdown codecs) can test for it without

@@ -10,6 +10,7 @@ import { sanitizeRichHtml, htmlToText } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { sanitizeNoteLogWith, type NoteLogHtmlOps } from "./note-log-policy";
+import { rethrowIfDomUnavailable } from "./dom-unavailable-error";
 
 /** Accept only well-formed note entries from untrusted JSON. Delegates the
  *  whole policy (entry cap, byte html cap, control-char stripping, timestamp
@@ -80,17 +81,13 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  calls `sanitizeRichHtml` and `htmlToText` too, and IS reached from CSV,
  *  Markdown and Turso through the exported `decodeNoteLog` — Turso via
  *  `ENTITY_SPECS.fromObj` reusing `build*FromObj`. It survives that only because
- *  `decodeNoteLog` wraps the call in a `try/catch`, and the catch is not a
- *  guard: measured under bare node with no DOM,
- *  `decodeNoteLog(JSON.stringify([{id:1,timestamp:"2026-01-01T00:00:00.000Z",
- *  html:"<p>hi</p>",text:"hi"}]))` returns `[]` — a well-formed entry SILENTLY
- *  discarded, no throw, no diagnostic. So anywhere the codecs run with no DOM,
- *  they decode every note log to empty. (That is NOT the sample generator or the
- *  fixture flow, as this once said: both install JSDOM before importing src/app
- *  — open-followups §151.) Recorded, not fixed, under
- *  open-followups §28: widening the catch is the wrong repair (it is what stops a
- *  malformed cell failing a whole load), and telling "malformed JSON" apart from
- *  "no DOM" needs the post-decode hook that entry already owns. */
+ *  `decodeNoteLog` wraps the call in a `try/catch`. Until §97 that catch also
+ *  swallowed a missing DOM, so with no DOM every well-formed note log decoded to
+ *  `[]`, silently. Since §97 `sanitizeRichHtml` throws the named
+ *  `DomUnavailableError` and `decodeNoteLog` rethrows it, so a no-DOM codec load
+ *  fails loudly while a malformed cell still decodes to `[]` (the catch is what
+ *  stops one bad cell failing a whole load). Pinned by
+ *  `dom-unavailable.load-paths.test.ts`. */
 function sanitizeRichFields<T extends RichFieldCarrier>(
   entity: T,
   fields: readonly RichFieldName[],
@@ -216,7 +213,9 @@ export function decodeNoteLog(cell: string | null | undefined): NoteLogEntry[] {
   if (!cell) return [];
   try {
     return sanitizeNoteLog(JSON.parse(cell));
-  } catch {
+  } catch (err) {
+    // §97 — a missing DOM is not a malformed cell: fail the load, never drop the log.
+    rethrowIfDomUnavailable(err);
     return [];
   }
 }

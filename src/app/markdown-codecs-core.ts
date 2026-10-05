@@ -233,13 +233,13 @@ export function markdownToDocuments(
   // the same document decoding to different in-memory HTML depending on the
   // backend it came from — and a Markdown→JSON migration then WROTE the
   // unfiltered markup into a backend that would have cleaned it.
-  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-  // SILENT. Measured both ways with the generator's exact arrangement: with
-  // JSDOM installed first, documents decode and come back sanitized; with no
-  // DOM the DOMPurify call throws, the catch in `decodeMetaJson` swallows it,
-  // and documents decode to UNDEFINED — dropped whole, no error, and (since
-  // §630) reported only through `diag.decodeFailedSlices` when a caller passes
-  // one. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT. Measured both ways with the
+  // generator's exact arrangement: with JSDOM installed first, documents decode
+  // and come back sanitized. With no DOM the failure USED to be silent — the
+  // catch in `decodeMetaJson` swallowed the DOMPurify throw and documents
+  // decoded to UNDEFINED, reported only through `diag.decodeFailedSlices` when a
+  // caller passed one. Since §97 the sanitizer throws `DomUnavailableError` and
+  // `decodeMetaJson` rethrows it, so the whole decode fails loudly instead. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
   // install JSDOM into globalThis BEFORE they dynamically import src/app. But
   // update-ooxml-manifest.ts reaches this module with NO DOM (via storage).
   // §624 measured on 2026-09-28, with a throwaway marker here, that its run

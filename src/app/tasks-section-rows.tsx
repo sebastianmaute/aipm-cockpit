@@ -113,8 +113,8 @@ export function TasksTable({
           <TaskRow
             key={task.id}
             task={task}
-            // `tableTokens` is built above from `visibleRows` (the very
-            // array this `.map` iterates), so `task.id` is always a key —
+            // `tableTokens` is built in tasks-section.tsx from `visibleRows`
+            // (the very array this `.map` iterates), so `task.id` is always a key —
             // the fallback cannot fire today. Kept anyway: the two are
             // independently typed props/locals, so nothing structurally
             // binds a future edit to keep them in sync.
@@ -140,12 +140,13 @@ export function TasksTable({
               // same STRING in EN and DE but not the same MEANING:
               // `addTask` is the task modal's SUBMIT verb, `addTaskButton`
               // is the label of every control that OPENS the editor. This
-              // row is an opener (it runs `handleCancelEdit()` — which
-              // DISCARDS an in-progress edit — then opens the modal), so
+              // row is an opener (`onAdd` is the orchestrator's
+              // `openTaskEditor`: it runs `handleCancelEdit()`, which
+              // DISCARDS an in-progress edit, then opens the modal), so
               // it wears the opener key. It was mis-keyed to `addTask`,
               // which put the submit's name on a control that throws the
               // submit's work away.
-              // ★ This row and the toolbar `AddButton` above deliberately
+              // ★ This row and the toolbar `AddButton` (tasks-section-toolbar.tsx) deliberately
               // KEEP one shared accessible name: identical purpose,
               // identical handler. WCAG 2.4.6 permits that, and this
               // repo's rule says a repeated name is a QUESTION, not an

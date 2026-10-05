@@ -14,12 +14,14 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrowserBackend } from "./browser-backend";
 import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
+import { buildTaskFromObj } from "./csv-codecs-decode";
 import { DomUnavailableError } from "./dom-unavailable-error";
 import type { DocTruncationDiag, ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 import { idbSet } from "./idb";
 import { IDB_OPTIONAL_KV_KEYS } from "./idb-layout";
 import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
+import { decodeNoteLog } from "./note-log";
 import { htmlToText, sanitizeDocumentHtml, sanitizeRichHtml } from "./sanitize-html";
 import { TABLE_NAMES, type PipelineResultLike, rowsToWorkspace } from "./turso-schema";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
@@ -92,6 +94,32 @@ describe.each(DIAGS)("§97 — a document with a paragraph fails the load with %
   it("Turso", () => {
     const results = metaOnlyResults([["documents", JSON.stringify([PARAGRAPH_DOC])]]);
     expect(() => rowsToWorkspace(results, makeDiag())).toThrow(DomUnavailableError);
+  });
+});
+
+describe("§97 — the other rich passes on the load paths", () => {
+  const NOTE_LOG = JSON.stringify([{ id: 1, timestamp: STAMP, html: "<p>hi</p>", text: "hi" }]);
+
+  it("decodeNoteLog rethrows a missing DOM, and still decodes a malformed cell to []", () => {
+    // The CSV, Markdown and Turso row decoders all reach it; before §97 its catch
+    // decoded every note log to [] with no DOM, silently.
+    expect(() => decodeNoteLog(NOTE_LOG)).toThrow(DomUnavailableError);
+    expect(decodeNoteLog("{not json")).toEqual([]);
+  });
+
+  it("a CSV/Turso task row with a note log fails, and the same row without one decodes", () => {
+    const row = { id: "1", taskName: "Survivor" };
+    expect(buildTaskFromObj(row)?.taskName).toBe("Survivor"); // control: no DOM needed
+    expect(() => buildTaskFromObj({ ...row, noteLog: NOTE_LOG })).toThrow(DomUnavailableError);
+  });
+
+  it("a non-strict JSON load with one task and NO documents fails instead of returning an empty workspace", () => {
+    // ★ Pins the OUTER-catch rethrow in jsonToWorkspace on its own: the task
+    // rich-field pass runs outside any local catch and sanitizes any NON-EMPTY
+    // description (plain text included), so with no DOM it reaches
+    // the outer catch-all, which used to answer emptyWorkspace() — every task lost.
+    const json = JSON.stringify({ ...JSON.parse(workspaceToJson(emptyWorkspace())), tasks: [{ id: 1, taskName: "Survivor", description: "plain words" }] });
+    expect(() => jsonToWorkspace(json)).toThrow(DomUnavailableError);
   });
 });
 
