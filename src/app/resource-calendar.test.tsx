@@ -1603,3 +1603,27 @@ it("names each day cell of an absence by person and day", () => {
   expect(cell.getAttribute("title")).not.toContain("Anna");
   expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("grid") });
 });
+
+// §669 review — "Ann  Lee" (two spaces) and "Ann Lee" are two rows (the key is the
+// trimmed, case-folded name), but a screen reader hears one name. The rows stay
+// separate; their names carry a row token.
+it("names two rows whose names differ only in whitespace apart", () => {
+  render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "ann  lee", display: "Ann  Lee", email: "" },
+        { key: "ann lee", display: "Ann Lee", email: "" },
+      ]}
+      absences={[
+        { id: 7, assignee: "Ann  Lee", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" },
+        { id: 8, assignee: "Ann Lee", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" },
+      ]}
+      resources={[]}
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Ann Lee (2)" })).toBeInTheDocument();
+  expectRowUniqueNames({ minControls: 6, scope: screen.getByRole("grid"), requireCollisionSeed: true });
+});

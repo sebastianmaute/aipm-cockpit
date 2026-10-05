@@ -14,7 +14,7 @@
 // them too). This file still imports nothing from resource-calendar.tsx, so
 // the dependency graph stays one-way — no cycle.
 
-import type { RefObject } from "react";
+import { useMemo, type RefObject } from "react";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
 import { absenceBg, absenceGlyph } from "./absence-style";
@@ -22,6 +22,7 @@ import { splitName } from "./resource-foundation";
 import { INTERACTIVE } from "./interaction-styles";
 import { resolveCalendarDrag, type DragMode } from "./calendar-drag";
 import { DragHandle } from "./drag-handle";
+import { buildRowTokens } from "./row-tokens";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
 
 /** The gesture currently in flight, tracked in a ref (not state) so the drop
@@ -90,9 +91,18 @@ export function CalendarRows({
   onEditResource,
   onAddResource,
 }: CalendarRowsProps) {
+  // §669 — rows are keyed on the trimmed, case-folded name, so "Ann  Lee" (two
+  // spaces) and "Ann Lee" are two rows that a screen reader hears as one name.
+  // The rows stay separate (the key is shared with the absence lookup); their
+  // NAMES carry a row token, which compares the collapsed name.
+  const rowTokens = useMemo(
+    () => buildRowTokens(visibleRows.map((r) => ({ id: r.key, name: r.display }))),
+    [visibleRows],
+  );
   return (
     <tbody>
       {visibleRows.map((row, rowIndex) => {
+        const rowName = rowTokens.get(row.key) ?? row.display;
         return (
           <tr key={row.key} role="row">
             <td
@@ -114,6 +124,7 @@ export function CalendarRows({
                         : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                     }
                     title={row.display}
+                    aria-label={rowName}
                     className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                   >
                     {row.display}
@@ -149,11 +160,11 @@ export function CalendarRows({
                       ? ""
                       : `–${hit.endDate}`
                   }${hit.note ? `: ${hit.note}` : ""}`
-                : `${row.display} — ${d.iso}`;
+                : `${rowName} — ${d.iso}`;
               // §669 — every day cell of one absence shared the tip above, and the
               // person was not in it, so an absence cell is named by person and day
               // too. The tooltip stays the short form, since the row and column show those.
-              const cellName = hit ? `${row.display} — ${d.iso}: ${tip}` : tip;
+              const cellName = hit ? `${rowName} — ${d.iso}: ${tip}` : tip;
               return (
                 <td
                   key={d.iso}
