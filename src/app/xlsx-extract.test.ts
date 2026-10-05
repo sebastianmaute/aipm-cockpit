@@ -301,6 +301,17 @@ describe("extractXlsx", () => {
     expect(row.endsWith("| 7 |")).toBe(true);
   });
 
+  // CodeQL js/incomplete-sanitization: escaping `|` alone left a cell's own
+  // backslash free to cancel the escape: a cell reading a\|b came out as a\\|b,
+  // an escaped backslash followed by a bare pipe, which splits the column.
+  it("escapes a cell's backslashes before its pipes, so no cell splits a column", () => {
+    const sheet = `<worksheet><sheetData>
+      <row r="1"><c r="A1" t="inlineStr"><is><t>a\\|b</t></is></c><c r="B1"><v>c</v></c></row>
+    </sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    expect(extractXlsx(entries)).toBe("## Sheet: Sheet1\n\n| a\\\\\\|b | c |\n| --- | --- |");
+  });
+
   it("reads the first <v> of a cell", () => {
     const sheet = `<worksheet><sheetData>
       <row r="1"><c r="A1"><v>first</v><v>second</v></c><c r="B1"><v>a &amp; b</v></c><c r="C1"><v>open</c></row>

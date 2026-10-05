@@ -326,7 +326,9 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
       if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
-      cells.push(cellValue(cellXml, shared).replace(/\|/g, "\\|"));
+      // Backslashes first: escaping only `|` lets a cell's own trailing `\`
+      // cancel the escape and split the column.
+      cells.push(cellValue(cellXml, shared).replace(/\\/g, "\\\\").replace(/\|/g, "\\|"));
       return true;
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
