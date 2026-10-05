@@ -2,6 +2,7 @@
 // shared-string resolution and column-reference gap filling. Values only (no
 // formulas/styles). xlsm is identical (the macro blob is ignored). Pure.
 
+import { escapeMarkdownTableCell } from "./md-table-cell";
 import { decodeUtf8, extractRuns, unescapeXml } from "./office-xml";
 import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
@@ -326,9 +327,7 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
       if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
-      // Backslashes first: escaping only `|` lets a cell's own trailing `\`
-      // cancel the escape and split the column.
-      cells.push(cellValue(cellXml, shared).replace(/\\/g, "\\\\").replace(/\|/g, "\\|"));
+      cells.push(escapeMarkdownTableCell(cellValue(cellXml, shared)));
       return true;
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is

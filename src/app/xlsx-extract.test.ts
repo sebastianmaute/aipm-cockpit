@@ -303,7 +303,8 @@ describe("extractXlsx", () => {
 
   // CodeQL js/incomplete-sanitization: escaping `|` alone left a cell's own
   // backslash free to cancel the escape: a cell reading a\|b came out as a\\|b,
-  // an escaped backslash followed by a bare pipe, which splits the column.
+  // an escaped backslash followed by a bare pipe, which a table parser can
+  // read as a column break.
   it("escapes a cell's backslashes before its pipes, so no cell splits a column", () => {
     const sheet = `<worksheet><sheetData>
       <row r="1"><c r="A1" t="inlineStr"><is><t>a\\|b</t></is></c><c r="B1"><v>c</v></c></row>

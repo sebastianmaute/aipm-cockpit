@@ -18,6 +18,7 @@
 // defends against catastrophic cost and outright injection of forged
 // structure, not against every possible reconstruction.
 
+import { escapeMarkdownTableCell } from "./md-table-cell";
 import { forEachTagPair, replaceTagPairs, type TagPairSpec } from "./tag-pair-walk";
 
 /** Elements whose entire subtree is noise for a reader. */
@@ -222,11 +223,12 @@ function cellText(html: string): string {
   const decoded = decodeEntities(stripped);
   // Protect any literal "&" this decode produced — see AMP_SENTINEL.
   const protectedText = decoded.replace(/&/g, AMP_SENTINEL);
-  return protectedText
-    .replace(/[\r\n]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\|/g, "\\|");
+  return escapeMarkdownTableCell(
+    protectedText
+      .replace(/[\r\n]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 }
 
 /** Render <table> to a Markdown table before generic tag-stripping flattens it.
