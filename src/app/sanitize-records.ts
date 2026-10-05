@@ -1084,9 +1084,11 @@ type StakeholderFieldGuard = (value: unknown) => boolean;
  *  shows ""), so those two already agree and guarding them would make the card
  *  promise a clear the write stops making.
  *
- *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY, and saying so is the
- *  point: `raci`, `resourceId` and `knowledgeLinks` are REACHABLE and unguarded.
- *  NEITHER strip helper has a whitelist — `patchWithoutId` (update) and
+ *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY. When this was written
+ *  `raci`, `resourceId` and `knowledgeLinks` were REACHABLE and unguarded; all
+ *  three now have `() => false` rows in `STAKEHOLDER_FIELD_GUARDS` below (§435,
+ *  `8281075c7` and `65e65f559`), so the rest of this paragraph is the record of
+ *  why those rows exist. NEITHER strip helper has a whitelist — `patchWithoutId` (update) and
  *  `createInputWithoutId` (create) strip `id`, `expectedToken` and
  *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forward the rest — so a
  *  patch carrying them lands, `raci` is overwritten unconditionally by
@@ -1131,8 +1133,10 @@ const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> 
   resourceId: () => false,
   // ★★★ NOT MODEL-WRITABLE, and `entity-descriptor.ts` already says so at its
   //  own `stakeholderFields` ("`Stakeholder.raci` IS a relationship, but
-  //  `stakeholderFields` does not …"). It appears in NO tool schema
-  //  (`grep -c raci src/app/chat-tool-defs.ts` -> 0). The descriptor knowing a
+  //  `stakeholderFields` does not …"). It appears in NO tool's input schema:
+  //  the one `raci` in chat-tool-defs.ts is the READ-only `list_stakeholders`
+  //  description (`grep -n raci src/app/chat-tool-defs.ts`), and the two
+  //  stakeholder write tools' descriptions say they cannot set RACI (§237). The descriptor knowing a
   //  field is unwritable is not a guard — `patchWithoutId` AND `createInputWithoutId` both still forward it, neither having a whitelist.
   //  ★★ WHAT IT COST: `sanitizeStakeholder` rebuilds `raci` from the merged
   //  blob, so ANY unrecognised patch value replaced the stored assignment map

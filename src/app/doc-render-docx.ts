@@ -33,8 +33,8 @@ import {
   docxInlineDrawing,
   docxRichParagraphs,
 } from "./ooxml-docx-primitives";
-import { bulletMarker } from "./rich-text-runs";
 import { createLinkSink, type LinkSink } from "./ooxml-links";
+import { createNumberingSink, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
 import { resolveDataSection } from "./doc-data-section";
 import type { ExportExtras } from "./export-forecast-section";
 import { docxColumnWidths, docxSection } from "./export-docx-columns";
@@ -308,6 +308,7 @@ function paragraphBlock(
   lang: Lang,
   drawingFor: (id: string) => string | null,
   links: LinkSink,
+  numbering: NumberingSink,
 ): string {
   const out: string[] = [];
   /** Render one segment, and keep it unless it produced nothing.
@@ -336,7 +337,7 @@ function paragraphBlock(
    *  That now falls out of asking the right question, where before it rested on
    *  the order two separate steps happened to run in. */
   const pushSegment = (fragment: string): void => {
-    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)), links);
+    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)), links, numbering);
     if (xml !== EMPTY_PARAGRAPH) out.push(xml);
   };
 
@@ -355,7 +356,7 @@ function paragraphBlock(
   // image goes through UNTOUCHED — one call, on the original string — so it is
   // byte-identical to what this file produced before the split existed, and
   // the emit check cannot reach it to drop a deliberately blank paragraph.
-  if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang), links);
+  if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang), links, numbering);
   pushSegment(html.slice(last));
   return out.join("");
 }
@@ -367,6 +368,7 @@ function renderBlock(
   byId: ReadonlyMap<string, DocumentAsset>,
   drawingFor: (id: string) => string | null,
   links: LinkSink,
+  numbering: NumberingSink,
   extras: ExportExtras,
 ): string {
   switch (block.type) {
@@ -376,15 +378,20 @@ function renderBlock(
       // no links to resolve and take no sink.
       return para(block.text, `Heading${block.level}`);
     case "paragraph":
-      return paragraphBlock(block.html, byId, lang, drawingFor, links);
+      return paragraphBlock(block.html, byId, lang, drawingFor, links, numbering);
     case "bullets":
+      // §154 — a real Word list: one numbering instance per block (index 0
+      // restarts it), the marker drawn by Word rather than spelled in a run.
       return block.items
-        .map((item, i) => para(`${bulletMarker(block.ordered, i)} ${item}`, "ListParagraph"))
+        .map((item, i) => {
+          const numPr = numbering.numPrFor({ ordered: block.ordered === true, depth: 0, index: i });
+          return `<w:p><w:pPr><w:pStyle w:val="ListParagraph"/>${numPr}${listHeadIndent(0)}</w:pPr><w:r>${docxCellRuns(item)}</w:r></w:p>`;
+        })
         .join("");
     case "table":
       return (
         (block.caption ? para(block.caption, "Caption") : "") +
-        buildDocxTable(block.columns, block.rows, CONTENT_WIDTH, links)
+        buildDocxTable(block.columns, block.rows, CONTENT_WIDTH, links, undefined, numbering)
       );
     case "dataSection": {
       // ★★ `resolveDataSection` calls the REAL `buildExportSections`, so a
@@ -397,7 +404,7 @@ function renderBlock(
       const section = docxSection(resolved, { disciplines: ws.disciplines ?? [], grades: ws.grades ?? [], disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });
       return (
         para(section.title, "Heading2") +
-        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links, docxColumnWidths(section.columns, section.rows, CONTENT_WIDTH))
+        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links, docxColumnWidths(section.columns, section.rows, CONTENT_WIDTH), numbering)
       );
     }
     case "pageBreak":
@@ -455,14 +462,15 @@ export function renderDocumentDocx(
   //   ever stops holding; an overlap would otherwise be valid XML resolving to
   //   whichever relationship came first, i.e. an image becoming a link target.
   const links = createLinkSink(2 + mediaIdCeiling(doc));
+  const numbering = createNumberingSink();
 
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, extras)).join("");
+    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, numbering, extras)).join("");
 
   // ★ `parts` is populated BY the body render above — read it AFTER, never
   //   before. Building the package first ships an empty media list against a
   //   document.xml full of drawings whose relationships do not exist, which
   //   Word reports as a corrupt file. The same is true of `links.rels()`.
-  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels());
+  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels(), numbering.partXml());
 }

@@ -264,11 +264,13 @@ function trimLineEdges(runs: readonly TextRun[]): TextRun[] {
  *  That rule is uniform, so a blank line inside a <pre> collapses too — accepted:
  *  the alternative is a kind-specific exception that every consumer then has to
  *  know about. */
-/** Marker text for a list item. Neither OOXML renderer carries a numbering
- *  definition — DOCX has no numbering.xml part and PPTX gets no bullet
- *  properties from this path — so the marker is literal TEXT, and `ordered`
- *  still has to be honoured or the author's choice is silently discarded.
- *  Native numbering is open-followups §153 (PPTX) and §154 (DOCX).
+/** Marker text for a list item, wherever a marker is spelled as TEXT: the PPTX
+ *  renderer (no bullet properties from this path), the flat projection, and a
+ *  DOCX list item rendered with no numbering sink or carrying a task state.
+ *  `ordered` has to be honoured or the author's choice is silently discarded.
+ *  ★ The two DOCX renderers number NATIVELY since open-followups §154
+ *  (`ooxml-docx-numbering.ts`): a plain list item there gets `<w:numPr>` and
+ *  never reaches this function.
  *
  *  ★★ It lives HERE, beside the model it serves, because BOTH renderers need
  *  it: it used to be declared identically in each of them, which is the shape
@@ -276,7 +278,8 @@ function trimLineEdges(runs: readonly TextRun[]): TextRun[] {
  *
  *  ★ `ordered` is `boolean | undefined`, not `boolean`: a `RichLine` of kind
  *  "li" always carries one, but the `bullets` DocBlock's own `ordered` is
- *  OPTIONAL and both renderers feed that through here too.
+ *  OPTIONAL and the PPTX renderer feeds that through here too (the DOCX one
+ *  numbers a `bullets` block natively since §154).
  *
  *  ★ TASK ITEMS REUSE THE FLAT PROJECTION'S CONSTANTS rather than spelling
  *  "[x] " again, so the OOXML and plain-text projections cannot drift on the

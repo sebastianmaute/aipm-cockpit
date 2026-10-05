@@ -37,6 +37,7 @@ import {
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import type { LinkRel, LinkSink } from "./ooxml-links";
+import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
 
 /** One cell's text as Word runs, mapping the export projection's newlines to
  *  <w:br/>. A cell with no newline emits exactly the single <w:t> it always
@@ -288,7 +289,8 @@ function markedRun(run: RenderRun): string {
  *  ★★ `heading` is deliberately ABSENT from this record and resolved by
  *  `docxStyleFor` instead: its style id depends on the line's `level`, which a
  *  kind→id map cannot express. `li` IS here — every depth wears
- *  `ListParagraph` and the depth rides `<w:ind>`, not a per-depth style. */
+ *  `ListParagraph`, and the depth rides `<w:ind>` (plus, on a numbered item's
+ *  first line, `w:numPr`'s `w:ilvl` — §154), never a per-depth style. */
 const DOCX_LINE_STYLE: Partial<Record<RichLineKind, string>> = {
   blockquote: "Quote",
   pre: "CodeBlock",
@@ -323,9 +325,6 @@ const JC_VALUE: Record<Align, string> = {
   justify: "both",
 };
 
-/** One list nesting step, in twips. Matches `ListParagraph`'s own `w:ind`, so a
- *  top-level item indents identically whether or not the style resolves. */
-const LIST_INDENT_TWIPS = 720;
 
 /** One `RichLine` as one `<w:p>`.
  *
@@ -339,22 +338,43 @@ const LIST_INDENT_TWIPS = 720;
  *  `LineBase` — it carries no `align`, so `line.align` below is a type error
  *  until the kind has been narrowed away.
  *
- *  ★★ The list marker is LITERAL TEXT in its own `<w:r>`, not Word numbering.
- *  Real `<w:numPr>` numbering needs a numbering.xml part and an abstract
- *  numbering definition per list; the flat projection and the .pptx renderer
- *  both spell the marker out, and `bulletMarker` is the ONE place that decides
- *  what it says, so the three cannot disagree. Its own run carries no marks —
- *  the marker must not inherit the item's bold. */
+ *  ★★ WITH A `numbering` SINK (§154) a list item's first line is a real Word
+ *  list paragraph: it carries `<w:numPr>` (after `w:pStyle`, before `w:ind`
+ *  in CT_PPr's sequence) and no marker run, plus a direct `w:ind` that
+ *  restates its numbering level's hanging indent (`listHeadIndent` says why).
+ *  Continuation lines keep `w:ind` at the level's text position. A TASK item keeps the literal path: Word numbering
+ *  has no checked state.
+ *  ★★ WITHOUT a sink the marker is LITERAL TEXT in its own `<w:r>`, as it
+ *  always was, so a sink-less caller is byte-identical. `bulletMarker` is the
+ *  ONE place that decides that text — and the marker the flat projection and
+ *  the .pptx renderer spell — so they cannot disagree. Its own run carries no
+ *  marks — the marker must not inherit the item's bold. */
 export function docxRichParagraph(
   line: RichLine,
   styleOf: (line: RichLine) => string | undefined,
   links?: LinkSink,
+  numbering?: NumberingSink,
 ): string {
+  // §154 — a top-level text line that is not part of a list ends every open
+  // list, so the next list is a new one even when its count happens to match;
+  // a continuation line ends the lists nested deeper than its item.
+  // ★★ A rule closes NOTHING: `nestBlocksUnder` never stamps `listDepth` on an
+  // `hr`, so one INSIDE an item is indistinguishable here from one between
+  // lists, and closing on it split one Word list in two. Between lists it
+  // needs no close — the next list restarts at `index === 0` anyway.
+  if (line.kind === "li") {
+    if (line.continuation) numbering?.closeListsDeeperThan(line.depth);
+  } else if (line.kind !== "hr" && line.listDepth === undefined) {
+    numbering?.closeOpenLists();
+  }
   if (line.kind === "hr") return HR_PARAGRAPH;
   const style = styleOf(line);
   const parts: string[] = [];
   if (style) parts.push(`<w:pStyle w:val="${style}"/>`);
-  if (line.kind === "li") {
+  const numbered = line.kind === "li" && numbering !== undefined && line.task === undefined;
+  if (numbered && !line.continuation) {
+    parts.push(numbering.numPrFor(line), listHeadIndent(line.depth));
+  } else if (line.kind === "li") {
     parts.push(`<w:ind w:left="${LIST_INDENT_TWIPS * (line.depth + 1)}"/>`);
   } else if (line.listDepth !== undefined) {
     // §156 — a block inside a list item sits under the item's text; a quote or
@@ -373,7 +393,7 @@ export function docxRichParagraph(
   // `<li><ul>…</ul></li>`) gets a marker-only head from `htmlToRichLines`
   // (§157), so it is marked here like any other.
   const marker =
-    line.kind === "li" && !line.continuation
+    line.kind === "li" && !line.continuation && !numbered
       ? `<w:r>${docxCellRuns(`${bulletMarker(line.ordered, line.index, line.task)} `)}</w:r>`
       : "";
   const runs = line.runs.map((run) => markedRun(renderRun(run, links))).join("");
@@ -402,9 +422,11 @@ export function docxRichParagraph(
  *  also the OWNER of the sink for this call — the sink spans one relationship
  *  part, so a caller emitting several fields into ONE document.xml must pass
  *  the SAME sink to each. */
-export function docxRichParagraphs(html: string, links?: LinkSink): string {
+export function docxRichParagraphs(html: string, links?: LinkSink, numbering?: NumberingSink): string {
+  // §154 — one rich value never continues a list from another.
+  numbering?.closeOpenLists();
   const paragraphs = htmlToRichLines(descriptionHtml(html, RENDER_SINK))
-    .map((line) => docxRichParagraph(line, docxStyleFor, links))
+    .map((line) => docxRichParagraph(line, docxStyleFor, links, numbering))
     .join("");
   return paragraphs === "" ? "<w:p/>" : paragraphs;
 }
@@ -515,6 +537,8 @@ export function buildDocxTable(
   /** §512 — per-column widths in twips (`docxColumnWidths`). Used only when there is one per
    *  column; otherwise the page width is shared evenly, as every caller without it always had. */
   columnWidths?: readonly number[],
+  /** §154 — like `links`, owned by the caller: one numbering part per document. */
+  numbering?: NumberingSink,
 ): string {
   // Fallback width when we have no width per column: share page width evenly.
   const colWidth = columns.length > 0
@@ -554,7 +578,7 @@ export function buildDocxTable(
           .map((_, i) => {
             const cell = row[i] ?? "";
             const body = isRichCell(cell)
-              ? docxRichParagraphs(cell.html, links)
+              ? docxRichParagraphs(cell.html, links, numbering)
               : `<w:p>
               <w:r>${docxCellRuns(cellText(cell))}</w:r>
             </w:p>`;
@@ -641,6 +665,9 @@ export function buildDocxPackage(
    *  still add no zip entry and no content-type Default, which is exactly what
    *  `TargetMode="External"` licenses. */
   links: readonly LinkRel[] = [],
+  /** §154 — `word/numbering.xml` (`NumberingSink.partXml()`). ADDITIVE like
+   *  the two above: undefined adds no part, no override and no relationship. */
+  numberingXml?: string,
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
   // references them by the time it gets here. rId1 is the styles part; a media
@@ -665,6 +692,9 @@ export function buildDocxPackage(
   for (const relId of [...media.map((m) => m.relId), ...links.map((l) => l.relId)]) {
     if (relId === "rId1") {
       throw new Error(`relId "rId1" is reserved for the styles part`);
+    }
+    if (relId === NUMBERING_REL_ID) {
+      throw new Error(`relId "${NUMBERING_REL_ID}" is reserved for the numbering part`);
     }
     if (seen.has(relId)) throw new Error(`duplicate relationship id "${relId}"`);
     seen.add(relId);
@@ -705,7 +735,8 @@ export function buildDocxPackage(
   <Default Extension="xml" ContentType="application/xml"/>
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>${mediaDefaults}
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${numberingXml === undefined ? "" : `
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>`}
 </Types>`;
 
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -738,7 +769,8 @@ export function buildDocxPackage(
 
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${mediaRels}${linkRels}
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${numberingXml === undefined ? "" : `
+  <Relationship Id="${NUMBERING_REL_ID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>`}${mediaRels}${linkRels}
 </Relationships>`;
 
   const entries: ZipEntry[] = [
@@ -747,6 +779,7 @@ export function buildDocxPackage(
     { path: "word/_rels/document.xml.rels", data: docRels },
     { path: "word/document.xml", data: documentXml },
     { path: "word/styles.xml", data: stylesXml },
+    ...(numberingXml === undefined ? [] : [{ path: "word/numbering.xml", data: numberingXml }]),
     ...media.map((m) => ({ path: m.path, data: m.data })),
   ];
 

@@ -15,6 +15,8 @@ import { buildDocx } from "./export-docx";
 import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
+import { validateDocxPackage } from "../test/docx-package-validator";
+import { createNumberingSink } from "./ooxml-docx-numbering";
 import { readZipEntries } from "./unzip";
 import { unzipBytes, partText, zipEntryNames } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
@@ -64,6 +66,10 @@ function parseXml(xml: string): Document {
   if (err) throw new Error(`malformed XML: ${err.textContent ?? ""}`);
   return parsed;
 }
+
+/** Every w:numId value in document order (§154). */
+const numIds = (xml: string): (string | null)[] =>
+  Array.from(parseXml(xml).getElementsByTagName("w:numId")).map((n) => n.getAttribute("w:val"));
 
 /** The path of the ONE relationship part every id in document.xml resolves in. */
 const DOC_RELS = "word/_rels/document.xml.rels";
@@ -392,27 +398,52 @@ describe("renderDocumentDocx — blocks", () => {
     expect(textNodes(xml).join(" ")).toContain("< 5k");
   });
 
-  it("renders unordered bullets as indented list paragraphs with a marker", async () => {
-    const xml = await documentXml(doc([{ type: "bullets", items: ["alpha", "beta"] }]));
+  // §154 — a bullets block is a real Word list: each item carries <w:numPr>
+  // and Word draws the marker from word/numbering.xml, so no marker is
+  // spelled into the text.
+  it("renders unordered bullets as Word list paragraphs", async () => {
+    const d = doc([{ type: "bullets", items: ["alpha", "beta"] }]);
+    const xml = await documentXml(d);
     const used = Array.from(parseXml(xml).getElementsByTagName("w:pStyle")).map((n) =>
       n.getAttribute("w:val"),
     );
     expect(used.filter((s) => s === "ListParagraph")).toHaveLength(2);
-    const text = textNodes(xml);
-    expect(text).toContain("• alpha");
-    expect(text).toContain("• beta");
+    expect(textNodes(xml)).toEqual(["Report", "alpha", "beta"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
+    expect(await part(d, "word/numbering.xml")).toContain(
+      `<w:num w:numId="1"><w:abstractNumId w:val="0"/>`,
+    );
   });
 
   it("numbers ordered bullets instead of repeating a dot", async () => {
     // block.ordered is part of the model; rendering it identically to an
     // unordered list silently discards what the author chose.
-    const xml = await documentXml(
-      doc([{ type: "bullets", ordered: true, items: ["first", "second"] }]),
+    const d = doc([{ type: "bullets", ordered: true, items: ["first", "second"] }]);
+    const xml = await documentXml(d);
+    expect(textNodes(xml)).toEqual(["Report", "first", "second"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
+    // abstractNum 1 is the decimal definition.
+    expect(await part(d, "word/numbering.xml")).toContain(
+      `<w:num w:numId="1"><w:abstractNumId w:val="1"/>`,
     );
-    const text = textNodes(xml);
-    expect(text).toContain("1. first");
-    expect(text).toContain("2. second");
-    expect(text.join(" ")).not.toContain("•");
+  });
+
+  it("restarts the count for a second ordered list", async () => {
+    // Word counts per w:num, so two lists sharing one would number 1-4.
+    const xml = await documentXml(
+      doc([
+        { type: "bullets", ordered: true, items: ["a", "b"] },
+        { type: "bullets", ordered: true, items: ["c", "d"] },
+      ]),
+    );
+    expect(numIds(xml)).toEqual(["1", "1", "2", "2"]);
+  });
+
+  it("adds no numbering part to a document without a list", async () => {
+    const files = await parts(doc([{ type: "paragraph", html: "<p>plain</p>" }]));
+    expect(files.has("word/numbering.xml")).toBe(false);
+    expect(files.get("[Content_Types].xml")).not.toContain("numbering");
+    expect(files.get(DOC_RELS)).not.toContain("numbering");
   });
 
   it("renders a table, including its caption", async () => {
@@ -618,7 +649,7 @@ describe("renderDocumentDocx — XML escaping", () => {
 
   it("escapes bullet items", async () => {
     const xml = await documentXml(doc([{ type: "bullets", items: [HOSTILE] }]));
-    expect(textNodes(xml)).toContain(`• ${HOSTILE}`);
+    expect(textNodes(xml)).toContain(HOSTILE);
   });
 
   it("escapes table headers and cells", async () => {
@@ -725,9 +756,15 @@ describe("renderDocumentDocx — dataSection blocks", () => {
 // numbering or alignment. These tests drive `buildDocxTable` directly, because
 // that is the boundary both the workspace exporter and a document's own
 // `table`/`dataSection` blocks go through.
+// ★★ WITH A NUMBERING SINK, as both of those callers pass one since §154. A
+// sink-less table spells list markers as literal runs — a path no production
+// caller takes any more — so a regression in NUMBERED output (a head mistaken
+// for a continuation, so no `w:numPr`) would leave sink-less tests green.
 describe("rich entity cells in a DOCX table (§141(b))", () => {
   const cellXml = (html: string): string =>
-    wrapWordXml(buildDocxTable(["description"], [[{ html, text: "ignored" }]]));
+    wrapWordXml(
+      buildDocxTable(["description"], [[{ html, text: "ignored" }]], undefined, undefined, undefined, createNumberingSink()),
+    );
 
   /** The BODY cell's paragraphs. The single header column contributes exactly
    *  one paragraph, so dropping the first entry leaves the cell's own.
@@ -739,6 +776,18 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
    *  over the raw string can NEVER pass. Concatenating the `<w:t>`s within one
    *  `<w:p>` is what asserts the reader actually sees "1. first" on one line. */
   const cellParas = (html: string): string[] => paraTexts(cellXml(html)).slice(1);
+
+  /** The body cell's paragraphs, a numbered one prefixed `ilvl:numId` (§154) —
+   *  what Word numbers it by, now that no marker is spelled into the text. */
+  const listParas = (html: string): string[] =>
+    Array.from(parseXml(cellXml(html)).getElementsByTagName("w:p"))
+      .slice(1)
+      .map((para) => {
+        const text = Array.from(para.getElementsByTagName("w:t")).map((n) => n.textContent ?? "").join("").trim();
+        const ilvl = para.getElementsByTagName("w:ilvl")[0]?.getAttribute("w:val");
+        const numId = para.getElementsByTagName("w:numId")[0]?.getAttribute("w:val");
+        return ilvl === undefined ? text : `${ilvl}:${numId} ${text}`;
+      });
 
   /** Every `<w:ind w:left>` in the fragment, in document order. */
   const indents = (html: string): (string | null)[] =>
@@ -756,32 +805,33 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(cellParas("<h4>Deep</h4>")).toEqual(["Deep"]);
   });
 
-  it("numbers an ordered list as literal marker text", () => {
+  it("numbers an ordered list as one Word list", () => {
     // ★★ THE EDITOR'S REAL SHAPE. Tiptap stores `<li><p>text</p></li>`; a
     // fixture using a bare `<li>` cannot see a defect in the transparency arm,
     // which is how a CRITICAL already hid in this slice.
-    expect(cellParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
-      "1. first",
-      "2. second",
+    expect(listParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
+      "0:1 first",
+      "0:1 second",
     ]);
   });
 
   it("numbers a bare <li> the same way the editor's nested <p> is numbered", () => {
     // The golden fixtures and legacy stored values carry this flatter form, so
     // both shapes must reach the same bytes.
-    expect(cellParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
-      "1. first",
-      "2. second",
+    expect(listParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
+      "0:1 first",
+      "0:1 second",
     ]);
   });
 
   it("bullets an unordered list instead of numbering it", () => {
-    expect(cellParas("<ul><li><p>one</p></li></ul>")).toEqual(["• one"]);
+    expect(listParas("<ul><li><p>one</p></li></ul>")).toEqual(["0:1 one"]);
+    expect(cellXml("<ul><li><p>one</p></li></ul>")).not.toContain("•");
   });
 
   it("indents a nested list item one further step", () => {
     const nested = "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>";
-    expect(cellParas(nested)).toEqual(["• a", "• b"]);
+    expect(listParas(nested)).toEqual(["0:1 a", "1:2 b"]);
     expect(indents(nested)).toEqual(["720", "1440"]);
   });
 
@@ -792,7 +842,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     // wraps to. Before this it restarted as a bare `p`, so a client-facing DOCX
     // showed an unmarked, unindented orphan BETWEEN two numbered items.
     const wrapped = "<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>";
-    expect(cellParas(wrapped)).toEqual(["1. a", "b", "2. c"]);
+    expect(listParas(wrapped)).toEqual(["0:1 a", "b", "0:1 c"]);
     expect(indents(wrapped)).toEqual(["720", "720", "720"]);
   });
 
@@ -804,9 +854,9 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     // exported list's first visible number was "2." with an unmarked line above
     // it and no "1." anywhere. `promoteItemHead` makes the first line the item
     // DID emit its head.
-    expect(cellParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
-      "1. x",
-      "2. y",
+    expect(listParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
+      "0:1 x",
+      "0:1 y",
     ]);
   });
 
@@ -821,7 +871,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
 
   it("indents a second paragraph in the same item at the item's depth", () => {
     const twoParas = "<ul><li><p>a</p><p>b</p></li></ul>";
-    expect(cellParas(twoParas)).toEqual(["• a", "b"]);
+    expect(listParas(twoParas)).toEqual(["0:1 a", "b"]);
     expect(indents(twoParas)).toEqual(["720", "720"]);
   });
 
@@ -839,7 +889,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
 
   it("orders <w:pPr>'s children by the schema, not by the order they are added", () => {
     // ★★★ CT_PPr's children are an xsd:sequence, exactly like the `<w:rPr>`
-    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> ind -> jc. Every
+    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> numPr -> ind -> jc. Every
     // string assertion in this describe passes whatever the order, so this is
     // the only thing pinning it.
     const li = '<ol><li><p data-align="center">x</p></li></ol>';
@@ -849,6 +899,7 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(pPr).toBeDefined();
     expect(Array.from(pPr!.children).map((el) => el.tagName)).toEqual([
       "w:pStyle",
+      "w:numPr",
       "w:ind",
       "w:jc",
     ]);
@@ -904,8 +955,10 @@ describe("renderDocumentDocx — headings and lists inside a paragraph block", (
     const xml = await documentXml(
       doc([{ type: "paragraph", html: "<ol><li><p>first</p></li><li><p>second</p></li></ol>" }]),
     );
-    expect(paraTexts(xml)).toEqual(["Report", "1. first", "2. second"]);
+    // §154 — numbered by Word (one w:num for the list), not by a marker run.
+    expect(paraTexts(xml)).toEqual(["Report", "first", "second"]);
     expect(pStyles(xml)).toEqual(["Title", "ListParagraph", "ListParagraph"]);
+    expect(numIds(xml)).toEqual(["1", "1"]);
   });
 
   it("styles a heading inside a document paragraph block", async () => {
@@ -938,6 +991,10 @@ describe("renderDocumentDocx — headings and lists inside a paragraph block", (
 //      properties dropped by less forgiving consumers than Word.
 //   3. ST_Jc's vocabulary is `left | center | right | both`. "justify" is not a
 //      member; Word drops an unrecognised value and renders left-aligned.
+// ★ Since §154 the same three, plus content types, relationships and the
+// numbering part, are also checked over the whole PACKAGE by
+// `validateDocxPackage` (src/test/docx-package-validator.ts). That is still a
+// structural check, not Word: the one real Word open is recorded on §154.
 //
 // ★★ EVERY test here iterates over matches, and a loop over ZERO matches passes
 // vacuously — which would report coverage that does not exist, the one outcome
@@ -1072,6 +1129,30 @@ describe("DOCX invariants Word fails silently on", () => {
     return { block, cell, styles, exported };
   }
 
+  // §154 — the PACKAGE, not a string inside it. `validateDocxPackage` walks
+  // content types, relationships, declared styles, ST_Jc, the CT_PPr / CT_RPr /
+  // numbering sequences and numId resolution; each of those is a way Word
+  // fails silently while every substring assertion stays green.
+  it("writes packages the structural validator accepts, numbering part included", async () => {
+    const blocks: DocBlock[] = [
+      { type: "paragraph", html: EVERY_SHAPE_HTML },
+      { type: "bullets", items: ["unordered"] },
+      { type: "bullets", ordered: true, items: ["ordered", "two"] },
+      { type: "table", caption: "Cap", columns: ["C"], rows: [["v"]] },
+    ];
+    const rendered = renderDocumentDocx(doc(blocks), ws, "en-US");
+    const exported = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]] },
+    ]);
+    for (const blob of [rendered, exported]) {
+      expect(await validateDocxPackage(blob)).toEqual([]);
+      const entries = await readZipEntries(await blob.arrayBuffer());
+      // Not vacuous: both packages really carry numbered paragraphs.
+      expect(entries.has("word/numbering.xml")).toBe(true);
+      expect(decodeUtf8(entries.get("word/document.xml")!)).toContain("<w:numPr>");
+    }
+  });
+
   it("declares every paragraph style any emission path can name", async () => {
     // ★★★ INVARIANT 1. `docxStyleFor` names Heading1-Heading4, ListParagraph,
     // Quote and CodeBlock; `renderBlock` adds Title and Caption; buildDocxTable
@@ -1109,11 +1190,11 @@ describe("DOCX invariants Word fails silently on", () => {
   it("orders every <w:pPr>'s children by the CT_PPr sequence", async () => {
     // ★★★ INVARIANT 2. CT_PPrBase is an xsd:sequence, so the RANK of each child
     // is fixed by the schema and not by the order a builder happens to push
-    // them: pStyle · pBdr · spacing · ind · jc · outlineLvl. This sweeps EVERY
+    // them: pStyle · numPr · pBdr · spacing · ind · jc · outlineLvl. This sweeps EVERY
     // <w:pPr> in both emission paths AND in styles.xml — the style declarations
     // drifted out of sequence independently of the emitters once already,
     // because nothing was looking at them.
-    const ORDER = ["w:pStyle", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
+    const ORDER = ["w:pStyle", "w:numPr", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
     const { block, cell, styles, exported } = await renderEverySupportedShape();
     let seen = 0;
     let widest = 0;

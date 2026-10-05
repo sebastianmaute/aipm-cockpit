@@ -60,6 +60,15 @@ describe("VIEW_AI_SCOPE", () => {
     expect(reading).not.toMatch(/not tool-readable/i);
   });
 
+  // §237 — chat cannot write a RACI (the field is refused on every chat
+  // write path); the reading says where the user can, so the model does not
+  // promise a change its tools will drop.
+  it("tells the model RACI is changed in the RACI view, not by chat", () => {
+    const reading = VIEW_AI_SCOPE.raci.reading ?? "";
+    expect(reading).toMatch(/cannot set RACI/);
+    expect(reading).toContain("AI suggestion button");
+  });
+
   // Documents shipped with a "there is no tool for this yet" disclosure, which
   // stopped being true when DOCUMENT_TOOL_DEFS landed. Retiring that line is the
   // point of this test.

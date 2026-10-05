@@ -162,7 +162,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
       "RACI maps stakeholders to milestones as Responsible, Accountable, Consulted or Informed.",
     toolHints: ["list_stakeholders", "list_milestones"],
     reading:
-      "Exactly one Accountable per milestone is the norm; more than one, or none, is a finding. Each list_stakeholders row carries raci, keyed by milestone id; join it with list_milestones and skip an id that list does not return (a deleted milestone).",
+      "Exactly one Accountable per milestone is the norm; more than one, or none, is a finding. Each list_stakeholders row carries raci, keyed by milestone id; join it with list_milestones and skip an id that list does not return (a deleted milestone). Chat tools cannot set RACI assignments; for a change, point the user to this view's grid or its AI suggestion button (labelled in the user's language).",
   },
   "stakeholder-map": {
     purpose:

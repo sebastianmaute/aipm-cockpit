@@ -69,3 +69,20 @@ describe("the task blockers schema description", () => {
     );
   });
 });
+
+// open-followups §237 — chat cannot write a RACI: `raci` is refused on update
+// (`sanitize-records.ts`) and forced to `{}` on create (`use-register-tools.ts`).
+// Deliberate; the reviewed write path is the RACI view. Unless the description
+// says so, a model asked to "make Anna Accountable" calls update_stakeholder,
+// sees the field dropped, and reports a change that never happened.
+describe("the stakeholder tools disclose that RACI is not writable", () => {
+  for (const toolName of ["create_stakeholder", "update_stakeholder"]) {
+    it(`${toolName} points RACI changes at the RACI view`, () => {
+      const description = TOOL_DEFS.find((def) => def.name === toolName)!.description;
+      expect(description).toMatch(/cannot set RACI/);
+      expect(description).toContain("RACI view");
+      // Not the English label: the button is "RACI vorschlagen" in German.
+      expect(description).toContain("AI suggestion button");
+    });
+  }
+});
