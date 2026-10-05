@@ -154,11 +154,12 @@ describe("useNextActions — derived values", () => {
     expect(result.current.nowCount).toBe(2);
   });
 
-  it("collects only the stakeholder ids of open stakeholder-comms actions, as numbers", () => {
+  it("collects only the stakeholder ids of open stakeholder-comms actions, as numbers, skipping other sources and non-open CTAs", () => {
     computeNextActions.mockReturnValue([
       action("s1", { source: "stakeholder-comms", cta: { kind: "open", view: "stakeholders", id: "7" } }),
       action("s2", { source: "stakeholder-comms", cta: { kind: "open", view: "stakeholders", id: 9 } }),
       action("m1", { cta: { kind: "open", view: "milestones", id: 11 } }),
+      action("s3", { source: "stakeholder-comms", cta: { kind: "snooze", actionId: "s3" } }),
     ]);
     const { result } = setup();
     expect([...result.current.commsPendingStakeholderIds]).toEqual([7, 9]);

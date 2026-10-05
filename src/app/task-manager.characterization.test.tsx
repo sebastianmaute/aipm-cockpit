@@ -99,6 +99,8 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
       "nextActionGroups",
       "onOpenAction",
       "onSnooze",
+      "commsPendingStakeholderIds",
+      "onJumpToComms",
       "assignOwner",
       "escalate",
       "rebaseline",
