@@ -1,6 +1,6 @@
 // Pins the multi-project wiring `usePortfolioProjects` owns (§491): the
-// file-mode handlers (new / load-from-file / restore / delete with its survivor
-// switch), the mode-aware project and archive lists, the key-facts snapshot
+// empty-state / project handlers (new / load-from-file / restore / delete with
+// its survivor switch), the mode-aware project and archive lists, the key-facts snapshot
 // effect's gate, the mode-aware switch, and how it wires `useTursoProjects`.
 // The device stores (registry write, file handles, key-facts cache) are mocked;
 // `removeProject` and `useTursoProjects` are real.
@@ -79,7 +79,7 @@ beforeEach(() => {
   removeKeyFactsSnapshot.mockReset();
 });
 
-describe("usePortfolioProjects — file-mode handlers", () => {
+describe("usePortfolioProjects — empty-state / project handlers", () => {
   it("new project navigates to the Projects view", () => {
     const { result, deps } = setup();
     act(() => result.current.handleNewProject());
@@ -95,14 +95,27 @@ describe("usePortfolioProjects — file-mode handlers", () => {
     expect(turso.deps.loadProjectFromFile).toHaveBeenCalledWith(undefined, { switchPortfolioToFileOnSuccess: true });
   });
 
-  it("restore un-archives, refreshes the list, then switches — in that order", async () => {
+  it("restore un-archives, refreshes the list, then switches — each step waiting for the last", async () => {
     const order: string[] = [];
-    const { result } = setup({
-      restoreTursoProject: vi.fn(async (id: string) => { order.push(`restore:${id}`); }),
-      refreshTursoProjects: vi.fn(async () => { order.push("refresh"); return null; }),
+    let finishRestore!: () => void;
+    let finishRefresh!: () => void;
+    const { result, deps } = setup({
+      restoreTursoProject: vi.fn((id: string) => {
+        order.push(`restore:${id}`);
+        return new Promise<void>((r) => { finishRestore = r; });
+      }),
+      refreshTursoProjects: vi.fn(() => {
+        order.push("refresh");
+        return new Promise<null>((r) => { finishRefresh = () => r(null); });
+      }),
       switchToTursoProject: vi.fn(async (id: string) => { order.push(`switch:${id}`); }),
     });
     await act(async () => { result.current.handleRestoreFromEmptyState("p9"); });
+    expect(order).toEqual(["restore:p9"]);
+    await act(async () => { finishRestore(); });
+    expect(order).toEqual(["restore:p9", "refresh"]);
+    expect(deps.switchToTursoProject).not.toHaveBeenCalled();
+    await act(async () => { finishRefresh(); });
     expect(order).toEqual(["restore:p9", "refresh", "switch:p9"]);
   });
 
@@ -194,12 +207,16 @@ describe("usePortfolioProjects — mode-aware lists and switch", () => {
 });
 
 describe("usePortfolioProjects — key-facts snapshot", () => {
-  it("files the current project's snapshot under its id, again when the project changes", () => {
+  it("files the current project's snapshot under its id, again when the project or the id changes", () => {
     const { rerender, deps } = setup({ project: META, portfolioCurrentId: "a" });
     expect(saveKeyFactsSnapshot).toHaveBeenCalledTimes(1);
     expect(saveKeyFactsSnapshot).toHaveBeenCalledWith("a", expect.objectContaining({ customer: "ACME" }));
-    rerender({ ...deps, project: { ...META, customer: "Globex" } });
+    const globex = { ...META, customer: "Globex" };
+    rerender({ ...deps, project: globex });
     expect(saveKeyFactsSnapshot).toHaveBeenLastCalledWith("a", expect.objectContaining({ customer: "Globex" }));
+    rerender({ ...deps, project: globex, portfolioCurrentId: "b" });
+    expect(saveKeyFactsSnapshot).toHaveBeenCalledTimes(3);
+    expect(saveKeyFactsSnapshot).toHaveBeenLastCalledWith("b", expect.objectContaining({ customer: "Globex" }));
   });
 
   it("writes nothing in a popout, without a project, or without an id", () => {

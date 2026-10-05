@@ -2,8 +2,8 @@
 //
 // Deps-object hook factory extracted from task-manager.tsx (Phase 3 convention,
 // §491). Holds the multi-project (portfolio) wiring task-manager hands to the
-// Projects view, the project switcher and the empty state: the file-mode
-// edit / new / load-from-file / restore / delete handlers, the mode-aware
+// Projects view, the project switcher and the empty state: the empty-state /
+// project handlers (edit / new / load-from-file / restore / delete), the mode-aware
 // project and archive lists, the per-device key-facts snapshot effect, the
 // mode-aware switch, and the create / update / archive / restore / hard-delete
 // handlers it composes from `useTursoProjects`. The registry copy, the Turso
@@ -93,8 +93,9 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
   // --- Multi-project panel callbacks ----------------------------------
   //
   // Switch / create / load come straight from the storage hook (Task 10). The
-  // remaining three are owned here because they touch state task-manager owns
-  // (the registry copy, the workspace's `project`) and passes in.
+  // empty-state / project handlers below are owned here because they wrap
+  // those with state task-manager owns (the registry copy, the workspace's
+  // `project`, the portfolio mode) and passes in.
 
   // Edit the current project's metadata. The existing save effect persists the
   // workspace (which carries `project`) — no side effects in the updater.
