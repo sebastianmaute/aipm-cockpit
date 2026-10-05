@@ -28,7 +28,7 @@ import { IconButton } from "./icon-button";
 import { EraserIcon, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TOUR_ANCHORS } from "./app-tour";
 
-type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
+export type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
 
 // ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
 export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [

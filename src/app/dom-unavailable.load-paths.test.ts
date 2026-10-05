@@ -115,11 +115,18 @@ describe("§97 — the other rich passes on the load paths", () => {
 
   it("a non-strict JSON load with one task and NO documents fails instead of returning an empty workspace", () => {
     // ★ Pins the OUTER-catch rethrow in jsonToWorkspace on its own: the task
-    // rich-field pass runs outside any local catch and sanitizes any NON-EMPTY
-    // description (plain text included), so with no DOM it reaches
+    // rich-field pass runs outside any local catch and sanitizes any STRING
+    // description (plain text and "" alike), so with no DOM it reaches
     // the outer catch-all, which used to answer emptyWorkspace() — every task lost.
     const json = JSON.stringify({ ...JSON.parse(workspaceToJson(emptyWorkspace())), tasks: [{ id: 1, taskName: "Survivor", description: "plain words" }] });
     expect(() => jsonToWorkspace(json)).toThrow(DomUnavailableError);
+  });
+
+  it("an EMPTY-string description triggers it too; only an absent field does not", () => {
+    const base = JSON.parse(workspaceToJson(emptyWorkspace()));
+    const load = (task: Record<string, unknown>) => jsonToWorkspace(JSON.stringify({ ...base, tasks: [task] }));
+    expect(() => load({ id: 1, taskName: "Survivor", description: "" })).toThrow(DomUnavailableError);
+    expect(load({ id: 1, taskName: "Survivor" }).tasks).toHaveLength(1); // control
   });
 });
 

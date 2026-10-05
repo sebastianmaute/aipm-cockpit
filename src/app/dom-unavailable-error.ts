@@ -13,7 +13,7 @@
 //  passes, the meta-slice decoders, `decodeNoteLog`, and the outer catches of
 //  `jsonToWorkspace` and `BrowserBackend.load` — so the caller fails loudly
 //  whether or not it passed a `diag`. Enumerate them with
-//    grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test
+//    grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test | grep -v "export function"
 //
 // ★ Its own module with no imports, so the DOM-free codec graph
 //  (`meta-slice-decode.ts`, the CSV and Markdown codecs) can test for it without

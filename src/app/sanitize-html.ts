@@ -152,8 +152,10 @@ let attrHookRegistered = false;
 
 /** §97 — throw the NAMED error when DOMPurify has no DOM. Without one it is a
  *  stub whose `sanitize` and `addHook` are undefined, so the call would die on an
- *  opaque TypeError that every load-path catch reads as bad data. The first line
- *  of each sanitizer below. */
+ *  opaque TypeError that every load-path catch reads as bad data. Called first by
+ *  `ensureAttrHook` (so by both DOMPurify sanitizers, `sanitizeRichHtml` and
+ *  `sanitizeDocumentHtml`) and by `htmlToText`; `plainToHtml` is DOM-free and
+ *  never reaches it. */
 function requireDom(): void {
   if (!DOMPurify.isSupported) throw new DomUnavailableError();
 }

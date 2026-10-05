@@ -27,7 +27,8 @@
  * sanitizeNoteFields -> sanitizeRichHtml -> DOMPurify (sanitize-html.ts).
  * DOMPurify binds its `window` ONCE, at the moment the "dompurify" package
  * is first imported (module-eval time, not per-call) — under bare Node
- * (no DOM) that bind fails and sanitize() throws. Until §97, jsonToWorkspace's
+ * (no DOM) that bind fails and the sanitizers throw (since §97 the named
+ * `DomUnavailableError`, from `requireDom()`, before DOMPurify is called). Until §97, jsonToWorkspace's
  * own catch-all silently swallowed that throw into an EMPTY workspace, so a
  * scaled "empty" workspace would still "succeed" and write near-empty big/huge
  * JSON with no error. Since §97 it throws `DomUnavailableError` instead, so a

@@ -11,15 +11,17 @@ import {
 /** ★★ Forces the documents rich-field pass to throw, for the containment tests
  *  at the bottom of this file. It delegates to the REAL implementation unless
  *  the flag is set, so every other test in this file still exercises the
- *  genuine DOMPurify pass — flipping this whole file to the `node` environment
- *  would have been more faithful to the cause but would break the
- *  script-stripping tests above, which need a DOM to mean anything.
+ *  genuine DOMPurify pass. (A `node` environment is NOT an alternative: there a
+ *  missing DOM throws `DomUnavailableError`, which every storage load path
+ *  rethrows, so it would test §97 rather than containment — and the
+ *  script-stripping tests above need a DOM to mean anything.)
  *
  *  ★ What it simulates is a sanitizer that throws for any reason OTHER than a
  *  missing DOM. This TypeError USED to be the missing-DOM throw (a DOMPurify that
  *  never bound a window), but since §97 `sanitize-html.ts` throws the named
- *  `DomUnavailableError` instead, and every load path rethrows that one rather
- *  than containing it — pinned in `dom-unavailable.load-paths.test.ts`, in the
+ *  `DomUnavailableError` instead, and every storage load path rethrows that one
+ *  rather than containing it (the unload-journal decode is the deliberate
+ *  exception: it treats any throw as a corrupt journal and keeps the key) — pinned in `dom-unavailable.load-paths.test.ts`, in the
  *  node environment. See open-followups §97 for why only a PARAGRAPH block
  *  reaches the pass. */
 let forceRichFieldThrow = false;
@@ -28,7 +30,7 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
   return {
     ...actual,
     sanitizeDocumentRichFields: (doc: ProjectDocument) => {
-      if (forceRichFieldThrow) throw new TypeError("DOMPurify.sanitize is not a function");
+      if (forceRichFieldThrow) throw new TypeError("simulated rich-field sanitizer failure");
       return actual.sanitizeDocumentRichFields(doc);
     },
   };
@@ -193,8 +195,8 @@ describe("workspace JSON — documents", () => {
 
 describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => {
   // ★★★ The finding this pins (open-followups §97): the documents rich-field
-  // pass is the only DOM-dependent step in this decoder, and it had no local
-  // catch. A throw therefore reached jsonToWorkspace's outer catch-all, which
+  // pass is DOM-dependent (as are the task, RAID, change and milestone passes),
+  // and it had no local catch. A throw therefore reached jsonToWorkspace's outer catch-all, which
   // answers a non-strict load with `emptyWorkspace()` — so a JSON project file
   // came back with ZERO tasks. Not "documents missing": EVERYTHING missing,
   // silently. The other three load paths (CSV, Markdown, Turso) already wrap
@@ -228,9 +230,10 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     // covers only the diagnostics-ring half of the report; since §620 the SAME
     // throw ALSO reaches `decodeFailedSlices` when a `diag` is passed — see
     // "also records documents in decodeFailedSlices" below. logDiag is a no-op
-    // when `window` is undefined, which keeps any script that loads this path
-    // with no DOM working (the sample generator is not one: it installs JSDOM
-    // first — open-followups §151).
+    // when `window` is undefined. (A script that loads this path with no DOM
+    // no longer reaches this containment at all: since §97 the missing DOM
+    // throws `DomUnavailableError`, which is rethrown. The sample generator
+    // installs JSDOM first — open-followups §151.)
     forceRichFieldThrow = true;
     jsonToWorkspace(json());
     const codes = readDiagLog().map((e) => e.code);

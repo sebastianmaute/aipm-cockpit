@@ -751,7 +751,7 @@ export function jsonToWorkspace(
     // empty list stays off the key rather than emitting [].
     // ★★★ The rich-field pass needs DOMPurify, like the task, RAID, change and
     // milestone rich-field passes above (which run `sanitizeRichHtml` on every
-    // non-empty rich field, outside any local catch), and it needs its OWN catch. Without one, a throw here reaches the outer
+    // string-valued rich field, an empty string included, outside any local catch), and it needs its OWN catch. Without one, a throw here reaches the outer
     // catch-all below, which answers a non-strict load with `emptyWorkspace()` —
     // so one unsanitizable document discarded every task, RAID item and
     // milestone in the file, silently. Measured: tasks 0. CSV, Markdown and

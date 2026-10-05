@@ -28,7 +28,7 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
   return {
     ...actual,
     sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
-      if (richThrow.on) throw new TypeError("DOMPurify.sanitize is not a function");
+      if (richThrow.on) throw new TypeError("simulated rich-field sanitizer failure");
       return actual.sanitizeDocumentRichFields(doc);
     },
   };

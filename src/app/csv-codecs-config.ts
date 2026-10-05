@@ -317,7 +317,8 @@ export function csvToDocumentVersions(
   // regen-golden-fixtures.ts and sample-link-exports.ts install JSDOM before
   // importing src/app, but update-ooxml-manifest.ts and ai-eval.ts reach this
   // module with NO DOM (see csvToDocuments above and open-followups §624); a
-  // decode there would silently lose every version.
+  // decode there would throw `DomUnavailableError` (before §97 it silently lost
+  // every version).
   // ★ Same accumulator as csvToDocuments above, but here it fills
   // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
   // sanitizeDocumentVersions sanitizes one version at a time — and, since

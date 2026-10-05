@@ -47,7 +47,7 @@ import { AddFirstItemButton } from "./add-first-item-button";
 import type { SuggestedAction } from "./next-actions/types";
 import { useSortHeaderProps } from "./report-table";
 import { tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
-import { TasksSelectionBar, TasksToolbar } from "./tasks-section-toolbar";
+import { TasksSelectionBar, TasksToolbar, type TasksViewMode } from "./tasks-section-toolbar";
 import { TasksTable } from "./tasks-section-rows";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
@@ -316,7 +316,7 @@ export function TasksSection({
   const tasksViewMode = effectiveSettings.tasksViewMode ?? "table";
   const viewModeOverridden = projectAppearance.tasksViewMode !== undefined;
   const setTasksViewMode = useCallback(
-    (mode: "table" | "board" | "swimlane") => {
+    (mode: TasksViewMode) => {
       if (viewModeOverridden)
         saveProjectAppearance(pid, { ...projectAppearance, tasksViewMode: mode });
       else setSettings((s) => ({ ...s, tasksViewMode: mode }));
