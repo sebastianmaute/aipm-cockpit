@@ -819,7 +819,7 @@ export const TOOL_DEFS = [
   {
     name: "create_stakeholder",
     description:
-      "Create a stakeholder. Required: name. category defaults to Other; influence/interest default to Medium.",
+      "Create a stakeholder. Required: name. category defaults to Other; influence/interest default to Medium. This tool cannot set RACI assignments: for a RACI change, point the user to the RACI view, where they edit the grid or use Suggest RACI.",
     input_schema: {
       type: "object",
       properties: stakeholderFields,
@@ -828,7 +828,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "update_stakeholder",
-    description: "Update fields on an existing stakeholder. Only the fields you pass change.",
+    description: "Update fields on an existing stakeholder. Only the fields you pass change. This tool cannot set RACI assignments: for a RACI change, point the user to the RACI view, where they edit the grid or use Suggest RACI.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" }, ...expectedTokenField, ...stakeholderFields },

@@ -12,6 +12,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The AI assistant says where to change a RACI (§237).** Chat cannot set RACI assignments. Asked to, it now
+  points you to the RACI view, where you edit the grid or use Suggest RACI, instead of reporting a change it
+  could not make.
 - **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
   remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an
   imported file in the new-project wizard now show their name when you hover over them.
