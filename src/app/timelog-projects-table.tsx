@@ -47,8 +47,11 @@ export function TimelogProjectsTable({
   onLoadManagedProjects,
 }: TimelogProjectsTableProps) {
   // §316 — TimeLog project names repeat across customers, so the row controls
-  // are named by a row-unique token.
-  const projectTokens = buildRowTokens(knownProjectRefs.map((p) => ({ id: p.id, name: p.name })));
+  // carry the project number, as `timelog-project-scope.tsx` does, and a
+  // row token for the case where two rows still read alike.
+  const projectTokens = buildRowTokens(
+    knownProjectRefs.map((p) => ({ id: p.id, name: p.no ? `${p.name} (${p.no})` : p.name })),
+  );
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between gap-3">

@@ -595,7 +595,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                         {safe ? (
                           <a
                             href={it.url}
-                            aria-label={cardTokens.get(`k:${idx}`) ?? it.name}
+                            aria-label={`${cardTokens.get(`k:${idx}`) ?? it.name} – ${t(lang, "documentsOpen")}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
@@ -664,7 +664,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                       {safe ? (
                         <a
                           href={r.link.url}
-                          aria-label={cardTokens.get(`d:${i}`) ?? r.link.name}
+                          aria-label={`${cardTokens.get(`d:${i}`) ?? r.link.name} – ${t(lang, "documentsOpen")}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
@@ -678,6 +678,9 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                     <button
                       type="button"
                       onClick={() => requestOpen(r.source.view, r.source.id)}
+                      // §316 — two different source items can share a name, so the
+                      // button also names the document this card holds.
+                      aria-label={`${t(lang, SOURCE_LABEL[r.source.kind])}: ${r.source.name} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
                       className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ui-dark-blue hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                     >
                       {t(lang, SOURCE_LABEL[r.source.kind])}: {r.source.name}

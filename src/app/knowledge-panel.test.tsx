@@ -128,7 +128,7 @@ describe("KnowledgePanel", () => {
   it("renders a card with the document name and a source button labeled by the task", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
-    const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec`;
+    const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec – Spec.docx`;
     expect(screen.getByRole("button", { name: sourceLabel })).toBeInTheDocument();
   });
 
@@ -186,13 +186,34 @@ describe("KnowledgePanel", () => {
     const remove = t("en-US", "documentsRemove");
     expect(screen.getByRole("button", { name: `${remove} – Spec.docx (1)` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${remove} – Spec.docx (3)` })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Spec.docx (2)" })).toBeInTheDocument();
-    expectRowUniqueNames({ minControls: 3, roles: ["link"], requireCollisionSeed: true });
+    const open = t("en-US", "documentsOpen");
+    // The links close with the new-tab hint, so the trailing-suffix seed check
+    // cannot see their "(N)"; name all three instead.
+    for (const k of [1, 2, 3]) {
+      expect(screen.getByRole("link", { name: `Spec.docx (${k}) – ${open}` })).toBeInTheDocument();
+    }
+    expectRowUniqueNames({ minControls: 3, roles: ["link"] });
+  });
+
+  it("names the source buttons of two same-named tasks apart (§316)", () => {
+    const other: Task = { ...namedTask(8, "Write spec"), knowledgeLinks: [{ ...LINK, id: "dl-9", name: "Plan.docx" }] };
+    render(
+      <>
+        <SeedTasks tasks={[seededTask([LINK]), other]} />
+        <KnowledgePanel />
+      </>,
+      { wrapper },
+    );
+    const task = t("en-US", "documentsSourceTask");
+    // Same visible "Task: Write spec", two different tasks.
+    expect(screen.getAllByText(`${task}: Write spec`)).toHaveLength(2);
+    expect(screen.getByRole("button", { name: `${task}: Write spec – Spec.docx` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${task}: Write spec – Plan.docx` })).toBeInTheDocument();
   });
 
   it("navigates to the source via requestOpen when the source button is clicked", () => {
     renderWithTasks([seededTask([LINK])]);
-    const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec`;
+    const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec – Spec.docx`;
     fireEvent.click(screen.getByRole("button", { name: sourceLabel }));
     expect(screen.getByTestId("tab-probe")).toHaveTextContent("open-points:7");
   });
@@ -349,7 +370,7 @@ describe("KnowledgePanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsManualAdd") }));
     expect(
-      screen.getByRole("button", { name: `${t("en-US", "documentsSourceTask")}: Ship the release` }),
+      screen.getByRole("button", { name: `${t("en-US", "documentsSourceTask")}: Ship the release – Plan` }),
     ).toBeInTheDocument();
   });
 

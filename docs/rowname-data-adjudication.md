@@ -15,7 +15,7 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 
 ## Totals
 
-198 sites: **137 fine**, **35 fixed on this branch**, **26 filed as §669**.
+198 sites: **136 fine**, **36 fixed on this branch**, **26 filed as §669**.
 
 - **fine**: the value cannot repeat, for the reason given.
 - **fixed**: free text that repeats in ordinary use. Each fix has a test that seeds
@@ -25,9 +25,11 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 
 The scanner's two known blind spots were checked as part of this pass. A control
 rendered for one row only (under `isSelected`) is listed as `SINGLE` above. A
-`COVERED` marker was never taken as proof: three `COVERED` files (chat threads,
-calendar series, steering committee) had tests whose fixtures held no repeated
-name, and all three are fixed here.
+`COVERED` marker was never taken as proof. The scanner listed all 13 fixed files as
+covered (8 by their own test, 5 through a parent), and four of them already called
+`expectRowUniqueNames` (chat threads, calendar series, steering committee, budget
+bucket) over fixtures that never repeated the value fixed here. The budget bucket
+tests did seed repeated role names, but rendered no resources at all.
 
 **The scanner cannot confirm the fixes.** It recognises a token only by certain
 names, so most fixed sites stay in `DATA`. Before this branch it printed `DATA 198 |
@@ -121,7 +123,7 @@ sites have been judged.
 | 80 | `knowledge-panel.tsx` | 609 | `TaskLinkPicker` | fine | qualified by an id or other unique value in the name |
 | 81 | `knowledge-panel.tsx` | 642 | `IconButton` | fixed | one token map over both card grids names Remove and the link |
 | 82 | `knowledge-panel.tsx` | 656 | `a` | fixed | one token map over both card grids names Remove and the link |
-| 83 | `knowledge-panel.tsx` | 668 | `button` | fine | repeats only where the target is the same, so the names agree with the purpose |
+| 83 | `knowledge-panel.tsx` | 668 | `button` | fixed | the source button also names the card's document, since two source items can share a name |
 | 84 | `labels-input.tsx` | 116 | `IconButton` | fine | the input refuses a label already present, case-insensitively |
 | 85 | `meeting-report-panel.tsx` | 150 | `summary` | fine | renders once per surface, or once per uniquely named group |
 | 86 | `meeting-report-panel.tsx` | 160 | `Button` | §669 | two report versions can carry the same capture time |
@@ -231,8 +233,8 @@ sites have been judged.
 | 190 | `timelog-people-table.tsx` | 155 | `button` | fine | already routed through a row token |
 | 191 | `timelog-people-table.tsx` | 174 | `IconButton` | fine | already routed through a row token |
 | 192 | `timelog-project-scope.tsx` | 104 | `input` | fine | qualified by an id or other unique value in the name |
-| 193 | `timelog-projects-table.tsx` | 101 | `Select` | fixed | select and Clear carry a row token of the TimeLog project name |
-| 194 | `timelog-projects-table.tsx` | 129 | `button` | fixed | select and Clear carry a row token of the TimeLog project name |
+| 193 | `timelog-projects-table.tsx` | 101 | `Select` | fixed | select and Clear carry the project name and number, as a row token |
+| 194 | `timelog-projects-table.tsx` | 129 | `button` | fixed | select and Clear carry the project name and number, as a row token |
 | 195 | `tour-catalog.tsx` | 26 | `button` | fine | fixed key or enum label; one entry per key |
 | 196 | `turso-project-picker.tsx` | 132 | `Button` | §669 | project names can repeat |
 | 197 | `undo/undo-control.tsx` | 319 | `li` | fine | qualified by the row's position |
