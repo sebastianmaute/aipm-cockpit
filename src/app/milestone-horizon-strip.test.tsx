@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
 import type { Milestone } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const m = (id: number, date: string): Milestone => ({ id, name: `M${id}`, date, linkedTaskIds: [] } as Milestone);
 function buckets(over: Partial<MilestoneHorizonBuckets> = {}): MilestoneHorizonBuckets {
@@ -72,5 +73,21 @@ describe("MilestoneHorizonStrip click-through", () => {
     render(<MilestoneHorizonStrip lang="en-US" buckets={buckets} onOpenMilestone={onOpen} />);
     fireEvent.click(screen.getByRole("button", { name: /more|\+1/ }));
     expect(onOpen).toHaveBeenCalledWith(-1);
+  });
+});
+
+// §669 — two milestones can share a name and a date.
+describe("MilestoneHorizonStrip row names", () => {
+  it("names two chips with one name and date apart by a row token", () => {
+    const twin = (id: number): Milestone => ({ ...m(id, "2026-08-01"), name: "Go-live" });
+    render(
+      <MilestoneHorizonStrip
+        lang="en-US"
+        buckets={buckets({ later: [{ milestone: twin(1), status: "on-track" }, { milestone: twin(2), status: "on-track" }] })}
+        onOpenMilestone={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Go-live · 2026-08-01 (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 });

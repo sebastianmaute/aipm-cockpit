@@ -19,6 +19,7 @@ import type { ModalId } from "./modal-fields";
 import type { Offset, DragHandleProps } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { Banner } from "./banner";
+import { useRowTokens } from "./use-row-tokens";
 
 interface EditModalShellProps {
   lang: Lang;
@@ -169,6 +170,8 @@ interface StakeholderChipOption {
   name: string;
 }
 
+const nameOfChipOption = (sh: StakeholderChipOption): string => sh.name;
+
 interface StakeholderChipPickerProps {
   lang: Lang;
   stakeholders: readonly StakeholderChipOption[];
@@ -186,6 +189,8 @@ export function StakeholderChipPicker({
   selectedIds,
   onToggle,
 }: StakeholderChipPickerProps) {
+  // §669 — two stakeholders can share a name; each checkbox is named by a row token.
+  const tokens = useRowTokens(stakeholders, nameOfChipOption);
   return (
     <div className="sm:col-span-2">
       <span className="mb-2 block text-sm font-medium text-foreground">
@@ -203,7 +208,7 @@ export function StakeholderChipPicker({
               <Checkbox
                 checked={selectedIds.includes(sh.id)}
                 onChange={() => onToggle(sh.id)}
-                aria-label={sh.name}
+                aria-label={tokens.get(sh.id) ?? sh.name}
               />
               <span className="max-w-[200px] truncate">{sh.name}</span>
             </label>

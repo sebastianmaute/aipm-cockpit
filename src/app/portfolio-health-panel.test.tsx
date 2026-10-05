@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import type { PortfolioRow } from "./portfolio-rollup";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Mock the data hook so the panel test stays a pure presentational check.
 const mockHook = vi.fn();
@@ -130,5 +131,17 @@ describe("PortfolioHealthPanel", () => {
     render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} />);
     expect(screen.getByText(/NEXT_PUBLIC_TURSO_AUTH_TOKEN/)).toBeInTheDocument();
     expect(screen.queryByText("storageAuthEnvBanner")).not.toBeInTheDocument();
+  });
+});
+
+// §669 — two projects in one database can share a name.
+describe("PortfolioHealthPanel row names", () => {
+  it("names the open buttons of two same-named projects apart", () => {
+    const row = (id: string): PortfolioRow => ({ id, name: "Alpha", overall: "G", schedule: "G", budget: "G", completionPercent: 10, openRaidCount: 0, milestoneHealth: "on_track" });
+    mockTursoConfig.mockReturnValue({ httpUrl: "https://demo.turso.io", authToken: "tok" });
+    mockHook.mockReturnValue({ rows: [row("p1"), row("p2")], aggregate: { projectCount: 2, overallR: 0, overallA: 0, overallG: 2, totalOpenRaid: 0, avgCompletionPercent: 10 }, loading: false, error: null });
+    render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} onSwitchProject={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Alpha \(2\)$/ })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["button"], scope: screen.getByRole("table"), requireCollisionSeed: true });
   });
 });

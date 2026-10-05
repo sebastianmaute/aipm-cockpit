@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { OutlookImportModal } from "./outlook-import-modal";
 import type { OutlookContact } from "./outlook-contacts";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const contacts: OutlookContact[] = [
   { sourceId: "1", firstName: "Ann", lastName: "New", displayName: "Ann New", email: "ann@x.com" },
@@ -63,5 +64,18 @@ describe("OutlookImportModal", () => {
     expect(screen.getByText(/No Outlook contacts found/i)).toBeInTheDocument();
     rerender(<OutlookImportModal {...base({ error: "Permission denied" })} />);
     expect(screen.getByText(/Permission denied/i)).toBeInTheDocument();
+  });
+});
+
+// §669 — two contacts can share a display name; each checkbox gets a row token.
+describe("OutlookImportModal row names", () => {
+  it("names two contacts with one display name apart", () => {
+    const twins: OutlookContact[] = [
+      { sourceId: "1", firstName: "Ann", lastName: "Lee", displayName: "Ann Lee", email: "ann@a.com" },
+      { sourceId: "2", firstName: "Ann", lastName: "Lee", displayName: "Ann Lee", email: "ann@b.com" },
+    ];
+    render(<OutlookImportModal {...base({ contacts: twins })} />);
+    expect(screen.getByRole("checkbox", { name: "Ann Lee (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
   });
 });

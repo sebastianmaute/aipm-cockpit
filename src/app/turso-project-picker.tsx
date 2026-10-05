@@ -11,12 +11,13 @@
 // dedicated archived-project restore flow; this picker lists active
 // projects only.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { EmptyState } from "./empty-state";
 import { getTursoConfig } from "./turso-config";
 import { tursoErrorMessageKey } from "./storage-error";
@@ -52,6 +53,11 @@ function errorText(err: unknown, lang: Lang): string {
 
 export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPickerProps) {
   const [state, setState] = useState<FetchState>({ kind: "loading" });
+  // §669 — two projects in one database can share a name.
+  const projectTokens = useMemo(
+    () => buildRowTokens(state.kind === "ready" ? state.projects.map((p) => ({ id: p.id, name: p.meta.name })) : []),
+    [state],
+  );
 
   // No synchronous setState here — the first setState happens inside the
   // .then/.catch, after the fetch's microtask boundary, same shape as
@@ -133,7 +139,7 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
                     variant="secondary"
                     size="sm"
                     onClick={() => handlePick(p.id)}
-                    aria-label={`${t(lang, "tursoPickerLoad")} – ${p.meta.name}`}
+                    aria-label={rowLabel(t(lang, "tursoPickerLoad"), projectTokens.get(p.id) ?? p.meta.name)}
                   >
                     {t(lang, "tursoPickerLoad")}
                   </Button>

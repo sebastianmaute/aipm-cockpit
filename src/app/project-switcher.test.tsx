@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ProjectSwitcher } from "./project-switcher";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const projects: ProjectRegistryEntry[] = [
   {
@@ -326,5 +327,23 @@ describe("ProjectSwitcher", () => {
       ).toBeInTheDocument();
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
+  });
+});
+
+// §669 — two projects can share a name and code; the occurrence rides a
+// screen-reader-only suffix at the end of each item.
+describe("ProjectSwitcher row names", () => {
+  it("names two items with one name and code apart", async () => {
+    const user = userEvent.setup();
+    const twins: ProjectRegistryEntry[] = [
+      projects[0],
+      { id: "p3", name: "Gemini", code: "GMN", storageConfig: { kind: "browser" } },
+      projects[1],
+    ];
+    renderSwitcher({ projects: twins });
+    await user.click(screen.getByRole("button", { name: /Apollo/ }));
+    const second = screen.getByRole("menuitem", { name: /Gemini.*GMN \(2\)$/ });
+    expect(second.querySelector(".sr-only")?.textContent).toBe("(2)");
+    expectRowUniqueNames({ minControls: 3, roles: ["menuitem"], requireCollisionSeed: true });
   });
 });

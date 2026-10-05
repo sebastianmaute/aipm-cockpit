@@ -227,8 +227,10 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                 <span>{s.name}</span>
                 <IconButton
                   onClick={() => removePerson(s.id)}
-                  label={t(lang, "raciFilterRemove", s.name)}
-                  title={t(lang, "raciFilterRemove", s.name)}
+                  // §669 — labelFor adds the id when two people share a name, the
+                  // same form the add-person picker offers.
+                  label={t(lang, "raciFilterRemove", labelFor(s))}
+                  title={t(lang, "raciFilterRemove", labelFor(s))}
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />
                 </IconButton>

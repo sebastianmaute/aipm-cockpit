@@ -7,7 +7,9 @@
 // guards at runtime (needs-Turso empty state when no live config). Read-only —
 // safe in popouts.
 
+import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { getTursoConfig } from "./turso-config";
 import { type Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
@@ -82,6 +84,8 @@ export function PortfolioHealthPanel({
     workdayHours,
   );
   const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:portfolio-health-size");
+  // §669 — two projects in one database can share a name.
+  const rowTokens = useMemo(() => buildRowTokens(rows.map((r) => ({ id: r.id, name: r.name }))), [rows]);
 
   if (!tursoConfig) {
     return (
@@ -184,7 +188,7 @@ export function PortfolioHealthPanel({
                   <button
                     type="button"
                     onClick={() => onSwitchProject(row.id)}
-                    aria-label={`${t(lang, "portfolioOpenProject")} – ${row.name}`}
+                    aria-label={rowLabel(t(lang, "portfolioOpenProject"), rowTokens.get(row.id) ?? row.name)}
                     className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                   >
                     {row.name}

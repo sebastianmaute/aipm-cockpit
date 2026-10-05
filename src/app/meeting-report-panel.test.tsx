@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MeetingReportPanel } from "./meeting-report-panel";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor.
@@ -102,6 +103,22 @@ describe("MeetingReportPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Restore/ }));
     expect(onRestore).toHaveBeenCalledWith("v1");
+  });
+
+  // §669 — two versions captured at the same time read alike.
+  it("names the controls of two versions with one capture time apart", () => {
+    const at = "2026-05-29T09:00:00.000Z";
+    renderPanel({
+      versions: [
+        { id: "v1", capturedAt: at, isAuto: true, html: "<p>a</p>" },
+        { id: "v2", capturedAt: at, isAuto: true, html: "<p>b</p>" },
+        { id: "v3", capturedAt: at, isAuto: false, html: "<p>c</p>" },
+      ],
+      onRestore: vi.fn(),
+    });
+    expect(screen.getByRole("button", { name: `Restore – ${at} · auto (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Compare – ${at} · saved` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
   });
 
   it("Compare renders a diff of the current draft vs the selected version", () => {

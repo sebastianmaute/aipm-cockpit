@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { ActionChips, chipsActionableOnView, chipsForView } from "./action-chips";
 import type { SuggestedAction } from "./next-actions/types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function mk(id: string, tier: SuggestedAction["tier"]): SuggestedAction {
   return {
@@ -92,5 +93,11 @@ describe("ActionChips", () => {
     expect(dots[0].className).toContain("bg-[var(--rag-red)]");
     expect(dots[1].className).toContain("bg-[var(--rag-amber)]");
     expect(dots.some((d) => d.className.includes("bg-ui-purple"))).toBe(false);
+  });
+  // §669 — two actions about entities with one name render one title twice.
+  it("names two chips with the same title apart by a row token", () => {
+    const same = (id: string): SuggestedAction => ({ ...mk(id, "now"), title: { key: "actionRaidTitle", params: [1, "Vendor"] } });
+    render(<ActionChips lang="en-US" actions={[same("a"), same("b")]} onOpen={() => {}} onShowMore={() => {}} />);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 });

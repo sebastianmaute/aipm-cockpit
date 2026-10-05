@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TursoProjectPicker } from "./turso-project-picker";
 import { defaultSettings } from "./settings-types";
 import { StorageNotReadyError } from "./storage";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn(),
@@ -97,5 +98,18 @@ describe("TursoProjectPicker", () => {
     const row = (await screen.findByText("Codeless")).parentElement!;
     expect(within(row).getByText("—")).toBeInTheDocument();
     expect(within(screen.getByText("Gemini").parentElement!).getByText("GEM-2")).toBeInTheDocument();
+  });
+});
+
+// §669 — two projects in one database can share a name.
+describe("TursoProjectPicker row names", () => {
+  it("names the Load buttons of two same-named projects apart", async () => {
+    vi.mocked(listProjects).mockResolvedValueOnce([
+      { id: "p1", meta: { name: "Apollo", code: "APL-1" }, archived: false } as never,
+      { id: "p2", meta: { name: "Apollo", code: "APL-2" }, archived: false } as never,
+    ]);
+    setup();
+    expect(await screen.findByRole("button", { name: /Apollo \(2\)$/ })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["button"], scope: screen.getByRole("list"), requireCollisionSeed: true });
   });
 });

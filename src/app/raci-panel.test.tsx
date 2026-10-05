@@ -126,6 +126,23 @@ describe("RaciPanel", () => {
     expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
   });
 
+  // §669 — with both Sams in the filter, their two remove chips read alike.
+  it("names the remove chips of two same-named people in the filter apart", () => {
+    const dup: Stakeholder[] = [
+      { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
+      { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+    ];
+    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+    const input = screen.getByRole("combobox", { name: /filter people/i });
+    fireEvent.change(input, { target: { value: "Sam (#1)" } });
+    fireEvent.change(input, { target: { value: "Sam (#3)" } });
+    const removes = screen.getAllByRole("button", { name: /from filter/i });
+    expect(removes.map((b) => b.getAttribute("aria-label"))).toEqual([
+      t("en-US", "raciFilterRemove", "Sam (#1)"),
+      t("en-US", "raciFilterRemove", "Sam (#3)"),
+    ]);
+  });
+
   it("offers the Suggest RACI trigger when AI is configured", () => {
     stubSettings(AI_ON);
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
