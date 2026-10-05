@@ -12,6 +12,7 @@ import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
 import { Button } from "./button";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
@@ -58,6 +59,11 @@ function parseRecipients(raw: string): string[] {
     }
   }
   return out;
+}
+
+/** A version row's visible text, which is also its row token's name (§669). */
+function versionLabel(lang: Lang, v: MeetingReportVersionUi): string {
+  return `${v.capturedAt} · ${t(lang, v.isAuto ? "reportVersionAuto" : "reportVersionManual")}`;
 }
 
 export function MeetingReportPanel({
@@ -107,6 +113,16 @@ export function MeetingReportPanel({
         : diffLines(htmlToPlainText(compareHtml).split("\n"), htmlToPlainText(draft).split("\n")),
     [compareHtml, draft],
   );
+  // §669 — two versions can carry one capture time (an auto and a manual save in
+  // the same minute, or two of either). The token is the row's visible text.
+  const versionTokens = useMemo(
+    () => buildRowTokens((versions ?? []).map((v) => ({ id: v.id, name: versionLabel(lang, v) }))),
+    [versions, lang],
+  );
+  // The diff summary below writes rowLabel's "verb – token" shape as a template
+  // literal on purpose. Calling rowLabel() there was tried and made
+  // react-hooks/preserve-manual-memoization flag the diff memo above; the literal does not.
+  const compareToken = compareVersionId === null ? undefined : versionTokens.get(compareVersionId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -153,16 +169,14 @@ export function MeetingReportPanel({
           <ul className="divide-y divide-line">
             {versions.map((v) => (
               <li key={v.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                <span>
-                  {v.capturedAt} · {t(lang, v.isAuto ? "reportVersionAuto" : "reportVersionManual")}
-                </span>
+                <span>{versionLabel(lang, v)}</span>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
                     size="xs"
                     onClick={() => setCompareVersionId((cur) => (cur === v.id ? null : v.id))}
                     aria-expanded={compareVersionId === v.id}
-                    aria-label={`${t(lang, "reportDiff")} – ${v.capturedAt}`}
+                    aria-label={rowLabel(t(lang, "reportDiff"), versionTokens.get(v.id) ?? versionLabel(lang, v))}
                     title={t(lang, "reportDiffHint")}
                   >
                     {t(lang, "reportDiff")}
@@ -172,7 +186,7 @@ export function MeetingReportPanel({
                     size="xs"
                     onClick={() => onRestore(v.id)}
                     disabled={restoreBusyId === v.id}
-                    aria-label={`${t(lang, "reportRestore")} – ${v.capturedAt}`}
+                    aria-label={rowLabel(t(lang, "reportRestore"), versionTokens.get(v.id) ?? versionLabel(lang, v))}
                   >
                     {t(lang, "reportRestore")}
                   </Button>
@@ -186,7 +200,7 @@ export function MeetingReportPanel({
                 lines={diffResult}
                 addedLabel={t(lang, "reportDiffCurrent")}
                 removedLabel={t(lang, "reportDiffVersion")}
-                summary={`${t(lang, "reportDiff")} – ${compareVersion.capturedAt}`}
+                summary={`${t(lang, "reportDiff")} – ${compareToken ?? compareVersion.capturedAt}`}
               />
             </div>
           )}

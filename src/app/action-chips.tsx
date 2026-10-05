@@ -6,6 +6,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import { FOCUS_RING } from "./interaction-styles";
 import { TIER_RAG } from "./next-actions/action-cta";
 import { Dot } from "./dot";
+import { buildRowTokens } from "./row-tokens";
 
 const MAX_CHIPS = 3;
 
@@ -47,6 +48,11 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
   if (ranked.length === 0) return null;
   const shown = ranked.slice(0, MAX_CHIPS);
   const extra = ranked.length - shown.length;
+  // §669 — two actions about entities sharing a name read alike, so each chip is
+  // named by a row token. Bare, not memoised: at most MAX_CHIPS rows, and
+  // `shown` is a fresh array every render, so a memo would never hit.
+  const titleOf = (a: SuggestedAction) => t(lang, a.title.key, ...(a.title.params ?? []));
+  const tokens = buildRowTokens(shown.map((a) => ({ id: a.id, name: titleOf(a) })));
   return (
     <div
       role="group"
@@ -61,12 +67,13 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
           key={action.id}
           type="button"
           onClick={() => onOpen(action)}
+          aria-label={tokens.get(action.id) ?? titleOf(action)}
           title={t(lang, action.why.key, ...(action.why.params ?? []))}
           className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           <Dot color={TIER_RAG[action.tier as "now" | "soon"].dot} size="xs" />
           <span className="max-w-[16rem] truncate">
-            {t(lang, action.title.key, ...(action.title.params ?? []))}
+            {titleOf(action)}
           </span>
         </button>
       ))}

@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent, createEvent } from "@testing-library
 import { StakeholderMapPanel } from "./stakeholder-map-panel";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const items: Stakeholder[] = [
   { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
@@ -28,6 +29,14 @@ describe("StakeholderMapPanel", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Sam/ }));
     expect(onOpenStakeholder).toHaveBeenCalledWith(1);
+  });
+  // §669 — two stakeholders with one name in one quadrant.
+  it("names two same-named chips apart by a row token", () => {
+    const dup: Stakeholder[] = [items[0], { ...items[0], id: 3 }];
+    render(<StakeholderMapPanel lang="en-US" stakeholders={dup} onOpenStakeholder={vi.fn()} />);
+    const manage = screen.getByTestId("quadrant-manage-closely");
+    expect(within(manage).getByRole("button", { name: `${t("en-US", "edit")} – Sam (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, scope: manage, requireCollisionSeed: true });
   });
   it("shows an empty state when there are no stakeholders", () => {
     render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);

@@ -10,7 +10,7 @@
 // and the apply/remove handlers are props, owned by AppearanceSection (which
 // already holds useColorSchemes).
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import type { ColorScheme } from "./color-schemes";
 import { importSchemeText } from "./scheme-import";
@@ -19,6 +19,7 @@ import { Button } from "./button";
 import { Card } from "./card";
 import { FieldError } from "./field-feedback";
 import { FilePickerButton } from "./file-picker-button";
+import { buildRowTokens } from "./row-tokens";
 
 interface ThemeGalleryProps {
   lang: Lang;
@@ -38,7 +39,12 @@ export function ThemeGallery({
 }: ThemeGalleryProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const userSchemes = schemes.filter((s) => !s.builtIn);
+  const userSchemes = useMemo(() => schemes.filter((s) => !s.builtIn), [schemes]);
+  // §669 — scheme names are free text, so two loaded files can share one.
+  const schemeTokens = useMemo(
+    () => buildRowTokens(userSchemes.map((s) => ({ id: s.id, name: s.name }))),
+    [userSchemes],
+  );
 
   function onFile(file: File) {
     setBusy(true);
@@ -87,10 +93,13 @@ export function ThemeGallery({
               <Button
                 variant="ghost"
                 size="xs"
-                aria-label={t(lang, "themeGalleryRemove", s.name)}
+                // ★ The token is in the VISIBLE text too: German puts the name
+                // first ("{0} entfernen"), so a token only in the accessible name
+                // would no longer contain the visible label (WCAG 2.5.3).
+                aria-label={t(lang, "themeGalleryRemove", schemeTokens.get(s.id) ?? s.name)}
                 onClick={() => onRemove(s.id)}
               >
-                {t(lang, "themeGalleryRemove", s.name)}
+                {t(lang, "themeGalleryRemove", schemeTokens.get(s.id) ?? s.name)}
               </Button>
             </Card>
           ))}

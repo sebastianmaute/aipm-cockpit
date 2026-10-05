@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowPathIcon, BriefcaseIcon, CheckIcon, ChevronDownIcon } from "./icons";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { useFsaSupported } from "./use-fsa-supported";
+import { buildRowTokens } from "./row-tokens";
 
 export interface ProjectSwitcherProps {
   /** Name of the active project, or null when none is selected. */
@@ -32,6 +33,11 @@ export interface ProjectSwitcherProps {
   dataTourId?: string;
 }
 
+/** An item's visible text, in reading order: the name, then the code. */
+function itemText(p: ProjectRegistryEntry): string {
+  return p.code ? `${p.name} ${p.code}` : p.name;
+}
+
 /**
  * Prominent current-project indicator + switcher. Rendered identically by the
  * classic `AppHeader` and the modern `TopBar`. The trigger shows the active
@@ -55,6 +61,12 @@ export function ProjectSwitcher({
   dataTourId,
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
+  // §669 — two projects can share a name and code. Each item is named by its
+  // content, so the occurrence rides a screen-reader-only suffix at its end.
+  const itemTokens = useMemo(
+    () => buildRowTokens(projects.map((p) => ({ id: p.id, name: itemText(p) }))),
+    [projects],
+  );
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -190,6 +202,8 @@ export function ProjectSwitcher({
           </h3>
           {projects.map((p) => {
             const isCurrent = p.id === currentProjectId;
+            // The token always starts with the item text, so the rest is "(N)" or "".
+            const occurrence = (itemTokens.get(p.id) ?? itemText(p)).slice(itemText(p).length).trim();
             return (
               <button
                 key={p.id}
@@ -214,6 +228,13 @@ export function ProjectSwitcher({
                     <span className="truncate text-xs text-muted-foreground">
                       {p.code}
                     </span>
+                  )}
+                  {/* ★ The space sits OUTSIDE the span, as in the project wizard. */}
+                  {occurrence && (
+                    <>
+                      {" "}
+                      <span className="sr-only">{occurrence}</span>
+                    </>
                   )}
                 </span>
                 {isCurrent && (

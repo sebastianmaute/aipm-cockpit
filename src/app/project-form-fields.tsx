@@ -600,13 +600,12 @@ function ContactPersonsControl({
    *  ★★ The benefit is IMPORT-ONLY: `addDraft` rejects a duplicate via `hasName`,
    *  which compares names alone, so the product cannot create this pair. It
    *  arrives from a file, because `sanitizeProjectMeta` does not dedupe.
-   *  ★★ Counting mirrors `hasName` (trim + case-fold); `buildRowTokens`
-   *  collapses whitespace and does NOT case-fold, so they disagree on TWO axes
-   *  and only one is caught. Whitespace: a bare pair that collapse-collides gets
-   *  the occurrence index. CASE is NOT caught — "Bob"/"bob" are both counted as
-   *  colliding so both take the address path, yet neither is numbered, and with
-   *  equal emails they are spoken alike. Measured identical before this change,
-   *  so it is pre-existing, and `hasName` case-folds so only an import reaches it.
+   *  ★★ Counting mirrors `hasName` (trim + case-fold), and `buildRowTokens`
+   *  folds whitespace runs AND case in its collision key since §669 review 5, so
+   *  the two now agree: a "Bob"/"bob" pair whose displayed strings fold equal is
+   *  numbered, as well as taking the address path. (Before that review the token
+   *  missed case, and a "Bob"/"bob" pair with equal emails was spoken alike; only
+   *  an import could reach it.)
    *  ★ The 2.5.3 claim an earlier revision made here was wrong: 2.5.3 governs a
    *  control's name against its OWN label, and the rendered name is a SIBLING
    *  `<span>`. This button's only visible content is the glyph "×" (U+00D7) — an

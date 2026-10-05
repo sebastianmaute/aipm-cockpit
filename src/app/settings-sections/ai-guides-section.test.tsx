@@ -4,6 +4,7 @@ import { AiGuidesSection } from "./ai-guides-section";
 import { defaultSettings as baseSettings } from "../settings-types";
 import { t } from "../i18n";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 // DECISION A: the section is gated on the AI master switch (it was extracted
 // from inside ai-section's `settings.ai.enabled === true` fragment), so every
@@ -231,5 +232,18 @@ describe("AiGuidesSection", () => {
       target: { value: "New guide" },
     });
     expect(screen.getByRole("button", { name: t("en-US", "aiGuideSave") })).toBeEnabled();
+  });
+});
+
+// §669 — a custom guide can reuse a built-in guide's name.
+describe("AiGuidesSection row names", () => {
+  it("names a custom guide's controls apart from a built-in guide with its name", () => {
+    const og = makeOperatingGuides();
+    const twin = { ...og.guides[1], name: og.guides[0].name };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: { ...og, guides: [og.guides[0], twin] } })} />);
+    const name = og.guides[0].name;
+    expect(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – ${name} (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
+    expectRowUniqueNames({ minControls: 3, requireCollisionSeed: true });
   });
 });

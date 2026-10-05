@@ -3,6 +3,7 @@
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
 import { INTERACTIVE } from "./interaction-styles";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./milestones";
 
 interface MilestoneHorizonStripProps {
@@ -19,6 +20,10 @@ const LABEL_KEY: Record<MilestoneHorizon, Parameters<typeof t>[1]> = {
   later: "milestoneHorizonLater",
 };
 
+function entryLabel(e: HorizonEntry): string {
+  return `${entryAlert(e) ? "⚠ " : ""}${e.milestone.name} · ${e.milestone.date}`;
+}
+
 function entryAlert(e: HorizonEntry): boolean {
   return e.status === "overdue" || e.status === "at-risk";
 }
@@ -30,6 +35,11 @@ const MAX_PER_BUCKET = 5;
 
 export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: MilestoneHorizonStripProps) {
   const total = ORDER.reduce((n, k) => n + buckets[k].length, 0);
+  // §669 — two milestones can share a name and a date. Bare, not memoised: at
+  // most MAX_PER_BUCKET chips per bucket, and the rows are already in hand.
+  const tokens = buildRowTokens(
+    ORDER.flatMap((k) => buckets[k].slice(0, MAX_PER_BUCKET)).map((e) => ({ id: e.milestone.id, name: entryLabel(e) })),
+  );
   if (total === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, "milestoneHorizonEmpty")}</p>;
   }
@@ -43,13 +53,14 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
           <ul className="flex flex-wrap gap-2">
             {buckets[k].slice(0, MAX_PER_BUCKET).map((e) => {
               const alert = entryAlert(e);
-              const label = `${alert ? "⚠ " : ""}${e.milestone.name} · ${e.milestone.date}`;
+              const label = entryLabel(e);
               return (
                 <li key={e.milestone.id}>
                   {onOpenMilestone ? (
                     <button
                       type="button"
                       onClick={() => onOpenMilestone(e.milestone.id)}
+                      aria-label={tokens.get(e.milestone.id) ?? label}
                       className={`inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
                     >
                       {alert && (
@@ -78,6 +89,8 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                   <button
                     type="button"
                     onClick={() => onOpenMilestone(-1)}
+                    // Two buckets with the same overflow read alike, so the bucket is in the name.
+                    aria-label={rowLabel(t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET)), t(lang, LABEL_KEY[k]))}
                     className={`rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
                   >
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}

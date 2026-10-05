@@ -1578,3 +1578,80 @@ describe("keyboard move preview (§10)", () => {
     expect(liveText()).toContain(t("en-US", "calendarMeetingMovePreview", "2026-07-29"));
   });
 });
+
+// §669 — every day cell of one absence shared its tooltip text, and the person
+// was not in it, so two days of one absence (or two people off the same week)
+// read alike. An absence cell is now named by person and day too.
+it("names each day cell of an absence by person and day", () => {
+  render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "anna", display: "Anna", email: "" },
+        { key: "ben", display: "Ben", email: "" },
+      ]}
+      absences={[
+        { id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" },
+        { id: 8, assignee: "Ben", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" },
+      ]}
+      resources={[]}
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  const cell = screen.getByRole("button", { name: /^Anna — 2026-07-28: / });
+  expect(cell.getAttribute("title")).not.toContain("Anna");
+  expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("grid") });
+});
+
+// §669 review — "Ann  Lee" (two spaces) and "Ann Lee" are two rows (the key is the
+// trimmed, case-folded name), but a screen reader hears one name. The rows stay
+// separate; their names carry a row token.
+it("names two rows whose names differ only in whitespace apart", () => {
+  render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "ann  lee", display: "Ann  Lee", email: "" },
+        { key: "ann lee", display: "Ann Lee", email: "" },
+      ]}
+      absences={[
+        { id: 7, assignee: "Ann  Lee", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" },
+        { id: 8, assignee: "Ann Lee", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" },
+      ]}
+      resources={[]}
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Ann Lee (2)" })).toBeInTheDocument();
+  expectRowUniqueNames({ minControls: 6, scope: screen.getByRole("grid"), requireCollisionSeed: true });
+});
+
+// §669 review 5 — the keyboard reassign preview named its target row by the bare
+// name, so with "Ann  Lee" and "Ann Lee" both targets were announced alike. And
+// the empty-cell hover tooltip keeps the bare name: only the accessible name
+// carries the token.
+it("announces a reassign target by its row token, and keeps the tooltip bare", () => {
+  const r = render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "ann  lee", display: "Ann  Lee", email: "" },
+        { key: "ann lee", display: "Ann Lee", email: "" },
+      ]}
+      absences={[{ id: 7, assignee: "Ann  Lee", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      onMoveAbsence={vi.fn()}
+      resources={[]}
+      today="2026-07-27"
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  const emptyCell = r.container.querySelector<HTMLElement>('[data-cell="1-1"]')!;
+  expect(emptyCell.getAttribute("title")).toBe("Ann Lee — 2026-07-28");
+  expect(emptyCell.getAttribute("aria-label")).toBe("Ann Lee (2) — 2026-07-28");
+  r.container.querySelector<HTMLElement>('[data-cell="0-0"]')!.focus();
+  fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowDown", altKey: true });
+  expect(liveText()).toContain(t("en-US", "calendarMovePreviewPerson", "2026-07-27", "2026-07-27", "Ann Lee (2)"));
+});

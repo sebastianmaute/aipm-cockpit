@@ -46,6 +46,9 @@ function localTypeLabel(type: AbsenceType, lang: Lang): string {
 interface CalendarRowsProps {
   lang: Lang;
   visibleRows: readonly CalendarAssignee[];
+  /** §669 — each row's name, apart from any row whose name a screen reader hears
+   *  the same (built by the parent, which also names rows in its live region). */
+  rowTokens: ReadonlyMap<string, string>;
   days: readonly CalendarDay[];
   resourceByKey: ReadonlyMap<string, Resource>;
   absences: readonly Absence[];
@@ -74,6 +77,7 @@ interface CalendarRowsProps {
 export function CalendarRows({
   lang,
   visibleRows,
+  rowTokens,
   days,
   resourceByKey,
   absences,
@@ -93,6 +97,7 @@ export function CalendarRows({
   return (
     <tbody>
       {visibleRows.map((row, rowIndex) => {
+        const rowName = rowTokens.get(row.key) ?? row.display;
         return (
           <tr key={row.key} role="row">
             <td
@@ -114,6 +119,7 @@ export function CalendarRows({
                         : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                     }
                     title={row.display}
+                    aria-label={rowName}
                     className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                   >
                     {row.display}
@@ -150,6 +156,11 @@ export function CalendarRows({
                       : `–${hit.endDate}`
                   }${hit.note ? `: ${hit.note}` : ""}`
                 : `${row.display} — ${d.iso}`;
+              // §669 — every day cell of one absence shared the tip above, and the
+              // person was not in it, so an absence cell is named by person and day
+              // too. The tooltip stays the short form, since the row and column show those.
+              // The hover tooltip keeps the bare name; only the accessible name carries the token.
+              const cellName = `${rowName} — ${d.iso}${hit ? `: ${tip}` : ""}`;
               return (
                 <td
                   key={d.iso}
@@ -227,7 +238,7 @@ export function CalendarRows({
                       handleClick();
                     }}
                     title={tip}
-                    aria-label={tip}
+                    aria-label={cellName}
                     className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:ring-inset ${INTERACTIVE} ${baseBg}`}
                   >
                     {hit ? (

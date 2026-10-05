@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const acquire = vi.fn(async () => "tok");
 
@@ -263,5 +264,52 @@ describe("SharePointPickerModal — site-search field", () => {
       screen.getByRole("button", { name: "Clear – Search sites…" }),
     );
     expect(field.value).toBe("");
+  });
+});
+
+// §669 — two sites (and two libraries) can share a name.
+describe("SharePointPickerModal row names", () => {
+  it("names two same-named sites, then two same-named drives, apart", async () => {
+    mockFetchSequence(
+      {
+        value: [
+          { id: "s1", displayName: "Projects", webUrl: "https://a.sharepoint.com/sites/projects" },
+          { id: "s2", displayName: "Projects", webUrl: "https://a.sharepoint.com/sites/projects-2" },
+        ],
+      },
+      { value: [{ id: "d1", name: "Documents" }, { id: "d2", name: "Documents" }] },
+    );
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    const site2 = await screen.findByRole("button", { name: "Projects (2)" });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+    fireEvent.click(site2);
+    expect(await screen.findByRole("button", { name: "Documents (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("names each folder row's Open and Use buttons by the folder, apart when two share a name", async () => {
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          { id: "f1", name: "Specs", webUrl: "https://c.sharepoint.com/a", folder: {}, parentReference: { driveId: "d1" } },
+          { id: "f2", name: "Specs", webUrl: "https://c.sharepoint.com/b", folder: {}, parentReference: { driveId: "d1" } },
+          { id: "f3", name: "Plan.docx", webUrl: "https://c.sharepoint.com/c", file: { mimeType: "application/msword" }, parentReference: { driveId: "d1" } },
+          { id: "f4", name: "Plan.docx", webUrl: "https://c.sharepoint.com/d", file: { mimeType: "application/msword" }, parentReference: { driveId: "d1" } },
+        ],
+      },
+    );
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    fireEvent.click(await screen.findByRole("button", { name: "Proj" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Documents" }));
+    const open = t("en-US", "spPickerOpenFolder");
+    expect(await screen.findByRole("button", { name: `${open} – Specs (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "spPickerSelectFile")} – Plan.docx (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
   });
 });

@@ -1,11 +1,13 @@
 // src/app/outlook-import-modal.tsx
 "use client";
 
+import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import { Checkbox } from "./form-controls";
 import type { OutlookContact } from "./outlook-contacts";
 import { useImportSelection } from "./use-import-selection";
 import { PickListImportModal } from "./pick-list-import-modal";
+import { buildRowTokens } from "./row-tokens";
 
 export interface OutlookImportModalProps {
   lang: Lang;
@@ -21,6 +23,7 @@ export interface OutlookImportModalProps {
 }
 
 const contactId = (c: OutlookContact) => c.sourceId;
+const contactLabel = (c: OutlookContact): string => c.displayName || c.email || c.sourceId;
 
 export function OutlookImportModal({
   lang,
@@ -33,6 +36,12 @@ export function OutlookImportModal({
   onClose,
 }: OutlookImportModalProps) {
   const sel = useImportSelection(contacts, contactId);
+  // §669 — two contacts can share a display name; each checkbox is named by a
+  // row token. The email beside it is visible but not in the name.
+  const tokens = useMemo(
+    () => buildRowTokens(contacts.map((c) => ({ id: c.sourceId, name: contactLabel(c) }))),
+    [contacts],
+  );
 
   return (
     <PickListImportModal
@@ -57,12 +66,12 @@ export function OutlookImportModal({
     >
       {contacts.map((c) => {
         const exists = c.email !== "" && existingEmails.has(c.email);
-        const label = c.displayName || c.email || c.sourceId;
+        const label = contactLabel(c);
         return (
           <li key={c.sourceId}>
             <label className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-surface-muted">
               <Checkbox
-                aria-label={label}
+                aria-label={tokens.get(c.sourceId) ?? label}
                 checked={sel.isChecked(c.sourceId)}
                 onChange={() => sel.toggle(c.sourceId)}
               />

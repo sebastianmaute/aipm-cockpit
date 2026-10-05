@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
-import { EditModalShell } from "./edit-modal-chrome";
+import { EditModalShell, StakeholderChipPicker } from "./edit-modal-chrome";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { fieldTierTrigger } from "../test/field-tier";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -152,5 +153,23 @@ describe("EditModalShell help icon", () => {
     // pair would prove nothing about the shell forwarding anything.
     renderShell({ title: "Edit risk" });
     expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
+  });
+});
+
+// §669 — two stakeholders can share a name; each linked-stakeholder checkbox is
+// named by a row token.
+describe("StakeholderChipPicker row names", () => {
+  test("names two same-named stakeholders apart", () => {
+    render(
+      <StakeholderChipPicker
+        lang="en-US"
+        stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Sam" }, { id: 3, name: "Lee" }]}
+        selectedIds={[]}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: "Sam (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Lee" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 3, roles: ["checkbox"], requireCollisionSeed: true });
   });
 });

@@ -74,6 +74,16 @@ describe("buildRowTokens", () => {
     expect(tokens.get(2)).toBe("Risk A (2)");
   });
 
+  it("collides two names that differ only in CASE, keeping each spelling", () => {
+    // ★★ "Sam" and "sam" are one name to a screen reader, like the whitespace pair above.
+    const tokens = buildRowTokens([
+      { id: 1, name: "Sam" },
+      { id: 2, name: "sam" },
+    ]);
+    expect(tokens.get(1)).toBe("Sam (1)");
+    expect(tokens.get(2)).toBe("sam (2)");
+  });
+
   it("escalates when a generated token collides with a name only AFTER collapsing", () => {
     // ★ Row 3 is literally named "Alpha  (1)" (two spaces). Its bare token
     // collapses to the very token generated for row 1, so the escalation loop

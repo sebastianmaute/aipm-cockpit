@@ -9,6 +9,8 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { loadI18n, t } from "./i18n";
+import { BUILT_IN_TEMPLATES } from "./templates-builtin";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const sampleText = readFileSync(
   join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
@@ -286,6 +288,25 @@ describe("CreateProjectWizard", () => {
       // marker leaves — so its absence is the second discriminator.
       expect(cls).not.toContain("-ml-1.5");
     }
+  });
+
+  // §669 — a user template can reuse a built-in name. The card keeps its whole
+  // content as its name, so the occurrence rides a screen-reader-only suffix.
+  it("names a user template that reuses a built-in name apart from the built-in", async () => {
+    const std = BUILT_IN_TEMPLATES.find((tp) => tp.name === "Standard PM")!;
+    window.localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ ...defaultSettings, templates: [{ ...std, id: "user-std", builtIn: false }] }),
+    );
+    setup();
+    completeStep1();
+    // Settings hydrate in an effect after i18n loads, which can outlast the 1s default.
+    const second = await screen.findByRole("button", { name: /^Standard PM \(2\)/ }, { timeout: 5000 });
+    const first = screen.getByRole("button", { name: /^Standard PM \(1\)/ });
+    expect(first).not.toBe(second);
+    // The suffix is not visible text.
+    expect(second.querySelector(".sr-only")?.textContent).toBe("(2)");
+    expectRowUniqueNames({ minControls: 5 });
   });
 
   it("Back returns from Step 2 to Step 1; Cancel on Step 1 calls onCancel", () => {

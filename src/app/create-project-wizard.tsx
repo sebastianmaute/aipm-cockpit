@@ -50,6 +50,7 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { FilePickerButton } from "./file-picker-button";
 import { ToggleButton } from "./toggle-button";
+import { buildRowTokens } from "./row-tokens";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -154,6 +155,14 @@ export function CreateProjectWizard({
   hideFormat = false,
 }: CreateProjectWizardProps) {
   const { templates } = useTemplates();
+  // §669 — a user template can reuse a built-in or another user template's
+  // name. Each card is named by its content, so the occurrence suffix rides a
+  // screen-reader-only span after the name: the badges and description stay in
+  // the accessible name, and the card looks the same.
+  const templateTokens = useMemo(
+    () => buildRowTokens(templates.map((tp) => ({ id: tp.id, name: tp.name }))),
+    [templates],
+  );
 
   const aiKey = aiKeyIfEnabled(settings.ai);
   const aiEnabled = aiKey.length > 0;
@@ -469,6 +478,8 @@ export function CreateProjectWizard({
 
               {templates.map((tpl) => {
                 const selected = selectedTemplate?.id === tpl.id;
+                // The token always starts with the name, so the rest is " (N)" or "".
+                const occurrence = (templateTokens.get(tpl.id) ?? tpl.name).slice(tpl.name.length);
                 const tplMode = deriveMode(tpl.features);
                 const seedCount = tpl.seed
                   ? Object.values(tpl.seed).reduce(
@@ -491,7 +502,17 @@ export function CreateProjectWizard({
                     reserveMarkerSpace
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-foreground">{tpl.name}</span>
+                      <span className="font-medium text-foreground">
+                        {tpl.name}
+                        {/* ★ The space sits OUTSIDE the span: jsdom's name computation
+                            trims an inline child, so " (2)" inside it read "Standard PM(2)". */}
+                        {occurrence && (
+                          <>
+                            {" "}
+                            <span className="sr-only">{occurrence.trim()}</span>
+                          </>
+                        )}
+                      </span>
                       <span className="flex items-center gap-1">
                         {suggestion?.templateId === tpl.id && (
                           <Badge pill className="bg-ui-dark-blue font-semibold text-white">

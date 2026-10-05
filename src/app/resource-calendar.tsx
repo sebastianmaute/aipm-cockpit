@@ -24,6 +24,7 @@ import { packOccurrenceLanes } from "./occurrence-lanes";
 import { CalendarBand } from "./resource-calendar-band";
 import type { CalendarEvent } from "./calendar-event";
 import { CalendarRows, type CalendarDragState } from "./resource-calendar-rows";
+import { buildRowTokens } from "./row-tokens";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
 
 /** The two keyboard drag gestures the aria-live region announces. Narrower
@@ -150,6 +151,14 @@ function ResourceCalendarInner({
     }
     return rows.filter((row) => !externalKeys.has(row.key));
   }, [rows, resources, includeExternals]);
+  // §669 — rows are keyed on the trimmed, case-folded name, so "Ann  Lee" (two
+  // spaces) and "Ann Lee" are two rows a screen reader hears as one name. The rows
+  // stay separate (the key is shared with the absence lookup); every place that
+  // NAMES a row (its header, its cells, the move announcement) uses this token.
+  const rowTokens = useMemo(
+    () => buildRowTokens(visibleRows.map((r) => ({ id: r.key, name: r.display }))),
+    [visibleRows],
+  );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLTableElement | null>(null);
@@ -536,6 +545,10 @@ function ResourceCalendarInner({
   // the target cells and spoken in the live region. Resolved through the SAME
   // function Enter commits with, so the preview cannot disagree with the write.
   // Null while the gesture is a no-op (delta 0) or its absence is gone.
+  const rowNameAt = (index: number): string | undefined => {
+    const row = visibleRows[index];
+    return row ? (rowTokens.get(row.key) ?? row.display) : undefined;
+  };
   const pendingAbsence = pendingMove ? absences.find((a) => a.id === pendingMove.absenceId) : undefined;
   const pendingResolved = pendingMove && pendingAbsence ? resolvePendingGesture(pendingMove, pendingAbsence) : null;
   const movePreview = pendingAbsence && pendingResolved?.result
@@ -543,7 +556,7 @@ function ResourceCalendarInner({
         row: pendingResolved.targetIndex,
         from: pendingResolved.result.patch.startDate ?? pendingAbsence.startDate,
         to: pendingResolved.result.patch.endDate ?? pendingAbsence.endDate,
-        person: pendingResolved.result.kind === "reassign" ? visibleRows[pendingResolved.targetIndex]?.display : undefined,
+        person: pendingResolved.result.kind === "reassign" ? rowNameAt(pendingResolved.targetIndex) : undefined,
       }
     : null;
   const movePreviewText = movePreview
@@ -651,6 +664,7 @@ function ResourceCalendarInner({
           <CalendarRows
             lang={lang}
             visibleRows={visibleRows}
+            rowTokens={rowTokens}
             days={days}
             resourceByKey={resourceByKey}
             absences={absences}

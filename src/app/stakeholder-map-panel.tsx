@@ -16,6 +16,7 @@ import { TRANSITION, PRESS } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { ViewCallout } from "./view-callout";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 // --- Props ------------------------------------------------------------------
 
@@ -101,6 +102,12 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
     }
     return map;
   }, [stakeholders]);
+  // §669 — two stakeholders can share a name, and their chips can sit in one
+  // quadrant. Tokens follow the on-screen order: quadrant by quadrant.
+  const chipTokens = useMemo(
+    () => buildRowTokens(QUADRANTS.flatMap((q) => byQuadrant[q.id]).map((s) => ({ id: s.id, name: s.name }))),
+    [byQuadrant],
+  );
 
   const editable = !!onSaveStakeholder;
   const [dragOverQ, setDragOverQ] = useState<StakeholderQuadrant | null>(null);
@@ -202,7 +209,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                           } : undefined}
                           onDragEnd={editable ? () => setDragOverQ(null) : undefined}
                           onClick={() => onOpenStakeholder(s.id)}
-                          aria-label={`${t(lang, "edit")} – ${s.name}`}
+                          aria-label={rowLabel(t(lang, "edit"), chipTokens.get(s.id) ?? s.name)}
                           className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-ui-green/15 focus:outline-none focus:ring-2 focus:ring-ui-green ${TRANSITION} ${PRESS}`}
                         >
                           {s.name}

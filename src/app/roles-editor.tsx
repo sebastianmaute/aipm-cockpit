@@ -18,6 +18,8 @@ import { XMarkIcon } from "./icons";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
+import { buildRowTokens, rowLabel } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 
 /** Shared chrome for the two reorder grips, both now the `DragHandle` primitive.
  *  ★ It was a native `<button>` rendering `≡` until the primitive learned to
@@ -72,6 +74,22 @@ export interface RolesEditorProps {
   onReorderGrades: (ids: number[]) => void;
   /** Called when the user clicks the reset-pane-size button in the rate-card header. */
   onResetSize?: () => void;
+}
+
+const nameOfRefItem = (it: { id: number; name: string }): string => it.name;
+
+/** A rate-card row's discipline and grade names, "n/a" when the reference is gone. */
+function roleNames(r: Role, disciplines: readonly Discipline[], grades: readonly Grade[]) {
+  return {
+    disciplineName: disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a",
+    gradeName: grades.find((g) => g.id === r.gradeId)?.name ?? "n/a",
+  };
+}
+
+/** A rate-card row's context: its discipline and grade names. */
+function roleContext(r: Role, disciplines: readonly Discipline[], grades: readonly Grade[]): string {
+  const { disciplineName, gradeName } = roleNames(r, disciplines, grades);
+  return `${disciplineName} / ${gradeName}`;
 }
 
 function clampRate(raw: string): number {
@@ -136,6 +154,12 @@ export function RolesEditor({
       return sort.dir === "asc" ? cmp : -cmp;
     });
   }, [roles, disciplines, grades, sort]);
+  // §669 — two rate-card roles can sit on one discipline and grade, and every
+  // control in the row is named by that pair. A row token keeps them apart.
+  const roleTokens = useMemo(
+    () => buildRowTokens(sortedRoles.map((r) => ({ id: r.id, name: roleContext(r, disciplines, grades) }))),
+    [sortedRoles, disciplines, grades],
+  );
 
   // Drag reorder only in the default (unsorted) view — dragging a column-sorted
   // view would fight the sort, so the hook is disabled rather than the caller
@@ -282,11 +306,10 @@ export function RolesEditor({
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
-                const disciplineName = disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a";
-                const gradeName = grades.find((g) => g.id === r.gradeId)?.name ?? "n/a";
+                const { disciplineName, gradeName } = roleNames(r, disciplines, grades);
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
-                const rowCtx = `${disciplineName} / ${gradeName}`;
+                const rowCtx = roleTokens.get(r.id) ?? `${disciplineName} / ${gradeName}`;
                 // The GRIP is the drag source AND the keyboard entry point, so
                 // `handleProps` lands on IT (see REORDER_HANDLE_CLASS); the row
                 // is only the drop target. The handle renders only while the
@@ -316,7 +339,7 @@ export function RolesEditor({
                         // the qualifier is written at the source.
                         <DragHandle
                           {...roleOrder.handleProps(r.id)}
-                          ariaLabel={`${t(lang, "reorderHandle")} – ${rowCtx}`}
+                          ariaLabel={rowLabel(t(lang, "reorderHandle"), rowCtx)}
                           title={t(lang, "reorderHandle")}
                           className={`mr-1 ${REORDER_HANDLE_CLASS}`}
                         />
@@ -405,6 +428,10 @@ function RefList({
   setAddValue: (v: string) => void;
   onAdd: () => void;
 }) {
+  // §669 — discipline and grade names have no uniqueness rule.
+  const itemTokens = useRowTokens(items, nameOfRefItem);
+  // A discipline and a grade can share a name too, so the list's title leads the row name.
+  const itemName = (it: { id: number; name: string }): string => `${title}: ${itemTokens.get(it.id) ?? it.name}`;
   const itemOrder = useListReorderDnd<number>({
     ids: items.map((it) => it.id),
     onReorder,
@@ -440,11 +467,14 @@ function RefList({
             {/* ★★ Row-UNIQUE name (WCAG 2.4.6) — see the rate-card handle. */}
             <DragHandle
               {...itemOrder.handleProps(it.id)}
-              ariaLabel={`${t(lang, "reorderHandle")} – ${it.name}`}
+              ariaLabel={rowLabel(t(lang, "reorderHandle"), itemName(it))}
               title={t(lang, "reorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             />
+            {/* The rename field had no name at all (an unlabelled control); it is
+                named by the same row token as the grip and Delete beside it. */}
             <input defaultValue={it.name}
+              aria-label={rowLabel(t(lang, "rename"), itemName(it))}
               onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
               onBlur={(e) => {
                 renameIfChanged(it, e.target.value);
@@ -454,8 +484,8 @@ function RefList({
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <IconButton
               variant="danger"
-              label={`${t(lang, "delete")} – ${it.name}`}
-              title={`${t(lang, "delete")} – ${it.name}`}
+              label={rowLabel(t(lang, "delete"), itemName(it))}
+              title={rowLabel(t(lang, "delete"), itemName(it))}
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}

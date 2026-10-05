@@ -7,11 +7,13 @@
 // can review each proposed merge before anything is applied. Nothing here
 // mutates the workspace; Confirm calls back to the caller.
 
+import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { type GroundedMergeGroup } from "./task-dedup/dedup";
 import { descriptionText } from "./rich-text-projection";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 interface TaskDedupModalProps {
   lang: Lang;
@@ -26,6 +28,11 @@ interface TaskDedupModalProps {
   busy: boolean;
 }
 
+/** The surviving task's title as the row shows it: the proposed name, else the kept title. */
+function survivorTitle(g: GroundedMergeGroup): string {
+  return g.unified.taskName ?? g.keepTitle;
+}
+
 export function TaskDedupModal({
   lang,
   open,
@@ -37,6 +44,13 @@ export function TaskDedupModal({
   busy,
 }: TaskDedupModalProps) {
   const title = t(lang, "taskDedupTitle");
+  // §669 — two kept tasks can share a title (the model may propose two groups
+  // whose survivors are each a different "Weekly report"). Keyed on the title the
+  // row SHOWS after "Keep:", which is the proposed unified name when there is one.
+  const keepTokens = useMemo(
+    () => buildRowTokens(groups.map((g) => ({ id: g.keepId, name: survivorTitle(g) }))),
+    [groups],
+  );
   const selectedCount = groups.reduce((n, g) => (selected.has(g.keepId) ? n + 1 : n), 0);
 
   return (
@@ -69,13 +83,13 @@ export function TaskDedupModal({
                     checked={on}
                     disabled={busy}
                     onChange={() => onToggle(g.keepId)}
-                    aria-label={`${t(lang, "taskDedupInclude")} – ${g.keepTitle}`}
+                    aria-label={rowLabel(t(lang, "taskDedupInclude"), keepTokens.get(g.keepId) ?? survivorTitle(g))}
                     className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-foreground">
                       <span className="text-muted-foreground">{t(lang, "taskDedupKeep")}: </span>
-                      {g.unified.taskName ?? g.keepTitle}
+                      {survivorTitle(g)}
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">
                       {t(lang, "taskDedupMergeInto")}: {g.merged.map((m) => m.title).join(", ")}
