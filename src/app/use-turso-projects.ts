@@ -2,7 +2,8 @@
 "use client";
 //
 // Mode-aware portfolio lifecycle handlers (create / update-meta / archive /
-// restore / hard-delete) extracted from task-manager.tsx. FILE mode routes to
+// restore / hard-delete) extracted from task-manager.tsx; since §491 they are
+// composed by use-portfolio-projects.ts, which task-manager calls. FILE mode routes to
 // the localStorage-registry callbacks; TURSO mode drives turso-portfolio
 // operations against the shared multi-tenant DB and refreshes the project
 // list afterwards.
