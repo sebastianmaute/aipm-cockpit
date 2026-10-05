@@ -12,7 +12,8 @@
 // project lists and `refreshTursoProjects` stay in task-manager, which also
 // reads them before this point. Called unconditionally with the live closure
 // values via a typed `deps` object; the inline `useCallback`/`useMemo` keep
-// the exact memoization the code had inline. Move-only: no behaviour change.
+// the exact memoization the code had inline (plus the passed-in, stable
+// `setRegistry` dep). Move-only: no behaviour change.
 // ★ That memoization departs from Extraction convention 1 (non-memoized
 // handlers) on purpose: the move keeps the identities the Projects view, the
 // switcher and the empty state already received, so re-renders are unchanged.

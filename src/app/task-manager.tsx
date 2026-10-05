@@ -1770,7 +1770,7 @@ function TaskManagerInner() {
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
 
-  // Multi-project (portfolio) wiring — the file-mode handlers, the mode-aware
+  // Multi-project (portfolio) wiring — the empty-state / project handlers, the mode-aware
   // lists, the key-facts snapshot effect and the Turso project handlers —
   // extracted to usePortfolioProjects (§491).
   const {
