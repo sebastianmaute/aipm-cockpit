@@ -25,7 +25,7 @@ describe("parseDailyKey", () => {
   // hop away in `timelog-policy.ts`, which has no window comparison at all.
   // That engine only TRACKS the bounds — `firstViolationDate`/
   // `lastViolationDate`, a running min/max over the violating days. The
-  // COMPARISON lives in `task-manager.tsx`'s insights reconcile, which clears a
+  // COMPARISON lives in `use-insight-lifecycle.ts`'s insights reconcile, which clears a
   // stored guardrail insight only when the cache entry's `dailyWindow` covers
   // that pair, with plain string `<=`/`>=` and no question about whether either
   // end is a real day. Reproduce the split with `grep -rn "rollWindow" src/app`.

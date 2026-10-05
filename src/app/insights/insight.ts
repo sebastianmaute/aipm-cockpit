@@ -130,7 +130,7 @@ export const MAX_BG_RECS_PER_TICK = 3;
 /** Safe, non-destructive write tools an AI insight recommendation may propose.
  *  This allow-set is the security boundary for the recommendation flow and is
  *  enforced at THREE points: generation (parseRecommendation), load (sanitizeInsights),
- *  and apply (task-manager) — a persisted/imported blob must never smuggle a
+ *  and apply (`use-insight-recommendations.ts`) — a persisted/imported blob must never smuggle a
  *  destructive tool (delete_*, update_settings) past any of them. Lives on this
  *  leaf module so the sanitizer can import it without pulling in action-ai.
  *  ★★★ §548 — EVERY DISPATCHER FOR A TOOL LISTED HERE MUST RESOLVE WITHOUT I/O, and adding one that
@@ -156,7 +156,8 @@ export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
 ]);
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
- *  advance an insight's status. Threaded from task-manager, which owns the
+ *  advance an insight's status. Assembled by `useInsightRecommendations` from the
+ *  handlers of `useInsightLifecycle`; task-manager calls both and passes in the
  *  `setInsights` writer and the entity deep-link channel. */
 export interface InsightActions {
   readonly onAcknowledge: (id: number) => void;

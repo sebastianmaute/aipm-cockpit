@@ -23,11 +23,15 @@ const insight = (id: number, over: Partial<Insight> = {}): Insight => ({
   ...over,
 });
 
+// Insight 2 carries an extractable metric (`stalledWork` → `count`), so acting on
+// it must capture the `metricAtAction` baseline.
+const INITIAL = [insight(1), insight(2, { data: { count: 3 } })];
+
 function setup(isPopout = false) {
   const requestOpen = vi.fn();
   const setSpy = vi.fn();
   const { result } = renderHook(() => {
-    const [insights, setInsights] = useState<readonly Insight[] | undefined>([insight(1), insight(2)]);
+    const [insights, setInsights] = useState<readonly Insight[] | undefined>(INITIAL);
     const deps: InsightLifecycleDeps = {
       hydrated: false, isPopout, loadPending: false, today: TODAY,
       currentProjectId: "p1", landingProjectId: "p1",
@@ -47,13 +51,13 @@ describe("useInsightLifecycle handlers", () => {
     const { result } = setup();
     act(() => result.current.handlers.onAcknowledgeInsight(1));
     expect(result.current.insights?.[0]).toMatchObject({ status: "acknowledged", acknowledgedAt: TODAY });
-    expect(result.current.insights?.[1]).toEqual(insight(2));
+    expect(result.current.insights?.[1]).toEqual(INITIAL[1]);
   });
 
-  it("act stamps the target and opens its entity", () => {
+  it("act stamps the target, captures its metric baseline and opens its entity", () => {
     const { result, requestOpen } = setup();
     act(() => result.current.handlers.onActInsight(2));
-    expect(result.current.insights?.[1]).toMatchObject({ status: "acted", actedAt: TODAY });
+    expect(result.current.insights?.[1]).toMatchObject({ status: "acted", actedAt: TODAY, metricAtAction: { count: 3 } });
     expect(result.current.insights?.[0]).toEqual(insight(1));
     expect(requestOpen).toHaveBeenCalledWith("raid", 72);
   });
@@ -83,6 +87,6 @@ describe("useInsightLifecycle handlers", () => {
     });
     expect(setSpy).not.toHaveBeenCalled();
     expect(requestOpen).not.toHaveBeenCalled();
-    expect(result.current.insights).toEqual([insight(1), insight(2)]);
+    expect(result.current.insights).toEqual(INITIAL);
   });
 });

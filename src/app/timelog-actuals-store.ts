@@ -357,8 +357,8 @@ function shedOrder(map: CacheMap, keep: string): string[] {
  *  retained date — not to whatever survived, which would name a date the trim
  *  kept for some bookers and dropped for others.
  *  ★★★ THE NARROWING IS THE POINT, NOT A TIDY-UP. `dailyWindow` is a CLAIM —
- *  "the roll holds data for these dates" — and `task-manager.tsx`'s insights
- *  reconcile clears a guardrail insight only when that window COVERS the
+ *  "the roll holds data for these dates" — and the insights reconcile in
+ *  `use-insight-lifecycle.ts` clears a guardrail insight only when that window COVERS the
  *  insight's `[firstViolationDate, lastViolationDate]`. Trim days out of the
  *  roll while leaving the window intact and the claim goes false in the one
  *  direction that cannot be walked back: the insight reads as covered, the

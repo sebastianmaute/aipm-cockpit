@@ -32,7 +32,7 @@ types through the validator was weighed and rejected.
   `applyWorkspace` + `task-manager` restore, and INCLUDED in the `backend.save({…})` literals + `currentWorkspace()`
   so it actually autosaves. ★★ LANDMINE: the autosave-effect DEPS array MUST include insights or edits silently
   drop (data-loss).
-- **Detect→reconcile runner (task-manager):** debounced, gated `hydrated && !isPopout`, functional
+- **Detect→reconcile runner (`use-insight-lifecycle.ts`, called from task-manager):** debounced, gated `hydrated && !isPopout`, functional
   `setInsights((prev) => reconcileInsights(prev ?? [], detected, today))`. ★★ Its content-key EXCLUDES lifecycle
   fields, so acting on / dismissing an insight can't re-trigger detection → the reconcile→setInsights→re-run loop
   is avoided.
@@ -196,7 +196,7 @@ types through the validator was weighed and rejected.
   insights, one per rule × TimeLog user (key `timelog:<rule>:<timelogUserId>`), typed
   `timelogCapPerEntry` · `timelogCapPerDay` · `timelogNonWorkingDay` · `timelogWorkingHours`, all
   `medium` severity, with an `entityRef` to the resource only when the user link resolves. The rules
-  run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the task-manager runner feeds from the
+  run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the runner in `use-insight-lifecycle.ts` feeds from the
   per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The policy's
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
