@@ -150,6 +150,14 @@ const LINK_ATTR: ReadonlySet<string> = new Set(GUARDED_LINK_ATTR);
 
 let attrHookRegistered = false;
 
+/** §97 — throw the NAMED error when DOMPurify has no DOM. Without one it is a
+ *  stub whose `sanitize` and `addHook` are undefined, so the call would die on an
+ *  opaque TypeError that every load-path catch reads as bad data. The first line
+ *  of each sanitizer below. */
+function requireDom(): void {
+  if (!DOMPurify.isSupported) throw new DomUnavailableError();
+}
+
 /** Registers the value-allow-list hook exactly once, LAZILY.
  *
  *  ★★★ NEVER CALL DOMPurify.addHook AT MODULE EVAL. With no DOM it is
@@ -184,14 +192,6 @@ let attrHookRegistered = false;
  *  but NOT on ALLOWED_ATTR. ★ The carrier tag must be one the rich list admits —
  *  an `<img>` would be dropped as a TAG, so that assertion would pass for a
  *  reason unrelated to the attribute name test. */
-/** §97 — throw the NAMED error when DOMPurify has no DOM. Without one it is a
- *  stub whose `sanitize` and `addHook` are undefined, so the call would die on an
- *  opaque TypeError that every load-path catch reads as bad data. The first line
- *  of each sanitizer below. */
-function requireDom(): void {
-  if (!DOMPurify.isSupported) throw new DomUnavailableError();
-}
-
 function ensureAttrHook(): void {
   requireDom();
   if (attrHookRegistered) return;

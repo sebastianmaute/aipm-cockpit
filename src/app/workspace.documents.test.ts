@@ -15,13 +15,13 @@ import {
  *  would have been more faithful to the cause but would break the
  *  script-stripping tests above, which need a DOM to mean anything.
  *
- *  ★ The CAUSE being simulated is real and was measured outside vitest: with no
- *  DOM, the DOMPurify-calling sanitizer behind `sanitizeDocumentRichFields` hits
- *  a DOMPurify that never bound a window and throws exactly this TypeError. (The
- *  measurement predates S3a and named `sanitizeTemplateHtml`, since retired; the
- *  path now runs `sanitizeDocumentHtml` and the cause is identical — the throw is
- *  DOMPurify's missing `window`, not which allow-list is passed to it.) See open-followups §97 for the measurement
- *  and for why only a PARAGRAPH block reaches it. */
+ *  ★ What it simulates is a sanitizer that throws for any reason OTHER than a
+ *  missing DOM. This TypeError USED to be the missing-DOM throw (a DOMPurify that
+ *  never bound a window), but since §97 `sanitize-html.ts` throws the named
+ *  `DomUnavailableError` instead, and every load path rethrows that one rather
+ *  than containing it — pinned in `dom-unavailable.load-paths.test.ts`, in the
+ *  node environment. See open-followups §97 for why only a PARAGRAPH block
+ *  reaches the pass. */
 let forceRichFieldThrow = false;
 vi.mock("./document-rich-fields", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./document-rich-fields")>();

@@ -17,6 +17,7 @@ import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import type { HealthFilter } from "./health";
+import type { Settings } from "./settings-types";
 import type { TaskFilterValues } from "./task-filters";
 import { SavedViewsControl } from "./saved-views-control";
 import { INTERACTIVE } from "./interaction-styles";
@@ -27,7 +28,7 @@ import { IconButton } from "./icon-button";
 import { EraserIcon, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TOUR_ANCHORS } from "./app-tour";
 
-type TasksViewMode = "table" | "board" | "swimlane";
+type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
 
 // ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
 export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [

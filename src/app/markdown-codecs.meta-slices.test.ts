@@ -28,8 +28,9 @@ import {
 } from "../test/meta-slices-fixtures";
 
 // Forces the documents/documentVersions rich-field pass to throw, as
-// browser-backend.test.ts does for §620 (same cause in the wild: DOMPurify
-// without a bound window). Delegates to the REAL implementation unless the
+// browser-backend.test.ts does for §620: a sanitizer that throws for any reason
+// OTHER than a missing DOM (since §97 a real missing DOM throws
+// `DomUnavailableError`, which `decodeMetaJson` rethrows). Delegates to the REAL implementation unless the
 // flag is set, so every other test here runs the genuine pass.
 const richFieldCtl = vi.hoisted(() => ({ throwing: false }));
 vi.mock("./document-rich-fields", async (importOriginal) => {

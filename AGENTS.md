@@ -303,10 +303,13 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
                             # is worse than one with a known blind spot.
                             # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
-                            # to 1 unresolvable + 2 out-of-range (from 11 + 8), and ALL survivors sit
-                            # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
-                            # as such and deliberately NOT renumbered, because rewriting a signed
-                            # record to match today's tree destroys the only thing it is good for.
+                            # from 11 unresolvable + 8 out-of-range, and every survivor sits in one of
+                            # two DATED SNAPSHOTS: docs/security/findings-2026-07.md (an audit) and
+                            # docs/handrolled-ui-inventory.md (archived 2026-09-13; its two survivors
+                            # point past the end of `tasks-section.tsx` after the §492 split). Both are
+                            # bannered as such and deliberately NOT renumbered, because rewriting a
+                            # dated record to match today's tree destroys the only thing it is good
+                            # for. Read today's counts off the gate's own summary line, not off here.
                             # A third bucket, `thirdParty`, holds cites into dompurify/
                             # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
                             # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS

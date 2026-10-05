@@ -144,8 +144,10 @@ every catch on these load paths that wraps a sanitizer — the document and vers
 meta-slice decoders, `decodeNoteLog`, and the outer catches in `jsonToWorkspace` and
 `BrowserBackend.load` — rethrows it through `rethrowIfDomUnavailable` — so the load FAILS, strict or not, `diag` or
 not, instead of degrading to "documents dropped" with no report. Enumerate the sites with
-`grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test`; each is pinned by a
-mutant in `dom-unavailable.load-paths.test.ts`, which runs in the node environment on purpose.
+`grep -rn "rethrowIfDomUnavailable(" src/app --include=*.ts | grep -v test | grep -v "export function"`
+(the last filter drops the definition in `dom-unavailable-error.ts`). The test file
+`dom-unavailable.load-paths.test.ts`, which runs in the node environment on purpose, pins each
+site, and a mutant deleting each one in turn proved it.
 A genuinely unreadable slice still degrades and is reported as above.
 
 ★ Partial loss stays silent on every path. A slice whose sanitizer keeps some entries is not

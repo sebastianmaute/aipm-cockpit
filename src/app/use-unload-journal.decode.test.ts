@@ -3,7 +3,8 @@
 // over the stored ones).
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Forces the documents rich-field pass to throw (the no-DOM DOMPurify failure), as
+// Forces the documents rich-field pass to throw — a sanitizer that throws for any reason
+// OTHER than a missing DOM (since §97 a real missing DOM throws `DomUnavailableError`) — as
 // local-file-backend.test.ts does, delegating to the real pass unless the flag is set.
 const richThrow = vi.hoisted(() => ({ on: false }));
 vi.mock("./document-rich-fields", async (importOriginal) => {

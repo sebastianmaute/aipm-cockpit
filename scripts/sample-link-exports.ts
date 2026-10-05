@@ -35,8 +35,8 @@
 // `renderDocumentDocx` with no jsdom installed THROWS `DOMParser is not
 // defined` before it can emit anything. So do NOT weaken the DOM setup on the
 // theory that a check downstream will catch it — nothing gets that far. (The
-// silent-empty behaviour is real for `jsonToWorkspace`, which this script
-// never calls; that is where the folklore comes from.)
+// silent-empty behaviour was real for `jsonToWorkspace` until §97, which made
+// it throw `DomUnavailableError`; this script never calls it either way.)
 //
 // ★★ WHAT THE HYPERLINK ASSERTION ACTUALLY BUYS is a positive observable: it
 // fails if the FIXTURE stops carrying links or a SINK stops emitting them. It
