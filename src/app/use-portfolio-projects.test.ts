@@ -151,6 +151,7 @@ describe("usePortfolioProjects — empty-state / project handlers", () => {
   it("deleting the last project persists the empty registry and switches nowhere", () => {
     const { result, deps } = setup({ registry: { projects: [entry("a")], currentProjectId: "a" } });
     act(() => result.current.handleDeleteProject("a"));
+    expect(saveRegistry).toHaveBeenCalledWith({ projects: [], currentProjectId: null });
     expect(deps.setRegistry).toHaveBeenCalledWith({ projects: [], currentProjectId: null });
     expect(deps.switchToProject).not.toHaveBeenCalled();
   });

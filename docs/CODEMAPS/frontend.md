@@ -57,7 +57,9 @@ leaf), rows and toolbar being purely presentational. Precedents: `gantt`, `repor
 
 Cross-cutting orchestration extracted from task-manager uses a **deps-object hook**: typed `deps` of
 live render-scope values, named `use*`, called unconditionally, returning **non-memoized** handlers
-(they read live scope each render). `use-storage-file-ops.ts` is the reference.
+(they read live scope each render). `use-storage-file-ops.ts` is the reference. Some move-only
+extractions keep the `useCallback`/`useMemo` they had inline on purpose (`use-outlook-imports.ts` and
+`use-portfolio-projects.ts` among them) — see AGENTS.md's "task-manager decomposition map".
 
 ## Design system — use these, do not hand-roll
 
