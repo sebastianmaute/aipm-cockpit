@@ -140,6 +140,19 @@ describe("RaciPanel", () => {
     expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
   });
 
+  // §669 — two milestones with one name gave their cells (same person) one name.
+  it("names the grid cells of two same-named milestones apart", () => {
+    const twins: Milestone[] = [
+      { id: 10, name: "Release", date: "2026-09-01", linkedTaskIds: [] },
+      { id: 11, name: "Release", date: "2026-12-01", linkedTaskIds: [] },
+    ];
+    const sam: Stakeholder[] = [{ id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} }];
+    render(<RaciPanel lang="en-US" stakeholders={sam} milestones={twins} onSave={vi.fn()} />);
+    const set = t("en-US", "raciSetLabel");
+    expect(screen.getByRole("button", { name: `Release (2) · Sam — ${set}` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
+  });
+
   // §669 — with both Sams in the filter, their two remove chips read alike.
   it("names the remove chips of two same-named people in the filter apart", () => {
     const dup: Stakeholder[] = [

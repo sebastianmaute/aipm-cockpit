@@ -119,6 +119,10 @@ export function MeetingReportPanel({
     () => buildRowTokens((versions ?? []).map((v) => ({ id: v.id, name: versionLabel(lang, v) }))),
     [versions, lang],
   );
+  // The summary below spells out rowLabel's "verb – token" inline: passing
+  // compareVersion.capturedAt through rowLabel() made react-hooks/preserve-manual-memoization
+  // flag the diff memo above (measured; the template literal passes).
+  const compareToken = compareVersionId === null ? undefined : versionTokens.get(compareVersionId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -196,7 +200,7 @@ export function MeetingReportPanel({
                 lines={diffResult}
                 addedLabel={t(lang, "reportDiffCurrent")}
                 removedLabel={t(lang, "reportDiffVersion")}
-                summary={`${t(lang, "reportDiff")} – ${compareVersion.capturedAt}`}
+                summary={`${t(lang, "reportDiff")} – ${compareToken ?? compareVersion.capturedAt}`}
               />
             </div>
           )}

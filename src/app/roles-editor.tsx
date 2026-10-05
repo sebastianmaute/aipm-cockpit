@@ -430,6 +430,8 @@ function RefList({
 }) {
   // §669 — discipline and grade names have no uniqueness rule.
   const itemTokens = useRowTokens(items, nameOfRefItem);
+  // A discipline and a grade can share a name too, so the list's title leads the row name.
+  const itemName = (it: { id: number; name: string }): string => `${title}: ${itemTokens.get(it.id) ?? it.name}`;
   const itemOrder = useListReorderDnd<number>({
     ids: items.map((it) => it.id),
     onReorder,
@@ -465,14 +467,14 @@ function RefList({
             {/* ★★ Row-UNIQUE name (WCAG 2.4.6) — see the rate-card handle. */}
             <DragHandle
               {...itemOrder.handleProps(it.id)}
-              ariaLabel={rowLabel(t(lang, "reorderHandle"), itemTokens.get(it.id) ?? it.name)}
+              ariaLabel={rowLabel(t(lang, "reorderHandle"), itemName(it))}
               title={t(lang, "reorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             />
             {/* The rename field had no name at all (an unlabelled control); it is
                 named by the same row token as the grip and Delete beside it. */}
             <input defaultValue={it.name}
-              aria-label={rowLabel(t(lang, "rename"), itemTokens.get(it.id) ?? it.name)}
+              aria-label={rowLabel(t(lang, "rename"), itemName(it))}
               onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
               onBlur={(e) => {
                 renameIfChanged(it, e.target.value);
@@ -482,8 +484,8 @@ function RefList({
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <IconButton
               variant="danger"
-              label={rowLabel(t(lang, "delete"), itemTokens.get(it.id) ?? it.name)}
-              title={rowLabel(t(lang, "delete"), itemTokens.get(it.id) ?? it.name)}
+              label={rowLabel(t(lang, "delete"), itemName(it))}
+              title={rowLabel(t(lang, "delete"), itemName(it))}
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}

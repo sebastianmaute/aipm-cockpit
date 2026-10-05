@@ -3,7 +3,7 @@
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
 import { INTERACTIVE } from "./interaction-styles";
-import { buildRowTokens } from "./row-tokens";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./milestones";
 
 interface MilestoneHorizonStripProps {
@@ -89,6 +89,8 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                   <button
                     type="button"
                     onClick={() => onOpenMilestone(-1)}
+                    // Two buckets with the same overflow read alike, so the bucket is in the name.
+                    aria-label={rowLabel(t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET)), t(lang, LABEL_KEY[k]))}
                     className={`rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
                   >
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}

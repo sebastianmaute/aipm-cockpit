@@ -622,7 +622,7 @@ describe("RolesEditor row names (§669)", () => {
           { id: 2, disciplineId: 1, gradeId: 1, internalRate: 50, externalRate: 90 },
         ]}
         disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Engineering" }]}
-        grades={[{ id: 1, name: "Senior" }]}
+        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Engineering" }]}
         onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
         onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
         onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
@@ -632,9 +632,15 @@ describe("RolesEditor row names (§669)", () => {
     expect(within(table).getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior (2)` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 4, scope: table, requireCollisionSeed: true });
     expectRowUniqueNames({ minControls: 8, roles: ["textbox", "spinbutton"], scope: table });
-    // The two disciplines called "Engineering" in the reference list.
-    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering (2)` })).toBeInTheDocument();
+    // The two disciplines called "Engineering", and a grade with the same name: the
+    // list title leads each row name, so the two lists read apart as well.
+    const disc = t("en-US", "rolesDiscipline");
+    const grade = t("en-US", "rolesGrade");
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – ${disc}: Engineering (2)` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – ${grade}: Engineering` })).toBeInTheDocument();
     // The rename field beside them had no name at all.
-    expect(screen.getByRole("textbox", { name: `${t("en-US", "rename")} – Engineering (2)` })).toHaveValue("Engineering");
+    expect(screen.getByRole("textbox", { name: `${t("en-US", "rename")} – ${disc}: Engineering (2)` })).toHaveValue("Engineering");
+    expectRowUniqueNames({ minControls: 10 });
+    expectRowUniqueNames({ minControls: 4, roles: ["textbox"] });
   });
 });

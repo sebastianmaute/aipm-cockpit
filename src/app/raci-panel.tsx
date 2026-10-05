@@ -19,6 +19,7 @@ import {
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
+import { buildRowTokens } from "./row-tokens";
 import { useResizable } from "./use-resizable";
 import { useSettings } from "./use-settings";
 import { useRaciSuggest } from "./use-raci-suggest";
@@ -73,6 +74,12 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
   const rows = useMemo(
     () => buildRaciMatrix(stakeholders, milestones),
     [stakeholders, milestones],
+  );
+  // §669 — two milestones can share a name, so a cell's milestone half is a row
+  // token; the stakeholder half uses labelFor below.
+  const milestoneTokens = useMemo(
+    () => buildRowTokens(rows.map((r) => ({ id: r.milestone.id, name: r.milestone.name }))),
+    [rows],
   );
 
   // Build a quick id→stakeholder map for onChange lookups
@@ -280,7 +287,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                     // §669 — labelFor adds the id when two people share a name, so the
                     // cells (and their popovers) of two "Sam" columns read apart.
                     const stakeholderName = stakeholder ? labelFor(stakeholder) : String(cell.stakeholderId);
-                    const ariaLabel = `${row.milestone.name} · ${stakeholderName}`;
+                    const ariaLabel = `${milestoneTokens.get(row.milestone.id) ?? row.milestone.name} · ${stakeholderName}`;
                     return (
                       <td key={cell.stakeholderId} className="px-3 py-2">
                         <RaciChipPicker

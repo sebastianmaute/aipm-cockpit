@@ -91,3 +91,14 @@ describe("MilestoneHorizonStrip row names", () => {
     expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 });
+
+// §669 review — two buckets overflowing by the same count both read "+2 more".
+describe("MilestoneHorizonStrip more buttons", () => {
+  it("names each bucket's more button by its bucket", () => {
+    const seven = (base: number) =>
+      Array.from({ length: 7 }, (_, i) => ({ milestone: m(base + i, "2026-08-01"), status: "on-track" as const }));
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ next2Weeks: seven(100), later: seven(200) })} onOpenMilestone={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "+2 more – Later" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 12 });
+  });
+});

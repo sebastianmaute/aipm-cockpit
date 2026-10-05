@@ -26,7 +26,7 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 > **Update 2026-10-05, `fix/issues-batch9`:** the 26 `§669` rows below are now fixed too, each with a
 > test that seeds the repeated name and a mutant that turns it red. The rows keep their `§669` verdict
 > as recorded; [§669](open-followups.md#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05)
-> says how each was fixed. The scanner afterwards read `DATA 168 | TOKENIZED 95`.
+> says how each was fixed. The scanner afterwards read `DATA 167 | TOKENIZED 97`.
 
 The scanner's two known blind spots were checked as part of this pass. A control
 rendered for one row only (under `isSelected`) is judged fine with the reason
