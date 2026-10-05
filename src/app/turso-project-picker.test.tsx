@@ -105,11 +105,14 @@ describe("TursoProjectPicker", () => {
 describe("TursoProjectPicker row names", () => {
   it("names the Load buttons of two same-named projects apart", async () => {
     vi.mocked(listProjects).mockResolvedValueOnce([
-      { id: "p1", meta: { name: "Apollo", code: "APL-1" }, archived: false } as never,
-      { id: "p2", meta: { name: "Apollo", code: "APL-2" }, archived: false } as never,
+      { id: "p1", meta: { name: "Apollo", code: "APL" }, archived: false } as never,
+      { id: "p2", meta: { name: "Apollo", code: "APL" }, archived: false } as never,
+      { id: "p3", meta: { name: "Apollo", code: "APL-3" }, archived: false } as never,
     ]);
     setup();
-    expect(await screen.findByRole("button", { name: /Apollo \(2\)$/ })).toBeInTheDocument();
+    // The code is part of the name, so only the rows sharing name AND code get a number.
+    expect(await screen.findByRole("button", { name: "Load – Apollo APL (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load – Apollo APL-3" })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, roles: ["button"], scope: screen.getByRole("list"), requireCollisionSeed: true });
   });
 });

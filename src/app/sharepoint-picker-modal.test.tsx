@@ -288,4 +288,25 @@ describe("SharePointPickerModal row names", () => {
     expect(await screen.findByRole("button", { name: "Documents (2)" })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
+
+  it("names each folder row's Open and Use buttons by the folder, apart when two share a name", async () => {
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          { id: "f1", name: "Specs", webUrl: "https://c.sharepoint.com/a", folder: {}, parentReference: { driveId: "d1" } },
+          { id: "f2", name: "Specs", webUrl: "https://c.sharepoint.com/b", folder: {}, parentReference: { driveId: "d1" } },
+        ],
+      },
+    );
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    fireEvent.click(await screen.findByRole("button", { name: "Proj" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Documents" }));
+    const open = t("en-US", "spPickerOpenFolder");
+    expect(await screen.findByRole("button", { name: `${open} – Specs (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
 });

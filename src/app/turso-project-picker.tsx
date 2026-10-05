@@ -51,11 +51,17 @@ function errorText(err: unknown, lang: Lang): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** A row's name for its Load button: the project name, then its code when set. */
+function projectText(p: ProjectListEntry): string {
+  return p.meta.code ? `${p.meta.name} ${p.meta.code}` : p.meta.name;
+}
+
 export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPickerProps) {
   const [state, setState] = useState<FetchState>({ kind: "loading" });
-  // §669 — two projects in one database can share a name.
+  // §669 — two projects in one database can share a name. The code is part of
+  // the name when there is one, since the row shows it beside the name.
   const projectTokens = useMemo(
-    () => buildRowTokens(state.kind === "ready" ? state.projects.map((p) => ({ id: p.id, name: p.meta.name })) : []),
+    () => buildRowTokens(state.kind === "ready" ? state.projects.map((p) => ({ id: p.id, name: projectText(p) })) : []),
     [state],
   );
 
@@ -139,7 +145,7 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
                     variant="secondary"
                     size="sm"
                     onClick={() => handlePick(p.id)}
-                    aria-label={rowLabel(t(lang, "tursoPickerLoad"), projectTokens.get(p.id) ?? p.meta.name)}
+                    aria-label={rowLabel(t(lang, "tursoPickerLoad"), projectTokens.get(p.id) ?? projectText(p))}
                   >
                     {t(lang, "tursoPickerLoad")}
                   </Button>

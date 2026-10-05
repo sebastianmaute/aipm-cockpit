@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "./button";
-import { buildRowTokens } from "./row-tokens";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -31,9 +31,11 @@ interface ResultRowProps {
   onSelect: (link: KnowledgeLink) => void;
   onClose: () => void;
   openFolder: (link: KnowledgeLink) => void;
+  /** The row's name, made unique among the listed items (§669 review). */
+  token: string;
 }
 
-function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRowProps) {
+function ResultRow({ item, mode, lang, onSelect, onClose, openFolder, token }: ResultRowProps) {
   const isFolder = item.kind === "folder";
 
   function handleSelect() {
@@ -49,6 +51,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={() => openFolder(item)}
+            aria-label={rowLabel(t(lang, "spPickerOpenFolder"), token)}
             className="rounded px-2 py-1 text-xs font-medium text-ui-dark-blue ring-1 ring-line hover:bg-surface-muted focus:outline-none focus:ring-ui-green dark:text-ui-light-grey"
           >
             {t(lang, "spPickerOpenFolder")}
@@ -58,6 +61,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={handleSelect}
+            aria-label={rowLabel(t(lang, "spPickerUse"), token)}
             className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "spPickerUse")}
@@ -67,6 +71,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={handleSelect}
+            aria-label={rowLabel(t(lang, "spPickerSelectFile"), token)}
             className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "spPickerSelectFile")}
@@ -109,6 +114,8 @@ export function SharePointPickerModal({
   // a row token.
   const siteTokens = useMemo(() => buildRowTokens(sites.map((x) => ({ id: x.id, name: x.name }))), [sites]);
   const driveTokens = useMemo(() => buildRowTokens(drives.map((x) => ({ id: x.id, name: x.name }))), [drives]);
+  // Folder and file rows: every Open / Use / Select read the same with no name at all.
+  const itemTokens = useMemo(() => buildRowTokens(items.map((x) => ({ id: x.id, name: x.name }))), [items]);
 
   const title = t(lang, "spPickerTitle");
 
@@ -287,6 +294,7 @@ export function SharePointPickerModal({
                         onSelect={onSelect}
                         onClose={onClose}
                         openFolder={openFolder}
+                        token={itemTokens.get(item.id) ?? item.name}
                       />
                     ))}
                   </div>

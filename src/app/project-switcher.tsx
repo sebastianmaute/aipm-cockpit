@@ -33,6 +33,11 @@ export interface ProjectSwitcherProps {
   dataTourId?: string;
 }
 
+/** An item's visible text, in reading order: the name, then the code. */
+function itemText(p: ProjectRegistryEntry): string {
+  return p.code ? `${p.name} ${p.code}` : p.name;
+}
+
 /**
  * Prominent current-project indicator + switcher. Rendered identically by the
  * classic `AppHeader` and the modern `TopBar`. The trigger shows the active
@@ -42,11 +47,6 @@ export interface ProjectSwitcherProps {
  * The open/close + outside-click + Escape behaviour mirrors `VersionMenu`
  * (mousedown-outside + keydown-Escape listeners scoped to the open state).
  */
-/** An item's visible text, in reading order: the name, then the code. */
-function itemText(p: ProjectRegistryEntry): string {
-  return p.code ? `${p.name} ${p.code}` : p.name;
-}
-
 export function ProjectSwitcher({
   currentProjectName,
   projects,
