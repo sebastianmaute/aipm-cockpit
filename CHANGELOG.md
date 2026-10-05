@@ -124,6 +124,9 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **IndexedDB stores come from one list (§99 follow-up).** `openIdb` now creates every record store
+  listed in `src/app/idb-layout.ts`, the list the e2e seed also uses, instead of naming them one by one, so
+  a store added to the layout cannot exist in e2e runs while missing in a real browser. A new test pins it.
 - **Tooltip ratchet (§109).** `npm run tooltips:check`, a `static` gate, fails when a file under `src/app`
   gains an icon-only button with no hover tooltip (`title`) beyond `docs/baselines/untitled-icon-buttons.json`.
   It reads the TypeScript syntax tree, so comments can no longer confuse it.

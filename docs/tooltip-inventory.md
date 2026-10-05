@@ -12,7 +12,7 @@ tree `908e56cf3d2a…`, identical parent) left behind when that commit's message
 resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
 already written into prose — check the citations after any amend.
 
-## Re-measured 2026-10-04, on `dc6c2eb3c`, with a new scanner — and now a ratchet (§109)
+## Re-measured 2026-10-04, after the §109 fixes (branch `fix/issues-batch5-peer`, reproduced on main `091ad6312`), with a new scanner — and now a ratchet (§109)
 
 ★★★ **THIS COLUMN IS NOT COMPARABLE WITH THE THREE BELOW, and that is deliberate.** The counts now come
 from `scripts/tooltip-scan-lib.mjs`, which walks the TypeScript parser's tree instead of the

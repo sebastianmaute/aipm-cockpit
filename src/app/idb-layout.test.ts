@@ -115,7 +115,8 @@ describe("idb-layout — the backend declares no store or kv key of its own", ()
   });
 
   // ★ The floors make each case non-vacuous: idb.ts's key access is `store.get/put/delete` inside its own
-  // idbGet/idbSet/idbDelete (3 calls), browser-backend.ts's is `idbGet`/`idbSet` and `kv.*` (26 calls).
+  // idbGet/idbSet/idbDelete, browser-backend.ts's is `idbGet`/`idbSet` and `kv.*`. The floors sit below
+  // today's counts on purpose; read the counts off `kvKeyArgsIn(source(file)).length`, not off this comment.
   it.each([
     ["idb.ts", 3],
     ["browser-backend.ts", 10],
