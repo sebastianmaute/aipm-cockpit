@@ -33,9 +33,9 @@ types through the validator was weighed and rejected.
   so it actually autosaves. ★★ LANDMINE: the autosave-effect DEPS array MUST include insights or edits silently
   drop (data-loss).
 - **Detect→reconcile runner (`use-insight-lifecycle.ts`, called from task-manager):** debounced, gated
-  `hydrated && !isPopout && !loadPending` (§548), functional
-  `setInsights((prev) => reconcileInsights(prev ?? [], detected, today, isEvaluated))`, keeping `prev` when
-  `insightsMateriallyEqual` says nothing changed. `isEvaluated` decides per insight whether its rule was
+  `hydrated && !isPopout && !loadPending` (§548), functional `setInsights((prev) => …)` that computes
+  `reconcileInsights(base, detected, today, isEvaluated)` with `base = prev ?? []`, and keeps `base` when
+  `insightsMateriallyEqual` finds the only differences are `occurrences`/`lastSeenAt`. `isEvaluated` decides per insight whether its rule was
   really checked, so an unchecked one freezes instead of resolving. ★★ Its content-key EXCLUDES lifecycle
   fields, so acting on / dismissing an insight can't re-trigger detection → the reconcile→setInsights→re-run loop
   is avoided.
@@ -85,8 +85,10 @@ types through the validator was weighed and rejected.
   (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
   never-log `runForcedToolCall`. TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
   (per-insight ✨ button) + opt-in background `use-insight-recommend-runner.ts` (mirrors `use-scheduled-job-runner`
-  — `[]`-dep refs, mount+visibility+15-min tick, serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a
-  limit/auth error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout`, default OFF).
+  — `[]`-dep refs, mount+visibility+interval tick (user-settable, default `DEFAULT_INSIGHT_REC_INTERVAL_MIN`,
+  clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth
+  error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout && !loadPending`
+  (§548), default OFF).
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
   plan). `useInsightRecommendations` (`use-insight-recommendations.ts`, called from task-manager right after

@@ -8970,7 +8970,7 @@ Everything below is what remains open after it:
   produces the appearance of coverage and nobody re-opens the row. The clearest are the insights
   verbs "Acknowledge" / "Act", where the label actively misleads — `onActInsight`
   (`task-manager.tsx`, grep the symbol — it was `:832` when written and main's merge moved it to
-  `:840`) applies `metricAtActionPatch` on first act, a one-shot side effect the
+  `:840`; **correction 2026-10-05:** since §491 its body is in `use-insight-lifecycle.ts`) applies `metricAtActionPatch` on first act, a one-shot side effect the
   word "Act" gives no hint of.
   ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
   slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
