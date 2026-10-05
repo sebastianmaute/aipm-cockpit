@@ -12,7 +12,8 @@
 // of its own, or when a slice here reaches the e2e seed with no data.
 
 export const IDB_DB_NAME = "aipm-cockpit";
-/** Bump when a store is added: `openIdb`'s `onupgradeneeded` adds missing stores. */
+/** Bump when a store is added: `openIdb`'s `onupgradeneeded` (idb.ts) then creates every store in
+ *  IDB_ENTITY_STORES that the database lacks. */
 export const IDB_DB_VERSION = 6;
 export const IDB_KV_STORE = "kv";
 

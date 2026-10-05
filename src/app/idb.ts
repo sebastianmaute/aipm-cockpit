@@ -67,32 +67,12 @@ async function openIdb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(IDB_KV_STORE)) {
         db.createObjectStore(IDB_KV_STORE);
       }
-      if (!db.objectStoreNames.contains(IDB_TASKS_STORE)) {
-        db.createObjectStore(IDB_TASKS_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_RAID_STORE)) {
-        db.createObjectStore(IDB_RAID_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_ABSENCES_STORE)) {
-        db.createObjectStore(IDB_ABSENCES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_SHIFTS_STORE)) {
-        db.createObjectStore(IDB_SHIFTS_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_RESOURCES_STORE)) {
-        db.createObjectStore(IDB_RESOURCES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_ROLES_STORE)) {
-        db.createObjectStore(IDB_ROLES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_DISCIPLINES_STORE)) {
-        db.createObjectStore(IDB_DISCIPLINES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
-        db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_BUDGETS_STORE)) {
-        db.createObjectStore(IDB_BUDGETS_STORE, { keyPath: "id" });
+      // ★ Every record store in idb-layout.ts, never a hand list: the e2e seed
+      // creates the same set from the same list, so a store named here and not
+      // there (or the reverse) would exist in every e2e run and be missing in a
+      // real browser. idb.stores.test.ts pins it.
+      for (const store of Object.values(IDB_ENTITY_STORES)) {
+        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
     };
     req.onsuccess = () => {
