@@ -45,8 +45,12 @@ export interface TokenRow<Id> {
  * ★ Leading/trailing whitespace is already trimmed upstream by the entity
  * sanitizers, so internal runs are the live vector — but this collapses ends
  * too, since `\s+` does not care where the run sits.
+ *
+ * ★★ CASE FOLDS TOO, for the same reason: "Sam" and "sam" are two strings and
+ * one spoken name, and without the fold both stay bare. (§669 round 5: RACI's
+ * old `labelFor` folded case, and moving its names onto these tokens lost it.)
  */
-const collapse = (name: string): string => name.replace(/\s+/g, " ");
+const collapse = (name: string): string => name.replace(/\s+/g, " ").toLowerCase();
 
 /** Maps each row's id to the display TOKEN used in every one of that row's labels. */
 export function buildRowTokens<Id>(rows: readonly TokenRow<Id>[]): Map<Id, string> {

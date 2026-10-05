@@ -76,7 +76,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     [stakeholders, milestones],
   );
   // §669 — two milestones can share a name, so a cell's milestone half is a row
-  // token; the stakeholder half is one too (stakeholderTokens below).
+  // token; the stakeholder half is one too (labelFor below).
   const milestoneTokens = useMemo(
     () => buildRowTokens(rows.map((r) => ({ id: r.milestone.id, name: r.milestone.name }))),
     [rows],
@@ -89,29 +89,20 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     return m;
   }, [stakeholders]);
 
-  // Count each (case-folded) display name so shared names can be disambiguated
-  // in the picker — otherwise two stakeholders called "Sam" collapse to the
-  // first match and the second is unreachable.
-  const nameCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const s of stakeholders) {
-      const k = s.name.trim().toLowerCase();
-      m.set(k, (m.get(k) ?? 0) + 1);
-    }
-    return m;
-  }, [stakeholders]);
-  // Picker label: bare name when unique, else `Name (#id)` so it's unambiguous.
-  const labelFor = (s: Stakeholder): string =>
-    (nameCounts.get(s.name.trim().toLowerCase()) ?? 0) > 1 ? `${s.name} (#${s.id})` : s.name;
-  // §669 — accessible names use a row token, not labelFor: labelFor keys on the
-  // trimmed, case-folded name only, so a stakeholder literally called "Sam (#2)"
-  // collides with a generated one, and "Sam  Lee" (two spaces) stays bare beside
-  // "Sam Lee" while a screen reader hears one name. buildRowTokens handles both.
-  // labelFor stays the picker's matching key, which typed input is compared against.
+  // One name per stakeholder, used EVERYWHERE a person is named: the add-person
+  // picker's options and its typed-input matching, the filter chips and the grid
+  // cells. Two stakeholders called "Sam" become "Sam (1)" / "Sam (2)".
+  // §669 — this replaced a "Name (#id)" form keyed on the trimmed, case-folded
+  // name alone: a stakeholder literally called "Sam (#2)" matched a generated
+  // one, and "Sam  Lee" (two spaces) stayed bare beside "Sam Lee" while a screen
+  // reader heard one name. buildRowTokens folds whitespace runs and case, and
+  // escalates past a token another row already holds. One scheme also means a
+  // name a user hears on a chip can be typed back into the picker.
   const stakeholderTokens = useMemo(
     () => buildRowTokens(stakeholders.map((s) => ({ id: s.id, name: s.name }))),
     [stakeholders],
   );
+  const labelFor = (s: Stakeholder): string => stakeholderTokens.get(s.id) ?? s.name;
 
   // Person (column) filter — additive: `filtered` holds the ids to SHOW (empty = all shown).
   const [filtered, setFiltered] = useState<ReadonlySet<number>>(new Set());
@@ -128,9 +119,8 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
   function addPerson(rawName: string) {
     const trimmed = rawName.trim();
     if (trimmed === "") return;
-    // Prefer a real label/name match (so a stakeholder literally named "Foo (#5)"
-    // resolves to itself); only fall back to parsing a `(#id)` suffix when the
-    // text isn't a valid name/label (i.e. a disambiguated duplicate-name pick).
+    // Prefer the picker's own label (unique by construction), then a bare name;
+    // a `(#id)` suffix is still accepted for anyone who types an id.
     const needle = trimmed.toLowerCase();
     let match: Stakeholder | undefined =
       stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
@@ -243,8 +233,8 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                 <span>{s.name}</span>
                 <IconButton
                   onClick={() => removePerson(s.id)}
-                  label={t(lang, "raciFilterRemove", stakeholderTokens.get(s.id) ?? s.name)}
-                  title={t(lang, "raciFilterRemove", stakeholderTokens.get(s.id) ?? s.name)}
+                  label={t(lang, "raciFilterRemove", labelFor(s))}
+                  title={t(lang, "raciFilterRemove", labelFor(s))}
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />
                 </IconButton>
@@ -291,7 +281,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                   </td>
                   {row.cells.filter((c) => visibleIds.has(c.stakeholderId)).map((cell) => {
                     const stakeholder = stakeholderMap.get(cell.stakeholderId);
-                    const stakeholderName = stakeholderTokens.get(cell.stakeholderId) ?? stakeholder?.name ?? String(cell.stakeholderId);
+                    const stakeholderName = stakeholder ? labelFor(stakeholder) : String(cell.stakeholderId);
                     const ariaLabel = `${milestoneTokens.get(row.milestone.id) ?? row.milestone.name} · ${stakeholderName}`;
                     return (
                       <td key={cell.stakeholderId} className="px-3 py-2">

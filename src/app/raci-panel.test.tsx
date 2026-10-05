@@ -107,7 +107,7 @@ describe("RaciPanel", () => {
     expect(field.value).toBe("");
   });
 
-  it("disambiguates duplicate stakeholder names with (#id) so the second is selectable", () => {
+  it("disambiguates duplicate stakeholder names with a row token so the second is selectable", () => {
     const dup: Stakeholder[] = [
       { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: { "10": "A" } },
       { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: { "10": "R" } },
@@ -116,14 +116,16 @@ describe("RaciPanel", () => {
     render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
 
     // The shared name is disambiguated in the picker; the unique one stays bare.
-    expect(document.querySelector('option[value="Sam (#1)"]')).not.toBeNull();
-    expect(document.querySelector('option[value="Sam (#3)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Sam (1)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Sam (2)"]')).not.toBeNull();
     expect(document.querySelector('option[value="Lee"]')).not.toBeNull();
 
     // Selecting the SECOND Sam filters to exactly that one column (was unreachable).
     const input = screen.getByRole("combobox", { name: /filter people/i });
-    fireEvent.change(input, { target: { value: "Sam (#3)" } });
+    fireEvent.change(input, { target: { value: "Sam (2)" } });
     expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
+    // It is the SECOND Sam (id 3), named on its chip exactly as the picker offered it.
+    expect(screen.getByRole("button", { name: t("en-US", "raciFilterRemove", "Sam (2)") })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
   });
 
@@ -140,19 +142,25 @@ describe("RaciPanel", () => {
     expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
   });
 
-  // §669 review 4 — the picker's labelFor keys on the trimmed, case-folded name, so
-  // "Sam  Lee" (two spaces) stayed bare beside "Sam Lee" and a literal "Sam (#2)"
-  // matched a generated one. Row tokens compare the collapsed name and escalate.
-  it("names cells apart for whitespace twins and a name that looks like a token", () => {
+  // §669 review 4/5 — the old "Name (#id)" form left "Sam  Lee" (two spaces) bare
+  // beside "Sam Lee", and a first token version left "Ana" bare beside "ana".
+  // Row tokens fold whitespace and case and escalate past a taken token.
+  it("names cells apart for whitespace twins, case twins and a name that looks like a token", () => {
     const odd: Stakeholder[] = [
       { id: 1, name: "Sam  Lee", category: "Sponsor", influence: "High", interest: "High", raci: {} },
       { id: 2, name: "Sam Lee", category: "Internal", influence: "Low", interest: "Low", raci: {} },
       { id: 3, name: "Kim", category: "Internal", influence: "Low", interest: "Low", raci: {} },
       { id: 4, name: "Kim", category: "Internal", influence: "Low", interest: "Low", raci: {} },
       { id: 5, name: "Kim (1)", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+      { id: 6, name: "Ana", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+      { id: 7, name: "ana", category: "Internal", influence: "Low", interest: "Low", raci: {} },
     ];
     render(<RaciPanel lang="en-US" stakeholders={odd} milestones={milestones} onSave={vi.fn()} />);
-    expectRowUniqueNames({ minControls: 5, scope: screen.getByRole("table") });
+    expectRowUniqueNames({ minControls: 7, scope: screen.getByRole("table") });
+    // expectRowUniqueNames compares case-sensitively, so pin the case pair by name.
+    const set = t("en-US", "raciSetLabel");
+    expect(screen.getByRole("button", { name: `Go-Live · Ana (1) — ${set}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Go-Live · ana (2) — ${set}` })).toBeInTheDocument();
   });
 
   // §669 — two milestones with one name gave their cells (same person) one name.
@@ -176,8 +184,8 @@ describe("RaciPanel", () => {
     ];
     render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
     const input = screen.getByRole("combobox", { name: /filter people/i });
-    fireEvent.change(input, { target: { value: "Sam (#1)" } });
-    fireEvent.change(input, { target: { value: "Sam (#3)" } });
+    fireEvent.change(input, { target: { value: "Sam (1)" } });
+    fireEvent.change(input, { target: { value: "Sam (2)" } });
     const removes = screen.getAllByRole("button", { name: /from filter/i });
     expect(removes.map((b) => b.getAttribute("aria-label"))).toEqual([
       t("en-US", "raciFilterRemove", "Sam (1)"),
