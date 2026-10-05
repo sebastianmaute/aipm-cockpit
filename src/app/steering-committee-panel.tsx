@@ -5,7 +5,7 @@
 // handler spreads a new SteeringCommittee. Mounted by workspace-section.tsx for
 // both the modern and classic shells.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { ResourcePicker } from "./resource-picker";
@@ -166,9 +166,14 @@ export function SteeringCommitteePanel({
 
   // --- Members ---------------------------------------------------------------
   // Re-validate ids against live resources; drop dangling ones from display.
-  const memberRows = c.memberResourceIds
-    .map((id) => resources.find((r) => r.id === id))
-    .filter((r): r is Resource => !!r);
+  // Memoised so the member-token map below keeps its identity between renders.
+  const memberRows = useMemo(
+    () =>
+      c.memberResourceIds
+        .map((id) => resources.find((r) => r.id === id))
+        .filter((r): r is Resource => !!r),
+    [c.memberResourceIds, resources],
+  );
 
   // §316 — row-unique names. A recurring committee meeting usually keeps one
   // title, two schedules can share a label, and two people can share a name, so

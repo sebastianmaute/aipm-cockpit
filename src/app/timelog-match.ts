@@ -58,9 +58,9 @@ export function resolveCustomerByName<T extends { id: number; name: string }>(
 
 export type TimelogProjectRef = { id: number; name: string; no: string };
 
-/** A TimeLog project as a row label: its name, then its project number when it has one. Names repeat across customers; the number tells them apart (§316). */
+/** A TimeLog project as a row label: its name, then its project number when it has one. Names repeat across customers; the number tells them apart (§316). The " · " separator keeps a bare-digit number from reading like a row token's "(2)". */
 export function timelogProjectLabel(p: TimelogProjectRef): string {
-  return p.no ? `${p.name} (${p.no})` : p.name;
+  return p.no ? `${p.name} · ${p.no}` : p.name;
 }
 
 export function autoMatchProjects(

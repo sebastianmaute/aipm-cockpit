@@ -31,7 +31,7 @@ const select = () => t("en-US", "timelogMatchProjects");
 describe("TimelogProjectsTable row names (§316)", () => {
   it("tells two projects with one name apart by their project numbers", () => {
     renderTable([{ name: "Support", no: "P-1" }, { name: "Support", no: "P-2" }]);
-    expect(screen.getByRole("combobox", { name: `${select()} – Support (P-2)` })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: `${select()} – Support · P-2` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, roles: ["combobox"] });
   });
 

@@ -27,9 +27,11 @@ The scanner's two known blind spots were checked as part of this pass. A control
 rendered for one row only (under `isSelected`) is judged fine with the reason
 "renders once per surface" in the table below. A
 `COVERED` marker was never taken as proof. The scanner listed all 14 fixed files as
-covered (8 by their own test, 6 through a parent), and four of them already called
-`expectRowUniqueNames` (chat threads, calendar series, steering committee, budget
-bucket) over fixtures that never repeated the value fixed here. The budget bucket
+covered (8 by their own test, 6 through a parent). Four of them had their own test
+file call `expectRowUniqueNames` (chat threads, calendar series, steering
+committee, budget bucket), and a fifth was reached that way through its parent
+(`timelog-panel.test.tsx` over the TimeLog projects table). All five ran it over
+fixtures that never repeated the value fixed here. The budget bucket
 tests did seed repeated role names, but rendered no resources at all.
 
 **The scanner cannot confirm the fixes.** It recognises a token only by certain

@@ -26,7 +26,7 @@ const label = () => t("en-US", "timelogProjectScopeLabel");
 describe("TimelogProjectScope row names (§316)", () => {
   it("names a project by its name and number", () => {
     renderScope([{ name: "Support", no: "P-1" }, { name: "Support", no: "P-2" }]);
-    expect(screen.getByRole("checkbox", { name: `${label()} – Support (P-2)` })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: `${label()} – Support · P-2` })).toBeInTheDocument();
   });
 
   it("keeps two same-named projects with no number apart", () => {

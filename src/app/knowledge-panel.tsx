@@ -314,10 +314,15 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
   const counts = sourceCounts(docs);
   const chipKinds = SOURCE_ORDER.filter((k) => counts[k] > 0);
   const effFilter = effectiveSourceFilter(sourceFilter, counts);
-  const visible = sortDocs(
-    filterDocs(docs, effFilter, query),
-    sort,
-    (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
+  // Memoised so the card-token map below keeps its identity between renders.
+  const visible = useMemo(
+    () =>
+      sortDocs(
+        filterDocs(docs, effFilter, query),
+        sort,
+        (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
+      ),
+    [docs, effFilter, query, sort, lang],
   );
   // §316 — two cards can carry the same document name, in one grid or across
   // the library and the attached grid, and both Remove controls share one verb.

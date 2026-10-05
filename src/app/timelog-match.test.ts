@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers, resolveCustomerByName } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers, resolveCustomerByName, timelogProjectLabel } from "./timelog-match";
 import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
@@ -90,5 +90,16 @@ describe("autoMatchProjects", () => {
     const links = autoMatchProjects([{ id: 9, name: "ForgeOps", no: "" }], [bucket(5, "ForgeOps")], existing);
     expect(links).toContainEqual({ timelogProjectId: 9, bucketId: null, manual: true });
     expect(links).not.toContainEqual({ timelogProjectId: 9, bucketId: 5, manual: false });
+  });
+});
+
+describe("timelogProjectLabel (§316)", () => {
+  it("appends the project number after a middle dot", () => {
+    expect(timelogProjectLabel({ id: 1, name: "Support", no: "P-2" })).toBe("Support · P-2");
+    // A bare-digit number must not read like a row token's "(2)".
+    expect(timelogProjectLabel({ id: 1, name: "Support", no: "2" })).toBe("Support · 2");
+  });
+  it("is the bare name when the project has no number", () => {
+    expect(timelogProjectLabel({ id: 1, name: "Support", no: "" })).toBe("Support");
   });
 });
