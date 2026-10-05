@@ -355,9 +355,18 @@ export function docxRichParagraph(
   links?: LinkSink,
   numbering?: NumberingSink,
 ): string {
-  // §154 — a top-level line that is not part of a list ends every open list,
-  // so the next list is a new one even when its count happens to match.
-  if (line.kind !== "li" && (line.kind === "hr" || line.listDepth === undefined)) numbering?.closeOpenLists();
+  // §154 — a top-level text line that is not part of a list ends every open
+  // list, so the next list is a new one even when its count happens to match;
+  // a continuation line ends the lists nested deeper than its item.
+  // ★★ A rule closes NOTHING: `nestBlocksUnder` never stamps `listDepth` on an
+  // `hr`, so one INSIDE an item is indistinguishable here from one between
+  // lists, and closing on it split one Word list in two. Between lists it
+  // needs no close — the next list restarts at `index === 0` anyway.
+  if (line.kind === "li") {
+    if (line.continuation) numbering?.closeListsDeeperThan(line.depth);
+  } else if (line.kind !== "hr" && line.listDepth === undefined) {
+    numbering?.closeOpenLists();
+  }
   if (line.kind === "hr") return HR_PARAGRAPH;
   const style = styleOf(line);
   const parts: string[] = [];

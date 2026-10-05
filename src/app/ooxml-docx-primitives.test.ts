@@ -508,6 +508,24 @@ describe("docxRichParagraphs — §154 Word numbering", () => {
     expect(numPrs(xml)).toEqual(["0:1", "0:2"]);
   });
 
+  it("keeps one Word list across a horizontal rule inside an item", () => {
+    // Splitting here would stop Word renumbering c and d when an item above
+    // the rule is added or removed.
+    const xml = docxRichParagraphs("<ol><li><p>a</p><hr><p>b</p></li><li>c</li><li>d</li></ol>", undefined, createNumberingSink());
+    expect(numPrs(xml)).toEqual(["0:1", "0:1", "0:1"]);
+  });
+
+  it("ends an item's sublist at the item's continuation text", () => {
+    // y arrives at index 1 (after a task item), the count x's sublist would
+    // continue with — but the text between them ended that sublist.
+    const xml = docxRichParagraphs(
+      '<ol><li>a<ol><li>x</li></ol>text<ol><li data-checked="false">t</li><li>y</li></ol></li></ol>',
+      undefined,
+      createNumberingSink(),
+    );
+    expect(numPrs(xml)).toEqual(["0:1", "1:2", "1:3"]);
+  });
+
   it("does not continue a list from one rich value in the next", () => {
     const sink = createNumberingSink();
     const first = docxRichParagraphs("<ol><li>a</li></ol>", undefined, sink);

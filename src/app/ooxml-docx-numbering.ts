@@ -18,9 +18,11 @@
 // depth — `index === 0`, or a skip past items the numbered path never saw
 // (task items) — or where the kind changes; each gets a fresh `w:num` whose
 // `startOverride` starts its level at the parser's count. An open instance
-// CLOSES when its list ends: a shallower item closes every deeper one,
-// `closeOpenLists` closes all (a paragraph between two lists, a new field),
-// so a later list never joins an older one whose count it happens to match.
+// CLOSES when its list ends: a shallower item or a continuation line closes
+// every deeper one, `closeOpenLists` closes all (a top-level paragraph between
+// two lists, a new rich value), so a later list never joins an older one whose
+// count it happens to match. A horizontal rule closes nothing (see
+// `docxRichParagraph`).
 //
 // ★ The package part, content-type override and relationship are added only
 // when a numbering id was minted (`buildDocxPackage`'s `numberingXml`), so a
@@ -72,8 +74,11 @@ export type NumberingSink = {
    *  it with `listHeadIndent`. */
   numPrFor(item: { ordered: boolean; depth: number; index: number }): string;
   /** End every open list, so the next item starts a new instance. Called
-   *  between rich fields and at any top-level non-list line. */
+   *  between rich values and at a rich value's top-level non-list text line. */
   closeOpenLists(): void;
+  /** End the lists nested deeper than `depth` — what a continuation line of
+   *  an item at `depth` does to a sublist above it. */
+  closeListsDeeperThan(depth: number): void;
   /** The `word/numbering.xml` part, or undefined when nothing was minted. */
   partXml(): string | undefined;
 };
@@ -85,13 +90,16 @@ export function createNumberingSink(): NumberingSink {
   /** The open instance per DEPTH (not per clamped level, so a depth-9 list
    *  never continues a depth-8 one) — what a later item at that depth continues. */
   const open = new Map<number, Instance>();
+  const closeDeeper = (depth: number): void => {
+    for (const d of [...open.keys()]) if (d > depth) open.delete(d);
+  };
 
   return {
     numPrFor({ ordered, depth: rawDepth, index }) {
       const depth = Math.max(rawDepth, 0);
       const level = Math.min(depth, MAX_LEVEL);
       // A shallower item means every deeper list has ended.
-      for (const d of [...open.keys()]) if (d > depth) open.delete(d);
+      closeDeeper(depth);
       let inst = open.get(depth);
       // ★ `index !== inst.next` covers `index === 0` (a restarted list) AND a
       // count that skipped: items a NUMBERED path never saw (task items, which
@@ -107,6 +115,9 @@ export function createNumberingSink(): NumberingSink {
     },
     closeOpenLists() {
       open.clear();
+    },
+    closeListsDeeperThan(depth) {
+      closeDeeper(depth);
     },
     partXml() {
       if (instances.length === 0) return undefined;

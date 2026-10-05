@@ -72,6 +72,15 @@ describe("createNumberingSink (§154)", () => {
     expect(numId(sink.numPrFor({ ordered: true, depth: 1, index: 1 }))).not.toBe(sub);
   });
 
+  it("closeListsDeeperThan ends only the deeper lists", () => {
+    const sink = createNumberingSink();
+    const outer = numId(sink.numPrFor({ ordered: true, depth: 0, index: 0 }));
+    const sub = numId(sink.numPrFor({ ordered: true, depth: 1, index: 0 }));
+    sink.closeListsDeeperThan(0);
+    expect(numId(sink.numPrFor({ ordered: true, depth: 1, index: 1 }))).not.toBe(sub);
+    expect(numId(sink.numPrFor({ ordered: true, depth: 0, index: 1 }))).toBe(outer);
+  });
+
   it("closeOpenLists ends every list, so a matching count does not join an older one", () => {
     const sink = createNumberingSink();
     const a = numId(sink.numPrFor({ ordered: true, depth: 0, index: 0 }));

@@ -1084,9 +1084,11 @@ type StakeholderFieldGuard = (value: unknown) => boolean;
  *  shows ""), so those two already agree and guarding them would make the card
  *  promise a clear the write stops making.
  *
- *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY, and saying so is the
- *  point: `raci`, `resourceId` and `knowledgeLinks` are REACHABLE and unguarded.
- *  NEITHER strip helper has a whitelist — `patchWithoutId` (update) and
+ *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY. When this was written
+ *  `raci`, `resourceId` and `knowledgeLinks` were REACHABLE and unguarded; all
+ *  three now have `() => false` rows in `STAKEHOLDER_FIELD_GUARDS` below (§435,
+ *  `8281075c7` and `65e65f559`), so the rest of this paragraph is the record of
+ *  why those rows exist. NEITHER strip helper has a whitelist — `patchWithoutId` (update) and
  *  `createInputWithoutId` (create) strip `id`, `expectedToken` and
  *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forward the rest — so a
  *  patch carrying them lands, `raci` is overwritten unconditionally by
