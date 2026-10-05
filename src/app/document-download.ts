@@ -24,7 +24,7 @@ import type { DocumentAsset } from "./document-asset";
 import { isAllowedAssetMime, isBlockedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
-import { filenameStem, joinFilenameStems, MAX_FILENAME_STEM } from "./filename-stem";
+import { filenameStem, joinFilenameStems, MAX_FILENAME_STEM, projectCodeStem } from "./filename-stem";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
@@ -56,7 +56,7 @@ export function documentFilename(
   today: string,
   projectCode?: string,
 ): string {
-  const stem = joinFilenameStems(filenameStem(projectCode ?? "", ""), filenameStem(doc.title, "document"));
+  const stem = joinFilenameStems(projectCodeStem(projectCode), filenameStem(doc.title, "document"));
   return `${stem}-${today}.${format}`;
 }
 

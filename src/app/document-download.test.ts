@@ -239,6 +239,9 @@ describe("documentFilename", () => {
     expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
     expect(stem.startsWith("code-code")).toBe(true);
     expect(stem.endsWith("-")).toBe(false);
+    // A long code takes at most half the budget, so the title still shows.
+    expect(stem.indexOf("-word")).toBeGreaterThan(0);
+    expect(stem.indexOf("-word")).toBeLessThanOrEqual(40);
   });
 });
 

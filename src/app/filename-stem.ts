@@ -51,10 +51,21 @@ export function filenameStem(title: string, fallback: string): string {
   return slug.slice(0, MAX_FILENAME_STEM).replace(/-+$/, "") || fallback;
 }
 
+/** A project code → its filename stem, held to HALF of `MAX_FILENAME_STEM`.
+ *  §509 — the code leads a name, so an uncapped one (the field allows far more
+ *  than 80 characters) would push the title out of the name entirely. */
+export const MAX_CODE_STEM = MAX_FILENAME_STEM / 2;
+
+export function projectCodeStem(code: string | undefined): string {
+  return filenameStem(code ?? "", "").slice(0, MAX_CODE_STEM).replace(/-+$/, "");
+}
+
 /** Already-slugged stems → ONE stem, joined with "-", empty ones dropped, and
  *  held to the same `MAX_FILENAME_STEM` cap as a single stem. §509 — a project
  *  code in front of a title must not let the name grow past the limit the cap
- *  exists for (each half alone may already be at it). */
+ *  exists for (each half alone may already be at it). The cut falls on the
+ *  LAST stem, so pass the code first via `projectCodeStem`, which leaves the
+ *  title at least half the budget. */
 export function joinFilenameStems(...stems: readonly string[]): string {
   return stems
     .filter((s) => s !== "")

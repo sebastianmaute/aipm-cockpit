@@ -603,6 +603,9 @@ describe("exportFilename", () => {
     expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
     expect(stem.length).toBeGreaterThan(MAX_FILENAME_STEM - 5);
     expect(stem.endsWith("-")).toBe(false);
+    // A long code takes at most half, so the name still shows.
+    expect(stem.startsWith("code-")).toBe(true);
+    expect(stem).toContain("-word");
   });
 
   // The Open Points export menu (export-menu.tsx) builds its workspace with NO
