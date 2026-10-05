@@ -119,12 +119,14 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
   function addPerson(rawName: string) {
     const trimmed = rawName.trim();
     if (trimmed === "") return;
-    // Prefer the picker's own label (unique by construction), then a bare name;
-    // a `(#id)` suffix is still accepted for anyone who types an id.
+    // The picker's own label wins (unique by construction). A bare name is
+    // accepted only when exactly ONE person carries it: with two "Sam"s it would
+    // otherwise silently pick the first. A `(#id)` suffix still resolves an id.
     const needle = trimmed.toLowerCase();
+    const byName = stakeholders.filter((s) => s.name.trim().toLowerCase() === needle);
     let match: Stakeholder | undefined =
       stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
-      stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
+      (byName.length === 1 ? byName[0] : undefined);
     if (!match) {
       const idm = trimmed.match(/\(#(\d+)\)\s*$/);
       if (idm) match = stakeholderMap.get(Number(idm[1]));
@@ -197,10 +199,14 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
               onChange={(e) => {
                 const v = e.target.value;
                 setFilterInput(v);
-                // Picking a datalist option fires change with the full (possibly
-                // disambiguated) label → add it.
+                // Picking a datalist option fires change with the full label → add
+                // it. Typing reaches the same text one key at a time, so add only on
+                // an EXACT label that does not also start a longer one: otherwise
+                // typing "Sam (1) (2)" would add "Sam (1)" on the way, and typing a
+                // bare "Sam" would add the first of two. Enter commits anything else.
                 const needle = v.trim().toLowerCase();
-                if (stakeholders.some((s) => labelFor(s).toLowerCase() === needle || s.name.trim().toLowerCase() === needle)) {
+                const labels = stakeholders.map((s) => labelFor(s).toLowerCase());
+                if (labels.includes(needle) && !labels.some((l) => l !== needle && l.startsWith(needle))) {
                   addPerson(v);
                 }
               }}

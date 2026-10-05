@@ -177,6 +177,36 @@ describe("RaciPanel", () => {
   });
 
   // §669 — with both Sams in the filter, their two remove chips read alike.
+  // §669 review 6 — the picker added a person as soon as the typed text matched
+  // ANY name, so typing "Sam (2)" key by key added the FIRST Sam at "Sam". Typing
+  // must reach the second Sam, a token that starts another token must not commit
+  // early, and an ambiguous bare name must not silently pick one person.
+  describe("typing into the person filter", () => {
+    const person = (id: number, name: string): Stakeholder =>
+      ({ id, name, category: "Internal", influence: "Low", interest: "Low", raci: {} });
+    const chips = () => screen.queryAllByRole("button", { name: /from filter/i }).map((b) => b.getAttribute("aria-label"));
+
+    it("reaches the second of two same-named people by typing their chip name", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />);
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam (2)");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam (2)")]);
+    });
+
+    it("does not commit a name that starts a longer one until the whole name is typed", async () => {
+      render(
+        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
+      );
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam (1) (2)");
+      expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam (1) (2)")]);
+    });
+
+    it("adds no one for a bare name two people share, even on Enter", async () => {
+      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Ana"), person(2, "ana")]} milestones={milestones} onSave={vi.fn()} />);
+      await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "ana{Enter}");
+      expect(chips()).toEqual([]);
+    });
+  });
+
   it("names the remove chips of two same-named people in the filter apart", () => {
     const dup: Stakeholder[] = [
       { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
