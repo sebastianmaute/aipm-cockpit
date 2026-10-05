@@ -497,6 +497,25 @@ describe("docxRichParagraphs — §154 Word numbering", () => {
     expect(sink.partXml()).toBeUndefined();
   });
 
+  it("does not join a list after a paragraph to the one before it, even when the count matches", () => {
+    // A task item spends ordinal 0, so y arrives at index 1 — the count the
+    // first list would continue with. The paragraph between them ends it.
+    const xml = docxRichParagraphs(
+      '<ol><li>x</li></ol><p>gap</p><ol><li data-checked="false">t</li><li>y</li></ol>',
+      undefined,
+      createNumberingSink(),
+    );
+    expect(numPrs(xml)).toEqual(["0:1", "0:2"]);
+  });
+
+  it("does not continue a list from one rich value in the next", () => {
+    const sink = createNumberingSink();
+    const first = docxRichParagraphs("<ol><li>a</li></ol>", undefined, sink);
+    const second = docxRichParagraphs('<ol><li data-checked="false">t</li><li>b</li></ol>', undefined, sink);
+    expect(numPrs(first)).toEqual(["0:1"]);
+    expect(numPrs(second)).toEqual(["0:2"]);
+  });
+
   it("numbers a marker-only head (§157) and its nested list on separate levels", () => {
     const xml = docxRichParagraphs("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>", undefined, createNumberingSink());
     expect(texts(xml)).toEqual(["n", "b"]);

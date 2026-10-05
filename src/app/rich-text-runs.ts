@@ -278,7 +278,8 @@ function trimLineEdges(runs: readonly TextRun[]): TextRun[] {
  *
  *  ★ `ordered` is `boolean | undefined`, not `boolean`: a `RichLine` of kind
  *  "li" always carries one, but the `bullets` DocBlock's own `ordered` is
- *  OPTIONAL and both renderers feed that through here too.
+ *  OPTIONAL and the PPTX renderer feeds that through here too (the DOCX one
+ *  numbers a `bullets` block natively since §154).
  *
  *  ★ TASK ITEMS REUSE THE FLAT PROJECTION'S CONSTANTS rather than spelling
  *  "[x] " again, so the OOXML and plain-text projections cannot drift on the

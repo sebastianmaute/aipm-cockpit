@@ -14,9 +14,13 @@
 // ★★★ ONE `w:num` PER LIST INSTANCE, not per list kind. Word counts per
 // `w:num` and level, so two ordered lists sharing one `w:num` would number
 // as ONE list: the second would start at 4, not 1. A list instance begins
-// where the parser restarts its counter (`index === 0` at that depth) or where
-// the kind changes at that depth, and each instance gets a fresh `w:num`
-// whose `startOverride` restarts its level.
+// where the parser's count does not continue the open instance's at that
+// depth — `index === 0`, or a skip past items the numbered path never saw
+// (task items) — or where the kind changes; each gets a fresh `w:num` whose
+// `startOverride` starts its level at the parser's count. An open instance
+// CLOSES when its list ends: a shallower item closes every deeper one,
+// `closeOpenLists` closes all (a paragraph between two lists, a new field),
+// so a later list never joins an older one whose count it happens to match.
 //
 // ★ The package part, content-type override and relationship are added only
 // when a numbering id was minted (`buildDocxPackage`'s `numberingXml`), so a
@@ -30,7 +34,9 @@
  *  takes it. */
 export const NUMBERING_REL_ID = "rIdNumbering";
 
-/** Word's nine list levels (`w:ilvl` 0..8). A deeper item clamps to the last. */
+/** Word's nine list levels (`w:ilvl` 0..8). A deeper item clamps to the
+ *  last LEVEL, but keeps its own instance and its own indent, so its marker
+ *  and text still sit one step right of its parent's. */
 const MAX_LEVEL = 8;
 
 /** Text indent per level, in twips — the step the literal-marker path used
@@ -51,8 +57,10 @@ const LIST_HANGING_TWIPS = 360;
  *  while its continuation lines sit deeper. Direct formatting wins in every
  *  reader, so stating the level's indent here removes the question. */
 export function listHeadIndent(depth: number): string {
-  const level = Math.min(Math.max(depth, 0), MAX_LEVEL);
-  return `<w:ind w:left="${LIST_INDENT_TWIPS * (level + 1)}" w:hanging="${LIST_HANGING_TWIPS}"/>`;
+  // Raw depth, not the clamped level: past level 8 this direct indent is what
+  // keeps a deeper item right of its parent, and level with its own
+  // continuation lines (`720 * (depth + 1)` too).
+  return `<w:ind w:left="${LIST_INDENT_TWIPS * (Math.max(depth, 0) + 1)}" w:hanging="${LIST_HANGING_TWIPS}"/>`;
 }
 
 const ABSTRACT_BULLET = 0;
@@ -63,6 +71,9 @@ export type NumberingSink = {
    *  none — a list item has one marker however many lines it wraps to. Pair
    *  it with `listHeadIndent`. */
   numPrFor(item: { ordered: boolean; depth: number; index: number }): string;
+  /** End every open list, so the next item starts a new instance. Called
+   *  between rich fields and at any top-level non-list line. */
+  closeOpenLists(): void;
   /** The `word/numbering.xml` part, or undefined when nothing was minted. */
   partXml(): string | undefined;
 };
@@ -71,13 +82,17 @@ type Instance = { numId: number; ordered: boolean; level: number; start: number;
 
 export function createNumberingSink(): NumberingSink {
   const instances: Instance[] = [];
-  /** The open instance per depth — what a later item at that depth continues. */
+  /** The open instance per DEPTH (not per clamped level, so a depth-9 list
+   *  never continues a depth-8 one) — what a later item at that depth continues. */
   const open = new Map<number, Instance>();
 
   return {
-    numPrFor({ ordered, depth, index }) {
-      const level = Math.min(Math.max(depth, 0), MAX_LEVEL);
-      let inst = open.get(level);
+    numPrFor({ ordered, depth: rawDepth, index }) {
+      const depth = Math.max(rawDepth, 0);
+      const level = Math.min(depth, MAX_LEVEL);
+      // A shallower item means every deeper list has ended.
+      for (const d of [...open.keys()]) if (d > depth) open.delete(d);
+      let inst = open.get(depth);
       // ★ `index !== inst.next` covers `index === 0` (a restarted list) AND a
       // count that skipped: items a NUMBERED path never saw (task items, which
       // keep their literal box) spent ordinals, so the next numbered item must
@@ -85,10 +100,13 @@ export function createNumberingSink(): NumberingSink {
       if (!inst || index !== inst.next || inst.ordered !== ordered) {
         inst = { numId: instances.length + 1, ordered, level, start: index + 1, next: index };
         instances.push(inst);
-        open.set(level, inst);
+        open.set(depth, inst);
       }
       inst.next = index + 1;
       return `<w:numPr><w:ilvl w:val="${level}"/><w:numId w:val="${inst.numId}"/></w:numPr>`;
+    },
+    closeOpenLists() {
+      open.clear();
     },
     partXml() {
       if (instances.length === 0) return undefined;

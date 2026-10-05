@@ -64,7 +64,8 @@ const ST_JC = new Set([
 ]);
 
 function blobBytes(blob: Blob): Promise<ArrayBuffer> {
-  // jsdom's Blob has no `.arrayBuffer()`; FileReader is the shim that works.
+  // FileReader rather than `.arrayBuffer()`: it works on every Blob shim this
+  // suite has met (export-ooxml.test.ts records one lacking `.arrayBuffer()`).
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);

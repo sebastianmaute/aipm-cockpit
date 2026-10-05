@@ -59,7 +59,38 @@ describe("createNumberingSink (§154)", () => {
   it("restates the level's indent directly on a list head", () => {
     expect(listHeadIndent(0)).toBe(`<w:ind w:left="720" w:hanging="360"/>`);
     expect(listHeadIndent(2)).toBe(`<w:ind w:left="2160" w:hanging="360"/>`);
-    expect(listHeadIndent(12)).toBe(listHeadIndent(8));
+    // Past Word's last level the direct indent keeps stepping right.
+    expect(listHeadIndent(9)).toBe(`<w:ind w:left="7200" w:hanging="360"/>`);
+  });
+
+  it("closes a deeper list when a shallower item arrives", () => {
+    const sink = createNumberingSink();
+    sink.numPrFor({ ordered: true, depth: 0, index: 0 });
+    const sub = numId(sink.numPrFor({ ordered: true, depth: 1, index: 0 }));
+    sink.numPrFor({ ordered: true, depth: 0, index: 1 });
+    // A later sublist whose count happens to continue the old one's is still new.
+    expect(numId(sink.numPrFor({ ordered: true, depth: 1, index: 1 }))).not.toBe(sub);
+  });
+
+  it("closeOpenLists ends every list, so a matching count does not join an older one", () => {
+    const sink = createNumberingSink();
+    const a = numId(sink.numPrFor({ ordered: true, depth: 0, index: 0 }));
+    sink.closeOpenLists();
+    expect(numId(sink.numPrFor({ ordered: true, depth: 0, index: 1 }))).not.toBe(a);
+  });
+
+  it("keeps a list past level 8 apart from its parent, though both use level 8", () => {
+    const sink = createNumberingSink();
+    const d8 = sink.numPrFor({ ordered: true, depth: 8, index: 0 });
+    const d9 = sink.numPrFor({ ordered: true, depth: 9, index: 0 });
+    // Keyed by level, this second depth-9 item would match the depth-8 list's
+    // next count and join it.
+    const d9b = sink.numPrFor({ ordered: true, depth: 9, index: 1 });
+    const d8b = sink.numPrFor({ ordered: true, depth: 8, index: 1 });
+    expect([ilvl(d8), ilvl(d9), ilvl(d8b)]).toEqual([8, 8, 8]);
+    expect(numId(d9)).not.toBe(numId(d8));
+    expect(numId(d9b)).toBe(numId(d9));
+    expect(numId(d8b)).toBe(numId(d8));
   });
 
   it("clamps a depth past Word's nine levels to the last one", () => {

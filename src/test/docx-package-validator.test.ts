@@ -67,6 +67,36 @@ describe("validateDocxPackage (§154)", () => {
     );
   });
 
+  it("reports the numbering part's own sequences out of order", async () => {
+    const { numPr, xml } = listPart();
+    const body = `<w:p><w:pPr>${numPr}</w:pPr></w:p>`;
+    // CT_Lvl: numFmt before lvlText.
+    await expectOneProblem(
+      pkg(body, xml!.replace(`<w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/>`, `<w:lvlText w:val="%1."/><w:numFmt w:val="decimal"/>`)),
+      "<lvl> children out of sequence at <numFmt>",
+    );
+    // CT_AbstractNum: multiLevelType before lvl.
+    await expectOneProblem(
+      pkg(body, xml!.replace(`<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="multilevel"/>`, `<w:abstractNum w:abstractNumId="0">`).replace(`</w:lvl></w:abstractNum><w:abstractNum w:abstractNumId="1">`, `</w:lvl><w:multiLevelType w:val="multilevel"/></w:abstractNum><w:abstractNum w:abstractNumId="1">`)),
+      "<abstractNum> children out of sequence at <multiLevelType>",
+    );
+    // CT_Num: abstractNumId before lvlOverride.
+    const override = `<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride>`;
+    const num = `<w:num w:numId="1"><w:abstractNumId w:val="1"/>${override}</w:num>`;
+    expect(xml).toContain(num);
+    await expectOneProblem(
+      pkg(body, xml!.replace(num, `<w:num w:numId="1">${override}<w:abstractNumId w:val="1"/></w:num>`)),
+      "<num> children out of sequence at <abstractNumId>",
+    );
+    // CT_Numbering: every abstractNum before any num. Both abstractNums now
+    // follow the num, so each is reported, and nothing else is.
+    const problems = await validateDocxPackage(
+      pkg(body, xml!.replace(num, "").replace("<w:abstractNum ", `${num}<w:abstractNum `)),
+    );
+    expect(problems).toHaveLength(2);
+    for (const p of problems) expect(p).toContain("<numbering> children out of sequence at <abstractNum>");
+  });
+
   it("reports a child element it does not know rather than skipping it", async () => {
     await expectOneProblem(pkg(`<w:p><w:pPr><w:madeUp/></w:pPr></w:p>`), "<madeUp> this validator does not know");
   });

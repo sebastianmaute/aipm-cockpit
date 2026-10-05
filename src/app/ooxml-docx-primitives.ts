@@ -355,6 +355,9 @@ export function docxRichParagraph(
   links?: LinkSink,
   numbering?: NumberingSink,
 ): string {
+  // §154 — a top-level line that is not part of a list ends every open list,
+  // so the next list is a new one even when its count happens to match.
+  if (line.kind !== "li" && (line.kind === "hr" || line.listDepth === undefined)) numbering?.closeOpenLists();
   if (line.kind === "hr") return HR_PARAGRAPH;
   const style = styleOf(line);
   const parts: string[] = [];
@@ -411,6 +414,8 @@ export function docxRichParagraph(
  *  part, so a caller emitting several fields into ONE document.xml must pass
  *  the SAME sink to each. */
 export function docxRichParagraphs(html: string, links?: LinkSink, numbering?: NumberingSink): string {
+  // §154 — one rich value never continues a list from another.
+  numbering?.closeOpenLists();
   const paragraphs = htmlToRichLines(descriptionHtml(html, RENDER_SINK))
     .map((line) => docxRichParagraph(line, docxStyleFor, links, numbering))
     .join("");

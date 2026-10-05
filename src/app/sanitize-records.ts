@@ -1131,8 +1131,10 @@ const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> 
   resourceId: () => false,
   // ★★★ NOT MODEL-WRITABLE, and `entity-descriptor.ts` already says so at its
   //  own `stakeholderFields` ("`Stakeholder.raci` IS a relationship, but
-  //  `stakeholderFields` does not …"). It appears in NO tool schema
-  //  (`grep -c raci src/app/chat-tool-defs.ts` -> 0). The descriptor knowing a
+  //  `stakeholderFields` does not …"). It appears in NO tool's input schema:
+  //  the one `raci` in chat-tool-defs.ts is the READ-only `list_stakeholders`
+  //  description (`grep -n raci src/app/chat-tool-defs.ts`), and the two
+  //  stakeholder write tools' descriptions say they cannot set RACI (§237). The descriptor knowing a
   //  field is unwritable is not a guard — `patchWithoutId` AND `createInputWithoutId` both still forward it, neither having a whitelist.
   //  ★★ WHAT IT COST: `sanitizeStakeholder` rebuilds `raci` from the merged
   //  blob, so ANY unrecognised patch value replaced the stored assignment map
