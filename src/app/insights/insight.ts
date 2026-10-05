@@ -156,14 +156,15 @@ export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
 ]);
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
- *  advance an insight's status. Assembled by `useInsightRecommendations` from the
- *  handlers of `useInsightLifecycle`; task-manager calls both and passes in the
- *  `setInsights` writer and the entity deep-link channel. */
+ *  advance an insight's status. Assembled by `useInsightRecommendations` from its
+ *  own generate/apply/reject handlers, the acknowledge/act/dismiss handlers of
+ *  `useInsightLifecycle`, and `useRaidCreate`'s `openFromInsight`; task-manager
+ *  calls all three and passes in the `setInsights` writer and the entity
+ *  deep-link channel. */
 export interface InsightActions {
   readonly onAcknowledge: (id: number) => void;
   readonly onAct: (id: number) => void;
   readonly onDismiss: (id: number, reason?: string) => void;
-  /** RESERVED for SP2 — real handlers land in Task 9. */
   readonly onGenerateRecommendation: (id: number) => void;
   readonly onApplyRecommendation: (id: number) => void;
   readonly onRejectRecommendation: (id: number) => void;

@@ -255,8 +255,9 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     // whether `overdueTrend` was evaluated at all.
   }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount, loadPending]);
 
-  // Lifecycle handlers (threaded to the dashboard and the Insights view through
-  // `useInsightRecommendations`' `insightActions` bag). Each is a functional
+  // Lifecycle handlers. Acknowledge, act and dismiss reach the dashboard and the
+  // Insights view through `useInsightRecommendations`' `insightActions` bag; the
+  // logged-as-RAID writer goes to `useRaidCreate` as `onInsightLogged`. Each is a functional
   // setter so a burst can't drop writes; popout is a no-op. Stamps use `today`
   // (date-only) to match reconcile's own firstSeenAt/lastSeenAt convention.
   const onAcknowledgeInsight = useCallback(

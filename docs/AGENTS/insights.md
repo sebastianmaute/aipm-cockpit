@@ -32,8 +32,11 @@ types through the validator was weighed and rejected.
   `applyWorkspace` + `task-manager` restore, and INCLUDED in the `backend.save({…})` literals + `currentWorkspace()`
   so it actually autosaves. ★★ LANDMINE: the autosave-effect DEPS array MUST include insights or edits silently
   drop (data-loss).
-- **Detect→reconcile runner (`use-insight-lifecycle.ts`, called from task-manager):** debounced, gated `hydrated && !isPopout`, functional
-  `setInsights((prev) => reconcileInsights(prev ?? [], detected, today))`. ★★ Its content-key EXCLUDES lifecycle
+- **Detect→reconcile runner (`use-insight-lifecycle.ts`, called from task-manager):** debounced, gated
+  `hydrated && !isPopout && !loadPending` (§548), functional
+  `setInsights((prev) => reconcileInsights(prev ?? [], detected, today, isEvaluated))`, keeping `prev` when
+  `insightsMateriallyEqual` says nothing changed. `isEvaluated` decides per insight whether its rule was
+  really checked, so an unchecked one freezes instead of resolving. ★★ Its content-key EXCLUDES lifecycle
   fields, so acting on / dismissing an insight can't re-trigger detection → the reconcile→setInsights→re-run loop
   is avoided.
 - **Surfaces:** Dashboard `dashboard-sections/insights-card.tsx` + a dedicated `insights` AppView (an Overview
@@ -86,8 +89,9 @@ types through the validator was weighed and rejected.
   limit/auth error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout`, default OFF).
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
-  plan). task-manager owns the generate/apply/reject handlers (the `insightActions` bag moved AFTER
-  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) + the `recommendation-review-modal.tsx` (Confirm →
+  plan). `useInsightRecommendations` (`use-insight-recommendations.ts`, called from task-manager right after
+  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) owns the generate/apply/reject handlers and the
+  `insightActions` bag; task-manager renders the `recommendation-review-modal.tsx` (Confirm →
   replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`).
   ★★ THAT ADVANCE IS NO LONGER UNCONDITIONAL. Every proposed `update_*` call is stamped with an
   optimistic-concurrency token when the recommendation is STORED, and a replay whose target row has moved

@@ -38,7 +38,8 @@ export interface RaidCreateDeps {
   raid: readonly RaidItem[];
   handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => number | undefined;
   recordLearning: (action: SuggestedAction, type: OutcomeType) => Promise<void>;
-  /** Insight on-saved writer: acted + actedAt + loggedRaidId (task-manager). */
+  /** Insight on-saved writer: acted + actedAt + loggedRaidId (`onInsightLoggedAsRaid`
+   *  in use-insight-lifecycle.ts; task-manager wires it in). */
   onInsightLogged: (insightId: number, raidId: number) => void;
 }
 
