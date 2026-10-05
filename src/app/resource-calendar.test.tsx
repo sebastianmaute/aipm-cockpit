@@ -1578,3 +1578,28 @@ describe("keyboard move preview (§10)", () => {
     expect(liveText()).toContain(t("en-US", "calendarMeetingMovePreview", "2026-07-29"));
   });
 });
+
+// §669 — every day cell of one absence shared its tooltip text, and the person
+// was not in it, so two days of one absence (or two people off the same week)
+// read alike. An absence cell is now named by person and day too.
+it("names each day cell of an absence by person and day", () => {
+  render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "anna", display: "Anna", email: "" },
+        { key: "ben", display: "Ben", email: "" },
+      ]}
+      absences={[
+        { id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" },
+        { id: 8, assignee: "Ben", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" },
+      ]}
+      resources={[]}
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  const cell = screen.getByRole("button", { name: /^Anna — 2026-07-28: / });
+  expect(cell.getAttribute("title")).not.toContain("Anna");
+  expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("grid") });
+});

@@ -22,6 +22,7 @@ import { resourceDisplayName } from "./resource-foundation";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import type { Resource } from "./types";
+import { buildRowTokens } from "./row-tokens";
 
 export interface ResourcePickerValue {
   name: string;
@@ -33,6 +34,11 @@ interface ResourceRow { kind: "resource"; id: number; name: string; email: strin
 interface ContactRow { kind: "contact"; name: string; email: string }
 interface AddRow { kind: "add"; name: string }
 type Row = ResourceRow | ContactRow | AddRow;
+
+/** An option's visible text, in reading order: the name, then the email. */
+function optionText(row: ResourceRow | ContactRow): string {
+  return row.email ? `${row.name} ${row.email}` : row.name;
+}
 
 export function ResourcePicker({
   lang,
@@ -107,6 +113,13 @@ export function ResourcePicker({
     if (onCreateResource && trimmed && !exact) out.push({ kind: "add", name: trimmed });
     return out;
   }, [resources, contacts, display, onCreateResource]);
+  // §669 — two resources with no email (or one name and one email) read alike.
+  // Each option is named by its content, so the occurrence rides a
+  // screen-reader-only suffix at its end. Keyed by index: rows are in list order.
+  const optionTokens = useMemo(
+    () => buildRowTokens(rows.flatMap((r, idx) => (r.kind === "add" ? [] : [{ id: idx, name: optionText(r) }]))),
+    [rows],
+  );
 
   // rows is [resources..., contacts..., add] by construction, so the first resource
   // is at index 0 and the first contact at firstContactIdx. Compute the contact
@@ -262,6 +275,9 @@ export function ResourcePicker({
         >
           {rows.map((row, idx) => {
             const active = idx === highlight;
+            // The token always starts with the option text, so the rest is "(N)" or "".
+            const occurrence =
+              row.kind === "add" ? "" : (optionTokens.get(idx) ?? optionText(row)).slice(optionText(row).length).trim();
             const key = row.kind === "resource" ? `r${row.id}` : row.kind === "contact" ? `c${row.name}` : "add";
             // Section headers: emit before the FIRST row of each kind. Headers are
             // role="presentation" (not options) so they stay out of rows[]/highlight indexing.
@@ -306,6 +322,13 @@ export function ResourcePicker({
                           {row.name}
                         </span>
                         {row.email && <span className="truncate text-xs text-muted-foreground">{row.email}</span>}
+                        {/* ★ The space sits OUTSIDE the span, as in the project wizard. */}
+                        {occurrence && (
+                          <>
+                            {" "}
+                            <span className="sr-only">{occurrence}</span>
+                          </>
+                        )}
                       </>
                     )}
                   </button>

@@ -4,6 +4,7 @@ import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { t } from "./i18n";
 import type { Resource } from "./types";
 import type { Contact } from "./contacts";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const res = (id: number, firstName: string, lastName: string, email?: string): Resource =>
   ({ id, firstName, lastName, email, roleId: null, utilizationMode: "percent", utilization: {} });
@@ -187,5 +188,17 @@ describe("ResourcePicker", () => {
     );
     fireEvent.focus(screen.getByRole("combobox"));
     expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
+  });
+});
+
+// §669 — two resources with no email and one name read alike; the occurrence
+// rides a screen-reader-only suffix at the end of each option.
+describe("ResourcePicker row names", () => {
+  it("names two same-named resources with no email apart", () => {
+    setup({ name: "", email: "", resourceId: null }, { resources: [res(1, "Sam", "Lee"), res(2, "Sam", "Lee")], contacts: [] });
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.getByRole("option", { name: "Sam Lee (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sam Lee (1)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["option"], requireCollisionSeed: true });
   });
 });

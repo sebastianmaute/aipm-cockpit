@@ -9,7 +9,7 @@
 // sat under the same heading did NOT: they are unrelated AI settings that were
 // mis-grouped, and they stay in ai-section.tsx.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { Banner } from "../banner";
@@ -22,6 +22,7 @@ import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
+import { buildRowTokens, rowLabel } from "../row-tokens";
 
 interface AiGuidesSectionProps {
   lang: Lang;
@@ -201,6 +202,13 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
   const [formMode, setFormMode] = useState<null | "add" | string>(null);
   const [draft, setDraft] = useState<GuideDraft>(emptyDraft);
   const og = operatingGuides;
+  // §669 — a custom guide can reuse a built-in guide's name, so each row's
+  // controls are named by a row token.
+  const guideList = og?.guides;
+  const guideTokens = useMemo(
+    () => buildRowTokens((guideList ?? []).map((g) => ({ id: g.id, name: g.name }))),
+    [guideList],
+  );
 
   const overBudget =
     og != null &&
@@ -306,7 +314,7 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                     )}
                     <label className="flex items-center gap-1 text-xs text-foreground">
                       <Checkbox
-                        aria-label={`${t(lang, "aiGuideEnabled")} – ${g.name}`}
+                        aria-label={rowLabel(t(lang, "aiGuideEnabled"), guideTokens.get(g.id) ?? g.name)}
                         checked={g.enabled}
                         onChange={() => { void og.update({ ...g, enabled: !g.enabled }); }}
                       />
@@ -318,7 +326,7 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                     <Button
                       size="xs"
                       variant="secondary"
-                      aria-label={`${t(lang, "aiGuideEdit")} – ${g.name}`}
+                      aria-label={rowLabel(t(lang, "aiGuideEdit"), guideTokens.get(g.id) ?? g.name)}
                       onClick={() => openEdit(g)}
                     >
                       {t(lang, "aiGuideEdit")}
@@ -327,7 +335,7 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                       <Button
                         size="xs"
                         variant="destructive"
-                        aria-label={`${t(lang, "aiGuideDelete")} – ${g.name}`}
+                        aria-label={rowLabel(t(lang, "aiGuideDelete"), guideTokens.get(g.id) ?? g.name)}
                         onClick={() => { void og.remove(g.id); }}
                       >
                         {t(lang, "aiGuideDelete")}

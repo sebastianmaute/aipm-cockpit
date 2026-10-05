@@ -25,6 +25,11 @@ longer carries its own changelog comment.
   include their project number, a knowledge card's source button names the card's document, its link
   says it opens in a new tab, and the budget bucket's resource checkboxes say which allocation they
   belong to.
+- **Screen readers tell same-named rows apart in 18 more places (§669).** The same fix now covers the
+  rarer cases: two projects, stakeholders, contacts, templates, colour schemes, AI guides or SharePoint
+  sites with one name, two report versions saved at the same time, two rate-card roles on one discipline
+  and grade, and more. Each day of an absence in the resource calendar now also says whose absence it is
+  and which day it is.
 - **More icon buttons show a tooltip (§109).** The move and remove controls of document bullet lists, the
   remove-column and remove-row controls of document tables, the document block menu, the AI chat thread rename and delete buttons, and the clear button for an
   imported file in the new-project wizard now show their name when you hover over them.

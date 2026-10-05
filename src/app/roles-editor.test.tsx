@@ -609,3 +609,30 @@ describe("RefList rename commits via pagehide (§622)", () => {
     expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
   });
 });
+
+// §669 — two rate-card roles can sit on one discipline and grade, and discipline
+// and grade names have no uniqueness rule.
+describe("RolesEditor row names (§669)", () => {
+  it("names every control of two roles on one discipline and grade apart", () => {
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[
+          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
+          { id: 2, disciplineId: 1, gradeId: 1, internalRate: 50, externalRate: 90 },
+        ]}
+        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Engineering" }]}
+        grades={[{ id: 1, name: "Senior" }]}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 4, scope: table, requireCollisionSeed: true });
+    expectRowUniqueNames({ minControls: 8, roles: ["textbox", "spinbutton"], scope: table });
+    // The two disciplines called "Engineering" in the reference list.
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering (2)` })).toBeInTheDocument();
+  });
+});

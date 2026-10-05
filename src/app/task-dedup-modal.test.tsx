@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { TaskDedupModal } from "./task-dedup-modal";
 import { type GroundedMergeGroup } from "./task-dedup/dedup";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // The unified description reaches this modal as HTML: dedup.ts sets it to
 // sanitizeRichHtml(...) output. This file exists because the modal rendered it
@@ -76,5 +77,14 @@ describe("TaskDedupModal — unified description", () => {
     expect(
       screen.getByText(new RegExp(`${t("en-US", "taskDedupUnifiedNotes")}:\\s*just a note$`)),
     ).toBeTruthy();
+  });
+});
+
+// §669 — two kept tasks can share a title.
+describe("TaskDedupModal — row names", () => {
+  it("names the include checkboxes of two groups keeping same-titled tasks apart", () => {
+    renderModal([group(), group({ keepId: 5, merged: [{ id: 6, title: "Docs" }] })]);
+    expect(screen.getByRole("checkbox", { name: `${t("en-US", "taskDedupInclude")} – Ship the docs (2)` })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
   });
 });

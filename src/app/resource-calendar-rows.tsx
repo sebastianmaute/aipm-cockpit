@@ -150,6 +150,10 @@ export function CalendarRows({
                       : `–${hit.endDate}`
                   }${hit.note ? `: ${hit.note}` : ""}`
                 : `${row.display} — ${d.iso}`;
+              // §669 — every day cell of one absence shared the tip above, and the
+              // person was not in it, so an absence cell is named by person and day
+              // too. The tooltip stays the short form, since the row and column show those.
+              const cellName = hit ? `${row.display} — ${d.iso}: ${tip}` : tip;
               return (
                 <td
                   key={d.iso}
@@ -227,7 +231,7 @@ export function CalendarRows({
                       handleClick();
                     }}
                     title={tip}
-                    aria-label={tip}
+                    aria-label={cellName}
                     className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:ring-inset ${INTERACTIVE} ${baseBg}`}
                   >
                     {hit ? (

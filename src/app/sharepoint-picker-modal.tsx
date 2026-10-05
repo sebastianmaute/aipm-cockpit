@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "./button";
+import { buildRowTokens } from "./row-tokens";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -102,6 +103,12 @@ export function SharePointPickerModal({
     openFolder,
     openSiteByPath,
   } = useSharePointBrowser(acquireToken);
+
+  // §669 — SharePoint site and drive names can repeat (two tenants' "Projects"
+  // sites, or two document libraries called "Documents"). Each button is named by
+  // a row token.
+  const siteTokens = useMemo(() => buildRowTokens(sites.map((x) => ({ id: x.id, name: x.name }))), [sites]);
+  const driveTokens = useMemo(() => buildRowTokens(drives.map((x) => ({ id: x.id, name: x.name }))), [drives]);
 
   const title = t(lang, "spPickerTitle");
 
@@ -242,6 +249,7 @@ export function SharePointPickerModal({
                         key={site.id}
                         type="button"
                         onClick={() => void openSite(site)}
+                        aria-label={siteTokens.get(site.id) ?? site.name}
                         className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
                       >
                         {site.name}
@@ -258,6 +266,7 @@ export function SharePointPickerModal({
                         key={drive.id}
                         type="button"
                         onClick={() => void openDrive(drive)}
+                        aria-label={driveTokens.get(drive.id) ?? drive.name}
                         className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
                       >
                         {drive.name}

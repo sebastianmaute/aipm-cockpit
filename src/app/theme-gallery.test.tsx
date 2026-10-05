@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { ThemeGallery } from "./theme-gallery";
 import { addScheme, loadSchemes } from "./color-schemes";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 vi.mock("./color-schemes-store", () => ({
   upsertSchemeAsync: vi.fn(async () => {}),
@@ -135,5 +136,21 @@ describe("ThemeGallery", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, new File([FULL_THEME], "portable.json", { type: "application/json" }));
     await waitFor(() => expect(loadSchemes().schemes.filter((s) => s.name === "Portable")).toHaveLength(1));
+  });
+});
+
+// §669 — two loaded schemes can share a name. The token sits in the visible text
+// too, so the German "{0} entfernen" order still keeps label-in-name.
+describe("ThemeGallery row names", () => {
+  test("names the remove buttons of two same-named schemes apart", () => {
+    renderGallery({
+      schemes: [
+        { id: "u-1", name: "Ocean", light: {}, supportsDark: false } as never,
+        { id: "u-2", name: "Ocean", light: {}, supportsDark: false } as never,
+      ],
+    });
+    const second = screen.getByRole("button", { name: "Remove Ocean (2)" });
+    expect(second.textContent).toBe("Remove Ocean (2)");
+    expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("list"), requireCollisionSeed: true });
   });
 });

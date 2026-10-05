@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const acquire = vi.fn(async () => "tok");
 
@@ -263,5 +264,28 @@ describe("SharePointPickerModal — site-search field", () => {
       screen.getByRole("button", { name: "Clear – Search sites…" }),
     );
     expect(field.value).toBe("");
+  });
+});
+
+// §669 — two sites (and two libraries) can share a name.
+describe("SharePointPickerModal row names", () => {
+  it("names two same-named sites, then two same-named drives, apart", async () => {
+    mockFetchSequence(
+      {
+        value: [
+          { id: "s1", displayName: "Projects", webUrl: "https://a.sharepoint.com/sites/projects" },
+          { id: "s2", displayName: "Projects", webUrl: "https://a.sharepoint.com/sites/projects-2" },
+        ],
+      },
+      { value: [{ id: "d1", name: "Documents" }, { id: "d2", name: "Documents" }] },
+    );
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    const site2 = await screen.findByRole("button", { name: "Projects (2)" });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+    fireEvent.click(site2);
+    expect(await screen.findByRole("button", { name: "Documents (2)" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 });
