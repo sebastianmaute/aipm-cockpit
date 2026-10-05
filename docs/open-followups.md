@@ -557,7 +557,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | **CLOSED** 2026-08-31 |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (both tables take the row token, from ONE map — the collision crosses them) |
-| [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
+| [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives--closed-2026-10-05) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | **CLOSED** 2026-10-05 |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--closed-2026-09-26) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent | found 2026-08-31 while filing §318 | S | **CLOSED** 2026-09-26 |
@@ -903,6 +903,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§666](#666-a-window-whose-own-save-is-queued-skips-a-peers-revision-and-can-pause-although-its-save-holds-the-peers-slices--closed-2026-10-02) | A window whose own save is queued skips a peer's revision and can pause although its save holds the peer's slices | — | — | **CLOSED** 2026-10-02 |
 | [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--closed-2026-10-03) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | **CLOSED** 2026-10-03 |
 | [§668](#668-a-corrupt-unload-journal-was-applied-as-an-empty-project-by-the-load-restore-and-by-restore-anyway--closed-2026-10-04) | A corrupt unload journal was applied as an empty project, by the load restore and by "Restore anyway" | — | — | **CLOSED** 2026-10-04 |
+| [§669](#669-eighteen-lists-still-name-per-row-controls-by-free-text-that-can-repeat--open) | Eighteen lists still name per-row controls by free text that can repeat | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27025,13 +27026,9 @@ shifts in the `shiftFor` helper further down that file were LEFT as they are, an
 so — they are no longer load-bearing either, so do not read them as evidence this is still open, and do
 not "restore a difference to match" elsewhere.
 
-## 316. The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives
+## 316. The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives — CLOSED 2026-10-05
 
-**Status:** filed 2026-08-31, never machine-verified as a whole — the leg is a candidate list, not a
-defect list, and nothing has read it end to end. Size it with `npm run rownames:check` and read the
-`by leg` line.
-
-**Work item:** #233
+**Status:** CLOSED 2026-10-05 — every one of the 198 `DATA` sites `npm run rownames:check` listed has a verdict in [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md): 137 cannot repeat (with the reason per site), 35 were fixed, and 26 that repeat only in a less common case are filed as [§669](#669-eighteen-lists-still-name-per-row-controls-by-free-text-that-can-repeat--open). The 35 fixes span 13 files and route each control's name through a row token (`buildRowTokens` / `useRowTokens`): chat threads, steering-committee members, meetings and schedules, the Outlook calendar import, calendar series, chat attachments, knowledge cards, scheduled jobs, TimeLog projects, the calendar pull summary, the dashboard changes tile, global search options, the stakeholder RACI selects, and the budget bucket resource checkboxes (each now named by person, then allocation block). Each has a test that seeds a repeated name. Verified by `npx vitest run src/app/chat-thread-list.test.tsx src/app/steering-committee-panel.test.tsx src/app/outlook-calendar-import-modal.test.tsx src/app/calendar-series-list.test.tsx src/app/chat-panel.test.tsx src/app/knowledge-panel.test.tsx src/app/settings-sections/scheduled-jobs-section.test.tsx src/app/timelog-projects-table.test.tsx src/app/calendar-pull-summary-modal.test.tsx src/app/dashboard-panel.test.tsx src/app/global-search-box.test.tsx src/app/stakeholder-edit-modal.test.tsx src/app/budget-bucket-modal.test.tsx -t 316` (13 files, 14 tests, exit 0), and 17 mutants, one per token map plus the budget block suffix and the calendar import's type select, each turn a §316 test red. ★ Three of the 13 files were already `COVERED` in the scanner's report, by tests whose fixtures held no repeated name. ★ The scanner still sorts most fixed sites into `DATA` (`DATA 186 | TOKENIZED 77` after, against `DATA 198 | TOKENIZED 72` before), because it recognises a token only by certain names; the record, not that count, says which sites were judged.
 
 `check-rowname-surfaces.mjs` sorts every per-row control into five legs.
 [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) built the scanner and adjudicated the `FIXED` leg by hand. Nobody has read `DATA`.
@@ -43927,3 +43924,44 @@ Named check: start a sync, bump the scope epoch before the search resolves, and 
 
 **Status:** CLOSED 2026-10-04 — owner ruling 2026-10-04 (found while building §655, fixed in the same PR); verified by `npx vitest run src/app/use-unload-journal.restore.test.tsx src/app/use-unload-journal.decode.test.ts src/app/use-other-journals.test.tsx src/app/use-unload-journal.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1` (5 files, 114 tests, exit 0). `journalWorkspace` (`use-unload-journal.ts`) decoded a journal with the LENIENT `jsonToWorkspace`, which answers unparseable text, or JSON that is not a workspace object, with an EMPTY workspace instead of a throw. A record passing the field check with a corrupt `workspace` string therefore reached the app as an empty project. Reachable before the fix, by reading the code and confirmed by the tests run against the lenient decode: (1) the LOAD restore, when the journal's base fingerprint matched the load, applied it with no click, and its save then met only the mass-deletion guard, so on a small project it would have been SAVED; (2) "Restore anyway", when the base differed, because the conflict record held the empty workspace; (3) §655's kept-version restore was NOT reachable, being new in the same PR and strict from the start. Now the decode is strict on every path, and a slice lost in decoding refuses the whole journal (post-merge review 2026-10-04: see the follow-up note below for exactly which losses are detected): an undecodable journal is never applied, no conflict notice is raised for it, the user sees `unloadJournalUnreadable` (which points to the unsaved-drafts notice), and the record is left in place and LISTED in the other-journals notice with Download and Discard (its key stays out of `restoredKeys`), marked "could not be read" (per record, so a readable record another tab writes later under the key is not), under a heading naming it as this project's when it is all the notice holds, with a hint that reloading cannot restore it: no confirmation or expiry removes it, since a confirmed save clears only this tab's records and the key in scope never expires (this tab's own next journal write under the key does replace it). An EMPTY but readable journal is deliberately NOT refused: a Clear all journals exactly that, and refusing it would quietly undo the clear, so it goes through the same save-path guard as any edit (`isMassDeletion`, §629: a mass deletion pauses saving with Save anyway / Discard as recourse; a small project's clear saves). Tests cover both corrupt shapes on the base-matching path, the base-differing path, a Discard from the notice, and both deliberate-clear cases. The lenient-decode mutant turns 5 tests red, the missing-toast mutant 3, keeping the key in `restoredKeys` (unlisted) 3, not marking it unreadable 2, marking per key instead of per record 1, and a documents-sanitizer throw contained by a `diag` (the journal applied without its documents) 1. **Post-merge follow-ups 2026-10-04**, verified by `npx vitest run src/app/use-unload-journal.restore.test.tsx src/app/use-unload-journal.decode.test.ts src/app/use-other-journals.test.tsx src/app/use-unload-journal.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1` (5 files, 135 tests, exit 0): a slice the decoder reports as failed, or an entity list that was non-empty and lost every row (for `disciplines`, `grades` and `resources`, which the decode's final migration re-seeds or rebuilds, judged by the row sanitizer before that migration), now refuses the whole journal (not detected, and named in `docs/AGENTS/storage.md`: a list losing only some rows, foreign-shape `tasks`/`raid` rows, `plan` and `fxRates` in a foreign shape, and a newer-shape object slice); a newly unreadable record re-opens a dismissed notice; another tab's readable record under the key in scope is not listed under "other projects".
 
+## 669. Eighteen lists still name per-row controls by free text that can repeat — OPEN
+
+**Status:** OPEN 2026-10-05 — found by the §316 adjudication, by reading each site; the 26 sites are the rows marked `§669` in [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md). Re-list the candidates with `npm run rownames:check` (they sit in its `DATA` leg). None of them has a test that seeds a repeated name, so each is never machine-verified as a collision either way.
+
+**Work item:** #571
+
+§316 judged every `DATA` site, the per-row controls whose accessible name carries a value from the
+row. It fixed the 35 where the value repeats in ordinary use (an untitled chat thread, a recurring
+meeting title, a default job name, a pasted `image.png`). These 26 can repeat too, but only in a
+less common case, so they were recorded rather than fixed to keep that branch reviewable:
+
+| File | Sites | When the name repeats |
+|---|---|---|
+| `action-chips.tsx` | 1 | two actions about entities with the same name |
+| `create-project-wizard.tsx` | 1 | two templates with one name |
+| `edit-modal-chrome.tsx`, `raci-panel.tsx`, `stakeholder-map-panel.tsx` | 3 | two stakeholders with one name |
+| `meeting-report-panel.tsx` | 2 | two report versions captured at the same time |
+| `milestone-horizon-strip.tsx` | 1 | two milestones with one name on one date |
+| `outlook-import-modal.tsx` | 1 | two contacts with one display name |
+| `portfolio-health-panel.tsx`, `project-switcher.tsx`, `turso-project-picker.tsx` | 3 | two projects with one name |
+| `resource-calendar-rows.tsx` | 1 | every day cell of one absence: the name is type and range, with no day and no person |
+| `resource-picker.tsx` | 2 | two resources with no email and one name |
+| `roles-editor.tsx` | 4 | two rate-card roles on one discipline and grade; two disciplines or grades with one name |
+| `settings-sections/ai-guides-section.tsx` | 3 | a custom guide that reuses a built-in guide's name |
+| `sharepoint-picker-modal.tsx` | 2 | two sites or drives with one name |
+| `task-dedup-modal.tsx` | 1 | two kept tasks with one title |
+| `theme-gallery.tsx` | 1 | two colour schemes with one name |
+
+★ The calendar cell is the odd one out. Its name is the absence's type and date range, so every day
+of a five-day absence announces the same name, and two people's matching absences do too. The fix
+there is to put the day and the person in the name, not a row token.
+
+**The fix for the rest** is the one §316 used: build the names with `buildRowTokens` (string ids) or
+`useRowTokens` (numeric ids, with a module-level `nameOf` so the memo holds), over the rows in the
+order they render, and put the token wherever the bare value was. Test each with a fixture that
+seeds the repeated name and `expectRowUniqueNames({ requireCollisionSeed: true })`, then disable the
+fix and watch that test go red.
+
+★★ `requireCollisionSeed` strips a trailing `(N)` only. A name that closes after the token, such as
+`Open "Name (2)"`, hides the suffix, and the seed check then throws on a correct fixture. Assert the
+tokened names with `getByRole` instead, as `chat-thread-list.test.tsx` does.
