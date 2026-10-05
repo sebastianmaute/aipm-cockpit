@@ -119,9 +119,9 @@ export function MeetingReportPanel({
     () => buildRowTokens((versions ?? []).map((v) => ({ id: v.id, name: versionLabel(lang, v) }))),
     [versions, lang],
   );
-  // The summary below spells out rowLabel's "verb – token" inline: passing
-  // compareVersion.capturedAt through rowLabel() made react-hooks/preserve-manual-memoization
-  // flag the diff memo above (measured; the template literal passes).
+  // The diff summary below writes rowLabel's "verb – token" shape as a template
+  // literal on purpose. Calling rowLabel() there was tried and made
+  // react-hooks/preserve-manual-memoization flag the diff memo above; the literal does not.
   const compareToken = compareVersionId === null ? undefined : versionTokens.get(compareVersionId);
 
   return (

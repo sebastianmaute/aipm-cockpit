@@ -135,9 +135,24 @@ describe("RaciPanel", () => {
     ];
     render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
     const set = t("en-US", "raciSetLabel");
-    expect(screen.getByRole("button", { name: `Go-Live · Sam (#1) — ${set}` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `Go-Live · Sam (#3) — ${set}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Go-Live · Sam (1) — ${set}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Go-Live · Sam (2) — ${set}` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
+  });
+
+  // §669 review 4 — the picker's labelFor keys on the trimmed, case-folded name, so
+  // "Sam  Lee" (two spaces) stayed bare beside "Sam Lee" and a literal "Sam (#2)"
+  // matched a generated one. Row tokens compare the collapsed name and escalate.
+  it("names cells apart for whitespace twins and a name that looks like a token", () => {
+    const odd: Stakeholder[] = [
+      { id: 1, name: "Sam  Lee", category: "Sponsor", influence: "High", interest: "High", raci: {} },
+      { id: 2, name: "Sam Lee", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+      { id: 3, name: "Kim", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+      { id: 4, name: "Kim", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+      { id: 5, name: "Kim (1)", category: "Internal", influence: "Low", interest: "Low", raci: {} },
+    ];
+    render(<RaciPanel lang="en-US" stakeholders={odd} milestones={milestones} onSave={vi.fn()} />);
+    expectRowUniqueNames({ minControls: 5, scope: screen.getByRole("table") });
   });
 
   // §669 — two milestones with one name gave their cells (same person) one name.
@@ -165,8 +180,8 @@ describe("RaciPanel", () => {
     fireEvent.change(input, { target: { value: "Sam (#3)" } });
     const removes = screen.getAllByRole("button", { name: /from filter/i });
     expect(removes.map((b) => b.getAttribute("aria-label"))).toEqual([
-      t("en-US", "raciFilterRemove", "Sam (#1)"),
-      t("en-US", "raciFilterRemove", "Sam (#3)"),
+      t("en-US", "raciFilterRemove", "Sam (1)"),
+      t("en-US", "raciFilterRemove", "Sam (2)"),
     ]);
   });
 

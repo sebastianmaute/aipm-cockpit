@@ -119,6 +119,9 @@ describe("MeetingReportPanel", () => {
     expect(screen.getByRole("button", { name: `Restore – ${at} · auto (2)` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `Compare – ${at} · saved` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
+    // The diff view opened from the second version names it the same way.
+    fireEvent.click(screen.getByRole("button", { name: `Compare – ${at} · auto (2)` }));
+    expect(screen.getByRole("list", { name: `Compare – ${at} · auto (2)` })).toBeInTheDocument();
   });
 
   it("Compare renders a diff of the current draft vs the selected version", () => {

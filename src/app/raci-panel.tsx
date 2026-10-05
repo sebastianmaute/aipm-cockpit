@@ -76,7 +76,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     [stakeholders, milestones],
   );
   // §669 — two milestones can share a name, so a cell's milestone half is a row
-  // token; the stakeholder half uses labelFor below.
+  // token; the stakeholder half is one too (stakeholderTokens below).
   const milestoneTokens = useMemo(
     () => buildRowTokens(rows.map((r) => ({ id: r.milestone.id, name: r.milestone.name }))),
     [rows],
@@ -103,6 +103,15 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
   // Picker label: bare name when unique, else `Name (#id)` so it's unambiguous.
   const labelFor = (s: Stakeholder): string =>
     (nameCounts.get(s.name.trim().toLowerCase()) ?? 0) > 1 ? `${s.name} (#${s.id})` : s.name;
+  // §669 — accessible names use a row token, not labelFor: labelFor keys on the
+  // trimmed, case-folded name only, so a stakeholder literally called "Sam (#2)"
+  // collides with a generated one, and "Sam  Lee" (two spaces) stays bare beside
+  // "Sam Lee" while a screen reader hears one name. buildRowTokens handles both.
+  // labelFor stays the picker's matching key, which typed input is compared against.
+  const stakeholderTokens = useMemo(
+    () => buildRowTokens(stakeholders.map((s) => ({ id: s.id, name: s.name }))),
+    [stakeholders],
+  );
 
   // Person (column) filter — additive: `filtered` holds the ids to SHOW (empty = all shown).
   const [filtered, setFiltered] = useState<ReadonlySet<number>>(new Set());
@@ -234,10 +243,8 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                 <span>{s.name}</span>
                 <IconButton
                   onClick={() => removePerson(s.id)}
-                  // §669 — labelFor adds the id when two people share a name, the
-                  // same form the add-person picker offers.
-                  label={t(lang, "raciFilterRemove", labelFor(s))}
-                  title={t(lang, "raciFilterRemove", labelFor(s))}
+                  label={t(lang, "raciFilterRemove", stakeholderTokens.get(s.id) ?? s.name)}
+                  title={t(lang, "raciFilterRemove", stakeholderTokens.get(s.id) ?? s.name)}
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />
                 </IconButton>
@@ -284,9 +291,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                   </td>
                   {row.cells.filter((c) => visibleIds.has(c.stakeholderId)).map((cell) => {
                     const stakeholder = stakeholderMap.get(cell.stakeholderId);
-                    // §669 — labelFor adds the id when two people share a name, so the
-                    // cells (and their popovers) of two "Sam" columns read apart.
-                    const stakeholderName = stakeholder ? labelFor(stakeholder) : String(cell.stakeholderId);
+                    const stakeholderName = stakeholderTokens.get(cell.stakeholderId) ?? stakeholder?.name ?? String(cell.stakeholderId);
                     const ariaLabel = `${milestoneTokens.get(row.milestone.id) ?? row.milestone.name} · ${stakeholderName}`;
                     return (
                       <td key={cell.stakeholderId} className="px-3 py-2">
