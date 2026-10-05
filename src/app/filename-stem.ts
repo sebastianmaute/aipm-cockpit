@@ -50,3 +50,15 @@ export function filenameStem(title: string, fallback: string): string {
   // Trim again after the cut: slicing mid-word can leave a dangling separator.
   return slug.slice(0, MAX_FILENAME_STEM).replace(/-+$/, "") || fallback;
 }
+
+/** Already-slugged stems → ONE stem, joined with "-", empty ones dropped, and
+ *  held to the same `MAX_FILENAME_STEM` cap as a single stem. §509 — a project
+ *  code in front of a title must not let the name grow past the limit the cap
+ *  exists for (each half alone may already be at it). */
+export function joinFilenameStems(...stems: readonly string[]): string {
+  return stems
+    .filter((s) => s !== "")
+    .join("-")
+    .slice(0, MAX_FILENAME_STEM)
+    .replace(/-+$/, "");
+}

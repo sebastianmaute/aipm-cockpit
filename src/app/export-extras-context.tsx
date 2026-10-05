@@ -13,8 +13,10 @@
 //   change, and a hop forgotten would render a `budgetForecast` block as
 //   nothing with no error.
 // ★ The default is `{}` — no provider means no forecast, which is exactly what
-//   a renderer does with the argument omitted. A popout or a test that mounts
-//   a leaf alone keeps working and renders the block as nothing.
+//   a renderer does with the argument omitted. A test that mounts a leaf
+//   alone keeps working and renders the block as nothing. Popouts are NOT
+//   that case: their `legacyTree` renders `WorkspaceSection` too, from the
+//   popout's own `workspaceProps`, so they get the provider and the forecast.
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { ExportExtras } from "./export-forecast-section";
 import type { ForecastBundle } from "./budget-forecast-bundle";

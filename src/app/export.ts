@@ -30,7 +30,7 @@ import type { ExportExtras } from "./export-forecast-section";
 import { t, type Lang } from "./i18n";
 import { nonceOpenTag, pdfReadyTitleMarkup, pdfWindowName, withScriptNonce } from "./pdf-export-protocol";
 import { readCspNonce } from "./csp-nonce";
-import { filenameStem } from "./filename-stem";
+import { filenameStem, joinFilenameStems } from "./filename-stem";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -74,10 +74,7 @@ export function exportFilename(
 ): string {
   // A name that slugs to nothing ("???") keeps the tasks name rather than
   // producing "aipm-cockpit-project--<date>" or "…-project-project-…".
-  const stem = [projectCode, projectName]
-    .map((part) => filenameStem(part ?? "", ""))
-    .filter((part) => part !== "")
-    .join("-");
+  const stem = joinFilenameStems(filenameStem(projectCode ?? "", ""), filenameStem(projectName ?? "", ""));
   return stem === ""
     ? `aipm-cockpit-tasks-${today}.${EXT[format]}`
     : `aipm-cockpit-project-${stem}-${today}.${EXT[format]}`;

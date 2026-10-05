@@ -232,6 +232,14 @@ describe("documentFilename", () => {
     expect(documentFilename(doc, "docx", "2026-08-06", "  ")).toBe("q1-status-review-2026-08-06.docx");
     expect(documentFilename(doc, "docx", "2026-08-06", "???")).toBe("q1-status-review-2026-08-06.docx");
   });
+
+  it("caps the joined code and title at MAX_FILENAME_STEM", () => {
+    const name = documentFilename(named("word ".repeat(60)), "pptx", "2026-08-06", "code ".repeat(40));
+    const stem = name.replace("-2026-08-06.pptx", "");
+    expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
+    expect(stem.startsWith("code-code")).toBe(true);
+    expect(stem.endsWith("-")).toBe(false);
+  });
 });
 
 describe("withAutoPrint", () => {

@@ -12,6 +12,7 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { buildPdfHtml, exportFilename, exportWorkspace } from "./export";
+import { MAX_FILENAME_STEM } from "./filename-stem";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
@@ -593,6 +594,15 @@ describe("exportFilename", () => {
     expect(exportFilename("pdf", "2026-09-26", "", "AZ-17")).toBe("aipm-cockpit-project-az-17-2026-09-26.pdf");
     expect(exportFilename("pdf", "2026-09-26", "Apollo", "???")).toBe("aipm-cockpit-project-apollo-2026-09-26.pdf");
     expect(exportFilename("pdf", "2026-09-26", "???", "  ")).toBe("aipm-cockpit-tasks-2026-09-26.pdf");
+  });
+
+  // The code and the name together stay within the one-stem cap.
+  it("caps the joined code and name at MAX_FILENAME_STEM, with no trailing separator", () => {
+    const name = exportFilename("pdf", "2026-09-26", "word ".repeat(40), "code ".repeat(40));
+    const stem = name.replace(/^aipm-cockpit-project-/, "").replace("-2026-09-26.pdf", "");
+    expect(stem.length).toBeLessThanOrEqual(MAX_FILENAME_STEM);
+    expect(stem.length).toBeGreaterThan(MAX_FILENAME_STEM - 5);
+    expect(stem.endsWith("-")).toBe(false);
   });
 
   // The Open Points export menu (export-menu.tsx) builds its workspace with NO

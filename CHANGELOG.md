@@ -24,7 +24,8 @@ longer carries its own changelog comment.
 - **Documents can embed the budget forecast (§545).** A document's data section can now be "Budget
   forecast", in the block editor and when the AI assistant writes a document. It shows the same
   figures as the exports, live in the preview and in every download format. It shows nothing when
-  the budget module is off or there is no forecast yet.
+  the budget module is off or there is no forecast yet. Open such a document only in this release or
+  later: an older version drops the block when it reads the document, and saves it without the block.
 - **Export and document file names start with the project code (§509).** When the project has a
   code, exported files are named `aipm-cockpit-project-<code>-<name>-<date>` and downloaded documents
   `<code>-<title>-<date>`, so files from different projects do not collide in one folder.

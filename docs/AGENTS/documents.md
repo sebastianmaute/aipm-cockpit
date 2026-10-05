@@ -1653,6 +1653,10 @@ do not read a green registry run as proof all six carry the slice.
 
 ## Surfaces and editor
 
+★★ A NEW surface that renders or downloads a document must read `useExportExtras()` and pass it to the
+renderer or `downloadDocument`, or a `budgetForecast` data section renders as nothing with no error (§545).
+The rule and the five current readers are in [budget.md](budget.md#the-forecast-in-exports-545).
+
 ★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
 describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
 

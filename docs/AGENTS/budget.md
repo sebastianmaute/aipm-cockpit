@@ -252,7 +252,8 @@ comments).
   preview, the Documents pane's downloads and the chat document card. ★★ A NEW leaf that renders or
   downloads a document must call `useExportExtras()` and pass the result on. The argument is optional,
   so a leaf that forgets it compiles and renders the block as nothing, with no error. The block also
-  renders nothing with no provider (a popout) or with the budget module off.
+  renders nothing with the budget module off or no forecast. Popouts DO show it: their `legacyTree`
+  renders `WorkspaceSection`, which provides it.
 - ★ A new derived section goes into `DERIVED_EXPORT_SECTION_KEYS`; `SLICE_EXPORT_SECTION_KEYS` is every key
   minus those, and `export-workspace.test.ts` fails if a key is in neither list, because it is not a slice.
 
