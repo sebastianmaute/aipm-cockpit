@@ -1,10 +1,10 @@
-// Pins the per-device key-facts cache write effect (task-manager.tsx, spec
-// §5.3) and its delete-eviction call, at the lowest layer that can observe
-// each: a real (fake-indexeddb-backed) TaskManager mount for the write
-// effect — `project` only becomes truthy once the browser backend actually
-// loads a project meta, so a lighter unit can't see the guard fire — and the
-// captured `onDeleteProject` prop for the file-mode eviction, which is an
-// internal, unexported callback with no lower observable seam.
+// Pins the per-device key-facts cache write effect (spec §5.3) and its
+// delete-eviction call THROUGH TaskManager: a real (fake-indexeddb-backed)
+// mount for the write effect — `project` only becomes truthy once the browser
+// backend actually loads a project meta — and the captured `onDeleteProject`
+// prop for the file-mode eviction. Since §491 both live in
+// use-portfolio-projects.ts, whose own renderHook test pins them in isolation;
+// this suite pins that task-manager still feeds them the live values.
 //
 // ★ `saveKeyFactsSnapshot`/`loadKeyFactsSnapshot` are used FOR REAL (not
 // mocked) — the effect's only externally observable behaviour is what lands
