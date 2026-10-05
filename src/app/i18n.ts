@@ -4705,7 +4705,7 @@ const enUS = {
   insightAcknowledge: "Acknowledge",
   insightAct: "Act",
   insightAcknowledgeHint: "Mark as seen. It stays in the list and still counts as open.",
-  // ★ Act NAVIGATES: onActInsight (task-manager.tsx) calls requestOpen() for the
+  // ★ Act NAVIGATES: onActInsight (use-insight-lifecycle.ts) calls requestOpen() for the
   //   insight's entityRef after stamping the status. The adjacent "Open" button
   //   exists solely to navigate, so a hint that omits this reads as a promise
   //   that Act stays put — and it does not.

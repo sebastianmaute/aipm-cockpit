@@ -155,7 +155,7 @@ function clear(prev: Insight, today: string): Insight | null {
  *   - a `partial` roll is missing whole people while every rule still reports
  *     itself evaluated.
  * The caller therefore compares each insight's own `data` against the roll it
- * actually holds. See the predicate built at the `task-manager.tsx` call site.
+ * actually holds. See the predicate built at the `use-insight-lifecycle.ts` call site.
  *
  * A default would reintroduce exactly that for the NEXT go-dark detector while
  * leaving this guard looking present. Required makes a forgetful detector a

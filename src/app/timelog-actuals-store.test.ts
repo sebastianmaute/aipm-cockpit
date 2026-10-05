@@ -363,7 +363,7 @@ describe("ActualsCacheEntry.dailyWindow", () => {
 // `writeDeviceJson` swallows a quota error whole, so an over-budget roll used
 // to cost the ENTIRE save — `aggregates` included. Trimming fixes that, and
 // then immediately creates a worse hazard if the window is left alone:
-// `dailyWindow` is the coverage CLAIM `task-manager.tsx`'s insights reconcile
+// `dailyWindow` is the coverage CLAIM `use-insight-lifecycle.ts`'s insights reconcile
 // tests an insight's violating dates against, so a roll trimmed behind an
 // intact window resolves guardrail insights as a fabricated "improved".
 describe("ActualsCacheEntry.daily size bound", () => {

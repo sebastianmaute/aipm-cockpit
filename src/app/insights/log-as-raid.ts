@@ -2,7 +2,7 @@
 //
 // Pure, i18n-free: the insight side of "Log as RAID" (§515). Saving the RAID
 // item IS acting on the insight, so this is the Act transition (`onActInsight`
-// in task-manager.tsx) plus the link — the SAME `metricAtActionPatch` spread,
+// in use-insight-lifecycle.ts) plus the link — the SAME `metricAtActionPatch` spread,
 // so the first transition to `acted` captures the outcome baseline and a later
 // one never overwrites it.
 import type { Insight, InsightStatus } from "./insight";
@@ -25,7 +25,8 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
   };
 }
 
-/** The functional-setter body task-manager's on-saved writer hands to `setInsights`.
+/** The functional-setter body the on-saved writer (`onInsightLoggedAsRaid`, in
+ *  `use-insight-lifecycle.ts`) hands to `setInsights`.
  *  ★★ `raidId` must be the id the save COMMITTED — re-minted on an id collision —
  *  never the draft's open-time id. Reads each insight from `prev` (first act wins). */
 export function applyInsightLoggedAsRaid(

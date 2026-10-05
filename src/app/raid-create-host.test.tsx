@@ -209,8 +209,9 @@ describe("useRaidCreate — insight origin (§515)", () => {
 });
 
 // ★★ END-TO-END over the id-mint race: the REAL `handleSaveRaidItem` composed with the
-//   REAL insight writer (`applyInsightLoggedAsRaid`, which task-manager's
-//   `onInsightLoggedAsRaid` feeds to `setInsights`). No mocked save return — the
+//   REAL insight writer (`applyInsightLoggedAsRaid`, which `onInsightLoggedAsRaid` in
+//   use-insight-lifecycle.ts feeds to `setInsights`; task-manager wires it into
+//   `useRaidCreate` as `onInsightLogged`). No mocked save return — the
 //   collision is seeded, so the re-mint happens for real.
 describe("Log as RAID — insight link under an id collision (§515)", () => {
   function renderComposed() {

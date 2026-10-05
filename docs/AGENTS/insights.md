@@ -32,8 +32,11 @@ types through the validator was weighed and rejected.
   `applyWorkspace` + `task-manager` restore, and INCLUDED in the `backend.save({…})` literals + `currentWorkspace()`
   so it actually autosaves. ★★ LANDMINE: the autosave-effect DEPS array MUST include insights or edits silently
   drop (data-loss).
-- **Detect→reconcile runner (task-manager):** debounced, gated `hydrated && !isPopout`, functional
-  `setInsights((prev) => reconcileInsights(prev ?? [], detected, today))`. ★★ Its content-key EXCLUDES lifecycle
+- **Detect→reconcile runner (`use-insight-lifecycle.ts`, called from task-manager):** debounced, gated
+  `hydrated && !isPopout && !loadPending` (§548), functional `setInsights((prev) => …)` that computes
+  `reconcileInsights(base, detected, today, isEvaluated)` with `base = prev ?? []`, and keeps `base` when
+  `insightsMateriallyEqual` finds the only differences are `occurrences`/`lastSeenAt`. `isEvaluated` decides per insight whether its rule was
+  really checked, so an unchecked one freezes instead of resolving. ★★ Its content-key EXCLUDES lifecycle
   fields, so acting on / dismissing an insight can't re-trigger detection → the reconcile→setInsights→re-run loop
   is avoided.
 - **Surfaces:** Dashboard `dashboard-sections/insights-card.tsx` + a dedicated `insights` AppView (an Overview
@@ -82,12 +85,15 @@ types through the validator was weighed and rejected.
   (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
   never-log `runForcedToolCall`. TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
   (per-insight ✨ button) + opt-in background `use-insight-recommend-runner.ts` (mirrors `use-scheduled-job-runner`
-  — `[]`-dep refs, mount+visibility+15-min tick, serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a
-  limit/auth error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout`, default OFF).
+  — `[]`-dep refs, mount+visibility+interval tick (user-settable, default `DEFAULT_INSIGHT_REC_INTERVAL_MIN`,
+  clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth
+  error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout && !loadPending`
+  (§548), default OFF).
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
-  plan). task-manager owns the generate/apply/reject handlers (the `insightActions` bag moved AFTER
-  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) + the `recommendation-review-modal.tsx` (Confirm →
+  plan). `useInsightRecommendations` (`use-insight-recommendations.ts`, called from task-manager right after
+  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) owns the generate/apply/reject handlers and the
+  `insightActions` bag; task-manager renders the `recommendation-review-modal.tsx` (Confirm →
   replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`).
   ★★ THAT ADVANCE IS NO LONGER UNCONDITIONAL. Every proposed `update_*` call is stamped with an
   optimistic-concurrency token when the recommendation is STORED, and a replay whose target row has moved
@@ -196,7 +202,7 @@ types through the validator was weighed and rejected.
   insights, one per rule × TimeLog user (key `timelog:<rule>:<timelogUserId>`), typed
   `timelogCapPerEntry` · `timelogCapPerDay` · `timelogNonWorkingDay` · `timelogWorkingHours`, all
   `medium` severity, with an `entityRef` to the resource only when the user link resolves. The rules
-  run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the task-manager runner feeds from the
+  run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the runner in `use-insight-lifecycle.ts` feeds from the
   per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The policy's
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated

@@ -117,7 +117,7 @@ describe("InsightsCard", () => {
   //   not carry: acknowledging leaves the insight in the list and still OPEN
   //   (`SURFACED_STATUSES` includes "acknowledged"), and the FIRST Act also
   //   captures today's metric as the outcome baseline — a one-shot side effect.
-  // ★★ Act also NAVIGATES (`onActInsight` in task-manager.tsx calls requestOpen
+  // ★★ Act also NAVIGATES (`onActInsight` in use-insight-lifecycle.ts calls requestOpen
   //   for the insight's entityRef). That omission mattered more than the others:
   //   the adjacent "Open" button exists solely to navigate, so a hint silent on
   //   it reads as a promise that Act stays put, and clicking Act on the
