@@ -78,6 +78,7 @@ import { useUndoStack, usePruneUndoOnScopeChange } from "./undo/use-undo-stack";
 import { useResourceQuickCreate } from "./use-resource-quick-create";
 import { useSettingsNavigation } from "./use-settings-navigation";
 import { useSettingsChangeLog } from "./use-settings-change-log";
+import { useTursoProjectList } from "./use-turso-project-list";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
@@ -145,10 +146,8 @@ import { useDictationHotkey } from "./use-dictation-hotkey";
 import { TourOverlay } from "./tour-overlay";
 import { TOUR_ANCHORS } from "./app-tour";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
-import { listProjects, listArchivedProjects } from "./turso-portfolio";
 import { usePortfolioProjects } from "./use-portfolio-projects";
 import { useNextActions } from "./use-next-actions";
-import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
 import { resolveTimezone, createProjectClock } from "./timezone";
@@ -491,9 +490,6 @@ function TaskManagerInner() {
   // correct. In FILE mode the localStorage ProjectsRegistry drives everything;
   // in TURSO mode the shared DB's `projects` table is the source of truth.
   const [portfolioMode] = useState<PortfolioMode>(loadPortfolioMode());
-  const [tursoProjects, setTursoProjects] = useState<ProjectListEntry[]>([]);
-  const [tursoArchived, setTursoArchived] = useState<ProjectListEntry[]>([]);
-  const [tursoListLoaded, setTursoListLoaded] = useState(false);
 
   const {
     storageDescription, storageReady, workspaceLoaded, loadPause, onPickStorageFile, onGrantWriteAccess,
@@ -567,41 +563,13 @@ function TaskManagerInner() {
     setLoadPauseBannerDismissed(false);
   }
 
-  // Refresh the Turso project list (active + archived) from the shared DB. The
-  // list is the source of truth in Turso mode; this is called on first load and
-  // after every create/archive/restore/hard-delete. Only flips `tursoListLoaded`
-  // on success so a transient connectivity failure doesn't flash the empty-state.
-  // Returns the fetched ACTIVE list (null on failure/not-applicable) so callers
-  // like repointAfterRemoval can reuse it instead of fetching it a second time.
-  const refreshTursoProjects = useCallback(async (): Promise<ProjectListEntry[] | null> => {
-    if (portfolioMode !== "turso") return null;
-    const cfg = getTursoConfig(
-      settings.integrations?.turso?.databaseUrl,
-      settings.integrations?.turso?.authToken,
-    );
-    if (!cfg) return null;
-    try {
-      const [active, archived] = await Promise.all([listProjects(cfg), listArchivedProjects(cfg)]);
-      setTursoProjects(active);
-      setTursoArchived(archived);
-      setTursoListLoaded(true);
-      reportStorageOutcome(null);
-      return active;
-    } catch (err) {
-      reportStorageOutcome(err);
-      // Do NOT set tursoListLoaded on error (avoids a false empty-state).
-      return null;
-    }
-  }, [portfolioMode, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, reportStorageOutcome]);
-
-  useEffect(() => {
-    if (!hydrated || portfolioMode !== "turso") return;
-    // IIFE so the setState calls inside refreshTursoProjects run in a later
-    // microtask (after the first await), never synchronously in the effect body.
-    void (async () => {
-      await refreshTursoProjects();
-    })();
-  }, [hydrated, portfolioMode, refreshTursoProjects]);
+  // The Turso project lists (active + archived), their load-once flag, the refresh and its
+  // first-load effect — see use-turso-project-list.ts (§491).
+  const { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects } = useTursoProjectList({
+    portfolioMode, hydrated, reportStorageOutcome,
+    tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
+    tursoAuthToken: settings.integrations?.turso?.authToken,
+  });
 
   // Baseline/variance trend snapshots. Active when the project's data lives in
   // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR

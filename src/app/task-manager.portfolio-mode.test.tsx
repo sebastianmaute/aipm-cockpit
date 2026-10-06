@@ -4,11 +4,11 @@ import TaskManager from "./task-manager";
 
 // Mock the Turso portfolio list calls so no network is hit. The active list is
 // empty (→ empty-state should show in turso mode after load); archived is empty.
-const listProjects = vi.fn(async () => [] as unknown[]);
-const listArchivedProjects = vi.fn(async () => [] as unknown[]);
+const listProjects = vi.fn<(cfg: unknown) => Promise<unknown[]>>(async () => []);
+const listArchivedProjects = vi.fn<(cfg: unknown) => Promise<unknown[]>>(async () => []);
 vi.mock("./turso-portfolio", () => ({
-  listProjects: () => listProjects(),
-  listArchivedProjects: () => listArchivedProjects(),
+  listProjects: (cfg: unknown) => listProjects(cfg),
+  listArchivedProjects: (cfg: unknown) => listArchivedProjects(cfg),
   updateProjectMeta: vi.fn(async () => {}),
   createProject: vi.fn(async () => {}),
   archiveProject: vi.fn(async () => {}),
@@ -67,6 +67,23 @@ describe("TaskManager portfolio mode (Turso)", () => {
     // poll AND the per-test budget (it()'s 3rd arg below) must both exceed the
     // suite default — a findBy timeout alone is capped by testTimeout.
     expect(await screen.findByText("Create a new project", undefined, { timeout: 40000 })).toBeTruthy();
+    // The Settings token reaches the DB call (§491: the `useTursoProjectList` call site
+    // passes the URL and the token as two separate deps fields).
+    expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ authToken: "tok" }));
+  }, 45000);
+
+  // ★ Pins the `reportStorageOutcome` wiring at the `useTursoProjectList` call
+  // site (§491): the hook's own test passes a mock, so only a mounted TaskManager
+  // can see whether a failed list fetch reaches the storage banner.
+  it("a failed project-list fetch in turso mode raises the storage banner", async () => {
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
+    seedTursoSettings();
+    listProjects.mockRejectedValueOnce(new Error("boom"));
+
+    render(<TaskManager />);
+
+    // Same headroom as the empty-state test above: a heavy mount plus an async DB call.
+    expect(await screen.findByRole("region", { name: "Storage connection problem" }, { timeout: 40000 })).toBeTruthy();
     expect(listProjects).toHaveBeenCalled();
   }, 45000);
 
