@@ -181,7 +181,8 @@ describe("VIEW_AI_SCOPE", () => {
   // ZERO production call sites stamping `"user"`, so a human edit made seconds
   // ago also had none, and the model was told to read it as historical. The
   // actor-stamping slice closed that gap for 64 of 65 sites; the survivor is
-  // task-manager's debounced `settings.updated` effect, which cannot see its
+  // `use-settings-change-log.ts`'s debounced `settings.updated` effect, which
+  // cannot see its
   // own cause. The sentence therefore states the PROPERTY, not a cause.
   // ★ Fails in BOTH directions: reinstating the enumerated cause fails the
   //   negation, and dropping the caution entirely fails the positive.

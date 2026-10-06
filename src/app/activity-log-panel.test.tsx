@@ -379,7 +379,8 @@ describe("ActivityLogPanel", () => {
   //
   // ★★★ THE ACTOR-LESS ROW IS THE POINT, not decoration. `actor` is optional and
   // its absence is NOT "user": a pre-release entry, or one written by a path
-  // that cannot see its cause (`task-manager`'s debounced settings logger), has
+  // that cannot see its cause (`use-settings-change-log.ts`'s debounced settings
+  // logger), has
   // a genuinely unknown origin. A filter written as `e.actor !== "ai"`, or one
   // defaulting an absent actor to "user", passes every AI-filter assertion above
   // and silently attributes anonymous history to the person reading it — which
