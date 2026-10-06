@@ -446,7 +446,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate--closed-2026-10-03) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | **CLOSED** 2026-10-03 |
 | [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | **CLOSED** 2026-09-14 |
-| [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | open |
+| [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified--closed-2026-10-06) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | **CLOSED** 2026-10-06 |
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
 | [§207](#207-single-tenant-asset-metadata-is-global-while-the-bytes-are-always-partitioned) | Single-tenant asset metadata is global while the bytes are always partitioned | — | — | open |
 | [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
@@ -665,7 +665,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip still promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
-| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
+| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--closed-2026-10-06) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | **CLOSED** 2026-10-06 |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer, and the Playwright probe that was owed refuted its own premise | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--closed-2026-10-03) | A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | **CLOSED** 2026-10-03 |
@@ -906,8 +906,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§669](#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05) | Eighteen files still name per-row controls by free text that can repeat | — | — | **CLOSED** 2026-10-05 |
 | [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--closed-2026-10-06) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | **CLOSED** 2026-10-06 |
 | [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
-| [§672](#672-twenty-seven-files-per-row-names-are-judged-unable-to-repeat-by-hand-and-no-test-would-catch-one-that-starts-to--open) | Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to | — | — | open |
-| [§673](#673-the-use-activity-logts-docstring-quotes-a-call-site-grep-as-55-and-it-now-returns-66--open) | The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 | — | — | open |
+| [§672](#672-twenty-seven-files-per-row-names-are-judged-unable-to-repeat-by-hand-and-no-test-would-catch-one-that-starts-to--closed-2026-10-06) | Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to | — | — | **CLOSED** 2026-10-06 |
+| [§673](#673-the-use-activity-logts-docstring-quotes-a-call-site-grep-as-55-and-it-now-returns-66--closed-2026-10-06) | The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 | — | — | **CLOSED** 2026-10-06 |
+| [§674](#674-a-raid-cause-cycle-can-be-stored-through-the-ai-inline-edit-and-import-paths-which-skip-the-modals-cycle-check--open) | A RAID cause cycle can be stored through the AI, inline edit and import paths, which skip the modal's cycle check | — | — | open |
+| [§675](#675-labels-that-differ-only-in-case-become-two-filter-options-that-sound-alike-and-filter-identically--open) | Labels that differ only in case become two filter options that sound alike and filter identically | — | — | open |
+| [§676](#676-a-group-label-or-assignee-named-like-a-fixed-filter-option-collides-with-that-option--open) | A group, label or assignee named like a fixed filter option collides with that option | — | — | open |
+| [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--open) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | open |
+| [§678](#678-a-storage-success-may-clear-a-turso-project-list-failure-banner-putting-the-loading-skeleton-back--open) | A storage success may clear a Turso project-list failure banner, putting the loading skeleton back | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17430,9 +17435,11 @@ change, with the tenant-vs-single-DB question answered deliberately rather than 
 these two named helpers. Single-DB Turso storage is untouched (that path never calls
 `hardDeleteProject`), so the tenant-vs-single-DB question above was answered by scope, not analogy.
 
-## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
+## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified — CLOSED 2026-10-06
 
-**Status:** open — MEASURED for the first time in 0.271.0, but NOT eye-verified, which is what this
+**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's element screenshots (Chromium, light and dark, two images each) and signed the glyph off. The marker paints as a monochrome ⚠ in a dashed red frame, the trailing space separates it from the alt text, and nothing overlaps or clips. The sign-off covered Chromium only. It did not include a look in Firefox, where the measurement section below records that the marker differs, and it did not separately rule on the file-backend finding under "Probe 2026-10-06". Both stay recorded here as they stand. The paragraphs below are the record as of the sign-off and are not rewritten.
+
+**Status before closure:** open — MEASURED for the first time in 0.271.0, but NOT eye-verified, which is what this
 entry asks for. `e2e-crossengine/asset-missing-glyph.spec.ts` now resolves the declaration in real
 Chromium and real Firefox (see "What the cross-engine measurement found" below); nobody has yet
 LOOKED at the marker in the Documents pane, and one of the two findings needs a human judgement a
@@ -17452,8 +17459,6 @@ wrong cause. Whoever fixes it should trace the resolver rather than trust a name
 ★ Narrowed 2026-09-28 (register sweep): `.gitlab-ci.yml` no longer exists, so its `grep -c crossengine`
 command does not run. The equivalent now is `grep -c crossengine .github/workflows/*.yml`, which also
 prints 0 for each file: `e2e-crossengine/` is still in no CI job. The eye-verify is still owed.
-
-**Work item:** #189
 
 **Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, opened the seed's "Kickoff pack" document in the Documents pane. It answered every Turso pipeline request with empty results, so both seeded images resolved to no bytes. Both carried `data-asset-missing="true"` and resolved `::before` content to `U+0022 U+26A0 U+FE0E U+0020 U+0022` (Chromium serializes the two concatenated strings as one string; this is the probe's reading of `getComputedStyle(img, "::before").content`), with the trailing space intact, in light and dark. Element screenshots show a dashed red frame about 32px tall, a monochrome ⚠, a space, then the alt text. Nothing overlapped and nothing was clipped. A person still has to look at it at normal zoom and in Firefox, where the measurement section below records the marker differs.
 
@@ -33870,16 +33875,16 @@ explanatory comments, and every round of writing about it adds more. The number 
 has been WRITTEN about the defect, not how many surfaces have it; only two hits are code
 (`dashboard-panel.tsx` and `reports.tsx`, each an option on a `useListReorderDnd` call).
 
-## 426. Four Reports-arrangement checks that only an eye can make are unrun — OPEN
+## 426. Four Reports-arrangement checks that only an eye can make are unrun — CLOSED 2026-10-06
 
 
-**Status:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
+**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's screenshots of Reports at 1280px and 1024px (whole page, toolbar, and each block) and its landscape print PDF, and signed off all four items: the floored blocks' sideways scrolling, the 120px row unit, printing (including the page breaks no one had judged), and the trailing group. ★ The "By priority" 5px crop recorded under item 2 of the probe is a found defect that this closure neither fixes nor accepts; it is filed as §677. The paragraphs below are the record as of the sign-off and are not rewritten.
+
+**Status before closure:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
 Reports-arrangement slice. That phrase is the honest answer here and not a placeholder: all four
 items below are visual judgements about a rendered browser layout, jsdom has no layout engine, and
 the axe gate answers a different question. Do not replace this line with a command until someone has
 actually looked.
-
-**Work item:** #278
 
 **Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, measured Reports at 1280px (`xl`) and 1024px, and printed it under print media. The numbers, per item:
 1. **`minW: 4` blocks.** At 1280px every full-width block is 918px, and every table fits its scroller (898/898). The exception is the Budget Report's per-bucket table, 1239px in an 898px scroller, which scrolls sideways. At 1024px the grid is two columns wide, so the blocks are 662px. "By assignee" (790/642), "By group" and "By label" (720/642) then scroll sideways, and the last column header is cut at the edge.
@@ -44038,11 +44043,22 @@ regressing either way.
 
 **Close when** `npm audit --audit-level=low` exits 0: either `braces` ships a patched release that `micromatch@4`'s `^3.0.3` range accepts (then `npm update braces`), or `@next/eslint-plugin-next` stops pinning `fast-glob@3.3.1`.
 
-## 672. Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to — OPEN
+## 672. Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to — CLOSED 2026-10-06
 
-**Status:** OPEN 2026-10-06 — `npm run rownames:check` prints `strong marker    COVERED 65 | COVERED_VIA_PARENT 17 | GAP 30` on `fix/batch13-row-names`, after §245 brought the any-marker line to `GAP 0`. Parsing the scanner's `--json` output against the verdict column of [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md): all 50 sites in those 30 files are in the `DATA` class, 47 of them have the verdict `fine` and 3 have `fixed`. The 3 `fixed` sites are one each in `chat-panel.tsx`, `dashboard-tile-bodies.tsx` and `global-search-box.tsx`; §316 fixed them with a row token and a test that seeds the collision, so they are already pinned and are left out of this entry. That leaves 27 files.
+**Status:** CLOSED 2026-10-06 — all 27 files are done: 26 carry an `expectRowUniqueNames` test and `app-modals.tsx` is recorded with its reason (below). `node scripts/check-rowname-surfaces.mjs` now prints `strong marker    COVERED 91 | COVERED_VIA_PARENT 17 | GAP 4`; the 4 are `app-modals.tsx` and the three `fixed` files named below, which §316 pinned with tests that do not use the helper.
 
-**Work item:** #586
+**Batch 15, the last 13 files.** Each has a test in en-US and de with a check that de loaded: `labels-input.test.tsx` (new), `use-other-journals.test.tsx` (for `notifications.tsx`'s journal list, both notices), `raci-suggest-modal.test.tsx`, `raid-edit-fields.test.tsx`, `raid-risk-matrix.test.tsx` (new), `resource-edit-modal.test.tsx`, `settings-sections/notifications-section.test.tsx`, `shift-edit-modal.test.tsx`, `sidebar-nav.test.tsx` (expanded rail per parent, collapsed rail and each flyout), `task-form-fields.test.tsx`, `tasks-section-toolbar.test.tsx` (new), `undo/undo-control.test.tsx` (undo and redo) and `workspace-section-chrome.test.tsx` (every nav parent's sub-tabs with every feature module on, and the main strip's popout buttons). 18 mutants: 16, each making two controls share a name, all failed with the helper's WCAG 2.4.6 message; a 17th dropped the bucket sort described below and failed the order test; an 18th reverted the popout fix and failed with the WCAG message. Every source was restored byte-identical. Of `task-form-fields.tsx`'s two note-log `<summary>` sites, only one is a `<summary>` element; the scanner's other site is the word inside a comment above it. That one element renders once per form, so it has nothing to collide with.
+
+★★ **Two more real defects, fixed.**
+1. The task form's Budget bucket select named each option by the bucket's name alone, and bucket names carry no uniqueness rule (the Budget panel already disambiguates them), so two buckets called "Build" were two identical options. The options now carry a `buildRowTokens` occurrence token, numbered and listed in the Budget panel's order (`order ?? id`, the sort in `computeBudgetReport`), so "Build (2)" in the form is the bucket the unfiltered panel calls "Build (2)". One test seeds the collision and another seeds an array order that disagrees with `order`.
+2. Every main workspace tab carries a popout button, and all seven were named "Open in new window". Each now says which tab it opens ("Open in new window – Gantt"). This control is not a scanner site; it surfaced once the sub-tab test rendered the strip with every feature module on and scanned its buttons. A review of this branch caught that the first version of that test said "every feature on" while passing none.
+
+★ **Three findings the tests did not need to fix, filed as §674, §675 and §676:**
+1. **A RAID cause cycle can be stored.** Only the RAID modal checks `wouldCreateCycle`; the AI's `create_raid_item`/`update_raid_item`, inline AI edit, the CSV/Markdown import, JSON load (`sanitize-records.ts`) and template apply (`template-apply.ts`) set `causedByRaidIds` with no cycle check (`grep -rn "wouldCreateCycle" src/app --include=*.ts --include=*.tsx` finds it called in `raid-edit-modal.tsx` alone, beside its definition in `raid.ts`). In a two-item cycle the edit modal shows the other item both as a "Caused by" chip and as a "Caused this" button under one name; both open the same item, so the names are not misleading, but the cycle itself is bad data.
+2. **Labels that differ only in case become two filter options that sound alike.** `sanitizeLabels` folds case within one task only, and `uniqueLabels` (`workspace-context.tsx`) dedupes by exact string across tasks, so "API" on one task and "api" on another give two options that filter identically, because the label filter compares case-insensitively.
+3. **Free text can match a fixed option.** A group literally named "No group" renders a second "No group" option in the group filter beside the fixed one, and a group, label or assignee named "All" shares the fixed "All" option's value.
+
+Status before closure: OPEN 2026-10-06 — `npm run rownames:check` prints `strong marker    COVERED 65 | COVERED_VIA_PARENT 17 | GAP 30` on `fix/batch13-row-names`, after §245 brought the any-marker line to `GAP 0`. Parsing the scanner's `--json` output against the verdict column of [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md): all 50 sites in those 30 files are in the `DATA` class, 47 of them have the verdict `fine` and 3 have `fixed`. The 3 `fixed` sites are one each in `chat-panel.tsx`, `dashboard-tile-bodies.tsx` and `global-search-box.tsx`; §316 fixed them with a row token and a test that seeds the collision, so they are already pinned and are left out of this entry. That leaves 27 files.
 
 **Progress 2026-10-06 (batch 14):** 14 of the 27 are done, so 13 remain.
 - **Pinned by a test, 13 files:** `ask-claude-menu.tsx`, `bulk-edit-modal.tsx`, `bullets-block-editor.tsx`, `calendar-event-modal.tsx`, `chat-prompt-chips.tsx`, `combobox-shared.tsx`, `dashboard-coaching-card.tsx`, `dashboard-delta-strip.tsx`, `diagnostics-panel.tsx`, `document-table-editor.tsx`, `filter-multiselect.tsx`, `help-content-pane.tsx` and `help-view.tsx`. Each has an `expectRowUniqueNames` test in en-US and de, with a check that de loaded wherever the names are translated. 16 mutants, one or two per test, each made two controls share a name; all 16 failed on the uniqueness assertion, and every source was restored byte-identical.
@@ -44067,15 +44083,59 @@ The scanner counts a surface as covered when a test mentioning it contains any o
 
 **Close when** each of the 27 files has an `expectRowUniqueNames` test, or is recorded here with the reason a test cannot or need not pin it (for example a control that renders once per surface has nothing to collide with). The scanner's `strong marker` line will not reach `GAP 0` on its own, because the three `fixed` files above are pinned by tests that do not use the helper. The §245 pattern applies: one `expectRowUniqueNames` test per file, translated catalogs checked in en-US and de with a check that de loaded, and a mutant per test.
 
-## 673. The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 — OPEN
+## 673. The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 — CLOSED 2026-10-06
 
-**Status:** OPEN 2026-10-06 — the grep attached to the `logActivityAs` docstring in `src/app/use-activity-log.ts` returns **66** on `fix/batch14-row-names` (which changes no `logActivity` call site), against the **55** the docstring quotes. Reproduce with the docstring's own command:
+**Status:** CLOSED 2026-10-06 — the docstring now labels every figure (55, 54, 65 → 55, 62/2/1) as a dated snapshot of the actor-stamping slice (2026-08-17), keeps the grep as the way to read today's count, and says that count has moved. The grep still returns 66 on `fix/batch15-row-names` (`grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`), which the docstring no longer contradicts. The one-actor-less-site claim stays present tense, with a pointer to `task-manager.activity-actor.test.tsx`, which pins that the settings logger receives the raw function. Status before closure: OPEN 2026-10-06 — the grep attached to the `logActivityAs` docstring in `src/app/use-activity-log.ts` returns **66** on `fix/batch14-row-names` (which changes no `logActivity` call site), against the **55** the docstring quotes. Reproduce with the docstring's own command:
 `grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`
-
-**Work item:** #589
 
 The docstring explains why a call site's spelling does not tell you its actor, and backs that with live counts: "the grep returns **55**", "The other 54 spell `logActivity(...)`", and "plain-name call sites: 65 before → 55 after". Those were measured on the actor-stamping slice; `git log -S"the grep returns **55**" -- src/app/use-activity-log.ts` names `93f14e01a` (2026-08-17). Later work added plain-name call sites, so the present-tense figures are stale. The argument itself still holds: exactly one site receives the actor-less function (the debounced `settings.updated` logger, which §491's batch 14 is moving out of `task-manager.tsx`; it is still there on this entry's branch), and the rest receive the pre-stamped `"user"` wrapper.
 
 Found by the peer session during the batch 14 §491 extraction, which adds or removes no call site and so does not change the count.
 
 **Close when** the docstring stops presenting a live count as current: either re-measure and label the 65 → 55 figures as a dated snapshot of the actor-stamping slice, or keep the command and drop the present-tense number.
+
+## 674. A RAID cause cycle can be stored through the AI, inline edit and import paths, which skip the modal's cycle check — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests. `grep -rn "wouldCreateCycle" src/app --include=*.ts --include=*.tsx` finds the check called in `raid-edit-modal.tsx` alone, beside its definition in `raid.ts`. The AI's `create_raid_item` and `update_raid_item`, inline AI edit, the CSV/Markdown import, JSON load (`sanitize-records.ts`, which runs `sanitizeIdList` only) and template apply (`template-apply.ts`) all write `causedByRaidIds` without it, so a cycle such as A causes B and B causes A can be stored.
+
+**Work item:** #592
+
+What it does today: in a two-item cycle the edit modal lists the other item both as a "Caused by" chip and as a "Caused this" button, under one name. Both open the same item, so the names do not mislead. The defect is the stored cycle: the cause graph is no longer acyclic, and code that walks it has to cope.
+
+**Close when** every write path to `causedByRaidIds` refuses a cycle (or load breaks one), with a test per path.
+
+## 675. Labels that differ only in case become two filter options that sound alike and filter identically — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests, never machine-verified as a rendered pair. `sanitizeLabels` folds case within one task only, and `uniqueLabels` (`workspace-context.tsx`) dedupes by exact string across tasks, so "API" on one task and "api" on another give two label-filter options. They sound alike to a screen reader and filter identically, because the label filter compares case-insensitively.
+
+**Work item:** #593
+
+★ Mind the filter state when fixing it: `resolveEffectiveFilters` matches a label case-insensitively, so a stored filter value and a deduped option can differ in case, and the `<select>` then shows no matching option.
+
+**Close when** case-variant labels give one option, a stored filter in either spelling still selects it, and a test seeds the case variants.
+
+## 676. A group, label or assignee named like a fixed filter option collides with that option — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests, never machine-verified as a rendered pair. The Open Points group filter renders a fixed "No group" option (value `""`) followed by one option per group found on the tasks, so a group literally named "No group" ("Ohne Gruppe" in German) renders a second option with that name, and the two filter differently. The other half is the shared "All" value: a group, label or assignee literally named "All" gets an option whose value equals the fixed "All" option's, so picking it filters nothing. The assignee filter has no fixed "none" option: its "No assignee" is the label of the blank entry `uniqueAssignees` keeps. It collides the same way only while some task has a blank assignee and another has the assignee literally "No assignee" ("Ohne Zuweisung" in German): two options then share that name and filter differently. See `tasks-section-toolbar.tsx`.
+
+**Work item:** #594
+
+**Close when** a free-text value equal to a fixed option's label or value reads and filters as its own option, with a test that seeds it.
+
+## 677. The Reports "By priority" block crops its tiles by 5px at its default height — OPEN
+
+**Status:** OPEN 2026-10-06 — never machine-verified by a committed check. The batch 14 §426 probe measured it in Chromium at 1280px and 1024px: the block's default height is `h: 1` (`grep -n "byPriority" src/app/report-blocks.ts`), and its content is 94px in an 89px box, so the bottom border of its four tiles is cropped by 5px. §426 closed on the owner's sign-off without fixing it.
+
+**Work item:** #595
+
+**Close when** the block's content fits its default height, measured again in a browser.
+
+## 678. A storage success may clear a Turso project-list failure banner, putting the loading skeleton back — OPEN
+
+**Status:** OPEN 2026-10-06 — seen only in jsdom by the batch 15 §491 work, never machine-verified in a running app. In multi-project Turso mode a failed project-list fetch (`refreshTursoProjects`, in `use-turso-project-list.ts`) reports its error through `reportStorageOutcome`, the same bridge the storage backend uses as `onStorageOutcome`. A probe in `task-manager.portfolio-mode.test.tsx` showed the backend's own load success report `null` through it right after the list failure, which clears the banner; `grep -n "emitOutcome(null)" src/app/use-storage-backend.ts` lists the success sites that report `null`.
+
+**Work item:** #596
+
+If the same order happens in the app, the list-failure banner disappears while the list is still unloaded, and `showTursoListLoading` (`task-manager.tsx`) shows the loading skeleton again: the user sees a spinner instead of the error. §491's batch 15 step records the probe.
+
+**Close when** it is checked in a running app against a real or emulated Turso failure: either it does not reproduce (record how), or a later success no longer clears an unrelated list failure, with a test that orders the two reports.

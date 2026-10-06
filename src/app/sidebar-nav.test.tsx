@@ -1,7 +1,9 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SidebarNav } from "./sidebar-nav";
-import { filterNavGroups } from "./nav-config";
+import { filterNavGroups, NAV_GROUPS, navLabelKey, type AppView } from "./nav-config";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 describe("SidebarNav", () => {
   it("places each tour anchor on exactly one expanded nav entry", () => {
@@ -202,5 +204,47 @@ describe("SidebarNav", () => {
       render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} collapsed badges={{ actions: 5 }} />);
       expect(screen.queryByText("5")).toBeNull();
     });
+  });
+});
+
+describe("SidebarNav — every entry has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Every rail entry is named by its view's nav label, and the count badges are aria-hidden, so
+  // two views whose labels translate alike would make two entries sound the same. The expanded
+  // rail shows one parent's children at a time, so each parent is rendered active in turn; the
+  // collapsed rail moves the children into a flyout menu, so each menu is opened in turn. Every
+  // view carries a badge, to prove the counts never reach a name.
+  const ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+  const PARENTS = ITEMS.filter((item) => (item.children?.length ?? 0) > 0);
+  const BADGES = Object.fromEntries(
+    ITEMS.flatMap((item) => [item.view, ...(item.children ?? []).map((c) => c.view)]).map((v) => [v, 3]),
+  ) as Partial<Record<AppView, number>>;
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "navPrimaryLabel")).not.toBe(t("en-US", "navPrimaryLabel"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every entry distinctly on the expanded rail in %s", (lang) => {
+    expect(PARENTS.length).toBeGreaterThan(1);
+    for (const parent of PARENTS) {
+      const { unmount } = render(<SidebarNav lang={lang} activeView={parent.view} onNavigate={() => {}} badges={BADGES} />);
+      expectRowUniqueNames({ minControls: ITEMS.length + parent.children!.length, scope: screen.getByRole("navigation") });
+      unmount();
+    }
+  });
+
+  it.each(["en-US", "de"] as const)("names every entry distinctly on the collapsed rail and in each flyout in %s", (lang) => {
+    render(<SidebarNav lang={lang} activeView="open-points" onNavigate={() => {}} collapsed badges={BADGES} />);
+    expectRowUniqueNames({ minControls: ITEMS.length, scope: screen.getByRole("navigation") });
+    for (const parent of PARENTS) {
+      const trigger = screen.getByRole("button", { name: t(lang, navLabelKey(parent.view)) });
+      fireEvent.click(trigger);
+      // The parent's own entry first, then its children.
+      expectRowUniqueNames({ minControls: 1 + parent.children!.length, scope: screen.getByRole("menu"), roles: ["menuitem"] });
+      fireEvent.click(trigger);
+      expect(screen.queryByRole("menu")).toBeNull();
+    }
   });
 });
