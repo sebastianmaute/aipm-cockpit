@@ -99,6 +99,51 @@ describe("useSettingsNavigation — classic layout", () => {
   });
 });
 
+describe("useSettingsNavigation — the handlers follow a deps change", () => {
+  // The handlers are memoized, so each must re-read the layout and the setter
+  // after a rerender rather than keep the ones it closed over first.
+  it("classic → modern: both requests navigate, and no popover opens", () => {
+    const deps = makeDeps({ layout: "classic" });
+    const { result, rerender } = renderHook((d: SettingsNavigationDeps) => useSettingsNavigation(d), { initialProps: deps });
+    rerender({ ...deps, layout: "modern" });
+
+    act(() => result.current.onOpenSettings());
+    expect(deps.setActiveTab).toHaveBeenCalledTimes(1);
+    expect(deps.setActiveTab).toHaveBeenLastCalledWith("settings");
+    expect(result.current.classicSettingsOpen).toBe(false);
+
+    act(() => result.current.onOpenSettingsSection("ai"));
+    expect(deps.setActiveTab).toHaveBeenCalledTimes(2);
+    expect(result.current.settingsSectionRequest).toEqual({ id: "ai", nonce: 1 });
+    expect(result.current.classicSettingsOpen).toBe(false);
+  });
+
+  it("modern → classic: both requests open the popover, and nothing navigates", () => {
+    const deps = makeDeps({ layout: "modern" });
+    const { result, rerender } = renderHook((d: SettingsNavigationDeps) => useSettingsNavigation(d), { initialProps: deps });
+    rerender({ ...deps, layout: "classic" });
+
+    act(() => result.current.onOpenSettings());
+    expect(result.current.classicSettingsOpen).toBe(true);
+    act(() => result.current.setClassicSettingsOpen(false));
+    act(() => result.current.onOpenSettingsSection("ai"));
+    expect(result.current.classicSettingsOpen).toBe(true);
+    expect(result.current.settingsSectionRequest).toBeUndefined();
+    expect(deps.setActiveTab).not.toHaveBeenCalled();
+  });
+
+  it("a new setActiveTab is the one both requests call", () => {
+    const deps = makeDeps();
+    const { result, rerender } = renderHook((d: SettingsNavigationDeps) => useSettingsNavigation(d), { initialProps: deps });
+    const next = vi.fn();
+    rerender({ ...deps, setActiveTab: next });
+    act(() => result.current.onOpenSettings());
+    act(() => result.current.onOpenSettingsSection("jira"));
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(deps.setActiveTab).not.toHaveBeenCalled();
+  });
+});
+
 describe("useSettingsNavigation — identity", () => {
   it("keeps the handlers stable across a rerender with the same deps", () => {
     const deps = makeDeps();
