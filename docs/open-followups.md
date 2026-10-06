@@ -43864,7 +43864,16 @@ The failing wait is the `findByText(refusalText)` in the shared setup, `refuseIn
 
 ## 661. A local-file save that waits on its Web Lock at tab close has never been checked to land — open
 
-**Status:** open 2026-10-01, found by the review of the §4 round-7 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
+**Status:** open — **Update 2026-10-06** (batch 16): an e2e attempt could not drive a local-file project in Playwright's Chromium, so this is still never machine-verified for local files; no loss was found because nothing was measured. What was tried, each run with `npx playwright test <spec> --project=chromium --workers=1` against a fresh server on port 3250:
+
+1. The File System Access pickers open native dialogs, so `showSaveFilePicker` was stubbed to return a real handle from the Origin Private File System (`navigator.storage.getDirectory()`), and the seeded project was converted through Settings → Storage → Local JSON file (`onRequestStorageSwitch`), accepting its `window.confirm`.
+2. On a page that runs no app code the same OPFS handle works: `createWritable` / `write` / `close` / `getFile` round-trip, `queryPermission` reports granted, and the handle stores in IndexedDB.
+3. In the app the conversion reaches the picker, stores the handle (`aipm-cockpit/kv`, key `file-handle:local-json`, put and transaction both complete), requests the save lock `aipm-cockpit:save:local-json` and is granted it. The page then closes within milliseconds, with no `crash` event, no navigation, no console output, and no screenshot or browser-side trace left. A probe that logged every `FileSystemHandle`, `FileSystemFileHandle` and writable prototype call saw none after the lock was granted.
+4. Replacing the handle's `getFile` / `createWritable` / permission methods with ones backed by `localStorage` (so no real file call runs at all), and replacing `window.confirm` instead of answering a native dialog, changed nothing: the page still closed before the "Converted and switched" toast.
+
+So the cause sits after the lock grant and is not a file-system call, and it is not known whether it is the app or the headless browser; a headed run was not tried. The attempted spec was not committed. Until a run gets past the conversion, the close-time question below stays open.
+
+**Status before this update:** open 2026-10-01, found by the review of the §4 round-7 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
 
 **Work item:** #512
 
