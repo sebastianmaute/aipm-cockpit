@@ -2,7 +2,7 @@ import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TourCatalog } from "./tour-catalog";
 import { TOURS, type TourCatalogEntry } from "./app-tour";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const tours: TourCatalogEntry[] = [
@@ -43,6 +43,11 @@ describe("TourCatalog — every tour button has its own name (§245)", () => {
     stepCount: tour.steps.length,
     iconView: tour.iconView,
   }));
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "tourStartCta")).not.toBe(t("en-US", "tourStartCta"));
+  });
 
   it.each(["en-US", "de"] as const)("names every tour in the full catalog distinctly in %s", (lang) => {
     render(<TourCatalog lang={lang} tours={all} completedTours={[]} onStartTour={() => {}} />);

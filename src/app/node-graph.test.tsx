@@ -4,7 +4,7 @@ import { NodeGraph } from "./node-graph";
 import { RelationsMap } from "./relations-map";
 import { buildRelationsGraph } from "./relations-graph";
 import { HELP_ENTRIES } from "./help-content";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { NodeGraphNode, NodeGraphEdge, NodeGraphZone } from "./node-graph-layout";
 
@@ -103,6 +103,11 @@ describe("NodeGraph — node buttons are named uniquely by their real caller (§
   // nodes sharing a label, so uniqueness is the CALLER's job. RelationsMap is the only interactive
   // caller (InformationFlowsSection passes no onSelectNode and renders no buttons); its labels are
   // the help concepts' titles, checked here over the real catalog in every shipped language.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "helpRelationsMapLabel")).not.toBe(t("en-US", "helpRelationsMapLabel"));
+  });
+
   it.each(["en-US", "de"] as const)("names every relations-map node distinctly in %s", (lang) => {
     const graph = buildRelationsGraph(HELP_ENTRIES);
     render(<RelationsMap graph={graph} lang={lang} onSelectConcept={() => {}} />);

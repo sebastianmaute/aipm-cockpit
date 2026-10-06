@@ -3,7 +3,7 @@ import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ExportSection } from "./export-section";
-import { loadI18n } from "../i18n";
+import { loadI18n, t } from "../i18n";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { defaultSettings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig } from "../settings-types";
@@ -107,6 +107,11 @@ describe("ExportSection — every section checkbox has its own name (§245)", ()
 
   // Each checkbox is named by its section's label, so two sections translated alike would leave two
   // checkboxes a screen reader cannot tell apart.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "exportLabelTasks")).not.toBe(t("en-US", "exportLabelTasks"));
+  });
+
   it.each(["en-US", "de"] as const)("names every section checkbox distinctly in %s", (l) => {
     render(<ExportSection lang={l} settings={defaultSettings} onChange={vi.fn()} />);
     expectRowUniqueNames({ minControls: EXPORT_SECTION_KEYS.length, roles: ["checkbox"] });

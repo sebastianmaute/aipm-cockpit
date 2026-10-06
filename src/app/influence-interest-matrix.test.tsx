@@ -86,6 +86,11 @@ describe("InfluenceInterestMatrix — every cell has its own name (§245)", () =
 
   // The nine cells are named from the level labels, so two levels translated alike would make two
   // cells sound identical. Checked in every shipped language, since DE is where a collision would come from.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "levelHigh")).not.toBe(t("en-US", "levelHigh"));
+  });
+
   it.each(["en-US", "de"] as const)("names all nine cells distinctly in %s", (lang) => {
     render(<InfluenceInterestMatrix lang={lang} influence="High" interest="Medium" onPick={vi.fn()} />);
     expectRowUniqueNames({ minControls: 9 });

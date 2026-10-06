@@ -213,6 +213,11 @@ describe("NextActionsSection — every weight field and Accept button has its ow
   // Every numeric setting is suggested at once so all ten rows carry an Accept button.
   const WEIGHT_FIELDS = 10;
 
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "weightSuggestAccept")).not.toBe(t("en-US", "weightSuggestAccept"));
+  });
+
   it.each(["en-US", "de"] as const)("names every weight input and Accept button distinctly in %s", (lang) => {
     suggestState.suggestions = Object.entries(defaultNextActionsConfig)
       .filter(([, v]) => typeof v === "number")

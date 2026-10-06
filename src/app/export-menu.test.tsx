@@ -124,6 +124,11 @@ describe("export menu — every format button has its own name (§245)", () => {
 
   // Each format button is named by its visible label and hint, so two formats worded alike would
   // sound identical.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "exportTitle")).not.toBe(t("en-US", "exportTitle"));
+  });
+
   it.each(["en-US", "de"] as const)("names every format option distinctly in %s", (lang) => {
     render(
       <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
