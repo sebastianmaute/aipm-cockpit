@@ -912,6 +912,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§675](#675-labels-that-differ-only-in-case-become-two-filter-options-that-sound-alike-and-filter-identically--open) | Labels that differ only in case become two filter options that sound alike and filter identically | — | — | open |
 | [§676](#676-a-group-label-or-assignee-named-like-a-fixed-filter-option-collides-with-that-option--open) | A group, label or assignee named like a fixed filter option collides with that option | — | — | open |
 | [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--open) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | open |
+| [§678](#678-a-storage-success-may-clear-a-turso-project-list-failure-banner-putting-the-loading-skeleton-back--open) | A storage success may clear a Turso project-list failure banner, putting the loading skeleton back | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44106,3 +44107,13 @@ What it does today: in a two-item cycle the edit modal lists the other item both
 **Work item:** #595
 
 **Close when** the block's content fits its default height, measured again in a browser.
+
+## 678. A storage success may clear a Turso project-list failure banner, putting the loading skeleton back — OPEN
+
+**Status:** OPEN 2026-10-06 — seen only in jsdom by the batch 15 §491 work, never machine-verified in a running app. In multi-project Turso mode a failed project-list fetch (`refreshTursoProjects`, in `use-turso-project-list.ts`) reports its error through `reportStorageOutcome`, the same bridge the storage backend uses as `onStorageOutcome`. A probe in `task-manager.portfolio-mode.test.tsx` showed the backend's own load success report `null` through it right after the list failure, which clears the banner; `grep -n "emitOutcome(null)" src/app/use-storage-backend.ts` lists the success sites that report `null`.
+
+**Work item:** #596
+
+If the same order happens in the app, the list-failure banner disappears while the list is still unloaded, and `showTursoListLoading` (`task-manager.tsx`) shows the loading skeleton again: the user sees a spinner instead of the error. §491's batch 15 step records the probe.
+
+**Close when** it is checked in a running app against a real or emulated Turso failure: either it does not reproduce (record how), or a later success no longer clears an unrelated list failure, with a test that orders the two reports.
