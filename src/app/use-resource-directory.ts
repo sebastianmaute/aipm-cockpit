@@ -23,8 +23,8 @@
 // (task-manager.tsx), so it mints a fresh identity every render regardless of
 // what this file does.
 // The rest (editingResource, handleSaveResource via
-// handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceModal)
-// reach the `<AppModals` render in task-manager.tsx, which is a plain function
+// handleSaveResourceFromAnywhere in use-resource-quick-create.ts,
+// handleDeleteResource, handleCloseResourceModal) reach the `<AppModals` render in task-manager.tsx, which is a plain function
 // component, not memo()'d (`AppModals` in app-modals.tsx). So preserving the
 // memoization form needs no justification beyond this being a move-only
 // commit — don't invent one.

@@ -43,8 +43,8 @@ import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
 import { dropDanglingDependencies, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
-import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
+import { resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
+import { peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { indexDocumentsByEntity } from "./document-ref";
@@ -77,7 +77,7 @@ import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack, usePruneUndoOnScopeChange } from "./undo/use-undo-stack";
-import { creatableResourceEmail } from "./resource-create-email";
+import { useResourceQuickCreate } from "./use-resource-quick-create";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
@@ -178,7 +178,7 @@ function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
   // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries.
-  // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, the one inline `logActivityUser(...)` call (the resource create), and the remaining hook threads (`useTaskEditorCreate` among them) — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
+  // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, and the remaining hook threads (`useTaskEditorCreate` and `useResourceQuickCreate` among them; the latter holds the resource create, once the one inline `logActivityUser(...)` call) — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
   const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
@@ -1128,43 +1128,10 @@ function TaskManagerInner() {
   });
   useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
 
-  const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
-
-  const handleAddAssigneeToAddressBook = useCallback((name: string, email: string) => {
-    const { firstName, lastName } = splitName(name);
-    setFillTaskAssigneeOnSave(true);
-    handleOpenAddResource({ firstName, lastName, email: email.trim() || undefined });
-  }, [handleOpenAddResource]);
-
-  const handleCreateResource = useCallback(
-    (name: string, email: string): number => {
-      const { firstName, lastName } = splitName(name);
-      const id = mintId("resource", resources);
-      // Mirror handleSaveResource's new-resource commit: stamp localModifiedAt
-      // (change-tracking / Turso sync) and log resource.created for activity-log
-      // completeness — a picker-created person must behave like a Resources-view one.
-      setResources((prev) => [
-        ...prev,
-        { id, firstName, lastName, email: creatableResourceEmail(email), roleId: null, utilizationMode: "percent", utilization: {}, localModifiedAt: new Date().toISOString() },
-      ]);
-      logActivityUser("resource.created", id, `${firstName} ${lastName}`.trim());
-      return id;
-    },
-    [resources, setResources, logActivityUser],
-  );
-
-  const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
-    handleSaveResource(next);
-    if (fillTaskAssigneeOnSave) {
-      setForm((prev) => ({ ...prev, assignee: resourceDisplayName(next), assigneeEmail: next.email ?? "" }));
-      setFillTaskAssigneeOnSave(false);
-    }
-  }, [handleSaveResource, fillTaskAssigneeOnSave, setForm]);
-
-  const handleCloseResourceFromAnywhere = useCallback(() => {
-    handleCloseResourceModal();
-    setFillTaskAssigneeOnSave(false);
-  }, [handleCloseResourceModal]);
+  // Creating a resource from outside the Resources view (the picker's "+ Add",
+  // the task editor's add-to-address-book) — extracted to useResourceQuickCreate.
+  const { handleAddAssigneeToAddressBook, handleCreateResource, handleSaveResourceFromAnywhere, handleCloseResourceFromAnywhere } =
+    useResourceQuickCreate({ resources, setResources, logActivity: logActivityUser, handleOpenAddResource, handleSaveResource, handleCloseResourceModal, setForm });
 
   const m365Enabled = settings.integrations?.m365?.enabled ?? false;
   const msAuth = useMsAuth(m365Enabled, { clientId: settings.integrations?.m365?.clientId, tenantId: settings.integrations?.m365?.tenantId });
