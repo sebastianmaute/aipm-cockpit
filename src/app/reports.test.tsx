@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ReportsPanel } from "./reports";
+import { ADAPTIVE_BLOCKS, ReportsPanel } from "./reports";
 import type { BudgetBucket, RaidItem, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
-import { REPORT_BLOCKS } from "./report-blocks";
+import { REPORT_BLOCKS, reportBlockById } from "./report-blocks";
+import { rowsForHeight } from "./arrangement-measure";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -718,6 +719,20 @@ describe("ReportsPanel — the arrangement grid", () => {
     expect(
       screen.queryAllByRole("button", { name: /use arrow keys/i }),
     ).toHaveLength(0);
+  });
+});
+
+// §677: the By priority block's tiles did not fit its one-row catalogue height. The
+// figures are the batch 14 §426 probe's, in Chromium at 1280px and 1024px: a 120px row
+// unit and 16px gap (reports.tsx's ArrangementGrid), a 31px header-and-border, and
+// 94px of content. jsdom has no layout, so the browser half of this check is
+// e2e/reports-by-priority-fit.spec.ts.
+describe("ReportsPanel — By priority follows its content's height (§677)", () => {
+  it("is measured, and its measured content needs two rows, not the catalogue's one", () => {
+    const spec = reportBlockById("byPriority")!;
+    expect(ADAPTIVE_BLOCKS.has("byPriority")).toBe(true);
+    expect(spec.h).toBe(1);
+    expect(rowsForHeight(94, 120, 16, 31, spec.minH, spec.maxH)).toBe(2);
   });
 });
 

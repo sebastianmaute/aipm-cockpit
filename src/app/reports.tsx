@@ -86,12 +86,14 @@ const EMPTY_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
 /** Reports has no density setting; the strip uses the Dashboard's default. */
 /**
  * The blocks whose height follows their content, as every Dashboard tile's does
- * (`useMeasuredHeights`), until the user sets one from the ⋮ menu. ★ Only the At a
- * glance strip: it wraps to more rows as the block narrows, and at a fixed 2 rows
- * a wrapped strip overflowed by 31px. The other blocks keep their catalogue
- * heights, as before.
+ * (`useMeasuredHeights`), until the user sets one from the ⋮ menu. ★ Two blocks: the
+ * At a glance strip, which wraps to more rows as the block narrows (at a fixed 2 rows
+ * a wrapped strip overflowed by 31px), and By priority, whose four tiles measured
+ * 94px in the 89px body of its one-row catalogue height, cropping their bottom
+ * border (§677; `e2e/reports-by-priority-fit.spec.ts` measures it). The other
+ * blocks keep their catalogue heights, as before.
  */
-const ADAPTIVE_BLOCKS: ReadonlySet<ReportBlockId> = new Set(["stats"]);
+export const ADAPTIVE_BLOCKS: ReadonlySet<ReportBlockId> = new Set(["stats", "byPriority"]);
 const KPI_DENSITY = densityClasses("comfortable");
 
 /** ★ Narrows a block id to one of the four embedded report panels. Those are

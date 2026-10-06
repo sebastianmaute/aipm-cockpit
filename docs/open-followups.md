@@ -911,7 +911,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§674](#674-a-raid-cause-cycle-can-be-stored-through-the-ai-inline-edit-and-import-paths-which-skip-the-modals-cycle-check--open) | A RAID cause cycle can be stored through the AI, inline edit and import paths, which skip the modal's cycle check | — | — | open |
 | [§675](#675-labels-that-differ-only-in-case-become-two-filter-options-that-sound-alike-and-filter-identically--open) | Labels that differ only in case become two filter options that sound alike and filter identically | — | — | open |
 | [§676](#676-a-group-label-or-assignee-named-like-a-fixed-filter-option-collides-with-that-option--open) | A group, label or assignee named like a fixed filter option collides with that option | — | — | open |
-| [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--open) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | open |
+| [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--closed-2026-10-06) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | **CLOSED** 2026-10-06 |
 | [§678](#678-a-storage-success-may-clear-a-turso-project-list-failure-banner-putting-the-loading-skeleton-back--closed-2026-10-06) | A storage success may clear a Turso project-list failure banner, putting the loading skeleton back | — | — | **CLOSED** 2026-10-06 |
 <!-- INDEX:END -->
 
@@ -44122,11 +44122,11 @@ What it does today: in a two-item cycle the edit modal lists the other item both
 
 **Close when** a free-text value equal to a fixed option's label or value reads and filters as its own option, with a test that seeds it.
 
-## 677. The Reports "By priority" block crops its tiles by 5px at its default height — OPEN
+## 677. The Reports "By priority" block crops its tiles by 5px at its default height — CLOSED 2026-10-06
 
-**Status:** OPEN 2026-10-06 — never machine-verified by a committed check. The batch 14 §426 probe measured it in Chromium at 1280px and 1024px: the block's default height is `h: 1` (`grep -n "byPriority" src/app/report-blocks.ts`), and its content is 94px in an 89px box, so the bottom border of its four tiles is cropped by 5px. §426 closed on the owner's sign-off without fixing it.
+**Status:** CLOSED 2026-10-06 — measured again in Chromium by a committed spec: `npx playwright test e2e/reports-by-priority-fit.spec.ts --project=chromium --workers=1`. The block is now in `ADAPTIVE_BLOCKS` (`reports.tsx`), so its height follows its content, as the At a glance strip's does, until the user sets one from the ⋮ menu; its catalogue `h: 1` is unchanged. The spec measures content the way `use-measured-heights.ts` does and compares it with the body's height at 1280px and 1024px: against the unfixed code it failed at both widths with "overflows: 94px in 89px", reproducing the probe's figures, and it passes with the fix (2 passed), so the block renders at two rows. The existing `e2e/reports-arrangement-focus.spec.ts`, which seeds this block at `h: 1`, still passes. `reports.test.tsx` pins the membership and the arithmetic (`rowsForHeight` of the measured 94px in 120px rows with a 16px gap and 31px of chrome is 2). ★ A height the user sets explicitly still wins, so a user who picks one row from the ⋮ menu gets the cropped block back; that is their choice, not a default. Owner eye-check of the rendered block is still welcome.
 
-**Work item:** #595
+**Status before closure:** OPEN 2026-10-06 — never machine-verified by a committed check. The batch 14 §426 probe measured it in Chromium at 1280px and 1024px: the block's default height is `h: 1` (`grep -n "byPriority" src/app/report-blocks.ts`), and its content is 94px in an 89px box, so the bottom border of its four tiles is cropped by 5px. §426 closed on the owner's sign-off without fixing it.
 
 **Close when** the block's content fits its default height, measured again in a browser.
 
