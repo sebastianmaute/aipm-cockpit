@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import {
   RaciSuggestModal,
@@ -6,7 +6,8 @@ import {
   SKIP_KEY_RANK,
   SKIP_REASON_KEY,
 } from "./raci-suggest-modal";
-import { t, tPlural } from "./i18n";
+import { loadI18n, t, tPlural, type Lang } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
 
 const cell = (
@@ -32,6 +33,7 @@ function renderModal(
     stakeholders?: readonly { id: number; name: string }[];
     milestones?: readonly { id: number; name: string }[];
   },
+  lang: Lang = "en-US",
 ) {
   const derivedStakeholders = [
     ...new Map(cells.map((c) => [c.stakeholderId, { id: c.stakeholderId, name: c.stakeholderName }])).values(),
@@ -41,7 +43,7 @@ function renderModal(
   ];
   render(
     <RaciSuggestModal
-      lang="en-US"
+      lang={lang}
       open
       cells={cells}
       skipped={[]}
@@ -373,5 +375,32 @@ describe("RaciSuggestModal per-row accessible names", () => {
     expect(
       screen.getByRole("button", { name: t("en-US", "raciSuggestApply") }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("RaciSuggestModal — every Include checkbox has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each row's checkbox is named "Include – <stakeholder> – <milestone>". Neither name is unique
+  // in a workspace, so the fixture crosses two same-named stakeholders with two same-named
+  // milestones, beside a pair that collides on neither side, and every row must still read
+  // differently.
+  const CELLS = [
+    cell(1, "Ada", 10, "Review"),
+    cell(1, "Ada", 11, "Review"),
+    cell(2, "Ada", 10, "Review"),
+    cell(2, "Ada", 11, "Review"),
+    cell(3, "Grace", 12, "Go live"),
+    cell(3, "Grace", 13, "Design freeze"),
+  ];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "raciSuggestInclude")).not.toBe(t("en-US", "raciSuggestInclude"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every proposed row's checkbox distinctly in %s", (lang) => {
+    renderModal(CELLS, undefined, lang);
+    expectRowUniqueNames({ minControls: CELLS.length, roles: ["checkbox"] });
   });
 });

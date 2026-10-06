@@ -51,6 +51,7 @@ import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
+import { buildRowTokens } from "./row-tokens";
 
 /** The Notes and Blockers launcher buttons share one look (they sit together). */
 const LOG_LAUNCHER_CLASS = `inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`;
@@ -127,6 +128,15 @@ export function TaskFormFields({
   // Blockers button's open count read the live row instead of a stale copy.
   const storedTask = isEditing ? tasksForDeps.find((tk) => tk.id === editingId) : undefined;
   const { isVisible } = useModalVisibility("task");
+  // §672 — bucket names carry no uniqueness rule, so two buckets can share one, and the option
+  // text is all that tells them apart, on screen and to AT alike. A repeated name gets an
+  // occurrence token, numbered in the Budget panel's order (`order ?? id`, the sort in
+  // `computeBudgetReport`), so "Build (2)" here is the bucket the unfiltered panel calls
+  // "Build (2)". The options are listed in that order too.
+  const orderedBuckets = budgetLink
+    ? [...budgetLink.buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id))
+    : [];
+  const bucketTokens = buildRowTokens(orderedBuckets);
   const { settings } = useSettings();
   // Description is rich HTML but dictation yields plain text — appendDictationToHtml
   // owns that round-trip (and documents the formatting-flatten trade-off). The
@@ -678,8 +688,8 @@ export function TaskFormFields({
             className="w-full"
           >
             <option value="">{t(lang, "budgetBucketNone")}</option>
-            {budgetLink.buckets.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+            {orderedBuckets.map((b) => (
+              <option key={b.id} value={b.id}>{bucketTokens.get(b.id) ?? b.name}</option>
             ))}
           </Select>
         </Field>

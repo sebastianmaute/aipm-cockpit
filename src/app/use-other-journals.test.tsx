@@ -3,7 +3,7 @@
 // §632 — the hook that expires and lists unload journals under keys other than the one in scope,
 // and the two notices task-manager mounts for it.
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfirmProvider } from "./confirm-dialog";
 import * as diagnostics from "./diagnostics";
@@ -14,6 +14,7 @@ import { saveRegistry } from "./projects-registry";
 import { UNLOAD_JOURNAL_MAX_AGE_MS, readUnloadJournal, writeUnloadJournal } from "./unload-journal";
 import { otherJournalFileName, useOtherJournals, type OtherJournal, type UseOtherJournalsArgs } from "./use-other-journals";
 import { UNLOAD_JOURNAL_TAB_ID } from "./use-unload-journal";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const NOW = 1_800_000_000_000;
 const OLD = NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1;
@@ -453,5 +454,45 @@ describe("OtherJournalsBanner — §655 Restore", () => {
   it("offers no Restore at all without a handler", () => {
     render(<OtherJournalsBanner lang="en-US" others={[kept()]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} canRestore={() => true} />);
     expect(screen.queryByRole("button", { name: /^Restore: / })).toBeNull();
+  });
+});
+
+describe("JournalList — every Download, Restore and Discard button has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each row's three buttons are named "<verb>: <journal name>". Two kept versions of one project
+  // share a journal name, and two written in the same displayed minute share the date too, so the
+  // fixture seeds both cases and the §4 suffixes are what keep the names apart.
+  const sameMinute = (key: string, offsetMs: number): OtherJournal => {
+    const e = entry(key, null, 1);
+    return { ...e, journal: { ...e.journal, savedAt: NOW + offsetMs } };
+  };
+  const OTHERS = [
+    sameMinute("tp-9:kept", 0),
+    sameMinute("tp-9:kept:1799999980000", 20_000),
+    sameMinute("tp-9:kept:1799990000000", -3_600_000),
+    entry("browser:kept", null, 1),
+    entry("p2", "Zeus", 10),
+  ];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "unloadJournalDownload")).not.toBe(t("en-US", "unloadJournalDownload"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every row's buttons distinctly in the other-journals notice in %s", (lang) => {
+    render(
+      <ConfirmProvider lang={lang}>
+        <OtherJournalsBanner lang={lang} others={OTHERS} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()}
+          canRestore={() => true} onRestore={vi.fn(() => true)} />
+      </ConfirmProvider>,
+    );
+    // Three buttons per row, plus the notice's Dismiss.
+    expectRowUniqueNames({ minControls: OTHERS.length * 3 + 1, requireCollisionSeed: true });
+  });
+
+  it.each(["en-US", "de"] as const)("names every row's Download distinctly in the expired-journals notice in %s", (lang) => {
+    render(<ExpiredJournalsBanner lang={lang} expired={OTHERS} onDownload={vi.fn(() => true)} onDismiss={vi.fn()} />);
+    expectRowUniqueNames({ minControls: OTHERS.length, requireCollisionSeed: true });
   });
 });

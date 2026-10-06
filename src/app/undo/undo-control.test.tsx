@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { t, tPlural } from "../i18n";
+import { loadI18n, t, tPlural } from "../i18n";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { UndoControl, RedoControl } from "./undo-control";
 
 // ★ `kind` must be a real ActivityKind member and must NOT widen to string.
@@ -458,5 +459,29 @@ describe("UndoControl history popover — accessible naming", () => {
       t("en-US", "undoHistoryLabel"),
     );
     expect(screen.getByRole("dialog")).not.toHaveAttribute("aria-label");
+  });
+});
+
+describe("Undo and redo history — every step has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each history option is named by the step's label and its position. Two edits to one row carry
+  // the same label, and STACK holds such a pair, so only the position keeps those two apart.
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "undoHistoryOption", "x", 1)).not.toBe(t("en-US", "undoHistoryOption", "x", 1));
+  });
+
+  it.each(["en-US", "de"] as const)("names every undo step distinctly in %s", async (lang) => {
+    render(<UndoControl lang={lang} entries={STACK} onUndo={vi.fn()} onUndoThrough={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: t(lang, "undoShowHistory") }));
+    expectRowUniqueNames({ minControls: STACK.length, scope: screen.getByRole("listbox"), roles: ["option"] });
+  });
+
+  it.each(["en-US", "de"] as const)("names every redo step distinctly in %s", async (lang) => {
+    render(<RedoControl lang={lang} entries={STACK} onRedo={vi.fn()} onRedoThrough={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: t(lang, "redoShowHistory") }));
+    expectRowUniqueNames({ minControls: STACK.length, scope: screen.getByRole("listbox"), roles: ["option"] });
   });
 });

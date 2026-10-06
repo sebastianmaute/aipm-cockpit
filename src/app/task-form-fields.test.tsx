@@ -5,12 +5,13 @@ import { TestProviders } from "./test-providers";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
-import { t } from "./i18n";
+import { loadI18n, t, type Lang } from "./i18n";
 import { EMAIL_MAX } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import type { BudgetBucket, Task } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // The Description field renders a Tiptap/ProseMirror editor, which touches
 // layout APIs jsdom lacks; stub them so the editor mounts (mirrors rich-text-editor.test.tsx).
@@ -30,12 +31,13 @@ function Harness(
     budgetLink?: TaskBudgetLink;
     tasksForDeps?: Task[];
     withAddressBook?: boolean;
+    lang?: Lang;
   } = {},
 ) {
   return (
     <form aria-label="form">
       <TaskFormFields
-        lang="en-US"
+        lang={over.lang ?? "en-US"}
         today="2026-05-29"
         nextId={1}
         contactsList={[]}
@@ -723,5 +725,62 @@ describe("TaskFormFields — add-to-address-book button (open-followups §90)", 
   it("renders no button when it is absent (a popout)", () => {
     render(<Harness withAddressBook={false} />, { wrapper: TestProviders });
     expect(screen.queryByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeNull();
+  });
+});
+
+describe("TaskFormFields — every choice has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Budget bucket names are free text with no uniqueness rule, so two buckets can share one. The
+  // select's options are the only way to tell them apart, so a repeated name must still read as
+  // two distinct options; the fixture repeats one name, once with different case and spacing.
+  const BUCKETS = [
+    { id: 1, name: "Design" },
+    { id: 2, name: "Build" },
+    { id: 3, name: "design" },
+    { id: 4, name: "Build" },
+  ] as unknown as BudgetBucket[];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "budgetBucketNone")).not.toBe(t("en-US", "budgetBucketNone"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every budget bucket option distinctly when two buckets share a name in %s", (lang) => {
+    render(<Harness lang={lang} budgetLink={{ buckets: BUCKETS, bucketId: 1, onChange: vi.fn() }} />, { wrapper: TestProviders });
+    const select = screen.getByRole("combobox", { name: t(lang, "taskBudgetBucket") });
+    // "None" plus one option per bucket.
+    expectRowUniqueNames({ minControls: BUCKETS.length + 1, scope: select, roles: ["option"], requireCollisionSeed: true });
+  });
+
+  it("keeps a repeated bucket's option value its own id, so picking the second one reports it", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness budgetLink={{ buckets: BUCKETS, bucketId: 1, onChange }} />, { wrapper: TestProviders });
+    await user.selectOptions(screen.getByLabelText("Budget bucket"), "4");
+    expect(onChange).toHaveBeenCalledWith(4);
+  });
+
+  // The Budget panel lists buckets by `order ?? id`, so the occurrence numbers have to follow that
+  // order rather than the stored array, or "Build (1)" here would be the panel's "Build (2)".
+  it("numbers and lists repeated buckets in the Budget panel's order, not the stored array order", () => {
+    const REORDERED = [
+      { id: 2, name: "Build", order: 2 },
+      { id: 4, name: "Build", order: 1 },
+      { id: 1, name: "Design", order: 3 },
+    ] as unknown as BudgetBucket[];
+    render(<Harness budgetLink={{ buckets: REORDERED, bucketId: null, onChange: vi.fn() }} />, { wrapper: TestProviders });
+    const options = within(screen.getByLabelText("Budget bucket")).getAllByRole("option") as HTMLOptionElement[];
+    expect(options.map((o) => [o.textContent, o.value])).toEqual([
+      [t("en-US", "budgetBucketNone"), ""],
+      ["Build (1)", "4"],
+      ["Build (2)", "2"],
+      ["Design", "1"],
+    ]);
+  });
+
+  it.each(["en-US", "de"] as const)("names every health choice distinctly in %s", (lang) => {
+    render(<Harness lang={lang} />, { wrapper: TestProviders });
+    expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("radiogroup", { name: t(lang, "health") }), roles: ["radio"] });
   });
 });

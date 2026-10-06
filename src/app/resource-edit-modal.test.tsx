@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ResourceEditModal } from "./resource-edit-modal";
 import { applyTier } from "./field-visibility";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { selectFieldTier } from "../test/field-tier";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import type { Resource } from "./types";
@@ -407,5 +408,28 @@ describe("ResourceEditModal", () => {
       const src = readFileSync(join(process.cwd(), "src/app", "resource-edit-modal.tsx"), "utf8");
       expect(src).toContain('sizeKey="aipm-cockpit:modal-size:resource-edit-v2"');
     });
+  });
+});
+
+describe("ResourceEditModal — every additional email row has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each additional email's input and remove button are named by the row's position, never by the
+  // address, so two rows holding the same address still read differently. The fixture repeats an
+  // address to prove that. The whole Full-tier form is scanned, so a field elsewhere in the modal
+  // that shares a name with another fails here too.
+  const EMAILS = ["same@x.com", "same@x.com", "other@x.com"];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "resourceEmailRemove")).not.toBe(t("en-US", "resourceEmailRemove"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every email input and remove button distinctly in %s", (lang) => {
+    setupFull({ lang, resource: { ...base, emails: EMAILS } });
+    // Floors are the measured counts for this fixture (12 textboxes, 23 buttons), so a field that
+    // stops rendering fails here rather than quietly shrinking the scan.
+    expectRowUniqueNames({ minControls: 12, roles: ["textbox"] });
+    expectRowUniqueNames({ minControls: 23 });
   });
 });
