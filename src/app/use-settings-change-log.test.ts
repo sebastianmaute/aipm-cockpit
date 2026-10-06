@@ -29,8 +29,11 @@ function mount(initial: Partial<SettingsChangeLogDeps> = {}) {
     current = { ...current, settings: freshSettings(), ...over };
     view.rerender(current);
   };
-  /** Rerender with the SAME deps object (same settings identity). */
-  const same = () => view.rerender({ ...current });
+  /** Rerender keeping the settings identity (and applying any other overrides). */
+  const same = (over: Partial<SettingsChangeLogDeps> = {}) => {
+    current = { ...current, ...over };
+    view.rerender(current);
+  };
   const settle = () => act(() => { vi.advanceTimersByTime(SETTINGS_LOG_DEBOUNCE_MS + 1); });
   return { ...view, logActivity, change, same, settle };
 }
@@ -63,6 +66,21 @@ describe("useSettingsChangeLog — when a row is written", () => {
     expect(h.logActivity).not.toHaveBeenCalled();
 
     h.change({ hydrated: true });
+    h.settle();
+    expect(h.logActivity).not.toHaveBeenCalled();
+
+    h.change();
+    h.settle();
+    expect(h.logActivity).toHaveBeenCalledTimes(1);
+  });
+
+  // ★ `hydrated` must be a dependency on its own. The test above flips it
+  // together with a new settings identity, so it cannot tell `[settings, hydrated]`
+  // from `[settings]`; here only `hydrated` changes, and that run alone must
+  // consume the initial-run skip, leaving the next real change to be logged.
+  it("a hydration flip with the SAME settings is the skipped first run", () => {
+    const h = mount({ hydrated: false });
+    h.same({ hydrated: true });
     h.settle();
     expect(h.logActivity).not.toHaveBeenCalled();
 

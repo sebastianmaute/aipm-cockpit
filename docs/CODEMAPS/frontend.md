@@ -59,7 +59,8 @@ Cross-cutting orchestration extracted from task-manager uses a **deps-object hoo
 live render-scope values, named `use*`, called unconditionally, returning **non-memoized** handlers
 (they read live scope each render). `use-storage-file-ops.ts` is the reference. Some move-only
 extractions keep the `useCallback`/`useMemo` they had inline on purpose (`use-outlook-imports.ts`,
-`use-portfolio-projects.ts`, `use-next-actions.ts`, `use-task-editor-create.ts`, `use-resource-quick-create.ts`, `use-settings-navigation.ts` and `use-settings-change-log.ts` among them) — see AGENTS.md's "task-manager decomposition map".
+`use-portfolio-projects.ts`, `use-next-actions.ts`, `use-task-editor-create.ts`, `use-resource-quick-create.ts` and `use-settings-navigation.ts` among them); `use-settings-change-log.ts` has none to
+keep — see AGENTS.md's "task-manager decomposition map".
 
 ## Design system — use these, do not hand-roll
 

@@ -45,7 +45,8 @@ export interface ChatDispatcherArgs {
    *  into ONE render — so N calls in a turn produce N credits against a single
    *  run. The consumer therefore CLEARS the counter instead of decrementing it;
    *  do not "fix" that back to a decrement, which leaves the surplus alive to
-   *  swallow an arbitrarily later user row. See `aiSettingsCreditsRef`.
+   *  swallow an arbitrarily later user row. See `aiSettingsCreditsRef` in
+   *  `use-settings-change-log.ts`.
    *
    *  ★ Optional so a fixture can omit it: a test that does not pass it simply
    *  gets the old both-rows behaviour, which is the safe direction. */
