@@ -907,6 +907,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--closed-2026-10-06) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | **CLOSED** 2026-10-06 |
 | [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
 | [§672](#672-twenty-seven-files-per-row-names-are-judged-unable-to-repeat-by-hand-and-no-test-would-catch-one-that-starts-to--open) | Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to | — | — | open |
+| [§673](#673-the-use-activity-logts-docstring-quotes-a-call-site-grep-as-55-and-it-now-returns-66--open) | The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44043,3 +44044,16 @@ The scanner counts a surface as covered when a test mentioning it contains any o
 ★ **This is a test-evidence gap, not a known defect.** A `fine` verdict means §316 judged by hand that the value cannot repeat in one rendered list, and gave the reason: a fixed key or enum label, a value qualified by the row's position or by an id, or a control that renders once per surface. Those verdicts are reasoned, not pinned. A later change that makes one of the values repeat — a fixed label turned into free text, an id dropped from a name — fails no test, because these files' tests mention accessible names without asserting that they are distinct.
 
 **Close when** each of the 27 files has an `expectRowUniqueNames` test, or is recorded here with the reason a test cannot or need not pin it (for example a control that renders once per surface has nothing to collide with). The scanner's `strong marker` line will not reach `GAP 0` on its own, because the three `fixed` files above are pinned by tests that do not use the helper. The §245 pattern applies: one `expectRowUniqueNames` test per file, translated catalogs checked in en-US and de with a check that de loaded, and a mutant per test.
+
+## 673. The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 — OPEN
+
+**Status:** OPEN 2026-10-06 — the grep attached to the `logActivityAs` docstring in `src/app/use-activity-log.ts` returns **66** on `fix/batch14-row-names` (which changes no `logActivity` call site), against the **55** the docstring quotes. Reproduce with the docstring's own command:
+`grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`
+
+**Work item:** #589
+
+The docstring explains why a call site's spelling does not tell you its actor, and backs that with live counts: "the grep returns **55**", "The other 54 spell `logActivity(...)`", and "plain-name call sites: 65 before → 55 after". Those were measured on the actor-stamping slice; `git log -S"the grep returns **55**" -- src/app/use-activity-log.ts` names `93f14e01a` (2026-08-17). Later work added plain-name call sites, so the present-tense figures are stale. The argument itself still holds: exactly one site receives the actor-less function (the debounced `settings.updated` logger, which §491's batch 14 moves out of `task-manager.tsx`), and the rest receive the pre-stamped `"user"` wrapper.
+
+Found by the peer session during the batch 14 §491 extraction, which moves no call site and does not change the count.
+
+**Close when** the docstring stops presenting a live count as current: either re-measure and label the 65 → 55 figures as a dated snapshot of the actor-stamping slice, or keep the command and drop the present-tense number.
