@@ -155,16 +155,15 @@ export function HelpMenu({
 
   return (
     <div>
-      <button
-        type="button"
+      <IconButton
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "help")}
+        label={t(lang, "help")}
         aria-expanded={open}
         title={t(lang, "help")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <QuestionMarkCircleIcon aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
 
       {open && pos && (
         <div

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { InformationCircleIcon, XMarkIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { VIEW_CALLOUTS } from "./view-callouts";
@@ -44,15 +45,15 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
         {t(lang, "viewHintLearnMore")}
         <span aria-hidden="true"> →</span>
       </button>
-      <button
-        type="button"
+      <IconButton
+        size="xs"
         onClick={() => setDismissed(dismissView(view, isPopout))}
-        aria-label={t(lang, "viewHintDismiss")}
+        label={t(lang, "viewHintDismiss")}
         title={t(lang, "viewHintDismiss")}
-        className={`shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
+        className="shrink-0"
       >
         <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
+      </IconButton>
     </div>
   );
 }

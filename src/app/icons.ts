@@ -136,6 +136,8 @@ export {
   CircleCheckIcon as CheckCircleIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClockIcon,
   SettingsIcon as Cog6ToothIcon,
   CircleDollarSignIcon as CurrencyDollarIcon,
