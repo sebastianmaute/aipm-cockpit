@@ -18,8 +18,10 @@ import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
 import { descriptionText } from "./rich-text-projection";
-import { resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
+import { FILTER_ALL, labelOptions, resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
 import { isExternalTask } from "./task-external";
+import { breakCauseCycles } from "./raid";
+import { logDiag } from "./diagnostics";
 import { useSettings } from "./use-settings";
 import {
   PRIORITY_RANK,
@@ -187,7 +189,26 @@ const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<readonly Task[]>([]);
-  const [raid, setRaid] = useState<readonly RaidItem[]>([]);
+  const [raid, setRaidState] = useState<readonly RaidItem[]>([]);
+  // ★ The cause graph is kept acyclic HERE, on the data, not in each writer
+  // (§674): the edit modal refuses a cycle, but the AI tools, inline edit,
+  // import, load and template apply all write `causedByRaidIds` directly.
+  // `breakCauseCycles` returns the same array when nothing goes, so this costs
+  // no re-render, and a broken loop is logged rather than dropped silently.
+  const setRaid = useCallback<Dispatch<SetStateAction<readonly RaidItem[]>>>((action) => {
+    setRaidState((prev) => {
+      const next = typeof action === "function" ? action(prev) : action;
+      const { items, dropped } = breakCauseCycles(next);
+      // `logDiag` keeps scalar fields only, so the links travel as one string.
+      if (dropped.length > 0) {
+        logDiag("warn", "raid.causeCycleBroken", {
+          count: dropped.length,
+          links: dropped.map((d) => `${d.childId} caused by ${d.parentId}`).join(", "),
+        });
+      }
+      return items;
+    });
+  }, []);
   const [absences, setAbsences] = useState<readonly Absence[]>([]);
   const [shifts, setShifts] = useState<readonly Shift[]>([]);
   const [resources, setResources] = useState<readonly Resource[]>([]);
@@ -304,16 +325,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [visibleTasks],
   );
 
-  const uniqueLabels = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of visibleTasks) {
-      for (const l of t.labels ?? []) {
-        const clean = l.trim();
-        if (clean) set.add(clean);
-      }
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [visibleTasks]);
+  const uniqueLabels = useMemo(() => labelOptions(visibleTasks), [visibleTasks]);
 
   // Deliberately stays on the FULL `tasks` list, not `visibleTasks`: a
   // dependency chip on a hidden external's task must still resolve its id to
@@ -374,12 +386,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const filtered = visibleTasks.filter((t) => {
       if (priorityFilter !== "All" && t.priority !== priorityFilter)
         return false;
-      if (effAssignee !== "All" && effectiveAssignee(t, resourcesById) !== effAssignee)
+      if (effAssignee !== FILTER_ALL && effectiveAssignee(t, resourcesById) !== effAssignee)
         return false;
-      if (effGroup !== "All" && (t.group ?? "") !== effGroup)
+      if (effGroup !== FILTER_ALL && (t.group ?? "") !== effGroup)
         return false;
       if (
-        effLabel !== "All" &&
+        effLabel !== FILTER_ALL &&
         !(t.labels ?? []).some(
           (l) => l.toLowerCase() === effLabel.toLowerCase(),
         )
@@ -495,6 +507,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       effectiveFilters,
       filteredSortedTasks,
       raid,
+      setRaid,
       absences,
       shifts,
       resources,

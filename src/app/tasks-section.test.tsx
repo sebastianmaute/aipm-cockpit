@@ -129,6 +129,7 @@ import { TASK_STATUSES } from "./types";
 import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
 import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
 import { listEntityEvents, createEvent } from "./outlook-calendar-write";
+import { FILTER_ALL } from "./task-filters";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -142,9 +143,9 @@ function stubFilters(over: Record<string, unknown> = {}) {
     searchDebounced: "",
     setSearchImmediate: vi.fn(),
     priorityFilter: "All", setPriorityFilter: vi.fn(),
-    assigneeFilter: "All", setAssigneeFilter: vi.fn(),
-    groupFilter: "All", setGroupFilter: vi.fn(),
-    labelFilter: "All", setLabelFilter: vi.fn(),
+    assigneeFilter: FILTER_ALL, setAssigneeFilter: vi.fn(),
+    groupFilter: FILTER_ALL, setGroupFilter: vi.fn(),
+    labelFilter: FILTER_ALL, setLabelFilter: vi.fn(),
     healthFilter: "all", setHealthFilter: vi.fn(),
     sortKey: "taskName", sortDir: "asc",
     setSortKey: vi.fn(), setSortDir: vi.fn(),
@@ -180,7 +181,7 @@ function stubWorkspace(
     uniqueLabels: [],
     // The filter <select>s render the effective (orphan-resolved) values, not
     // the raw ones — see task-filters.ts.
-    effectiveFilters: { assignee: "All", group: "All", label: "All" },
+    effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
     tasksById: new Map(),
     taskSearchIndex: new Map(),
     resources,
@@ -349,7 +350,7 @@ describe("TasksSection", () => {
       uniqueAssignees: ["Alice"],
       uniqueGroups: ["G1"],
       uniqueLabels: ["frontend"],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -359,9 +360,9 @@ describe("TasksSection", () => {
     });
     render(<TasksSection {...makeProps()} />);
 
-    expect(screen.getByTitle(t("en-US", "assigneeFilterHint"))).toHaveValue("All");
-    expect(screen.getByTitle(t("en-US", "tasksGroupFilterHint"))).toHaveValue("All");
-    expect(screen.getByTitle(t("en-US", "tasksLabelFilterHint"))).toHaveValue("All");
+    expect(screen.getByTitle(t("en-US", "assigneeFilterHint"))).toHaveValue(FILTER_ALL);
+    expect(screen.getByTitle(t("en-US", "tasksGroupFilterHint"))).toHaveValue(FILTER_ALL);
+    expect(screen.getByTitle(t("en-US", "tasksLabelFilterHint"))).toHaveValue(FILTER_ALL);
   });
 
   // uniqueAssignees keeps blanks (unlike uniqueGroups), so an unassigned task
@@ -377,7 +378,7 @@ describe("TasksSection", () => {
       uniqueAssignees: ["", "Bob"],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -794,9 +795,9 @@ describe("TasksSection", () => {
       searchDebounced: "",
       setSearchImmediate: vi.fn(),
       priorityFilter: "All", setPriorityFilter: vi.fn(),
-      assigneeFilter: "All", setAssigneeFilter: vi.fn(),
-      groupFilter: "All", setGroupFilter: vi.fn(),
-      labelFilter: "All", setLabelFilter: vi.fn(),
+      assigneeFilter: FILTER_ALL, setAssigneeFilter: vi.fn(),
+      groupFilter: FILTER_ALL, setGroupFilter: vi.fn(),
+      labelFilter: FILTER_ALL, setLabelFilter: vi.fn(),
       healthFilter: "all", setHealthFilter: vi.fn(),
       sortKey: "taskName", sortDir: "asc",
       setSortKey, setSortDir: vi.fn(),
@@ -1292,7 +1293,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -1342,7 +1343,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -1383,7 +1384,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -1421,7 +1422,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -1459,7 +1460,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
-      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],

@@ -3,6 +3,7 @@ import { renderHook, render, fireEvent, act } from "@testing-library/react";
 import { memo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { type Priority } from "./types";
 import { FiltersProvider, useFilters } from "./filters-context";
+import { FILTER_ALL } from "./task-filters";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <FiltersProvider>{children}</FiltersProvider>;
@@ -22,9 +23,9 @@ describe("FiltersProvider", () => {
     expect(result.current.search).toBe("");
     expect(result.current.searchDebounced).toBe("");
     expect(result.current.priorityFilter).toBe("All");
-    expect(result.current.assigneeFilter).toBe("All");
-    expect(result.current.groupFilter).toBe("All");
-    expect(result.current.labelFilter).toBe("All");
+    expect(result.current.assigneeFilter).toBe(FILTER_ALL);
+    expect(result.current.groupFilter).toBe(FILTER_ALL);
+    expect(result.current.labelFilter).toBe(FILTER_ALL);
     expect(result.current.sortKey).toBe("id");
     expect(result.current.sortDir).toBe("asc");
     expect(result.current.raidFilterTaskId).toBeNull();
@@ -79,9 +80,9 @@ describe("FiltersProvider", () => {
 
     expect(result.current.search).toBe("");
     expect(result.current.priorityFilter).toBe("All");
-    expect(result.current.assigneeFilter).toBe("All");
-    expect(result.current.groupFilter).toBe("All");
-    expect(result.current.labelFilter).toBe("All");
+    expect(result.current.assigneeFilter).toBe(FILTER_ALL);
+    expect(result.current.groupFilter).toBe(FILTER_ALL);
+    expect(result.current.labelFilter).toBe(FILTER_ALL);
     expect(result.current.sortKey).toBe("id");
     expect(result.current.sortDir).toBe("asc");
     expect(result.current.raidFilterTaskId).toBeNull();
@@ -109,9 +110,9 @@ describe("FiltersProvider", () => {
 
     expect(result.current.search).toBe("");
     expect(result.current.priorityFilter).toBe("All");
-    expect(result.current.assigneeFilter).toBe("All");
-    expect(result.current.groupFilter).toBe("All");
-    expect(result.current.labelFilter).toBe("All");
+    expect(result.current.assigneeFilter).toBe(FILTER_ALL);
+    expect(result.current.groupFilter).toBe(FILTER_ALL);
+    expect(result.current.labelFilter).toBe(FILTER_ALL);
     expect(result.current.healthFilter).toBe("all");
     expect(result.current.raidFilterTaskId).toBeNull();
     // The point of the split.

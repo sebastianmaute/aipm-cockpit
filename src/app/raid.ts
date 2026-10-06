@@ -180,6 +180,64 @@ export function wouldCreateCycle(
   return false;
 }
 
+export interface CauseCycleBreak {
+  /** The input array itself when nothing had to go, else a copy. */
+  items: readonly RaidItem[];
+  /** Each cause link that was removed, as child → parent. */
+  dropped: { childId: number; parentId: number }[];
+}
+
+/**
+ * Removes the cause links that close a loop, so the stored cause graph stays
+ * acyclic whichever path wrote it (§674). The edit modal refuses a cycle, but
+ * the AI tools, inline edit, import, load and template apply all write
+ * `causedByRaidIds` directly.
+ *
+ * Links are admitted in ascending item id, each item's in its stored order; a
+ * link is dropped when it would close a loop over the links already admitted.
+ * In a two-item loop the lower id therefore keeps its cause. A link to an id
+ * no item carries is kept: dangling links are not a cycle.
+ *
+ * Returns the input array unchanged (same reference) when nothing is dropped,
+ * so a guard on a state setter costs no re-render.
+ */
+export function breakCauseCycles(items: readonly RaidItem[]): CauseCycleBreak {
+  const ids = new Set(items.map((r) => r.id));
+  const admitted = new Map<number, number[]>();
+  const reaches = (from: number, target: number): boolean => {
+    const seen = new Set<number>();
+    const stack = [from];
+    while (stack.length > 0) {
+      const cursor = stack.pop() as number;
+      if (cursor === target) return true;
+      if (seen.has(cursor)) continue;
+      seen.add(cursor);
+      for (const p of admitted.get(cursor) ?? []) stack.push(p);
+    }
+    return false;
+  };
+  const dropped: CauseCycleBreak["dropped"] = [];
+  const kept = new Map<number, number[]>();
+  for (const r of [...items].sort((a, b) => a.id - b.id)) {
+    const keep: number[] = [];
+    for (const parentId of r.causedByRaidIds ?? []) {
+      if (ids.has(parentId) && reaches(parentId, r.id)) {
+        dropped.push({ childId: r.id, parentId });
+        continue;
+      }
+      keep.push(parentId);
+      admitted.set(r.id, keep);
+    }
+    kept.set(r.id, keep);
+  }
+  if (dropped.length === 0) return { items, dropped };
+  const changed = new Set(dropped.map((d) => d.childId));
+  return {
+    items: items.map((r) => (changed.has(r.id) ? { ...r, causedByRaidIds: kept.get(r.id) ?? [] } : r)),
+    dropped,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Column comparator — backs sortable RAID table headers.
 // ---------------------------------------------------------------------------

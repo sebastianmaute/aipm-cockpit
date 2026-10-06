@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEffectiveFilters, FILTER_ALL } from "./task-filters";
+import { resolveEffectiveFilters, labelOptions, FILTER_ALL } from "./task-filters";
 
 const options = {
   assignees: ["Alice", "Bob"],
@@ -44,10 +44,11 @@ describe("resolveEffectiveFilters", () => {
 
   // Label filtering itself is case-insensitive, so the validity check must be
   // too — otherwise a saved view holding a differently-cased label is reset even
-  // though it still matches live tasks.
-  it("keeps a label whose case differs from the stored option", () => {
+  // though it still matches live tasks. It resolves to the OPTION's spelling,
+  // so the <select> finds its option (§675); the rows filtered are the same.
+  it("resolves a label whose case differs to the option's spelling", () => {
     const eff = resolveEffectiveFilters(raw({ label: "FRONTEND" }), options);
-    expect(eff.label).toBe("FRONTEND");
+    expect(eff.label).toBe("frontend");
   });
 
   // Assignee/group are compared exactly by the row filter, so their validity
@@ -89,5 +90,30 @@ describe("resolveEffectiveFilters", () => {
       options,
     );
     expect(eff).toEqual({ assignee: "Alice", group: FILTER_ALL, label: "frontend" });
+  });
+});
+
+describe("labelOptions (§675)", () => {
+  const task = (...labels: string[]) => ({ labels });
+
+  it("gives one option per label whatever its case, in the spelling most tasks carry", () => {
+    const opts = labelOptions([task("api"), task("API", "Docs"), task("API", "Docs"), task(" docs "), task("Release 2")]);
+    expect(opts).toEqual(["API", "Docs", "Release 2"]);
+  });
+
+  it("breaks a tie in spelling by sort order, so the option is stable", () => {
+    expect(labelOptions([task("api"), task("API")])).toEqual(labelOptions([task("API"), task("api")]));
+    expect(labelOptions([task("api"), task("API")])).toHaveLength(1);
+  });
+
+  it("counts a spelling once per task, drops blanks and sorts the options", () => {
+    expect(labelOptions([task("b", "B", "B"), task("b"), task("", "  "), task("a"), {}])).toEqual(["a", "b"]);
+  });
+
+  it("keeps a stored filter in either spelling selecting the one option", () => {
+    const labels = labelOptions([task("api"), task("API"), task("API")]);
+    for (const stored of ["api", "API", "Api"]) {
+      expect(resolveEffectiveFilters(raw({ label: stored }), { ...options, labels }).label).toBe("API");
+    }
   });
 });

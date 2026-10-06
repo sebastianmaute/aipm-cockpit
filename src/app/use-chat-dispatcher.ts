@@ -20,6 +20,7 @@ import { useViewDigest } from "./use-view-digest";
 import { useChatSearchBindings } from "./use-chat-search-bindings";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
+import { FILTER_ALL } from "./task-filters";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail, splitName } from "./resource-foundation";
 import { resolveDependencyWrite } from "./task-dependency-write";
@@ -272,11 +273,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       if (f.search !== undefined) setSearch(f.search);
       if (f.priority !== undefined) setPriorityFilter(f.priority);
       if (f.assignee !== undefined)
-        setAssigneeFilter(f.assignee.trim() === "" ? "All" : f.assignee);
+        setAssigneeFilter(f.assignee.trim() === "" ? FILTER_ALL : f.assignee);
       if (f.group !== undefined)
-        setGroupFilter(f.group.trim() === "" ? "All" : f.group);
+        setGroupFilter(f.group.trim() === "" ? FILTER_ALL : f.group);
       if (f.label !== undefined)
-        setLabelFilter(f.label.trim() === "" ? "All" : f.label);
+        setLabelFilter(f.label.trim() === "" ? FILTER_ALL : f.label);
     },
     [
       setSearch,

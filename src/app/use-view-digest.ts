@@ -23,7 +23,7 @@ import { getAppearanceSnapshot, subscribeAppearance } from "./project-appearance
 import { filterTasksByHealth } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { digestForView } from "./view-ai-digest";
-import { FILTER_ALL, type TaskFilterValues } from "./task-filters";
+import { type TaskFilterValues } from "./task-filters";
 import type { AppView } from "./nav-config";
 import type { Task, Milestone, BudgetBucket, Resource } from "./types";
 import type { Settings } from "./settings-types";
@@ -109,7 +109,7 @@ export function useViewDigest(input: ViewDigestInput): string | undefined {
     // every task" while a search hid all but a handful of rows — worse than
     // silence, because that sentence tells the model it need not call a tool.
     const extraFilters: string[] = [];
-    if (priorityFilter !== FILTER_ALL) extraFilters.push(`priority=${priorityFilter}`);
+    if (priorityFilter !== "All") extraFilters.push(`priority=${priorityFilter}`);
     if (searchDebounced.trim()) extraFilters.push(`search="${searchDebounced.trim()}"`);
     if (healthFilter !== "all") extraFilters.push(`health=${healthFilter}`);
     // ★ Only claimed in table mode — see the mode split above. Naming it on a

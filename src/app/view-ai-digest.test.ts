@@ -51,7 +51,7 @@ describe("view digests", () => {
   it("says no filters are active when every filter is the FILTER_ALL sentinel", () => {
     const text = digestForView("open-points", {
       tasks: [{ id: 1, taskName: "A", status: "To Do", assignee: "Ana", dueDate: "2026-08-10" }],
-      filters: { assignee: "All", group: "All", label: "All" },
+      filters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
       today: "2026-08-05",
     });
     expect(text).toContain("No filters active");
@@ -60,7 +60,7 @@ describe("view digests", () => {
   it("reports an empty-string filter value (e.g. GROUP_NONE) distinctly, not as inactive", () => {
     const text = digestForView("open-points", {
       tasks: [],
-      filters: { assignee: "All", group: "", label: "All" },
+      filters: { assignee: FILTER_ALL, group: "", label: FILTER_ALL },
       today: "2026-08-05",
     });
     expect(text).toContain("group=");
