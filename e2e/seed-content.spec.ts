@@ -164,6 +164,12 @@ test("seeded timelog project links reach the app, not just IndexedDB", async ({ 
 });
 
 test("Time bookings renders the not-configured gate when the integration is off", async ({ page }) => {
+  // A switched-off Timelog must not be contacted at all (§171 review: the
+  // picker used to load the seeded customer's projects with blank credentials).
+  const timelogRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/timelog") timelogRequests.push(request.url());
+  });
   await gotoApp(page);
   await openView(page, "Time bookings");
 
@@ -179,6 +185,9 @@ test("Time bookings renders the not-configured gate when the integration is off"
   // ABSENCE is the assertion: it proves the empty state is the unfetched one,
   // which is what makes the two positives above meaningful.
   await expect(page.getByRole("button", { name: "Clear all", exact: true })).toHaveCount(0);
+  // ★ Checked last, after the view has rendered: the call used to go out from
+  // the picker's mount effect, which has run by now.
+  expect(timelogRequests).toEqual([]);
 });
 
 // ★★ The Dashboard's board is the newest instance of this file's whole premise.

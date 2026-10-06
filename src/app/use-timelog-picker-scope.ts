@@ -46,7 +46,9 @@ export interface TimelogPickerScopeDeps {
   isPopout: boolean;
   /** The panel's own `isMisconfigured`: Timelog off, or no host, tenant or token.
    *  The customer-projects load waits for a usable config rather than sending
-   *  blank credentials, and runs once the config becomes usable. */
+   *  blank credentials. It runs again each time the config turns usable (after
+   *  settings load, a token unlock, or a re-typed token); a stale reply is
+   *  discarded by the sync hook, so a repeat costs one cheap list call. */
   isMisconfigured: boolean;
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). */
   projectKey: string;

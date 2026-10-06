@@ -2418,6 +2418,7 @@ describe("TimelogPanel", () => {
       render(
         <>
           <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <LinksProbe testId="seeded-links" />
           <TimelogPanel lang="en-US" />
         </>,
         { wrapper },
@@ -2433,6 +2434,10 @@ describe("TimelogPanel", () => {
     it("sends nothing while Timelog is switched off", async () => {
       const load = await mountWithCustomer(() => {});
       expect(await screen.findByText("The Timelog integration is switched off", { exact: false })).toBeInTheDocument();
+      // ★ Anchor: the seeded customer has reached the workspace, so the picker had a
+      //   scope to load. Without this, a seed landing late would let the assertion
+      //   below pass with the guard removed.
+      await waitFor(() => expect(screen.getByTestId("seeded-links").textContent).toContain('"customerId":5'));
       expect(load).not.toHaveBeenCalled();
     });
 
