@@ -1,7 +1,10 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeAll, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
 import type { DeltaResult } from "./dashboard-delta";
+import type { Task } from "./types";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function emptyCounts() {
   const z = () => ({ created: 0, updated: 0, completed: 0, statusChanged: 0 });
@@ -58,5 +61,30 @@ describe("DashboardDeltaStrip", () => {
   test("renders a RAG flip label (non-interactive)", () => {
     render(<DashboardDeltaStrip lang="en-US" delta={delta({ ragFlips: [{ scope: "schedule", from: "G", to: "A", worsened: true }], total: 1 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
     expect(screen.getByText(/→/)).toBeInTheDocument();
+  });
+});
+describe("DashboardDeltaStrip — every chip has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each clickable chip is named by its label, which carries a count. Every chip is given the SAME
+  // count here, so only the wording of each label can keep two chips apart; four of the seven open
+  // the same view, so nothing else would distinguish them for a screen-reader user.
+  const N = 3;
+  function allChips(): DeltaResult {
+    const counts = emptyCounts();
+    counts.tasks.created = N; counts.tasks.updated = N; counts.tasks.completed = N;
+    counts.raid.created = N; counts.milestone.created = N; counts.change.created = N;
+    return delta({ counts, newOverdue: Array.from({ length: N }, () => ({}) as Task), total: 6 * N });
+  }
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  test("renders real German for the de case", () => {
+    expect(t("de", "dashboardDeltaTasksCreated", "3")).not.toBe(t("en-US", "dashboardDeltaTasksCreated", "3"));
+  });
+
+  test.each(["en-US", "de"] as const)("names every chip distinctly in %s", (lang) => {
+    render(<DashboardDeltaStrip lang={lang} delta={allChips()} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} onOpenTask={vi.fn()} onOpenRaid={vi.fn()} onOpenMilestone={vi.fn()} onOpenChange={vi.fn()} />);
+    expect(screen.getAllByRole("button")).toHaveLength(7);
+    expectRowUniqueNames({ minControls: 7 });
   });
 });

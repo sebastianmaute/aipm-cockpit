@@ -14,6 +14,7 @@ import { DocumentEditor } from "./document-editor";
 import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
 import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_BULLET_ITEMS, MAX_TEXT_CHARS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { DATA_SECTION_KEYS } from "./settings-types";
@@ -2172,5 +2173,32 @@ describe("block size limits (§191)", () => {
     expect(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) })).toBeEnabled();
     const reason = screen.getByText(t(LANG, "documentsTableColumnLimitReached", fmt(MAX_TABLE_COLUMNS)));
     expect(addColumn.getAttribute("aria-describedby")).toBe(reason.id);
+  });
+});
+describe("DocumentEditor — two identical blocks keep every control apart (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Every bullet item and table cell control is named by its position inside the block, and then
+  // qualified by the block's own position ("… – Block 2"). Two blocks with identical content would
+  // otherwise render identically named controls, so the fixture seeds exactly that: two equal bullet
+  // lists and two equal tables in one document.
+  const bullets: DocBlock = { type: "bullets", items: ["same", "same"] };
+  const table: DocBlock = { type: "table", columns: ["A", "A"], rows: [["x", "x"], ["x", "x"]] };
+  const doc: ProjectDocument = {
+    id: 1, title: "Doc", blocks: [bullets, bullets, table, table],
+    createdAt: "2026-08-01T08:00:00.000Z", updatedAt: "2026-08-01T08:00:00.000Z",
+  };
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    // "Block {0}" reads the same in both languages, so check a per-item label instead.
+    expect(t("de", "documentsMoveItemUp", "1")).not.toBe(t("en-US", "documentsMoveItemUp", "1"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every block control distinctly in %s", (lang) => {
+    render(<DocumentEditor lang={lang} structural={noStructural} doc={doc} onCommitBlock={vi.fn()} />);
+    // 2 items per list and 2 + 4 header and body cells per table.
+    expectRowUniqueNames({ minControls: 2 * 2 + 2 * 6, roles: ["textbox"] });
+    expectRowUniqueNames({ minControls: 2 * 2 * 3 + 2 * 2 });
   });
 });

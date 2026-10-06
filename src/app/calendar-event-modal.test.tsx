@@ -1,11 +1,12 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { CalendarEventModal } from "./calendar-event-modal";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { CalendarEvent } from "./calendar-event";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility
@@ -302,5 +303,20 @@ describe("CalendarEventModal", () => {
     );
     await user.click(repeatGroup.getByRole("radio", { name: t("en-US", "calendarEventRepeatNever") }));
     expect(screen.queryByText(/discards/i)).not.toBeInTheDocument();
+  });
+});
+describe("CalendarEventModal — every weekday checkbox has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // The weekly rule renders one checkbox per weekday, each named by the day's translated label, so
+  // two days abbreviated alike would leave two checkboxes a screen reader cannot tell apart.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "shiftDayThu")).not.toBe(t("en-US", "shiftDayThu"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every weekday distinctly in %s", (lang) => {
+    setup({ lang, event: { ...base, recurrence: { freq: "weekly", interval: 1 } } });
+    expectRowUniqueNames({ minControls: 7, roles: ["checkbox"] });
   });
 });

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DiagnosticsPanel } from "./diagnostics-panel";
 import { logDiag, readDiagLog } from "./diagnostics";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -140,5 +141,21 @@ describe("DiagnosticsPanel", () => {
       screen.getByRole("button", { name: t("en-US", "diagnosticsRefresh") }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/inconsistent completion data/i)).not.toBeInTheDocument();
+  });
+});
+describe("DiagnosticsPanel — every level filter has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // The three level checkboxes are named by their level's label, so two levels translated alike
+  // would leave two filters a screen reader cannot tell apart.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "diagnosticsLevelWarn")).not.toBe(t("en-US", "diagnosticsLevelWarn"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every level filter distinctly in %s", (lang) => {
+    logDiag("info", "seed");
+    render(<DiagnosticsPanel lang={lang} />);
+    expectRowUniqueNames({ minControls: 3, roles: ["checkbox"] });
   });
 });
