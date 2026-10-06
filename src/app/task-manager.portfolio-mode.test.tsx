@@ -2,6 +2,32 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import TaskManager from "./task-manager";
 
+// Pass-through captures of the two hooks' args, for the wiring test below (§491).
+const wiring = vi.hoisted(() => ({
+  backendOutcome: null as ((err: unknown | null) => void) | null,
+  listOutcome: null as ((err: unknown | null) => void) | null,
+}));
+vi.mock("./use-storage-backend", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("./use-storage-backend")>();
+  return {
+    ...mod,
+    useStorageBackend: (args: Parameters<typeof mod.useStorageBackend>[0]) => {
+      wiring.backendOutcome = args.onStorageOutcome ?? null;
+      return mod.useStorageBackend(args);
+    },
+  };
+});
+vi.mock("./use-turso-project-list", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("./use-turso-project-list")>();
+  return {
+    ...mod,
+    useTursoProjectList: (deps: Parameters<typeof mod.useTursoProjectList>[0]) => {
+      wiring.listOutcome = deps.reportStorageOutcome;
+      return mod.useTursoProjectList(deps);
+    },
+  };
+});
+
 // Mock the Turso portfolio list calls so no network is hit. The active list is
 // empty (→ empty-state should show in turso mode after load); archived is empty.
 const listProjects = vi.fn<(cfg: unknown) => Promise<unknown[]>>(async () => []);
@@ -74,17 +100,24 @@ describe("TaskManager portfolio mode (Turso)", () => {
 
   // ★ Pins the `reportStorageOutcome` wiring at the `useTursoProjectList` call
   // site (§491): the hook's own test passes a mock, so only a mounted TaskManager
-  // can see whether a failed list fetch reaches the storage banner.
-  it("a failed project-list fetch in turso mode raises the storage banner", async () => {
+  // can show that a failed list fetch reports to the storage-status bridge.
+  // ★★ It asserts IDENTITY with the bridge the storage backend reports to, not the
+  // banner. The banner is a single slot that three reporters share in this setup —
+  // the backend's own load success (`null`, which clears it), the Turso snapshot
+  // capture, and the list — and it renders only after the load hold. Measured with a
+  // probe: a banner test passed only by catching the banner in the gap between a
+  // list failure and the backend's success, and with that order fixed a banner was
+  // already up before the list failed. Neither shape can isolate the list's report.
+  it("hands the list hook the same storage-outcome bridge the storage backend reports to", async () => {
     window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
     seedTursoSettings();
-    listProjects.mockRejectedValueOnce(new Error("boom"));
 
     render(<TaskManager />);
 
     // Same headroom as the empty-state test above: a heavy mount plus an async DB call.
-    expect(await screen.findByRole("region", { name: "Storage connection problem" }, { timeout: 40000 })).toBeTruthy();
-    expect(listProjects).toHaveBeenCalled();
+    await waitFor(() => expect(listProjects).toHaveBeenCalled(), { timeout: 40000 });
+    expect(wiring.backendOutcome).toBeTypeOf("function");
+    expect(wiring.listOutcome).toBe(wiring.backendOutcome);
   }, 45000);
 
   it("file mode is unchanged: a seeded registry suppresses the empty-state", async () => {

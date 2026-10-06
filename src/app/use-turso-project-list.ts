@@ -10,7 +10,7 @@
 // ★ `refreshTursoProjects` KEEPS its `useCallback`, against Extraction convention 1,
 // because downstream identity matters: the first-load effect below depends on it,
 // and use-portfolio-projects.ts / use-turso-projects.ts put it in the dependency
-// arrays of their restore / create / archive handlers.
+// arrays of their handlers.
 //
 // ★★ `tursoListLoaded` flips only on SUCCESS. task-manager's empty-state and
 // list-loading gates read it, so a failed fetch must leave it false rather than
