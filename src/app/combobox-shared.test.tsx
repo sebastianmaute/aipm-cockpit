@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ComboboxOptions } from "./combobox-shared";
+import { ComboboxChevron, ComboboxOptions } from "./combobox-shared";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function renderOptions(highlight: number) {
   render(
@@ -66,5 +68,37 @@ describe("ComboboxOptions highlighted row", () => {
     expect(inactive?.className).toContain("hover:bg-surface-muted");
     expect(inactive?.className).not.toContain("font-medium");
     expect(inactive?.className).not.toContain("ring-foreground");
+  });
+});
+
+describe("ComboboxOptions and ComboboxChevron — every control has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each option button is named by its suggestion, and the trailing add-new row by the caller's
+  // label. ComboInput and LabelsInput are fed `uniqueGroups` / `uniqueLabels`, which
+  // workspace-context.tsx builds through a Set, so the suggestions are distinct; this pins that each
+  // button carries its own suggestion rather than a shared caption.
+  it("names every option and the add-new row distinctly", () => {
+    render(
+      <ComboboxOptions listId="lb" filtered={["alpha", "beta", "gamma"]} highlight={0} showAddNew addNewLabel={'Add "delta"'} onSelect={vi.fn()} onAddNew={vi.fn()} />,
+    );
+    expectRowUniqueNames({ minControls: 4 });
+  });
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "comboToggle")).not.toBe(t("en-US", "comboToggle"));
+  });
+
+  // A form with two combo fields (the task form and bulk edit both have Group and Labels) renders
+  // two dropdown buttons. They were both named "Show options" until the field label qualified them.
+  it.each(["en-US", "de"] as const)("names two fields' dropdown buttons distinctly in %s", (lang) => {
+    render(
+      <>
+        <ComboboxChevron open={false} onToggle={vi.fn()} lang={lang} fieldLabel={t(lang, "group")} className="" />
+        <ComboboxChevron open={false} onToggle={vi.fn()} lang={lang} fieldLabel={t(lang, "labels")} className="" />
+      </>,
+    );
+    expectRowUniqueNames({ minControls: 2 });
   });
 });

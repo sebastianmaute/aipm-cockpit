@@ -227,8 +227,11 @@ describe("TaskFormFields", () => {
     //   needs a `budgetLink` harness AND a real layout engine, which jsdom is
     //   not.
     render(<Harness />, { wrapper: TestProviders });
-    // Whole-string name: the hint's tooltip no longer joins the label's text
-    // (open-followups §386). ★ A HINTED Field's `<label>` is `display: contents`,
+    // ★ Since §672 ComboInput names its own input (aria-label = fieldLabel), so the
+    // "Group" name below no longer proves the hinted <label> names the control; §386
+    // (the hint's tooltip no longer joins the label's text) is pinned in
+    // form-field.test.tsx and the per-modal suites. This stays a layout pin.
+    // ★ A HINTED Field's `<label>` is `display: contents`,
     // so the grid item carrying `className` is the label's PARENT wrapper — the
     // label itself generates no box and a class on it would place nothing.
     const group = screen.getByRole("combobox", { name: "Group" });

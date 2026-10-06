@@ -907,6 +907,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--closed-2026-10-06) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | **CLOSED** 2026-10-06 |
 | [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
 | [§672](#672-twenty-seven-files-per-row-names-are-judged-unable-to-repeat-by-hand-and-no-test-would-catch-one-that-starts-to--open) | Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to | — | — | open |
+| [§673](#673-the-use-activity-logts-docstring-quotes-a-call-site-grep-as-55-and-it-now-returns-66--open) | The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17454,6 +17455,10 @@ prints 0 for each file: `e2e-crossengine/` is still in no CI job. The eye-verify
 
 **Work item:** #189
 
+**Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, opened the seed's "Kickoff pack" document in the Documents pane. It answered every Turso pipeline request with empty results, so both seeded images resolved to no bytes. Both carried `data-asset-missing="true"` and resolved `::before` content to `U+0022 U+26A0 U+FE0E U+0020 U+0022` (Chromium serializes the two concatenated strings as one string; this is the probe's reading of `getComputedStyle(img, "::before").content`), with the trailing space intact, in light and dark. Element screenshots show a dashed red frame about 32px tall, a monochrome ⚠, a space, then the alt text. Nothing overlapped and nothing was clipped. A person still has to look at it at normal zoom and in Firefox, where the measurement section below records the marker differs.
+
+★ **A related finding, recorded here rather than filed.** On the FILE backend, the same document shows a bare broken-image icon and its alt text, with no frame and no glyph. The marker path runs only where the asset library runs, and the library is Turso-only; the pane says so in a banner ("Images need a Turso project. Documents work on every backend."). A document carrying image references on a file backend, for example one exported from a Turso project and imported, therefore gets no disclosure beyond the browser's own icon. Decide whether that is acceptable when this entry is signed off.
+
 A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
 declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
 that module only sets and clears the marker attributes (`data-asset-missing`, and since 0.271.0
@@ -33876,6 +33881,14 @@ actually looked.
 
 **Work item:** #278
 
+**Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, measured Reports at 1280px (`xl`) and 1024px, and printed it under print media. The numbers, per item:
+1. **`minW: 4` blocks.** At 1280px every full-width block is 918px, and every table fits its scroller (898/898). The exception is the Budget Report's per-bucket table, 1239px in an 898px scroller, which scrolls sideways. At 1024px the grid is two columns wide, so the blocks are 662px. "By assignee" (790/642), "By group" and "By label" (720/642) then scroll sideways, and the last column header is cut at the edge.
+2. **120px rows.** An `h: 4` block is 528px tall, with a 497px inner scroller. Its content is much taller: the embedded RAID Report is 1316px at 1280 and 1348px at 1024, the Budget Report 2523px at 1280 and 2991px at 1024. A reader sees roughly 20 to 38% of an embedded report at a time and scrolls inside the block. Whether that is usable is the judgement this item asks for. ★ A small defect: "By priority" at `h: 1` overflows by 5px (94/89), which crops the bottom border of its four tiles.
+3. **Printing.** Under print media the grid becomes one stack and every block expands with nothing clipped. Page breaks were not judged: a landscape PDF was produced for a person to read, and no one has looked at it yet.
+4. **Trailing group.** At both widths the four icons sit on one row at y=113 with 8px gaps, and do not wrap. The glyphs are printer, columns, a rotate arrow for reset-layout, and inward arrows for reset-size, so they are visually distinct.
+
+Items 1, 2 and 3 still need a person: item 1's sideways-scrolling tables (the cut-off last column at 1024px, the Budget per-bucket table at `xl`) are measured but not judged. Item 4 has no open question from the probe, but still wants a confirming look. ★ The "By priority" 5px crop under item 2 is a found defect, recorded here and neither fixed nor filed.
+
 **Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
 unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
 CLASS STRINGS and the arithmetic behind them, never the pixels. axe checks contrast and
@@ -44009,6 +44022,21 @@ regressing either way.
 
 **Work item:** #586
 
+**Progress 2026-10-06 (batch 14):** 14 of the 27 are done, so 13 remain.
+- **Pinned by a test, 13 files:** `ask-claude-menu.tsx`, `bulk-edit-modal.tsx`, `bullets-block-editor.tsx`, `calendar-event-modal.tsx`, `chat-prompt-chips.tsx`, `combobox-shared.tsx`, `dashboard-coaching-card.tsx`, `dashboard-delta-strip.tsx`, `diagnostics-panel.tsx`, `document-table-editor.tsx`, `filter-multiselect.tsx`, `help-content-pane.tsx` and `help-view.tsx`. Each has an `expectRowUniqueNames` test in en-US and de, with a check that de loaded wherever the names are translated. 16 mutants, one or two per test, each made two controls share a name; all 16 failed on the uniqueness assertion, and every source was restored byte-identical.
+- **Recorded with a reason, 1 file:** `app-modals.tsx`. Its one site is the toast's action button, and the toast state holds one toast at a time (`{toast && …}`), so the button renders once per surface and has nothing to collide with.
+- **Remaining, 13 files:** `labels-input.tsx`, `notifications.tsx`, `raci-suggest-modal.tsx`, `raid-edit-fields.tsx`, `raid-risk-matrix.tsx`, `resource-edit-modal.tsx`, `settings-sections/notifications-section.tsx`, `shift-edit-modal.tsx`, `sidebar-nav.tsx`, `task-form-fields.tsx`, `tasks-section-toolbar.tsx`, `undo/undo-control.tsx` and `workspace-section-chrome.tsx`.
+  - ★ `labels-input.tsx` now scans as `COVERED_VIA_PARENT`, because `bulk-edit-modal.test.tsx` renders it. That test seeds no chips, so it never renders the chip ✕ buttons that are the site. It stays on this list.
+
+`npm run rownames:check` now prints `strong marker    COVERED 77 | COVERED_VIA_PARENT 19 | GAP 16`. The 16 are the 12 remaining files other than `labels-input.tsx`, plus `app-modals.tsx` and the three `fixed` files named in the Status line.
+
+★★ **The tests found three real defects, so this entry's opening claim, "a test-evidence gap, not a known defect", did not hold.** One was a scanner site whose `fine` verdict was wrong; the other two sat in the same rendered forms, on controls the scanner does not list as sites, and surfaced because the new tests scan every control of a role. All three are fixed, each with a test that seeds the collision and a mutant that reverts the fix:
+1. Every combo field's dropdown button was named "Show options". Bulk edit always renders two combo fields, Group and Labels, and the task form does too whenever Labels is visible, so those forms had two buttons with the same name. `ComboboxChevron` now requires the field's label and names itself "Show options – <field>". This control is not a scanner site; it surfaced because the bulk-edit test scans every button.
+2. Bulk edit's Group input had no accessible name. The row binds its visible label to the enable checkbox, and copies an `aria-label` onto native children only. `ComboInput` now names its input from the same required `fieldLabel`.
+3. The help contents list named each button by its entry title, and a concept and a feature share three titles: "RAID register", "Steering committee" and "Knowledge". The button name now carries the group, title first. This was a `fine` site; [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md) keeps its row 59 as recorded and carries a dated correction under its totals.
+
+★ Read the remaining verdicts with that in mind: one of the 14 files checked so far had a wrong `fine` verdict, and two had a defect beside the site the scanner lists. A test over the whole rendered surface is what found all three.
+
 The scanner counts a surface as covered when a test mentioning it contains any of several marker phrases, and `accessible name` alone is one of them. The `strong marker` line counts only the shared `expectRowUniqueNames` helper, which is the one marker that means someone asserted THIS property. These 27 files are covered by a weaker phrase only, and every site in them is `fine`:
 
 `app-modals.tsx` (1) · `ask-claude-menu.tsx` (1) · `bulk-edit-modal.tsx` (2) · `bullets-block-editor.tsx` (4) · `calendar-event-modal.tsx` (1) · `chat-prompt-chips.tsx` (1) · `combobox-shared.tsx` (2) · `dashboard-coaching-card.tsx` (1) · `dashboard-delta-strip.tsx` (1) · `diagnostics-panel.tsx` (1) · `document-table-editor.tsx` (4) · `filter-multiselect.tsx` (1) · `help-content-pane.tsx` (3) · `help-view.tsx` (1) · `labels-input.tsx` (1) · `notifications.tsx` (3) · `raci-suggest-modal.tsx` (1) · `raid-edit-fields.tsx` (1) · `raid-risk-matrix.tsx` (1) · `resource-edit-modal.tsx` (2) · `settings-sections/notifications-section.tsx` (1) · `shift-edit-modal.tsx` (1) · `sidebar-nav.tsx` (3) · `task-form-fields.tsx` (4) · `tasks-section-toolbar.tsx` (3) · `undo/undo-control.tsx` (1) · `workspace-section-chrome.tsx` (1). Paths are under `src/app/`; the number is the scanner's site count. Re-run the scanner rather than trusting this list, since it moves as files change.
@@ -44016,3 +44044,16 @@ The scanner counts a surface as covered when a test mentioning it contains any o
 ★ **This is a test-evidence gap, not a known defect.** A `fine` verdict means §316 judged by hand that the value cannot repeat in one rendered list, and gave the reason: a fixed key or enum label, a value qualified by the row's position or by an id, or a control that renders once per surface. Those verdicts are reasoned, not pinned. A later change that makes one of the values repeat — a fixed label turned into free text, an id dropped from a name — fails no test, because these files' tests mention accessible names without asserting that they are distinct.
 
 **Close when** each of the 27 files has an `expectRowUniqueNames` test, or is recorded here with the reason a test cannot or need not pin it (for example a control that renders once per surface has nothing to collide with). The scanner's `strong marker` line will not reach `GAP 0` on its own, because the three `fixed` files above are pinned by tests that do not use the helper. The §245 pattern applies: one `expectRowUniqueNames` test per file, translated catalogs checked in en-US and de with a check that de loaded, and a mutant per test.
+
+## 673. The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 — OPEN
+
+**Status:** OPEN 2026-10-06 — the grep attached to the `logActivityAs` docstring in `src/app/use-activity-log.ts` returns **66** on `fix/batch14-row-names` (which changes no `logActivity` call site), against the **55** the docstring quotes. Reproduce with the docstring's own command:
+`grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`
+
+**Work item:** #589
+
+The docstring explains why a call site's spelling does not tell you its actor, and backs that with live counts: "the grep returns **55**", "The other 54 spell `logActivity(...)`", and "plain-name call sites: 65 before → 55 after". Those were measured on the actor-stamping slice; `git log -S"the grep returns **55**" -- src/app/use-activity-log.ts` names `93f14e01a` (2026-08-17). Later work added plain-name call sites, so the present-tense figures are stale. The argument itself still holds: exactly one site receives the actor-less function (the debounced `settings.updated` logger, which §491's batch 14 is moving out of `task-manager.tsx`; it is still there on this entry's branch), and the rest receive the pre-stamped `"user"` wrapper.
+
+Found by the peer session during the batch 14 §491 extraction, which adds or removes no call site and so does not change the count.
+
+**Close when** the docstring stops presenting a live count as current: either re-measure and label the 65 → 55 figures as a dated snapshot of the actor-stamping slice, or keep the command and drop the present-tense number.

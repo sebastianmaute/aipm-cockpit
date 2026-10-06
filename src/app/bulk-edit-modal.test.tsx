@@ -1,7 +1,8 @@
-import { describe, test, expect, vi } from "vitest";
+import { beforeAll, describe, test, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import type { BudgetBucket } from "./types";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -230,5 +231,36 @@ describe("BulkEditModal", () => {
     // but containment inside the scroller (not a sibling of it) is what makes
     // "sticky bottom-0" resolve against the right box, so pin it structurally.
     expect(scroller!.contains(actions)).toBe(true);
+  });
+});
+describe("BulkEditModal — every field row's controls have their own names (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each row is an enable checkbox named by the row's label, plus a field control that takes the
+  // same label (BulkEditFieldRow's aria-label clone). The two share a name across ROLES by design,
+  // so uniqueness is asserted per role: two rows labelled alike would make two checkboxes, or two
+  // fields, sound identical. A budget bucket is seeded so the bucket row renders too.
+  const bucket = { id: 1, name: "Phase 1", type: "T&M", currency: "EUR", startDate: "2026-01-01" } as unknown as BudgetBucket;
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  test("renders real German for the de case", () => {
+    expect(t("de", "blockers")).not.toBe(t("en-US", "blockers"));
+  });
+
+  test.each(["en-US", "de"] as const)("names every row's checkbox and field distinctly in %s", (lang) => {
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ budgetBuckets: [bucket] })} lang={lang} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    expectRowUniqueNames({ minControls: 11, roles: ["checkbox"] });
+    expectRowUniqueNames({ minControls: 9, roles: ["combobox", "textbox"] });
+    // The Group field is a custom combo, which the row's aria-label clone skips; it must name
+    // itself, or it has no name at all (a lone empty name cannot collide, so this is asserted apart).
+    for (const field of screen.getAllByRole("combobox")) expect(field).toHaveAccessibleName();
+    // Group and Labels each render a "Show options" button, qualified by the field.
+    expectRowUniqueNames({ minControls: 4 });
   });
 });

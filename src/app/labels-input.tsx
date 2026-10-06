@@ -163,6 +163,7 @@ export function LabelsInput({
         open={open}
         disabled={disabled || atCap}
         lang={lang}
+        fieldLabel={t(lang, "labels")}
         onToggle={() => {
           if (disabled) return;
           setOpen((o) => !o);

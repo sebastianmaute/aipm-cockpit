@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeAll, describe, it, expect, vi } from "vitest";
-import { ChatPromptChips } from "./chat-prompt-chips";
+import { ChatPromptChips, PROMPT_CHIPS } from "./chat-prompt-chips";
 import { loadI18n } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -28,5 +29,12 @@ describe("ChatPromptChips", () => {
     render(<ChatPromptChips lang="de" onPick={vi.fn()} />);
     expect(screen.getByRole("list", { name: "Vorgeschlagene Prompts" })).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Suggested prompts" })).not.toBeInTheDocument();
+  });
+
+  // §672: each chip is named by its translated label, so two prompts worded alike would make two
+  // chips sound identical. The German case above already pins that the de dictionary loaded.
+  it.each(["en-US", "de"] as const)("names every chip distinctly in %s (§672)", (lang) => {
+    render(<ChatPromptChips lang={lang} onPick={vi.fn()} />);
+    expectRowUniqueNames({ minControls: PROMPT_CHIPS.length });
   });
 });

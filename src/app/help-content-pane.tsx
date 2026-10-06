@@ -108,9 +108,15 @@ export function HelpContentPane({
             <ul className="flex flex-row gap-0.5 @[560px]:flex-col">
               {entries.map((e) => (
                 <li key={e.id}>
+                  {/* ★ The name carries the group because a concept and a feature can share a
+                      title ("RAID register", "Steering committee", "Knowledge" do), and the
+                      group label above is a plain <p> a screen reader skips when it moves
+                      button to button. Title first, so the visible text leads the name
+                      (WCAG 2.5.3). §672's contents test fails if the qualifier goes. */}
                   <button
                     type="button"
                     onClick={() => scrollToSection(e.id)}
+                    aria-label={`${t(lang, e.titleKey)} – ${t(lang, HELP_GROUP_LABEL[group])}`}
                     className={
                       activeId === e.id
                         ? `block w-full whitespace-nowrap rounded border-l-2 border-ui-dark-blue bg-surface-muted px-2 py-1.5 text-left text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`

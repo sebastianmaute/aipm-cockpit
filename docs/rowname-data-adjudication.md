@@ -17,6 +17,12 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 
 198 sites: **135 fine**, **37 fixed on this branch**, **26 filed as §669**.
 
+> ★ **Correction 2026-10-06 (§672).** Row 59's `fine` was wrong. A concept and a feature
+> share three titles ("RAID register", "Steering committee", "Knowledge"), so two contents
+> buttons had the same name. §672 qualified the name with the entry's group. The row and the
+> totals above are left as recorded, because they describe this branch's verdicts; see
+> [open-followups §672](open-followups.md) for the defects its tests found.
+
 - **fine**: the value cannot repeat, for the reason given.
 - **fixed**: free text that repeats in ordinary use. Each fix has a test that seeds
   the collision, and a mutant that disables the fix turns that test red.

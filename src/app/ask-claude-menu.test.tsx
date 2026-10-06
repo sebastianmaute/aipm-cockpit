@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { AskClaudeMenu } from "./ask-claude-menu";
-import { t } from "./i18n";
+import { ASK_CLAUDE_PROMPTS, promptsForView } from "./ask-claude-prompts";
+import type { AppView } from "./nav-config";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 afterEach(cleanup);
 
@@ -68,5 +71,30 @@ describe("AskClaudeMenu", () => {
     // The name comes from aria-label, so hiding the text costs AT nothing --
     // getByRole above already proves the name survives.
     expect(trigger).toHaveAttribute("aria-label", t("en-US", "aiAskClaude"));
+  });
+});
+
+describe("AskClaudeMenu — every prompt button has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each prompt button is named by its translated label, and a view's on-page prompts render beside
+  // the general set, so an on-page label worded like a general one would make two buttons sound
+  // identical. Checked for every view that carries on-page prompts, in every shipped language.
+  const VIEWS = Object.keys(ASK_CLAUDE_PROMPTS) as AppView[];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "aiAskClaudeGeneral")).not.toBe(t("en-US", "aiAskClaudeGeneral"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every prompt distinctly in every view in %s", (lang) => {
+    expect(VIEWS.length).toBeGreaterThan(5);
+    for (const view of VIEWS) {
+      const { unmount } = render(<AskClaudeMenu lang={lang} currentView={view} onAsk={() => {}} />);
+      fireEvent.click(screen.getByRole("button", { name: t(lang, "aiAskClaude") }));
+      const { onPage, general } = promptsForView(view);
+      expectRowUniqueNames({ minControls: onPage.length + general.length, scope: screen.getByRole("dialog") });
+      unmount();
+    }
   });
 });

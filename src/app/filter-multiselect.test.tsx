@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
+import { loadI18n, t, type Lang } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const OPTS: FilterOption[] = [
   { value: "a", label: "Alpha" },
@@ -44,5 +46,28 @@ describe("FilterMultiSelect", () => {
   it("stays enabled when options are empty but a stale value is still selected", () => {
     render(<FilterMultiSelect lang="en-US" label="Assignee" options={[]} selected={["ghost"]} onToggle={vi.fn()} />);
     expect(screen.getByRole("button", { name: /Assignee/ })).toBeEnabled();
+  });
+});
+
+describe("FilterMultiSelect — every option checkbox has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each checkbox is named by its option's label, and a stale selection missing from the options
+  // is appended as one more checkbox named by its raw value. The translated set is the Gantt status
+  // filter's, so two statuses translated alike would leave two checkboxes a screen reader cannot
+  // tell apart. The labels themselves come from the caller; this pins that each checkbox carries
+  // its own option's label rather than a shared one.
+  const statusOptions = (lang: Lang): FilterOption[] =>
+    (["ganttStatusOpen", "ganttStatusCompleted", "ganttStatusOverdue"] as const).map((k) => ({ value: k, label: t(lang, k) }));
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "ganttStatusCompleted")).not.toBe(t("en-US", "ganttStatusCompleted"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every option and a stale selection distinctly in %s", (lang) => {
+    render(<FilterMultiSelect lang={lang} label="Status" options={statusOptions(lang)} selected={["ghost"]} onToggle={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Status/ }));
+    expectRowUniqueNames({ minControls: 4, roles: ["checkbox"] });
   });
 });
