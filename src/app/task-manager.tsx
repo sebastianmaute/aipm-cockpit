@@ -565,11 +565,12 @@ function TaskManagerInner() {
 
   // The Turso project lists (active + archived), their load-once flag, the refresh and its
   // first-load effect — see use-turso-project-list.ts (§491).
-  const { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects } = useTursoProjectList({
+  const { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects, tursoListFailure } = useTursoProjectList({
     portfolioMode, hydrated, reportStorageOutcome,
     tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
     tursoAuthToken: settings.integrations?.turso?.authToken,
   });
+  const shownStorageError = storageError ?? tursoListFailure; // §678: a backend success clears only `storageError`
 
   // Baseline/variance trend snapshots. Active when the project's data lives in
   // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR
@@ -670,7 +671,7 @@ function TaskManagerInner() {
   // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasIncomplete` is NOT:
   // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
   // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
-  const storageOk = storageReady && !storageError;
+  const storageOk = storageReady && !shownStorageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -2198,8 +2199,8 @@ function TaskManagerInner() {
       {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
         <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
-      {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageErrorDismissed(true)} />
+      {!isPopout && shownStorageError && !storageErrorDismissed && (
+        <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
       {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
       {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (
@@ -2543,12 +2544,10 @@ function TaskManagerInner() {
   // loading placeholder — otherwise the main app renders over an empty in-memory
   // workspace and then bounces to the empty-state when an empty list resolves
   // (the "full app flash before the new-project screen" bug on portfolio switch).
-  // ★ Gate on `!storageError`: if the list fetch FAILS (unreachable DB / bad
-  // token), `tursoListLoaded` never flips, so without this the skeleton would
-  // render forever with no banner/nav. Falling through to the app tree on an
-  // error restores the storage-error banner + Settings recovery path.
+  // ★ Gate on `!shownStorageError`: a FAILED list fetch never flips `tursoListLoaded`, so without it the
+  // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
   const showTursoListLoading =
-    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
+    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
   // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
   //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
   //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit

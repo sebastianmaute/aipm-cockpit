@@ -96,6 +96,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A failed Turso project list keeps its error on screen (§678).** In multi-project Turso mode, when the
+  project list could not be loaded, the storage banner could disappear again as soon as the workspace
+  itself finished loading, and a loading placeholder took its place. The banner, and the red storage
+  status, now stay until the project list loads.
 - **Time bookings no longer contacts Timelog while it is switched off.** Opening the page with Timelog off,
   or on but without a token, sent a request with empty credentials to load the saved customer's projects.
   It now waits until the connection is set up.

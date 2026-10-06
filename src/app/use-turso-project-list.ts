@@ -16,8 +16,15 @@
 // ★★ `tursoListLoaded` flips only on SUCCESS. task-manager's empty-state and
 // list-loading gates read it, so a failed fetch must leave it false rather than
 // show a fresh-install empty state over a project list that merely failed to load.
+//
+// ★★ `tursoListFailure` is the list's OWN failure, kept apart from the shared
+// storage-status bridge (§678). The bridge is one slot: the storage backend's load
+// success reports `null` through it and cleared a list failure reported just
+// before, so task-manager showed the loading skeleton again over a list that had
+// failed. Only the list's next successful fetch clears this one.
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { getTursoConfig } from "./turso-config";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
 import type { PortfolioMode } from "./portfolio-mode";
@@ -39,6 +46,7 @@ export function useTursoProjectList(deps: TursoProjectListDeps) {
   const [tursoProjects, setTursoProjects] = useState<ProjectListEntry[]>([]);
   const [tursoArchived, setTursoArchived] = useState<ProjectListEntry[]>([]);
   const [tursoListLoaded, setTursoListLoaded] = useState(false);
+  const [tursoListFailure, setTursoListFailure] = useState<{ kind: StorageErrorKind } | null>(null);
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and
@@ -55,9 +63,11 @@ export function useTursoProjectList(deps: TursoProjectListDeps) {
       setTursoProjects(active);
       setTursoArchived(archived);
       setTursoListLoaded(true);
+      setTursoListFailure(null);
       reportStorageOutcome(null);
       return active;
     } catch (err) {
+      setTursoListFailure({ kind: classifyStorageError(err) });
       reportStorageOutcome(err);
       // Do NOT set tursoListLoaded on error (avoids a false empty-state).
       return null;
@@ -73,5 +83,9 @@ export function useTursoProjectList(deps: TursoProjectListDeps) {
     })();
   }, [hydrated, portfolioMode, refreshTursoProjects]);
 
-  return { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects };
+  return {
+    tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects,
+    // Outside Turso mode no list is fetched, so a failure left from Turso mode is not shown.
+    tursoListFailure: portfolioMode === "turso" ? tursoListFailure : null,
+  };
 }
