@@ -3831,7 +3831,7 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.deleted", 1, "Ada King");
   });
 
-  // ★ The full name, mirroring task-manager.tsx's own resource.created row —
+  // ★ The full name, mirroring use-resource-quick-create.ts's resource.created row —
   //   `${firstName} ${lastName}`.trim(), not the first name alone.
   it("logs resource.* with the full name", () => {
     const { result, logActivityAs } = renderWithLog();
