@@ -10,6 +10,12 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Branded Word files (§512).** Exported Word files, both the project export and downloaded
+  documents, now have a header with your logo and the project name and a footer with the page number
+  ("Page 2 of 5"). A logo Word cannot show, such as an SVG, is left out and the name stays.
+
 ### Changed
 
 - **Word lists are real Word lists (§154).** Bulleted and numbered lists in exported Word files and in

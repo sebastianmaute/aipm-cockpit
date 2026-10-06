@@ -30,6 +30,7 @@ import type { ExportExtras } from "./export-forecast-section";
 import { t, type Lang } from "./i18n";
 import { nonceOpenTag, pdfReadyTitleMarkup, pdfWindowName, withScriptNonce } from "./pdf-export-protocol";
 import { readCspNonce } from "./csp-nonce";
+import { docxBrandingFor } from "./export-branding";
 import { filenameStem, joinFilenameStems, projectCodeStem } from "./filename-stem";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
@@ -299,7 +300,7 @@ export async function exportWorkspace(
     const sections = buildExportSections(ws, cfg, lang, extras);
     if (format === "docx") {
       // Role names, not ids, in the roles table (export-docx-columns.ts `DocxRefs`).
-      blob = buildDocx(sections, { disciplines: ws.disciplines, grades: ws.grades, disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") });
+      blob = buildDocx(sections, { disciplines: ws.disciplines, grades: ws.grades, disciplineLabel: t(lang, "rolesDiscipline"), gradeLabel: t(lang, "rolesGrade") }, docxBrandingFor(ws, lang));
     } else if (format === "xlsx") {
       blob = buildXlsx(sections);
     } else {

@@ -36,6 +36,7 @@ import {
   withStyleNonce,
 } from "./pdf-export-protocol";
 import { readCspNonce } from "./csp-nonce";
+import { docxBrandingFor } from "./export-branding";
 
 export type DocFormat = "html" | "docx" | "pptx" | "pdf";
 
@@ -328,7 +329,7 @@ export async function downloadDocument(
     format === "html"
       ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer, extras)], { type: HTML_MIME })
       : format === "docx"
-        ? renderDocumentDocx(doc, ws, lang, assets, extras)
+        ? renderDocumentDocx(doc, ws, lang, assets, extras, docxBrandingFor(ws, lang))
         : renderDocumentPptx(doc, ws, lang, assets, footer, extras);
 
   triggerDownload(documentFilename(doc, format, today, ws.project?.code), blob);

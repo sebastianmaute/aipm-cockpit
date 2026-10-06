@@ -13,6 +13,7 @@ import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { createNumberingSink, type NumberingSink } from "./ooxml-docx-numbering";
 import { DOC_STYLES, buildDocxPackage, buildDocxTable, docxContentWidth } from "./ooxml-docx-primitives";
 import { docxColumnWidths, docxSection, type DocxRefs } from "./export-docx-columns";
+import { buildDocxHeaderFooter, type DocxBranding } from "./ooxml-docx-header-footer";
 
 // ============================================================================
 // DOCX
@@ -56,7 +57,7 @@ function buildDocxSection(full: ExportSection, links: LinkSink, numbering: Numbe
  * per ExportSection. Accepts the pre-computed sections list so the caller
  * (exportWorkspace) can compute it once and share it across all three builders.
  */
-export function buildDocx(sections: ExportSection[], refs?: DocxRefs): Blob {
+export function buildDocx(sections: ExportSection[], refs?: DocxRefs, branding?: DocxBranding): Blob {
   // ★★ ONE sink for the whole document, because `word/_rels/document.xml.rels`
   // is one relationship scope no matter how many sections feed it — a sink per
   // section would mint `rId2` repeatedly and two links would collide on one id.
@@ -133,5 +134,7 @@ export function buildDocx(sections: ExportSection[], refs?: DocxRefs): Blob {
   // ★ `"landscape"` and `[]` are this file's long-standing defaults spelled out
   // because `links` is positional and trails them; both are the values the
   // two-argument call resolved to, so a link-free workspace is unmoved.
-  return buildDocxPackage(body, DOC_STYLES, "landscape", [], links.rels(), numbering.partXml());
+  // §512 b — the branded header and footer, only when the caller passes branding.
+  const headerFooter = branding ? buildDocxHeaderFooter(branding) : undefined;
+  return buildDocxPackage(body, DOC_STYLES, "landscape", [], links.rels(), numbering.partXml(), headerFooter);
 }

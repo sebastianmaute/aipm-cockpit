@@ -55,6 +55,7 @@ import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
 import { assetExportPlaceholder } from "./asset-export-placeholder";
+import { buildDocxHeaderFooter, type DocxBranding } from "./ooxml-docx-header-footer";
 
 /** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
  *  overrides `@page` to portrait for these same documents and explains why
@@ -447,6 +448,8 @@ export function renderDocumentDocx(
   assets: ExportAssets = NO_EXPORT_ASSETS,
   /** What a derived `dataSection` needs (§545): the budget forecast. */
   extras: ExportExtras = {},
+  /** §512 b — the branded header and footer; none when omitted. */
+  branding?: DocxBranding,
 ): Blob {
   const byId = new Map((ws.documentAssets ?? []).map((a) => [a.id, a]));
   const { drawingFor, parts } = createMediaMinter(assets, byId);
@@ -472,5 +475,5 @@ export function renderDocumentDocx(
   //   before. Building the package first ships an empty media list against a
   //   document.xml full of drawings whose relationships do not exist, which
   //   Word reports as a corrupt file. The same is true of `links.rels()`.
-  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels(), numbering.partXml());
+  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels(), numbering.partXml(), branding ? buildDocxHeaderFooter(branding) : undefined);
 }

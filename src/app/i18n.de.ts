@@ -1613,6 +1613,7 @@ export const de: Record<TranslationKey, string> = {
   groupNone: "Ohne Gruppe",
   assigneeNone: "Ohne Zuweisung",
   allLabels: "Alle Labels",
+  exportDocxPageOf: "Seite {0} von {1}",
   filterQuotedValue: "„{0}“",
   allHealth: "Alle Ampeln",
   healthFilterLabel: "Ampel",

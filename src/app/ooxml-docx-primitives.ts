@@ -38,6 +38,8 @@ import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import type { LinkRel, LinkSink } from "./ooxml-links";
 import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
+// Type-only, so the header module may import `docxInlineDrawing` from here without a cycle at runtime.
+import { FOOTER_REL_ID, HEADER_REL_ID, type DocxHeaderFooter } from "./ooxml-docx-header-footer";
 
 /** One cell's text as Word runs, mapping the export projection's newlines to
  *  <w:br/>. A cell with no newline emits exactly the single <w:t> it always
@@ -500,11 +502,20 @@ export function docxContentWidth(page: DocxPageLayout): number {
  *  even though it is the schema default — both branches then assert
  *  positively, where an absence assertion would also pass after a future edit
  *  dropped the whole `<w:pgSz>`. */
-function pageSectPr(page: DocxPageLayout): string {
+function pageSectPr(page: DocxPageLayout, withHeaderFooter = false): string {
   const { width, height, marginX, marginY } = PAGE_GEOMETRY[page];
-  return `<w:sectPr>
+  // ★ Without a header and footer the bytes are exactly the ones every export
+  // shipped before §512 b, so this branch must stay a pure addition.
+  const refs = withHeaderFooter
+    ? `
+      <w:headerReference w:type="default" r:id="${HEADER_REL_ID}"/>
+      <w:footerReference w:type="default" r:id="${FOOTER_REL_ID}"/>`
+    : "";
+  // The header and footer sit half way into the top and bottom margins.
+  const band = withHeaderFooter ? Math.round(marginY / 2) : 0;
+  return `<w:sectPr>${refs}
       <w:pgSz w:w="${width}" w:h="${height}" w:orient="${page}"/>
-      <w:pgMar w:top="${marginY}" w:right="${marginX}" w:bottom="${marginY}" w:left="${marginX}" w:header="0" w:footer="0" w:gutter="0"/>
+      <w:pgMar w:top="${marginY}" w:right="${marginX}" w:bottom="${marginY}" w:left="${marginX}" w:header="${band}" w:footer="${band}" w:gutter="0"/>
     </w:sectPr>`;
 }
 
@@ -668,6 +679,9 @@ export function buildDocxPackage(
   /** §154 — `word/numbering.xml` (`NumberingSink.partXml()`). ADDITIVE like
    *  the two above: undefined adds no part, no override and no relationship. */
   numberingXml?: string,
+  /** §512 b — the branded header and footer parts. ADDITIVE like the ones
+   *  above: undefined leaves the package byte-identical. */
+  headerFooter?: DocxHeaderFooter,
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
   // references them by the time it gets here. rId1 is the styles part; a media
@@ -696,15 +710,18 @@ export function buildDocxPackage(
     if (relId === NUMBERING_REL_ID) {
       throw new Error(`relId "${NUMBERING_REL_ID}" is reserved for the numbering part`);
     }
+    if (relId === HEADER_REL_ID || relId === FOOTER_REL_ID) {
+      throw new Error(`relId "${relId}" is reserved for the header and footer parts`);
+    }
     if (seen.has(relId)) throw new Error(`duplicate relationship id "${relId}"`);
     seen.add(relId);
   }
 
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"${headerFooter ? ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"' : ""}>
   <w:body>
     ${bodyXml}
-    ${pageSectPr(page)}
+    ${pageSectPr(page, headerFooter !== undefined)}
   </w:body>
 </w:document>`;
 
@@ -726,7 +743,8 @@ export function buildDocxPackage(
   // package carrying two `<Default Extension="png">` entries is a file Word
   // refuses to open. Empty media yields the empty string, which is the
   // byte-identity half of the contract above.
-  const mediaDefaults = [...new Set(media.map((m) => m.extension))]
+  // The header's logo counts too: one Default per extension across both.
+  const mediaDefaults = [...new Set([...media.map((m) => m.extension), ...(headerFooter?.logo ? [headerFooter.logo.extension] : [])])]
     .map((ext) => `\n  <Default Extension="${ext}" ContentType="${contentTypeFor(ext)}"/>`)
     .join("");
 
@@ -736,7 +754,9 @@ export function buildDocxPackage(
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>${mediaDefaults}
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${numberingXml === undefined ? "" : `
-  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>`}
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>`}${headerFooter === undefined ? "" : `
+  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
+  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>`}
 </Types>`;
 
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -770,7 +790,9 @@ export function buildDocxPackage(
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${numberingXml === undefined ? "" : `
-  <Relationship Id="${NUMBERING_REL_ID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>`}${mediaRels}${linkRels}
+  <Relationship Id="${NUMBERING_REL_ID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>`}${headerFooter === undefined ? "" : `
+  <Relationship Id="${HEADER_REL_ID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+  <Relationship Id="${FOOTER_REL_ID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>`}${mediaRels}${linkRels}
 </Relationships>`;
 
   const entries: ZipEntry[] = [
@@ -781,6 +803,14 @@ export function buildDocxPackage(
     { path: "word/styles.xml", data: stylesXml },
     ...(numberingXml === undefined ? [] : [{ path: "word/numbering.xml", data: numberingXml }]),
     ...media.map((m) => ({ path: m.path, data: m.data })),
+    ...(headerFooter === undefined
+      ? []
+      : [
+          { path: "word/header1.xml", data: headerFooter.headerXml },
+          { path: "word/footer1.xml", data: headerFooter.footerXml },
+          ...(headerFooter.headerRelsXml === undefined ? [] : [{ path: "word/_rels/header1.xml.rels", data: headerFooter.headerRelsXml }]),
+          ...(headerFooter.logo === undefined ? [] : [{ path: headerFooter.logo.path, data: headerFooter.logo.data }]),
+        ]),
   ];
 
   return buildZip(
