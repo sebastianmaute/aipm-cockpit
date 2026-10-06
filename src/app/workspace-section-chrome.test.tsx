@@ -118,6 +118,7 @@ describe("WorkspaceTabStrip — every sub-tab has its own name (§672)", () => {
   it.each(["en-US", "de"] as const)("names every popout button distinctly in %s", (lang) => {
     setup(lang, false, [], ALL_FEATURES);
     const main = screen.getByRole("tablist", { name: t(lang, "workspaceTabsLabel") });
-    expectRowUniqueNames({ minControls: POPOUTS, scope: main, roles: ["button"] });
+    // The strip's buttons, measured: the seven popouts plus reset-size and the collapse toggle.
+    expectRowUniqueNames({ minControls: POPOUTS + 2, scope: main, roles: ["button"] });
   });
 });
