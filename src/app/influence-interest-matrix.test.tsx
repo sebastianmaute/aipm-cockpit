@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { InfluenceInterestMatrix } from "./influence-interest-matrix";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 describe("InfluenceInterestMatrix", () => {
   it("renders 9 cells and marks the selected one pressed", () => {
@@ -77,5 +78,21 @@ describe("InfluenceInterestMatrix — needs-communication jump", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: COMMS_LABEL })).toBeNull();
+  });
+});
+
+describe("InfluenceInterestMatrix — every cell has its own name (§245)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // The nine cells are named from the level labels, so two levels translated alike would make two
+  // cells sound identical. Checked in every shipped language, since DE is where a collision would come from.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "levelHigh")).not.toBe(t("en-US", "levelHigh"));
+  });
+
+  it.each(["en-US", "de"] as const)("names all nine cells distinctly in %s", (lang) => {
+    render(<InfluenceInterestMatrix lang={lang} influence="High" interest="Medium" onPick={vi.fn()} />);
+    expectRowUniqueNames({ minControls: 9 });
   });
 });

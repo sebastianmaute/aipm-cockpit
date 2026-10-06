@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -11,6 +11,8 @@ import { emptyWorkspace } from "./workspace";
 import type { ResourcePlan } from "./types";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { ExportExtras } from "./export-forecast-section";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // exportWorkspace is async and can throw (e.g. a dynamic export-ooxml chunk
 // load failure). The menu's `void exportWorkspace(...)` must not swallow that
@@ -114,5 +116,26 @@ describe("export menu — footer", () => {
     await waitFor(() => expect(exportWorkspace).toHaveBeenCalledTimes(2));
     const noForecast: ExportExtras | undefined = vi.mocked(exportWorkspace).mock.calls[1][5];
     expect(noForecast?.budgetForecast).toBeNull();
+  });
+});
+
+describe("export menu — every format button has its own name (§245)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each format button is named by its visible label and hint, so two formats worded alike would
+  // sound identical.
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "exportTitle")).not.toBe(t("en-US", "exportTitle"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every format option distinctly in %s", (lang) => {
+    render(
+      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+        <ExportMenu lang={lang} workspace={WS} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t(lang, "exportTitle") }));
+    expectRowUniqueNames({ minControls: 6, scope: screen.getByRole("dialog") });
   });
 });
