@@ -17454,6 +17454,10 @@ prints 0 for each file: `e2e-crossengine/` is still in no CI job. The eye-verify
 
 **Work item:** #189
 
+**Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, opened the seed's "Kickoff pack" document in the Documents pane. It answered every Turso pipeline request with empty results, so both seeded images resolved to no bytes. Both carried `data-asset-missing="true"` and resolved `::before` content to `U+0022 U+26A0 U+FE0E U+0020 U+0022`, with the trailing space intact, in light and dark. Element screenshots show a dashed red frame about 32px tall, a monochrome ⚠, a space, then the alt text. Nothing overlapped and nothing was clipped. A person still has to look at it at normal zoom and in Firefox, where the measurement section below records the marker differs.
+
+★ **A related finding, recorded here rather than filed.** On the FILE backend, the same document shows a bare broken-image icon and its alt text, with no frame and no glyph. The marker path runs only where the asset library runs, and the library is Turso-only; the pane says so in a banner ("Images need a Turso project. Documents work on every backend."). A document carrying image references on a file backend, for example one exported from a Turso project and imported, therefore gets no disclosure beyond the browser's own icon. Decide whether that is acceptable when this entry is signed off.
+
 A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
 declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
 that module only sets and clears the marker attributes (`data-asset-missing`, and since 0.271.0
@@ -33876,6 +33880,14 @@ actually looked.
 
 **Work item:** #278
 
+**Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, measured Reports at 1280px (`xl`) and 1024px, and printed it under print media. The numbers, per item:
+1. **`minW: 4` blocks.** At 1280px every full-width block is 918px, and every table fits its scroller (898/898). The exception is the Budget Report's per-bucket table, 1239px in an 898px scroller, which scrolls sideways. At 1024px the grid is two columns wide, so the blocks are 662px. "By assignee" (790/642), "By group" and "By label" (720/642) then scroll sideways, and the last column header is cut at the edge.
+2. **120px rows.** An `h: 4` block is 528px tall, with a 497px inner scroller. Its content is much taller: the embedded RAID Report is 1316px at 1280 and 1348px at 1024, the Budget Report 2523px at 1280 and 2991px at 1024. A reader sees roughly 20 to 38% of an embedded report at a time and scrolls inside the block. Whether that is usable is the judgement this item asks for. ★ A small defect: "By priority" at `h: 1` overflows by 5px (94/89), which crops the bottom border of its four tiles.
+3. **Printing.** Under print media the grid becomes one stack and every block expands with nothing clipped. Page breaks were not judged: a landscape PDF was produced for a person to read, and no one has looked at it yet.
+4. **Trailing group.** At both widths the four icons sit on one row at y=113 with 8px gaps, and do not wrap. The glyphs are printer, columns, a rotate arrow for reset-layout, and inward arrows for reset-size, so they are visually distinct.
+
+Items 2 and 3 still need a person.
+
 **Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
 unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
 CLASS STRINGS and the arithmetic behind them, never the pixels. axe checks contrast and
@@ -44008,6 +44020,21 @@ regressing either way.
 **Status:** OPEN 2026-10-06 — `npm run rownames:check` prints `strong marker    COVERED 65 | COVERED_VIA_PARENT 17 | GAP 30` on `fix/batch13-row-names`, after §245 brought the any-marker line to `GAP 0`. Parsing the scanner's `--json` output against the verdict column of [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md): all 50 sites in those 30 files are in the `DATA` class, 47 of them have the verdict `fine` and 3 have `fixed`. The 3 `fixed` sites are one each in `chat-panel.tsx`, `dashboard-tile-bodies.tsx` and `global-search-box.tsx`; §316 fixed them with a row token and a test that seeds the collision, so they are already pinned and are left out of this entry. That leaves 27 files.
 
 **Work item:** #586
+
+**Progress 2026-10-06 (batch 14):** 14 of the 27 are done, so 13 remain.
+- **Pinned by a test, 13 files:** `ask-claude-menu.tsx`, `bulk-edit-modal.tsx`, `bullets-block-editor.tsx`, `calendar-event-modal.tsx`, `chat-prompt-chips.tsx`, `combobox-shared.tsx`, `dashboard-coaching-card.tsx`, `dashboard-delta-strip.tsx`, `diagnostics-panel.tsx`, `document-table-editor.tsx`, `filter-multiselect.tsx`, `help-content-pane.tsx` and `help-view.tsx`. Each has an `expectRowUniqueNames` test in en-US and de, with a check that de loaded wherever the names are translated. 16 mutants, one or two per test, each made two controls share a name; all 16 failed on the uniqueness assertion, and every source was restored byte-identical.
+- **Recorded with a reason, 1 file:** `app-modals.tsx`. Its one site is the toast's action button, and the toast state holds one toast at a time (`{toast && …}`), so the button renders once per surface and has nothing to collide with.
+- **Remaining, 13 files:** `labels-input.tsx`, `notifications.tsx`, `raci-suggest-modal.tsx`, `raid-edit-fields.tsx`, `raid-risk-matrix.tsx`, `resource-edit-modal.tsx`, `settings-sections/notifications-section.tsx`, `shift-edit-modal.tsx`, `sidebar-nav.tsx`, `task-form-fields.tsx`, `tasks-section-toolbar.tsx`, `undo/undo-control.tsx` and `workspace-section-chrome.tsx`.
+  - ★ `labels-input.tsx` now scans as `COVERED_VIA_PARENT`, because `bulk-edit-modal.test.tsx` renders it. That test seeds no chips, so it never renders the chip ✕ buttons that are the site. It stays on this list.
+
+`npm run rownames:check` now prints `strong marker    COVERED 77 | COVERED_VIA_PARENT 19 | GAP 16`. The 16 are the 12 remaining files other than `labels-input.tsx`, `app-modals.tsx`, and the three `fixed` files named above.
+
+★★ **The tests found three real defects, so this entry's opening claim, "a test-evidence gap, not a known defect", did not hold.** One was a scanner site whose `fine` verdict was wrong; the other two sat in the same rendered forms, on controls the scanner does not list as sites, and surfaced because the new tests scan every control of a role. All three are fixed, each with a test that seeds the collision and a mutant that reverts the fix:
+1. Every combo field's dropdown button was named "Show options". The task form and bulk edit each render two combo fields, Group and Labels, so each form had two buttons with the same name. `ComboboxChevron` now requires the field's label and names itself "Show options – <field>". This control is not a scanner site; it surfaced because the bulk-edit test scans every button.
+2. Bulk edit's Group input had no accessible name. The row binds its visible label to the enable checkbox, and copies an `aria-label` onto native children only. `ComboInput` now names its input from the same required `fieldLabel`.
+3. The help contents list named each button by its entry title, and a concept and a feature share three titles: "RAID register", "Steering committee" and "Knowledge". The button name now carries the group, title first. This was a `fine` site; [`docs/rowname-data-adjudication.md`](rowname-data-adjudication.md) keeps its row 59 as recorded and carries a dated correction under its totals.
+
+★ Read the remaining verdicts with that in mind: one of the 14 files checked so far had a wrong `fine` verdict, and two had a defect beside the site the scanner lists. A test over the whole rendered surface is what found all three.
 
 The scanner counts a surface as covered when a test mentioning it contains any of several marker phrases, and `accessible name` alone is one of them. The `strong marker` line counts only the shared `expectRowUniqueNames` helper, which is the one marker that means someone asserted THIS property. These 27 files are covered by a weaker phrase only, and every site in them is `fine`:
 

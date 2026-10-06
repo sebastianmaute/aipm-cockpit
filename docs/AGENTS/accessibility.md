@@ -86,6 +86,11 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   index, and ALL colliding rows are numbered including the first. NOT the id
   (uuids read as character-salad aloud); NOT a whole-list ordinal (shifts under
   sorting).
+  ★★ A SHARED CONTROL RENDERED ONCE PER FIELD COLLIDES THE SAME WAY, with no list in sight.
+  `ComboboxChevron` was named "Show options" in every combo field, so any form with two combo
+  fields had two identical buttons (§672). It now REQUIRES `fieldLabel`, so tsc rejects a
+  caller that does not supply it. Give the next shared per-field control a required qualifier
+  the same way, rather than an optional one a caller can leave out.
   ★ Two things this cost us that the rule above does not say. First, WCAG 2.4.6 permits two controls
   with the SAME purpose to carry the same name — the detector flags any repeat regardless, so a red
   is a question ("do these two rows actually differ?"), not an automatic fix. RAID's toolbar Add and
