@@ -96,3 +96,5 @@ next-env.d.ts
 
 # Superpowers worktrees
 /.worktrees/
+# Screenshots from the local eye-verify kits (e2e/eye-verify-*.spec.ts)
+/eye-verify-output/

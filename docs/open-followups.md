@@ -1761,7 +1761,7 @@ worse (it loses dictated words, not formatting).
 
 ## 21. Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)
 
-**Status:** open — an eye-verification debt owed on two editors and four detail cases. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-06 (batch 16):** an eye-verify kit now opens this entry's surfaces and screenshots them: `e2e/eye-verify-batch-16.spec.ts`, run with `PORT=3150 EYE_VERIFY=1 npx playwright test e2e/eye-verify-batch-16.spec.ts --project=chromium --workers=1`, read against the checklist in `docs/eye-verify-batch-16.md` (the items without a screenshot are marked "by hand" there). It discharges nothing by itself: the entry closes on the owner's sign-off. open — an eye-verification debt owed on two editors and four detail cases. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #94
 
@@ -3080,7 +3080,7 @@ in a browser — nobody has rendered them.
 
 ## 41. Eye verification owed on 0.211.0, on surfaces no gate reaches — open
 
-**Status:** open — an eye-verification debt on surfaces no scan reaches. Reproduced 2026-08-28 by `grep -n "m365Configured" src/app/calendar-sync-controls.tsx`.
+**Status:** **Update 2026-10-06 (batch 16):** an eye-verify kit now opens this entry's surfaces and screenshots them: `e2e/eye-verify-batch-16.spec.ts`, run with `PORT=3150 EYE_VERIFY=1 npx playwright test e2e/eye-verify-batch-16.spec.ts --project=chromium --workers=1`, read against the checklist in `docs/eye-verify-batch-16.md` (the items without a screenshot are marked "by hand" there). It discharges nothing by itself: the entry closes on the owner's sign-off. open — an eye-verification debt on surfaces no scan reaches. Reproduced 2026-08-28 by `grep -n "m365Configured" src/app/calendar-sync-controls.tsx`.
 
 **Work item:** #104
 
@@ -4706,7 +4706,7 @@ because "is this attribute client-authoritative?" is the first question anyone w
 
 ## 59. Eye verification owed on 0.212.0 — and on the two releases before it — open
 
-**Status:** open — an eye-verification debt no command can discharge. Reproduced 2026-08-28 by `grep -n "ToggleButton" src/app/settings-sections/integrations-section.tsx`.
+**Status:** **Update 2026-10-06 (batch 16):** an eye-verify kit now opens this entry's surfaces and screenshots them: `e2e/eye-verify-batch-16.spec.ts`, run with `PORT=3150 EYE_VERIFY=1 npx playwright test e2e/eye-verify-batch-16.spec.ts --project=chromium --workers=1`, read against the checklist in `docs/eye-verify-batch-16.md` (the items without a screenshot are marked "by hand" there). It discharges nothing by itself: the entry closes on the owner's sign-off. open — an eye-verification debt no command can discharge. Reproduced 2026-08-28 by `grep -n "ToggleButton" src/app/settings-sections/integrations-section.tsx`.
 
 **Work item:** #114
 
@@ -30283,7 +30283,7 @@ check and the easiest to leave rotting" shape.
 
 ## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
 
-**Status:** OPEN. Re-scoped 2026-09-05 once the wiring landed: the eye-verify is no longer blocked,
+**Status:** **Update 2026-10-06 (batch 16):** an eye-verify kit now opens this entry's surfaces and screenshots them: `e2e/eye-verify-batch-16.spec.ts`, run with `PORT=3150 EYE_VERIFY=1 npx playwright test e2e/eye-verify-batch-16.spec.ts --project=chromium --workers=1`, read against the checklist in `docs/eye-verify-batch-16.md` (the items without a screenshot are marked "by hand" there). It discharges nothing by itself: the entry closes on the owner's sign-off. OPEN. Re-scoped 2026-09-05 once the wiring landed: the eye-verify is no longer blocked,
 it is simply OWED and performable at HEAD. Last executed verification 2026-09-05 —
 `grep -n "ChatProposalBlock" src/app/chat-panel.tsx` returns an import and a mount, so the card is
 reachable from the application. The eye-verify ITSELF has never been performed. ★ Also record: §380
