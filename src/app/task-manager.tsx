@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
-import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
 import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
@@ -78,6 +77,7 @@ import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack, usePruneUndoOnScopeChange } from "./undo/use-undo-stack";
 import { useResourceQuickCreate } from "./use-resource-quick-create";
+import { useSettingsNavigation } from "./use-settings-navigation";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
@@ -914,44 +914,12 @@ function TaskManagerInner() {
     effectiveNotifications, effectiveNextActions, actionTrends,
     learnedBias: learning.bias, recordLearning: learning.record, requestOpen,
   });
-  // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
-  // settings section (where the learning controls live) — not the bare Settings
-  // root. The nonce re-fires navigation even on a repeat click.
-  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: SettingsSectionId; nonce: number } | undefined>(undefined);
-  // Monotonic nonce (a ref, never reset) so each deep-link request is distinct
-  // even after the previous one was consumed/cleared — robust whether SettingsView
-  // remounts (modern) or stays mounted.
-  const settingsSectionNonceRef = useRef(0);
-  // §650 — the CLASSIC layout has no Settings view (the classic-fallback effect above bounces
-  // "settings" to chat); its settings are the header `SettingsMenu` popover, controlled from here so
-  // an "open settings" request opens it. The popover has no sections, so it opens at the top. No
-  // nonce is involved on this path: the state lives HERE and the menu is controlled, so there is no
-  // child-side "handled" seed to swallow a request on a fresh mount.
-  const [classicSettingsOpen, setClassicSettingsOpen] = useState(false);
-  const isClassicLayout = settings.layout === "classic";
-  // ★★ The popover holds the Layout control, so picking "Modern" in it unmounts the classic header
-  // while this parent-owned state is still `true`. Before the state was lifted here it died with
-  // the unmount; now it must be CLEARED when the layout leaves classic (render-time reconcile —
-  // set-state-in-effect is banned), or a later switch back to classic reopens it. The `open` passed
-  // down is also derived (`isClassicLayout && …`) so the render that switches layout never feeds a
-  // stale `true` to anything.
-  if (!isClassicLayout && classicSettingsOpen) setClassicSettingsOpen(false);
-  const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
-    if (isClassicLayout) {
-      setClassicSettingsOpen(true);
-      return;
-    }
-    settingsSectionNonceRef.current += 1;
-    setSettingsSectionRequest({ id, nonce: settingsSectionNonceRef.current });
-    setActiveTab("settings");
-  }, [setActiveTab, isClassicLayout]);
-  /** The un-sectioned "open settings" request (the storage banner's action), in either layout. */
-  const onOpenSettings = useCallback(() => {
-    if (isClassicLayout) setClassicSettingsOpen(true);
-    else setActiveTab("settings");
-  }, [setActiveTab, isClassicLayout]);
-  const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
-  const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
+  // "Open settings" requests (the modern deep-link and the classic popover) —
+  // extracted to useSettingsNavigation.
+  const {
+    settingsSectionRequest, clearSettingsSectionRequest, isClassicLayout, classicSettingsOpen, setClassicSettingsOpen,
+    onOpenSettingsSection, onOpenSettings, onOpenLearningSettings,
+  } = useSettingsNavigation({ layout: settings.layout, setActiveTab });
   const openAction = useCallback(
     (a: SuggestedAction) => {
       executeActionCta(a.cta, {
