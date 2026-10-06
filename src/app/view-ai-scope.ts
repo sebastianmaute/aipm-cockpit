@@ -252,8 +252,8 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    The actor-stamping slice fixed the cause. State the arithmetic, never
     //    a bare number: of 65 actor-less call sites, 62 GAINED an actor, 2 were
     //    DELETED outright, and 1 SURVIVES — 62 + 2 + 1 = 65. The survivor is
-    //    `task-manager`'s debounced `settings.updated` logger, an effect over
-    //    settings STATE that cannot see its cause.
+    //    `use-settings-change-log.ts`'s debounced `settings.updated` logger
+    //    (called from task-manager), an effect over settings STATE that cannot see its cause.
     //    ★★ `view-ai-scope.test.ts` says the gap closed "for 64 of 65 sites",
     //    which is the SAME fact counted differently — 64 = 62 stamped + 2
     //    deleted, both being "no longer an unattributed writer". A reader
