@@ -726,7 +726,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   it is coverage-GATED, pinned by its own `renderHook` test, and keeps its memoization on purpose because `nextActions` feeds downstream memos and effects (its header says more). A ninth, `use-task-editor-create.ts` (§491), holds the task
   editor's create-from-editor wiring (the create-RAID apply and its `raid.created` log, the linked-task create, the
   create-mode buffer); it is coverage-GATED, pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose
-  because the buffer's `flush` and `discard` feed `useTaskBudgetLink` (its header says more). The
+  because the buffer's `flush` depends on both applies and feeds `useTaskBudgetLink` (its header says more). The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

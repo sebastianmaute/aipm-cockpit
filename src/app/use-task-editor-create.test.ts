@@ -162,7 +162,7 @@ describe("useTaskEditorCreate — new linked task", () => {
 });
 
 describe("useTaskEditorCreate — identity", () => {
-  it("keeps the handlers and the buffer's flush/discard stable across a rerender with the same deps", () => {
+  it("keeps the handlers and the buffer's flush stable across a rerender with the same deps", () => {
     const deps = makeDeps();
     const { result, rerender } = renderHook((d: TaskEditorCreateDeps) => useTaskEditorCreate(d), { initialProps: deps });
     const first = result.current;
@@ -170,6 +170,5 @@ describe("useTaskEditorCreate — identity", () => {
     expect(result.current.handleAddRaidFromEditor).toBe(first.handleAddRaidFromEditor);
     expect(result.current.handleCreateLinkedTask).toBe(first.handleCreateLinkedTask);
     expect(result.current.editorBuffer.flush).toBe(first.editorBuffer.flush);
-    expect(result.current.editorBuffer.discard).toBe(first.editorBuffer.discard);
   });
 });

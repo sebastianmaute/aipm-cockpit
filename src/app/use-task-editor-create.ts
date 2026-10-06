@@ -10,9 +10,9 @@
 //
 // ★ It keeps the inline `useCallback` memoization on purpose, against
 // Extraction convention 1 (non-memoized handlers): the buffer's `flush`
-// depends on `applyRaid` and `applyLink`, and task-manager hands `flush` and
-// `discard` to `useTaskBudgetLink`, so an unstable apply would give those a new
-// identity on every render. The dependency arrays are the inline ones, with
+// depends on both applies and feeds `useTaskBudgetLink`, so an unstable apply
+// would give `flush` a new identity on every render. (`discard` has no deps in
+// `use-task-editor-buffer.ts` and is stable either way.) The dependency arrays are the inline ones, with
 // one addition: `handleCreateLinkedTask` now lists `tasksRef`, which arrives as
 // a dep instead of a local `useRef` and is the same ref object on every render.
 "use client";
