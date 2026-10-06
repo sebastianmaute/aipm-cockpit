@@ -905,6 +905,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§668](#668-a-corrupt-unload-journal-was-applied-as-an-empty-project-by-the-load-restore-and-by-restore-anyway--closed-2026-10-04) | A corrupt unload journal was applied as an empty project, by the load restore and by "Restore anyway" | — | — | **CLOSED** 2026-10-04 |
 | [§669](#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05) | Eighteen files still name per-row controls by free text that can repeat | — | — | **CLOSED** 2026-10-05 |
 | [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--open) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | open |
+| [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42288,7 +42289,7 @@ too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:
 
 ## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
 
-**Status:** **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
+**Status:** **Update 2026-10-06 — weekly tally 2 of 4.** Scheduled run 37293040675 (2026-10-05, seed 37293040675) is the second clean run for this entry: its full log has no `ReferenceError`, no `window is not defined` and no `Unhandled Error`/`Unhandled Rejection` line (`gh run view 37293040675 --log | grep -c ReferenceError` → 0). The run itself failed, for two reasons unrelated to this entry: one `use-jira-sync.test.tsx` test that a leaked `…Once` stub broke under that seed (fixed 2026-10-06 by resetting every mocked `jira-api` export before each test), and the `braces` advisory (§671). Two more clean weekly runs close this. **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
 one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
 naming `@tiptap/react`'s real `setTimeout(…, 1)` editor-destroy and this entry in a comment. This
 hedge is **never machine-verified against the actual race**, and there is no seeded before/after
@@ -43990,3 +43991,15 @@ would fill them but also move versions. Try the clean install in a throwaway clo
 it only if the diff adds metadata and moves no version; otherwise find a tool that fills each pinned
 `name@version` from the registry. A gate that fails on an entry without `integrity` would stop it
 regressing either way.
+
+## 671. The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` — OPEN
+
+**Status:** OPEN 2026-10-06 — measured with `npm audit --audit-level=low` (exit 1, "5 high severity vulnerabilities", all one advisory) and `npm audit --omit=dev --audit-level=high` (exit 0). The advisory is GHSA-vfj7-8cjw-p6xm (published 2026-09-18), whose vulnerable range is `braces <= 3.0.3` with no first patched version (`gh api advisories/GHSA-vfj7-8cjw-p6xm`). `grep -n '"fast-glob"' node_modules/@next/eslint-plugin-next/package.json` prints `"fast-glob": "3.3.1"`, an exact pin, and `npm ls braces --all` shows one path: `eslint-config-next@16.3.6` › `@next/eslint-plugin-next@16.3.6` › `fast-glob@3.3.1` › `micromatch@4.0.8` › `braces@3.0.3`.
+
+**Work item:** #581
+
+★ **Nothing local can fix it.** `braces@3.0.3` is the newest release, so an `overrides` entry has nothing to move to. `npm audit fix --force` only proposes a breaking `eslint-config-next` change, and that pin holds in the `latest` (16.3.8) and `canary` (16.4.0-canary.61) plugin releases too (`npm view @next/eslint-plugin-next@canary dependencies`).
+
+★ **What it breaks today.** The dependency is dev-only (lint tooling), so the required `audit` check in `ci.yml` (`--omit=dev --audit-level=high`) stays green and no shipped code contains it. The weekly `audit-full` job in `scheduled.yml` (`--audit-level=low`, dev included) fails every week until upstream ships a fix: first seen in scheduled run 37293040675 (2026-10-05); the previous run, 36402242735 (2026-09-28), passed `audit-full` although the advisory was already published, so npm's audit data picked it up in between. A red `audit-full` therefore says nothing new until this closes; read its log for a SECOND advisory before writing it off.
+
+**Close when** `npm audit --audit-level=low` exits 0: either `braces` ships a patched release that `micromatch@4`'s `^3.0.3` range accepts (then `npm update braces`), or `@next/eslint-plugin-next` stops pinning `fast-glob@3.3.1`.

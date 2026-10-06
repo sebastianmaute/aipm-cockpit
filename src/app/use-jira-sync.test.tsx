@@ -14,8 +14,18 @@ import { clearDiagLog, readDiagLog } from "./diagnostics";
 // New Jira tasks draw ids from the session-scoped minter. Clear its high-water
 // state before every test so created-id assertions stay deterministic and the
 // no-reuse test controls the mark itself.
+//
+// The Jira stubs are reset here too. `vi.clearAllMocks()`, which most describe
+// blocks call, clears calls but KEEPS queued `…Once` implementations, so a test
+// that queues one and never consumes it hands it to the next test that calls
+// that stub. A test that queues its own then consumes the leftover instead and
+// leaves its own behind, so the leak travels down the run order. Under the
+// weekly shuffle seed 37293040675 it reached the §667 push test, whose
+// `updateIssue` once-implementation (the one that moves the scope epoch) never
+// ran.
 beforeEach(() => {
   __resetMintStateForTests();
+  resetJiraStubs();
 });
 
 // ── Jira API mock ────────────────────────────────────────────────────────────
@@ -500,10 +510,10 @@ describe("useJiraSync — handleJiraSync", () => {
   // Every other test in this file mocks diffTaskAgainstIssue entirely (the module
   // factory above has no importActual), so nothing else drives its REAL output into
   // the merge — that join has only ever been traced by hand. Swap the real
-  // implementation in for this ONE test and restore it in `finally`, since this
-  // describe block's `beforeEach` only calls `vi.clearAllMocks()`, which clears
-  // calls/results but NOT a mocked implementation — leaving it in place would leak
-  // the real diff into every later test in the file.
+  // implementation in for this ONE test and restore it in `finally`. The file-level
+  // `beforeEach` (`resetJiraStubs`) would also restore the factory stub before the
+  // next test, but the `finally` keeps this test self-contained rather than relying
+  // on that.
   it("seam: the real diff queues a status-only conflict and the merge adopts the remote status", async () => {
     const actual = await vi.importActual<typeof import("./jira-api")>("./jira-api");
     (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockImplementation(
@@ -1018,7 +1028,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
 
     vi.clearAllMocks();
     (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "Local name" });
-    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
 
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
@@ -1321,11 +1330,9 @@ describe("useJiraSync — the Jira module fails to download", () => {
     clearDiagLog();
     loaderGate.failNextLoads = 0;
   });
-  // In afterEach, not the test's last lines: a failing assertion must not leave these stubs set
-  // for whichever test the shuffled run picks next.
+  // In afterEach, not the test's last lines: a failing assertion must not leave the gate armed
+  // for whichever test the shuffled run picks next. The stubs are reset file-wide before each test.
   afterEach(() => {
-    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
-    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
     loaderGate.failNextLoads = 0;
   });
 
@@ -1375,8 +1382,6 @@ describe("useJiraSync — a second call while the Jira module is still loading",
   afterEach(() => {
     release();
     loaderGate.hold = null;
-    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReset();
-    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockReset();
   });
 
   it("handleJiraSync: two clicks during the download start exactly one sync", async () => {
@@ -1468,18 +1473,22 @@ function mockConflictSync() {
     { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
   ]);
 }
+/** Reset every mocked `jira-api` export: drops queued `…Once` values and per-test
+ *  return values. `mockReset` restores a `vi.fn(impl)` stub to `impl`, so
+ *  `taskFieldsToJiraFields`, `formatJiraError` and `classifyJiraError` get their factory
+ *  behaviour back; a bare `vi.fn()` returns undefined again. Called from the file-level
+ *  `beforeEach`. */
 function resetJiraStubs() {
-  for (const fn of [
-    jiraApi.buildJql, jiraApi.searchAllIssues, jiraApi.issueToTaskFields, jiraApi.diffTaskAgainstIssue,
-    jiraApi.isIssueDone, jiraApi.updateIssue, jiraApi.transitionIssueTo,
-  ]) asMock(fn).mockReset();
+  for (const fn of Object.values(jiraApi)) {
+    if (vi.isMockFunction(fn)) fn.mockReset();
+  }
 }
 
 describe("useJiraSync — §667 a project swap while a sync or resolution is in flight", () => {
   let epoch = 0;
   const getScopeEpoch = () => epoch;
   beforeEach(() => { vi.clearAllMocks(); clearDiagLog(); epoch = 0; });
-  afterEach(() => { resetJiraStubs(); epoch = 0; });
+  afterEach(() => { epoch = 0; });
 
   it("sync: a swap during the search writes no task, queues no conflict, logs nothing, and releases the guard", async () => {
     const initial = [
@@ -1686,7 +1695,6 @@ describe("useJiraSync — §667 a project swap while a sync or resolution is in 
 
 describe("useJiraSync — sync and conflict resolution exclude each other", () => {
   beforeEach(() => { vi.clearAllMocks(); });
-  afterEach(() => { resetJiraStubs(); });
 
   it("while a resolution pushes, a sync is refused and the modal cannot be closed", async () => {
     mockConflictSync();
