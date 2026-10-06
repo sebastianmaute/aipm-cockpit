@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, test, vi } from "vitest";
 import { NotificationsSection } from "./notifications-section";
 import { defaultSettings } from "../settings-types";
-import { t } from "../i18n";
+import { loadI18n, t } from "../i18n";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 describe("NotificationsSection", () => {
   it("editing reminder lead days persists the value", () => {
@@ -204,5 +205,26 @@ describe("NotificationsSection desktop toggle", () => {
     );
     expect((ctor as unknown as { requestPermission: ReturnType<typeof vi.fn> }).requestPermission)
       .not.toHaveBeenCalled();
+  });
+});
+
+describe("NotificationsSection — every lead-days input has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each stakeholder quadrant's lead-days input is named by the quadrant's label alone. The four
+  // labels are fixed keys, and the section's other day inputs (the global lead time, the
+  // birthday reminder's) carry their own names, so the whole section is scanned rather than the
+  // four quadrant rows.
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  test("renders real German for the de case", () => {
+    expect(t("de", "quadrantManageClosely")).not.toBe(t("en-US", "quadrantManageClosely"));
+  });
+
+  test.each(["en-US", "de"] as const)("names every day input distinctly in %s", (lang) => {
+    expect(defaultSettings.notifications.stakeholderComms.enabled).toBe(true);
+    render(<NotificationsSection lang={lang} settings={defaultSettings} onChange={vi.fn()} />);
+    // The four quadrant inputs plus the global lead time.
+    expectRowUniqueNames({ minControls: 5, roles: ["spinbutton"] });
   });
 });

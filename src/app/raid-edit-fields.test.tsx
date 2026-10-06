@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RaidCausedByField } from "./raid-edit-fields";
 import type { RaidItem } from "./types";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // The shared EntityLinkPicker is well covered in isolation, but that proves
 // nothing about THIS wiring: RaidCausedByField threads five handlers and maps
@@ -106,5 +108,27 @@ describe("RaidCausedByField", () => {
 
     renderField({ causedChildren: children, isNew: true });
     expect(screen.queryByRole("button", { name: /downstream slip/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("RaidCausedByField — every link button has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each cause chip and each "caused this" button is named "<category>#<id> <title>", and its
+  // remove button "<clear cause> <category>#<id>". Titles repeat freely, so the fixture gives every
+  // item the same title across two categories; the id is what keeps the names apart. The two lists
+  // are disjoint, which is what the modal's cycle check guarantees for edits made there.
+  const PARENTS = [raid(3, { title: "Vendor delay" }), raid(4, { category: "I", title: "Vendor delay" })];
+  const CHILDREN = [raid(8, { title: "Vendor delay" }), raid(9, { category: "I", title: "Vendor delay" })];
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "raidCausedByClear")).not.toBe(t("en-US", "raidCausedByClear"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every chip, remove button and child link distinctly in %s", (lang) => {
+    renderField({ lang, parentItems: PARENTS, causedChildren: CHILDREN });
+    // Two chips and their two remove buttons, plus the two child links.
+    expectRowUniqueNames({ minControls: PARENTS.length * 2 + CHILDREN.length });
   });
 });

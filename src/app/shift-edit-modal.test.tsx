@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ShiftEditModal } from "./shift-edit-modal";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Shift } from "./types";
 
 const SHIFT: Shift = {
@@ -166,5 +167,22 @@ describe("ShiftEditModal — panel sizing", () => {
     const form = panel.querySelector("form") as HTMLFormElement;
     expect(form.className).toContain("min-h-0");
     expect(form.className).toContain("flex-1");
+  });
+});
+
+describe("ShiftEditModal — every weekday's hours input has its own name (§672)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Each of the seven hours inputs is named by its wrapping label, the weekday's short name. The
+  // fixture gives five days the same hours, so only the weekday tells the inputs apart.
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "shiftDayMon")).not.toBe(t("en-US", "shiftDayMon"));
+  });
+
+  it.each(["en-US", "de"] as const)("names all seven hours inputs distinctly in %s", (lang) => {
+    setup({ lang });
+    expectRowUniqueNames({ minControls: 7, roles: ["spinbutton"] });
   });
 });

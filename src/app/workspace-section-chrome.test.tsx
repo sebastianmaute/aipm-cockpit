@@ -1,14 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { Lang } from "./i18n";
+import { NAV_GROUPS, subTabsFor, type AppView } from "./nav-config";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 beforeAll(async () => {
   await loadI18n("de");
 });
 
-function setup(lang: Lang = "en-US", workspaceCollapsed = false) {
+function setup(
+  lang: Lang = "en-US",
+  workspaceCollapsed = false,
+  subTabs: readonly { view: AppView }[] = [{ view: "milestones" }],
+) {
   render(
     <WorkspaceTabStrip
       lang={lang}
@@ -20,7 +26,7 @@ function setup(lang: Lang = "en-US", workspaceCollapsed = false) {
       features={[]}
       reuseWindow={false}
       handleClearRaidTaskFilter={vi.fn()}
-      subTabs={[{ view: "milestones" }]}
+      subTabs={subTabs}
     />,
   );
 }
@@ -74,5 +80,30 @@ describe("WorkspaceTabStrip", () => {
     setup("en-US", true);
     const btn = screen.getByRole("button", { name: "Expand workspace" });
     expect(btn).toHaveAttribute("aria-label", "Expand workspace");
+  });
+});
+
+describe("WorkspaceTabStrip — every sub-tab has its own name (§672)", () => {
+  // Each sub-tab is named by its view's nav label. The sub-tabs are a nav parent's children, so
+  // every parent's full set is rendered in turn, with every feature on, and the whole strip's
+  // tabs are scanned as well as the sub-tab list.
+  const PARENTS = NAV_GROUPS.flatMap((g) => g.items).filter((item) => (item.children?.length ?? 0) > 0);
+
+  // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
+  it("renders real German for the de case", () => {
+    expect(t("de", "workspaceSubTabsLabel")).not.toBe(t("en-US", "workspaceSubTabsLabel"));
+  });
+
+  it.each(["en-US", "de"] as const)("names every sub-tab distinctly for every nav parent in %s", (lang) => {
+    expect(PARENTS.length).toBeGreaterThan(1);
+    for (const parent of PARENTS) {
+      const subTabs = subTabsFor(parent.view);
+      expect(subTabs.length).toBeGreaterThan(0);
+      setup(lang, false, subTabs);
+      const strip = screen.getByRole("tablist", { name: t(lang, "workspaceSubTabsLabel") });
+      expectRowUniqueNames({ minControls: subTabs.length, scope: strip, roles: ["tab"] });
+      expectRowUniqueNames({ minControls: subTabs.length, roles: ["tab"] });
+      cleanup();
+    }
   });
 });
