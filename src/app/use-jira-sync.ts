@@ -375,7 +375,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       // ★★ SILENT BY DESIGN. An issue that arrives ALREADY Done produces a delivered
       //   task (`completedDate` comes straight off the patch below), and no
       //   `task.completed` is logged for it. That is the same exemption
-      //   `status-activity-census.test.ts` records for `task-manager.tsx`'s
+      //   `status-activity-census.test.ts` records for `use-task-editor-create.ts`'s
       //   `handleCreateLinkedTask`: there is no before-row, so there is no
       //   transition to classify — `statusActivityKind` compares two states and
       //   only one exists here. Do NOT "complete the pattern" by synthesising an

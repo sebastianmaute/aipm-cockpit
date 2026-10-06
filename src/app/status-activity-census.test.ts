@@ -30,7 +30,7 @@
 //       * Template import (templates.ts -> reconcileStatusFromDate). Creation,
 //         with no before-row and therefore no transition to classify —
 //         defensibly exempt on the same rationale the EXEMPT map records for
-//         task-manager.tsx, which is why it is not filed.
+//         use-task-editor-create.ts, which is why it is not filed.
 //     Reproduce the non-recursive walk (prints `false`, while the file exists):
 //       node -e "console.log(require('fs').readdirSync('src/app').includes('use-undo-stack.ts'))"
 //       ls src/app/undo/use-undo-stack.ts
@@ -86,8 +86,9 @@ const EXEMPT = new Map<string, string>([
   ["task-status.ts", "declares applyStatusChange and statusActivityKind"],
   // handleCreateLinkedTask mints a child at DEFAULT_TASK_STATUS and routes it
   // through applyStatusChange for the pair. There is no before-state, so there
-  // is no transition to classify; it logs `task.created` instead.
-  ["task-manager.tsx", "mints a child at DEFAULT_TASK_STATUS — no before-state"],
+  // is no transition to classify; it logs `task.created` instead. It moved
+  // out of task-manager.tsx with the editor create wiring (§491).
+  ["use-task-editor-create.ts", "mints a child at DEFAULT_TASK_STATUS — no before-state"],
 ]);
 
 function writerFiles(): string[] {
@@ -107,12 +108,12 @@ describe("status-write census", () => {
     expect(writerFiles()).toEqual([
       "change-log.ts",
       "jira-api.ts",
-      "task-manager.tsx",
       "task-status.ts",
       "use-action-center-handlers.ts",
       "use-bulk-operations.ts",
       "use-chat-dispatcher.ts",
       "use-jira-sync.ts",
+      "use-task-editor-create.ts",
       "use-task-row-handlers.ts",
       "use-task-submit.ts",
     ]);

@@ -30,24 +30,22 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
 import { useTaskSubmit } from "./use-task-submit";
-import { useTaskEditorBuffer, type RaidSpec, type LinkSpec } from "./use-task-editor-buffer";
+import { useTaskEditorCreate } from "./use-task-editor-create";
 import { useTaskBudgetLink } from "./use-task-budget-link";
 import { useBudgetBuckets } from "./use-budget-buckets";
-import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-modal";
-import { applyTaskLink } from "./task-link";
+import { TaskLinkedTaskModal } from "./task-linked-task-modal";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
+import { type Resource, type RaidItem, type ChangeItem } from "./types";
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
-import { applyStatusChange } from "./task-status";
-import { dropDanglingDependencies, sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
+import { dropDanglingDependencies, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
-import { buildRaidByTaskIndex, nextRaidId } from "./raid";
+import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { indexDocumentsByEntity } from "./document-ref";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -180,7 +178,7 @@ function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
   // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries.
-  // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, the inline `logActivityUser(...)` calls, and the remaining hook threads — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
+  // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, the one inline `logActivityUser(...)` call (the resource create), and the remaining hook threads (`useTaskEditorCreate` among them) — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
   const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
@@ -1188,48 +1186,12 @@ function TaskManagerInner() {
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
-  // Live mirror of the RAID list so RAID created from the task editor mints ids +
-  // logs OUTSIDE the setState updater (updaters must be pure — strict mode double-
-  // invokes them), while staying fresh across a buffer flush loop (N in one tick).
-  const raidRef = useRef(raid);
-  useEffect(() => {
-    raidRef.current = raid;
-  }, [raid]);
 
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
   );
   const pendingLinkRaidIdRef = useRef<number | null>(null);
 
-  // Task editor: create RAID (Task 7) + linked tasks (Task 8) from the editor.
-  // Edit-mode applies immediately; create-mode stages in `editorBuffer` and
-  // flushes once the new parent id is resolved on save.
-  const applyRaidFromTask = useCallback(
-    (taskId: number, spec: RaidSpec) => {
-      const id = nextRaidId(raidRef.current);
-      const raw = {
-        id,
-        category: spec.category,
-        title: spec.title,
-        raisedDate: today,
-        linkedTaskIds: [taskId],
-      } as RaidItem;
-      const clean = sanitizeRaidItem(raw);
-      if (!clean) return; // malformed (e.g. empty title) → skip rather than persist raw
-      const next = [...raidRef.current, clean];
-      raidRef.current = next; // keep back-to-back flushes minting distinct ids
-      setRaid(next);
-      // ★★ THREE ARGS, ORDER (id, category, title) — matching `use-raid-items.ts`. `activityRaidCreated` is "RAID #{0} created ({1}): {2}" and `logActivityUser` ends in `...args`, so a two-arg call typechecks; it shipped, putting the title in the CATEGORY slot and rendering a literal "{2}" to the user and (since search_history) to the model. Read the SANITIZED row, not `spec` — `sanitizeRaidItem` decides what was stored. ★★ THE ARITY HERE IS UNPINNED: no harness reaches this call site, so DELETING `clean.category` re-creates the defect and ships GREEN. `use-notes-window.test.tsx` pins only the sibling `raid.updated` sites, and `use-resource-planner.test.tsx` only its own `handleSaveRaidItem` — neither reaches here.
-      logActivityUser("raid.created", clean.id, clean.category, clean.title);
-    },
-    [setRaid, today, logActivityUser],
-  );
-  const applyLinkFromTask = useCallback(
-    (parentId: number, spec: LinkSpec) => {
-      setTasks((prev) => applyTaskLink(prev, parentId, spec));
-    },
-    [setTasks],
-  );
   const { commitBuckets } = useBudgetBuckets({
     budgets, setBudgets, allowDestructiveSave, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser,
     // The bare `[]` for `tasks` is deliberate: `computeBudgetReport` only reads `tasks` to derive
@@ -1245,56 +1207,13 @@ function TaskManagerInner() {
     setBudgetHistory,
     today,
   });
-  const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
-  const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
+  // The task editor's create-from-editor wiring — the create-RAID mini-form, the new-linked-task
+  // modal and the create-mode buffer both stage into — lives in use-task-editor-create.ts.
+  const { editorBuffer, handleAddRaidFromEditor, linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask } = useTaskEditorCreate({
+    tasksRef, raid, setTasks, setRaid, editingId, today, logActivity: logActivityUser,
+  });
+  const { flush: flushEditorBuffer, discard: discardEditorBuffer } = editorBuffer;
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
-
-  // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
-  const handleAddRaidFromEditor = useCallback(
-    (spec: RaidSpec) => {
-      if (editingId !== null) applyRaidFromTask(editingId, spec);
-      else stageEditorRaid(spec);
-    },
-    [editingId, applyRaidFromTask, stageEditorRaid],
-  );
-
-  // create linked task (Task 8): mirror the normal create path (mint id,
-  // functional setTasks, route status through applyStatusChange), then wire the
-  // parent↔child link (immediate for an existing parent, staged for a new one).
-  const [linkedTaskOpen, setLinkedTaskOpen] = useState(false);
-  const handleCreateLinkedTask = useCallback(
-    (draft: LinkedTaskDraft) => {
-      const childId = mintId("task", tasksRef.current);
-      const base: Task = {
-        id: childId,
-        taskName: draft.taskName,
-        assignee: draft.assignee,
-        assigneeEmail: "",
-        dueDate: draft.dueDate,
-        lastUpdateDate: today,
-        priority: draft.priority,
-        status: DEFAULT_TASK_STATUS,
-        blockers: "",
-        description: "",
-        inquiriesSent: 0,
-        dependencies: [],
-      };
-      const child = applyStatusChange(base, DEFAULT_TASK_STATUS, today);
-      const nextList = [...tasksRef.current, child];
-      tasksRef.current = nextList;
-      setTasks(nextList);
-      logActivityUser("task.created", childId, child.taskName);
-      const spec: LinkSpec = { childId, direction: draft.direction, type: "FS" };
-      if (editingId !== null) applyLinkFromTask(editingId, spec);
-      else stageEditorLink(spec);
-      // NOTE (by design): the child task is committed here immediately (real id),
-      // while for a NEW parent only the LINK is staged. Cancelling the parent
-      // editor discards the staged link but keeps the child task — a nested child
-      // is a real task the moment it's saved, independent of the parent's outcome.
-      setLinkedTaskOpen(false);
-    },
-    [today, setTasks, logActivityUser, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
-  );
 
   // Shared floating note-log window (tasks + RAID + changes), popout-gated at the mount below (see use-notes-window.ts).
   const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
