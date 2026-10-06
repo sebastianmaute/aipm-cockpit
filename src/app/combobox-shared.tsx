@@ -61,7 +61,7 @@ export function useCombobox(resetKey: string, totalItems: number) {
 /** The dropdown toggle button (chevron) shared by both inputs.
  *
  * ★ `fieldLabel` is REQUIRED and qualifies the name ("Show options – Group"): a form with two
- * combo fields (the task form and bulk edit both have Group and Labels) otherwise renders two
+ * combo fields (bulk edit has Group and Labels, and so does the task form whenever Labels is visible) otherwise renders two
  * buttons named "Show options" that a screen-reader user cannot tell apart (§672). */
 export function ComboboxChevron({
   open,
