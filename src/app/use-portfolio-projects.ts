@@ -8,9 +8,10 @@
 // mode-aware switch, and the create / update / archive / restore / hard-delete
 // handlers it composes from `useTursoProjects` (the edit handler,
 // `handleUpdateCurrentProject`, is internal: it goes to `useTursoProjects` as
-// the file-mode update and is not returned). The registry copy, the Turso
-// project lists and `refreshTursoProjects` stay in task-manager, which also
-// reads them before this point. Called unconditionally with the live closure
+// the file-mode update and is not returned). The registry copy stays in
+// task-manager, which also reads it before this point; the Turso project lists
+// and `refreshTursoProjects` come from `useTursoProjectList`
+// (use-turso-project-list.ts), which task-manager calls before this point. Called unconditionally with the live closure
 // values via a typed `deps` object; the inline `useCallback`/`useMemo` keep
 // the exact memoization the code had inline (plus the passed-in, stable
 // `setRegistry` dep). Move-only: no behaviour change.
