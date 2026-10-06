@@ -14,8 +14,18 @@ import { clearDiagLog, readDiagLog } from "./diagnostics";
 // New Jira tasks draw ids from the session-scoped minter. Clear its high-water
 // state before every test so created-id assertions stay deterministic and the
 // no-reuse test controls the mark itself.
+//
+// The Jira stubs are reset here too. `vi.clearAllMocks()`, which most describe
+// blocks call, clears calls but KEEPS queued `…Once` implementations, so a test
+// that queues one and never consumes it hands it to the next test that calls
+// that stub. A test that queues its own then consumes the leftover instead and
+// leaves its own behind, so the leak travels down the run order. Under the
+// weekly shuffle seed 37293040675 it reached the §667 push test, whose
+// `updateIssue` once-implementation (the one that moves the scope epoch) never
+// ran.
 beforeEach(() => {
   __resetMintStateForTests();
+  resetJiraStubs();
 });
 
 // ── Jira API mock ────────────────────────────────────────────────────────────
@@ -1018,7 +1028,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
 
     vi.clearAllMocks();
     (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "Local name" });
-    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
 
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
@@ -1468,11 +1477,12 @@ function mockConflictSync() {
     { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
   ]);
 }
+/** Reset every mocked `jira-api` export: drops queued `…Once` values and per-test
+ *  return values, and restores each factory implementation (vitest's `mockReset`). */
 function resetJiraStubs() {
-  for (const fn of [
-    jiraApi.buildJql, jiraApi.searchAllIssues, jiraApi.issueToTaskFields, jiraApi.diffTaskAgainstIssue,
-    jiraApi.isIssueDone, jiraApi.updateIssue, jiraApi.transitionIssueTo,
-  ]) asMock(fn).mockReset();
+  for (const fn of Object.values(jiraApi)) {
+    if (vi.isMockFunction(fn)) fn.mockReset();
+  }
 }
 
 describe("useJiraSync — §667 a project swap while a sync or resolution is in flight", () => {
