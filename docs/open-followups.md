@@ -904,6 +904,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--closed-2026-10-03) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | **CLOSED** 2026-10-03 |
 | [§668](#668-a-corrupt-unload-journal-was-applied-as-an-empty-project-by-the-load-restore-and-by-restore-anyway--closed-2026-10-04) | A corrupt unload journal was applied as an empty project, by the load restore and by "Restore anyway" | — | — | **CLOSED** 2026-10-04 |
 | [§669](#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05) | Eighteen files still name per-row controls by free text that can repeat | — | — | **CLOSED** 2026-10-05 |
+| [§670](#670-322-of-670-package-lockjson-entries-carry-no-integrity-hash-so-npm-cannot-verify-those-packages--open) | 322 of 670 package-lock.json entries carry no integrity hash, so npm cannot verify those packages | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43964,3 +43965,19 @@ fix and watch that test go red.
 ★★ `requireCollisionSeed` strips a trailing `(N)` only. A name that closes after the token, such as
 `Open "Name (2)"`, hides the suffix, and the seed check then throws on a correct fixture. Assert the
 tokened names with `getByRole` instead, as `chat-thread-list.test.tsx` does.
+
+## 670. 322 of 670 package-lock.json entries carry no integrity hash, so npm cannot verify those packages — OPEN
+
+**Status:** OPEN 2026-10-06 — measured with `grep -c '^    "node_modules/' package-lock.json` (670 package entries) and `grep -c '"integrity":' package-lock.json` (349 on `fix/audit-source-map-js`, 348 on `b914fb3b3`, i.e. origin/main before the `source-map-js` bump), so **321** entries lack an integrity hash on this branch and **322** on main. Every one of them also lacks `resolved`, and none is a `link` (checked by parsing the lockfile's `packages` map).
+
+**Work item:** #579
+
+`npm ci` installs an entry that has no `integrity` without checking its tarball hash, so for those
+322 packages a tampered or swapped registry tarball would go unnoticed. Found by the cold review of
+the `source-map-js` bump (GHSA-68fv-2mgg-jv7q): the old 1.2.1 entry was one of them, and the bump
+wrote a full entry. The likely cause is a lockfile written from an existing `node_modules` that
+lacked the metadata, not a hand edit; nothing here has confirmed which install did it.
+
+**The fix:** regenerate the lockfile so every entry carries `resolved` and `integrity` (a clean
+`npm install` from an empty `node_modules`, then review the diff to confirm only metadata
+changed, no version moved), and consider a gate that fails when an entry lacks `integrity`.
