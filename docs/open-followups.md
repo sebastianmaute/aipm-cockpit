@@ -904,7 +904,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--closed-2026-10-03) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | **CLOSED** 2026-10-03 |
 | [§668](#668-a-corrupt-unload-journal-was-applied-as-an-empty-project-by-the-load-restore-and-by-restore-anyway--closed-2026-10-04) | A corrupt unload journal was applied as an empty project, by the load restore and by "Restore anyway" | — | — | **CLOSED** 2026-10-04 |
 | [§669](#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05) | Eighteen files still name per-row controls by free text that can repeat | — | — | **CLOSED** 2026-10-05 |
-| [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--open) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | open |
+| [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--closed-2026-10-06) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | **CLOSED** 2026-10-06 |
 | [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
 <!-- INDEX:END -->
 
@@ -43963,11 +43963,11 @@ fix and watch that test go red.
 `Open "Name (2)"`, hides the suffix, and the seed check then throws on a correct fixture. Assert the
 tokened names with `getByRole` instead, as `chat-thread-list.test.tsx` does.
 
-## 670. Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents — OPEN
+## 670. Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents — CLOSED 2026-10-06
 
-**Status:** OPEN 2026-10-06 — measured with `grep -c '^    "node_modules/' package-lock.json` (670 package entries) and `grep -c '"integrity":' package-lock.json` (349 on `fix/audit-source-map-js`, 348 on `b914fb3b3`, i.e. origin/main before the `source-map-js` bump), so **321** entries lack an integrity hash on this branch and **322** on main. Every one of them also lacks `resolved`, and none is a `link` (checked by parsing the lockfile's `packages` map).
+**Status:** CLOSED 2026-10-06 — all 321 entries now carry `resolved` and `integrity`, filled from the registry's metadata for each entry's exact pinned version (`https://registry.npmjs.org/<name>/<version>`, `dist.tarball` and `dist.integrity`). The diff is 642 added lines and nothing else: parsing both lockfiles shows no version moved, no other field changed, the key order is unchanged, and every new `resolved` is on `registry.npmjs.org` with a `sha512-` hash. `npm ci --ignore-scripts` from that lockfile into an empty `node_modules` exits 0, and it checks each downloaded tarball against the new hash. `scripts/lockfile-integrity.test.mjs` now fails when an installed entry in either tracked lockfile lacks `resolved` or `integrity`, or carries a non-sha512 hash. It runs in CI's `unit` job; `npx vitest run scripts/lockfile-integrity.test.mjs` was red on the unfilled lockfile, naming exactly the 321, and passes 6/6 on the filled one. `desktop/package-lock.json` had none missing (288 entries). Neither a clean `npm install` (empty `node_modules`, lockfile kept) nor `npm install --package-lock-only` filled any of them: both left 321 missing (npm 12.2.0, run in throwaway copies), so the test's comment says how to repair a regression.
 
-**Work item:** #579
+**History (OPEN 2026-10-06):** measured with `grep -c '^    "node_modules/' package-lock.json` (670 package entries) and `grep -c '"integrity":' package-lock.json` (349 on `fix/audit-source-map-js`, 348 on `b914fb3b3`, i.e. origin/main before the `source-map-js` bump), so **321** entries lack an integrity hash on this branch and **322** on main. Every one of them also lacks `resolved`, and none is a `link` (checked by parsing the lockfile's `packages` map).
 
 ★ **What is lost is the PIN, not verification.** An earlier version of this entry (and of #579) said
 npm "cannot verify" these packages and that a tampered tarball "would go unnoticed". That is false:
@@ -43984,7 +43984,7 @@ The affected entries are ordinary registry packages, not bundled or platform bin
 full entry. The likely cause is a lockfile written from an existing `node_modules` that lacked the
 metadata, not a hand edit; nothing here has confirmed which install did it.
 
-**The fix is not known yet.** Whether a clean `npm install` (empty `node_modules`, lockfile kept)
+**At filing, the fix was not known.** Whether a clean `npm install` (empty `node_modules`, lockfile kept)
 backfills `resolved` and `integrity` for entries that lack them is exactly what is in doubt:
 arborist fills them only from metadata it already holds. Regenerating the lockfile from scratch
 would fill them but also move versions. Try the clean install in a throwaway clone first and accept
