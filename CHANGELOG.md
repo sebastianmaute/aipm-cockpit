@@ -93,6 +93,9 @@ longer carries its own changelog comment.
   time, so a long library does not fetch every image at once. Scrolling a row out and back in while its image
   is still loading does not fetch it again. Images whose data is missing or whose
   format is no longer supported show an empty box.
+- **Matching buttons (§102).** The Resources calendar's previous and next buttons show chevron icons
+  instead of ◀ and ▶, and those buttons, the Diagnostics actions, the view hint's dismiss button, a
+  swimlane's remove button and the Help button now use the app's shared button styles.
 
 ### Fixed
 
@@ -156,6 +159,17 @@ longer carries its own changelog comment.
   ends the sync with an error message instead of an unhandled error and no message. This changed
   in 1.15.0 without a note. The message shown is the "Couldn't reach Jira" one, which names the
   connection rather than the settings.
+- **A RAID item can no longer be caused by itself in a loop (§674).** The edit window always refused a
+  cause that closes a loop, but the AI assistant, inline AI edits, imports, loading a file and applying a
+  template could store one, such as A causes B and B causes A. The app now removes the link that closes
+  the loop on every one of those paths and notes it in Settings → Diagnostics.
+- **Labels that differ only in case are one filter option (§675).** "API" on one task and "api" on
+  another used to give two label options that filtered the same rows. The option now uses the spelling
+  most tasks carry.
+- **A group, label or assignee named like a filter option filters by itself (§676).** A group named
+  "All" used to clear the filter instead of selecting that group. A value that reads like one of the
+  fixed options, such as a group named "No group", is now shown in quotes so the two can be told apart.
+  Saved views keep working.
 
 ### Security
 
@@ -165,6 +179,8 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Weekly release notes (§527).** `npm run release-notes` prints user-facing notes for a date window
+  (the last seven days by default) from the CHANGELOG versions dated in it.
 - **IndexedDB stores come from one list (§99 follow-up).** `openIdb` now creates every record store
   listed in `src/app/idb-layout.ts`, the list the e2e seed also uses, instead of naming them one by one, so
   a store added to the layout cannot exist in e2e runs while missing in a real browser. A new test pins it.
