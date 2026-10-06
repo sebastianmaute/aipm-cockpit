@@ -5,6 +5,7 @@ import { loadI18n, t } from "./i18n";
 import type { Lang } from "./i18n";
 import { NAV_GROUPS, subTabsFor, type AppView } from "./nav-config";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { FEATURE_MODULES, type FeatureModuleId } from "./feature-modules";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -14,6 +15,7 @@ function setup(
   lang: Lang = "en-US",
   workspaceCollapsed = false,
   subTabs: readonly { view: AppView }[] = [{ view: "milestones" }],
+  features: readonly FeatureModuleId[] = [],
 ) {
   render(
     <WorkspaceTabStrip
@@ -23,7 +25,7 @@ function setup(
       workspaceCollapsed={workspaceCollapsed}
       setWorkspaceCollapsed={vi.fn()}
       resetWorkspaceSize={vi.fn()}
-      features={[]}
+      features={features}
       reuseWindow={false}
       handleClearRaidTaskFilter={vi.fn()}
       subTabs={subTabs}
@@ -85,9 +87,13 @@ describe("WorkspaceTabStrip", () => {
 
 describe("WorkspaceTabStrip — every sub-tab has its own name (§672)", () => {
   // Each sub-tab is named by its view's nav label. The sub-tabs are a nav parent's children, so
-  // every parent's full set is rendered in turn, with every feature on, and the whole strip's
-  // tabs are scanned as well as the sub-tab list.
+  // every parent's full set is rendered in turn, with every feature module on so the main strip
+  // shows all seven of its tabs, and the whole strip's tabs are scanned as well as the sub-tab
+  // list. With every module on, the main strip also renders all seven popout buttons, one per main tab.
   const PARENTS = NAV_GROUPS.flatMap((g) => g.items).filter((item) => (item.children?.length ?? 0) > 0);
+  const ALL_FEATURES = FEATURE_MODULES.map((m) => m.id);
+  const MAIN_TABS = 7;
+  const POPOUTS = 7;
 
   // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
   it("renders real German for the de case", () => {
@@ -99,11 +105,19 @@ describe("WorkspaceTabStrip — every sub-tab has its own name (§672)", () => {
     for (const parent of PARENTS) {
       const subTabs = subTabsFor(parent.view);
       expect(subTabs.length).toBeGreaterThan(0);
-      setup(lang, false, subTabs);
+      setup(lang, false, subTabs, ALL_FEATURES);
       const strip = screen.getByRole("tablist", { name: t(lang, "workspaceSubTabsLabel") });
       expectRowUniqueNames({ minControls: subTabs.length, scope: strip, roles: ["tab"] });
-      expectRowUniqueNames({ minControls: subTabs.length, roles: ["tab"] });
+      expectRowUniqueNames({ minControls: MAIN_TABS + subTabs.length, roles: ["tab"] });
       cleanup();
     }
+  });
+
+  // Every main tab carries a popout button beside it. They all open a window, so each
+  // has to say which tab it opens; a bare "Open in new window" repeated seven times names none.
+  it.each(["en-US", "de"] as const)("names every popout button distinctly in %s", (lang) => {
+    setup(lang, false, [], ALL_FEATURES);
+    const main = screen.getByRole("tablist", { name: t(lang, "workspaceTabsLabel") });
+    expectRowUniqueNames({ minControls: POPOUTS, scope: main, roles: ["button"] });
   });
 });

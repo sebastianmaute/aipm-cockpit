@@ -224,7 +224,9 @@ describe("NotificationsSection — every lead-days input has its own name (§672
   test.each(["en-US", "de"] as const)("names every day input distinctly in %s", (lang) => {
     expect(defaultSettings.notifications.stakeholderComms.enabled).toBe(true);
     render(<NotificationsSection lang={lang} settings={defaultSettings} onChange={vi.fn()} />);
-    // The four quadrant inputs plus the global lead time.
-    expectRowUniqueNames({ minControls: 5, roles: ["spinbutton"] });
+    // Every day input in the section, measured: the four quadrants, the global lead time, the
+    // birthday reminder's lead days and the RAID review interval. A narrowed-role floor is kept
+    // at the measured count, so a lost input fails here rather than shrinking the scan.
+    expectRowUniqueNames({ minControls: 7, roles: ["spinbutton"] });
   });
 });

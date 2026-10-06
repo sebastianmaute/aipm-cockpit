@@ -761,6 +761,24 @@ describe("TaskFormFields — every choice has its own name (§672)", () => {
     expect(onChange).toHaveBeenCalledWith(4);
   });
 
+  // The Budget panel lists buckets by `order ?? id`, so the occurrence numbers have to follow that
+  // order rather than the stored array, or "Build (1)" here would be the panel's "Build (2)".
+  it("numbers and lists repeated buckets in the Budget panel's order, not the stored array order", () => {
+    const REORDERED = [
+      { id: 2, name: "Build", order: 2 },
+      { id: 4, name: "Build", order: 1 },
+      { id: 1, name: "Design", order: 3 },
+    ] as unknown as BudgetBucket[];
+    render(<Harness budgetLink={{ buckets: REORDERED, bucketId: null, onChange: vi.fn() }} />, { wrapper: TestProviders });
+    const options = within(screen.getByLabelText("Budget bucket")).getAllByRole("option") as HTMLOptionElement[];
+    expect(options.map((o) => [o.textContent, o.value])).toEqual([
+      [t("en-US", "budgetBucketNone"), ""],
+      ["Build (1)", "4"],
+      ["Build (2)", "2"],
+      ["Design", "1"],
+    ]);
+  });
+
   it.each(["en-US", "de"] as const)("names every health choice distinctly in %s", (lang) => {
     render(<Harness lang={lang} />, { wrapper: TestProviders });
     expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("radiogroup", { name: t(lang, "health") }), roles: ["radio"] });

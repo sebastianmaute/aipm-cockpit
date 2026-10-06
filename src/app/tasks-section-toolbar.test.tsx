@@ -53,9 +53,10 @@ describe("TasksToolbar — every filter option has its own name (§672)", () => 
   beforeAll(() => loadI18n("de"));
 
   // The assignee, group and label filters list one option per value found on the tasks, after a
-  // fixed "all" option (and, for assignee and group, a fixed "none" option). The values come from
-  // the tasks, so each select's options are scanned on their own, and the selects themselves are
-  // scanned too, since they are named only by their hint text.
+  // fixed "all" option. The group filter also has a fixed "No group" option; the assignee
+  // filter's "No assignee" is not fixed, it is the label of the blank entry `uniqueAssignees`
+  // keeps. Each select's options are scanned on their own, and the selects themselves are scanned
+  // too, since they are named only by their hint text.
 
   // Without the German dictionary the de case would silently re-run en-US, so pin that it loaded.
   test("renders real German for the de case", () => {
@@ -69,7 +70,7 @@ describe("TasksToolbar — every filter option has its own name (§672)", () => 
     expectRowUniqueNames({ minControls: props.uniqueAssignees.length + 1, scope: select("assigneeFilterHint"), roles: ["option"] });
     expectRowUniqueNames({ minControls: props.uniqueGroups.length + 2, scope: select("tasksGroupFilterHint"), roles: ["option"] });
     expectRowUniqueNames({ minControls: props.uniqueLabels.length + 1, scope: select("tasksLabelFilterHint"), roles: ["option"] });
-    // Priority, assignee, group, label and health at least.
-    expectRowUniqueNames({ minControls: 5, roles: ["combobox"] });
+    // The toolbar's six selects, measured; kept exact so a lost select fails here.
+    expectRowUniqueNames({ minControls: 6, roles: ["combobox"] });
   });
 });

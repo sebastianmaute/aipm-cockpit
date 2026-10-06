@@ -129,9 +129,14 @@ export function TaskFormFields({
   const storedTask = isEditing ? tasksForDeps.find((tk) => tk.id === editingId) : undefined;
   const { isVisible } = useModalVisibility("task");
   // §672 — bucket names carry no uniqueness rule, so two buckets can share one, and the option
-  // text is all that tells them apart, on screen and to AT alike. A repeated name gets the same
-  // occurrence token the Budget panel uses.
-  const bucketTokens = budgetLink ? buildRowTokens(budgetLink.buckets) : null;
+  // text is all that tells them apart, on screen and to AT alike. A repeated name gets an
+  // occurrence token, numbered in the Budget panel's order (`order ?? id`, the sort in
+  // `computeBudgetReport`), so "Build (2)" here is the bucket the unfiltered panel calls
+  // "Build (2)". The options are listed in that order too.
+  const orderedBuckets = budgetLink
+    ? [...budgetLink.buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id))
+    : [];
+  const bucketTokens = buildRowTokens(orderedBuckets);
   const { settings } = useSettings();
   // Description is rich HTML but dictation yields plain text — appendDictationToHtml
   // owns that round-trip (and documents the formatting-flatten trade-off). The
@@ -683,8 +688,8 @@ export function TaskFormFields({
             className="w-full"
           >
             <option value="">{t(lang, "budgetBucketNone")}</option>
-            {budgetLink.buckets.map((b) => (
-              <option key={b.id} value={b.id}>{bucketTokens?.get(b.id) ?? b.name}</option>
+            {orderedBuckets.map((b) => (
+              <option key={b.id} value={b.id}>{bucketTokens.get(b.id) ?? b.name}</option>
             ))}
           </Select>
         </Field>

@@ -10,7 +10,7 @@
 // guards exactly. The component reproduces the prior markup verbatim.
 import type React from "react";
 import { ChevronDownIcon } from "./icons";
-import { t } from "./i18n";
+import { t, type TranslationKey } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { TabButton, ResetSizeButton } from "./task-manager-ui";
 import { useTablistRoving } from "./use-tablist-roving";
@@ -50,6 +50,9 @@ export function WorkspaceTabStrip({
   subTabs,
 }: WorkspaceTabStripProps) {
   const roving = useTablistRoving();
+  // §672 — every main tab carries a popout button, so a bare "Open in new window" named seven
+  // buttons alike. Each one now says which tab it opens.
+  const popoutName = (tabKey: TranslationKey) => `${t(lang, "popoutOpenInNewWindow")} – ${t(lang, tabKey)}`;
   return (
     <>
       <div
@@ -70,7 +73,7 @@ export function WorkspaceTabStrip({
           }}
           controls="panel-chat"
           onPopout={() => openPopoutWindow("chat", reuseWindow)}
-          popoutLabel={t(lang, "popoutOpenInNewWindow")}
+          popoutLabel={popoutName("tabChat")}
         >
           {t(lang, "tabChat")}
         </TabButton>
@@ -82,7 +85,7 @@ export function WorkspaceTabStrip({
           }}
           controls="panel-reports"
           onPopout={() => openPopoutWindow("reports", reuseWindow)}
-          popoutLabel={t(lang, "popoutOpenInNewWindow")}
+          popoutLabel={popoutName("tabReports")}
         >
           {t(lang, "tabReports")}
         </TabButton>
@@ -95,7 +98,7 @@ export function WorkspaceTabStrip({
             }}
             controls="panel-gantt"
             onPopout={() => openPopoutWindow("gantt", reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            popoutLabel={popoutName("tabGantt")}
           >
             {t(lang, "tabGantt")}
           </TabButton>
@@ -110,7 +113,7 @@ export function WorkspaceTabStrip({
             }}
             controls="panel-raid"
             onPopout={() => openPopoutWindow("raid", reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            popoutLabel={popoutName("tabRaid")}
           >
             {t(lang, "tabRaid")}
           </TabButton>
@@ -124,7 +127,7 @@ export function WorkspaceTabStrip({
             }}
             controls="panel-resources"
             onPopout={() => openPopoutWindow("resources", reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            popoutLabel={popoutName("tabResources")}
           >
             {t(lang, "tabResources")}
           </TabButton>
@@ -138,7 +141,7 @@ export function WorkspaceTabStrip({
             }}
             controls="panel-budget"
             onPopout={() => openPopoutWindow("budget", reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            popoutLabel={popoutName("tabBudget")}
           >
             {t(lang, "tabBudget")}
           </TabButton>
@@ -151,7 +154,7 @@ export function WorkspaceTabStrip({
           }}
           controls="panel-activity"
           onPopout={() => openPopoutWindow("activity", reuseWindow)}
-          popoutLabel={t(lang, "popoutOpenInNewWindow")}
+          popoutLabel={popoutName("tabActivity")}
         >
           {t(lang, "tabActivity")}
         </TabButton>

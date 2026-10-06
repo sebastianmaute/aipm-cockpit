@@ -427,7 +427,9 @@ describe("ResourceEditModal — every additional email row has its own name (§6
 
   it.each(["en-US", "de"] as const)("names every email input and remove button distinctly in %s", (lang) => {
     setupFull({ lang, resource: { ...base, emails: EMAILS } });
-    expectRowUniqueNames({ minControls: EMAILS.length, roles: ["textbox"] });
-    expectRowUniqueNames({ minControls: EMAILS.length });
+    // Floors are the measured counts for this fixture (12 textboxes, 23 buttons), so a field that
+    // stops rendering fails here rather than quietly shrinking the scan.
+    expectRowUniqueNames({ minControls: 12, roles: ["textbox"] });
+    expectRowUniqueNames({ minControls: 23 });
   });
 });
