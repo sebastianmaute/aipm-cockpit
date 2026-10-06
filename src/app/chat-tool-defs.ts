@@ -527,8 +527,9 @@ export const TOOL_DEFS = [
     //      the ACTOR caution, and it is the narrower true claim: `actor` is
     //      OPTIONAL, an absent one means the entry is UNATTRIBUTABLE (older
     //      than the field, or written by a path that cannot see its own cause —
-    //      `task-manager`'s debounced `settings.updated` logger is the one
-    //      surviving production example), and reading absence as "the user did
+    //      `use-settings-change-log.ts`'s debounced `settings.updated` logger,
+    //      called from task-manager, is the one surviving production
+    //      example), and reading absence as "the user did
     //      this" attributes work to a person who may not have done it.
     //      ★★★ THE CAUSES ARE EXAMPLES, NEVER A LIST — the description says "for
     //      example" for that reason. There is already a THIRD cause and it is

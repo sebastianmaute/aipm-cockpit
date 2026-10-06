@@ -711,7 +711,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   group-aware snooze), `use-task-editor-create.ts` (the task editor's create-RAID and new-linked-task wiring and
   the create-mode buffer they stage into), `use-resource-quick-create.ts` (creating a resource from the picker or the
   task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
-  deep-link request, the classic header popover), `shell-chrome.tsx`
+  deep-link request, the classic header popover), `use-settings-change-log.ts` (the debounced, actor-less
+  `settings.updated` row and its §160 AI credits), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -736,7 +737,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   eleventh, `use-settings-navigation.ts` (§491), holds the "open settings" routing (the modern deep-link request and its
   monotonic nonce, the classic popover's open state and its render-time clear on leaving classic); it is coverage-GATED,
   pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` is in
-  the dependency array of settings-view.tsx's request-consuming effect (its header says more). The
+  the dependency array of settings-view.tsx's request-consuming effect (its header says more). A twelfth,
+  `use-settings-change-log.ts` (§491), holds the debounced `settings.updated` logger (the hydration and initial-run skips,
+  the §160 AI-credit counter it clears rather than decrements, the unmount-only cancel); it is coverage-GATED, pinned by
+  its own `renderHook` test, and has no memoization to keep. ★★ It is the one site handed the RAW, actor-less
+  `logActivity` — `task-manager.activity-actor.test.tsx` pins that through the real component. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

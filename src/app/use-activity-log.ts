@@ -62,8 +62,9 @@ export function useActivityLog(): {
    *  left on the plain variants" and attached a grep; the grep returns **55**,
    *  and refutes the sentence it was attached to. The count that is ONE is the
    *  number of sites still receiving the genuinely ACTOR-LESS function:
-   *  `task-manager`'s debounced `settings.updated` logger, which cannot see its
-   *  cause (the AI's `update_settings` mutates the same state and fires the same
+   *  `use-settings-change-log.ts`'s debounced `settings.updated` logger
+   *  (called from task-manager), which cannot see its cause (the AI's
+   *  `update_settings` mutates the same state and fires the same
    *  effect). The other 54 spell `logActivity(...)` and receive the pre-stamped
    *  `"user"` wrapper. Spelling is a property of the LEAF; the actor is a
    *  property of the WIRING, and only `task-manager` shows it.
@@ -97,8 +98,9 @@ export function useActivityLog(): {
    *
    *  ★★ They are NOT a shortcut for "log something". Reach for one only when the
    *  call path is a USER GESTURE all the way down — an effect over state cannot
-   *  know that (see the `settings.updated` logger in `task-manager`, the one
-   *  production site deliberately left actor-less). A wrongly-stamped entry
+   *  know that (see the `settings.updated` logger in `use-settings-change-log.ts`,
+   *  called from task-manager — the one production site deliberately left
+   *  actor-less). A wrongly-stamped entry
    *  corrupts the audit record and nothing can detect it afterwards; an
    *  actor-less one is merely unattributed, which is what absence MEANS. */
   logActivityUser: (kind: ActivityKind, ...args: (string | number)[]) => void;

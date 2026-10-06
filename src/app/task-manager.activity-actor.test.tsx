@@ -222,8 +222,9 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
     // on a good branch). `findByTestId` resolves the moment TaskManager RENDERS, which
     // says nothing about either `useSettings()` instance having loaded from
     // localStorage. Three separate gates then swallow an early change and yield zero
-    // rows — `use-settings`'s broadcast effect and TaskManager's log effect both
-    // early-return on `!hydrated`, and `settingsInitialRef` eats a change that batches
+    // rows — `use-settings`'s broadcast effect and TaskManager's log effect (in
+    // `use-settings-change-log.ts`) both early-return on `!hydrated`, and
+    // `settingsInitialRef` eats a change that batches
     // with the hydration flip. The two tests that settled first never failed; the two
     // that wrote immediately were the only ones that did.
     await waitFor(() => {
@@ -248,7 +249,8 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
 
   // ★★★ REAL TIMERS, DELIBERATELY — `vi.useFakeTimers()` CANNOT reach this debounce
   // and a test using it passes vacuously (measured: zero rows either way). The
-  // logger is built in a `useRef` initializer during TaskManager's first render,
+  // logger is built in a `useRef` initializer (`use-settings-change-log.ts`)
+  // during TaskManager's first render,
   // and `createSettingsLogger`'s `setTimeoutFn` parameter DEFAULTS at call time, so
   // it closes over whatever `setTimeout` was global at MOUNT. Installing fake timers
   // afterwards swaps the global the logger no longer consults. Each wait below is
