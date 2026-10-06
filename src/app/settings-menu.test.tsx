@@ -72,6 +72,16 @@ describe("defaultSettings", () => {
   });
 });
 
+// §109 B1: the classic header's cog was the last icon-only control with no hover
+// tooltip. Its tooltip is its accessible name, so no new string was needed.
+describe("SettingsMenu trigger", () => {
+  it("shows its accessible name as a hover tooltip", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    const label = t("en-US", "settings");
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("title", label);
+  });
+});
+
 describe("SettingsMenu popout toggle", () => {
   it("renders 'Reuse popout window' toggle in settings panel", () => {
     render(<SettingsMenu {...makeProps()} />);

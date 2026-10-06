@@ -350,7 +350,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--closed-2026-09-13) | The Markdown codec is not a fixed point when bare CRs precede a newline | property-based coverage (`!360`, no bump) | XS | **CLOSED** 2026-09-13 |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
-| [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--name-defect-fixed-2026-08-31-ratchet-built-2026-10-04-b1-still-open) | Icon-only controls with no hover tooltip, and one control named only by its `title` — name defect FIXED 2026-08-31, ratchet built 2026-10-04, B1 still open | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | S — B1 only, a product decision | open |
+| [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--closed-2026-10-05) | Icon-only controls with no hover tooltip, and one control named only by its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | S — B1 only, a product decision | **CLOSED** 2026-10-05 |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--closed-2026-10-03) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | **CLOSED** 2026-10-03 |
 | [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--closed-2026-10-02) | Document row controls are named by a title that is NOT unique, and the comment says it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | **CLOSED** 2026-10-02 |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
@@ -412,7 +412,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§168](#168-template-import-drops-every-registers-note-log--closed-2026-08-28) | Template import drops every register's note log | — | — | **CLOSED** 2026-08-28 |
 | [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--closed-2026-09-14) | TimeLog period keys are derived at FETCH time from the granularity, then cached | — | — | **CLOSED** 2026-09-14 |
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
-| [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
+| [§171](#171-the-axe-gate-scanned-the-time-bookings-empty-state-not-the-table--closed-2026-10-05) | The axe gate scanned the Time bookings EMPTY STATE, not the table | — | — | **CLOSED** 2026-10-05 |
 | [§172](#172-a-partial-timelog-fetch-overwrote-the-cached-aggregate-and-the-manual-apply-path-would-write-it--closed-2026-08-18) | A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it | — | — | **CLOSED** 2026-08-18 |
 | [§173](#173-the-load-catchs-mid-flight-adoption-branch-publishes-a-populated-thread-list-with-available-false--closed-2026-10-02) | The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` | — | — | **CLOSED** 2026-10-02 |
 | [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--closed-2026-10-02) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight | — | — | **CLOSED** 2026-10-02 |
@@ -904,6 +904,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§667](#667-a-project-swap-during-a-jira-sync-or-conflict-resolution-writes-the-previous-projects-tasks-into-the-next-one--closed-2026-10-03) | A project swap during a Jira sync or conflict resolution writes the previous project's tasks into the next one | — | — | **CLOSED** 2026-10-03 |
 | [§668](#668-a-corrupt-unload-journal-was-applied-as-an-empty-project-by-the-load-restore-and-by-restore-anyway--closed-2026-10-04) | A corrupt unload journal was applied as an empty project, by the load restore and by "Restore anyway" | — | — | **CLOSED** 2026-10-04 |
 | [§669](#669-eighteen-files-still-name-per-row-controls-by-free-text-that-can-repeat--closed-2026-10-05) | Eighteen files still name per-row controls by free text that can repeat | — | — | **CLOSED** 2026-10-05 |
+| [§670](#670-hundreds-of-package-lockjson-entries-carry-no-integrity-hash-so-the-lockfile-does-not-pin-those-packages-contents--open) | Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -8916,9 +8917,9 @@ No visible text is lost either way — only whether a mentioned tag renders as a
 next real sanitize pass) as an actual, usually-empty element.
 
 ---
-## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — name defect FIXED 2026-08-31, ratchet built 2026-10-04, B1 still open
+## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — CLOSED 2026-10-05
 
-**Status:** **Update 2026-10-04:** the tooltip RATCHET is built and the inventory re-measured, verified by `npx vitest run scripts/tooltip-scan-lib.test.mjs scripts/gate-local.test.mjs scripts/ci-workflow.test.mjs` (3 files, 125 tests, exit 0) and `node scripts/check-tooltips.mjs` (exit 0: 623 scanned, 1 untitled icon-only). `npm run tooltips:check` (a `static` step of `gate-local.mjs`) fails when a `src/app` file gains an icon-only button-family control with no `title` beyond `docs/baselines/untitled-icon-buttons.json`; its scanner (`scripts/tooltip-scan-lib.mjs`) walks the TypeScript parser's tree, so the inventory scanner's apostrophe bug and its comment-prose rows are gone. Nine Class A rows got a `title` equal to their accessible name (no new strings), so the baseline holds **B1** alone. Mutants, each red: spread ignored, aria-hidden span counted, glyph rule dropped, JSX comment counted, IconButton not icon-only, `>=` for growth, shrink unreported (scanner tests); a removed title on a fixed control and on an `IconButton` (gate exit 1). The CLI's own paths (pass, growth, `--list`, `--update` tightening and its refusal, the scan floor, an unreadable baseline, the file walk) are pinned by `scripts/check-tooltips.test.mjs` (12 tests); the refused-`--update` and floor off-by-one mutants are red. The re-measure is the inventory's 2026-10-04 section. Still owed: **B1** only (a product decision). Earlier: **Update 2026-10-03:** the budget hours inputs' machine-hook names (`budget-${…}` / `actual-${…}` in `budget-panel-totals.tsx`) are replaced by translated, row-unique names — "Budget|Actual – <bucket> – <role or discipline> – <period>" — pinned by `budget-panel-edit.test.tsx` (two buckets sharing a role) and `budget-panel-actual-readonly.test.tsx` (DE "Ist"); both mutants (machine label restored, bucket token dropped) turn the first red. `task-editor-raid-mini.tsx`'s "RAID …" prefix is left as decided (RAID is a proper noun). This supersedes §263's earlier ruling to keep them untranslated (noted there). Still owed: **B1** (the settings cog in classic `AppHeader`, a product decision on whether the modern shell's Settings route makes a tooltip moot), the tooltip ratchet, and an inventory re-measure. open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
+**Status:** CLOSED 2026-10-05 — **B1** is done: the owner chose the tooltip, so the classic header's settings cog (`settings-menu.tsx`) carries a `title` equal to its accessible name (no new string). `node scripts/check-tooltips.mjs` now reports 0 untitled icon-only controls of 623 scanned, and `docs/baselines/untitled-icon-buttons.json` is tightened to `{}`, so any new untitled icon-only control fails the gate. Pinned by `settings-menu.test.tsx` ("shows its accessible name as a hover tooltip"); removing the `title` turns it red. Earlier: **Update 2026-10-04:** the tooltip RATCHET is built and the inventory re-measured, verified by `npx vitest run scripts/tooltip-scan-lib.test.mjs scripts/gate-local.test.mjs scripts/ci-workflow.test.mjs` (3 files, 125 tests, exit 0) and `node scripts/check-tooltips.mjs` (exit 0: 623 scanned, 1 untitled icon-only). `npm run tooltips:check` (a `static` step of `gate-local.mjs`) fails when a `src/app` file gains an icon-only button-family control with no `title` beyond `docs/baselines/untitled-icon-buttons.json`; its scanner (`scripts/tooltip-scan-lib.mjs`) walks the TypeScript parser's tree, so the inventory scanner's apostrophe bug and its comment-prose rows are gone. Nine Class A rows got a `title` equal to their accessible name (no new strings), so the baseline holds **B1** alone. Mutants, each red: spread ignored, aria-hidden span counted, glyph rule dropped, JSX comment counted, IconButton not icon-only, `>=` for growth, shrink unreported (scanner tests); a removed title on a fixed control and on an `IconButton` (gate exit 1). The CLI's own paths (pass, growth, `--list`, `--update` tightening and its refusal, the scan floor, an unreadable baseline, the file walk) are pinned by `scripts/check-tooltips.test.mjs` (12 tests); the refused-`--update` and floor off-by-one mutants are red. The re-measure is the inventory's 2026-10-04 section. Still owed: **B1** only (a product decision). Earlier: **Update 2026-10-03:** the budget hours inputs' machine-hook names (`budget-${…}` / `actual-${…}` in `budget-panel-totals.tsx`) are replaced by translated, row-unique names — "Budget|Actual – <bucket> – <role or discipline> – <period>" — pinned by `budget-panel-edit.test.tsx` (two buckets sharing a role) and `budget-panel-actual-readonly.test.tsx` (DE "Ist"); both mutants (machine label restored, bucket token dropped) turn the first red. `task-editor-raid-mini.tsx`'s "RAID …" prefix is left as decided (RAID is a proper noun). This supersedes §263's earlier ruling to keep them untranslated (noted there). Still owed: **B1** (the settings cog in classic `AppHeader`, a product decision on whether the modern shell's Settings route makes a tooltip moot), the tooltip ratchet, and an inventory re-measure. open, narrowed. Re-measured 2026-09-01 on `22ac25f2` (0.272.1) by running the parser
 embedded in `docs/tooltip-inventory.md` — untitled icon-only surface **31**, of which the real-control
 count is unchanged in substance. What remains open is **B1**, the **four** untranslated names that are
 judgement calls rather than defects, and the ratchet itself. The one name defect
@@ -8926,8 +8927,6 @@ judgement calls rather than defects, and the ratchet itself. The one name defect
 `npx vitest run src/app/workspace-section-chrome.test.tsx`. The **blocked-on-i18n row is FIXED**
 (`602a00e4`) and **eleven of the fifteen** hardcoded-English names are gone (`602a00e4`, `396f9de7`) —
 both were held open by name here until 2026-09-01.
-
-**Work item:** #141
 
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
@@ -14984,11 +14983,9 @@ anything faster. The entry closes on the honesty of the comment, not on the perf
 choice between "stabilise every handler prop" and "delete the memo" is still open, exactly as the
 `ResourcesPanel` finding leaves it.
 
-## 171. The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted
+## 171. The axe gate scanned the Time bookings EMPTY STATE, not the table — CLOSED 2026-10-05
 
-**Status:** open — an axe-scanned view that renders its not-configured gate. Reproduced 2026-08-28 by `grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx`.
-
-**Work item:** #170
+**Status:** CLOSED 2026-10-05 — the first way out below was taken. `seedTimelogSettings` (`e2e/seed.ts`) switches the integration on for one test, with a dummy token so the fetch toolbar renders live rather than disabled (axe skips colour contrast on disabled controls), and answers `/api/timelog` with an empty 200 page, recording each request's `path`. The "Time bookings" scan in `e2e/a11y.spec.ts` calls it and first asserts the `Clear link – 701` row is visible, so the scan cannot fall back to the empty state silently. `e2e/seed-content.spec.ts` asserts the `701`/`702` rows again and that no bookings or registrations were fetched (the one mount-time call is the seeded customer's project list, `/v1/project/get-all`, which both tests wait for), and keeps a second test that pins the not-configured screen under the default settings. ★ Residual: the PEOPLE table still renders empty under the scan, because its rows come only from a network fetch (`sync.users`); its row names stay pinned by `timelog-panel.test.tsx` alone. Verification is owed to CI's `e2e` job on the PR; nothing ran locally. ★ The review also found that the picker's mount effect (`use-timelog-picker-scope.ts`) loaded the seeded customer's projects with Timelog switched OFF, POSTing blank credentials to `/api/timelog` on every mount of the panel; it now takes the panel's `isMisconfigured` and waits for a usable config. Pinned by three `timelog-panel.test.tsx` tests (off, token-less, usable); dropping the guard turns the first two red and dropping it from the effect's dependencies turns the third red. Earlier: open — an axe-scanned view that renders its not-configured gate. Reproduced 2026-08-28 by `grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx`.
 
 `e2e/seed.ts` seeds file mode and never enables the Timelog integration, and 0.245.0 gated the page
 on `cfg.enabled`, returning `TimelogNotConfigured` when it is off. "Time bookings" is in
@@ -43964,3 +43961,32 @@ fix and watch that test go red.
 ★★ `requireCollisionSeed` strips a trailing `(N)` only. A name that closes after the token, such as
 `Open "Name (2)"`, hides the suffix, and the seed check then throws on a correct fixture. Assert the
 tokened names with `getByRole` instead, as `chat-thread-list.test.tsx` does.
+
+## 670. Hundreds of package-lock.json entries carry no integrity hash, so the lockfile does not pin those packages' contents — OPEN
+
+**Status:** OPEN 2026-10-06 — measured with `grep -c '^    "node_modules/' package-lock.json` (670 package entries) and `grep -c '"integrity":' package-lock.json` (349 on `fix/audit-source-map-js`, 348 on `b914fb3b3`, i.e. origin/main before the `source-map-js` bump), so **321** entries lack an integrity hash on this branch and **322** on main. Every one of them also lacks `resolved`, and none is a `link` (checked by parsing the lockfile's `packages` map).
+
+**Work item:** #579
+
+★ **What is lost is the PIN, not verification.** An earlier version of this entry (and of #579) said
+npm "cannot verify" these packages and that a tampered tarball "would go unnoticed". That is false:
+npm 12's pacote, on finding no lockfile integrity, fetches the package metadata and adopts its
+`dist.integrity`, then checks the tarball against it (`pacote/lib/registry.js`, the "add _resolved
+and _integrity from dist object" block; read on npm 12.2.0). Tampering in transit is still caught.
+What the lockfile no longer guarantees is that a later install gets the SAME bytes: a registry or a
+configured mirror that serves a swapped tarball together with matching metadata would be accepted.
+
+The affected entries are ordinary registry packages, not bundled or platform binaries: of the 322 on
+`b914fb3b3`, 284 are dev dependencies, 6 optional and 2 carry `os`/`cpu`, none `inBundle`
+(counted by parsing the lockfile's `packages` map in the cold review). Found by that review of the
+`source-map-js` bump (GHSA-68fv-2mgg-jv7q), whose old 1.2.1 entry was one of them; the bump wrote a
+full entry. The likely cause is a lockfile written from an existing `node_modules` that lacked the
+metadata, not a hand edit; nothing here has confirmed which install did it.
+
+**The fix is not known yet.** Whether a clean `npm install` (empty `node_modules`, lockfile kept)
+backfills `resolved` and `integrity` for entries that lack them is exactly what is in doubt:
+arborist fills them only from metadata it already holds. Regenerating the lockfile from scratch
+would fill them but also move versions. Try the clean install in a throwaway clone first and accept
+it only if the diff adds metadata and moves no version; otherwise find a tool that fills each pinned
+`name@version` from the registry. A gate that fails on an entry without `integrity` would stop it
+regressing either way.

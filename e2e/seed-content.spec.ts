@@ -31,7 +31,7 @@
 // ★ Asserts CONTENT, never "the seed ran". A seed that runs and writes nothing
 // is exactly the bug.
 
-import { test, expect, gotoApp, openView } from "./seed";
+import { test, expect, gotoApp, openView, seedTimelogSettings } from "./seed";
 
 test("seeded documents reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
@@ -53,14 +53,13 @@ test("seeded documents reach the app, not just IndexedDB", async ({ page }) => {
   await expect(page.getByText("No documents yet.")).toHaveCount(0);
 });
 
-// ★★ INSIGHTS ONLY — and this comment named Time bookings alongside it until
-// 0.245.0. Both were in A11Y_VIEWS and both were scanned against their empty
-// state until 2026-08-08, because neither slice exists in the sample master AND
-// neither was in the seed's kv map then. Authoring them in the seed fixed both; the
-// `cfg.enabled` gate then put Time bookings BACK on its empty state (§171), so
-// only Insights still has rows under the scan. This spec is what keeps that
-// true: without it, dropping the seeded `insights` turns those axe scans green
-// again by deleting the rows they are supposed to be checking.
+// ★★ Insights and Time bookings were both in A11Y_VIEWS and both scanned against
+// their empty state until 2026-08-08, because neither slice exists in the sample
+// master AND neither was in the seed's kv map then. Authoring them in the seed
+// fixed both; the `cfg.enabled` gate (0.245.0) then put Time bookings back on its
+// empty state until §171 seeded the Timelog settings for it. These specs are what
+// keep that true: without them, dropping the seeded rows turns those axe scans
+// green again by deleting the rows they are supposed to be checking.
 test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
   await openView(page, "Insights");
@@ -142,36 +141,53 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await expect(page.getByText("No insights yet")).toHaveCount(0);
 });
 
-test("Time bookings renders the not-configured gate, so its tables reach NO e2e assertion", async ({ page }) => {
+test("seeded timelog project links reach the app, not just IndexedDB", async ({ page }) => {
+  // §171: the view is gated on `cfg.enabled`, and the default is off, so the
+  // integration has to be switched on first or only the not-configured screen
+  // renders. With it on, the seeded `timelogLinks` surface as rows: timelog-panel.tsx
+  // merges linked-but-unfetched projects into `knownProjectRefs` under their id.
+  // The People table renders `sync.users`, which is network-only, so it stays
+  // empty here: do NOT extend this test to assert people rows.
+  const timelog = await seedTimelogSettings(page);
   await gotoApp(page);
   await openView(page, "Time bookings");
 
-  // ★★★ THIS TEST IS THE INVERSE OF THE ONE IT REPLACES, AND THE FLIP IS THE
-  // POINT. It used to assert `Clear link – 701`/`– 702`, because the seeded
-  // `timelogLinks` kv key surfaced as real rows: timelog-panel.tsx merges
-  // linked-but-unfetched projects into `knownProjectRefs` under a synthetic
-  // name. 0.245.0 gated the whole view on `cfg.enabled` (timelog-panel.tsx,
-  // `TimelogNotConfigured`), and NOTHING in e2e/seed.ts seeds timelog SETTINGS
-  // — so `defaultTimelogConfig.enabled` (false) stands and those rows can no
-  // longer render at all. The old assertion did not go stale gradually; it
-  // became unsatisfiable in one commit, and only CI said so.
-  // ★★★ SO THE PROJECTS AND PEOPLE TABLES NOW HAVE NO e2e COVERAGE OF ANY KIND
-  // — not this spec, and not the axe scan either (Time bookings is in
-  // A11Y_VIEWS, and what it scans is the empty state below). Their row-unique
-  // control names survive ONLY in `timelog-panel.test.tsx`, which pins
-  // `${timelogMatchClear} – 99` in two places. Recorded as open-followups §171
-  // WITH the two ways out; seeding the settings is the one that would restore
-  // both this assertion and the scan in a single change.
-  // ★★ Do NOT "restore" the old lines without doing that seeding first — they
-  // cannot pass, and a red run here means the gate is working.
+  await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear link – 702", exact: true })).toBeVisible();
+  await expect(page.getByText("The Timelog integration is switched off", { exact: false })).toHaveCount(0);
+  // ★ The one mount-time call is the seeded customer's project list (see
+  // seedTimelogSettings). Waiting for it also proves the stub is wired, so the
+  // check below is not vacuous.
+  await expect.poll(() => timelog.paths()).toContain("/v1/project/get-all");
+  // ★ Nothing fetched bookings or registrations, so the rows are the seeded ones.
+  expect(timelog.paths().filter((path) => /time-|timesheet/.test(path))).toEqual([]);
+});
+
+test("Time bookings renders the not-configured gate when the integration is off", async ({ page }) => {
+  // A switched-off Timelog must not be contacted at all (§171 review: the
+  // picker used to load the seeded customer's projects with blank credentials).
+  const timelogRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/timelog") timelogRequests.push(request.url());
+  });
+  await gotoApp(page);
+  await openView(page, "Time bookings");
+
+  // The default settings leave Timelog off (`defaultTimelogConfig.enabled` is
+  // false), so the seeded rows above must NOT render here: this pins the gate
+  // itself, the other half of the pair.
   await expect(page.getByText("The Timelog integration is switched off", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Configure Timelog", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toHaveCount(0);
 
   // ★ The Clear-all escape hatch is gated on `hasFetched`, which reads the
   // per-device actuals CACHE — a network fetch this run never performs. Its
   // ABSENCE is the assertion: it proves the empty state is the unfetched one,
   // which is what makes the two positives above meaningful.
   await expect(page.getByRole("button", { name: "Clear all", exact: true })).toHaveCount(0);
+  // ★ Checked last, after the view has rendered: the call used to go out from
+  // the picker's mount effect, which has run by now.
+  expect(timelogRequests).toEqual([]);
 });
 
 // ★★ The Dashboard's board is the newest instance of this file's whole premise.

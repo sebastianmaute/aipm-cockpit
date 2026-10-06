@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, seedTimelogSettings, waitForViewSettled } from "./seed";
 import {
   HARBOR_DARK, HARBOR_LIGHT,
   MERIDIAN_DARK, MERIDIAN_LIGHT,
@@ -247,6 +247,9 @@ for (const combo of COMBOS) {
       // addInitScript runs before every navigation, so this fires on the
       // page.goto("/") inside gotoApp — after the page fixture's favicon seed.
       await page.addInitScript(seedScript(combo));
+      // §171: without the integration switched on, this view renders only its
+      // not-configured screen and the tables' controls reach no gate.
+      const timelog = name === "Time bookings" ? await seedTimelogSettings(page) : null;
 
       await gotoApp(page);
       const hash = HASH_VIEW[name];
@@ -282,6 +285,13 @@ for (const combo of COMBOS) {
         ).toBeVisible();
       } else {
         await openView(page, name);
+      }
+      // ★ The table must be on screen, or this scan is the empty state again.
+      if (timelog) {
+        await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
+        // Proves the stub answered the mount-time project-list call
+        // (seedTimelogSettings). Its empty reply changes nothing on screen.
+        await expect.poll(() => timelog.paths()).toContain("/v1/project/get-all");
       }
 
       const results = await new AxeBuilder({ page })

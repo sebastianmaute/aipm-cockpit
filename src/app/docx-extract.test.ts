@@ -32,6 +32,13 @@ describe("extractDocx", () => {
     expect(extractDocx(entries(xml))).toContain("a\\|b");
   });
 
+  it("escapes a cell's backslash before its pipe, so the pipe stays escaped", () => {
+    const xml = `<w:document><w:body><w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>a\\|b</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>c</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl></w:body></w:document>`;
+    expect(extractDocx(entries(xml))).toContain("| a\\\\\\|b | c |");
+  });
+
   it("returns empty string when document.xml is missing", () => {
     expect(extractDocx(new Map())).toBe("");
   });

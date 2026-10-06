@@ -302,21 +302,14 @@ export const SEED_WORKSPACE: Record<string, unknown> = {
       projectBacHours: 1400, projectBacValue: 262000, deltaHours: -80, deltaValue: -12000,
     },
   ],
-  // ★★★ NEITHER TABLE REACHES THE axe SCAN ANY MORE, and this comment used to say
-  // the Projects one did. 0.245.0 gated timelog-panel.tsx on `cfg.enabled`,
-  // returning `TimelogNotConfigured` when the integration is off — and nothing
-  // here seeds any timelog SETTINGS, so `defaultTimelogConfig.enabled` (false)
-  // stands and "Time bookings" is scanned on the not-configured empty state.
-  // The Projects table's per-row link <select>s and the People table alike are
-  // now covered by NO gate. Recorded, with the two ways out (seed the settings,
-  // or pin those controls with unit tests), in docs/open-followups.md §171.
-  //   grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx
-  //   grep -n "enabled: false" src/app/timelog-types.ts
-  // ★ These links are still seeded, and the reason never depended on the scan:
-  // the round-trip through sanitizeTimelogLinks is what proves the kv key.
-  // ★ `bucketId: 1` is a real budget id in the master, so once the table does
-  // render again the row's <select> resolves to a named option rather than
-  // falling back to "none".
+  // ★★ These rows reach the axe scan only because the Time bookings test
+  // switches the integration on first (`seedTimelogSettings` in e2e/seed.ts,
+  // §171): timelog-panel.tsx returns `TimelogNotConfigured` while `cfg.enabled`
+  // is false, and the default is false. Only the PROJECT links render without a
+  // fetch; the People table needs `sync.users`, which is network-only.
+  // ★ The round-trip through sanitizeTimelogLinks is also what proves the kv key.
+  // ★ `bucketId: 1` is a real budget id in the master, so the row's <select>
+  // resolves to a named option rather than falling back to "none".
   timelogLinks: {
     userLinks: [
       { timelogUserId: 501, resourceId: 1, manual: true },

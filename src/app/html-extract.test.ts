@@ -76,6 +76,11 @@ describe("extractHtmlMarkdown", () => {
     expect(out).toContain("| PM | 40 |");
   });
 
+  it("escapes a cell's backslash before its pipe, so the pipe stays escaped", () => {
+    const out = extractHtmlMarkdown(`<table><tr><td>a\\|b</td><td>c</td></tr></table>`);
+    expect(out).toContain("| a\\\\\\|b | c |");
+  });
+
   it("renders a multi-row table with a header separator and every data row", () => {
     const out = extractHtmlMarkdown(
       `<table><tr><th>Role</th><th>Hours</th></tr>` +
