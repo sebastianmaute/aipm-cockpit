@@ -112,7 +112,7 @@
   so an override no longer snaps back when toggled. Pure `resolveEffectiveSettings(device,
   policy, appearance)` (`settings-effective.ts`) merges OVERRIDE-else-DEVICE (partial-merge nextActions/
   notifications, whole-replace timezone/appearance); `useEffectiveSettings(projectId)` is the reactive hook. ★★
-  CONSUMERS read EFFECTIVE (task-manager: nextActions RANKING/`buildActionInput` + reminders + timezone/today;
+  CONSUMERS read EFFECTIVE (task-manager, through `use-next-actions.ts`: nextActions RANKING/`buildActionInput`; task-manager: reminders + timezone/today;
   workspace-section: density/showViewHints/world-clock) — the next-actions/timezone EDITORS stay DEVICE; no
   override ⇒ identical to before. ★★ the appearance store's projectId MUST be `portfolioCurrentId` (= tursoProjectId
   in Turso mode), NOT raw `registry.currentProjectId` — SettingsView + workspace-section must agree or the override

@@ -89,8 +89,6 @@ import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
-import { useActionSnooze } from "./use-action-snooze";
-import { snoozeGroupIds } from "./action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
@@ -151,11 +149,8 @@ import { TOUR_ANCHORS } from "./app-tour";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
 import { usePortfolioProjects } from "./use-portfolio-projects";
+import { useNextActions } from "./use-next-actions";
 import type { ProjectListEntry } from "./turso-tenant-schema";
-import { computeNextActions } from "./next-actions";
-import { groupNextActions } from "./next-actions/group";
-import { buildActionInput } from "./next-actions-input";
-import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
 import { resolveTimezone, createProjectClock } from "./timezone";
@@ -675,7 +670,6 @@ function TaskManagerInner() {
 
   const birthdaySnooze = useReminderSnooze("birthday");
   const jiraTokenSnooze = useReminderSnooze("jiraToken");
-  const actionSnooze = useActionSnooze();
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, effectiveNotifications.reminderLeadDays),
@@ -906,93 +900,22 @@ function TaskManagerInner() {
   // through `dispatcher`, so that hook is called right after `dispatcher` is
   // created, below.
 
-  // Pre-computed workload alerts (over-allocated / overload) for the `workload`
-  // next-actions provider; computed once on the surface and fed into the engine.
-  const workloadAlerts = useMemo(
-    () => buildWorkloadAlerts({
-      resources, tasks, absences, shifts, raid, plan, today,
-      workdayHours: settings.resources.workdayHours, holidaySet,
-      overdueThreshold: effectiveNextActions?.workloadOverdueThreshold,
-      overAllocatedPct: effectiveNextActions?.workloadAllocatedPct,
-    }),
-    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, effectiveNextActions],
-  );
-
-  // Hoisted so the memo/callbacks can depend on these directly (exhaustive-deps
-  // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
-  const learnedBias = learning.bias;
-  const recordLearning = learning.record;
   // The single declaration for "the current project id under whichever
   // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
   // `currentProjectId` are all already in scope by this point (each declared
   // earlier in the component), so there is no TDZ hazard hoisting it here.
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
-  // Suggested next-actions engine. Reuses comms.items (already computed above)
-  // so we don't run getStakeholderCommsItems a second time.
-  const nextActions = useMemo(
-    () =>
-      computeNextActions(
-        buildActionInput({
-          tasks,
-          raid,
-          changes,
-          milestones,
-          stakeholders,
-          steeringCommittee,
-          dashboard: dashboardModel,
-          commsReminders: comms.items,
-          features: settings.features,
-          projectName: project?.name ?? "",
-          projectId: portfolioCurrentId ?? undefined,
-          projectMeta: project,
-          today,
-          now: new Date(),
-          reminderLeadDays: effectiveNotifications.reminderLeadDays,
-          dueSoonWorkdays: effectiveNotifications.dueSoonWorkdays,
-          raidReviewIntervalDays: effectiveNotifications.raidReviewIntervalDays,
-          scopePendingRed: effectiveNextActions?.scopePendingRed,
-          scheduleSpiWarn: effectiveNextActions?.scheduleSpiWarn,
-          scheduleSpiCritical: effectiveNextActions?.scheduleSpiCritical,
-          workloadAllocatedCritical: effectiveNextActions?.workloadAllocatedCritical,
-          workloadOverdueUrgent: effectiveNextActions?.workloadOverdueUrgent,
-          trends: actionTrends,
-          clarityBonus: effectiveNextActions?.clarityBonus,
-          semiClarityBonus: effectiveNextActions?.semiClarityBonus,
-          staticPenalty: effectiveNextActions?.staticPenalty,
-          // Due actions stay always-on (core). The RAID review toggle below
-          // defaults true and is a safe gate.
-          raidReviewEnabled: effectiveNotifications.raidReview.enabled,
-          workloadAlerts,
-          dismissed: actionSnooze.dismissed,
-          learnedBias,
-        }),
-      ),
-    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, portfolioCurrentId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
-  );
-  // ★ Spec C decision 4: grouping runs ONCE, here, beside `computeNextActions`.
-  // Both the Next-actions page and the Dashboard (its hero and Top actions tile)
-  // read this array, so the two surfaces cannot pick different heroes. The flat
-  // list keeps flowing to everything that wants it (notifications, chips, AI).
-  const nextActionGroups = useMemo(() => groupNextActions(nextActions), [nextActions]);
-  const nowCount = nextActions.filter((a) => a.tier === "now").length;
-  // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
-  // influence/interest matrix's "needs communication" jump-to-Action-Center icon.
-  const commsPendingStakeholderIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const a of nextActions) {
-      if (a.source === "stakeholder-comms" && a.cta.kind === "open") {
-        ids.add(Number(a.cta.id));
-      }
-    }
-    return ids;
-  }, [nextActions]);
-  // Deep-link to the Action Center for this stakeholder (uses the shared
-  // requestOpen primitive: switches to the actions view + sets #actions/<id>).
-  const jumpToComms = useCallback(
-    (stakeholderId: number) => requestOpen("actions", stakeholderId),
-    [requestOpen],
-  );
-  const onJumpToComms = isPopout ? undefined : jumpToComms;
+  // Suggested next-actions wiring — the workload alerts, the engine run, the
+  // grouping, the comms-pending ids, the jump-to-comms link and the group-aware
+  // snooze — extracted to useNextActions (use-next-actions.ts, §491).
+  const { nextActions, nextActionGroups, nowCount, commsPendingStakeholderIds, onJumpToComms, snoozeAction } = useNextActions({
+    isPopout, tasks, raid, changes, milestones, stakeholders, steeringCommittee,
+    resources, absences, shifts, plan, dashboardModel, commsReminders: comms.items,
+    features: settings.features, project, portfolioCurrentId, today,
+    workdayHours: settings.resources.workdayHours, holidaySet,
+    effectiveNotifications, effectiveNextActions, actionTrends,
+    learnedBias: learning.bias, recordLearning: learning.record, requestOpen,
+  });
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
   // root. The nonce re-fires navigation even on a repeat click.
@@ -1084,20 +1007,6 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     openActionCenter,
   });
-
-  // `extraIds` are the OTHER ids in the row's ActionGroup (action-row.tsx /
-  // action-hero-card.tsx thread them from `ActionGroup.extra`). Snoozing a
-  // grouped row must snooze every signal in the group — else the row
-  // reappears immediately with the next signal promoted to primary. Learned
-  // bias stays keyed on the primary's kind only: extras are snoozed directly
-  // against the store (`snoozeGroupIds`), bypassing recordLearning.
-  const snoozeAction = useCallback(
-    (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
-      void recordLearning(a, "snoozed");
-      snoozeGroupIds(actionSnooze.snooze, a.id, ms, extraIds);
-    },
-    [actionSnooze, recordLearning],
-  );
 
   // Lazily serialize the CURRENT workspace for a version-history capture. The field
   // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
@@ -1545,7 +1454,7 @@ function TaskManagerInner() {
     setRaid,
     setMilestones,
     pendingLinkRaidIdRef,
-    recordLearning,
+    recordLearning: learning.record,
     showToast,
     selfResourceId: settings.selfResourceId,
     // ★★★ logActivityUser, NEVER the raw logActivity — see the USER-ACTOR
@@ -1556,9 +1465,9 @@ function TaskManagerInner() {
 
   // "Log as RAID" (§515): one floating RAID editor over the current view. Called
   // after useResourcePlanner (handleSaveRaidItem) and the learning hook
-  // (recordLearning); openers are undefined in popouts.
+  // (learning.record); openers are undefined in popouts.
   const raidCreate = useRaidCreate({
-    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning,
+    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning: learning.record,
     onInsightLogged: onInsightLoggedAsRaid,
   });
 

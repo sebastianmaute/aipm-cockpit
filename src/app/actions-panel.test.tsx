@@ -8,7 +8,8 @@ import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import type { SuggestedAction } from "./next-actions/types";
 
 /**
- * ★ Spec C lifted grouping out of `ActionsPanel` into `task-manager.tsx`, so
+ * ★ Spec C lifted grouping out of `ActionsPanel` into `task-manager.tsx` (since
+ * §491 into `use-next-actions.ts`, which task-manager calls), so
  * the panel now takes `groups`. This wrapper groups exactly as production does
  * (`groupNextActions` over the flat list) and keeps every render site below
  * byte-identical — "the actions-panel tests still pass when fed grouped data

@@ -42,7 +42,9 @@ Pure engines: `steering-reminders.ts` (`dueInfoReminders` — working-day lead, 
 `Date.now()`) + `committee-calendar-reconcile.ts` (`planCommitteeReconcile` is ID-TRACKED: derives
 create/update/delete from the committee's OWN stored ids, NO `listProjectEvents`). Provider
 `next-actions/providers/committee-info.ts`: ★ optional `ActionInput.steeringCommittee` MUST be populated in
-task-manager's `buildActionInput` or the provider silently returns [] live. ★ Outlook push
+the `buildActionInput` call in `use-next-actions.ts` or the provider silently returns [] live — and
+`task-manager.tsx` must pass `steeringCommittee` into `useNextActions`, which is why that deps field is
+required, not optional. ★ Outlook push
 `use-committee-outlook-push.ts` (mirrors milestone push; `Calendars.ReadWrite`, popout no-op, M365-gated,
 status-only logs — never token/body): meeting events keyed 1:1 on `meeting.outlookEventId`, info-instances in
 `infoReminderEventIds["<meetingId>:<scheduleId>"]`. ★★ A deleted meeting loses its `outlookEventId` (stored on

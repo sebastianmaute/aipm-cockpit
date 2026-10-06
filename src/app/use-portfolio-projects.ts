@@ -206,7 +206,8 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
         }))
       : [];
   // `portfolioCurrentId` is declared once, in task-manager beside the
-  // next-actions memo that needs it, and passed in.
+  // `useNextActions` call that needs it (the engine memo itself lives in
+  // use-next-actions.ts), and passed in.
 
   // Per-device key-fact snapshot for the Projects list's NON-current rows
   // (spec §5.3). Side-effect-only localStorage write (no setState); `new Date()`
