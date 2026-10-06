@@ -250,9 +250,10 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       //   applies it to the row the updater is handed, so a same-tick concurrent write
       //   to other fields or rows survives (the old closure write lost it) (§515).
       // ★ KNOWN LIMIT: the plan is read from the render-scope row. This hook has no
-      //   live RAID ref (task-manager's `raidRef` syncs in an effect, so it is no
-      //   fresher), so a same-tick concurrent SEVERITY write is overwritten by the
-      //   planned step. Record, log and mail still agree with each other.
+      //   live RAID ref (the task editor's `raidRef` in `use-task-editor-create.ts`
+      //   syncs in an effect, so it is no fresher), so a same-tick concurrent
+      //   SEVERITY write is overwritten by the planned step. Record, log and mail
+      //   still agree with each other.
       // ★ KNOWN LIMIT (concurrent delete): if the row vanishes between the render
       //   read above and the updater, `prev.map` writes nothing, yet the activity is
       //   still logged and the mail still opens, with no record on any item — the
