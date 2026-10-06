@@ -700,6 +700,7 @@ export function TaskFormFields({
         >
           <ComboInput
             lang={lang}
+            fieldLabel={t(lang, "group")}
             value={form.group}
             suggestions={uniqueGroups}
             onChange={(group) => setForm({ ...form, group })}

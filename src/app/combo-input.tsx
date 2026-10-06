@@ -24,6 +24,7 @@ export function ComboInput({
   maxLength,
   disabled,
   lang,
+  fieldLabel,
   onBlur,
   "aria-describedby": ariaDescribedBy,
 }: {
@@ -34,6 +35,8 @@ export function ComboInput({
   maxLength?: number;
   disabled?: boolean;
   lang: Lang;
+  /** The field's visible label: names the input, and qualifies the dropdown button's name (see `ComboboxChevron`). */
+  fieldLabel: string;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   "aria-describedby"?: string;
 }) {
@@ -88,6 +91,11 @@ export function ComboInput({
         ref={inputRef}
         type="text"
         role="combobox"
+        // ★ Self-naming, like LabelsInput. Bulk edit's row binds its visible label to the
+        // row's enable checkbox and gives only NATIVE children an aria-label, so this input
+        // had no accessible name there at all (§672). In the task form a wrapping <label>
+        // already supplies the same text, so this changes nothing there.
+        aria-label={fieldLabel}
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
@@ -109,6 +117,7 @@ export function ComboInput({
         open={open}
         disabled={disabled}
         lang={lang}
+        fieldLabel={fieldLabel}
         onToggle={() => {
           if (disabled) return;
           setOpen((o) => !o);

@@ -58,26 +58,33 @@ export function useCombobox(resetKey: string, totalItems: number) {
   return { open, setOpen, highlight, setHighlight, rootRef, inputRef, moveHighlight };
 }
 
-/** The dropdown toggle button (chevron) shared by both inputs. */
+/** The dropdown toggle button (chevron) shared by both inputs.
+ *
+ * ★ `fieldLabel` is REQUIRED and qualifies the name ("Show options – Group"): a form with two
+ * combo fields (the task form and bulk edit both have Group and Labels) otherwise renders two
+ * buttons named "Show options" that a screen-reader user cannot tell apart (§672). */
 export function ComboboxChevron({
   open,
   disabled,
   onToggle,
   lang,
+  fieldLabel,
   className,
 }: {
   open: boolean;
   disabled?: boolean;
   onToggle: () => void;
   lang: Lang;
+  fieldLabel: string;
   className: string;
 }) {
+  const name = `${t(lang, "comboToggle")} – ${fieldLabel}`;
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={t(lang, "comboToggle")}
-      title={t(lang, "comboToggle")}
+      aria-label={name}
+      title={name}
       tabIndex={-1}
       disabled={disabled}
       className={className}

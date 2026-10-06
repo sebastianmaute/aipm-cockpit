@@ -307,6 +307,7 @@ export function BulkEditModal({
         >
           <ComboInput
             lang={lang}
+            fieldLabel={t(lang, "group")}
             value={bulkEdit.group}
             suggestions={uniqueGroups}
             onChange={(group) =>

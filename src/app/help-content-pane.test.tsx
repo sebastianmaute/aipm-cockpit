@@ -4,6 +4,7 @@ import { beforeAll, expect, test, vi } from "vitest";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
 import { HELP_ENTRIES } from "./help-content";
 import { loadI18n, t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { stripHelpMarkers } from "./help-body-markup";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
@@ -162,4 +163,29 @@ test("primer text is searchable at Guided and not at Standard", () => {
   unmount();
   render(<HelpContentPane lang="en-US" query={PRIMER_ONLY_PHRASE} readingLevel="standard" />);
   expect(screen.queryAllByRole("heading", { level: 2 }).length).toBe(0);
+});
+// §672: the contents list names each button by its entry's title, and each entry's Related line
+// names a button per related concept (by that concept's title) and per related view ("Go to <view>").
+// The Related lines repeat targets ACROSS entries on purpose, so uniqueness is asserted per section,
+// which is the list a screen-reader user tabs through; the contents list is one list for the pane.
+// The file's beforeAll loads German, and the de cases below would silently re-run en-US without it.
+test("renders real German for the de case (§672)", () => {
+  expect(t("de", "helpContents")).not.toBe(t("en-US", "helpContents"));
+});
+
+test.each(["en-US", "de"] as const)("names every contents entry distinctly in %s (§672)", (lang) => {
+  render(<HelpContentPane lang={lang} query="" />);
+  expectRowUniqueNames({ minControls: HELP_ENTRIES.length, scope: screen.getByRole("navigation", { name: t(lang, "helpContents") }) });
+});
+
+test.each(["en-US", "de"] as const)("names every Related link within an entry distinctly in %s (§672)", (lang) => {
+  render(<HelpContentPane lang={lang} query="" onNavigateView={vi.fn()} />);
+  const withRelations = HELP_ENTRIES.filter((e) => (e.relatedConcepts?.length ?? 0) + (e.relatedViews?.length ?? 0) > 0);
+  expect(withRelations.length).toBeGreaterThan(10);
+  for (const e of withRelations) {
+    const section = document.getElementById(helpSectionId(e.id));
+    expect(section).not.toBeNull();
+    const links = (e.relatedConcepts ?? []).filter((rid) => HELP_ENTRIES.some((x) => x.id === rid)).length + (e.relatedViews?.length ?? 0);
+    expectRowUniqueNames({ minControls: links, scope: section as HTMLElement });
+  }
 });
