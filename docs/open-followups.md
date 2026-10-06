@@ -908,6 +908,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§671](#671-the-weekly-full-audit-fails-on-a-braces-advisory-that-has-no-patched-release-reached-only-through-eslint-config-next--open) | The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` | — | — | open |
 | [§672](#672-twenty-seven-files-per-row-names-are-judged-unable-to-repeat-by-hand-and-no-test-would-catch-one-that-starts-to--closed-2026-10-06) | Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to | — | — | **CLOSED** 2026-10-06 |
 | [§673](#673-the-use-activity-logts-docstring-quotes-a-call-site-grep-as-55-and-it-now-returns-66--closed-2026-10-06) | The use-activity-log.ts docstring quotes a call-site grep as 55, and it now returns 66 | — | — | **CLOSED** 2026-10-06 |
+| [§674](#674-a-raid-cause-cycle-can-be-stored-through-the-ai-inline-edit-and-import-paths-which-skip-the-modals-cycle-check--open) | A RAID cause cycle can be stored through the AI, inline edit and import paths, which skip the modal's cycle check | — | — | open |
+| [§675](#675-labels-that-differ-only-in-case-become-two-filter-options-that-sound-alike-and-filter-identically--open) | Labels that differ only in case become two filter options that sound alike and filter identically | — | — | open |
+| [§676](#676-a-group-or-assignee-named-like-a-fixed-filter-option-renders-a-second-option-of-the-same-name--open) | A group or assignee named like a fixed filter option renders a second option of the same name | — | — | open |
+| [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--open) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -33873,7 +33877,7 @@ has been WRITTEN about the defect, not how many surfaces have it; only two hits 
 ## 426. Four Reports-arrangement checks that only an eye can make are unrun — CLOSED 2026-10-06
 
 
-**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's screenshots of Reports at 1280px and 1024px (whole page, toolbar, and each block) and its landscape print PDF, and signed off all four items: the floored blocks' sideways scrolling, the 120px row unit, printing (including the page breaks no one had judged), and the trailing group. ★ The "By priority" 5px crop recorded under item 2 of the probe is a found defect that this closure neither fixes nor accepts; it was handed back to the owner to file. The paragraphs below are the record as of the sign-off and are not rewritten.
+**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's screenshots of Reports at 1280px and 1024px (whole page, toolbar, and each block) and its landscape print PDF, and signed off all four items: the floored blocks' sideways scrolling, the 120px row unit, printing (including the page breaks no one had judged), and the trailing group. ★ The "By priority" 5px crop recorded under item 2 of the probe is a found defect that this closure neither fixes nor accepts; it is filed as §677. The paragraphs below are the record as of the sign-off and are not rewritten.
 
 **Status before closure:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
 Reports-arrangement slice. That phrase is the honest answer here and not a placeholder: all four
@@ -44024,7 +44028,7 @@ regressing either way.
 
 ★★ **One more real defect, fixed.** The task form's Budget bucket select named each option by the bucket's name alone, and bucket names carry no uniqueness rule (the Budget panel already disambiguates them), so two buckets called "Build" were two identical options. The options now carry the same `buildRowTokens` occurrence token as the Budget panel. The test seeds the collision; reverting the fix is one of the 16 mutants.
 
-★ **Three findings the tests did not need to fix, handed to the owner to file rather than filed here:**
+★ **Three findings the tests did not need to fix, filed as §674, §675 and §676:**
 1. **A RAID cause cycle can be stored.** Only the RAID modal checks `wouldCreateCycle`; the AI's `create_raid_item`/`update_raid_item`, inline AI edit and CSV/Markdown import set `causedByRaidIds` with no cycle check (`grep -rn "wouldCreateCycle" src/app --include=*.ts --include=*.tsx` finds it called in `raid-edit-modal.tsx` alone, beside its definition in `raid.ts`). In a two-item cycle the edit modal shows the other item both as a "Caused by" chip and as a "Caused this" button under one name; both open the same item, so the names are not misleading, but the cycle itself is bad data.
 2. **Labels that differ only in case become two filter options that sound alike.** `sanitizeLabels` folds case within one task only, and `uniqueLabels` (`workspace-context.tsx`) dedupes by exact string across tasks, so "API" on one task and "api" on another give two options that filter identically, because the label filter compares case-insensitively.
 3. **Free text can match a fixed option.** A group literally named "No group" renders a second "No group" option in the group filter beside the fixed one.
@@ -44064,3 +44068,39 @@ The docstring explains why a call site's spelling does not tell you its actor, a
 Found by the peer session during the batch 14 §491 extraction, which adds or removes no call site and so does not change the count.
 
 **Close when** the docstring stops presenting a live count as current: either re-measure and label the 65 → 55 figures as a dated snapshot of the actor-stamping slice, or keep the command and drop the present-tense number.
+
+## 674. A RAID cause cycle can be stored through the AI, inline edit and import paths, which skip the modal's cycle check — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests. `grep -rn "wouldCreateCycle" src/app --include=*.ts --include=*.tsx` finds the check called in `raid-edit-modal.tsx` alone, beside its definition in `raid.ts`. The AI's `create_raid_item` and `update_raid_item`, inline AI edit and the CSV/Markdown import all write `causedByRaidIds` without it, so a cycle such as A causes B and B causes A can be stored.
+
+**Work item:** #592
+
+What it does today: in a two-item cycle the edit modal lists the other item both as a "Caused by" chip and as a "Caused this" button, under one name. Both open the same item, so the names do not mislead. The defect is the stored cycle: the cause graph is no longer acyclic, and code that walks it has to cope.
+
+**Close when** every write path to `causedByRaidIds` refuses a cycle (or load breaks one), with a test per path.
+
+## 675. Labels that differ only in case become two filter options that sound alike and filter identically — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests, never machine-verified as a rendered pair. `sanitizeLabels` folds case within one task only, and `uniqueLabels` (`workspace-context.tsx`) dedupes by exact string across tasks, so "API" on one task and "api" on another give two label-filter options. They sound alike to a screen reader and filter identically, because the label filter compares case-insensitively.
+
+**Work item:** #593
+
+★ Mind the filter state when fixing it: `resolveEffectiveFilters` matches a label case-insensitively, so a stored filter value and a deduped option can differ in case, and the `<select>` then shows no matching option.
+
+**Close when** case-variant labels give one option, a stored filter in either spelling still selects it, and a test seeds the case variants.
+
+## 676. A group or assignee named like a fixed filter option renders a second option of the same name — OPEN
+
+**Status:** OPEN 2026-10-06 — found by the §672 batch 15 tests, never machine-verified as a rendered pair. The Open Points group filter renders a fixed "No group" option (value `""`) followed by one option per group found on the tasks, so a group literally named "No group" ("Ohne Gruppe" in German) renders a second option with that name, and the two filter differently. The assignee filter has the same shape with "No assignee", and an assignee literally named "All" shares the "All" option's value. See `tasks-section-toolbar.tsx`.
+
+**Work item:** #594
+
+**Close when** a free-text value equal to a fixed option's label or value reads and filters as its own option, with a test that seeds it.
+
+## 677. The Reports "By priority" block crops its tiles by 5px at its default height — OPEN
+
+**Status:** OPEN 2026-10-06 — never machine-verified by a committed check. The batch 14 §426 probe measured it in Chromium at 1280px and 1024px: the block's default height is `h: 1` (`grep -n "byPriority" src/app/report-blocks.ts`), and its content is 94px in an 89px box, so the bottom border of its four tiles is cropped by 5px. §426 closed on the owner's sign-off without fixing it.
+
+**Work item:** #595
+
+**Close when** the block's content fits its default height, measured again in a browser.
