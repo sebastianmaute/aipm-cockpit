@@ -26,7 +26,8 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 > ★ **Second correction 2026-10-06 (§672, batch 15).** Row 181's `fine` was wrong too. The
 > select renders once, but its options are named by budget bucket names, which carry no
 > uniqueness rule, so two buckets with one name were two identical options. §672 gave the
-> options the Budget panel's occurrence token. Row 181 is left as recorded, like row 59.
+> options an occurrence token numbered in the Budget panel's order. Row 181 is left as recorded,
+> like row 59.
 
 - **fine**: the value cannot repeat, for the reason given.
 - **fixed**: free text that repeats in ordinary use. Each fix has a test that seeds
