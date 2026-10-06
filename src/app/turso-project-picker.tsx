@@ -67,8 +67,8 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
 
   // No synchronous setState here — the first setState happens inside the
   // .then/.catch, after the fetch's microtask boundary, same shape as
-  // task-manager.tsx's refreshTursoProjects (whose setState calls run only
-  // after its first `await`). Calling this directly from the mount effect
+  // use-turso-project-list.ts's refreshTursoProjects (whose setState calls run
+  // only after its first `await`). Calling this directly from the mount effect
   // below therefore doesn't trip `react-hooks/set-state-in-effect`; a
   // synchronous "loading" reset belongs to `retry`, which fires from a click
   // handler, not an effect.

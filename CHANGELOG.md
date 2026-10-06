@@ -157,6 +157,12 @@ longer carries its own changelog comment.
   in 1.15.0 without a note. The message shown is the "Couldn't reach Jira" one, which names the
   connection rather than the settings.
 
+### Security
+
+- `sharp` moves from 0.35.4 to 0.35.5, closing a high-severity issue in its bundled librsvg
+  (CVE-2026-96889). The advisory was published after the previous release. sharp reaches the
+  app through Next.js, so the fix raises the version it is held to in `overrides`.
+
 ### Development
 
 - **IndexedDB stores come from one list (§99 follow-up).** `openIdb` now creates every record store
