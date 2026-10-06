@@ -75,6 +75,9 @@ describe("TaskManager portfolio mode (Turso)", () => {
     window.localStorage.clear();
     listProjects.mockClear();
     listArchivedProjects.mockClear();
+    // Module-level captures: reset so no test can read a previous mount's args.
+    wiring.backendOutcome = null;
+    wiring.listOutcome = null;
   });
 
   it("shows the empty-state in turso mode once the (empty) project list loads", async () => {
