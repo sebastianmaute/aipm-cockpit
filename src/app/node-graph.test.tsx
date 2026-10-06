@@ -1,6 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NodeGraph } from "./node-graph";
+import { RelationsMap } from "./relations-map";
+import { buildRelationsGraph } from "./relations-graph";
+import { HELP_ENTRIES } from "./help-content";
+import { loadI18n } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { NodeGraphNode, NodeGraphEdge, NodeGraphZone } from "./node-graph-layout";
 
 const nodes: NodeGraphNode[] = [
@@ -88,5 +93,19 @@ describe("NodeGraph interactive mode (onSelectNode present)", () => {
     render(<NodeGraph viewBox={{ w: 260, h: 120 }} nodes={nodes} edges={edges} ariaLabel="My group" onSelectNode={() => {}} />);
     expect(screen.getByRole("group", { name: "My group" })).toBeTruthy();
     expect(screen.queryByRole("img")).toBeNull();
+  });
+});
+
+describe("NodeGraph — node buttons are named uniquely by their real caller (§245)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // NodeGraph names each node button by `nodeAriaLabel(n)` or `n.label` and cannot itself stop two
+  // nodes sharing a label, so uniqueness is the CALLER's job. RelationsMap is the only interactive
+  // caller (InformationFlowsSection passes no onSelectNode and renders no buttons); its labels are
+  // the help concepts' titles, checked here over the real catalog in every shipped language.
+  it.each(["en-US", "de"] as const)("names every relations-map node distinctly in %s", (lang) => {
+    const graph = buildRelationsGraph(HELP_ENTRIES);
+    render(<RelationsMap graph={graph} lang={lang} onSelectConcept={() => {}} />);
+    expectRowUniqueNames({ minControls: graph.nodes.length });
   });
 });

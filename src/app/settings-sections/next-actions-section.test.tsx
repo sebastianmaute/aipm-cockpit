@@ -1,12 +1,17 @@
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NextActionsSection } from "./next-actions-section";
 import { defaultSettings, defaultNextActionsConfig } from "../settings-types";
-import { t } from "../i18n";
+import { loadI18n, t } from "../i18n";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectNoLabelBoundToButton } from "../../test/label-binding";
 
 // Mock the AI hook so the AI-suggested column renders without any network call.
-const suggestState = vi.hoisted(() => ({ error: null as string | null }));
+const suggestState = vi.hoisted(() => ({
+  error: null as string | null,
+  // Overrides the one default suggestion below when a test needs every field suggested at once.
+  suggestions: null as { field: string; current: number; suggested: number; rationale: string }[] | null,
+}));
 vi.mock("../use-weight-suggestions", () => ({
   useWeightSuggestions: () => ({
     run: vi.fn(),
@@ -14,7 +19,7 @@ vi.mock("../use-weight-suggestions", () => ({
     error: suggestState.error,
     clear: vi.fn(),
     result: {
-      suggestions: [{ field: "clarityBonus", current: 15, suggested: 20, rationale: "act on clear" }],
+      suggestions: suggestState.suggestions ?? [{ field: "clarityBonus", current: 15, suggested: 20, rationale: "act on clear" }],
       overallRationale: "",
       recommendEnableLearning: false,
     },
@@ -196,5 +201,27 @@ describe("§650 weight suggestions — a refused key is not a network problem", 
     suggestState.error = "network";
     render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} buildWeightSuggestionContext={() => "ctx"} />);
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "weightSuggestErrorNetwork"));
+  });
+});
+
+describe("NextActionsSection — every weight field and Accept button has its own name (§245)", () => {
+  beforeAll(() => loadI18n("de"));
+  afterEach(() => { suggestState.suggestions = null; });
+
+  // Each weight row names its number field by the field label and its Accept button by
+  // "Accept - <field label>", so two fields labelled alike would make both pairs sound identical.
+  // Every numeric setting is suggested at once so all ten rows carry an Accept button.
+  const WEIGHT_FIELDS = 10;
+
+  it.each(["en-US", "de"] as const)("names every weight input and Accept button distinctly in %s", (lang) => {
+    suggestState.suggestions = Object.entries(defaultNextActionsConfig)
+      .filter(([, v]) => typeof v === "number")
+      .map(([field, v]) => ({ field, current: v as number, suggested: (v as number) + 1, rationale: "" }));
+    const aiSettings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true } };
+    render(<NextActionsSection lang={lang} settings={aiSettings} onChange={vi.fn()} buildWeightSuggestionContext={() => "ctx"} />);
+    // Anti-vacuity: one Accept per row, counted by visible text so the count holds whatever the name says.
+    expect(screen.getAllByRole("button").filter((b) => b.textContent === t(lang, "weightSuggestAccept"))).toHaveLength(WEIGHT_FIELDS);
+    expectRowUniqueNames({ minControls: WEIGHT_FIELDS, roles: ["spinbutton"] });
+    expectRowUniqueNames({ minControls: WEIGHT_FIELDS });
   });
 });
