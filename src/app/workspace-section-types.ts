@@ -357,7 +357,8 @@ export interface WorkspaceSectionProps {
   onRestoreProject?: (id: string) => void;
   onHardDeleteProject?: (id: string) => void;
   nextActions: readonly SuggestedAction[];
-  /** `groupNextActions(nextActions)`, computed ONCE in `task-manager.tsx`
+  /** `groupNextActions(nextActions)`, computed ONCE in `use-next-actions.ts`
+   *  (called from `task-manager.tsx`)
    *  (spec C decision 4). `ActionsPanel` renders it; the Dashboard gets its
    *  hero (`pickHeroGroup`) and Top-actions primaries from it. */
   nextActionGroups: readonly ActionGroup[];

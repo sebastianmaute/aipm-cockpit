@@ -78,7 +78,7 @@ interface DashboardPanelProps {
   topActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
   /** Row 2's Next-Actions hero (spec C decisions 3–4): `pickHeroGroup` over the
-   *  ONE grouping `task-manager.tsx` runs, so this panel and the Next-actions
+   *  ONE grouping `use-next-actions.ts` runs for `task-manager.tsx`, so this panel and the Next-actions
    *  page cannot promote different groups. null/absent = no Now/Soon group →
    *  Overall status takes the whole row. */
   heroGroup?: ActionGroup | null;

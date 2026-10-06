@@ -89,10 +89,10 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     }
   });
 
-  it("threads the action-center handler bundles (Phase 3: use-action-center-handlers)", () => {
+  it("threads the action-center handler bundles and the next-actions wiring (Phase 3: use-action-center-handlers, use-next-actions)", () => {
     const p = captured.props!;
-    // ★ Spec C: grouping runs ONCE in task-manager, and both the Next-actions
-    // page and the Dashboard read this array.
+    // ★ Spec C: grouping runs ONCE, in use-next-actions.ts (called from
+    // task-manager), and both the Next-actions page and the Dashboard read this array.
     expect(Array.isArray(p.nextActionGroups), "nextActionGroups must reach WorkspaceSection as an array").toBe(true);
     for (const key of [
       "nextActions",
@@ -113,6 +113,10 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     ]) {
       expect(p, `missing threaded action-center prop: ${key}`).toHaveProperty(key);
     }
+    // A key can be present with an `undefined` value, so check the two
+    // next-actions values themselves (this render is the main window, not a popout).
+    expect(p.commsPendingStakeholderIds).toBeInstanceOf(Set);
+    expect(typeof p.onJumpToComms).toBe("function");
   });
 
   it("threads the AI orchestration + activity props (Phase 3: use-ai-orchestration)", () => {

@@ -57,8 +57,8 @@ export function groupNextActions(actions: readonly SuggestedAction[]): ActionGro
  *  surface that renders one row per action (the dashboard's Top actions tile):
  *  slicing the FLAT list first would let several signals on one entity — e.g.
  *  one per missing project key fact — fill every slot with the same row.
- *  ★ Takes the GROUPS (spec C): `task-manager.tsx` groups once and hands the
- *  result down, so this no longer runs `groupNextActions` a second time. */
+ *  ★ Takes the GROUPS (spec C): `use-next-actions.ts` (called from
+ *  `task-manager.tsx`) groups once and the result is handed down, so this no longer runs `groupNextActions` a second time. */
 export function topGroupPrimaries(groups: readonly ActionGroup[], n: number): SuggestedAction[] {
   return groups.slice(0, n).map((g) => g.primary);
 }

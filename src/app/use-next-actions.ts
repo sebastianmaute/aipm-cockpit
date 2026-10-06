@@ -73,7 +73,7 @@ export function useNextActions(deps: NextActionsDeps) {
   } = deps;
 
   const actionSnooze = useActionSnooze();
-  const snoozeStore = actionSnooze.snooze;
+  const snoozeFn = actionSnooze.snooze;
 
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
@@ -163,9 +163,9 @@ export function useNextActions(deps: NextActionsDeps) {
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
       void recordLearning(a, "snoozed");
-      snoozeGroupIds(snoozeStore, a.id, ms, extraIds);
+      snoozeGroupIds(snoozeFn, a.id, ms, extraIds);
     },
-    [snoozeStore, recordLearning],
+    [snoozeFn, recordLearning],
   );
 
   return { nextActions, nextActionGroups, nowCount, commsPendingStakeholderIds, onJumpToComms, snoozeAction };

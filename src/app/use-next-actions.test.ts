@@ -99,6 +99,8 @@ describe("useNextActions — engine input", () => {
       raid: deps.raid, plan: PLAN, today: "2026-10-05", workdayHours: 8, holidaySet: deps.holidaySet,
       overdueThreshold: 5, overAllocatedPct: 120,
     });
+    // toHaveBeenCalledWith compares by value; the holiday set must be the caller's own.
+    expect(buildWorkloadAlerts.mock.calls[0][0].holidaySet).toBe(deps.holidaySet);
     expect(lastInput().workloadAlerts).toBe(ALERTS);
   });
 

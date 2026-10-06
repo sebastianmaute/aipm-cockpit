@@ -50,7 +50,8 @@ export interface AiAnalysisBundle {
 
 interface ActionsPanelProps {
   lang: Lang;
-  /** The grouped next actions (spec C): grouped ONCE in `task-manager.tsx` and
+  /** The grouped next actions (spec C): grouped ONCE in `use-next-actions.ts`
+   *  (called from `task-manager.tsx`) and
    *  shared with the Dashboard, which picks its hero with the same helper. */
   groups: readonly ActionGroup[];
   onOpen: (action: SuggestedAction) => void;
