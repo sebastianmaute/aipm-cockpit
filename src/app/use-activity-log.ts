@@ -59,17 +59,24 @@ export function useActivityLog(): {
    *  ★★★ DO NOT READ A CALL SITE'S SPELLING AS ITS ACTOR — this is the one thing
    *  the design costs, and an earlier revision of this comment got it wrong in
    *  the checkable direction. It claimed "exactly ONE production call site is
-   *  left on the plain variants" and attached a grep; the grep returns **55**,
-   *  and refutes the sentence it was attached to. The count that is ONE is the
-   *  number of sites still receiving the genuinely ACTOR-LESS function:
-   *  `use-settings-change-log.ts`'s debounced `settings.updated` logger
-   *  (called from task-manager), which cannot see its cause (the AI's
-   *  `update_settings` mutates the same state and fires the same
-   *  effect). The other 54 spell `logActivity(...)` and receive the pre-stamped
+   *  left on the plain variants" and attached a grep; that grep returned **55**
+   *  when the actor-stamping slice ran it (2026-08-17, the snapshot below), and
+   *  refuted the sentence it was attached to. Later work has added plain-name
+   *  call sites, so run the command below for today's count rather than reading
+   *  one here — every figure in this comment is that dated snapshot. The count
+   *  that is ONE is the number of sites still receiving the genuinely
+   *  ACTOR-LESS function: `use-settings-change-log.ts`'s debounced
+   *  `settings.updated` logger (called from task-manager), which cannot see its
+   *  cause (the AI's `update_settings` mutates the same state and fires the
+   *  same effect). `task-manager.activity-actor.test.tsx` pins that this site
+   *  gets the raw function. Every other plain-name site (54 in that snapshot) spells
+   *  `logActivity(...)` and receives the pre-stamped
    *  `"user"` wrapper. Spelling is a property of the LEAF; the actor is a
    *  property of the WIRING, and only `task-manager` shows it.
    *
-   *  ★★ Measured on the actor-stamping slice, all excluding tests and comments:
+   *  ★★ A DATED SNAPSHOT, measured on the actor-stamping slice (2026-08-17),
+   *  all excluding tests and comments. The command still runs; its count has
+   *  moved since, and is not expected to match the figures here:
    *   - plain-name call sites: 65 before → 55 after
    *     `grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`
    *   - of the 10 that left: 7 now name an actor at the site, 3 became direct
