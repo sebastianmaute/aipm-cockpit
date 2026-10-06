@@ -11,7 +11,9 @@ import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
 import { APP_VERSION } from "../src/app/version";
 import {
+  BOOT_NONCE_ENV,
   checkoutToken,
+  judgeBootNonce,
   judgeServedCheckout,
   runStartsDevServer,
 } from "../src/app/checkout-token";
@@ -148,10 +150,11 @@ const SCHEME_SEED: Record<
 const comboLabel = (combo: (typeof COMBOS)[number]): string =>
   `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
 
-// The server under test must BE this checkout. playwright.config.ts sets
-// reuseExistingServer outside CI, so a run can silently attach to a dev server
-// left over from another worktree and report a full pass about code that is not
-// on this branch (open-followups §58). Two checks, each naming what it compares:
+// The server under test must BE this run's server. Until §58 (b) playwright.config.ts
+// reused any server already answering on the port outside CI, so a run could silently
+// attach to a dev server left over from another worktree, or from an earlier run in
+// this one, and report a full pass about code that is not on this branch
+// (open-followups §58). Three checks, each naming what it compares:
 //  1. data-app-version against this checkout's APP_VERSION — catches a server on
 //     another release.
 //  2. data-checkout (dev servers only) against checkoutToken() of THIS process's
@@ -168,13 +171,19 @@ const comboLabel = (combo: (typeof COMBOS)[number]): string =>
 //     should be this checkout's dev server and a missing attribute means a
 //     production build or a dev server from a commit before the attribute. Set,
 //     the run points at an external server, which may be production on purpose.
-// Still NOT sufficient: a leftover dev server from THIS worktree matches both,
-// so keep the PORT=3100 fresh-port convention AGENTS.md prescribes.
+//  3. data-boot-nonce against this run's E2E_BOOT_NONCE (judgeBootNonce) — catches a
+//     leftover dev server from THIS worktree, which matches both checks above. The
+//     config mints the nonce once per run and boots its webServer with it, and since
+//     §58 (b) it no longer reuses a server unless PLAYWRIGHT_REUSE_SERVER=1. With the
+//     opt-in, a server the user started passes only if it was booted with the same
+//     E2E_BOOT_NONCE as the run. An external (PLAYWRIGHT_NO_WEBSERVER) run is not
+//     checked: it boots no server.
 test("guard: the served app is this checkout", async ({ page }) => {
   await gotoApp(page);
   const served = await page.evaluate(() => ({
     version: document.documentElement.getAttribute("data-app-version"),
     checkout: document.documentElement.getAttribute("data-checkout"),
+    bootNonce: document.documentElement.getAttribute("data-boot-nonce"),
   }));
   const remedy =
     `Stop that server, or run on a fresh port: PORT=3100 npm run dev ` +
@@ -211,6 +220,19 @@ test("guard: the served app is this checkout", async ({ page }) => {
       `${remedy} NOTE: a match does not rule out a stale dev server started earlier from ` +
       `THIS directory.`,
   ).toBe(expected);
+  const expectedNonce = process.env[BOOT_NONCE_ENV];
+  const nonceVerdict = judgeBootNonce(served.bootNonce, expectedNonce, runStartsDevServer(process.env));
+  expect(
+    nonceVerdict,
+    `Boot-nonce check: ${nonceVerdict}. The served app's data-boot-nonce is ` +
+      `${served.bootNonce ?? "(absent)"} and this run's ${BOOT_NONCE_ENV} is ${expectedNonce ?? "(unset)"}. ` +
+      `playwright.config.ts mints one nonce per run and boots its own dev server with it, so a ` +
+      `different or absent nonce means the server on this port was not started by this run: a ` +
+      `leftover server, from this worktree or another. "unminted" means the config did not mint one. ` +
+      `Stop that server, or run on a fresh port. To reuse a server you started yourself, boot it ` +
+      `with ${BOOT_NONCE_ENV}=<value> and run with the same ${BOOT_NONCE_ENV} and ` +
+      `PLAYWRIGHT_REUSE_SERVER=1.`,
+  ).toMatch(/^(match|external)$/);
 });
 
 // Build the pre-navigation localStorage seed for a combo. Every combo is now a

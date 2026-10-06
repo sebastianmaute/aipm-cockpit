@@ -15,7 +15,8 @@
 // assertion is on the DATABASE ROW after an edit, never on the UI.
 //
 // ★★★ THE GATE IS TWO-PART AND THE SECOND HALF IS AN ASSERTION, NOT A SKIP.
-// `playwright.config.ts` sets `reuseExistingServer: !CI`, so this will happily
+// `playwright.config.ts` reuses a server already on the port only with
+// `PLAYWRIGHT_REUSE_SERVER=1` (off by default since §58 (b)), so with that opt-in this will happily
 // attach to a server started before `.env.local` existed — where the config
 // never reached the browser, nothing loads from Turso, and a suite gated only on
 // a skip prints as a PASS having tested nothing. So liveness is asserted: the
