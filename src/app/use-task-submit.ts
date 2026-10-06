@@ -272,7 +272,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // redo merges `{taskId:5}` back).
       // ★ It self-heals on the next load, on all six backends: both load
       // funnels (`applyWorkspaceFromLoad` in use-storage-backend.ts and
-      // `applyRestoredWorkspace` in task-manager.tsx) run
+      // `applyRestoredWorkspace` in use-version-history-wiring.ts) run
       // `dropDanglingDependencies` (§133). Until then only the CSV and Markdown
       // decoders did, so the entry persisted on JSON, IndexedDB (the DEFAULT
       // backend) and both Turso layouts.

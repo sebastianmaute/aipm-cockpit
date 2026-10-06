@@ -713,7 +713,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
   deep-link request, the classic header popover), `use-settings-change-log.ts` (the debounced, actor-less
   `settings.updated` row and its §160 AI credits), `use-turso-project-list.ts` (the Turso portfolio's active and
-  archived project lists, their load-once flag and `refreshTursoProjects`), `shell-chrome.tsx`
+  archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
+  version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
+  `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -747,7 +749,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `tursoListLoaded` flag that flips only on a successful fetch, `refreshTursoProjects` and its first-load effect); it is
   coverage-GATED, pinned by its own `renderHook` test, and keeps `refreshTursoProjects`'s `useCallback` on purpose because
   its first-load effect and the handlers in `use-portfolio-projects.ts` and `use-turso-projects.ts` depend on it (its header
-  says more). The
+  says more). A fourteenth, `use-version-history-wiring.ts` (§491), holds the version-history wiring (`getVersionPayload`,
+  `applyRestoredWorkspace`, the error bridge into the storage banner, the `useVersionHistory` call and the `notifySaved`
+  hand-off); it reads the workspace slices from `useWorkspace()` rather than taking 46 deps fields, is coverage-GATED,
+  pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
