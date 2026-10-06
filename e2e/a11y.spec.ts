@@ -289,8 +289,8 @@ for (const combo of COMBOS) {
       // ★ The table must be on screen, or this scan is the empty state again.
       if (timelog) {
         await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
-        // Let the mount-time project-list call settle first (seedTimelogSettings),
-        // so the scan never lands mid-update.
+        // Proves the stub answered the mount-time project-list call
+        // (seedTimelogSettings). Its empty reply changes nothing on screen.
         await expect.poll(() => timelog.paths()).toContain("/v1/project/get-all");
       }
 

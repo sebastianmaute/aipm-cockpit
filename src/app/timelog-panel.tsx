@@ -402,6 +402,7 @@ export function TimelogPanel({
   } = useTimelogPickerScope({
     lang,
     isPopout,
+    isMisconfigured,
     projectKey,
     // `projectKey` is per-project unique (§532: `ws.project?.code` collapsed
     // two code-less projects to the same "default" signal and missed the

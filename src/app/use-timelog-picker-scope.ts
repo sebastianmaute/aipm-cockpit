@@ -44,6 +44,10 @@ export interface TimelogCustomerRef {
 export interface TimelogPickerScopeDeps {
   lang: Lang;
   isPopout: boolean;
+  /** The panel's own `isMisconfigured`: Timelog off, or no host, tenant or token.
+   *  The customer-projects load waits for a usable config rather than sending
+   *  blank credentials, and runs once the config becomes usable. */
+  isMisconfigured: boolean;
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). */
   projectKey: string;
   /** The in-place project-switch signal the hook diffs against `seenProjectId`
@@ -90,6 +94,7 @@ export function useTimelogPickerScope(deps: TimelogPickerScopeDeps): TimelogPick
   const {
     lang,
     isPopout,
+    isMisconfigured,
     projectKey,
     projectId,
     projectCustomerName,
@@ -167,13 +172,15 @@ export function useTimelogPickerScope(deps: TimelogPickerScopeDeps): TimelogPick
   // Load the chosen customer's projects into the picker when the customer changes
   // (pick OR persisted-scope seed). An await-then-setState data load, not a
   // synchronous state-sync — the set-state-in-effect ban targets the latter.
+  // ★ Gated on a usable config: the seeded scope survives with Timelog switched
+  //   off, and this used to POST blank credentials on every mount of the panel.
   useEffect(() => {
-    if (isPopout || projectCustomerId === "") return;
+    if (isPopout || isMisconfigured || projectCustomerId === "") return;
     void Promise.resolve(loadCustomerProjects(Number(projectCustomerId))).catch((e) =>
       reportSilentFailure(showToast, lang, "timelog.customerProjectsFailed", e, "guardTimelogCustomerProjectsFailed"),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync fns are re-created each render; key on the customer id only
-  }, [projectCustomerId, isPopout]);
+  }, [projectCustomerId, isPopout, isMisconfigured]);
 
   const [customerFilter, setCustomerFilter] = useState("");
   // Wildcard-filtered customer options; keep the current selection present even

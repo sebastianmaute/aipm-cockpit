@@ -277,7 +277,8 @@ function ok(cols: string[], rows: string[][]) {
 
 /**
  * Switches the Timelog integration ON for one test, so "Time bookings" renders
- * its projects and people tables instead of the not-configured screen (§171).
+ * its projects table and toolbar instead of the not-configured screen (§171).
+ * The people table stays empty: its rows come only from a fetch.
  * timelog-panel.tsx gates on `cfg.enabled` alone, and the seeded
  * `timelogLinks` then surface as rows: linked-but-unfetched projects are merged
  * in under their id, so 701 and 702 render without a bookings fetch.

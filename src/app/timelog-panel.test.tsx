@@ -2403,6 +2403,49 @@ describe("TimelogPanel", () => {
     });
   });
 
+  // The seeded customer scope survives with Timelog switched off, and the
+  // picker used to load that customer's projects on every mount regardless,
+  // POSTing blank credentials to /api/timelog (found by the §171 review).
+  describe("customer-projects load on mount", () => {
+    async function mountWithCustomer(configure: () => void) {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const loadCustomerProjects = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        loadCustomerProjects,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      configure();
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      return loadCustomerProjects;
+    }
+
+    it("loads the seeded customer's projects once the config is usable", async () => {
+      const load = await mountWithCustomer(enableTimelog);
+      await waitFor(() => expect(load).toHaveBeenCalledWith(5));
+    });
+
+    it("sends nothing while Timelog is switched off", async () => {
+      const load = await mountWithCustomer(() => {});
+      expect(await screen.findByText("The Timelog integration is switched off", { exact: false })).toBeInTheDocument();
+      expect(load).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing while Timelog is on but has no token", async () => {
+      const load = await mountWithCustomer(enableTimelogBrokenToken);
+      // The selection is seeded (Fetch counts 1), so the scope reached the picker.
+      expect(
+        await screen.findByRole("button", { name: new RegExp(`^${t("en-US", "timelogSync")} \\(1\\)$`) }),
+      ).toBeInTheDocument();
+      expect(load).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Fetch error surfacing", () => {
     it("renders the token-invalid message when sync.error is a 401", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
