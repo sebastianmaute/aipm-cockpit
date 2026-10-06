@@ -1640,8 +1640,11 @@
   three honest counts into three false ones.
   ★★ The digest reads **`effectiveFilters`** for the assignee/group/label triple — never the RAW values —
   for the same reason the table and the `<select>`s do. The "no filter" sentinel is the shared
-  **`FILTER_ALL`** (`"All"`, imported from `task-filters.ts`) — not an invented `"__all__"`. A local
+  **`FILTER_ALL`** (imported from `task-filters.ts`) — not an invented `"__all__"`. A local
   sentinel would have made every message from Open Points report three phantom active filters.
+  ★★ Since §676 its value is `" (all)"`, which no trimmed group, label or assignee can equal, and the
+  PRIORITY filter keeps its own `"All"`: `use-view-digest.ts` compares `priorityFilter` to that literal.
+  Comparing it to `FILTER_ALL` reports "priority=All" as an active filter on every message.
   ★★★ **THAT CLAIM IS SCOPED TO THOSE THREE, and an earlier revision of this line stated it flatly for
   the whole digest — which the `use-view-digest.ts` extraction falsified without touching the sentence.**
   The hook reads `healthFilter`, `priorityFilter` and `search` STRAIGHT from `useFilters()`, because
