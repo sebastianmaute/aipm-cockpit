@@ -505,7 +505,10 @@ In addition to running the suites:
    - If you touched Jira: hit Sync against a real Atlassian project.
 
 Critical flows still missing E2E coverage (write tests when you touch them):
-Jira sync, storage backend switching, voice commands, OOXML export.
+storage backend switching, voice commands. Jira sync, OOXML export and one AI chat
+tool call have mocked e2e specs (`e2e/jira-sync.spec.ts`, `e2e/ooxml-export.spec.ts`,
+`e2e/ai-chat-tool-call.spec.ts`); the Jira one mocks the app's `/api/jira/*` routes, so the
+server proxy is not driven and a real-Atlassian Sync is still worth doing by hand.
 
 ## Code style
 

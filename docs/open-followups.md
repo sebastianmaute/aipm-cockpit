@@ -20489,7 +20489,15 @@ question lands.
 
 ## 234. Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped
 
-**Status:** open — a KNOWN gap, written down in `CONTRIBUTING.md` and nowhere else. Recorded here
+**Status:** open — **Update 2026-10-06** (batch 16): three of the five flows now have mocked e2e specs, each run once against a fresh dev server on port 3250 (`npx playwright test e2e/jira-sync.spec.ts e2e/ooxml-export.spec.ts e2e/ai-chat-tool-call.spec.ts --project=chromium --workers=1`, one spec per run, with `PORT=3250` set) and each shown to fail against a broken input. The residue is **storage backend switching** and **voice commands**, which still have none, so the entry stays open for those two.
+
+- **Jira sync** — `e2e/jira-sync.spec.ts`: `page.route` mocks the app's own `/api/jira/*` proxy routes, clicks "Sync with Jira" and asserts the toast ("Synced 1 issue: 1 new, 0 pulled, 0 pushed."), one search carrying the scope's JQL and the configured site and email, the imported issue on the Open Points table, and no write back to Jira. 1 passed; with the mocked search returning no issues it fails. ★ It drives the CLIENT half only: the server proxy and its SSRF guard are not reached, so a real-Atlassian Sync is still the only check of that half.
+- **OOXML export** — `e2e/ooxml-export.spec.ts`: downloads the Word and PowerPoint exports through the real Export menu, unzips them with `unzip.ts`, and checks the part manifest: the Word package holds every part of the `docxLandscape` baseline (`docs/baselines/ooxml-parts.json`) plus only `word/numbering.xml`, which the seeded lists bring (§154) and which must then be declared and related; the PowerPoint package holds every fixed baseline part, at least two slides, and every slide declared in `[Content_Types].xml`, related from `presentation.xml` and given its own rels part. 2 passed. Part PATHS are compared, not digests, because the seeded content differs from the baseline's by design.
+- **AI chat tool call** — `e2e/ai-chat-tool-call.spec.ts`: `page.route` mocks `api.anthropic.com` (the chat calls it from the browser); the first reply is a `create_task` tool call, the second, which must carry that call's `tool_result` for the same id and not an error, is a closing text. It asserts both requests, the reply on screen, and the task on the Open Points table. 1 passed; with the mocked tool renamed to an unknown one the `tool_result` comes back `is_error: true` and it fails.
+
+`CONTRIBUTING.md`'s manual-QA list now names only the two that remain.
+
+**Status before this update:** open — a KNOWN gap, written down in `CONTRIBUTING.md` and nowhere else. Recorded here
 because the register carries e2e gaps (§99, §171, §215), so a reader who checks it concludes the
 coverage picture is mapped. Reproduced 2026-08-28 by `grep -rn "dictation" e2e`.
 
