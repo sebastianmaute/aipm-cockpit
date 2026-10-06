@@ -22,6 +22,11 @@ title, a date) can, and needs a row token (`buildRowTokens` / `useRowTokens`).
 > buttons had the same name. §672 qualified the name with the entry's group. The row and the
 > totals above are left as recorded, because they describe this branch's verdicts; see
 > [open-followups §672](open-followups.md) for the defects its tests found.
+>
+> ★ **Second correction 2026-10-06 (§672, batch 15).** Row 181's `fine` was wrong too. The
+> select renders once, but its options are named by budget bucket names, which carry no
+> uniqueness rule, so two buckets with one name were two identical options. §672 gave the
+> options the Budget panel's occurrence token. Row 181 is left as recorded, like row 59.
 
 - **fine**: the value cannot repeat, for the reason given.
 - **fixed**: free text that repeats in ordinary use. Each fix has a test that seeds
