@@ -3,6 +3,8 @@
 > **Archived 2026-09-13.** Point-in-time inventory, kept as a record; not maintained. Remaining open
 > work lives in docs/open-followups.md (§109) and GitLab. The name defect it lists as open was fixed
 > on 2026-08-31 (§109).
+> **2026-10-05:** B1 is done (the owner chose the tooltip) and §109 is CLOSED. The baseline is now
+> `{}`; read today's count from `node scripts/check-tooltips.mjs`, not from this record.
 
 Snapshot taken 2026-08-07, on `baa3eace` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
 

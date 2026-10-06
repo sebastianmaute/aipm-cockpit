@@ -96,6 +96,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Time bookings no longer contacts Timelog while it is switched off.** Opening the page with Timelog off,
+  or on but without a token, sent a request with empty credentials to load the saved customer's projects.
+  It now waits until the connection is set up.
+- **The classic header's settings cog shows a tooltip (§109).** Hovering it now shows "Settings", like
+  every other icon-only button in the app.
 - **Tables from attached spreadsheets, Word files and emails keep their columns.** A table cell holding a
   backslash right before a pipe, such as `a\|b`, could split into two columns in what the AI assistant
   read. All three attachment readers now escape both characters (code-scanning alert 41).
