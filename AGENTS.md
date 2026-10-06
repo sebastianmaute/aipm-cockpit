@@ -710,7 +710,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   composition), `use-next-actions.ts` (the workload alerts, the next-actions engine run, its grouping and the
   group-aware snooze), `use-task-editor-create.ts` (the task editor's create-RAID and new-linked-task wiring and
   the create-mode buffer they stage into), `use-resource-quick-create.ts` (creating a resource from the picker or the
-  task editor's address-book button), `shell-chrome.tsx`
+  task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
+  deep-link request, the classic header popover), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -731,7 +732,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-resource-quick-create.ts` (§491), holds creating a resource from outside the Resources view (the picker's
   one-step create and its `resource.created` log, the task editor's add-to-address-book and its fill-once assignee
   write-back); it is coverage-GATED, pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because
-  `handleCreateResource` is a dependency of two memos in `use-action-center-handlers.ts` (its header says more). The
+  `handleCreateResource` is a dependency of two memos in `use-action-center-handlers.ts` (its header says more). An
+  eleventh, `use-settings-navigation.ts` (§491), holds the "open settings" routing (the modern deep-link request and its
+  monotonic nonce, the classic popover's open state and its render-time clear on leaving classic); it is coverage-GATED,
+  pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` is in
+  the dependency array of settings-view.tsx's request-consuming effect (its header says more). The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
