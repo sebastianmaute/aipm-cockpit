@@ -4,6 +4,7 @@
 // the w:tbl pair spec closes on the inner table's close tag; such docs
 // extract partially.
 
+import { escapeMarkdownTableCell } from "./md-table-cell";
 import { decodeUtf8, extractRuns } from "./office-xml";
 import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
@@ -20,7 +21,7 @@ const BLOCK_PAIR: TagPairSpec = {
 };
 
 function cellText(tcXml: string): string {
-  return extractRuns(tcXml, "w:t").join("").trim().replace(/\|/g, "\\|");
+  return escapeMarkdownTableCell(extractRuns(tcXml, "w:t").join("").trim());
 }
 
 function renderTable(tblXml: string): string {
