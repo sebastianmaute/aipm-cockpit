@@ -24,10 +24,11 @@
 // what this file does.
 // The rest (editingResource, handleSaveResource via
 // handleSaveResourceFromAnywhere in use-resource-quick-create.ts,
-// handleDeleteResource, handleCloseResourceModal) reach the `<AppModals` render in task-manager.tsx, which is a plain function
-// component, not memo()'d (`AppModals` in app-modals.tsx). So preserving the
-// memoization form needs no justification beyond this being a move-only
-// commit — don't invent one.
+// handleDeleteResource, handleCloseResourceModal) reach the `<AppModals`
+// render in task-manager.tsx, which is a plain function component, not
+// memo()'d (`AppModals` in app-modals.tsx). So preserving the memoization
+// form needs no justification beyond this being a move-only commit — don't
+// invent one.
 //
 // The args the moved bodies read go through ONE `argsRef` derived here rather
 // than threaded in: exhaustive-deps only knows a value is render-stable when it

@@ -5,6 +5,8 @@
 // new person back into the task form. The setters, the logger and the resource
 // directory's handlers are mocks; the name split, the email rule and the id
 // minting are the real ones.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { Resource } from "./types";
@@ -155,6 +157,22 @@ describe("useResourceQuickCreate — add the assignee to the address book", () =
 
     act(() => result.current.handleSaveResourceFromAnywhere(person(6)));
     expect(deps.setForm).not.toHaveBeenCalled();
+  });
+});
+
+describe("useResourceQuickCreate — the call site in task-manager", () => {
+  // ★★ The USER-ACTOR wiring, which no renderHook test above can reach — each
+  // supplies its own logger, so threading the raw `logActivity` in
+  // `task-manager.tsx` (dropping the "user" actor from every resource.created
+  // row) is invisible to all of them. Deliberately narrow, like
+  // use-chat-dispatcher.test.tsx's call-site scan: it proves which logger is
+  // passed, not what it records.
+  it("is handed the user-actor logger", () => {
+    const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
+    const start = src.indexOf("useResourceQuickCreate({");
+    expect(start, "useResourceQuickCreate call not found in task-manager.tsx").toBeGreaterThan(-1);
+    const call = src.slice(start, src.indexOf("})", start));
+    expect(call).toMatch(/\blogActivity:\s*logActivityUser\b/);
   });
 });
 
