@@ -446,7 +446,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate--closed-2026-10-03) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | **CLOSED** 2026-10-03 |
 | [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | **CLOSED** 2026-09-14 |
-| [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | open |
+| [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified--closed-2026-10-06) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | **CLOSED** 2026-10-06 |
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
 | [§207](#207-single-tenant-asset-metadata-is-global-while-the-bytes-are-always-partitioned) | Single-tenant asset metadata is global while the bytes are always partitioned | — | — | open |
 | [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
@@ -665,7 +665,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip still promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
-| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
+| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--closed-2026-10-06) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | **CLOSED** 2026-10-06 |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer, and the Playwright probe that was owed refuted its own premise | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--closed-2026-10-03) | A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | **CLOSED** 2026-10-03 |
@@ -17430,9 +17430,11 @@ change, with the tenant-vs-single-DB question answered deliberately rather than 
 these two named helpers. Single-DB Turso storage is untouched (that path never calls
 `hardDeleteProject`), so the tenant-vs-single-DB question above was answered by scope, not analogy.
 
-## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
+## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified — CLOSED 2026-10-06
 
-**Status:** open — MEASURED for the first time in 0.271.0, but NOT eye-verified, which is what this
+**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's element screenshots (Chromium, light and dark, two images each) and signed the glyph off. The marker paints as a monochrome ⚠ in a dashed red frame, the trailing space separates it from the alt text, and nothing overlaps or clips. The sign-off covered Chromium only. It did not include a look in Firefox, where the measurement section below records that the marker differs, and it did not separately rule on the file-backend finding under "Probe 2026-10-06". Both stay recorded here as they stand. The paragraphs below are the record as of the sign-off and are not rewritten.
+
+**Status before closure:** open — MEASURED for the first time in 0.271.0, but NOT eye-verified, which is what this
 entry asks for. `e2e-crossengine/asset-missing-glyph.spec.ts` now resolves the declaration in real
 Chromium and real Firefox (see "What the cross-engine measurement found" below); nobody has yet
 LOOKED at the marker in the Documents pane, and one of the two findings needs a human judgement a
@@ -17452,8 +17454,6 @@ wrong cause. Whoever fixes it should trace the resolver rather than trust a name
 ★ Narrowed 2026-09-28 (register sweep): `.gitlab-ci.yml` no longer exists, so its `grep -c crossengine`
 command does not run. The equivalent now is `grep -c crossengine .github/workflows/*.yml`, which also
 prints 0 for each file: `e2e-crossengine/` is still in no CI job. The eye-verify is still owed.
-
-**Work item:** #189
 
 **Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, opened the seed's "Kickoff pack" document in the Documents pane. It answered every Turso pipeline request with empty results, so both seeded images resolved to no bytes. Both carried `data-asset-missing="true"` and resolved `::before` content to `U+0022 U+26A0 U+FE0E U+0020 U+0022` (Chromium serializes the two concatenated strings as one string; this is the probe's reading of `getComputedStyle(img, "::before").content`), with the trailing space intact, in light and dark. Element screenshots show a dashed red frame about 32px tall, a monochrome ⚠, a space, then the alt text. Nothing overlapped and nothing was clipped. A person still has to look at it at normal zoom and in Firefox, where the measurement section below records the marker differs.
 
@@ -33870,16 +33870,16 @@ explanatory comments, and every round of writing about it adds more. The number 
 has been WRITTEN about the defect, not how many surfaces have it; only two hits are code
 (`dashboard-panel.tsx` and `reports.tsx`, each an option on a `useListReorderDnd` call).
 
-## 426. Four Reports-arrangement checks that only an eye can make are unrun — OPEN
+## 426. Four Reports-arrangement checks that only an eye can make are unrun — CLOSED 2026-10-06
 
 
-**Status:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
+**Status:** CLOSED 2026-10-06 — owner decision 2026-10-06: the owner looked at the batch 14 probe's screenshots of Reports at 1280px and 1024px (whole page, toolbar, and each block) and its landscape print PDF, and signed off all four items: the floored blocks' sideways scrolling, the 120px row unit, printing (including the page breaks no one had judged), and the trailing group. ★ The "By priority" 5px crop recorded under item 2 of the probe is a found defect that this closure neither fixes nor accepts; it was handed back to the owner to file. The paragraphs below are the record as of the sign-off and are not rewritten.
+
+**Status before closure:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
 Reports-arrangement slice. That phrase is the honest answer here and not a placeholder: all four
 items below are visual judgements about a rendered browser layout, jsdom has no layout engine, and
 the axe gate answers a different question. Do not replace this line with a command until someone has
 actually looked.
-
-**Work item:** #278
 
 **Probe 2026-10-06 (batch 14, Chromium only, NOT the human sign-off).** A throwaway seeded Playwright probe, which was not committed, measured Reports at 1280px (`xl`) and 1024px, and printed it under print media. The numbers, per item:
 1. **`minW: 4` blocks.** At 1280px every full-width block is 918px, and every table fits its scroller (898/898). The exception is the Budget Report's per-bucket table, 1239px in an 898px scroller, which scrolls sideways. At 1024px the grid is two columns wide, so the blocks are 662px. "By assignee" (790/642), "By group" and "By label" (720/642) then scroll sideways, and the last column header is cut at the edge.
