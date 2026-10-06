@@ -38,7 +38,8 @@ function isFactSet(meta: ProjectMeta, id: KeyFactId): boolean {
   // ★★ A record that never passed sanitizeProjectMeta can lack a field outright
   // — `applyRestoredWorkspace` sets `w.project` as handed to it. The sanitizer
   // reads an absent field as blank, so this reads it as missing too; a throw
-  // here would escape the next-actions `useMemo` and fail task-manager's render.
+  // here would escape the next-actions `useMemo` (use-next-actions.ts) and fail
+  // task-manager's render, which calls that hook.
   const value: unknown = meta[id];
   switch (id) {
     case "contactPersons":

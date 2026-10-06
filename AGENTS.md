@@ -722,7 +722,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   effect); it is coverage-GATED and pinned by its own `renderHook` test, and it keeps its inline `useCallback`/`useMemo`
   memoization ON PURPOSE, against convention 1 below (move-only; its header says why). An eighth, `use-next-actions.ts`
   (§491), holds the next-actions wiring (the engine input, the comms-pending ids, the group-aware snooze and its store);
-  it is coverage-GATED, pinned by its own `renderHook` test, and keeps its memoization on purpose for a similar reason (its header says why). The
+  it is coverage-GATED, pinned by its own `renderHook` test, and keeps its memoization on purpose because `nextActions` feeds downstream memos and effects (its header says more). The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

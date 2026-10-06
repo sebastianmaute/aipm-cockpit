@@ -900,8 +900,8 @@ function TaskManagerInner() {
   // through `dispatcher`, so that hook is called right after `dispatcher` is
   // created, below.
 
-  // Hoisted so the callbacks can depend on it directly (exhaustive-deps
-  // rejects an `obj.member` dep like `learning.record`).
+  // A local alias for the learning recorder, passed into the deps objects of
+  // useNextActions, the action-center handlers and useRaidCreate.
   const recordLearning = learning.record;
   // The single declaration for "the current project id under whichever
   // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
