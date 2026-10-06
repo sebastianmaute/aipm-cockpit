@@ -10,7 +10,8 @@ import type { SuggestedAction } from "./next-actions";
 import type { DashboardModel } from "./dashboard";
 import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import { defaultSettings, defaultNextActionsConfig } from "./settings-types";
-import type { Task } from "./types";
+import type { Task, ResourcePlan, SteeringCommittee } from "./types";
+import type { ActionTrends } from "./next-actions/trends";
 
 const { computeNextActions, buildActionInput, buildWorkloadAlerts } = vi.hoisted(() => ({
   computeNextActions: vi.fn(),
@@ -40,6 +41,7 @@ const ALERTS = [{ resourceId: 1, resourceName: "Ada", reason: "overload" as cons
 const COMMS = [{ stakeholderId: 7 }] as unknown as StakeholderCommsReminder[];
 const DASHBOARD = { marker: "dash" } as unknown as DashboardModel;
 const TASKS: Task[] = [];
+const PLAN = { marker: "plan" } as unknown as ResourcePlan;
 
 function makeDeps(over: Partial<NextActionsDeps> = {}): NextActionsDeps {
   return {
@@ -53,7 +55,7 @@ function makeDeps(over: Partial<NextActionsDeps> = {}): NextActionsDeps {
     resources: [],
     absences: [],
     shifts: [],
-    plan: undefined,
+    plan: PLAN,
     dashboardModel: DASHBOARD,
     commsReminders: COMMS,
     features: defaultSettings.features,
@@ -94,7 +96,7 @@ describe("useNextActions — engine input", () => {
     const { deps } = setup();
     expect(buildWorkloadAlerts).toHaveBeenCalledWith({
       resources: deps.resources, tasks: deps.tasks, absences: deps.absences, shifts: deps.shifts,
-      raid: deps.raid, plan: undefined, today: "2026-10-05", workdayHours: 8, holidaySet: deps.holidaySet,
+      raid: deps.raid, plan: PLAN, today: "2026-10-05", workdayHours: 8, holidaySet: deps.holidaySet,
       overdueThreshold: 5, overAllocatedPct: 120,
     });
     expect(lastInput().workloadAlerts).toBe(ALERTS);
@@ -121,6 +123,30 @@ describe("useNextActions — engine input", () => {
     });
     expect((input.projectMeta as { name: string }).name).toBe("Apollo");
     expect(input.now).toBeInstanceOf(Date);
+  });
+
+  it("hands every collection, the committee, the features and the trends to the assembler as they are", () => {
+    const committee = { marker: "committee" } as unknown as SteeringCommittee;
+    const trends = { marker: "trends" } as unknown as ActionTrends;
+    const { deps } = setup({
+      tasks: [{ id: 1 } as Task],
+      raid: [{ id: 2 }] as unknown as NextActionsDeps["raid"],
+      changes: [{ id: 3 }] as unknown as NextActionsDeps["changes"],
+      milestones: [{ id: 4 }] as unknown as NextActionsDeps["milestones"],
+      stakeholders: [{ id: 5 }] as unknown as NextActionsDeps["stakeholders"],
+      steeringCommittee: committee,
+      features: ["raid"],
+      actionTrends: trends,
+    });
+    const input = lastInput();
+    expect(input.tasks).toBe(deps.tasks);
+    expect(input.raid).toBe(deps.raid);
+    expect(input.changes).toBe(deps.changes);
+    expect(input.milestones).toBe(deps.milestones);
+    expect(input.stakeholders).toBe(deps.stakeholders);
+    expect(input.steeringCommittee).toBe(committee);
+    expect(input.features).toBe(deps.features);
+    expect(input.trends).toBe(trends);
   });
 
   it("falls back to an empty project name and no project id when there is no project", () => {
@@ -178,6 +204,13 @@ describe("useNextActions — derived values", () => {
 });
 
 describe("useNextActions — snooze", () => {
+  it("keeps the snooze handler's identity across renders", () => {
+    const { result, rerender, deps } = setup();
+    const first = result.current.snoozeAction;
+    rerender({ ...deps });
+    expect(result.current.snoozeAction).toBe(first);
+  });
+
   it("records the primary's snooze and dismisses the primary and every extra id in the group", () => {
     const { result, deps } = setup();
     expect(lastInput().dismissed).toEqual(new Set());

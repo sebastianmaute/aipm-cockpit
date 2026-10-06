@@ -793,7 +793,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   signals on the SAME entity into one `ActionGroup` (key = open-CTA `${cta.view}:${cta.id}`, else the action's own id
   so snooze-only ids never merge; `primary`=max-score, `extra`=rest, group `score`/`tier`=primary's). `computeNextActions`
   stays FLAT — grouping is SURFACE-ONLY; learning/notifications/AI keep the flat list. ★ It runs ONCE, in
-  `task-manager.tsx` (`nextActionGroups`), which `ActionsPanel` renders and the Dashboard takes its hero and Top-actions
+  `use-next-actions.ts` (`nextActionGroups`, called from `task-manager.tsx`), which `ActionsPanel` renders and the Dashboard takes its hero and Top-actions
   primaries from (spec C). `actions-panel.tsx` caps Now/Soon
   at `MAX_VISIBLE_PER_TIER=5` with a show-more toggle.
 - **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_STRIPE` →

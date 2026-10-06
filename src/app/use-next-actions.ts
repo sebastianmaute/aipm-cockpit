@@ -12,7 +12,10 @@
 // Extraction convention 1 (non-memoized handlers): `nextActions` is the input
 // of several memos and effects downstream (the notifications hook among them),
 // and dropping the memo would re-run the engine and re-fire those on every
-// render. The dependency arrays are the inline ones.
+// render. The dependency arrays are the inline ones, with one exception:
+// `snoozeAction` depends on the store's stable `snooze` function rather than on
+// the store object, which `useActionSnooze` rebuilds every render — inline, the
+// callback therefore got a new identity on every render.
 "use client";
 import { useCallback, useMemo } from "react";
 import type { AppView } from "./nav-config";
@@ -39,11 +42,11 @@ export interface NextActionsDeps {
   changes: readonly ChangeItem[];
   milestones: readonly Milestone[];
   stakeholders: readonly Stakeholder[];
-  steeringCommittee?: SteeringCommittee;
+  steeringCommittee: SteeringCommittee | undefined;
   resources: readonly Resource[];
   absences: readonly Absence[];
   shifts: readonly Shift[];
-  plan?: ResourcePlan;
+  plan: ResourcePlan;
   dashboardModel: DashboardModel;
   commsReminders: readonly StakeholderCommsReminder[];
   features: readonly FeatureModuleId[];
@@ -70,6 +73,7 @@ export function useNextActions(deps: NextActionsDeps) {
   } = deps;
 
   const actionSnooze = useActionSnooze();
+  const snoozeStore = actionSnooze.snooze;
 
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
@@ -159,9 +163,9 @@ export function useNextActions(deps: NextActionsDeps) {
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
       void recordLearning(a, "snoozed");
-      snoozeGroupIds(actionSnooze.snooze, a.id, ms, extraIds);
+      snoozeGroupIds(snoozeStore, a.id, ms, extraIds);
     },
-    [actionSnooze, recordLearning],
+    [snoozeStore, recordLearning],
   );
 
   return { nextActions, nextActionGroups, nowCount, commsPendingStakeholderIds, onJumpToComms, snoozeAction };
