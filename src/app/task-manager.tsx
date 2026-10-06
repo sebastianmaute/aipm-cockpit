@@ -900,9 +900,6 @@ function TaskManagerInner() {
   // through `dispatcher`, so that hook is called right after `dispatcher` is
   // created, below.
 
-  // A local alias for the learning recorder, passed into the deps objects of
-  // useNextActions, the action-center handlers and useRaidCreate.
-  const recordLearning = learning.record;
   // The single declaration for "the current project id under whichever
   // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
   // `currentProjectId` are all already in scope by this point (each declared
@@ -917,7 +914,7 @@ function TaskManagerInner() {
     features: settings.features, project, portfolioCurrentId, today,
     workdayHours: settings.resources.workdayHours, holidaySet,
     effectiveNotifications, effectiveNextActions, actionTrends,
-    learnedBias: learning.bias, recordLearning, requestOpen,
+    learnedBias: learning.bias, recordLearning: learning.record, requestOpen,
   });
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
@@ -1457,7 +1454,7 @@ function TaskManagerInner() {
     setRaid,
     setMilestones,
     pendingLinkRaidIdRef,
-    recordLearning,
+    recordLearning: learning.record,
     showToast,
     selfResourceId: settings.selfResourceId,
     // ★★★ logActivityUser, NEVER the raw logActivity — see the USER-ACTOR
@@ -1468,9 +1465,9 @@ function TaskManagerInner() {
 
   // "Log as RAID" (§515): one floating RAID editor over the current view. Called
   // after useResourcePlanner (handleSaveRaidItem) and the learning hook
-  // (recordLearning); openers are undefined in popouts.
+  // (learning.record); openers are undefined in popouts.
   const raidCreate = useRaidCreate({
-    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning,
+    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning: learning.record,
     onInsightLogged: onInsightLoggedAsRaid,
   });
 
