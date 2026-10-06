@@ -33887,7 +33887,7 @@ actually looked.
 3. **Printing.** Under print media the grid becomes one stack and every block expands with nothing clipped. Page breaks were not judged: a landscape PDF was produced for a person to read, and no one has looked at it yet.
 4. **Trailing group.** At both widths the four icons sit on one row at y=113 with 8px gaps, and do not wrap. The glyphs are printer, columns, a rotate arrow for reset-layout, and inward arrows for reset-size, so they are visually distinct.
 
-Items 1, 2 and 3 still need a person: item 1's sideways-scrolling tables (the cut-off last column at 1024px, the Budget per-bucket table at `xl`) are measured but not judged. Only item 4 is settled. ★ The "By priority" 5px crop under item 2 is a found defect, recorded here and neither fixed nor filed.
+Items 1, 2 and 3 still need a person: item 1's sideways-scrolling tables (the cut-off last column at 1024px, the Budget per-bucket table at `xl`) are measured but not judged. Item 4 has no open question from the probe, but still wants a confirming look. ★ The "By priority" 5px crop under item 2 is a found defect, recorded here and neither fixed nor filed.
 
 **Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
 unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
@@ -44052,8 +44052,8 @@ The scanner counts a surface as covered when a test mentioning it contains any o
 
 **Work item:** #589
 
-The docstring explains why a call site's spelling does not tell you its actor, and backs that with live counts: "the grep returns **55**", "The other 54 spell `logActivity(...)`", and "plain-name call sites: 65 before → 55 after". Those were measured on the actor-stamping slice; `git log -S"the grep returns **55**" -- src/app/use-activity-log.ts` names `93f14e01a` (2026-08-17). Later work added plain-name call sites, so the present-tense figures are stale. The argument itself still holds: exactly one site receives the actor-less function (the debounced `settings.updated` logger, which §491's batch 14 moves out of `task-manager.tsx`), and the rest receive the pre-stamped `"user"` wrapper.
+The docstring explains why a call site's spelling does not tell you its actor, and backs that with live counts: "the grep returns **55**", "The other 54 spell `logActivity(...)`", and "plain-name call sites: 65 before → 55 after". Those were measured on the actor-stamping slice; `git log -S"the grep returns **55**" -- src/app/use-activity-log.ts` names `93f14e01a` (2026-08-17). Later work added plain-name call sites, so the present-tense figures are stale. The argument itself still holds: exactly one site receives the actor-less function (the debounced `settings.updated` logger, which §491's batch 14 is moving out of `task-manager.tsx`; it is still there on this entry's branch), and the rest receive the pre-stamped `"user"` wrapper.
 
-Found by the peer session during the batch 14 §491 extraction, which moves no call site and does not change the count.
+Found by the peer session during the batch 14 §491 extraction, which adds or removes no call site and so does not change the count.
 
 **Close when** the docstring stops presenting a live count as current: either re-measure and label the 65 → 55 figures as a dated snapshot of the actor-stamping slice, or keep the command and drop the present-tense number.
