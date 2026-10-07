@@ -11,6 +11,7 @@ import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor,
 import { splitName } from "../resource-foundation";
 import { resolveLinkTitles } from "./link-titles";
 import { str } from "./str";
+import { isPersonEntity, withReassignFields } from "../person-reassign";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -619,6 +620,15 @@ function describeEntityCallsOnce(
         if (partOf("firstName") === "" && partOf("lastName") === "") {
           input = { ...input, ...splitName(input.name) };
         }
+      }
+      // ★★★ §375: THE WRITER'S OWN REASSIGNMENT PROJECTION, called rather than
+      //  mirrored. `updateTask`, `updateRaid` and `updateAbsence` give a new
+      //  person named without an email the directory person's address (or
+      //  blank), and an absence also the matching `resourceId`. Without this
+      //  the card showed only the name change while the write also replaced
+      //  the address, which is the undisclosed-write shape §437 closed.
+      if (isPersonEntity(d.entity)) {
+        input = withReassignFields(d.entity, input, item as Record<string, unknown>, Array.isArray(ws.resources) ? ws.resources : []);
       }
       // Accepted diffs so far — used both to validate a category-scoped enum
       // (RAID status) against a CO-CHANGED category and to compute the effective

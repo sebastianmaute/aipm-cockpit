@@ -23,6 +23,7 @@ import { greetingName } from "./contacts";
 import { FILTER_ALL } from "./task-filters";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail, linkPersonForWrite, splitName } from "./resource-foundation";
+import { withReassignFields } from "./person-reassign";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t, type Lang } from "./i18n";
@@ -387,10 +388,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         args.logActivityAs?.("ai", "task.created", newTask.id, newTask.taskName);
         return newTask;
       },
-      updateTask: (id, patch) => {
+      updateTask: (id, modelPatch) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const existing = tasksRef.current.find((row) => row.id === id);
         if (!existing) return null;
+        // ★★★ §375: a new assignee named without an email takes the directory
+        //  person's address (or blank), never keeps the OLD person's, which
+        //  would decide the link and the inquiry recipient. The SAME function
+        //  projects the review card (`person-reassign.ts`).
+        const patch = withReassignFields("task", modelPatch, existing, resourcesRef.current);
         assertJiraManagedUnchanged(existing, patch);
         const cleanPatch = buildTaskCleanPatch(patch, existing);
         const stamp = new Date().toISOString();

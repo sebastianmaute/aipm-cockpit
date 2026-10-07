@@ -7,7 +7,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher, type ChatDispatcherArgs } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
-import { effectiveAssignee } from "./resource-foundation";
+import { backfillResourceFks, effectiveAssignee } from "./resource-foundation";
 import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
@@ -4373,7 +4373,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result } = renderRaidProbe();
     const ids = { alice: 0, bob: 0 };
     act(() => {
-      ids.alice = result.current.d.createResource({ firstName: "Alice", lastName: "Smith" } as never).id;
+      ids.alice = result.current.d.createResource({ firstName: "Alice", lastName: "Smith", email: "alice@x.com" } as never).id;
       ids.bob = result.current.d.createResource({ firstName: "Bob", lastName: "Jones", email: "bob@x.com" } as never).id;
     });
     const shown = (ref: { assignee: string; resourceId?: number | null }) =>
@@ -4384,7 +4384,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
   function linkedTask(r: ReturnType<typeof setup>["result"], resourceId: number) {
     let id = 0;
     act(() => {
-      id = r.current.d.createTask({ taskName: "Alpha", assignee: "Alice Smith", dueDate: "2026-06-01" }).id;
+      id = r.current.d.createTask({ taskName: "Alpha", assignee: "Alice Smith", assigneeEmail: "alice@x.com", dueDate: "2026-06-01" }).id;
     });
     act(() => {
       r.current.ws.setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, resourceId } : t)));
@@ -4400,6 +4400,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     });
     const row = result.current.d.getTask(id)!;
     expect(row.resourceId).toBe(ids.bob);
+    expect(row.assigneeEmail).toBe("bob@x.com");
     expect(shown(row)).toBe("Bob Jones");
   });
 
@@ -4411,10 +4412,12 @@ describe("AI person writes keep the resource link in step with the name", () => 
     });
     const row = result.current.d.getTask(id)!;
     expect(row.resourceId).toBeUndefined();
+    // The old person's address must go too, or inquiries keep reaching them.
+    expect(row.assigneeEmail).toBe("");
     expect(shown(row)).toBe("Charlie Nobody");
   });
 
-  it("updateTask links by email when only the email changes", () => {
+  it("updateTask links by email when the new name is not in the directory but the email is", () => {
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
@@ -4472,20 +4475,56 @@ describe("AI person writes keep the resource link in step with the name", () => 
     expect(shown(row)).toBe("Bob Jones");
   });
 
-  it("updateRaid relinks the owner, and drops the link for an unknown owner", () => {
+  it("updateTask keeps an email the model names itself", () => {
+    const { result, ids } = setup();
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Charlie Nobody", assigneeEmail: "charlie@x.com" });
+    });
+    expect(result.current.d.getTask(id)!.assigneeEmail).toBe("charlie@x.com");
+  });
+
+  it("updateRaid relinks the owner and replaces the old owner's address, and a reload keeps it", () => {
     const { result, ids } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createRaid({ category: "R", title: "Risk", owner: "Alice Smith" }).id;
+      id = result.current.d.createRaid({ category: "R", title: "Risk", owner: "Alice Smith", ownerEmail: "alice@x.com" }).id;
     });
     expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBe(ids.alice);
     act(() => {
       result.current.d.updateRaid(id, { owner: "Bob Jones" });
     });
-    expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBe(ids.bob);
+    expect(result.current.d.getRaidRow(id)).toMatchObject({ ownerResourceId: ids.bob, ownerEmail: "bob@x.com" });
     act(() => {
       result.current.d.updateRaid(id, { owner: "Charlie Nobody" });
     });
-    expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBeNull();
+    const row = result.current.d.getRaidRow(id)!;
+    expect(row.ownerResourceId).toBeNull();
+    expect(row.ownerEmail ?? "").toBe("");
+    // The load-time backfill fills a null owner link from the address.
+    const reloaded = backfillResourceFks(result.current.ws.resources, [], [row], []).raid[0];
+    expect(reloaded.ownerResourceId ?? null).toBeNull();
+  });
+
+  it("createRaid writes no owner link key when nobody is linked", () => {
+    const { result } = setup();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createRaid({ category: "R", title: "Risk" }).id;
+    });
+    expect("ownerResourceId" in result.current.d.getRaidRow(id)!).toBe(false);
+  });
+
+  it("updateAbsence relinks and replaces the address when only the name changes", () => {
+    const { result, ids } = setup();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createAbsence({ assignee: "Alice Smith", assigneeEmail: "alice@x.com", startDate: "2026-07-06", endDate: "2026-07-10", resourceId: ids.alice }).id;
+    });
+    act(() => {
+      result.current.d.updateAbsence(id, { assignee: "Bob Jones" });
+    });
+    const row = result.current.ws.absences.find((a) => a.id === id)!;
+    expect(row).toMatchObject({ resourceId: ids.bob, assigneeEmail: "bob@x.com" });
   });
 });
