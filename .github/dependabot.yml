@@ -4,7 +4,8 @@
 # scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
 # Container digests (semgrep, actionlint) are not covered; re-resolve them by hand.
 # Every entry has a cooldown: it holds version updates back until a release has been public 7 days
-# (14 for a major), and does not delay security updates.
+# (14 for an npm major), and does not delay security updates. github-actions takes default-days
+# only: Dependabot rejects the whole file when that entry carries semver-major-days.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -13,7 +14,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-      semver-major-days: 14
     groups:
       actions:
         patterns: ["*"]
