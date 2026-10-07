@@ -1388,8 +1388,9 @@
   harder task: one question asking for all five codes at once, scored 0-5 per reply. That gives 25
   observations per arm at 5 reps instead of 5, for FEWER requests, introduces no ambiguity because
   the labels are already distinct, and degrades in exactly the way a relocation would (one code goes
-  missing, the rest stay). It needs a partial-credit outcome shape `hitRate`/`verdict` do not have,
-  so it is its own decision, not a tweak.
+  missing, the rest stay). ★ BUILT as arm M (§454, 2026-10-07) — a MEASUREMENT beside the gate:
+  `scoreAggregate` scores each code apart, the record carries `aggregate`, and `verdict` still reads
+  A, B and X only. Its first live baseline was 50/50 codes, so it saturates at 1.0 too.
   ★★★ **THE OUTPUT CAP IS PART OF THE INSTRUMENT, AND 64 WAS MEASURING ITSELF.** `chatPointer`
   scored 0.0 on all three sweep reps at EXACTLY 64 output tokens — `MAX_OUTPUT_TOKENS` — with empty
   text and zero tool uses. A probe colliding with the ceiling scores `absent` whether or not it

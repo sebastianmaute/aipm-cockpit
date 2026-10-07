@@ -27,7 +27,7 @@ import { afterAll, beforeEach, afterEach, describe, expect, it, vi } from "vites
 import type { ApiMessage, SystemBlock } from "../src/app/chat-api";
 import {
   EXIT, PROBES, plantedToken, plantedProbeIds, ANCHOR_SPEC, FILTER_ENV,
-  buildAnchorPrompt, sha256,
+  buildAnchorPrompt, sha256, AGGREGATE_QUESTION,
 } from "./ai-eval-lib.mjs";
 
 // ★★★ MUST RUN BEFORE THE IMPORT BELOW. `scripts/ai-eval.ts` self-executes at
@@ -80,11 +80,12 @@ const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
 const SALT = 1;
 
 /** The standard run's fixed shape, derived rather than restated: five probes,
- *  five reps of arm A and of arm B, one control, five anchor reps, and no
- *  rolling replay while no rolling reference exists. */
+ *  five reps of arm A and of arm B, one control, five anchor reps, five
+ *  aggregate (arm M, §454) reps, and no rolling replay while no rolling
+ *  reference exists. */
 const REPS = 5;
 const PER_PROBE_REQUESTS = REPS + REPS + 1;
-const STANDARD_REQUESTS = PROBES.length * PER_PROBE_REQUESTS + REPS;
+const STANDARD_REQUESTS = PROBES.length * PER_PROBE_REQUESTS + REPS + REPS;
 
 type FakeReply = {
   text: string;
@@ -175,6 +176,10 @@ function harness(opts: HarnessOptions = {}) {
       sent.push({ system: sys, turn, whole });
       const override = opts.onRequest?.(sent.length - 1, whole);
       if (override) return override;
+      // Arm M (§454) asks for every code at once; the answering model gives them.
+      if (whole.includes(AGGREGATE_QUESTION)) {
+        return reply(PROBES.map((p) => plantedToken(p.id, SALT)).join("\n"));
+      }
       // The answering model: echo the asked-for token when the prompt still
       // carries it, and say so plainly when it does not. The second branch is
       // what makes the negative control score a real zero rather than an
@@ -391,12 +396,13 @@ describe("runEval — the standard run", () => {
     // Act
     await runEval(h.deps);
 
-    // Assert — the trailing `reps` requests are the anchor: they carry the
-    // anchor pair and none of the app's probe questions, because the anchor is
-    // regenerated from ANCHOR_SPEC and never goes through the app's builders.
+    // Assert — the trailing `reps` rounds are the anchor interleaved with arm
+    // M (§454), N then M: the anchor carries the anchor pair and none of the
+    // app's probe questions, because it is regenerated from ANCHOR_SPEC and
+    // never goes through the app's builders.
     const anchorTarget = plantedToken("anchor", ANCHOR_SPEC.salt);
     const anchorDecoy = plantedToken("anchorDecoy", ANCHOR_SPEC.salt);
-    const tail = h.sent.slice(-REPS);
+    const tail = h.sent.slice(-2 * REPS).filter((_, i) => i % 2 === 0);
     expect(tail).toHaveLength(REPS);
     for (const arm of tail) {
       expect(occurrences(arm.whole, anchorTarget)).toBe(1);
@@ -616,13 +622,14 @@ describe("runEval — the rolling drift replay", () => {
 
     // Assert — a regenerated prompt is a different prompt and the drift
     // attribution is gone, so the replay arms must be the stored halves
-    // exactly. ★ The two drift arms INTERLEAVE (N, R, N, R, ...) for the same
-    // reason A and B do, so the tail is 2 x reps and arm R is its odd offsets.
+    // exactly. ★ The drift arms and arm M INTERLEAVE (N, R, M, N, R, M, ...)
+    // for the same reason A and B do, so the tail is 3 x reps and arm R is
+    // every third offset from 1.
     const parsed = JSON.parse(stored?.text ?? "{}") as { system: string; turn: string };
-    const tail = second.sent.slice(-2 * REPS);
-    expect(tail).toHaveLength(2 * REPS);
+    const tail = second.sent.slice(-3 * REPS);
+    expect(tail).toHaveLength(3 * REPS);
     tail.forEach((arm, i) => {
-      if (i % 2 === 0) return; // arm N — the anchor, checked elsewhere
+      if (i % 3 !== 1) return; // arm N (the anchor) and arm M, checked elsewhere
       expect(arm.system).toBe(parsed.system);
       expect(arm.turn).toBe(parsed.turn);
     });
@@ -1076,5 +1083,68 @@ describe("anthropicErrorMessage — the bounded failure detail", () => {
 
     // Act / Assert
     expect(anthropicErrorMessage(500, body)).toBe(`anthropic 500: ${"x".repeat(498)}${String.fromCodePoint(128512)}`);
+  });
+});
+
+describe("runEval — the aggregate arm (§454)", () => {
+  type Agg = { aggregate: { replies: number; codes: number; overall: number; question: string } | null };
+
+  it("sends arm A's prompt with the aggregate question, reps times, and records it beside the gate", async () => {
+    const h = harness();
+    const code = await runEval(h.deps);
+    const asked = h.sent.filter((s) => s.whole.includes(AGGREGATE_QUESTION));
+    expect(asked).toHaveLength(REPS);
+    const record = h.lastRecord() as Agg & { verdict: { code: number } };
+    expect(record.aggregate).toMatchObject({ replies: REPS, codes: REPS * PROBES.length, overall: 1 });
+    expect(code).toBe(EXIT.PASS);
+  });
+
+  it("leaves the verdict alone when every aggregate reply misses", async () => {
+    const h = harness({
+      onRequest: (_i, whole) => (whole.includes(AGGREGATE_QUESTION) ? reply("I cannot find any codes") : null),
+    });
+    const code = await runEval(h.deps);
+    expect((h.lastRecord() as Agg).aggregate?.overall).toBe(0);
+    expect(code).toBe(EXIT.PASS);
+  });
+
+  it("sends nothing for arm M, and records null, when a filter leaves it out", async () => {
+    const h = harness({ env: { ...LIVE_ENV, [FILTER_ENV.arms]: "A" } });
+    await runEval(h.deps);
+    expect(h.sent.some((s) => s.whole.includes(AGGREGATE_QUESTION))).toBe(false);
+    expect((h.lastRecord() as Agg).aggregate).toBeNull();
+  });
+
+  it("records a failed arm M request on the aggregate and still reports PASS", async () => {
+    let failed = false;
+    const h = harness({
+      onRequest: (_i, whole) => {
+        if (!failed && whole.includes(AGGREGATE_QUESTION)) {
+          failed = true;
+          throw new Error("arm M transport failure");
+        }
+        return null;
+      },
+    });
+    const code = await runEval(h.deps);
+    const record = h.lastRecord() as {
+      complete: boolean;
+      aggregate: { replies: number; planned: number; failures: string[] } | null;
+    };
+    expect(record.complete).toBe(true);
+    expect(record.aggregate).toMatchObject({ replies: REPS - 1, planned: REPS });
+    expect(record.aggregate?.failures.join(" ")).toContain("arm M transport failure");
+    expect(code).toBe(EXIT.PASS);
+    // The run still COUNTS: an unfiltered complete run writes the rolling
+    // reference, and the shortfall is logged rather than recorded as a census gap.
+    expect(h.writes.map((w) => w.path)).toContain(ROLLING_PATH);
+    expect(err.join("\n")).toContain(`aggregate (arm M): returned ${REPS - 1} of ${REPS} planned replies`);
+  });
+
+  it("runs arm M alone when the filter names only it", async () => {
+    const h = harness({ env: { ...LIVE_ENV, [FILTER_ENV.arms]: "M" } });
+    await runEval(h.deps);
+    expect(h.sent).toHaveLength(REPS);
+    expect(h.sent.every((s) => s.whole.includes(AGGREGATE_QUESTION))).toBe(true);
   });
 });

@@ -105,7 +105,8 @@ export const PROPOSAL_TOOL = {
                 //  was undeclared the filter stripped it and `ownerResourceId` was
                 //  permanently `null` for every AI seed — the prompt asked for something the
                 //  allowlist then threw away. Tasks kept `assignee` through the same prompt
-                //  sentence only because `buildSeedTask` reads named fields and never spreads.
+                //  sentence only because `buildSeedTask` read it while the task schema did
+                //  not offer it; it is declared there now too (§445).
                 // ★★ `ownerEmail` IS DECLARED TOO, and it is not redundant with `owner`:
                 //  `linkResource` tries the EMAIL leg FIRST, so the address is the only
                 //  thing that can pick between two seeded people who share a display
@@ -166,7 +167,23 @@ export const PROPOSAL_TOOL = {
             type: "array",
             items: {
               type: "object",
-              properties: { taskName: { type: "string" }, dueDate: { type: "string" }, notes: { type: "string" } },
+              // ★★ `assignee`, `priority` and `group` ARE DECLARED BECAUSE
+              //  `buildSeedTask` READS THEM (§445). They were read and never
+              //  offered, so a model that sent one had it written while the
+              //  schema said it could not — and the system prompt and the
+              //  `resources` description both tell the model to put a person's
+              //  name "as the assignee", which the schema gave it nowhere to put.
+              properties: {
+                taskName: { type: "string" },
+                dueDate: { type: "string" },
+                notes: { type: "string" },
+                assignee: {
+                  type: "string",
+                  description: "The exact name of the person who owns this task, matching their resources entry. Do not invent one.",
+                },
+                priority: { type: "string", enum: ["Low", "Medium", "High", "Urgent"] },
+                group: { type: "string", description: "A short workstream or phase name the task belongs to." },
+              },
               required: ["taskName"],
             },
           },
@@ -400,7 +417,8 @@ function buildList<T>(
 
 function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
   if (!isObj(raw)) return null;
-  const taskName = sanitizeTaskName(raw.taskName ?? raw.name);
+  // `taskName` only: a `name` fallback read a key the schema never offered (§445).
+  const taskName = sanitizeTaskName(raw.taskName);
   if (!taskName) return null;
   return {
     id,

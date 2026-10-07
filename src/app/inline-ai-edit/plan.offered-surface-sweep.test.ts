@@ -375,6 +375,33 @@ function normalizedAs(
   return normalize ? normalize(value, row as Record<string, unknown>) : String(value ?? "");
 }
 
+/** ★★★ THE FIELDS AN UPDATE WRITER MOVES OF ITS OWN ACCORD — MEASURED, NEVER
+ *  LISTED (§441). Relation A's `destroyed` check asks whether an undeclared
+ *  field MOVED, and every writer stamps some columns on every write
+ *  (`localModifiedAt` at least), so a movement test needs those exempted. A
+ *  hand-kept exemption list on this axis is the shape that hid §438 inside
+ *  §437's ratchet, so the set is MEASURED: one replay that sends the first
+ *  declared field AT ITS STORED VALUE — a write that changes nothing the model
+ *  asked for — and every undeclared column that moves anyway is the writer's.
+ *
+ *  ★★ AT ITS STORED VALUE, NOT A PROBE: a real change to a coupled field (a
+ *  status) can legitimately move an undeclared partner (a decision date), and
+ *  exempting that partner here would blind the check to it for every probe.
+ *  The bound and the positive observable live in the test that consumes it. */
+async function writerStampedFields(entity: InlineEntity): Promise<{ stamped: readonly string[]; threw?: string }> {
+  const reference = loadedSeedRow(entity);
+  const field = declaredProperties(entity, "update").find((f) => reference[f] !== undefined);
+  if (field === undefined) throw new Error(`${entity}: no declared field carries a stored value to replay`);
+  const { before, stored, threw } = await updateWith(entity, field, reference[field]);
+  const stamped = undeclaredColumns(entity).filter((f) => !same(before[f], stored[f]));
+  return { stamped, threw };
+}
+
+/** A column with nothing to lose, as the destroy check reads it.
+ *  ★ Narrower than `sweep-probes.ts`'s `isBlank` on purpose: an empty array or
+ *  object is still a stored value, and a write that replaces it moved it. */
+const heldNothing = (v: unknown): boolean => v === undefined || v === null || v === "";
+
 beforeEach(() => {
   // The id minter is module-scoped. Resetting keeps this file order-independent
   // under `npm run test:shuffle`, which runs the whole suite at a pinned seed.
@@ -468,13 +495,51 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     let probed = 0;
     let skipped = 0;
     const reference = loadedSeedRow(entity);
+    // The row a create stores on its own: a second source of values the column
+    // can hold, tried when the ones derived from the seed are refused (§467).
+    const alternate = (await createWith(entity, {})).row ?? undefined;
+    const control = await writerStampedFields(entity);
+    // ★★ The positive observable for the control replay: every update writer
+    //  stamps `localModifiedAt`, so a control that wrote nothing shows an empty
+    //  set here rather than a silently universal pass. The bound stops a broken
+    //  control (one that rewrote the whole row) from exempting the axis.
+    expect(control.threw, `${entity}: the control replay threw`).toBeUndefined();
+    expect(control.stamped, `${entity}: the control replay moved nothing — it did not write`).toContain("localModifiedAt");
+    expect(
+      control.stamped.length,
+      `${entity}: the control replay moved ${control.stamped.join(", ")} — too many to be writer stamps`,
+    ).toBeLessThanOrEqual(MAX_WRITER_STAMPED);
+    // ★★★ THE DESTROY HALF (§441). The `stored` check is blind to a trespass
+    //  that COERCES or CLEARS, because that never produces the probe. A column
+    //  that held a value, is not one the writer stamps of its own accord, and
+    //  moved to something the model did not send was overwritten through a
+    //  field the model was never offered.
+    const checkDestroyed = (subject: string, field: string, before: Row, stored: Row): void => {
+      if (heldNothing(before[field]) || control.stamped.includes(field) || same(before[field], stored[field])) return;
+      findings.push(
+        finding(
+          subject,
+          "destroyed",
+          `update overwrote an undeclared column — was ${JSON.stringify(before[field])}, now ${JSON.stringify(stored[field])}`,
+        ),
+      );
+    };
 
     for (const field of undeclaredColumns(entity)) {
       const subject = `${entity}.${field}`;
-      const outcome = probeFor({ entity, arm: "update", field, declared: false, reference, seedRow: reference, compare: sameAt });
+      const outcome = probeFor({ entity, arm: "update", field, declared: false, reference, seedRow: reference, alternate, compare: sameAt });
       if (outcome.kind !== "probe") {
         skipped += 1;
         findings.push(finding(subject, outcome.kind, outcome.reason));
+        // ★★ AN UNMEASURED FIELD IS STILL SENT, FOR THE DESTROY CHECK ALONE.
+        //  Its probe cannot be stored as sent, so `stored` cannot judge it —
+        //  but a guard that lets it through still moves the column, and that
+        //  is visible. One of today's unmeasured fields: `resource.active`,
+        //  which a missing guard would clear from `false`.
+        if (outcome.kind === "unmeasured") {
+          const r = await updateWith(entity, field, outcome.value);
+          if (r.threw === undefined) checkDestroyed(subject, field, r.before, r.stored);
+        }
         continue;
       }
       const probe = outcome.value;
@@ -483,13 +548,16 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
       if (threw !== undefined) continue;
       // ★★ The comparison is against the PROBE, not against "did the field
       //  change". `localModifiedAt` changes on every single replay — all eight
-      //  writers stamp it unconditionally — so a movement test would fire on
-      //  every entity and bury every real finding.
+      //  writers stamp it unconditionally — so a BARE movement test would fire
+      //  on every entity. Movement is judged below instead, by `checkDestroyed`,
+      //  against the stamp set the control replay measured (§441).
       if (same(stored[field], probe)) {
         findings.push(
           finding(subject, "stored", `update stored the model's undeclared value (was ${JSON.stringify(before[field])})`),
         );
+        continue;
       }
+      checkDestroyed(subject, field, before, stored);
     }
 
     // ★★ A restatement of floor 1, exactly as on the create arm above — same
@@ -498,9 +566,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
-    // ★★ No positive observable of this arm's own: a replay that wrote nothing
-    //  passes every line here, and only Relation B's floor 2 — a SIBLING test,
-    //  on the same `updateWith` harness — shows that the harness writes at all.
+    // ★ The positive observable that this harness writes is the control
+    //  replay's, asserted at the top of this arm: its stamp set must hold
+    //  `localModifiedAt`, which only a write that landed can move (§441).
     expectLedgerAgrees("A", entity, "update", findings);
     // Non-vacuity: the seed must actually exist, or every read-back above
     // compared undefined against a string and agreed.
@@ -584,7 +652,9 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
  *  `control-no-row` for the base create — the last two the only kinds whose
  *  subject is the bare entity. Relation A adds `stored`: the model's
  *  undeclared value landed, which is a defect to FIX (plan Task 6), never to
- *  ledger.
+ *  ledger — and, on its update arm alone, `destroyed` (§441): an undeclared
+ *  column the writer does not stamp was overwritten with something the model
+ *  did not send, which is the same defect with the value coerced or cleared.
  *
  *  ★ A `const` array and not only a union, so the ledger test in "the
  *  offered-surface axis" can check a kind at RUNTIME — vitest never typechecks,
@@ -599,6 +669,7 @@ const FINDING_KINDS = [
   "no-row",
   "dropped",
   "stored",
+  "destroyed",
 ] as const;
 type FindingKind = (typeof FINDING_KINDS)[number];
 
@@ -612,6 +683,8 @@ type FindingKind = (typeof FINDING_KINDS)[number];
  *  ★★★ `stored` IS EXCLUDED FROM BOTH, and that is the whole rule: it is the
  *  only kind that reports the model's value actually LANDING where it must not.
  *  Ledgering one converts a live undeclared write into a permanent green.
+ *  `destroyed` (§441) is the same trespass with the value coerced or cleared,
+ *  and is barred for the same reason.
  *
  *  ★★ RELATION A IS NARROWER THAN "EVERYTHING BUT `stored`", deliberately. Its
  *  two arms can also emit `no-row` ("the create stored no row at all — the base
@@ -628,8 +701,13 @@ type FindingKind = (typeof FINDING_KINDS)[number];
  *  Relation B's would be a decision to take at a go/cut, not here. */
 const LEDGERABLE_KINDS: Readonly<Record<"A" | "B", readonly FindingKind[]>> = {
   A: ["dead", "unmeasured"],
-  B: FINDING_KINDS.filter((k) => k !== "stored"),
+  B: FINDING_KINDS.filter((k) => k !== "stored" && k !== "destroyed"),
 };
+
+/** The most undeclared columns one control replay may move before the
+ *  measured writer-stamp set is read as a broken control rather than as stamps.
+ *  ★ A BOUND, NOT A LIST: it names no field, so it cannot exempt one. */
+const MAX_WRITER_STAMPED = 1;
 
 /** One Relation B finding. `subject` + `kind` is all the verdict compares;
  *  `detail` is the full line a red run prints, and nothing compares it. */
@@ -740,11 +818,6 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     // `assertJiraManagedUnchanged` (chat-task-patch.ts) then throws on every
     // `status`/`assignee` change Relation B probes. Blank on the control row too.
     { subject: "task.jiraKey", kind: "dead" },
-    // §467 — a harness limit, not the column: the task oracle's one-row
-    // `jsonToWorkspace` envelope (`taskAtRest`, sweep-probes.ts) carries no
-    // resources, so `migrateWorkspaceV5` backfills one from the assignee and
-    // restamps `resourceId` to its minted id (sent 4, held 1).
-    { subject: "task.resourceId", kind: "unmeasured" },
     // Blocker log — not seeded: a seeded log would also fix the seed's derived
     // `blockers` text, which Relation B probes as a DECLARED field, so the two
     // would fight. The column is unreachable from the model by construction
@@ -758,8 +831,6 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     { subject: "task.jiraKey", kind: "dead" },
     // Not seeded, for the create arm's blocker-log reason above.
     { subject: "task.blockerLog", kind: "dead" },
-    // §467 — the create arm's oracle-envelope restamp (sent 5, held 1).
-    { subject: "task.resourceId", kind: "unmeasured" },
     // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "task.calendarOptOut", kind: "unmeasured" },
   ],
@@ -805,32 +876,14 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "absence.calendarOptOut", kind: "unmeasured" },
   ],
-  "stakeholder:update": [
-    // §467 — a probe SHAPE, not a seed: the derived probe changes the seeded
-    // RACI code's own string leaf ("A" → "A probed"), which is not one of the
-    // closed codes `coerceRaciMap` accepts, so `sanitizeStakeholder` reshapes
-    // the map to `{}`. The enum branch of `probeFor` runs for a DECLARED
-    // field's schema enum only, and `raci` is undeclared; a probe holding
-    // another genuine RACI code (e.g. "R") would be held unchanged.
-    { subject: "stakeholder.raci", kind: "unmeasured" },
-  ],
-  "resource:create": [
-    // §467 — a probe SHAPE, not a seed: the control row's `utilizationMode` is
-    // the "percent" default, so the derived probe is "percent probed", outside
-    // the closed pair `sanitizeUtilizationMode` accepts; it maps anything but
-    // "hours" to "percent". No schema enum exists to draw "hours" from.
-    { subject: "resource.utilizationMode", kind: "unmeasured" },
-  ],
   "resource:update": [
-    // §467 — a probe SHAPE, not a seed: the seeded `active` is `false`, the
-    // only value `sanitizeResource` stores (an absent key IS active), so the
-    // one differing probe is `true`, which it never stores. Seeding `true`
-    // instead is not a fix — it stores nothing, leaving the column blank and
-    // the field `dead`.
+    // §467 — no probe the `stored` check can judge: the seeded `active` is
+    // `false`, the only value `sanitizeResource` stores (an absent key IS
+    // active), so the one differing probe is `true`, which it never stores.
+    // The field is still MEASURED, by the destroy check (§441): that `true`
+    // is sent anyway, and a missing guard clears the seeded `false`. The same
+    // holds for every `calendarOptOut` entry above.
     { subject: "resource.active", kind: "unmeasured" },
-    // §467 — a probe SHAPE: the seeded "hours" becomes "hours probed", which
-    // `sanitizeUtilizationMode` maps to "percent" (the create arm's reason).
-    { subject: "resource.utilizationMode", kind: "unmeasured" },
   ],
 };
 
