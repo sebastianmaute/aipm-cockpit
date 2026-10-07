@@ -67,7 +67,9 @@ vi.mock("@tanstack/react-virtual", async (importOriginal) => ({
       getTotalSize: () => opts.count * 45,
       scrollToIndex: virtual.scrollToIndex,
       measureElement: () => {},
-      takeSnapshot: () => [],
+      // What the hook reads as the window switches off (use-task-row-window.ts `measuredRows`).
+      itemSizeCache: new Map(),
+      measurementsCache: [],
     };
   },
 }));

@@ -51,9 +51,16 @@ semantic table, so it is rejected.
 
 ### Shape
 
-- `tasks-section-rows.tsx` renders `visibleRows.slice(start, end)` between two spacer rows
-  (`<tr aria-hidden="true">` with one cell of the computed height). Row components are
-  unchanged.
+- `useTaskRowWindow` (`use-task-row-window.ts`, called from `TasksTable` in
+  `tasks-section-rows.tsx`) returns `items`: the rows to render, each with its index in the whole
+  list and `padBefore`, the height of the spacer row before it; plus `padBottom` for the spacer
+  after the last one. A spacer is a `<tr aria-hidden="true">` with one cell of that height. The
+  first rendered row always gets one, even at 0 px, so the row count stays constant while the
+  window moves. Usually `items` is one contiguous run; the row holding focus is kept rendered
+  when it scrolls out of the run (an inline edit's draft lives in the row's state), which adds a
+  second run with its own spacer. Row components are unchanged apart from the measuring ref.
+  *(Revised after build: this bullet first said `visibleRows.slice(start, end)` between two
+  spacer rows.)*
 - The scroll element is the table's existing scroll container; rows use an estimated height with
   `measureElement`, because rows grow with wrapped titles and badges.
 - **Threshold:** virtualization switches on only above `VIRTUALIZE_MIN_ROWS = 200` visible rows.

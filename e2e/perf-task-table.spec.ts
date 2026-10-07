@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { test, expect, openView, reseedWorkspace, FROZEN_NOW, NAV_SELECTOR } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
 import { scaleWorkspace } from "../src/app/scale-workspace";
@@ -233,6 +233,7 @@ for (const { size, factor } of SIZES) {
       await test.step("the scroll position survives a print", () => scrollSurvivesPrint(page, expected));
       await test.step("the scroll position survives the list growing past the threshold", () => scrollSurvivesThreshold(page, expected));
       await test.step("an inline edit survives its row scrolling out of the window", () => inlineEditSurvivesScroll(page));
+      await test.step("an inline edit survives a print, then its row scrolling out", () => inlineEditSurvivesPrint(page, expected));
     }
   });
 }
@@ -327,7 +328,11 @@ async function scrollSurvivesThreshold(page: Page, expected: number): Promise<vo
 
 // ★ A2: an inline edit keeps its draft in the row's state and commits it on blur; an
 // unmounted row fires no blur, so the window must keep the focused row rendered.
-async function inlineEditSurvivesScroll(page: Page): Promise<void> {
+const DRAFT = "2031-02-03";
+
+/** Opens the inline due-date editor on the first editable row at the top of the
+ *  table and types DRAFT into it. */
+async function openInlineDraft(page: Page) {
   await setScrollTop(page, 0);
   await expect.poll(() => windowTop(page), POLL).toBe(2);
   // A row whose due date edits inline: a Jira-synced row (disabled status select) has none.
@@ -336,22 +341,44 @@ async function inlineEditSurvivesScroll(page: Page): Promise<void> {
   await dueButton.click();
   const input = page.locator(`tr[data-deeplink-row="${rowId}"] input[aria-label^="Due date – "]`);
   await expect(input).toBeFocused();
-  const draft = "2031-02-03";
-  await input.fill(draft);
-  await expect(input).toHaveValue(draft);
+  await input.fill(DRAFT);
+  await expect(input).toHaveValue(DRAFT);
+  return input;
+}
 
+/** Scrolls the draft's row far out of the window and back, then discards the draft. */
+async function draftSurvivesScrollAway(page: Page, input: Locator): Promise<void> {
   // A programmatic scroll does not move focus, as a wheel scroll would not.
   await setScrollTop(page, 600 * ROW_PX);
   await expect.poll(() => windowBottom(page), POLL).toBeGreaterThan(300);
   await expect(input).toHaveCount(1);
-  await expect(input).toHaveValue(draft);
+  await expect(input).toHaveValue(DRAFT);
   await expect(input).toBeFocused();
 
   await setScrollTop(page, 0);
   await expect.poll(() => windowTop(page), POLL).toBe(2);
-  await expect(input).toHaveValue(draft);
+  await expect(input).toHaveValue(DRAFT);
   await input.press("Escape");
   await expect(input).toHaveCount(0);
+}
+
+async function inlineEditSurvivesScroll(page: Page): Promise<void> {
+  await draftSurvivesScrollAway(page, await openInlineDraft(page));
+}
+
+// ★ A2, second path: the row ALREADY holds focus when the window turns back on. A
+// virtualizer switched back on with no box size rendered no rows for one commit, which
+// unmounted the focused row and its draft; and a focus listener attached as the window
+// turned on never learned which row held focus.
+async function inlineEditSurvivesPrint(page: Page, expected: number): Promise<void> {
+  const input = await openInlineDraft(page);
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(ROWS)).toHaveCount(expected, { timeout: POLL.timeout });
+  await page.emulateMedia({ media: null });
+  await expect(page.locator(SPACERS)).toHaveCount(2, { timeout: POLL.timeout });
+  await expect(input).toHaveValue(DRAFT);
+  await expect(input).toBeFocused();
+  await draftSurvivesScrollAway(page, input);
 }
 
 test.afterAll(() => {

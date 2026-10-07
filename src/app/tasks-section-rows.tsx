@@ -11,8 +11,8 @@
 // ★★ Above `VIRTUALIZE_MIN_ROWS` rows it renders only the window's rows of
 // `visibleRows`, between aria-hidden spacer rows (§5). The window hook runs
 // HERE, not in the orchestrator, because the virtualizer re-renders its caller
-// on every scroll step: in tasks-section.tsx that re-rendered the whole
-// 889-line pane per step. The orchestrator's deep link reaches
+// on every scroll step: in tasks-section.tsx that re-rendered the whole pane
+// per step. The orchestrator's deep link reaches
 // `scrollToIndex` through the `rowWindowRef` handle instead. A row's stripe
 // and `aria-rowindex` come from its index in the WHOLE list, never its
 // position in the window.
@@ -157,7 +157,9 @@ export function TasksTable({
           return (
           <Fragment key={task.id}>
           {/* The first rendered row always gets one, even at 0 px, so a
-              windowed table keeps a stable leading spacer row. */}
+              windowed table keeps a constant number of spacer rows while the
+              window moves. (Not one stable spacer node: it is keyed under the
+              first rendered row's Fragment, so it remounts when that row changes.) */}
           {windowed && (k === 0 || padBefore > 0) && <SpacerRow height={padBefore} colSpan={visibleColumnCount + 1} />}
           <TaskRow
             task={task}

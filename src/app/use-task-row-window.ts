@@ -17,8 +17,8 @@
 // Coverage-GATED: a .ts file that vitest.config.ts's coverage `exclude` does not
 // list, so the global floors count it. Pinned by use-task-row-window.test.tsx.
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { defaultRangeExtractor, useVirtualizer, type Range, type VirtualItem } from "@tanstack/react-virtual";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { defaultRangeExtractor, useVirtualizer, type Range, type Rect, type Virtualizer, type VirtualItem } from "@tanstack/react-virtual";
 
 /** The table switches to a row window only ABOVE this many visible rows. */
 export const VIRTUALIZE_MIN_ROWS = 200;
@@ -110,30 +110,43 @@ function getPrintSnapshot(): boolean {
 
 const getServerPrintSnapshot = () => false;
 
-/** The id of the task row holding focus inside `scrollRef`, kept in a ref (a
- *  focus move needs no re-render: a row can only take focus while rendered).
- *  Cleared when focus leaves the scroll box. */
-function useFocusedRowId(scrollRef: React.RefObject<HTMLElement | null>, enabled: boolean) {
-  const focusedId = useRef<number | null>(null);
-  useEffect(() => {
-    const box = scrollRef.current;
-    if (!enabled || !box) return;
-    const onIn = (e: FocusEvent) => {
-      const row = e.target instanceof Element ? e.target.closest(`[${ROW_ID_ATTR}]`) : null;
-      focusedId.current = row ? Number(row.getAttribute(ROW_ID_ATTR)) : null;
-    };
-    const onOut = (e: FocusEvent) => {
-      if (!(e.relatedTarget instanceof Node) || !box.contains(e.relatedTarget)) focusedId.current = null;
-    };
-    box.addEventListener("focusin", onIn);
-    box.addEventListener("focusout", onOut);
-    return () => {
-      box.removeEventListener("focusin", onIn);
-      box.removeEventListener("focusout", onOut);
-      focusedId.current = null;
-    };
-  }, [scrollRef, enabled]);
-  return focusedId;
+/** The list index of the task row holding focus inside `box`, or -1.
+ *
+ *  Read from `document.activeElement` each time the virtualizer asks for a
+ *  range, never tracked through focus events: a listener attached when the
+ *  window turns on misses a row that ALREADY holds focus (an inline edit open
+ *  at 200 rows when a background write pushes the list past the threshold, or
+ *  one held across a print), and an element removed while focused fires no
+ *  focusout, which left a stale id pinned.
+ *
+ *  ★ The virtualizer re-runs its range extractor only when the range, the
+ *  count or the extractor itself changes, never on a focus move alone. That is
+ *  enough: an element can only take focus while rendered, so a newly focused
+ *  row is already in the window, and the next range change (the scroll that
+ *  would take it out) asks again. A row that LOST focus stays pinned until
+ *  then, which costs one extra row and nothing else. */
+function focusedRowIndex(box: HTMLElement | null, ids: readonly number[]): number {
+  if (!box || typeof document === "undefined") return -1;
+  const active = document.activeElement;
+  if (!active || !box.contains(active)) return -1;
+  const row = active.closest(`[${ROW_ID_ATTR}]`);
+  return row ? ids.indexOf(Number(row.getAttribute(ROW_ID_ATTR))) : -1;
+}
+
+/** Every row height the virtualizer has measured, as `initialMeasurementsCache`
+ *  takes them. The same walk as virtual-core's `takeSnapshot`, but over the
+ *  measurements it already holds: `takeSnapshot` recomputes them first, and in
+ *  the commit that switches the window off that recompute is what CLEARS them
+ *  (virtual-core 3.17.11, `getMeasurements` with `enabled: false`). */
+function measuredRows(virtualizer: Virtualizer<HTMLElement, Element>): VirtualItem[] {
+  const out: VirtualItem[] = [];
+  if (virtualizer.itemSizeCache.size === 0) return out;
+  for (const item of virtualizer.measurementsCache) {
+    if (item && virtualizer.itemSizeCache.has(item.key)) {
+      out.push({ index: item.index, key: item.key, start: item.start, size: item.size, end: item.end, lane: item.lane });
+    }
+  }
+  return out;
 }
 
 /** The height of `headRef` (the table's <thead>), kept current through a
@@ -165,24 +178,42 @@ export function useTaskRowWindow(opts: {
   const count = ids.length;
   const printing = useSyncExternalStore(subscribePrint, getPrintSnapshot, getServerPrintSnapshot);
   const enabled = count > VIRTUALIZE_MIN_ROWS && !printing;
-  const focusedId = useFocusedRowId(scrollRef, enabled);
   const headPx = useHeadHeight(headRef, enabled);
   // ★ Keyed by task id, not index, so a sort or an insert moves each measured
   // height with its task instead of handing it to whatever row lands there.
   const getItemKey = useCallback((i: number) => ids[i] ?? i, [ids]);
-  // Every row height measured so far, re-taken after each windowed commit. ★ A
+  // Every row height measured before the window last switched off. ★ A
   // virtualizer switched off CLEARS its measurements, so without this a print or
   // a dip under the threshold would bring it back estimating every row at
   // `estimateRowPx`: the same scroll offset would then map to a different row
   // and the reader would land tens of rows away (measured: row 427 → 520 at
   // 1008 tasks, with rows 72–115 px tall against the 45 px estimate).
-  const measured = useRef<VirtualItem[]>([]);
+  // Taken once, as the window switches off (the layout effect below), not on
+  // every windowed commit: the walk is O(rows), and a scroll step commits.
+  const [measured, setMeasured] = useState<VirtualItem[]>([]);
   const rangeExtractor = useCallback(
-    (range: Range) => {
-      const id = focusedId.current;
-      return withPinnedIndex(defaultRangeExtractor(range), id === null ? -1 : ids.indexOf(id));
-    },
-    [ids, focusedId],
+    (range: Range) => withPinnedIndex(defaultRangeExtractor(range), focusedRowIndex(scrollRef.current, ids)),
+    [ids, scrollRef],
+  );
+  // ★★ The box's LIVE size, read when the virtualizer turns on. Switched off, it
+  // forgets the box's size as well as its offset, and the default (0 × 0) gives
+  // the first windowed render an EMPTY range: every row unmounted for one
+  // commit, re-created the next. A focused row, and the inline-edit draft in
+  // its state, went with them, whatever the range extractor pinned. Getters, so
+  // the box is read only when virtual-core asks: `getSize` before it has
+  // observed a rect, i.e. inside `getVirtualItems` on the first windowed
+  // render, which is the moment the live size is wanted. offsetWidth/
+  // offsetHeight, as virtual-core's own observer reads it.
+  const initialRect = useMemo<Rect>(
+    () => ({
+      get width() {
+        return scrollRef.current?.offsetWidth ?? 0;
+      },
+      get height() {
+        return scrollRef.current?.offsetHeight ?? 0;
+      },
+    }),
+    [scrollRef],
   );
   // ★ Called unconditionally (rules of hooks); `enabled: false` makes it attach
   // no scroll or resize observer, so the plain path pays nothing for it.
@@ -196,6 +227,7 @@ export function useTaskRowWindow(opts: {
     getItemKey,
     rangeExtractor,
     paddingStart: headPx,
+    initialRect,
     // ★★ While off, the virtualizer forgets its scroll offset; when it turns
     // back on (after a print, or when the list grows past the threshold) it
     // scrolls the box to `initialOffset`. The default is 0, which jumped the
@@ -204,12 +236,16 @@ export function useTaskRowWindow(opts: {
     // Read only when the virtualizer starts with no measurements: on mount, and
     // when it turns back on. Keyed by task id (`getItemKey`), so a height
     // follows its task even if the list changed while the window was off.
-    // The ref is written only in the layout effect below, never during render.
-    initialMeasurementsCache: measured.current,
+    initialMeasurementsCache: measured,
   });
+  // ★ The CLEANUP of a windowed commit's effect, which runs when `enabled`
+  // turns false (and on unmount). Within a commit React runs the layout-effect
+  // cleanups before any layout effect, so this reads the measurements before virtual-core's own
+  // effect recomputes them as off and clears them.
   useLayoutEffect(() => {
-    if (enabled) measured.current = virtualizer.takeSnapshot();
-  });
+    if (!enabled) return;
+    return () => setMeasured(measuredRows(virtualizer));
+  }, [enabled, virtualizer]);
 
   if (!enabled) return OFF;
   // ★ `measureElement` is an instance field, so it keeps one identity across
