@@ -99,6 +99,16 @@ export const test = base.extend({
 
 export { expect };
 
+/**
+ * Replace the seeded workspace with `ws` (§5 perf probe). Same writer as the fixture;
+ * records are put by id, so a scaled copy of the seed (ids offset per replica, the
+ * first replica keeping the seed ids) overwrites the seed rather than doubling it.
+ * ★ Call it BEFORE `gotoApp`: the app reads IndexedDB once, at load.
+ */
+export async function reseedWorkspace(page: Page, ws: Record<string, unknown>): Promise<void> {
+  await page.evaluate(seedIndexedDb, { ws, layout: SEED_LAYOUT });
+}
+
 /** The seeded document image: metadata mirrored from SEED_WORKSPACE's
  *  `documentAssets` row, plus the BYTES that slice can never carry.
  *

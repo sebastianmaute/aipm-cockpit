@@ -1184,7 +1184,7 @@ data-loss guard in the save path (`allowDestructiveSave`) is adjacent prior art 
 
 ## 5. No list virtualization anywhere (audit #14) — parked, own batch
 
-**Status:** open — no list virtualization anywhere, parked deliberately. Reproduced 2026-08-28 by `grep -rn "react-window" src/app`.
+**Status:** **Update 2026-10-07 (batch 17), measured:** the Open Points table is slow well below 1000 tasks, so Phase 1 of `docs/superpowers/specs/2026-10-07-list-virtualization-design.md` (virtualize above 200 rows) goes ahead. Medians of 3 runs, `PORT=3150 PERF=1 npx playwright test e2e/perf-task-table.spec.ts --project=chromium --workers=1` on a local Windows dev server (unminified, so production is faster, but not by the 18x–40x the threshold needs): **504 tasks**: open 3672 ms, one inline status change 1767 ms, one search keystroke 2745 ms; **1008 tasks**: open 8273 ms, status 3565 ms, search 7638 ms; **2002 tasks**: the app shell did not appear within `gotoApp`'s 5 s, so nothing was timed. The decision threshold was 200 ms at 1000 tasks. ★ The status-change time is not all row rendering (it also drives a save and the derived views), so virtualization is not expected to remove all of it; the after-numbers will say. Before this update: open — no list virtualization anywhere, parked deliberately. Reproduced 2026-08-28 by `grep -rn "react-window" src/app`.
 
 **Work item:** #87
 
