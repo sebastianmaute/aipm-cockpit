@@ -351,7 +351,7 @@ export const PRIMARY_VIEWS = [
   "Settings",
 ] as const;
 
-const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
+export const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
 
 // Freeze "now" so anything the app derives from the current date (RAG status,
 // due-soon highlighting, "as of …" captions, Gantt today-line / visible window)
