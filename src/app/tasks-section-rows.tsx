@@ -7,6 +7,13 @@
 //
 // ★★ It must render INSIDE the orchestrator's `RowContextProvider`: every
 // `TaskRow` reads its handlers from that context (`useTaskRowContext`).
+//
+// ★★ Above `VIRTUALIZE_MIN_ROWS` rows it renders only `rowWindow`'s slice of
+// `visibleRows`, between two aria-hidden spacer rows (§5). The window is
+// computed by the ORCHESTRATOR (`useTaskRowWindow` in tasks-section.tsx), not
+// here, because the deep-link flash there needs its `scrollToIndex`; this file
+// stays hook-free. A row's stripe and `aria-rowindex` come from its index in
+// the WHOLE list, never its position in the slice.
 import type React from "react";
 import { PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
@@ -20,6 +27,7 @@ import { SortResizeTh, type useSortHeaderProps } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
 import { TOUR_ANCHORS } from "./app-tour";
 import { GUTTER_WIDTH_PX, colWidthStyle, type TaskColId } from "./open-points-table-geometry";
+import type { TaskRowWindow } from "./use-task-row-window";
 
 export interface TasksTableProps {
   lang: Lang;
@@ -46,17 +54,34 @@ export interface TasksTableProps {
   flashId: number | null;
   /** Opens the task editor for a NEW task (discarding any in-progress edit). */
   onAdd: () => void;
+  /** Which slice of `visibleRows` to render (`useTaskRowWindow`, §5). */
+  rowWindow: TaskRowWindow;
+}
+
+/** A spacer standing in for the rows outside the window. One cell spanning the
+ *  gutter plus every visible column, so it can never narrow the table. */
+function SpacerRow({ height, colSpan }: { height: number; colSpan: number }) {
+  return (
+    <tr aria-hidden="true" data-row-spacer="">
+      <td colSpan={colSpan} style={{ height: `${height}px`, padding: 0 }} />
+    </tr>
+  );
 }
 
 export function TasksTable({
   lang, visibleCols, sizedWidths, tableMinWidth, th, hiddenCols, startColResize, allVisibleSelected,
   toggleSelectAllVisible, visibleRows, visibleColumnCount, tableTokens, selectedIds, editingId, pushingIds,
-  raidByTask, changeByTask, documentsByEntity, onOpenDocuments, onJumpToChanges, flashId, onAdd,
+  raidByTask, changeByTask, documentsByEntity, onOpenDocuments, onJumpToChanges, flashId, onAdd, rowWindow,
 }: TasksTableProps) {
+  const windowed = rowWindow.enabled;
+  const rendered = windowed ? visibleRows.slice(rowWindow.start, rowWindow.end) : visibleRows;
+  // Header row + every task + the trailing "+ Add task" row (ARIA 1-based).
+  const addRowIndex = visibleRows.length + 2;
   return (
     <table
       className="divide-y divide-line text-left text-sm"
       style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
+      aria-rowcount={windowed ? addRowIndex : undefined}
     >
       <colgroup>
         {/* Gutter for the hover Ask-Claude cell; a missing <col> shifts every width to its
@@ -67,7 +92,7 @@ export function TasksTable({
         ))}
       </colgroup>
       <thead className={TABLE_HEAD_CLASS}>
-        <tr>
+        <tr aria-rowindex={windowed ? 1 : undefined}>
           {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
           <th className="w-7" aria-hidden="true" />
           <Th padding="tight" onResize={(e) => startColResize("sel", e)}>
@@ -109,7 +134,12 @@ export function TasksTable({
             </td>
           </tr>
         )}
-        {visibleRows.map((task, i) => (
+        {windowed && <SpacerRow height={rowWindow.padTop} colSpan={visibleColumnCount + 1} />}
+        {rendered.map((task, k) => {
+          // `i` is the index in the WHOLE list: the stripe and the aria row
+          // index must not restart at the top of the window.
+          const i = windowed ? rowWindow.start + k : k;
+          return (
           <TaskRow
             key={task.id}
             task={task}
@@ -129,9 +159,14 @@ export function TasksTable({
             onJumpToChanges={onJumpToChanges}
             isStriped={i % 2 === 1}
             isFlashed={flashId === task.id}
+            ariaRowIndex={windowed ? i + 2 : undefined}
+            virtualIndex={windowed ? i : undefined}
+            measureRef={windowed ? rowWindow.measure : undefined}
           />
-        ))}
-        <tr>
+          );
+        })}
+        {windowed && <SpacerRow height={rowWindow.padBottom} colSpan={visibleColumnCount + 1} />}
+        <tr aria-rowindex={windowed ? addRowIndex : undefined}>
           <td colSpan={visibleColumnCount + 1}>
             <button
               type="button"

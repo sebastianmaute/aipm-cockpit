@@ -25,6 +25,7 @@ import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
+import { useTaskRowWindow, TASK_ROW_ESTIMATE_PX } from "./use-task-row-window";
 import { filterTasksByHealth } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
@@ -395,6 +396,16 @@ export function TasksSection({
     () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
     [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
   );
+  // §5: above VIRTUALIZE_MIN_ROWS rows the table renders a window of rows.
+  // ★ The board and swimlane views reuse `containerRef` as THEIR scroll box, so
+  // the count is 0 outside the table — a live virtualizer would otherwise
+  // observe the board's scrolling and re-render this pane for nothing.
+  const isTableView = tasksViewMode !== "board" && tasksViewMode !== "swimlane";
+  const rowWindow = useTaskRowWindow({
+    count: isTableView ? visibleRows.length : 0,
+    scrollRef: containerRef,
+    estimateRowPx: TASK_ROW_ESTIMATE_PX,
+  });
 
   // ★★ TWO maps, not one, and this is not redundancy. The table renders
   // `visibleRows` (which also applies hide-finished) while both Kanban views
@@ -838,6 +849,7 @@ export function TasksSection({
             onJumpToChanges={onJumpToChanges}
             flashId={flashId}
             onAdd={openTaskEditor}
+            rowWindow={rowWindow}
           />
         </RowContextProvider>
         )}
