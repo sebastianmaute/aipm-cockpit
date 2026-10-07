@@ -5,10 +5,16 @@
 // there: every user-facing bullet of every version dated in the window, cut to
 // its bold lead (or first sentence) and tagged with its version. "Development"
 // and "Notes" are for contributors and are left out, and so are pre-releases,
-// whose entries reappear in the release they lead to.
+// whose entries reappear in the release they lead to. So is any other heading
+// not listed below; list it here to bring it in.
+// ★ A register reference such as "(§512)" means nothing to a user, so a
+// parenthesis that opens with one is cut from every line.
 
 /** The headings a user reads, in the order the notes print them. */
-export const USER_FACING_HEADINGS = ["Added", "Changed", "Fixed", "Security"];
+export const USER_FACING_HEADINGS = ["Added", "Changed", "Removed", "Fixed", "Accessibility", "Security"];
+
+/** A parenthesis whose content starts with a register number, backticked or not: "(§512)", "(§7 A4)", "(`§578`)". */
+const REGISTER_REF_RE = /\s*\(`?§[^)]*\)/g;
 
 const VERSION_RE = /^## \[([^\]]+)\](?: - (\d{4}-\d{2}-\d{2}))?/;
 
@@ -49,6 +55,10 @@ export function parseReleases(changelog) {
  * name in code does not cut it short.
  */
 export function headline(bullet) {
+  return leadOf(bullet).replace(REGISTER_REF_RE, "");
+}
+
+function leadOf(bullet) {
   const bold = /^\*\*(.+?)\*\*/.exec(bullet);
   if (bold) return bold[1].trim();
   let inCode = false;

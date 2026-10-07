@@ -77,6 +77,14 @@ describe("headline", () => {
     expect(headline("No full stop at all")).toBe("No full stop at all");
   });
 
+  it("cuts a register reference, which means nothing to a user", () => {
+    expect(headline("**Branded Word files (§512).** Detail.")).toBe("Branded Word files.");
+    expect(headline("Saving is safer (§7 A4). More.")).toBe("Saving is safer.");
+    expect(headline("A fix (`§578`) and (§662, §664) here.")).toBe("A fix and here.");
+    // A parenthesis that does not open with one stays.
+    expect(headline("Exports (Word and PDF) are faster.")).toBe("Exports (Word and PDF) are faster.");
+  });
+
   it("does not cut inside a version number or a backticked name", () => {
     expect(headline("`sharp` moves to 0.35.5, closing a high-severity issue.")).toBe(
       "`sharp` moves to 0.35.5, closing a high-severity issue.",
@@ -107,7 +115,7 @@ describe("renderReleaseNotes", () => {
         "",
         "## Changed",
         "",
-        "- Word lists are real Word lists (§154). (1.2.0)",
+        "- Word lists are real Word lists. (1.2.0)",
         "- A plain bullet without a bold lead. (1.2.0)",
         "",
         "## Fixed",
