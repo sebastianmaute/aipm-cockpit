@@ -616,6 +616,90 @@ export function hitRate(outcomes) {
   return outcomes.filter((o) => o === "hit").length / outcomes.length;
 }
 
+/** ★★★ THE AGGREGATE QUESTION (§454) — all five codes in ONE reply, for arm M.
+ *  A MEASUREMENT, NEVER THE GATE: `verdict` reads A, B and X only, and the
+ *  single-probe form stays the calibrated gate. This measures a different
+ *  thing — five lookups in one pass, not five independent answers — so its
+ *  rates are not comparable with the per-probe ones and start their own series.
+ *
+ *  Built from the same `askFrom` text each probe's own question uses, so a
+ *  probe with a near-miss competitor is asked for its "current" code here too,
+ *  and the two forms can never name a block differently. */
+export const AGGREGATE_QUESTION =
+  `${QUESTION_PREAMBLE} Reply with ${PROBES.map((p) => askFrom(p)).join(", ")}, one per line, in that order, each exactly as written and nothing else.`;
+
+/** Per-code outcomes of the aggregate arm. A CODE-level shape, deliberately not
+ *  `OUTCOMES`: `ambiguous` and `wrong-block` are reply-level ideas that a
+ *  reply naming all five tokens would trip on every hit. */
+export const AGGREGATE_OUTCOMES = Object.freeze(["hit", "wrong", "absent"]);
+
+/** Score one aggregate reply, code by code.
+ *
+ *  `hit` — that probe's token is in the reply. `wrong` — it is not, but the
+ *  probe's near-miss competitor (`<id>Prev`) is: the model answered from the
+ *  wrong line of the right block. `absent` — neither. Tool calls and the stop
+ *  reason belong to the WHOLE reply and are returned beside the codes, so a
+ *  truncated reply's missing codes can be told apart from unread blocks.
+ *
+ *  ★★ Requires the whole reply and the whole token map, for `scoreResponse`'s
+ *  reasons: an empty map would make every code `absent` and read as a model
+ *  that found nothing. */
+export function scoreAggregate(reply, tokens) {
+  if (typeof reply !== "object" || reply === null
+    || typeof reply.text !== "string"
+    || typeof reply.toolUses !== "number"
+    || typeof reply.stopReason !== "string") {
+    throw new Error("scoreAggregate: needs the whole reply — { text, toolUses, stopReason }");
+  }
+  if (typeof tokens !== "object" || tokens === null || Array.isArray(tokens)) {
+    throw new Error("scoreAggregate: needs the planted token map");
+  }
+  const hay = reply.text.toLowerCase();
+  const has = (tok) => typeof tok === "string" && tok.length > 0 && hay.includes(tok.toLowerCase());
+  const codes = {};
+  for (const p of PROBES) {
+    if (typeof tokens[p.id] !== "string" || tokens[p.id].length === 0) {
+      throw new Error(`scoreAggregate: no planted token for ${p.id} — that code could only ever score absent`);
+    }
+    codes[p.id] = has(tokens[p.id]) ? "hit" : has(tokens[`${p.id}Prev`]) ? "wrong" : "absent";
+  }
+  return {
+    codes,
+    hits: Object.values(codes).filter((o) => o === "hit").length,
+    of: PROBES.length,
+    toolUses: reply.toolUses,
+    truncated: reply.stopReason === "max_tokens",
+  };
+}
+
+/** Summarise the aggregate arm: hits over codes, overall and per probe, plus
+ *  the per-code outcome tally. Empty is 0 rates over 0 replies — never NaN,
+ *  for `hitRate`'s reason — and the reply count travels with it so a 0 rate
+ *  over no replies cannot read as a model that missed everything. */
+export function aggregateSummary(scores) {
+  const perProbe = {};
+  const outcomes = {};
+  for (const p of PROBES) {
+    const hits = scores.filter((s) => s.codes[p.id] === "hit").length;
+    perProbe[p.id] = scores.length === 0 ? 0 : hits / scores.length;
+    for (const s of scores) {
+      const o = s.codes[p.id];
+      outcomes[o] = (outcomes[o] ?? 0) + 1;
+    }
+  }
+  const codes = scores.length * PROBES.length;
+  const hits = scores.reduce((n, s) => n + s.hits, 0);
+  return {
+    replies: scores.length,
+    codes,
+    overall: codes === 0 ? 0 : hits / codes,
+    perProbe,
+    outcomes,
+    toolReaches: scores.reduce((n, s) => n + s.toolUses, 0),
+    truncated: scores.filter((s) => s.truncated).length,
+  };
+}
+
 /** The four graded axes, pre-registered.
  *
  *  ★★★ DIRECTION AND MEANING ARE FIXED BEFORE ANY RUN AND CARRY NO THRESHOLDS.
@@ -829,8 +913,9 @@ export function driftReferenceCheck(input) {
 
 /** Every arm a run can dispatch. A, B and X are per-probe and gate; N (the
  *  seeded anchor) and R (the rolling replay) are probe-independent drift arms
- *  and only ever inform. */
-export const ARM_IDS = Object.freeze(["A", "B", "X", "N", "R"]);
+ *  and only ever inform; M (§454) asks all five codes in one reply and is a
+ *  measurement only. */
+export const ARM_IDS = Object.freeze(["A", "B", "X", "N", "R", "M"]);
 
 /** The three environment variables that narrow a run, and the only three. */
 export const FILTER_ENV = Object.freeze({
@@ -860,12 +945,12 @@ export function filterSpec(filter) {
 /** Read the diagnostic filter out of the environment.
  *
  *  ★★ A filter exists so one broken probe can be re-run for cents instead of
- *  the standard run's full sweep — 65 requests, from
- *  `activeProbes * (A + B + X) + N + R` in `ai-eval.ts`. `R` is `reps` only
+ *  the standard run's full sweep — 70 requests, from
+ *  `activeProbes * (A + B + X) + N + R + M` in `ai-eval.ts`. `R` is `reps` only
  *  when a rolling reference exists AND a previous run is recorded — BOTH
  *  preconditions, not just the committed file — so the pre-reference sweep of
- *  60 cannot occur here again. Derive it, do not trust this number:
- *  `PROBES.length * (2 * REPS + 1) + 2 * REPS`. That affordability is the whole point,
+ *  65 cannot occur here again. Derive it, do not trust this number:
+ *  `PROBES.length * (2 * REPS + 1) + 3 * REPS` (arm M, §454, is the third REPS). That affordability is the whole point,
  *  and it is also the danger: a narrowed run that reported a normal verdict
  *  would be a confident green over a measurement of almost nothing. `verdict`
  *  and `shouldWriteRolling` both refuse outright on a non-null filter, which is
@@ -1142,6 +1227,9 @@ export function buildRunRecord(input) {
     perProbe: input.perProbe,
     graded: input.graded,
     drift: input.drift,
+    // ★★ Arm M (§454), or null when it did not run. Beside the drift arms and
+    //    outside `perProbe`, because `verdict` must never read it.
+    aggregate: input.aggregate ?? null,
     samples: input.samples,
     complete: input.complete,
     verdict: v,

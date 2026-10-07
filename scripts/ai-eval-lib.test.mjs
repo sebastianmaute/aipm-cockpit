@@ -1253,7 +1253,7 @@ describe("parseFilter", () => {
     const r = parseFilter({ [FILTER_ENV.arms]: "A,Q" });
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/unknown arm/i);
-    expect(ARM_IDS).toEqual(["A", "B", "X", "N", "R"]);
+    expect(ARM_IDS).toEqual(["A", "B", "X", "N", "R", "M"]);
   });
 
   it("refuses a non-numeric or out-of-range rep count", () => {
@@ -1385,5 +1385,77 @@ describe("buildRunRecord", () => {
 
   it("refuses to build a record with no filter field", () => {
     expect(() => buildRunRecord({ ...base })).toThrow(/filter/i);
+  });
+});
+
+// §454 — arm M: all five codes in one reply, scored per code. A measurement
+// beside the gate, so the last case pins that `verdict` never reads it.
+import {
+  AGGREGATE_QUESTION, aggregateSummary, PROBE_HARDENING, scoreAggregate,
+  PROBES as AGG_PROBES, plantedToken as aggToken, EXIT as AGG_EXIT, buildRunRecord as aggRecord,
+} from "./ai-eval-lib.mjs";
+
+describe("the aggregate arm (§454)", () => {
+  const PROBES = AGG_PROBES;
+  const tokens = {};
+  for (const p of PROBES) {
+    tokens[p.id] = aggToken(p.id, 7);
+    // Only a competitor probe plants a near-miss `<id>Prev` token.
+    if (PROBE_HARDENING[p.id]?.competitor) tokens[`${p.id}Prev`] = aggToken(`${p.id}Prev`, 7);
+  }
+  const reply = (text, over = {}) => ({ text, toolUses: 0, stopReason: "end_turn", ...over });
+
+  it("asks for every probe's code, in PROBES order", () => {
+    let at = -1;
+    for (const p of PROBES) {
+      const i = AGGREGATE_QUESTION.indexOf(p.label);
+      expect(i, `${p.id} is not asked for`).toBeGreaterThan(at);
+      at = i;
+    }
+    expect(AGGREGATE_QUESTION).toMatch(/one per line, in that order/);
+  });
+
+  it("scores a full reply 5/5", () => {
+    const s = scoreAggregate(reply(PROBES.map((p) => tokens[p.id]).join("\n")), tokens);
+    expect(s.hits).toBe(PROBES.length);
+    expect(Object.values(s.codes).every((o) => o === "hit")).toBe(true);
+  });
+
+  it("scores a partial reply per code: a near-miss is wrong, a gap is absent", () => {
+    const [first, second, ...rest] = PROBES;
+    const text = [tokens[`${first.id}Prev`], ...rest.map((p) => tokens[p.id])].join("\n");
+    const s = scoreAggregate(reply(text), tokens);
+    expect(s.hits).toBe(PROBES.length - 2);
+    expect(s.codes[first.id]).toBe("wrong");
+    expect(s.codes[second.id]).toBe("absent");
+  });
+
+  it("refuses a token map that lacks a probe, rather than scoring it absent", () => {
+    const { [PROBES[0].id]: _gone, ...short } = tokens;
+    void _gone;
+    expect(() => scoreAggregate(reply("x"), short)).toThrow(/no planted token/);
+  });
+
+  it("summarises hits over codes, and reads 0 over no replies, never NaN", () => {
+    const full = scoreAggregate(reply(PROBES.map((p) => tokens[p.id]).join(" ")), tokens);
+    const none = scoreAggregate(reply("nothing here", { stopReason: "max_tokens" }), tokens);
+    const sum = aggregateSummary([full, none]);
+    expect(sum.replies).toBe(2);
+    expect(sum.codes).toBe(2 * PROBES.length);
+    expect(sum.overall).toBe(0.5);
+    expect(sum.perProbe[PROBES[0].id]).toBe(0.5);
+    expect(sum.truncated).toBe(1);
+    expect(aggregateSummary([])).toMatchObject({ replies: 0, codes: 0, overall: 0 });
+  });
+
+  it("rides the record and never reaches the verdict", () => {
+    const rec = aggRecord({
+      date: "2026-10-07", model: "m", gitSha: "abc", anchorHash: "h", rollingHash: null,
+      anchorSpec: { seed: 1 }, reps: 5, salt: 1, sizes: {}, usage: {}, graded: [], drift: {}, samples: [],
+      perProbe: [{ id: "date", A: 1.0, B: 1.0, X: 0 }], complete: true, filter: null,
+      aggregate: { replies: 5, codes: 25, overall: 0 },
+    });
+    expect(rec.aggregate).toMatchObject({ overall: 0 });
+    expect(rec.verdict.code).toBe(AGG_EXIT.PASS);
   });
 });
