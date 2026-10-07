@@ -75,6 +75,9 @@ export function TaskEditorRaidMini({ lang, onAdd, pending, trailing }: TaskEdito
               type="text"
               size="xs"
               aria-label={`RAID ${t(lang, "raidTitle")}`}
+              // Opening the form unmounts the toggle that held focus; this
+              // field mounts only then, so focus lands here, not on <body>.
+              autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {

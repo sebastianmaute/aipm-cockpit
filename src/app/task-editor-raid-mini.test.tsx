@@ -21,6 +21,14 @@ describe("TaskEditorRaidMini", () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
+  // Opening the form unmounts the focused toggle, so without this focus fell
+  // to <body> and a keyboard user had to Tab back into the form.
+  it("moves focus to the title field when the form opens", () => {
+    render(<TaskEditorRaidMini lang="en-US" onAdd={vi.fn()} pending={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /create raid/i }));
+    expect(screen.getByLabelText(/raid title/i)).toHaveFocus();
+  });
+
   it("renders the pending RAID specs", () => {
     const onAdd = vi.fn();
     render(

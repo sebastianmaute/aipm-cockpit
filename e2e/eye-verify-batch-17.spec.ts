@@ -79,7 +79,7 @@ test.describe("eye-verify kit, batch 17", () => {
   test("§41 the task editor with the create-RAID mini-form open", async ({ page }) => {
     await open(page);
     await openView(page, "Open Points");
-    // Task #3, not the first row: #1 is Jira-synced, and its editor is read-only.
+    // Task #3, not the first row: #1 and #2 are Jira-synced, and their editors are read-only.
     // The row control is named "#<id> — click to edit" (task-row.tsx).
     await page.getByRole("button", { name: /^#3 — click to edit/ }).first().click();
     const dialog = page.getByRole("dialog").first();
