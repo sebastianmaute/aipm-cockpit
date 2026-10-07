@@ -1050,3 +1050,34 @@ describe("capturing a create would duplicate the row", () => {
     expect(after.filter((row) => row.taskName === "Third").map((row) => row.id)).toEqual([4, 3]);
   });
 });
+
+describe("an AI write that would close a RAID cause cycle (§674)", () => {
+  // The guard refuses the NEW link on the row the AI edited, and keeps the
+  // stored link on the row it never touched. Dropping the stored one instead
+  // would lose data this undo cannot restore: it restores only the edited row.
+  const CYCLE_SEED: TestSeed = {
+    ...SEED,
+    raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), causedByRaidIds: [1] }],
+  };
+
+  test("keeps the stored link, refuses the new one, and one undo restores everything", () => {
+    const { result } = renderRealUndo(CYCLE_SEED);
+    // ★ Read back INSIDE the act, before any re-render: a later tool call in the
+    // same model turn reads the tool layer's own copy, which a re-render would
+    // resync from state and so hide a tool that skipped the guard.
+    let sameTurn: readonly number[] | undefined;
+    act(() => {
+      result.current.dispatcher.updateRaid(1, { title: "R1 edited", causedByRaidIds: [2] });
+      sameTurn = result.current.dispatcher.getRaidRow(1)?.causedByRaidIds;
+    });
+    expect(sameTurn).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(1)?.title).toBe("R1 edited");
+    expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(1)?.title).toBe("R1");
+    expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
+  });
+});

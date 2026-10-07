@@ -195,16 +195,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // import, load and template apply all write `causedByRaidIds` directly.
   // `breakCauseCycles` returns the same array when nothing goes, so this costs
   // no re-render, and a broken loop is logged rather than dropped silently.
+  // ★★ `prev` goes in as the before-image, so the link that goes is the one this
+  // write added, never an older link on a row the writer did not touch.
+  const lastCycleLogRef = useRef<{ prev: readonly RaidItem[]; links: string } | null>(null);
   const setRaid = useCallback<Dispatch<SetStateAction<readonly RaidItem[]>>>((action) => {
     setRaidState((prev) => {
       const next = typeof action === "function" ? action(prev) : action;
-      const { items, dropped } = breakCauseCycles(next);
-      // `logDiag` keeps scalar fields only, so the links travel as one string.
+      const { items, dropped } = breakCauseCycles(next, prev);
       if (dropped.length > 0) {
-        logDiag("warn", "raid.causeCycleBroken", {
-          count: dropped.length,
-          links: dropped.map((d) => `${d.childId} caused by ${d.parentId}`).join(", "),
-        });
+        // `logDiag` keeps scalar fields only, so the links travel as one string.
+        const links = dropped.map((d) => `${d.childId} caused by ${d.parentId}`).join(", ");
+        // StrictMode runs an updater twice with the same `prev`; log the break once.
+        const last = lastCycleLogRef.current;
+        if (last?.prev !== prev || last.links !== links) {
+          lastCycleLogRef.current = { prev, links };
+          logDiag("warn", "raid.causeCycleBroken", { count: dropped.length, links });
+        }
       }
       return items;
     });

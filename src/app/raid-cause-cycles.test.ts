@@ -61,6 +61,38 @@ describe("breakCauseCycles (§674)", () => {
     expect(out.items[0].causedByRaidIds).toEqual([]);
   });
 
+  describe("with the array before the write (prior)", () => {
+    test("drops the link the write added, whichever id is lower", () => {
+      const before = [item(1, []), item(2, [1])];
+      const out = breakCauseCycles([item(1, [2]), item(2, [1])], before);
+      expect(out.items.map((r) => r.causedByRaidIds)).toEqual([[], [1]]);
+      expect(out.dropped).toEqual([{ childId: 1, parentId: 2 }]);
+      // The mirror image, so ascending-id order alone cannot pass both.
+      const out2 = breakCauseCycles([item(1, [2]), item(2, [1])], [item(1, [2]), item(2, [])]);
+      expect(out2.items.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
+    });
+
+    test("keeps every prior link in a longer loop and drops only the new one", () => {
+      const before = [item(1, []), item(2, [1]), item(3, [2])];
+      const out = breakCauseCycles([item(1, [3]), item(2, [1]), item(3, [2])], before);
+      expect(out.dropped).toEqual([{ childId: 1, parentId: 3 }]);
+      expect(isAcyclic(out.items)).toBe(true);
+    });
+
+    test("still breaks a loop the prior array already held", () => {
+      const cyclic = [item(1, [2]), item(2, [1])];
+      const out = breakCauseCycles(cyclic, cyclic);
+      expect(out.dropped).toHaveLength(1);
+      expect(isAcyclic(out.items)).toBe(true);
+    });
+
+    test("keeps a link's position among the item's other causes", () => {
+      const before = [item(1, []), item(2, [1]), item(3, [])];
+      const out = breakCauseCycles([item(1, [3, 2, 4]), item(2, [1]), item(3, []), item(4, [])], before);
+      expect(out.items[0].causedByRaidIds).toEqual([3, 4]);
+    });
+  });
+
   test("keeps a cause on an id no item carries (dangling links are not its concern)", () => {
     const items = [item(1, [7]), item(2, [1])];
     expect(breakCauseCycles(items).items).toBe(items);

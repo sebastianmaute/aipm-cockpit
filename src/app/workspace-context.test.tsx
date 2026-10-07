@@ -675,11 +675,28 @@ describe("setRaid keeps the cause graph acyclic (§674)", () => {
     expect(entry?.fields).toEqual({ count: 1, links: "2 caused by 1" });
   });
 
-  test("breaks a cycle an updater closes", () => {
+  // ★★ The write that closes the loop loses its NEW link; the stored link on
+  // item 2, which this write never touched, survives. Pinned in both call shapes.
+  test("refuses the link an updater adds, and keeps the stored one", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     act(() => result.current.setRaid([raidItem(1, []), raidItem(2, [1])]));
     act(() => result.current.setRaid((prev) => prev.map((r) => (r.id === 1 ? { ...r, causedByRaidIds: [2] } : r))));
+    expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[], [1]]);
+  });
+
+  test("refuses the link a value adds, and keeps the stored one", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [])]));
+    act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [1])]));
     expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
+    expect(readDiagLog().find((e) => e.code === "raid.causeCycleBroken")?.fields).toEqual({ count: 1, links: "2 caused by 1" });
+  });
+
+  test("logs a broken cycle once under StrictMode, which runs the updater twice", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper, reactStrictMode: true });
+    act(() => result.current.setRaid([raidItem(1, []), raidItem(2, [1])]));
+    act(() => result.current.setRaid((prev) => prev.map((r) => (r.id === 1 ? { ...r, causedByRaidIds: [2] } : r))));
+    expect(readDiagLog().filter((e) => e.code === "raid.causeCycleBroken")).toHaveLength(1);
   });
 
   test("keeps an acyclic value as the same array and logs nothing", () => {
