@@ -158,7 +158,9 @@ export function changedInKind(v: unknown): unknown {
 }
 
 /** The same object with its leaf values rotated one key along, or `undefined`
- *  when that changes nothing. Every value it holds is one the object already
+ *  when every leaf is the same reference (`===`) as the one it replaces. A
+ *  rotation of deep-equal object leaves is returned as is; `probeFor`'s own
+ *  comparison then discards it. Every value it holds is one the object already
  *  held, so a closed vocabulary (a RACI map's role codes) stays closed — the
  *  one structured change `changedInKind` cannot make there, since it edits a
  *  leaf into a value nobody stored. Shape only, like `changedInKind`. */
@@ -299,9 +301,10 @@ export function probeFor(args: {
   declared: boolean;
   reference: Row;
   seedRow: Row;
-  /** Another row the store produced on its own — the update arms pass the
-   *  create CONTROL row — whose value is tried as is when the derived ones are
-   *  refused. A value the store wrote itself is one the column can hold. */
+  /** Another row the store produced on its own — Relation A's update arm
+   *  passes the create CONTROL row — whose value is tried as is when the
+   *  derived ones are refused. A value the store wrote itself is one the
+   *  column can hold. */
   alternate?: Row;
   compare: Compare;
 }): ProbeOutcome {

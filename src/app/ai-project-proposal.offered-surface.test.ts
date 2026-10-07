@@ -150,6 +150,29 @@ describe("propose_project's offered surface (§445)", () => {
     expect(seedFrom(list, full), `${list}: an unoffered key reached the seed`).toEqual(fromTrimmed);
   });
 
+  // ★★ THE FALLBACK HALF OF "INERT". The relation above sends every offered key,
+  //  so a builder that reads an unoffered key only when an offered one is
+  //  missing (`raw.offered ?? raw.unoffered`) is never reached by it. Here each
+  //  offered key is removed from BOTH sides in turn: the unoffered columns must
+  //  still change nothing.
+  it.each(LISTS)("%s inert: with any one offered key absent, an unoffered key still changes nothing", (list) => {
+    const full = fullItem(list);
+    const reached = offeredKeys(list).filter((key) => {
+      const { [key]: _a, ...fullWithout } = full;
+      const { [key]: _b, ...trimmedWithout } = pick(full, offeredKeys(list));
+      void _a;
+      void _b;
+      return JSON.stringify(seedFrom(list, fullWithout)) !== JSON.stringify(seedFrom(list, trimmedWithout));
+    });
+    expect(reached, `${list}: offered keys whose absence lets an unoffered key through`).toEqual([]);
+  });
+
+  // ★ The dropped `name` alias, pinned directly: no populated row carries a
+  //  `name` key, so neither inert relation can see the alias come back.
+  it("tasks: a name the schema does not offer does not stand in for taskName", () => {
+    expect(seedFrom("tasks", { name: "Kick-off workshop", dueDate: "2026-10-20" })).toBeUndefined();
+  });
+
   it.each(LISTS)("%s live: every offered key is used", (list) => {
     const full = pick(fullItem(list), offeredKeys(list));
     const base = seedFrom(list, full);

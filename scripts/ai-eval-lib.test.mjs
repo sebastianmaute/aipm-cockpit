@@ -1422,7 +1422,10 @@ describe("the aggregate arm (§454)", () => {
   });
 
   it("scores a partial reply per code: a near-miss is wrong, a gap is absent", () => {
-    const [first, second, ...rest] = PROBES;
+    // `first` must be a probe with a near-miss competitor, or it has no `Prev` token.
+    const first = PROBES.find((p) => PROBE_HARDENING[p.id]?.competitor);
+    const second = PROBES.find((p) => p !== first);
+    const rest = PROBES.filter((p) => p !== first && p !== second);
     const text = [tokens[`${first.id}Prev`], ...rest.map((p) => tokens[p.id])].join("\n");
     const s = scoreAggregate(reply(text), tokens);
     expect(s.hits).toBe(PROBES.length - 2);
@@ -1445,7 +1448,7 @@ describe("the aggregate arm (§454)", () => {
     expect(sum.overall).toBe(0.5);
     expect(sum.perProbe[PROBES[0].id]).toBe(0.5);
     expect(sum.truncated).toBe(1);
-    expect(aggregateSummary([])).toMatchObject({ replies: 0, codes: 0, overall: 0 });
+    expect(aggregateSummary([])).toMatchObject({ replies: 0, codes: 0, overall: 0, outcomes: { hit: 0, wrong: 0, absent: 0 } });
   });
 
   it("rides the record and never reaches the verdict", () => {

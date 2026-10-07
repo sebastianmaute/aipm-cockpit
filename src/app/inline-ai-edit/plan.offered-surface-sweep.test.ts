@@ -397,8 +397,10 @@ async function writerStampedFields(entity: InlineEntity): Promise<{ stamped: rea
   return { stamped, threw };
 }
 
-/** Blank as the destroy check reads it: a column with nothing to lose. */
-const isBlank = (v: unknown): boolean => v === undefined || v === null || v === "";
+/** A column with nothing to lose, as the destroy check reads it.
+ *  ★ Narrower than `sweep-probes.ts`'s `isBlank` on purpose: an empty array or
+ *  object is still a stored value, and a write that replaces it moved it. */
+const heldNothing = (v: unknown): boolean => v === undefined || v === null || v === "";
 
 beforeEach(() => {
   // The id minter is module-scoped. Resetting keeps this file order-independent
@@ -513,7 +515,7 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     //  moved to something the model did not send was overwritten through a
     //  field the model was never offered.
     const checkDestroyed = (subject: string, field: string, before: Row, stored: Row): void => {
-      if (isBlank(before[field]) || control.stamped.includes(field) || same(before[field], stored[field])) return;
+      if (heldNothing(before[field]) || control.stamped.includes(field) || same(before[field], stored[field])) return;
       findings.push(
         finding(
           subject,
@@ -531,8 +533,8 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
         findings.push(finding(subject, outcome.kind, outcome.reason));
         // ★★ AN UNMEASURED FIELD IS STILL SENT, FOR THE DESTROY CHECK ALONE.
         //  Its probe cannot be stored as sent, so `stored` cannot judge it —
-        //  but a guard that lets it through still moves the column (§441:
-        //  `utilizationMode` coerced, `active` cleared), and that is visible.
+        //  but a guard that lets it through still moves the column (one of
+        //  today's: `resource.active`, cleared from `false`), and that is visible.
         if (outcome.kind === "unmeasured") {
           const r = await updateWith(entity, field, outcome.value);
           if (r.threw === undefined) checkDestroyed(subject, field, r.before, r.stored);
@@ -545,8 +547,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
       if (threw !== undefined) continue;
       // ★★ The comparison is against the PROBE, not against "did the field
       //  change". `localModifiedAt` changes on every single replay — all eight
-      //  writers stamp it unconditionally — so a movement test would fire on
-      //  every entity and bury every real finding.
+      //  writers stamp it unconditionally — so a BARE movement test would fire
+      //  on every entity. Movement is judged below instead, by `checkDestroyed`,
+      //  against the stamp set the control replay measured (§441).
       if (same(stored[field], probe)) {
         findings.push(
           finding(subject, "stored", `update stored the model's undeclared value (was ${JSON.stringify(before[field])})`),
@@ -562,9 +565,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
-    // ★★ No positive observable of this arm's own: a replay that wrote nothing
-    //  passes every line here, and only Relation B's floor 2 — a SIBLING test,
-    //  on the same `updateWith` harness — shows that the harness writes at all.
+    // ★ The positive observable that this harness writes is the control
+    //  replay's, asserted at the top of this arm: its stamp set must hold
+    //  `localModifiedAt`, which only a write that landed can move (§441).
     expectLedgerAgrees("A", entity, "update", findings);
     // Non-vacuity: the seed must actually exist, or every read-back above
     // compared undefined against a string and agreed.

@@ -641,6 +641,11 @@ export const AGGREGATE_OUTCOMES = Object.freeze(["hit", "wrong", "absent"]);
  *  reason belong to the WHOLE reply and are returned beside the codes, so a
  *  truncated reply's missing codes can be told apart from unread blocks.
  *
+ *  ★ PRECEDENCE: the current token wins. A reply that lists a probe's current
+ *  code AND its near-miss scores `hit` for that code, so a model that dumps
+ *  both lines is not penalised here. Acceptable while arm M only measures;
+ *  give it a code-level `ambiguous` before anything gates on it.
+ *
  *  ★★ Requires the whole reply and the whole token map, for `scoreResponse`'s
  *  reasons: an empty map would make every code `absent` and read as a model
  *  that found nothing. */
@@ -678,7 +683,9 @@ export function scoreAggregate(reply, tokens) {
  *  over no replies cannot read as a model that missed everything. */
 export function aggregateSummary(scores) {
   const perProbe = {};
-  const outcomes = {};
+  // Every outcome is present, at 0 when it never occurred, so two records
+  // compare key for key.
+  const outcomes = Object.fromEntries(AGGREGATE_OUTCOMES.map((o) => [o, 0]));
   for (const p of PROBES) {
     const hits = scores.filter((s) => s.codes[p.id] === "hit").length;
     perProbe[p.id] = scores.length === 0 ? 0 : hits / scores.length;

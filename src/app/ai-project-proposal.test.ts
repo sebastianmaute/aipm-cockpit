@@ -299,8 +299,11 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     "resources",
     // `buildSeedTask` does the same over its own named fields. ★ Named is not
     // the same as OFFERED: it read `assignee`, `priority`, `group` and a `name`
-    // alias the task schema never offered (§445). That is now pinned by the
-    // "inert" relation in `ai-project-proposal.offered-surface.test.ts`.
+    // alias the task schema never offered (§445). The three fields are now
+    // offered, and `ai-project-proposal.offered-surface.test.ts` pins both
+    // halves: its "inert" relations catch an unoffered key being read, and a
+    // case of its own pins the dropped alias, which "inert" alone cannot see
+    // (a populated item always carries `taskName`, so a fallback never fires).
     "tasks",
   ];
 

@@ -9,11 +9,17 @@ import { SEED_WORKSPACE } from "./seed-workspace";
  * `NEXT_PUBLIC_TURSO_DATABASE_URL`, never through this switch.
  *
  * Browser (IndexedDB, the seed) → Local JSON file. Headless Chromium cannot
- * show a save picker, so `showSaveFilePicker` is stubbed to hand back a REAL
- * file handle from the origin-private file system (OPFS). Everything after the
- * pick is the product: the conversion confirm, `onRequestStorageSwitch`'s forced
+ * show a save picker, so `showSaveFilePicker` is stubbed to hand back a FAKE
+ * file handle whose bytes live on `window.__e2eFile`. Everything after the pick
+ * is the product: the conversion confirm, `onRequestStorageSwitch`'s forced
  * write of the live workspace through `LocalFileBackend`, the hand-over to the
  * new backend, and its load when "Reload project" asks for one.
+ *
+ * ★★ WHAT THIS DOES NOT PROVE: that a real file is written. The app's write and
+ *  read-back go through the File System Access INTERFACE, against the fake. A
+ *  real origin-private (OPFS) handle was tried first and dropped: headless
+ *  Chromium crashes the whole browser when it reads an OPFS handle back out of
+ *  IndexedDB, which the app does with the handle it stores.
  *
  * ★ This stub is installed per PAGE, after the seed's per-CONTEXT in-memory stub,
  *  so it is the one the app sees.
