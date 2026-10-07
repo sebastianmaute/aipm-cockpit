@@ -195,6 +195,16 @@ describe("buildTaskEditorChrome", () => {
     expect(btn("Sync with Jira")).toBeNull();
   });
 
+  // §102: the three footer buttons are one primitive at one size. Send inquiry and Push to
+  // Jira were hand-rolled at px-4 while the sync button beside them was size="sm" (px-3).
+  it("renders send-inquiry, push and the Jira sync button with the same Button classes", () => {
+    renderChrome(makeDeps({ editingIsJiraLinked: true }));
+    const classes = ["Send inquiry", "Push to Jira", "Sync with Jira"].map((name) => btn(name)!.className);
+    expect(classes[0]).toContain("px-3");
+    expect(classes[1]).toBe(classes[0]);
+    expect(classes[2]).toBe(classes[0]);
+  });
+
   it("renders no leading actions and no Delete in create mode, but keeps the extras", () => {
     renderChrome(makeDeps({ editingTask: null }));
     expect(btn("Send inquiry")).toBeNull();

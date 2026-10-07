@@ -17,11 +17,10 @@ interface TaskEditorActionsProps {
   onPushToJira: (taskId: number) => void;
 }
 
-const ACTION_BUTTON_CLASS =
-  `rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`;
-
 /**
  * Action buttons for the task editor (TaskFormModal footer, all layouts).
+ * `Button variant="secondary" size="sm"` (§102), the same as the footer's
+ * two-way Jira sync button beside them, so the three match.
  * Only rendered for an EXISTING task and never in popouts —
  * the caller gates on `editingTask !== null && !isPopout`. Push to Jira is
  * additionally hidden for already-synced tasks or when Jira is unconfigured.
@@ -36,21 +35,13 @@ export function TaskEditorActions({
   const showPush = jiraConfigured && !task.jiraKey;
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onSendInquiry(task)}
-        className={ACTION_BUTTON_CLASS}
-      >
+      <Button type="button" variant="secondary" size="sm" onClick={() => onSendInquiry(task)}>
         {t(lang, "sendInquiry")}
-      </button>
+      </Button>
       {showPush && (
-        <button
-          type="button"
-          onClick={() => onPushToJira(task.id)}
-          className={ACTION_BUTTON_CLASS}
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={() => onPushToJira(task.id)}>
           {t(lang, "jiraPushToJira")}
-        </button>
+        </Button>
       )}
     </>
   );
