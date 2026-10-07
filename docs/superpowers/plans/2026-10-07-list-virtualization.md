@@ -125,5 +125,6 @@ Factors: the seed has 14 tasks, so factors **36, 72, 143** give 504 / 1008 / 200
 **Files:** Modify `e2e/perf-task-table.spec.ts`
 
 - [ ] **Step 1:** Add, under the same `PERF=1` gate: at 1008 tasks run `AxeBuilder` on Open Points (same include/exclude as `e2e/a11y.spec.ts`) → zero violations; drag the first column's resize handle and assert the width persists after scrolling 500 rows.
+- **Corrected during implementation (2026-10-07):** (a) the checks run as a `test.step` at the end of the 1008-task timing test, on the same page — a second boot of that workspace missed `gotoApp`'s 5 s once. (b) The axe scan is scoped to the Open Points pane: at 1008 tasks the nav's pink count badge fails color-contrast on its own (pre-existing, recorded in §5). (c) With a row window the probe can no longer count `<tr>`s, so every "holds N rows" wait reads the table's `aria-rowcount`. (d) A `filterMs` column was added, because the Phase 0 search term "a" matches every seed task and so never filters.
 - [ ] **Step 2:** Re-run the probe; record before/after medians in §5; narrow §5 to the three remaining lists and add the two accepted trade-offs from the spec (find-in-page, Tab order). Rebuild the index; `followups:index:check` exit 0.
 - [ ] **Step 3:** Commit `docs: §5 after-numbers and remaining scope`.
