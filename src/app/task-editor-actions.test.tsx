@@ -197,12 +197,20 @@ describe("buildTaskEditorChrome", () => {
 
   // §102: the three footer buttons are one primitive at one size. Send inquiry and Push to
   // Jira were hand-rolled at px-4 while the sync button beside them was size="sm" (px-3).
+  // ★ No task shows all three: Push needs a task NOT in Jira, sync needs one that is. So
+  // each real state is rendered, and Send inquiry (present in both) ties the two together.
   it("renders send-inquiry, push and the Jira sync button with the same Button classes", () => {
-    renderChrome(makeDeps({ editingIsJiraLinked: true }));
-    const classes = ["Send inquiry", "Push to Jira", "Sync with Jira"].map((name) => btn(name)!.className);
-    expect(classes[0]).toContain("px-3");
-    expect(classes[1]).toBe(classes[0]);
-    expect(classes[2]).toBe(classes[0]);
+    const { unmount } = renderChrome(makeDeps({ editingTask: makeTask({ id: 7 }), editingIsJiraLinked: false }));
+    const [inquiryUnlinked, push] = ["Send inquiry", "Push to Jira"].map((name) => btn(name)!.className);
+    expect(btn("Sync with Jira")).toBeNull();
+    unmount();
+    renderChrome(makeDeps({ editingTask: makeTask({ id: 7, jiraKey: "LOP-7" }), editingIsJiraLinked: true }));
+    const [inquiryLinked, sync] = ["Send inquiry", "Sync with Jira"].map((name) => btn(name)!.className);
+    expect(btn("Push to Jira")).toBeNull();
+    expect(inquiryUnlinked).toContain("px-3");
+    expect(push).toBe(inquiryUnlinked);
+    expect(inquiryLinked).toBe(inquiryUnlinked);
+    expect(sync).toBe(inquiryUnlinked);
   });
 
   it("renders no leading actions and no Delete in create mode, but keeps the extras", () => {

@@ -59,9 +59,12 @@ Four files in `office/`, each carrying the same links in prose, a table and a da
   "View learning insights" look like the other secondary buttons in Settings.
 - [ ] **By hand:** Open Points, select two rows: "Delete selected" reads as destructive (pink) and
   "Clear selection" as secondary, at the same height.
-- [ ] **By hand:** the task editor of a Jira-linked task: the footer's "Send inquiry", "Push to
-  Jira" (shown only for a task not yet in Jira) and Jira sync buttons look alike — same padding,
-  same text colour. All three are now `Button size="sm"`; the sync button lost its dark-blue text.
+- [ ] **By hand:** the task editor of a task NOT in Jira (with Jira configured): the footer's
+  "Send inquiry" and "Push to Jira" look alike — same padding, same text colour.
+- [ ] **By hand:** the task editor of a Jira-linked task: the footer's "Send inquiry" and Jira
+  sync buttons look alike, and match the pair above. No task shows all three ("Push to Jira" is
+  only for a task not yet in Jira, the sync button only for one that is). All three are now
+  `Button size="sm"`; the sync button lost its dark-blue text.
 - [ ] **By hand, if reachable:** Time bookings → Clear all, and Settings → Templates → Save.
 
 ## Still by hand
