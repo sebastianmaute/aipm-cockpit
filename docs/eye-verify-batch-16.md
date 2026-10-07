@@ -41,7 +41,10 @@ surface needs something the seeded browser cannot provide, such as a model turn,
     stretched.
   - [ ] The footer reads "Page 1 of N" and counts correctly. Word fills the numbers when the file
     opens; if it shows "1 of 1" everywhere, press F9.
-  - [ ] The landscape export's header does not crowd its first table.
+  - [ ] The landscape export's header does not crowd its first table. Expected: with a logo, the
+    body starts a little lower on landscape pages than without one. The header band starts at
+    0.25in and the logo is up to 0.3in high, more than the 0.5in top margin, so Word moves the body
+    down to make room. That is valid Word behaviour, not a defect; flag it only if it looks wrong.
   - [ ] The tables from part (a) (content-sized columns) look right; that half was never opened
     in Word either.
 - [ ] **By hand, optional:** the same two files in LibreOffice.

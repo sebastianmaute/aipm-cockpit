@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildDocxHeaderFooter, decodeLogoDataUrl, HEADER_REL_ID, FOOTER_REL_ID } from "./ooxml-docx-header-footer";
-import { buildDocxPackage } from "./ooxml-docx-primitives";
+import { buildDocxHeaderFooter, decodeLogoDataUrl } from "./ooxml-docx-header-footer";
+import { buildDocxPackage, HEADER_REL_ID, FOOTER_REL_ID } from "./ooxml-docx-primitives";
 import { buildDocx } from "./export-docx";
 import { renderDocumentDocx } from "./doc-render-docx";
 import { emptyWorkspace } from "./workspace";

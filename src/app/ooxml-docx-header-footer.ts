@@ -8,15 +8,13 @@
 // relationship part, `word/_rels/header1.xml.rels`. So `rIdLogo` cannot clash
 // with a media or link id the body mints: those live in
 // `word/_rels/document.xml.rels`. The two ids the document part needs to point
-// at the header and footer are named, not numbered, for the same reason
-// `NUMBERING_REL_ID` is: the body's sinks mint `rId<n>`.
+// at the header and footer (`HEADER_REL_ID`, `FOOTER_REL_ID`) live in
+// ooxml-docx-primitives.ts, which imports this module for its types only.
 import { readHeaderDimensions } from "./document-asset-upload";
 import { COLOR_DARK_BLUE, xmlEscape } from "./export-ooxml-shared";
 import { docxInlineDrawing } from "./ooxml-docx-primitives";
 import { fitExtent, mediaExtension, EMU_PER_INCH, type MediaExtension } from "./ooxml-media";
 
-export const HEADER_REL_ID = "rIdHeader";
-export const FOOTER_REL_ID = "rIdFooter";
 const LOGO_REL_ID = "rIdLogo";
 
 /** The logo sits in the header band, so it is kept small: at most 0.3 inch
