@@ -31,7 +31,7 @@ updates:
         patterns: [vitest, "@vitest/*"]
       npm-minor-patch:
         update-types: [minor, patch]
-        exclude-patterns: [eslint-config-next, next, react, react-dom]
+        exclude-patterns: ["@tanstack/react-virtual", eslint-config-next, next, react, react-dom]
     ignore:
       # TypeScript 7 is the native compiler, and its npm package drops the compiler API that
       # src/test/strip-comments.ts, scripts/src-symbols-lib.mjs and two tests parse with;

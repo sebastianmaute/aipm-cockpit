@@ -210,11 +210,12 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
   });
 
   it("(b) a RAID row created earlier in the turn survives the propagation's ref advance (and a linked row is still retargeted)", async () => {
-    // ★ Not the brief's literal (b): `ownerResourceId` is NOT model-writable
-    //  (`dropUnacceptedRaidFields` refuses it), so `create_raid_item` can never
-    //  make an FK-linked row, and by the FK-only ruling such a row is not reached.
-    //  What a stale second ref WOULD break in that turn is the created row
-    //  itself: advancing the shared ref from a pre-create copy would drop it.
+    // ★ `ownerResourceId` is NOT model-writable (`dropUnacceptedRaidFields`
+    //  refuses it), but since §375 `createRaid` derives it from the owner name
+    //  and address (`linkPersonForWrite`), so the created row is linked to
+    //  resource 7 and the propagation retargets it too. What a stale second ref
+    //  WOULD break in that turn is the created row itself: advancing the shared
+    //  ref from a pre-create copy would drop it.
     const { ai, showToastAction } = renderAi();
     let createdId = 0;
     await act(async () => {
@@ -226,8 +227,8 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
       expect(d.listRaid().map((r) => r.id)).toEqual([1, createdId]);
     });
     const raid = ai.result.current.ws.raid;
-    expect(raid.map((r) => [r.id, r.ownerEmail])).toEqual([[1, "new@x.com"], [createdId, "old@x.com"]]);
-    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastResourceEmailPropagated", 6), expect.anything());
+    expect(raid.map((r) => [r.id, r.ownerEmail])).toEqual([[1, "new@x.com"], [createdId, "new@x.com"]]);
+    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastResourceEmailPropagated", 7), expect.anything());
   });
 
   it("(c) undoing the resource edit keeps an AI RAID edit made earlier in the same turn", async () => {

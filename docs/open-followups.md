@@ -30305,8 +30305,6 @@ later the same day (`3ce0801b`, `9012e820`) — so the eye-verify should now see
 plan apply BOTH rows, and any refused row labelled by its actual kind, rather than either of the two
 failure shapes the paragraph below still describes for the record.
 
-**Work item:** #263
-
 ★★ **THE WIRING LANDED (§377), SO THIS IS NOW A PLAIN OWED ACT.** Two earlier wordings of this entry
 each named a different thing as the gap — the SUITES first, then the wiring. Both are retired, and
 nothing now stands between a reader and the act below.
