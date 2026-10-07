@@ -15,9 +15,18 @@
 // (synchronously, through flushSync), so the caller must be the table alone.
 //
 // Coverage-GATED: a .ts file that vitest.config.ts's coverage `exclude` does not
-// list, so the global floors count it. Pinned by use-task-row-window.test.tsx.
+// list, so the global floors count it. Pinned by use-task-row-window.test.tsx
+// (over a mocked `useVirtualizer`) and use-task-row-window.real-virtualizer.test.tsx
+// (over the real library, no mock).
+//
+// ★★ The draft-loss and scroll fixes below lean on virtual-core behaviour that
+// is not documented API: the public fields `itemSizeCache`/`measurementsCache`,
+// that switching off clears them in the virtualizer's own layout effect, and
+// that `getSize` falls back to `initialRect` when it turns back on. Any
+// `@tanstack/*` version change must re-run use-task-row-window.real-virtualizer.test.tsx
+// AND the PERF-gated probe (e2e/perf-task-table.spec.ts), which CI never runs.
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { defaultRangeExtractor, useVirtualizer, type Range, type Rect, type Virtualizer, type VirtualItem } from "@tanstack/react-virtual";
 
 /** The table switches to a row window only ABOVE this many visible rows. */
@@ -133,20 +142,46 @@ function focusedRowIndex(box: HTMLElement | null, ids: readonly number[]): numbe
   return row ? ids.indexOf(Number(row.getAttribute(ROW_ID_ATTR))) : -1;
 }
 
+/** The snapshot when nothing was measured. ONE shared list, so switching off an
+ *  unmeasured window sets the state it already holds and React bails out.
+ *  Never mutated: virtual-core only reads `initialMeasurementsCache`. */
+const NO_MEASUREMENTS: VirtualItem[] = [];
+
 /** Every row height the virtualizer has measured, as `initialMeasurementsCache`
  *  takes them. The same walk as virtual-core's `takeSnapshot`, but over the
  *  measurements it already holds: `takeSnapshot` recomputes them first, and in
  *  the commit that switches the window off that recompute is what CLEARS them
- *  (virtual-core 3.17.11, `getMeasurements` with `enabled: false`). */
-function measuredRows(virtualizer: Virtualizer<HTMLElement, Element>): VirtualItem[] {
+ *  (virtual-core 3.17.11, `getMeasurements` with `enabled: false`).
+ *  ★ The size comes from `itemSizeCache`, not the item: a row measured after
+ *  the last recompute still carries its ESTIMATE in `measurementsCache`. Only
+ *  the key and the size are read back (virtual-core recomputes every start of a
+ *  one-lane list when it turns back on), so
+ *  a start that predates that measurement is harmless. */
+export function measuredRows(virtualizer: Virtualizer<HTMLElement, Element>): VirtualItem[] {
+  const sizes = virtualizer.itemSizeCache;
+  if (sizes.size === 0) return NO_MEASUREMENTS;
   const out: VirtualItem[] = [];
-  if (virtualizer.itemSizeCache.size === 0) return out;
   for (const item of virtualizer.measurementsCache) {
-    if (item && virtualizer.itemSizeCache.has(item.key)) {
-      out.push({ index: item.index, key: item.key, start: item.start, size: item.size, end: item.end, lane: item.lane });
+    const size = item ? sizes.get(item.key) : undefined;
+    if (item && size !== undefined) {
+      out.push({ index: item.index, key: item.key, start: item.start, size, end: item.start + size, lane: item.lane });
     }
   }
   return out;
+}
+
+/** The scroll box's LIVE size, as a `Rect` whose getters read the box each time
+ *  virtual-core asks (see `initialRect` in the hook). offsetWidth/offsetHeight,
+ *  as virtual-core's own observer reads it. */
+export function liveBoxRect(scrollRef: React.RefObject<HTMLElement | null>): Rect {
+  return {
+    get width() {
+      return scrollRef.current?.offsetWidth ?? 0;
+    },
+    get height() {
+      return scrollRef.current?.offsetHeight ?? 0;
+    },
+  };
 }
 
 /** The height of `headRef` (the table's <thead>), kept current through a
@@ -190,7 +225,7 @@ export function useTaskRowWindow(opts: {
   // 1008 tasks, with rows 72–115 px tall against the 45 px estimate).
   // Taken once, as the window switches off (the layout effect below), not on
   // every windowed commit: the walk is O(rows), and a scroll step commits.
-  const [measured, setMeasured] = useState<VirtualItem[]>([]);
+  const [measured, setMeasured] = useState<VirtualItem[]>(NO_MEASUREMENTS);
   const rangeExtractor = useCallback(
     (range: Range) => withPinnedIndex(defaultRangeExtractor(range), focusedRowIndex(scrollRef.current, ids)),
     [ids, scrollRef],
@@ -202,19 +237,8 @@ export function useTaskRowWindow(opts: {
   // its state, went with them, whatever the range extractor pinned. Getters, so
   // the box is read only when virtual-core asks: `getSize` before it has
   // observed a rect, i.e. inside `getVirtualItems` on the first windowed
-  // render, which is the moment the live size is wanted. offsetWidth/
-  // offsetHeight, as virtual-core's own observer reads it.
-  const initialRect = useMemo<Rect>(
-    () => ({
-      get width() {
-        return scrollRef.current?.offsetWidth ?? 0;
-      },
-      get height() {
-        return scrollRef.current?.offsetHeight ?? 0;
-      },
-    }),
-    [scrollRef],
-  );
+  // render, which is the moment the live size is wanted.
+  const initialRect = useMemo(() => liveBoxRect(scrollRef), [scrollRef]);
   // ★ Called unconditionally (rules of hooks); `enabled: false` makes it attach
   // no scroll or resize observer, so the plain path pays nothing for it.
   // eslint-disable-next-line react-hooks/incompatible-library -- the window is re-read every render; the one value handed to a memoized child (`measureElement`) is a stable instance field.
@@ -238,13 +262,26 @@ export function useTaskRowWindow(opts: {
     // follows its task even if the list changed while the window was off.
     initialMeasurementsCache: measured,
   });
+  // False once the table unmounts (or StrictMode simulates it). ★ Declared
+  // BEFORE the snapshot effect: React runs a component's effect cleanups in
+  // declaration order, so the snapshot's cleanup below already sees it.
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   // ★ The CLEANUP of a windowed commit's effect, which runs when `enabled`
   // turns false (and on unmount). Within a commit React runs the layout-effect
   // cleanups before any layout effect, so this reads the measurements before virtual-core's own
-  // effect recomputes them as off and clears them.
+  // effect recomputes them as off and clears them. Skipped on unmount: the
+  // setState would be dropped, and the walk is O(rows).
   useLayoutEffect(() => {
     if (!enabled) return;
-    return () => setMeasured(measuredRows(virtualizer));
+    return () => {
+      if (mounted.current) setMeasured(measuredRows(virtualizer));
+    };
   }, [enabled, virtualizer]);
 
   if (!enabled) return OFF;

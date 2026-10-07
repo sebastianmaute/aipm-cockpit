@@ -157,9 +157,12 @@ export function TasksTable({
           return (
           <Fragment key={task.id}>
           {/* The first rendered row always gets one, even at 0 px, so a
-              windowed table keeps a constant number of spacer rows while the
-              window moves. (Not one stable spacer node: it is keyed under the
-              first rendered row's Fragment, so it remounts when that row changes.) */}
+              windowed table keeps the same number of spacer rows (this one and
+              the bottom one) while the window moves. The exception is a
+              focused row pinned outside the window (`withPinnedIndex`): the gap
+              between it and the run adds a THIRD spacer for as long as it is
+              pinned. (Not one stable spacer node: it is keyed under the first
+              rendered row's Fragment, so it remounts when that row changes.) */}
           {windowed && (k === 0 || padBefore > 0) && <SpacerRow height={padBefore} colSpan={visibleColumnCount + 1} />}
           <TaskRow
             task={task}

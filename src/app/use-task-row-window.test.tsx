@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { Range } from "@tanstack/react-virtual";
+import { StrictMode } from "react";
 import { useTaskRowWindow, VIRTUALIZE_MIN_ROWS, withPinnedIndex } from "./use-task-row-window";
 
 // jsdom has no layout, so the real virtualizer would compute an empty window.
@@ -213,6 +214,39 @@ describe("useTaskRowWindow — printing renders every row (§5)", () => {
     expect(instance.measurementsReads).toBe(1);
   });
 
+  test("with nothing measured, switching off neither walks the measurements nor allocates a snapshot", () => {
+    const setPrint = stubPrintQuery();
+    renderWindow(1000);
+    const before = lastOptions?.initialMeasurementsCache;
+    setPrint(true);
+    setPrint(false);
+    expect(instance.measurementsReads).toBe(0);
+    // The same shared empty list, so the setState bails out with no re-render.
+    expect(lastOptions?.initialMeasurementsCache).toBe(before);
+  });
+
+  test("unmounting a windowed table does not walk the measurements (its setState would be dropped)", () => {
+    stubPrintQuery();
+    const { unmount } = renderWindow(1000);
+    instance.itemSizeCache = new Map([[1003, ROW_PX]]);
+    unmount();
+    expect(instance.measurementsReads).toBe(0);
+  });
+
+  test("StrictMode's simulated unmount on mount does not walk the measurements either", () => {
+    stubPrintQuery();
+    instance.itemSizeCache = new Map([[1003, ROW_PX]]);
+    const scrollRef = { current: document.createElement("div") };
+    const ids = idsOf(1000);
+    // ★ `wrapper: StrictMode` directly: StrictMode composed inside another wrapper
+    // component does not double-invoke on mount (src/app/strictmode.meta.test.tsx).
+    const { result } = renderHook(() => useTaskRowWindow({ ids, scrollRef, headRef: { current: null }, estimateRowPx: ROW_PX }), {
+      wrapper: StrictMode,
+    });
+    expect(result.current.enabled).toBe(true);
+    expect(instance.measurementsReads).toBe(0);
+  });
+
   test("is already off when it mounts during a print", () => {
     const setPrint = stubPrintQuery();
     setPrint(true);
@@ -288,6 +322,18 @@ describe("useTaskRowWindow — the header height is the virtualizer's paddingSta
 });
 
 describe("useTaskRowWindow — a focused row stays mounted outside the window (§5)", () => {
+  // ★ Every node a test attaches is removed HERE, not at the end of the test
+  // body: a failing assertion would otherwise skip the removal and leak a
+  // focused input into the next test.
+  const attached: Element[] = [];
+  const attach = (...nodes: Element[]) => {
+    document.body.append(...nodes);
+    attached.push(...nodes);
+  };
+  afterEach(() => {
+    attached.splice(0).forEach((n) => n.remove());
+  });
+
   test("withPinnedIndex adds the pinned index in order, and leaves the range alone otherwise", () => {
     expect(withPinnedIndex([10, 11, 12], 3)).toEqual([3, 10, 11, 12]);
     expect(withPinnedIndex([10, 11, 12], 40)).toEqual([10, 11, 12, 40]);
@@ -309,25 +355,20 @@ describe("useTaskRowWindow — a focused row stays mounted outside the window (�
     tbody.appendChild(row);
     table.appendChild(tbody);
     box.appendChild(table);
-    document.body.append(box, outside);
+    attach(box, outside);
     renderHook(() => useTaskRowWindow({ ids: idsOf(1000), scrollRef: { current: box }, headRef: { current: null }, estimateRowPx: ROW_PX }));
     // A window far below row 5: rows 400..419, plus overscan.
     const far: Range = { startIndex: 400, endIndex: 419, overscan: 10, count: 1000 };
-    const cleanup = () => {
-      box.remove();
-      outside.remove();
-    };
-    return { input, outside, far, cleanup };
+    return { input, outside, far };
   }
 
   test("the range extractor keeps the focused row's index after it scrolls out of range", () => {
-    const { input, far, cleanup } = setup();
+    const { input, far } = setup();
     expect(lastOptions!.rangeExtractor!(far)).not.toContain(5);
     act(() => input.focus());
     const indexes = lastOptions!.rangeExtractor!(far);
     expect(indexes[0]).toBe(5);
     expect(indexes.slice(1)).toEqual(range(390, 430));
-    cleanup();
   });
 
   test("keeps a row that ALREADY held focus when the list crosses the threshold", () => {
@@ -339,7 +380,7 @@ describe("useTaskRowWindow — a focused row stays mounted outside the window (�
     const input = document.createElement("input");
     row.appendChild(input);
     box.appendChild(row);
-    document.body.append(box);
+    attach(box);
     input.focus();
     const { result, rerender } = renderHook(
       ({ ids }) => useTaskRowWindow({ ids, scrollRef: { current: box }, headRef: { current: null }, estimateRowPx: ROW_PX }),
@@ -352,37 +393,32 @@ describe("useTaskRowWindow — a focused row stays mounted outside the window (�
     expect(result.current.items.map((it) => it.index)).toEqual([5, ...range(WINDOW_START, WINDOW_END)]);
     expect(result.current.items[0].padBefore).toBe(5 * ROW_PX);
     expect(result.current.items[1].padBefore).toBe((WINDOW_START - 6) * ROW_PX);
-    box.remove();
   });
 
   test("does not pin a row that was removed while focused (no focusout fires)", () => {
-    const { input, far, cleanup } = setup();
+    const { input, far } = setup();
     act(() => input.focus());
     expect(lastOptions!.rangeExtractor!(far)).toContain(5);
     act(() => input.closest("tr")!.remove());
     expect(lastOptions!.rangeExtractor!(far)).not.toContain(5);
-    cleanup();
   });
 
   test("does not pin a focused row outside the scroll box", () => {
-    const { far, cleanup } = setup();
+    const { far } = setup();
     const elsewhere = document.createElement("div");
     elsewhere.setAttribute("data-deeplink-row", "1005");
     const input = document.createElement("input");
     elsewhere.appendChild(input);
-    document.body.append(elsewhere);
+    attach(elsewhere);
     act(() => input.focus());
     expect(lastOptions!.rangeExtractor!(far)).not.toContain(5);
-    elsewhere.remove();
-    cleanup();
   });
 
   test("drops it once focus leaves the scroll box", () => {
-    const { input, outside, far, cleanup } = setup();
+    const { input, outside, far } = setup();
     act(() => input.focus());
     expect(lastOptions!.rangeExtractor!(far)).toContain(5);
     act(() => outside.focus());
     expect(lastOptions!.rangeExtractor!(far)).not.toContain(5);
-    cleanup();
   });
 });
