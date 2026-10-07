@@ -303,7 +303,8 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     // offered, and `ai-project-proposal.offered-surface.test.ts` pins both
     // halves: its "inert" relations catch an unoffered key being read, and a
     // case of its own pins the dropped alias, which "inert" alone cannot see
-    // (a populated item always carries `taskName`, so a fallback never fires).
+    // (no populated row carries a `name` key, so the alias has nothing to read
+    // even when `taskName` is removed).
     "tasks",
   ];
 

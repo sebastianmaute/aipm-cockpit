@@ -1008,7 +1008,9 @@ ${armA.turn}`;
   type Scored = Reply & { outcome: string; otherBlocks: string[] };
   const perProbeReplies: Record<string, { A: Scored[]; B: Scored[]; X: Scored[] }> = {};
   const driftReplies: { R: Scored[]; N: Scored[] } = { R: [], N: [] };
-  type AggregateScored = Reply & { score: ReturnType<typeof scoreAggregate> };
+  // `rep` is the DISPATCH rep, kept because a failed request leaves a gap the
+  // array index would close up.
+  type AggregateScored = Reply & { score: ReturnType<typeof scoreAggregate>; rep: number };
   const aggregateReplies: AggregateScored[] = [];
   // ★★ Arm M's failures, kept OFF `complete`. M only measures, so a failed M
   //    request is recorded on the aggregate and never voids the gated run —
@@ -1097,12 +1099,15 @@ ${armA.turn}`;
         // Arm A's prompt with the aggregate question: the same bytes the gate
         // reads, asked for every code at once.
         const arm = assembleArm("current", tokens, AGGREGATE_QUESTION);
+        // Only the TRANSPORT is caught: a scorer throw is a harness bug and
+        // still aborts the run, as it would on any other arm.
+        let reply: Reply | null = null;
         try {
-          const reply = await request(arm.system, arm.messages);
-          aggregateReplies.push({ ...reply, score: scoreAggregate(reply, probeTokens) });
+          reply = await request(arm.system, arm.messages);
         } catch (err) {
-          aggregateFailures.push(String(err).slice(0, 200));
+          aggregateFailures.push(`rep ${rep}: ${String(err).slice(0, 200)}`);
         }
+        if (reply) aggregateReplies.push({ ...reply, score: scoreAggregate(reply, probeTokens), rep });
       }
     }
   } catch (err) {
@@ -1255,12 +1260,12 @@ ${armA.turn}`;
   // Arm M: every reply short of five hits, plus one exemplar of a full one.
   // `outcome` is the reply's score ("3/5"); `otherBlocks` names the codes it missed.
   let aggregateExemplar = false;
-  aggregateReplies.forEach((r, rep) => {
+  aggregateReplies.forEach((r) => {
     const full = r.score.hits === r.score.of;
     if (full && aggregateExemplar) return;
     if (full) aggregateExemplar = true;
     samples.push({
-      probe: "aggregate", arm: "M", rep, outcome: `${r.score.hits}/${r.score.of}`,
+      probe: "aggregate", arm: "M", rep: r.rep, outcome: `${r.score.hits}/${r.score.of}`,
       otherBlocks: Object.entries(r.score.codes).filter(([, o]) => o !== "hit").map(([id, o]) => `${id}:${o}`),
       stopReason: r.stopReason ?? "(unrecorded)",
       blockTypes: r.blockTypes ?? {},

@@ -158,7 +158,7 @@ export function changedInKind(v: unknown): unknown {
 }
 
 /** The same object with its leaf values rotated one key along, or `undefined`
- *  when every leaf is the same reference (`===`) as the one it replaces. A
+ *  when every leaf is `===` to the one it replaces. A
  *  rotation of deep-equal object leaves is returned as is; `probeFor`'s own
  *  comparison then discards it. Every value it holds is one the object already
  *  held, so a closed vocabulary (a RACI map's role codes) stays closed — the

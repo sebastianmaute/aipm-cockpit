@@ -1135,6 +1135,10 @@ describe("runEval — the aggregate arm (§454)", () => {
     expect(record.aggregate).toMatchObject({ replies: REPS - 1, planned: REPS });
     expect(record.aggregate?.failures.join(" ")).toContain("arm M transport failure");
     expect(code).toBe(EXIT.PASS);
+    // The run still COUNTS: an unfiltered complete run writes the rolling
+    // reference, and the shortfall is logged rather than recorded as a census gap.
+    expect(h.writes.map((w) => w.path)).toContain(ROLLING_PATH);
+    expect(err.join("\n")).toContain(`aggregate (arm M): returned ${REPS - 1} of ${REPS} planned replies`);
   });
 
   it("runs arm M alone when the filter names only it", async () => {

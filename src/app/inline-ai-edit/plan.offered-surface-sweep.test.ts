@@ -533,8 +533,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
         findings.push(finding(subject, outcome.kind, outcome.reason));
         // ★★ AN UNMEASURED FIELD IS STILL SENT, FOR THE DESTROY CHECK ALONE.
         //  Its probe cannot be stored as sent, so `stored` cannot judge it —
-        //  but a guard that lets it through still moves the column (one of
-        //  today's: `resource.active`, cleared from `false`), and that is visible.
+        //  but a guard that lets it through still moves the column, and that
+        //  is visible. One of today's unmeasured fields: `resource.active`,
+        //  which a missing guard would clear from `false`.
         if (outcome.kind === "unmeasured") {
           const r = await updateWith(entity, field, outcome.value);
           if (r.threw === undefined) checkDestroyed(subject, field, r.before, r.stored);

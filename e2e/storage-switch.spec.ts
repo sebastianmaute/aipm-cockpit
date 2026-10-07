@@ -28,7 +28,6 @@ import { SEED_WORKSPACE } from "./seed-workspace";
  *   PORT=3250 npx playwright test e2e/storage-switch.spec.ts --project=chromium --workers=1
  */
 
-
 const FILE = "e2e-storage-switch.json";
 
 test("switching Browser → Local JSON file writes the live workspace there, and the app then reads the file", async ({ page }) => {
