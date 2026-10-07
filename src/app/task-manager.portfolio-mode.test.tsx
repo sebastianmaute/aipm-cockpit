@@ -1,6 +1,6 @@
 // A real IndexedDB, so a browser-backend save succeeds instead of raising its own banner (§678).
 import "fake-indexeddb/auto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import TaskManager from "./task-manager";
 
@@ -174,6 +174,41 @@ describe("TaskManager portfolio mode (Turso)", () => {
     expect(screen.queryByText("Loading…")).toBeNull();
     // The sidebar status dot reads the same combined failure, so it is not green either.
     expect(document.querySelector("[data-storage-marker]")?.getAttribute("data-storage-marker")).toBe("not-ready");
+  }, 45000);
+
+  // §678 review: a dismissed list failure stays dismissed through a good save, because the
+  // list is still failing; a NEW backend failure after that still re-shows the banner.
+  it("keeps a dismissed list-failure banner hidden after a good save, and re-shows it for a backend failure", async () => {
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
+    seedTursoSettings();
+    wiring.muteSnapshotErrors = true;
+    listProjects.mockImplementation(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    render(<TaskManager />);
+
+    await waitFor(() => expect(listProjects).toHaveBeenCalled(), { timeout: 40000 });
+    await waitFor(() => expect(wiring.backendSucceeded).toBe(true), { timeout: 40000 });
+    const banner = await screen.findByRole("region", { name: "Storage connection problem" });
+    fireEvent.click(within(banner).getByRole("button", { name: /dismiss/i }));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
+
+    // A good save reports `null` through the same bridge the backend uses.
+    act(() => wiring.backendOutcome?.(null));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
+
+    act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
+    const backendBanner = screen.getByRole("region", { name: "Storage connection problem" });
+
+    // A dismissed backend failure stays hidden while it repeats, and its recovery clears
+    // the dismissal, so the next backend failure is shown again.
+    fireEvent.click(within(backendBanner).getByRole("button", { name: /dismiss/i }));
+    act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
+    act(() => wiring.backendOutcome?.(null));
+    act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
+    expect(screen.getByRole("region", { name: "Storage connection problem" })).toBeTruthy();
   }, 45000);
 
   it("file mode is unchanged: a seeded registry suppresses the empty-state", async () => {
