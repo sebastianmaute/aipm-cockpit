@@ -4489,6 +4489,18 @@ describe("AI person writes keep the resource link in step with the name", () => 
     expect(result.current.d.getTask(id)).toMatchObject({ assignee: "Carol Diaz", assigneeEmail: "", resourceId: carol });
   });
 
+  it("updateTask keeps a typed address when only the capitalisation of the name changes", () => {
+    const { result } = setup();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createTask({ taskName: "Gamma", assignee: "ext person", assigneeEmail: "ext@client.com", dueDate: "2026-06-01" }).id;
+    });
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Ext Person" });
+    });
+    expect(result.current.d.getTask(id)).toMatchObject({ assignee: "Ext Person", assigneeEmail: "ext@client.com" });
+  });
+
   it("updateTask keeps an email the model names itself", () => {
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);

@@ -19,14 +19,15 @@
 //
 // ★★ The new address is the directory person's the new name matches (the
 //  STRICT name match `linkPersonForWrite` makes), or blank when it matches
-//  nobody or several people. Blank is the honest value: the app knows no
+//  nobody or several people, or when that person's stored address is not
+//  write-safe (`reassignEmail`). Blank is the honest value: the app knows no
 //  address for that person, and the UI pickers write name, email and link
 //  together for the same reason.
 //
 // ★ A write that names the person unchanged, or names an email of its own,
 //  derives nothing: the model's own value wins, and an untouched person keeps
 //  everything it had.
-import { linkPersonForWrite } from "./resource-foundation";
+import { linkPersonForWrite, personNameKey } from "./resource-foundation";
 import { isWriteSafeEmail } from "./sanitize-core";
 import type { Resource } from "./types";
 
@@ -45,7 +46,12 @@ export function isPersonEntity(entity: string): entity is PersonEntity {
 
 /** True when `input` names a person other than the one `stored` names. Only a
  *  STRING name counts: a non-string is refused or blanked further down, and
- *  deriving from it would preview a change the write does not make. */
+ *  deriving from it would preview a change the write does not make.
+ *
+ *  ★ Compared through `personNameKey` (case-folded, whitespace-collapsed), the
+ *   key the strict match itself uses: a capitalisation or spacing fix names the
+ *   SAME person, and treating it as a reassignment dropped an address typed for
+ *   someone outside the directory (cold review). */
 export function namesNewPerson(
   entity: PersonEntity,
   input: Readonly<Record<string, unknown>>,
@@ -53,7 +59,7 @@ export function namesNewPerson(
 ): boolean {
   const { name } = PERSON_FIELDS[entity];
   const next = input[name];
-  return typeof next === "string" && next.trim() !== String(stored[name] ?? "").trim();
+  return typeof next === "string" && personNameKey(next) !== personNameKey(String(stored[name] ?? ""));
 }
 
 /** The address a reassignment to `name` stores: the one directory person the

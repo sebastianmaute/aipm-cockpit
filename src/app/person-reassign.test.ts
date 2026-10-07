@@ -19,6 +19,9 @@ describe("person-reassign", () => {
     const stored = { assignee: "Sofia Ramirez" };
     expect(namesNewPerson("task", { assignee: "Noah Bennett" }, stored)).toBe(true);
     expect(namesNewPerson("task", { assignee: " Sofia Ramirez " }, stored)).toBe(false);
+    // The same person written in other capitals or spacing is not a new person,
+    // so an address typed for someone outside the directory survives it.
+    expect(namesNewPerson("task", { assignee: "SOFIA  ramirez" }, stored)).toBe(false);
     expect(namesNewPerson("task", { assignee: 42 }, stored)).toBe(false);
     expect(namesNewPerson("task", {}, stored)).toBe(false);
   });

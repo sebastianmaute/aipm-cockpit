@@ -123,8 +123,9 @@ longer carries its own changelog comment.
   without an email address, the task now takes the address of the directory person with that name and is
   linked to them; if nobody in the directory has that name, or two people share it, the link and the old
   address are dropped and the new name shows. That includes an address you typed for someone outside the
-  directory: if the assistant gives that person a different name, the address is dropped too (undo brings
-  it back). The review card lists the address change. The same applies
+  directory: if the assistant gives that person a different name, the address is dropped too (undo in the
+  main window brings it back). Changing only the capitals or spacing of a name keeps everything. The
+  review card lists the address change. The same applies
   to RAID owners and absences (a reassigned RAID owner also no longer reverts to the old person after a
   reload), and tasks and RAID items the assistant creates are linked to the person they name.
 - **A failed Turso project list keeps its error on screen (§678).** In multi-project Turso mode, when the
