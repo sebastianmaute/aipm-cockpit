@@ -1390,18 +1390,14 @@ describe("buildRunRecord", () => {
 
 // §454 — arm M: all five codes in one reply, scored per code. A measurement
 // beside the gate, so the last case pins that `verdict` never reads it.
-import {
-  AGGREGATE_QUESTION, aggregateSummary, PROBE_HARDENING, scoreAggregate,
-  PROBES as AGG_PROBES, plantedToken as aggToken, EXIT as AGG_EXIT, buildRunRecord as aggRecord,
-} from "./ai-eval-lib.mjs";
+import { AGGREGATE_QUESTION, aggregateSummary, scoreAggregate } from "./ai-eval-lib.mjs";
 
 describe("the aggregate arm (§454)", () => {
-  const PROBES = AGG_PROBES;
   const tokens = {};
   for (const p of PROBES) {
-    tokens[p.id] = aggToken(p.id, 7);
+    tokens[p.id] = plantedToken(p.id, 7);
     // Only a competitor probe plants a near-miss `<id>Prev` token.
-    if (PROBE_HARDENING[p.id]?.competitor) tokens[`${p.id}Prev`] = aggToken(`${p.id}Prev`, 7);
+    if (PROBE_HARDENING[p.id]?.competitor) tokens[`${p.id}Prev`] = plantedToken(`${p.id}Prev`, 7);
   }
   const reply = (text, over = {}) => ({ text, toolUses: 0, stopReason: "end_turn", ...over });
 
@@ -1452,13 +1448,13 @@ describe("the aggregate arm (§454)", () => {
   });
 
   it("rides the record and never reaches the verdict", () => {
-    const rec = aggRecord({
+    const rec = buildRunRecord({
       date: "2026-10-07", model: "m", gitSha: "abc", anchorHash: "h", rollingHash: null,
       anchorSpec: { seed: 1 }, reps: 5, salt: 1, sizes: {}, usage: {}, graded: [], drift: {}, samples: [],
       perProbe: [{ id: "date", A: 1.0, B: 1.0, X: 0 }], complete: true, filter: null,
       aggregate: { replies: 5, codes: 25, overall: 0 },
     });
     expect(rec.aggregate).toMatchObject({ overall: 0 });
-    expect(rec.verdict.code).toBe(AGG_EXIT.PASS);
+    expect(rec.verdict.code).toBe(EXIT.PASS);
   });
 });

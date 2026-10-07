@@ -355,6 +355,17 @@ const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
 // would scan a project two weeks old with all of its history in the future.
 export const FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
 
+/** Skip the welcome tour, whose modal would sit over every control. Writes
+ *  `tourSeen` only when no settings exist yet, so a later navigation in the same
+ *  test never resets what the app has stored since. ★ Older specs set `tourSeen`
+ *  inline (`grep -l tourSeen e2e/*.spec.ts`); new specs import this one. */
+export async function skipTour(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const key = "aipm-cockpit:settings";
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tourSeen: true }));
+  });
+}
+
 /**
  * Navigate to the app and wait until the sidebar shell is interactive. The
  * timeout is generous because the FIRST navigation against the dev `webServer`

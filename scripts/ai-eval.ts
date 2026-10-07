@@ -1010,6 +1010,10 @@ ${armA.turn}`;
   const driftReplies: { R: Scored[]; N: Scored[] } = { R: [], N: [] };
   type AggregateScored = Reply & { score: ReturnType<typeof scoreAggregate> };
   const aggregateReplies: AggregateScored[] = [];
+  // ★★ Arm M's failures, kept OFF `complete`. M only measures, so a failed M
+  //    request is recorded on the aggregate and never voids the gated run —
+  //    "never gating" covers whether the run counts, not only its verdict.
+  const aggregateFailures: string[] = [];
   let complete = true;
 
   // ★★★ THE SCORER GETS THE WHOLE PLANTED SET, not this probe's designated
@@ -1093,8 +1097,12 @@ ${armA.turn}`;
         // Arm A's prompt with the aggregate question: the same bytes the gate
         // reads, asked for every code at once.
         const arm = assembleArm("current", tokens, AGGREGATE_QUESTION);
-        const reply = await request(arm.system, arm.messages);
-        aggregateReplies.push({ ...reply, score: scoreAggregate(reply, probeTokens) });
+        try {
+          const reply = await request(arm.system, arm.messages);
+          aggregateReplies.push({ ...reply, score: scoreAggregate(reply, probeTokens) });
+        } catch (err) {
+          aggregateFailures.push(String(err).slice(0, 200));
+        }
       }
     }
   } catch (err) {
@@ -1156,8 +1164,10 @@ ${armA.turn}`;
   if (driftReplies.R.length !== plan.R || !driftReplies.R.every(isScored)) {
     census.push(`rolling replay: returned ${driftReplies.R.length} of ${plan.R} planned replies`);
   }
+  // Arm M's shortfall is reported on its own record and the terminal, never in
+  // `census` — which would mark the whole run incomplete (see aggregateFailures).
   if (aggregateReplies.length !== plan.M) {
-    census.push(`aggregate: returned ${aggregateReplies.length} of ${plan.M} planned replies`);
+    console.error(`aggregate (arm M): returned ${aggregateReplies.length} of ${plan.M} planned replies — recorded, the gated run is unaffected`);
   }
   // ★★★ THE PLAN AGAINST THE CONSTANTS, NOT AGAINST ITSELF. This is the half
   //     every check above is structurally blind to, for the reason the census
@@ -1414,7 +1424,12 @@ ${armA.turn}`;
     // ★★ Arm M (§454) — a measurement beside the gate, never part of it.
     aggregate: plan.M === 0
       ? null
-      : { question: AGGREGATE_QUESTION, ...aggregateSummary(aggregateReplies.map((r) => r.score)) },
+      : {
+          question: AGGREGATE_QUESTION,
+          planned: plan.M,
+          failures: aggregateFailures,
+          ...aggregateSummary(aggregateReplies.map((r) => r.score)),
+        },
     samples,
     complete,
   }) as { verdict: { code: number; reasons: string[]; notes: string[] } };

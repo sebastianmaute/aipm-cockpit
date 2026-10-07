@@ -1115,6 +1115,28 @@ describe("runEval — the aggregate arm (§454)", () => {
     expect((h.lastRecord() as Agg).aggregate).toBeNull();
   });
 
+  it("records a failed arm M request on the aggregate and still reports PASS", async () => {
+    let failed = false;
+    const h = harness({
+      onRequest: (_i, whole) => {
+        if (!failed && whole.includes(AGGREGATE_QUESTION)) {
+          failed = true;
+          throw new Error("arm M transport failure");
+        }
+        return null;
+      },
+    });
+    const code = await runEval(h.deps);
+    const record = h.lastRecord() as {
+      complete: boolean;
+      aggregate: { replies: number; planned: number; failures: string[] } | null;
+    };
+    expect(record.complete).toBe(true);
+    expect(record.aggregate).toMatchObject({ replies: REPS - 1, planned: REPS });
+    expect(record.aggregate?.failures.join(" ")).toContain("arm M transport failure");
+    expect(code).toBe(EXIT.PASS);
+  });
+
   it("runs arm M alone when the filter names only it", async () => {
     const h = harness({ env: { ...LIVE_ENV, [FILTER_ENV.arms]: "M" } });
     await runEval(h.deps);

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView } from "./seed";
+import { test, expect, gotoApp, openView, skipTour } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
 
 /**
@@ -17,15 +17,6 @@ import { SEED_WORKSPACE } from "./seed-workspace";
  * afterwards; on a taken port it refuses rather than attaching (since §58 (b)):
  *   PORT=3250 npx playwright test e2e/voice-commands.spec.ts --project=chromium --workers=1
  */
-
-/** Skip the welcome tour, whose modal would sit over every control. Only when no
- *  settings exist yet, so a later navigation never resets what the app stored. */
-async function skipTour(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const key = "aipm-cockpit:settings";
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tourSeen: true }));
-  });
-}
 
 async function installFakeRecognition(page: Page): Promise<void> {
   await skipTour(page);
@@ -86,7 +77,7 @@ test("“search for …” filters Open Points to the spoken text", async ({ pag
 
   await speak(page, `search for ${kept}`);
 
-  await expect(page.getByRole("searchbox").or(page.getByPlaceholder("Search task name, assignee, blockers, notes…")).first()).toHaveValue(kept);
+  await expect(page.getByRole("searchbox", { name: "Search task name, assignee, blockers, notes…", exact: true })).toHaveValue(kept);
   await expect(page.getByText(kept, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(hidden, { exact: true })).toHaveCount(0);
 });

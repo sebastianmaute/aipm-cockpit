@@ -1,5 +1,4 @@
-import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView } from "./seed";
+import { test, expect, gotoApp, openView, skipTour } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
 
 /**
@@ -29,14 +28,6 @@ import { SEED_WORKSPACE } from "./seed-workspace";
  *   PORT=3250 npx playwright test e2e/storage-switch.spec.ts --project=chromium --workers=1
  */
 
-/** Skip the welcome tour, whose modal would sit over every control. Only when no
- *  settings exist yet, so a later navigation never resets what the app stored. */
-async function skipTour(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const key = "aipm-cockpit:settings";
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tourSeen: true }));
-  });
-}
 
 const FILE = "e2e-storage-switch.json";
 
