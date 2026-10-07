@@ -27,10 +27,9 @@
 // one page on a quiet seed, so nothing is ever paused), so the Download test
 // runs axe itself on the page with the banner showing.
 //
-// Run against a fresh server from THIS checkout (`reuseExistingServer` would
-// attach to another worktree's server on the default port):
+// Run on a free port. The run boots its own server from THIS checkout and stops it
+// afterwards; on a taken port it refuses rather than attaching (since §58 (b)):
 //   PORT=3107 npx playwright test e2e/two-tab-conflict.spec.ts --project=chromium --workers=1
-//   PORT=3107 npm run stop
 import AxeBuilder from "@axe-core/playwright";
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 import { test, expect, gotoApp, openView } from "./seed";

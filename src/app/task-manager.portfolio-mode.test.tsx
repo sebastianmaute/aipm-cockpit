@@ -211,6 +211,7 @@ describe("TaskManager portfolio mode (Turso)", () => {
     act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
     expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
     act(() => wiring.backendOutcome?.(null));
+    // Alone this would pass if the banner never rendered; the re-show below is the proof it can.
     expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
     act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
     expect(screen.getByRole("region", { name: "Storage connection problem" })).toBeTruthy();
@@ -239,6 +240,7 @@ describe("TaskManager portfolio mode (Turso)", () => {
     // included, for the "No projects yet" screen, and both checks below would be vacuous.
     listProjects.mockImplementation(async () => [{ id: "p1", meta: { name: "Alpha" }, archived: false }]);
     await act(async () => { await wiring.refreshList?.(); });
+    // Alone this would pass if the banner never rendered; the re-show below is the proof it can.
     expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
 
     listProjects.mockImplementation(async () => {
