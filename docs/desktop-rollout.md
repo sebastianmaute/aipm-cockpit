@@ -90,8 +90,8 @@ section if you work from a project file.
    you create a new one. Copy the token; Turso shows it only once.
    - If you prefer the command line, sign in first with `turso auth login`, then run
      `turso db create aipm-cockpit` (step 2), `turso db show aipm-cockpit --url` (step 3) and
-     `turso db tokens create aipm-cockpit --expiration 90d` (step 4). ★ Without `--expiration`
-     the command creates a token that NEVER expires; pass one, and note the date.
+     `turso db tokens create aipm-cockpit --expiration 90d` (step 4). Without `--expiration`
+     the command creates a token that never expires, so pass one and note the date.
 5. In the app, open **Settings → Integrations**, turn on **Turso storage backend**, paste the URL
    into **Database URL** and the token into **Auth token**, then click **Test connection**. It
    should answer "Connected." Click **Apply**.
