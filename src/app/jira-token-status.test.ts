@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getJiraTokenAlert, daysUntil } from "./jira-token-status";
 import type { JiraConfig, NotificationsConfig } from "./settings-types";
 
-// Pure helper mirroring the bannersEl gating condition in task-manager.tsx:
+// Pure helper mirroring the Jira-token banner gating condition in use-reminder-banners.tsx:
 // !isPopout && jiraTokenAlert && !snoozed && !dismissed && jiraTokenError.enabled
 function shouldShowJiraBanner(opts: {
   alert: ReturnType<typeof getJiraTokenAlert>;

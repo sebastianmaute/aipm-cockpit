@@ -715,8 +715,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `settings.updated` row and its §160 AI credits), `use-turso-project-list.ts` (the Turso portfolio's active and
   archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
   version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
+  `use-reminder-banners.tsx` (the Birthday and Jira-token banners and the budget-bucket toast),
   `shell-chrome.tsx`
-  (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
+  (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
+  `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
@@ -752,7 +754,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   says more). A fourteenth, `use-version-history-wiring.ts` (§491), holds the version-history wiring (`getVersionPayload`,
   `applyRestoredWorkspace`, the error bridge into the storage banner, the `useVersionHistory` call and the `notifySaved`
   hand-off); it reads the workspace slices from `useWorkspace()` rather than taking 46 deps fields, is coverage-GATED,
-  pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). The
+  pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). A fifteenth,
+  `use-reminder-banners.tsx` (§491), holds the two reminder banners with their snooze and dismiss state and the
+  bucket toast keyed on the ending-bucket ids; it returns the banner fragment that `bannersEl` renders first, is
+  coverage-GATED, and is pinned by its own test plus `task-manager.reminder-banners-callsite.test.tsx`. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

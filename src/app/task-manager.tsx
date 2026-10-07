@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
+import { computeBudgetReport, type ProjectReport } from "./budget-report";
 import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
@@ -60,14 +60,12 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { AiKeyBanner, BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
+import { AiKeyBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
 import { isAiKeyStatusBad } from "./ai-key-status";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
-import { getJiraTokenAlert } from "./jira-token-status";
-import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { CalendarSummaryModals } from "./calendar-summary-modals";
 import { useCalendarIntegrations } from "./use-calendar-integrations";
@@ -86,9 +84,7 @@ import { UndoControl, RedoControl } from "./undo/undo-control";
 import { buildMoveAbsenceHandler } from "./absence-move-handler";
 import { RolesPanel } from "./roles-panel";
 import { rematerializeDayBasisRoles } from "./role-rates";
-import { getUpcomingBirthdays } from "./birthdays";
-import { useBirthdayAlerts } from "./use-birthday-alerts";
-import { useReminderSnooze } from "./use-reminder-snooze";
+import { useReminderBanners } from "./use-reminder-banners";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
@@ -108,7 +104,7 @@ import { executeActionCta } from "./action-cta-exec";
 import { getTursoConfig } from "./turso-config";
 import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
-import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
+import { buildTaskEditorChrome } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
 import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
@@ -615,20 +611,6 @@ function TaskManagerInner() {
   const changesEnabled = isModuleEnabled("changes", settings.features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", settings.features);
   const milestonesEnabled = isModuleEnabled("milestones", settings.features);
-
-  const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
-    // Effective so birthday desktop-alert lead days follow a project's
-    // notifications override (the hook reads only settings.notifications).
-    hydrated, resources, today, settings: effectiveSettings, holidaySet, absences, showToast,
-  });
-
-  const birthdaySnooze = useReminderSnooze("birthday");
-  const jiraTokenSnooze = useReminderSnooze("jiraToken");
-  const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
-  const jiraTokenAlert = useMemo(
-    () => getJiraTokenAlert(settings.jira, today, effectiveNotifications.reminderLeadDays),
-    [settings.jira, today, effectiveNotifications.reminderLeadDays],
-  );
 
   // --- RAID CRUD handlers ---------------------------------------------
   //
@@ -1255,25 +1237,11 @@ function TaskManagerInner() {
   });
   const { handleGanttBarUpdate } = useGanttHandlers({ tasksRef, setTasks, today });
 
-  const birthdayItems = useMemo(
-    () => effectiveNotifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, effectiveLeadDays(effectiveNotifications, "birthday"), holidaySet, absences)
-      : [],
-    [resources, effectiveNotifications, today, holidaySet, absences],
-  );
-
-  const bucketReminders = useMemo(
-    () => getBucketReminders(budgets, effectiveNotifications.reminderLeadDays, today),
-    [budgets, effectiveNotifications.reminderLeadDays, today],
-  );
-
-  const bucketReminderKey = bucketReminders.map((r) => r.bucket.id).join(",");
-  useEffect(() => {
-    if (bucketReminders.length > 0) {
-      showToast("info", `${bucketReminders.length} ${t(lang, "budgetEndingSoon")}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bucketReminderKey]);
+  // The Birthday / Jira-token reminder banners and the budget-bucket toast — see use-reminder-banners.tsx.
+  const { reminderBannersEl } = useReminderBanners({
+    hydrated, resources, absences, budgets, today, holidaySet, effectiveSettings, effectiveNotifications,
+    jira: settings.jira, isPopout, lang, showToast,
+  });
 
   // The debounced, actor-less "settings.updated" row (§160 credits included) — see use-settings-change-log.ts.
   // ★★★ THE ONE SITE DELIBERATELY HANDED THE RAW `logActivity`, not `logActivityUser`: an effect over settings STATE cannot see its cause. Pinned through this component by task-manager.activity-actor.test.tsx.
@@ -1876,57 +1844,13 @@ function TaskManagerInner() {
     />
   );
 
-  // Send inquiry / Push to Jira — only for an EXISTING task, never in popouts
-  // (read-only). Push is additionally hidden for unconfigured Jira or an
-  // already-synced task. Threaded into the TaskFormModal footer as leadingActions.
-  const editorActions =
-    editingTask && !isPopout ? (
-      <TaskEditorActions
-        lang={lang}
-        task={editingTask}
-        jiraConfigured={settings.jira.enabled && !!settings.jira.projectKey}
-        onSendInquiry={onSendInquiry}
-        onPushToJira={(id) => {
-          void onPushToJira(id);
-        }}
-      />
-    ) : null;
-
-  // Footer leading actions for the modal editor: send-inquiry/push-Jira plus the
-  // two-way Jira sync button for a Jira-linked task (was the full-page editor's
-  // footer; now shared by the modal in every layout).
-  const editorLeadingActions = (
-    <>
-      {editorActions}
-      {editingIsJiraLinked && settings.jira.enabled && (
-        <button
-          type="button"
-          onClick={() => { void handleJiraSync(); }}
-          disabled={jiraSyncing}
-          className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted"
-        >
-          {t(lang, jiraSyncing ? "jiraSyncing" : "jiraSync")}
-        </button>
-      )}
-    </>
-  );
-
-  // Delete button — left side of footer, only for an EXISTING task, never in popouts.
-  const editorDeleteAction =
-    editingTask && !isPopout ? (
-      <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={onDelete} />
-    ) : null;
-
-  // Shared editor extras (create-RAID mini-form + new-linked-task button, on
-  // one row), mounted below the fields in the modal editor. Never in popouts.
-  const editorExtrasEl = !isPopout ? (
-    <TaskEditorExtras
-      lang={lang}
-      onAddRaid={handleAddRaidFromEditor}
-      pendingRaid={editorBuffer.pendingRaid}
-      onNewLinkedTask={() => setLinkedTaskOpen(true)}
-    />
-  ) : null;
+  // The task editor footer chrome (send-inquiry/push-Jira, Jira sync, Delete, extras) — see buildTaskEditorChrome.
+  const { editorLeadingActions, editorDeleteAction, editorExtrasEl } = buildTaskEditorChrome({
+    lang, isPopout, editingTask, editingIsJiraLinked, jira: settings.jira, jiraSyncing,
+    onSendInquiry, onPushToJira, handleJiraSync, onDelete,
+    onAddRaid: handleAddRaidFromEditor, pendingRaid: editorBuffer.pendingRaid,
+    onNewLinkedTask: () => setLinkedTaskOpen(true),
+  });
 
   const settingsViewEl = (
     <SettingsView
@@ -2097,12 +2021,7 @@ function TaskManagerInner() {
   // Center. Gates kept verbatim — popouts (`!isPopout`) still suppress these.
   const bannersEl = (
     <>
-      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
-        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
-      )}
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
-        <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
-      )}
+      {reminderBannersEl}
       {!isPopout && shownStorageError && shownStorageSource && !storageDismissed[shownStorageSource] && (
         <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageDismissed({ backend: true, list: true })} />
       )}

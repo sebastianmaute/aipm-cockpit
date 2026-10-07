@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { INTERACTIVE } from "./interaction-styles";
@@ -107,4 +108,93 @@ export function TaskDeleteButton({
       {t(lang, "delete")}
     </button>
   );
+}
+
+/** Live render-scope values the task editor's footer chrome reads each render. */
+export interface TaskEditorChromeDeps {
+  lang: Lang;
+  isPopout: boolean;
+  /** The task open in the editor, or null in create mode. */
+  editingTask: Task | null;
+  editingIsJiraLinked: boolean;
+  /** The GLOBAL `settings.jira` — only `enabled` and `projectKey` are read. */
+  jira: { enabled: boolean; projectKey?: string };
+  jiraSyncing: boolean;
+  onSendInquiry: (task: Task) => void;
+  onPushToJira: (taskId: number) => Promise<unknown>;
+  handleJiraSync: () => Promise<unknown>;
+  onDelete: (id: number) => void;
+  onAddRaid: (spec: RaidSpec) => void;
+  pendingRaid: readonly RaidSpec[];
+  onNewLinkedTask: () => void;
+}
+
+/**
+ * §491 step 11 — the task editor's footer chrome, extracted from task-manager
+ * (move-only). A plain builder, NOT a hook (no hook calls), like
+ * `buildShellChrome`. Returns the three TaskFormModal slots; gates unchanged:
+ * the leading actions and Delete need an EXISTING task outside popouts, the
+ * two-way Jira sync button a Jira-linked task with Jira enabled, the extras
+ * only `!isPopout`.
+ */
+export function buildTaskEditorChrome(deps: TaskEditorChromeDeps): {
+  editorLeadingActions: ReactNode;
+  editorDeleteAction: ReactNode;
+  editorExtrasEl: ReactNode;
+} {
+  const { lang, isPopout, editingTask, editingIsJiraLinked, jira, jiraSyncing } = deps;
+
+  // Send inquiry / Push to Jira — only for an EXISTING task, never in popouts
+  // (read-only). Push is additionally hidden for unconfigured Jira or an
+  // already-synced task.
+  const editorActions =
+    editingTask && !isPopout ? (
+      <TaskEditorActions
+        lang={lang}
+        task={editingTask}
+        jiraConfigured={jira.enabled && !!jira.projectKey}
+        onSendInquiry={deps.onSendInquiry}
+        onPushToJira={(id) => {
+          void deps.onPushToJira(id);
+        }}
+      />
+    ) : null;
+
+  // Footer leading actions: send-inquiry/push-Jira plus the two-way Jira sync
+  // button for a Jira-linked task (§102: the shared Button primitive).
+  const editorLeadingActions = (
+    <>
+      {editorActions}
+      {editingIsJiraLinked && jira.enabled && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => { void deps.handleJiraSync(); }}
+          disabled={jiraSyncing}
+        >
+          {t(lang, jiraSyncing ? "jiraSyncing" : "jiraSync")}
+        </Button>
+      )}
+    </>
+  );
+
+  // Delete button — left side of footer, only for an EXISTING task, never in popouts.
+  const editorDeleteAction =
+    editingTask && !isPopout ? (
+      <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={deps.onDelete} />
+    ) : null;
+
+  // Shared editor extras (create-RAID mini-form + new-linked-task button, on
+  // one row), mounted below the fields in the modal editor. Never in popouts.
+  const editorExtrasEl = !isPopout ? (
+    <TaskEditorExtras
+      lang={lang}
+      onAddRaid={deps.onAddRaid}
+      pendingRaid={deps.pendingRaid}
+      onNewLinkedTask={deps.onNewLinkedTask}
+    />
+  ) : null;
+
+  return { editorLeadingActions, editorDeleteAction, editorExtrasEl };
 }
