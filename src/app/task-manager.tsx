@@ -396,7 +396,7 @@ function TaskManagerInner() {
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
-  const [dismissedStorageSource, setDismissedStorageSource] = useState<"backend" | "list" | null>(null); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
+  const [storageDismissed, setStorageDismissed] = useState({ backend: false, list: false }); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   const [destructiveBannerDismissed, setDestructiveBannerDismissed] = useState(false);
   const [loadPauseBannerDismissed, setLoadPauseBannerDismissed] = useState(false); // §586/§587 — hides the banner only; the save gate stays shut.
@@ -556,8 +556,8 @@ function TaskManagerInner() {
     tursoAuthToken: settings.integrations?.turso?.authToken,
   });
   const shownStorageError = storageError ?? tursoListFailure; // §678: a backend success clears only `storageError`
-  const shownStorageSource = storageError ? "backend" : tursoListFailure ? "list" : null; // §678: a dismissal holds per source until it recovers
-  if (dismissedStorageSource && !(dismissedStorageSource === "backend" ? storageError : tursoListFailure)) setDismissedStorageSource(null);
+  const shownStorageSource = storageError ? "backend" : tursoListFailure ? "list" : null; // §678: dismiss flags both; a flag lasts while its source fails
+  if ((storageDismissed.backend && !storageError) || (storageDismissed.list && !tursoListFailure)) setStorageDismissed({ backend: storageDismissed.backend && !!storageError, list: storageDismissed.list && !!tursoListFailure });
 
   // Baseline/variance trend snapshots. Active when the project's data lives in
   // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR
@@ -2103,8 +2103,8 @@ function TaskManagerInner() {
       {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
         <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
-      {!isPopout && shownStorageError && shownStorageSource !== dismissedStorageSource && (
-        <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setDismissedStorageSource(shownStorageSource)} />
+      {!isPopout && shownStorageError && shownStorageSource && !storageDismissed[shownStorageSource] && (
+        <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageDismissed({ backend: true, list: true })} />
       )}
       {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
       {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (

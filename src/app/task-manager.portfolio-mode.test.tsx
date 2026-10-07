@@ -8,6 +8,7 @@ import TaskManager from "./task-manager";
 const wiring = vi.hoisted(() => ({
   backendOutcome: null as ((err: unknown | null) => void) | null,
   listOutcome: null as ((err: unknown | null) => void) | null,
+  refreshList: null as (() => Promise<unknown>) | null,
   muteSnapshotErrors: false,
   backendSucceeded: false,
 }));
@@ -44,7 +45,9 @@ vi.mock("./use-turso-project-list", async (importOriginal) => {
     ...mod,
     useTursoProjectList: (deps: Parameters<typeof mod.useTursoProjectList>[0]) => {
       wiring.listOutcome = deps.reportStorageOutcome;
-      return mod.useTursoProjectList(deps);
+      const list = mod.useTursoProjectList(deps);
+      wiring.refreshList = list.refreshTursoProjects;
+      return list;
     },
   };
 });
@@ -201,14 +204,61 @@ describe("TaskManager portfolio mode (Turso)", () => {
     act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
     const backendBanner = screen.getByRole("region", { name: "Storage connection problem" });
 
-    // A dismissed backend failure stays hidden while it repeats, and its recovery clears
-    // the dismissal, so the next backend failure is shown again.
+    // A dismissed backend failure stays hidden while it repeats. Its recovery clears only
+    // the backend dismissal: the list, still failing, keeps its own, so nothing comes back.
+    // The next backend failure is shown again.
     fireEvent.click(within(backendBanner).getByRole("button", { name: /dismiss/i }));
     act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
     expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
     act(() => wiring.backendOutcome?.(null));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
     act(() => wiring.backendOutcome?.(new TypeError("Failed to fetch")));
     expect(screen.getByRole("region", { name: "Storage connection problem" })).toBeTruthy();
+  }, 45000);
+
+  // §678 review: a list dismissal clears when the LIST recovers, so its next failure is
+  // shown again; and a dismissal made while the list failure rides the shared bridge
+  // still covers the list after a good save.
+  it("re-shows a dismissed list-failure banner after the list recovers and fails again", async () => {
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
+    seedTursoSettings();
+    wiring.muteSnapshotErrors = true;
+    listProjects.mockImplementation(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    render(<TaskManager />);
+
+    await waitFor(() => expect(listProjects).toHaveBeenCalled(), { timeout: 40000 });
+    await waitFor(() => expect(wiring.backendSucceeded).toBe(true), { timeout: 40000 });
+    const banner = await screen.findByRole("region", { name: "Storage connection problem" });
+    fireEvent.click(within(banner).getByRole("button", { name: /dismiss/i }));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
+
+    // The recovered list holds a project: an EMPTY one would swap the whole shell, banner
+    // included, for the "No projects yet" screen, and both checks below would be vacuous.
+    listProjects.mockImplementation(async () => [{ id: "p1", meta: { name: "Alpha" }, archived: false }]);
+    await act(async () => { await wiring.refreshList?.(); });
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
+
+    listProjects.mockImplementation(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await act(async () => { await wiring.refreshList?.(); });
+    expect(screen.getByRole("region", { name: "Storage connection problem" })).toBeTruthy();
+
+    // The list reports its failure through the shared bridge too, so the banner shows it
+    // as a backend error until a good save clears that. After the save it is the list's
+    // own failure, still shown: the first dismissal was cleared by the list's recovery.
+    act(() => wiring.backendOutcome?.(null));
+    expect(screen.getByRole("region", { name: "Storage connection problem" })).toBeTruthy();
+
+    // Dismissed while the list's failure still rides the bridge, it stays hidden through
+    // the next good save, because a dismissal covers every source failing at the time.
+    await act(async () => { await wiring.refreshList?.(); });
+    fireEvent.click(within(screen.getByRole("region", { name: "Storage connection problem" })).getByRole("button", { name: /dismiss/i }));
+    act(() => wiring.backendOutcome?.(null));
+    expect(screen.queryByRole("region", { name: "Storage connection problem" })).toBeNull();
   }, 45000);
 
   it("file mode is unchanged: a seeded registry suppresses the empty-state", async () => {
