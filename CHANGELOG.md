@@ -117,6 +117,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **AI reassignments now show (§375).** Asking the assistant to reassign tasks changed the stored name but
+  kept the task linked to the old person from the resource directory, so every view went on showing the old
+  person and nothing seemed to change. A reassignment now links the task to the directory person it names,
+  or drops the link when it names nobody in the directory (or two people share the name), so the new name
+  shows. Tasks the assistant creates are linked the same way, and so are RAID owners.
 - **A failed Turso project list keeps its error on screen (§678).** In multi-project Turso mode, when the
   project list could not be loaded, the storage banner could disappear again as soon as the workspace
   itself finished loading, and a loading placeholder took its place. The banner, and the red storage

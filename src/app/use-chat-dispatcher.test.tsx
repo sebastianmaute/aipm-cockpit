@@ -7,6 +7,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher, type ChatDispatcherArgs } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
+import { effectiveAssignee } from "./resource-foundation";
 import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
@@ -4360,5 +4361,131 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
     await runTool(result.current, "list_allocations", {});
 
     expect(getter).toHaveBeenCalledWith(undefined);
+  });
+});
+// §375 eye check (2026-10-07): "re-assign all tasks" through the staged card
+// wrote every new name and changed nothing on screen. A linked person wins over
+// the stored name (`effectivePersonName`), and the AI writers changed the name
+// without touching the link. They now re-resolve the link with the strict
+// write resolver whenever the person reference changes.
+describe("AI person writes keep the resource link in step with the name", () => {
+  function setup() {
+    const { result } = renderRaidProbe();
+    const ids = { alice: 0, bob: 0 };
+    act(() => {
+      ids.alice = result.current.d.createResource({ firstName: "Alice", lastName: "Smith" } as never).id;
+      ids.bob = result.current.d.createResource({ firstName: "Bob", lastName: "Jones", email: "bob@x.com" } as never).id;
+    });
+    const shown = (ref: { assignee: string; resourceId?: number | null }) =>
+      effectiveAssignee(ref, new Map(result.current.ws.resources.map((r) => [r.id, r])));
+    return { result, ids, shown };
+  }
+
+  function linkedTask(r: ReturnType<typeof setup>["result"], resourceId: number) {
+    let id = 0;
+    act(() => {
+      id = r.current.d.createTask({ taskName: "Alpha", assignee: "Alice Smith", dueDate: "2026-06-01" }).id;
+    });
+    act(() => {
+      r.current.ws.setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, resourceId } : t)));
+    });
+    return id;
+  }
+
+  it("updateTask relinks to the directory person the new name matches", () => {
+    const { result, ids, shown } = setup();
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Bob Jones" });
+    });
+    const row = result.current.d.getTask(id)!;
+    expect(row.resourceId).toBe(ids.bob);
+    expect(shown(row)).toBe("Bob Jones");
+  });
+
+  it("updateTask drops the link when the new name matches nobody, so the name shows", () => {
+    const { result, ids, shown } = setup();
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Charlie Nobody" });
+    });
+    const row = result.current.d.getTask(id)!;
+    expect(row.resourceId).toBeUndefined();
+    expect(shown(row)).toBe("Charlie Nobody");
+  });
+
+  it("updateTask links by email when only the email changes", () => {
+    const { result, ids } = setup();
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "B. Jones", assigneeEmail: "bob@x.com" });
+    });
+    expect(result.current.d.getTask(id)!.resourceId).toBe(ids.bob);
+  });
+
+  it("updateTask unlinks rather than guesses when two directory people share the name", () => {
+    const { result, ids } = setup();
+    act(() => {
+      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never);
+      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never);
+    });
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Sam Lee" });
+    });
+    expect(result.current.d.getTask(id)!.resourceId).toBeUndefined();
+  });
+
+  it("updateTask unlinks when the new name and email name two different people", () => {
+    const { result, ids } = setup();
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Alice Smith", assigneeEmail: "bob@x.com" });
+    });
+    expect(result.current.d.getTask(id)!.resourceId).toBeUndefined();
+  });
+
+  it("updateTask keeps the link when the write does not touch the person", () => {
+    const { result, ids } = setup();
+    const id = linkedTask(result, ids.alice);
+    // The stored name no longer matches the directory, so a relink would DROP it.
+    act(() => {
+      result.current.ws.setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, assignee: "A. S." } : t)));
+    });
+    act(() => {
+      result.current.d.updateTask(id, { priority: "Urgent" });
+    });
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "A. S." });
+    });
+    expect(result.current.d.getTask(id)!.resourceId).toBe(ids.alice);
+  });
+
+  it("createTask links a new task to the directory person it names", () => {
+    const { result, ids, shown } = setup();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createTask({ taskName: "Beta", assignee: "Bob Jones", dueDate: "2026-06-01" }).id;
+    });
+    const row = result.current.d.getTask(id)!;
+    expect(row.resourceId).toBe(ids.bob);
+    expect(shown(row)).toBe("Bob Jones");
+  });
+
+  it("updateRaid relinks the owner, and drops the link for an unknown owner", () => {
+    const { result, ids } = setup();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createRaid({ category: "R", title: "Risk", owner: "Alice Smith" }).id;
+    });
+    expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBe(ids.alice);
+    act(() => {
+      result.current.d.updateRaid(id, { owner: "Bob Jones" });
+    });
+    expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBe(ids.bob);
+    act(() => {
+      result.current.d.updateRaid(id, { owner: "Charlie Nobody" });
+    });
+    expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBeNull();
   });
 });

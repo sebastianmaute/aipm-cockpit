@@ -22,7 +22,7 @@ import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { FILTER_ALL } from "./task-filters";
 import { mintId } from "./id-mint-session";
-import { effectivePersonEmail, splitName } from "./resource-foundation";
+import { effectivePersonEmail, linkPersonForWrite, splitName } from "./resource-foundation";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t, type Lang } from "./i18n";
@@ -353,6 +353,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
+          // §375: linked when the directory names exactly this person, so the
+          // new task is grouped and shown as that person from the first render.
+          resourceId: linkPersonForWrite({ assignee, assigneeEmail: email }, resourcesRef.current) ?? undefined,
         };
         // A model-supplied status routes through applyStatusChange (it keeps
         // the Done/completedDate invariant) so e.g. Done stamps completedDate.
@@ -394,8 +397,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // `blockers` replaces the STORED row's open blockers through its log
         // (left-out ones are resolved, not dropped); every other key is a
         // plain spread.
+        const patched = applyTaskPatch(existing, cleanPatch, aiBlockerActor(settingsRef.current.language), stamp);
+        // ★★★ §375: a changed person re-resolves the link, or the reassignment
+        //  is stored and invisible — the linked resource's name wins on every
+        //  view (`linkPersonForWrite`'s docstring). An untouched person keeps it.
+        const personChanged =
+          patched.assignee !== existing.assignee || (patched.assigneeEmail ?? "") !== (existing.assigneeEmail ?? "");
         const mergedBase: Task = {
-          ...applyTaskPatch(existing, cleanPatch, aiBlockerActor(settingsRef.current.language), stamp),
+          ...patched,
+          ...(personChanged ? { resourceId: linkPersonForWrite(patched, resourcesRef.current) ?? undefined } : {}),
           id: existing.id,
           localModifiedAt: stamp,
         };
