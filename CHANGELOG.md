@@ -167,8 +167,9 @@ longer carries its own changelog comment.
   connection rather than the settings.
 - **A RAID item can no longer be caused by itself in a loop (§674).** The edit window always refused a
   cause that closes a loop, but the AI assistant, inline AI edits, imports, loading a file and applying a
-  template could store one, such as A causes B and B causes A. The app now removes the link that closes
-  the loop on every one of those paths and notes it in Settings → Diagnostics.
+  template could store one, such as A causes B and B causes A. On every one of those paths the app now
+  refuses the new link that would close the loop, keeps the links already stored, and notes it in
+  Settings → Diagnostics. A file that already holds a loop has it removed when it loads.
 - **Labels that differ only in case are one filter option (§675).** "API" on one task and "api" on
   another used to give two label options that filtered the same rows. The option now uses the spelling
   most tasks carry.
