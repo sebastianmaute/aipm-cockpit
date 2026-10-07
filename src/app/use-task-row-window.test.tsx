@@ -1,5 +1,5 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
 import { useTaskRowWindow, VIRTUALIZE_MIN_ROWS } from "./use-task-row-window";
 
 // jsdom has no layout, so the real virtualizer would compute an empty window.
@@ -81,5 +81,64 @@ describe("useTaskRowWindow — scrollToIndex and measure", () => {
     measureElementSpy.mockReset();
     run(50).measure(el);
     expect(measureElementSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useTaskRowWindow — printing renders every row (§5)", () => {
+  // jsdom has no matchMedia; stub one whose "print" query can flip and notify.
+  function stubPrintQuery() {
+    const listeners = new Set<() => void>();
+    const printMql = {
+      matches: false,
+      media: "print",
+      addEventListener: (_type: string, l: () => void) => listeners.add(l),
+      removeEventListener: (_type: string, l: () => void) => listeners.delete(l),
+    };
+    const otherMql = { matches: false, addEventListener: () => {}, removeEventListener: () => {} };
+    vi.stubGlobal("matchMedia", (q: string) => (q === "print" ? printMql : otherMql));
+    return (matches: boolean) => {
+      printMql.matches = matches;
+      act(() => listeners.forEach((l) => l()));
+    };
+  }
+
+  function renderWindow(count: number) {
+    const scrollRef = { current: document.createElement("div") };
+    return renderHook(() => useTaskRowWindow({ count, scrollRef, estimateRowPx: ROW_PX }));
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("disables the window while the print media query matches", () => {
+    const setPrint = stubPrintQuery();
+    const { result } = renderWindow(1000);
+    expect(result.current.enabled).toBe(true);
+    setPrint(true);
+    expect(result.current).toMatchObject({ enabled: false, start: 0, end: 1000, padTop: 0, padBottom: 0 });
+    // The virtualizer is switched off too, not merely ignored.
+    expect(lastOptions?.enabled).toBe(false);
+    setPrint(false);
+    expect(result.current).toMatchObject({ enabled: true, start: WINDOW_START, end: WINDOW_END });
+  });
+
+  test("disables the window between beforeprint and afterprint (the Electron print path)", () => {
+    stubPrintQuery();
+    const { result } = renderWindow(1000);
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    expect(result.current).toMatchObject({ enabled: false, start: 0, end: 1000 });
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(result.current.enabled).toBe(true);
+  });
+
+  test("is already off when it mounts during a print", () => {
+    const setPrint = stubPrintQuery();
+    setPrint(true);
+    expect(renderWindow(1000).result.current.enabled).toBe(false);
   });
 });

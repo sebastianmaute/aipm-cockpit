@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { useRef } from "react";
 import { TasksTable } from "./tasks-section-rows";
 import { RowContextProvider, type RowContextValue } from "./task-row";
@@ -190,6 +190,20 @@ describe("TasksTable — virtualized row window (§5)", () => {
     const rows = taskRows(container);
     expect(measureElementSpy.mock.calls.map(([el]) => el)).toEqual(rows);
     rows.forEach((r, k) => expect(r.getAttribute("data-index")).toBe(String(WINDOW_START + k)));
+  });
+
+  test("renders every row and no spacer while printing", () => {
+    const { container } = render(<Harness tasks={makeTasks(250)} />);
+    expect(taskRows(container)).toHaveLength(WINDOW_END - WINDOW_START);
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    expect(taskRows(container)).toHaveLength(250);
+    expect(spacerRows(container)).toHaveLength(0);
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(taskRows(container)).toHaveLength(WINDOW_END - WINDOW_START);
   });
 
   test("drops back to the plain path with no spacer when a filter takes the count from 250 to 150", () => {

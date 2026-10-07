@@ -10,6 +10,7 @@
 // renders nothing, so the table keeps its semantic <table>/<tbody>/<tr>
 // markup, its sticky header and its <colgroup> widths.
 import type React from "react";
+import { useSyncExternalStore } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 /** The table switches to a row window only ABOVE this many visible rows. */
@@ -38,13 +39,56 @@ export interface TaskRowWindow {
 
 const noop = () => {};
 
+// ── Printing ────────────────────────────────────────────────────────────────
+// A printout must hold EVERY row, so the window switches off while printing.
+// Two sources, because neither covers every path alone:
+//  - the `print` media query, which flips for an emulated print medium;
+//  - `beforeprint`/`afterprint`, which Chromium dispatches for a real print,
+//    including one the browser starts (Ctrl+P) rather than `window.print()`.
+//    The desktop shell's File → Print… is such a print (docs/AGENTS/desktop.md
+//    "Print and the menu"). ★ NOT yet verified on a packaged desktop build —
+//    owed, recorded in §5.
+// An external-store change outside a React event renders at sync priority,
+// flushed in the microtask checkpoint right after the `beforeprint` handler —
+// before the print layout is taken.
+let printEventActive = false;
+
+function subscribePrint(onChange: () => void): () => void {
+  if (typeof window === "undefined") return noop;
+  const mql = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+  const onBefore = () => {
+    printEventActive = true;
+    onChange();
+  };
+  const onAfter = () => {
+    printEventActive = false;
+    onChange();
+  };
+  mql?.addEventListener("change", onChange);
+  window.addEventListener("beforeprint", onBefore);
+  window.addEventListener("afterprint", onAfter);
+  return () => {
+    mql?.removeEventListener("change", onChange);
+    window.removeEventListener("beforeprint", onBefore);
+    window.removeEventListener("afterprint", onAfter);
+  };
+}
+
+function getPrintSnapshot(): boolean {
+  if (printEventActive) return true;
+  return typeof window.matchMedia === "function" && window.matchMedia("print").matches;
+}
+
+const getServerPrintSnapshot = () => false;
+
 export function useTaskRowWindow(opts: {
   count: number;
   scrollRef: React.RefObject<HTMLElement | null>;
   estimateRowPx: number;
 }): TaskRowWindow {
   const { count, scrollRef, estimateRowPx } = opts;
-  const enabled = count > VIRTUALIZE_MIN_ROWS;
+  const printing = useSyncExternalStore(subscribePrint, getPrintSnapshot, getServerPrintSnapshot);
+  const enabled = count > VIRTUALIZE_MIN_ROWS && !printing;
   // ★ Called unconditionally (rules of hooks); `enabled: false` makes it attach
   // no scroll or resize observer, so the plain path pays nothing for it.
   // eslint-disable-next-line react-hooks/incompatible-library -- the window is re-read every render; the one value handed to a memoized child (`measureElement`) is a stable instance field.
