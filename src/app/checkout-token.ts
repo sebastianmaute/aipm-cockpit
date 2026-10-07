@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
 /** Hex characters kept from the sha-256 digest. Enough to tell two checkouts apart; too short to be a path. */
@@ -65,5 +65,76 @@ export function judgeServedCheckout(
   startsDevServer: boolean,
 ): CheckoutVerdict {
   if (served === null) return startsDevServer ? "absent-refused" : "absent-external";
+  return served === expected ? "match" : "mismatch";
+}
+
+/**
+ * The env var a Playwright run's dev server is booted with, and the second half of
+ * the §58 guard (candidate (b)). `checkoutToken` tells two CHECKOUTS apart; it
+ * cannot tell this run's server from a leftover one started earlier in the same
+ * checkout. A nonce minted per run, handed to the webServer it starts and read
+ * back from the page, can.
+ */
+export const BOOT_NONCE_ENV = "E2E_BOOT_NONCE";
+
+/**
+ * What `RootLayout` stamps as `data-boot-nonce`: the SERVING process's
+ * `E2E_BOOT_NONCE`. Undefined in production, and undefined when the server was
+ * not booted with one (a hand-started `npm run dev`), so React omits the attribute.
+ */
+export function bootNonce(
+  nodeEnv: string | undefined,
+  env: Record<string, string | undefined>,
+): string | undefined {
+  if (nodeEnv === "production") return undefined;
+  return env[BOOT_NONCE_ENV] || undefined;
+}
+
+/**
+ * Mints this run's nonce into `env` unless one is already there, and returns it.
+ * `playwright.config.ts` calls it at load: the config is evaluated again in every
+ * worker, and a worker inherits the main process's env, so a value already present
+ * is kept and every process of one run reads the same nonce. A value set by hand
+ * is kept too, which is how a run reuses a server the user booted with that value.
+ */
+export function mintBootNonce(env: Record<string, string | undefined>): string {
+  const existing = env[BOOT_NONCE_ENV];
+  if (existing) return existing;
+  const minted = randomUUID();
+  env[BOOT_NONCE_ENV] = minted;
+  return minted;
+}
+
+/**
+ * `reuseExistingServer` for `playwright.config.ts`. Off unless
+ * `PLAYWRIGHT_REUSE_SERVER=1`, and never in CI: a run then starts its own server,
+ * booted with its own nonce, and Playwright fails loudly when the port is taken
+ * instead of attaching to whatever answers there. Opting in reuses a server the
+ * user started; the guard then passes only if it was booted with the run's nonce.
+ */
+export function reuseDevServer(env: Record<string, string | undefined>): boolean {
+  return !env.CI && env.PLAYWRIGHT_REUSE_SERVER === "1";
+}
+
+/** What the e2e guard concludes from the served `data-boot-nonce` (§58 (b)). */
+export type BootNonceVerdict = "match" | "mismatch" | "absent-refused" | "unminted" | "external";
+
+/**
+ * The boot-nonce half of `e2e/a11y.spec.ts`'s guard, pure so it can be unit-tested.
+ * `served` is the page's `data-boot-nonce` (null when absent); `expected` is the
+ * test process's `E2E_BOOT_NONCE`. An external run (`PLAYWRIGHT_NO_WEBSERVER` set)
+ * is not checked: it starts no server, so it has no nonce to hand one. Otherwise
+ * every way the check could be skipped is refused rather than passed: a missing
+ * expected nonce ("unminted", the config did not mint one) and a missing served one
+ * ("absent-refused", a server this run did not boot) both fail.
+ */
+export function judgeBootNonce(
+  served: string | null,
+  expected: string | undefined,
+  startsDevServer: boolean,
+): BootNonceVerdict {
+  if (!startsDevServer) return "external";
+  if (!expected) return "unminted";
+  if (served === null) return "absent-refused";
   return served === expected ? "match" : "mismatch";
 }

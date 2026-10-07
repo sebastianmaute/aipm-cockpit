@@ -105,6 +105,14 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A failed Turso project list keeps its error on screen (§678).** In multi-project Turso mode, when the
+  project list could not be loaded, the storage banner could disappear again as soon as the workspace
+  itself finished loading, and a loading placeholder took its place. The banner, and the red storage
+  status, now stay until the project list loads. Dismissing that banner now also holds while the list
+  keeps failing; before, the next successful save brought it back.
+- **The Reports "By priority" block no longer cuts off its tiles (§677).** At its default height the
+  bottom edge of its four tiles was cropped by 5px. The block now grows to fit them, as the "At a
+  glance" block already did, unless you set its height yourself from its ⋮ menu.
 - **Time bookings no longer contacts Timelog while it is switched off.** Opening the page with Timelog off,
   or on but without a token, sent a request with empty credentials to load the saved customer's projects.
   It now waits until the connection is set up.

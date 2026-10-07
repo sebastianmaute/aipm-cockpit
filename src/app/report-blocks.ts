@@ -115,6 +115,19 @@ export function reportBlockById(id: ReportBlockId): ReportBlockSpec | undefined 
 }
 
 /**
+ * The blocks whose height follows their content, as every Dashboard tile's does
+ * (`useMeasuredHeights`), until the user sets one from the ⋮ menu. ★ Two blocks: the
+ * At a glance strip, which wraps to more rows as the block narrows (at a fixed 2 rows
+ * a wrapped strip overflowed by 31px), and By priority, whose four tiles measured
+ * 94px in the 89px body of its one-row catalogue height, cropping their bottom
+ * border (§677; `e2e/reports-by-priority-fit.spec.ts` measures it). The other
+ * blocks keep their catalogue heights, as before. `reports.tsx` reads it; it lives
+ * here, not in that component file, so the component module exports only components
+ * (Fast Refresh).
+ */
+export const ADAPTIVE_BLOCKS: ReadonlySet<ReportBlockId> = new Set(["stats", "byPriority"]);
+
+/**
  * Every block on the board, in catalogue order, at its default size.
  *
  * ★★★ ONE INSTANCE, MODULE-LEVEL, DECLARED ONLY HERE. `reconcile(…, null, …)`

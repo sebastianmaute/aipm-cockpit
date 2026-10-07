@@ -17,18 +17,17 @@
 // real fetch to a real SQLite `INSERT OR REPLACE` is the product.
 //
 // ★★★ THE TRAP THIS FILE IS BUILT TO SURVIVE, BECAUSE IT FAILS **GREEN**.
-// Next reads env at SERVER START and `playwright.config.ts` sets
-// `reuseExistingServer: !CI`. Attach to a server that was started before
+// Next reads env at SERVER START, and with `PLAYWRIGHT_REUSE_SERVER=1` (off by
+// default since §58 (b)) `playwright.config.ts` reuses a running server. Attach to a server that was started before
 // `.env.local` existed and `process.env.NEXT_PUBLIC_TURSO_DATABASE_URL` is
 // undefined INSIDE THAT SERVER, `getTursoConfig` returns null, the asset pane
 // never mounts — and a suite gated only on a skip condition would SKIP every
 // test and print as a pass. So the gate here is two-part and the second half is
 // an ASSERTION, not a skip: `expectLiveAssetPane` fails loudly when the pane is
 // absent, and it can only mount when the config reached the BROWSER. A skip is
-// never evidence. Run against a fresh server on an isolated port:
-//   PORT=3100 npm run dev
+// never evidence. Run against a fresh server on an isolated port; since §58 (b)
+// the run boots its own server there, so there is nothing to start first:
 //   PORT=3100 npx playwright test e2e/documents-images-interactive.spec.ts --project=chromium --workers=1
-//   PORT=3100 npm run stop
 //
 // ★★ PLAYWRIGHT DOES NOT LOAD `.env.local` — only Next does. `test.skip(
 // !process.env.NEXT_PUBLIC_TURSO_DATABASE_URL, …)` written the obvious way is

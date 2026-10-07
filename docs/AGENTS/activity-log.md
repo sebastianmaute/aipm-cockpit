@@ -77,7 +77,7 @@ newest entries until the next save.
   against the same target), the load would keep merging; today `useMsAuth`'s `acquireToken` is a stable
   `useCallback`, so an M365 sign-in/out does not rebuild the backend at all. Pinned by
   `use-storage-backend.target-key.test.tsx`.
-  ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
+  ★★ **`applyRestoredWorkspace` (`use-version-history-wiring.ts`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
   ★★ It is ONE OF FIVE slices on which the two funnels disagree, NOT the only one — `features`,
@@ -109,12 +109,14 @@ newest entries until the next save.
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
   `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
-  `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
-  `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
+  `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
   → `setActivityLog(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
-  end anchor there runs 676 lines and reports 39. And that first command's start pattern needs the
+  end anchor there ran 676 lines and reported 39 while it lived in `task-manager.tsx`. Since §491 moved
+  it to `use-version-history-wiring.ts`, which has no `  };` line, that anchor runs to the end of the file (66 lines)
+  and still reports 24 only because nothing after it calls a setter: the wrong anchor, silently right. And that first command's start pattern needs the
   `const … = ` prefix: bare, it spans 717 printed lines and reports 35 (it was 707 before §548 round
   2 renamed the function — re-measure rather than trusting either number).
   ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
@@ -149,7 +151,7 @@ newest entries until the next save.
   capture, so **both sides are 24 and they now agree slice for slice** (`docs/open-followups.md`
   §240). Derive it rather than reading the number here — the payload's field list and its dep array
   are the same 24 names twice over:
-  `sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/task-manager.tsx`.
+  `sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/use-version-history-wiring.ts`.
   ★★★ **"BOTH SIDES ARE 24" IS ABOUT THE CAPTURE AND THE FAN-OUT — NOT ABOUT WHAT A RESTORE
   REWRITES, and reading it the second way is a data-loss bug.** `applyRestore` starts from the LIVE
   workspace and rewrites only keys present in `COLLECTION_SPECS` (`version-diff.ts`), so the two

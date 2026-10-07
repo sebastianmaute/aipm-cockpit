@@ -544,7 +544,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   adding a control, a view or a toggle: what `A11Y_VIEWS` does NOT scan, and running it locally, are there.
   Before pushing an IA/UI/contrast change, run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"`: the unit suite never runs axe, so otherwise it fails only in CI.
   Add `--workers=1` when `-g` matches more than one view: CI runs axe serially, and local contention fails tests as timeouts, not violations.
-  After a `globals.css` `@theme` edit, run axe on a FRESH isolated dev server (`PORT=3100 npm run dev`), never a reused one.
+  After a `globals.css` `@theme` edit, run axe on a FRESH server, never a reused one: since §58 (b) a plain run boots its own, so give it a free port (`PORT=3100 npx playwright test ...`).
 - **CI is GitHub Actions → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md).** `.github/workflows/ci.yml`
   runs on every pull request and every push to `main`; its eight job ids ARE the required checks on
   the `main` ruleset (`static` · `unit` · `unit-shuffled` · `build` · `e2e` · `prod-smoke` · `semgrep`
@@ -713,7 +713,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
   deep-link request, the classic header popover), `use-settings-change-log.ts` (the debounced, actor-less
   `settings.updated` row and its §160 AI credits), `use-turso-project-list.ts` (the Turso portfolio's active and
-  archived project lists, their load-once flag and `refreshTursoProjects`), `shell-chrome.tsx`
+  archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
+  version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
+  `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
@@ -747,7 +749,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `tursoListLoaded` flag that flips only on a successful fetch, `refreshTursoProjects` and its first-load effect); it is
   coverage-GATED, pinned by its own `renderHook` test, and keeps `refreshTursoProjects`'s `useCallback` on purpose because
   its first-load effect and the handlers in `use-portfolio-projects.ts` and `use-turso-projects.ts` depend on it (its header
-  says more). The
+  says more). A fourteenth, `use-version-history-wiring.ts` (§491), holds the version-history wiring (`getVersionPayload`,
+  `applyRestoredWorkspace`, the error bridge into the storage banner, the `useVersionHistory` call and the `notifySaved`
+  hand-off); it reads the workspace slices from `useWorkspace()` rather than taking 46 deps fields, is coverage-GATED,
+  pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
@@ -888,9 +893,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `ls .next/BUILD_ID` as a router, which is worse than useless: `BUILD_ID` survives ANY past build
   (CI, `e2e:smoke:prod`), so on a machine that has ever built it is permanently present.
   ★★ **THE SAME SYMPTOM HAS A SECOND CAUSE with the opposite remedy.** Chained `npx playwright
-  test` invocations race their own webServer: `playwright.config.ts` sets `reuseExistingServer:
-  !process.env.CI`, so locally a run ATTACHES to a server the previous invocation is still
-  releasing and gets the same `Received: 0`. Fix that one by not chaining — `--repeat-each=N`
+  test` invocations race their own webServer: while `playwright.config.ts` set `reuseExistingServer:
+  !process.env.CI`, a local run ATTACHED to a server the previous invocation was still
+  releasing and got the same `Received: 0`. Since §58 (b) reuse is off unless
+  `PLAYWRIGHT_REUSE_SERVER=1`, so the same race now fails with "is already used" instead, which
+  names itself. Fix either by not chaining — `--repeat-each=N`
   inside ONE invocation (5/5 green). A post-mortem `curl` cannot tell the two apart, since the
   server is gone by then either way.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`

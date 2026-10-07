@@ -91,9 +91,11 @@ Notes:
   non-zero if any floor slips. These are the
   same floors CI's blocking unit gate applies — treat a drop as a real
   regression to fix, not a threshold to lower.
-- `npm run e2e` boots `npm run dev` on port 3000. If you already have a dev
-  server running there, Playwright reuses it (outside CI). In CI it always
-  spawns its own.
+- `npm run e2e` boots `npm run dev` on port 3000 (or `PORT`). If a server is
+  already running there, the run refuses with "is already used" rather than
+  attaching to it, locally and in CI. Reuse is opt-in since §58 (b): set
+  `PLAYWRIGHT_REUSE_SERVER=1` and start your server with the same
+  `E2E_BOOT_NONCE` the run uses.
 - Tests run independently of `next build`. None of them feed into the
   bundler; failures don't pollute `.next/`.
 

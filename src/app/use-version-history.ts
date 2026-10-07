@@ -68,7 +68,7 @@ export interface UseVersionHistoryResult {
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
 // and `budgetHistory`, which is storage-only: carried by the save funnel
 // (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
-// version payload (`getVersionPayload` in `task-manager.tsx`).
+// version payload (`getVersionPayload` in `use-version-history-wiring.ts`).
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
@@ -215,7 +215,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // ★★ §241 (closed 2026-09-27) — this gate sees only what
         //  `COLLECTION_SPECS` (version-diff.ts) walks, so a payload slice without
         //  a row would make a session that edits only it capture NOTHING. All 24
-        //  slices `getVersionPayload` (task-manager.tsx) emits have a row today.
+        //  slices `getVersionPayload` (use-version-history-wiring.ts) emits have a row today.
         //  `documents` and `documentVersions` are `restorable: false` ON PURPOSE:
         //  diff-visible, but a document is restored through its own document
         //  history (tombstones, docs/AGENTS/documents.md), not this panel. A new

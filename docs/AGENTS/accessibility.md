@@ -258,7 +258,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
   scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
   hardcoded, so none scales with the combo count) = **132** axe tests, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd; an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, open-followups §58) — **133**
+  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **133**
   tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
@@ -338,11 +338,13 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   ★ The 60s per-test timeout also covers the FIRST navigation's one-time Turbopack compile (the
   config says so at its `timeout`), so a COLD server can blow it under load even at one worker. Warm
   the route first (`curl -o /dev/null http://localhost:3000/` until it returns in well under a second)
-  and let `reuseExistingServer` attach to that.
+  and reuse it. ★ Since §58 (b) that takes an opt-in: boot the server with `E2E_BOOT_NONCE=<value>` and run
+  with the same `E2E_BOOT_NONCE` and `PLAYWRIGHT_REUSE_SERVER=1`; any other server fails the guard.
   ★★ After ANY `globals.css` `@theme` edit or large class/token rename, run axe on a FRESH ISOLATED
-  server (`PORT=3100 npm run dev`, stop with `PORT=3100 npm run stop`) — NEVER the reused long-running
-  dev server. Playwright's `reuseExistingServer:!CI` will attach to a stale `:3000` whose Tailwind
-  hasn't regenerated the new `bg-ui-*` utilities → phantom transparent-fill axe FAILS that a prod build
+  server — NEVER the reused long-running dev server. Since §58 (b) a plain run does that by default: it
+  boots its own server, so give it a free port (`PORT=3100 npx playwright test e2e/a11y.spec.ts ...`) rather
+  than hand-starting one, which the run would refuse as "already used". Before §58 (b) Playwright's `reuseExistingServer:!CI` attached to a stale `:3000` whose Tailwind
+  hadn't regenerated the new `bg-ui-*` utilities → phantom transparent-fill axe FAILS that a prod build
   + a fresh port both pass (cost ~5 debug cycles once). Also re-run after killing a `PORT=3100` axe
   server if `.next/dev/types/*` got corrupted (phantom tsc errors in GENERATED files → `Remove-Item
   -Recurse -Force .next`, not source).

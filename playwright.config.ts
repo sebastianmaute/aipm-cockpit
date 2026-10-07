@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { runStartsDevServer } from "./src/app/checkout-token";
+import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -7,6 +7,10 @@ const PORT = Number(process.env.PORT ?? 3000);
 // the app shell mounted but never hydrated (empty <main>). localhost renders
 // the full app.
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
+// §58 (b): one random nonce per run, minted here (the main process mints it; each
+// worker re-evaluates this file and keeps the inherited value), handed to the
+// webServer below and read back by e2e/a11y.spec.ts's guard from data-boot-nonce.
+const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) : undefined;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -98,7 +102,12 @@ export default defineConfig({
         command: "npm run dev",
         url: BASE_URL,
         timeout: 120_000,
-        reuseExistingServer: !process.env.CI,
+        // ★★ Off by default since §58 (b): a run starts its own server, booted with its
+        // own nonce, and fails loudly when the port is taken instead of attaching to a
+        // server from another worktree or an older run. PLAYWRIGHT_REUSE_SERVER=1 opts
+        // back in; boot that server with the same E2E_BOOT_NONCE or the guard refuses it.
+        reuseExistingServer: reuseDevServer(process.env),
+        env: BOOT_NONCE ? { [BOOT_NONCE_ENV]: BOOT_NONCE } : {},
         stdout: "ignore",
         stderr: "pipe",
       },

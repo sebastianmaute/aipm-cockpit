@@ -72,12 +72,12 @@ imports neither (`grep -n "^import" src/app/sharepoint-backend.ts`).
 **Two load funnels.** Every backend's load, `reloadCurrentProject` and every project op fan a
 workspace into React state through `applyWorkspaceFromLoad` (`use-storage-backend.ts`); the ops
 reach it through `applyWorkspaceForOp`, which also bumps the scope epoch. The Turso version-history
-restore is the second funnel, `applyRestoredWorkspace` (`task-manager.tsx`), which does not go
+restore is the second funnel, `applyRestoredWorkspace` (`use-version-history-wiring.ts`), which does not go
 through the first. The docstring on `backfillTaskResourceFks` (`resource-foundation.ts`) names both
 and says a third funnel must call it too. ★ That docstring and several comments call the first
 funnel `applyWorkspace`. That name survives as a deps FIELD in two places, one per funnel: the op
 hooks' `applyWorkspace` (`grep -n "applyWorkspace:" src/app/use-storage-file-ops.ts`) and
-`useVersionHistory`'s optional `applyWorkspace`, which `task-manager.tsx` fills with
+`useVersionHistory`'s optional `applyWorkspace`, which `use-version-history-wiring.ts` fills with
 `applyRestoredWorkspace` — the SECOND funnel (`grep -n "applyWorkspace?:" src/app/use-version-history.ts`).
 Read which one a mention means before relying on it.
 
