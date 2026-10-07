@@ -53,14 +53,15 @@ Four files in `office/`, each carrying the same links in prose, a table and a da
   linked row.
 - [ ] **Optional:** the same four in LibreOffice.
 
-## §102: 11 more buttons on the shared primitives (#137)
+## §102: 13 more buttons on the shared primitives (#137)
 
 - [ ] **By hand:** Settings → Next actions: "Suggest with AI", "Accept all", "Reset to defaults" and
   "View learning insights" look like the other secondary buttons in Settings.
 - [ ] **By hand:** Open Points, select two rows: "Delete selected" reads as destructive (pink) and
   "Clear selection" as secondary, at the same height.
-- [ ] **By hand:** the task editor of a Jira-linked task: the Jira sync button in the footer
-  matches "Send inquiry" beside it. It lost its dark-blue text and is slightly narrower.
+- [ ] **By hand:** the task editor of a Jira-linked task: the footer's "Send inquiry", "Push to
+  Jira" (shown only for a task not yet in Jira) and Jira sync buttons look alike — same padding,
+  same text colour. All three are now `Button size="sm"`; the sync button lost its dark-blue text.
 - [ ] **By hand, if reachable:** Time bookings → Clear all, and Settings → Templates → Save.
 
 ## Still by hand

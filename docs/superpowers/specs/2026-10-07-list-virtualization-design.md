@@ -98,10 +98,15 @@ own decision after this one ships and is measured.
 ## Testing summary
 
 - Phase 0: the opt-in probe itself, run locally on port 3150.
-- Phase 1: unit tests in `tasks-section-rows.test.tsx` for the threshold switch, the spacer
-  heights, `aria-rowcount`/`aria-rowindex`, print rendering all rows and the deep-link
-  `scrollToId` path, each mutation-tested; the opt-in probe re-run to show the before/after
-  numbers; one axe check at 1000 rows.
+- Phase 1 (as built; corrected 2026-10-07 — this line first put every test in
+  `tasks-section-rows.test.tsx`): `use-task-row-window.test.tsx` for the hook (threshold,
+  window arithmetic, printing, the focused-row range extractor, the scroll offset and measured
+  heights kept across off/on, the id keys, the header padding); `tasks-section-rows.test.tsx` for
+  the table (which rows render, the spacer rows, `aria-rowcount`/`aria-rowindex`, print rendering
+  all rows, the `rowWindowRef` handle); `use-deeplink-row-flash.test.tsx` and
+  `tasks-section.test.tsx` for the deep-link `scrollToId` path; each mutation-tested. The opt-in
+  probe re-run for the before/after numbers, with one axe check at 1008 rows and browser checks for
+  the scroll position across a print and a threshold crossing and an inline edit scrolled away.
 
 ## Register
 

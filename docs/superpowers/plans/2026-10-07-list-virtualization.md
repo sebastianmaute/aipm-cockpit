@@ -53,7 +53,7 @@
 
 **Interfaces:**
 - Consumes: `reseedWorkspace` (Task 1), `SEED_WORKSPACE` (`e2e/seed-workspace.ts`), `scaleWorkspace(ws: Workspace, factor: number): Workspace` (`src/app/scale-workspace.ts`), `gotoApp`, `openView`.
-- Produces: `eye-verify-output/perf/task-table.json` shaped `{ size: number; tasks: number; openMs: number; statusMs: number; searchMs: number }[]` (medians).
+- Produces: `eye-verify-output/perf/task-table.json` shaped `{ size: number; tasks: number; openMs: number; statusMs: number; searchMs: number; filterMs: number; scrollMs: number; busyAfterMs: number }[]` (medians). ★ Corrected 2026-10-07: `filterMs` and `busyAfterMs` were added during Phase 1 and `scrollMs` after review; this line listed only the first three timings.
 
 Factors: the seed has 14 tasks, so factors **36, 72, 143** give 504 / 1008 / 2002. Record `tasks` as the counted rows, `size` as the nominal 500/1000/2000.
 
@@ -96,6 +96,7 @@ Factors: the seed has 14 tasks, so factors **36, 72, 143** give 504 / 1008 / 200
   - `drops back to the plain path with no spacer when a filter takes the count from 250 to 150` (Review Focus 4).
 - [ ] **Step 2:** Run the two files through the vitest lock → FAIL.
 - [ ] **Step 3:** Implement the hook over `useVirtualizer({ count, getScrollElement: () => scrollRef.current, estimateSize: () => estimateRowPx, overscan: 10 })`; wire it in `tasks-section-rows.tsx` around `visibleRows.map` (`slice(start, end)`, `measureElement` via `measure`). Pass the table's existing scroll container as `scrollRef` (read `tasks-section.tsx` for it; add a prop only if none reaches the rows file).
+- **Corrected after review (2026-10-07):** the hook moved INTO `TasksTable` (it re-rendered the whole pane on every scroll step), takes `{ ids, scrollRef, headRef, estimateRowPx }` and returns `{ enabled, items, padBottom, measure, scrollToIndex }` (each item an index plus the spacer height before it); the pane's deep link reaches `scrollToIndex` through a `rowWindowRef` handle. Correction (a) below is superseded.
 - **Corrected during implementation (2026-10-07):** (a) the hook is called in `tasks-section.tsx`, not in the rows file, and reaches `TasksTable` as a `rowWindow` prop — Task 6's deep link lives in the orchestrator and needs `scrollToIndex`, and the rows file stays hook-free as its header promises. The count is 0 in board/swimlane mode, which reuse the same scroll container. (b) Spacer cells span `visibleColumnCount + 1` (the gutter column), like every other full-width row in the table. (c) `aria-rowcount` is rows **+ 2**, not + 1: the trailing "+ Add task" row is a row too, and it carries `aria-rowindex` rows + 2; the header row carries 1. All aria row attributes are set only while windowed, so the plain path renders exactly as before. (d) `TaskRow` gains three optional props (`ariaRowIndex`, `virtualIndex` → `data-index`, `measureRef`), since `aria-rowindex` and the measuring ref must sit on its `<tr>`.
 - [ ] **Step 4:** Tests → PASS. Mutation-test: threshold `<=`→`<`, drop each spacer, drop `aria-rowcount`, off-by-one in `aria-rowindex`; each must turn a test red. Revert all.
 - [ ] **Step 5:** `npx tsc --noEmit`, `npx eslint --max-warnings=0 <changed>`, `npm run size:check` → exit 0. Commit `feat: virtualize the Open Points table above 200 rows (§5)`.

@@ -11,8 +11,9 @@
 // change of the set of ending buckets (keyed on their ids, not on the array).
 //
 // Gates are verbatim from task-manager — popouts (`isPopout`) suppress both
-// banners. Coverage-GATED on purpose: the gates are logic, pinned by
-// use-reminder-banners.test.tsx.
+// banners. NOT coverage-gated: as a .tsx file it falls under vitest.config.ts's
+// `src/app/**/*.tsx` coverage exclusion. Its gates are logic, so they are pinned
+// by use-reminder-banners.test.tsx instead.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { getBucketReminders } from "./budget-report";

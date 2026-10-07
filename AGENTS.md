@@ -756,8 +756,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   hand-off); it reads the workspace slices from `useWorkspace()` rather than taking 46 deps fields, is coverage-GATED,
   pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). A fifteenth,
   `use-reminder-banners.tsx` (§491), holds the two reminder banners with their snooze and dismiss state and the
-  bucket toast keyed on the ending-bucket ids; it returns the banner fragment that `bannersEl` renders first, is
-  coverage-GATED, and is pinned by its own test plus `task-manager.reminder-banners-callsite.test.tsx`. The
+  bucket toast keyed on the ending-bucket ids; it returns the banner fragment that `bannersEl` renders first. It is
+  NOT coverage-gated — a `.tsx`, so `vitest.config.ts`'s `src/app/**/*.tsx` exclusion covers it — and is pinned by its
+  own test plus `task-manager.reminder-banners-callsite.test.tsx`. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
