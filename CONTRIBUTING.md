@@ -472,8 +472,10 @@ test meaningless:
 ### End-to-end — Playwright
 
 - Config: `playwright.config.ts` (Chromium-only by default; Firefox / WebKit
-  commented in). Auto-starts `npm run dev` on port 3000 (reuses an existing
-  dev server locally; spawns fresh in CI).
+  commented in). Auto-starts `npm run dev` on port 3000 (or `PORT`), locally and
+  in CI, and refuses a port that is already taken. Reuse is opt-in since §58 (b):
+  set `PLAYWRIGHT_REUSE_SERVER=1` and start your server with the same
+  `E2E_BOOT_NONCE` the run uses.
 - Location: `e2e/**/*.spec.ts` — kept out of `src/` so Vitest doesn't see it.
 - Sample test: `e2e/smoke.spec.ts` (root page loads, title matches, `<main>`
   visible).
