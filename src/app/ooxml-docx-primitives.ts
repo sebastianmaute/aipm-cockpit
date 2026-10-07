@@ -39,12 +39,13 @@ import { RENDER_SINK } from "./html-start";
 import type { LinkRel, LinkSink } from "./ooxml-links";
 import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, listHeadIndent, type NumberingSink } from "./ooxml-docx-numbering";
 // ★ TYPE-ONLY, and it must stay so: the header module imports `docxInlineDrawing`
-// and the two ids below from HERE as values, so a value import back would be a
-// runtime cycle. That is why the ids live in this file and not beside the header.
+// from HERE as a value, so a value import back would be a runtime cycle.
 import type { DocxHeaderFooter } from "./ooxml-docx-header-footer";
 
 /** The document part's relationships to the branded header and footer (§512 b).
- *  Named, not numbered, like `NUMBERING_REL_ID`: the body's sinks mint `rId<n>`. */
+ *  They live here because the document part and its relationships, which use
+ *  them, are built in this file. Named, not numbered, like `NUMBERING_REL_ID`:
+ *  the body's sinks mint `rId<n>`. */
 export const HEADER_REL_ID = "rIdHeader";
 export const FOOTER_REL_ID = "rIdFooter";
 

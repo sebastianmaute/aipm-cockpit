@@ -112,11 +112,12 @@ export function labelOptions(tasks: readonly { labels?: readonly string[] }[]): 
  *
  * ONE seam where the mirror is imperfect: the option lists trim (`uniqueGroups`
  * / `uniqueLabels`) while the row filter compares the untrimmed field, so a task
- * whose group is " G1 " offers the option "G1" that then matches no row. Every
- * write path trims (`sanitizeGroup` via `sanitizeText`; `sanitizeLabel` and the
- * template `nonEmptyStr` trim on their own), so this is only reachable through a
- * hand-edited JSON workspace — neither the JSON nor the IndexedDB load path runs
- * a field sanitizer, so once such a value is imported and autosaved the IDB copy
+ * whose group is " G1 " offers the option "G1" that then matches no row. The
+ * sanitizers trim (`sanitizeGroup` via `sanitizeText`; `sanitizeLabel` and the
+ * template `nonEmptyStr` trim on their own), but whether every write path runs
+ * one is not established here. One path known NOT to is a hand-edited JSON
+ * workspace — neither the JSON nor the IndexedDB load path runs a field
+ * sanitizer, so once such a value is imported and autosaved the IDB copy
  * carries it forward across reloads without a further import.
  */
 export function resolveEffectiveFilters(
