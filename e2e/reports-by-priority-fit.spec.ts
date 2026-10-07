@@ -5,7 +5,7 @@ import { test, expect, gotoApp, openView } from "./seed";
  * opens with. Its catalogue height is one 120px row, and the batch 14 §426 probe
  * measured its content at 94px in an 89px body, so the tiles' bottom border was
  * cropped by 5px. The block now follows its content's height (`ADAPTIVE_BLOCKS` in
- * `reports.tsx`), as the "At a glance" strip does.
+ * `report-blocks.ts`), as the "At a glance" strip does.
  *
  * ★ Content height is measured the way `use-measured-heights.ts` measures it — the
  * extent of the body's in-flow children plus the body's padding — and compared with
