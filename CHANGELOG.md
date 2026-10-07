@@ -15,8 +15,8 @@ longer carries its own changelog comment.
 - **Long task lists stay responsive (§5).** Above 200 visible rows, the Open Points table draws only the
   rows near the screen. At about 1000 tasks, opening the table went from 8.3 s to 1.8 s in our
   measurement; searching and changing a status got faster too, but less (about 2x and 1.6x). Printing still
-  prints every row, a deep link still scrolls to its row and flashes it, and a row you are editing
-  stays in place while you scroll. One trade-off: the browser's own find (Ctrl+F) only sees the rows
+  prints every row in the browser, a deep link still scrolls to its row and flashes it, and an edit
+  you have open in a row is kept when you scroll that row out of view. One trade-off: the browser's own find (Ctrl+F) only sees the rows
   currently drawn, so use the table's search box to find a task in a long list. Up to 200 rows the
   table works exactly as before.
 
@@ -109,7 +109,10 @@ longer carries its own changelog comment.
   format is no longer supported show an empty box.
 - **Matching buttons (§102).** The Resources calendar's previous and next buttons show chevron icons
   instead of ◀ and ▶, and those buttons, the Diagnostics actions, the view hint's dismiss button, a
-  swimlane's remove button and the Help button now use the app's shared button styles.
+  swimlane's remove button and the Help button now use the app's shared button styles. So do the
+  task editor's Send inquiry, Push to Jira and Jira sync buttons, Open Points' Delete selected and Clear
+  selection, and buttons in Settings → Next actions, Settings → Templates, Time bookings and the Action
+  Center's AI analysis.
 
 ### Fixed
 
@@ -203,6 +206,9 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Smaller task manager (§491).** The reminder banners moved to `use-reminder-banners.tsx` and the task
+  editor's footer buttons to `buildTaskEditorChrome`; `task-manager.tsx` went from 2535 to 2454 lines,
+  and its size baseline was lowered to match.
 - **Weekly release notes (§527).** `npm run release-notes` prints user-facing notes for a date window
   (the last seven days by default) from the CHANGELOG versions dated in it.
 - **IndexedDB stores come from one list (§99 follow-up).** `openIdb` now creates every record store
