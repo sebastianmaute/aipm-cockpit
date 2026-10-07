@@ -288,7 +288,8 @@ describe("probeFor", () => {
       seedRow: {}, compare: sameAt,
     });
     // 2026-06-02 + 1 day is later than the end date, so `sanitizeAbsence` swaps the pair.
-    expect(outcome.kind).toBe("unmeasured");
+    // The refused probe is carried: Relation A still sends it for its destroy check (§441).
+    expect(outcome).toEqual({ kind: "unmeasured", reason: expect.any(String), value: "2026-06-03" });
   });
 
   // The declared `status` enum is the UNION of all four RAID categories'

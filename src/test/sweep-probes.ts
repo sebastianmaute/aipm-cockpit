@@ -46,7 +46,10 @@ export type Compare = (a: unknown, b: unknown, row: Row) => boolean;
 export type ProbeOutcome =
   | { kind: "probe"; value: unknown }
   | { kind: "dead"; reason: string }
-  | { kind: "unmeasured"; reason: string };
+  // `value` is the probe that was derived and refused. Relation A's destroy
+  // check (§441) still sends it: the probe cannot be stored as sent, but a
+  // guard that lets it through still MOVES the column, and that is observable.
+  | { kind: "unmeasured"; reason: string; value: unknown };
 
 /** ★★★ THE ONE FIELD NO PROBE MAY DRIVE, AND THE ONLY REASON IS MAIL.
  *  `calendarEvent.sendInvitations` true trips `shouldStage` in
@@ -294,7 +297,7 @@ export function probeFor(args: {
     }
     // `differing` is non-empty (checked above) and every iteration that did not
     // already return recorded a refusal, so `firstRefusal` is always set here.
-    return { kind: "unmeasured", reason: firstRefusal! };
+    return { kind: "unmeasured", reason: firstRefusal!, value: differing[0] };
   }
 
   let candidate: unknown;
@@ -307,5 +310,7 @@ export function probeFor(args: {
   if (candidate === undefined) return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };
   if (eq(candidate, ref)) return { kind: "dead", reason: "the derived probe equals the reference value" };
   const refusal = admitProbe(entity, arm, field, reference, candidate, compare);
-  return refusal === undefined ? { kind: "probe", value: candidate } : { kind: "unmeasured", reason: refusal };
+  return refusal === undefined
+    ? { kind: "probe", value: candidate }
+    : { kind: "unmeasured", reason: refusal, value: candidate };
 }

@@ -375,6 +375,31 @@ function normalizedAs(
   return normalize ? normalize(value, row as Record<string, unknown>) : String(value ?? "");
 }
 
+/** ★★★ THE FIELDS AN UPDATE WRITER MOVES OF ITS OWN ACCORD — MEASURED, NEVER
+ *  LISTED (§441). Relation A's `destroyed` check asks whether an undeclared
+ *  field MOVED, and every writer stamps some columns on every write
+ *  (`localModifiedAt` at least), so a movement test needs those exempted. A
+ *  hand-kept exemption list on this axis is the shape that hid §438 inside
+ *  §437's ratchet, so the set is MEASURED: one replay that sends the first
+ *  declared field AT ITS STORED VALUE — a write that changes nothing the model
+ *  asked for — and every undeclared column that moves anyway is the writer's.
+ *
+ *  ★★ AT ITS STORED VALUE, NOT A PROBE: a real change to a coupled field (a
+ *  status) can legitimately move an undeclared partner (a decision date), and
+ *  exempting that partner here would blind the check to it for every probe.
+ *  The bound and the positive observable live in the test that consumes it. */
+async function writerStampedFields(entity: InlineEntity): Promise<{ stamped: readonly string[]; threw?: string }> {
+  const reference = loadedSeedRow(entity);
+  const field = declaredProperties(entity, "update").find((f) => reference[f] !== undefined);
+  if (field === undefined) throw new Error(`${entity}: no declared field carries a stored value to replay`);
+  const { before, stored, threw } = await updateWith(entity, field, reference[field]);
+  const stamped = undeclaredColumns(entity).filter((f) => !same(before[f], stored[f]));
+  return { stamped, threw };
+}
+
+/** Blank as the destroy check reads it: a column with nothing to lose. */
+const isBlank = (v: unknown): boolean => v === undefined || v === null || v === "";
+
 beforeEach(() => {
   // The id minter is module-scoped. Resetting keeps this file order-independent
   // under `npm run test:shuffle`, which runs the whole suite at a pinned seed.
@@ -468,6 +493,32 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     let probed = 0;
     let skipped = 0;
     const reference = loadedSeedRow(entity);
+    const control = await writerStampedFields(entity);
+    // ★★ The positive observable for the control replay: every update writer
+    //  stamps `localModifiedAt`, so a control that wrote nothing shows an empty
+    //  set here rather than a silently universal pass. The bound stops a broken
+    //  control (one that rewrote the whole row) from exempting the axis.
+    expect(control.threw, `${entity}: the control replay threw`).toBeUndefined();
+    expect(control.stamped, `${entity}: the control replay moved nothing — it did not write`).toContain("localModifiedAt");
+    expect(
+      control.stamped.length,
+      `${entity}: the control replay moved ${control.stamped.join(", ")} — too many to be writer stamps`,
+    ).toBeLessThanOrEqual(MAX_WRITER_STAMPED);
+    // ★★★ THE DESTROY HALF (§441). The `stored` check is blind to a trespass
+    //  that COERCES or CLEARS, because that never produces the probe. A column
+    //  that held a value, is not one the writer stamps of its own accord, and
+    //  moved to something the model did not send was overwritten through a
+    //  field the model was never offered.
+    const checkDestroyed = (subject: string, field: string, before: Row, stored: Row): void => {
+      if (isBlank(before[field]) || control.stamped.includes(field) || same(before[field], stored[field])) return;
+      findings.push(
+        finding(
+          subject,
+          "destroyed",
+          `update overwrote an undeclared column — was ${JSON.stringify(before[field])}, now ${JSON.stringify(stored[field])}`,
+        ),
+      );
+    };
 
     for (const field of undeclaredColumns(entity)) {
       const subject = `${entity}.${field}`;
@@ -475,6 +526,14 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
       if (outcome.kind !== "probe") {
         skipped += 1;
         findings.push(finding(subject, outcome.kind, outcome.reason));
+        // ★★ AN UNMEASURED FIELD IS STILL SENT, FOR THE DESTROY CHECK ALONE.
+        //  Its probe cannot be stored as sent, so `stored` cannot judge it —
+        //  but a guard that lets it through still moves the column (§441:
+        //  `utilizationMode` coerced, `active` cleared), and that is visible.
+        if (outcome.kind === "unmeasured") {
+          const r = await updateWith(entity, field, outcome.value);
+          if (r.threw === undefined) checkDestroyed(subject, field, r.before, r.stored);
+        }
         continue;
       }
       const probe = outcome.value;
@@ -489,7 +548,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
         findings.push(
           finding(subject, "stored", `update stored the model's undeclared value (was ${JSON.stringify(before[field])})`),
         );
+        continue;
       }
+      checkDestroyed(subject, field, before, stored);
     }
 
     // ★★ A restatement of floor 1, exactly as on the create arm above — same
@@ -584,7 +645,9 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
  *  `control-no-row` for the base create — the last two the only kinds whose
  *  subject is the bare entity. Relation A adds `stored`: the model's
  *  undeclared value landed, which is a defect to FIX (plan Task 6), never to
- *  ledger.
+ *  ledger — and, on its update arm alone, `destroyed` (§441): an undeclared
+ *  column the writer does not stamp was overwritten with something the model
+ *  did not send, which is the same defect with the value coerced or cleared.
  *
  *  ★ A `const` array and not only a union, so the ledger test in "the
  *  offered-surface axis" can check a kind at RUNTIME — vitest never typechecks,
@@ -599,6 +662,7 @@ const FINDING_KINDS = [
   "no-row",
   "dropped",
   "stored",
+  "destroyed",
 ] as const;
 type FindingKind = (typeof FINDING_KINDS)[number];
 
@@ -612,6 +676,8 @@ type FindingKind = (typeof FINDING_KINDS)[number];
  *  ★★★ `stored` IS EXCLUDED FROM BOTH, and that is the whole rule: it is the
  *  only kind that reports the model's value actually LANDING where it must not.
  *  Ledgering one converts a live undeclared write into a permanent green.
+ *  `destroyed` (§441) is the same trespass with the value coerced or cleared,
+ *  and is barred for the same reason.
  *
  *  ★★ RELATION A IS NARROWER THAN "EVERYTHING BUT `stored`", deliberately. Its
  *  two arms can also emit `no-row` ("the create stored no row at all — the base
@@ -628,8 +694,13 @@ type FindingKind = (typeof FINDING_KINDS)[number];
  *  Relation B's would be a decision to take at a go/cut, not here. */
 const LEDGERABLE_KINDS: Readonly<Record<"A" | "B", readonly FindingKind[]>> = {
   A: ["dead", "unmeasured"],
-  B: FINDING_KINDS.filter((k) => k !== "stored"),
+  B: FINDING_KINDS.filter((k) => k !== "stored" && k !== "destroyed"),
 };
+
+/** The most undeclared columns one control replay may move before the
+ *  measured writer-stamp set is read as a broken control rather than as stamps.
+ *  ★ A BOUND, NOT A LIST: it names no field, so it cannot exempt one. */
+const MAX_WRITER_STAMPED = 1;
 
 /** One Relation B finding. `subject` + `kind` is all the verdict compares;
  *  `detail` is the full line a red run prints, and nothing compares it. */
