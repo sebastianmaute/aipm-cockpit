@@ -1,11 +1,12 @@
 import { beforeAll, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { TasksToolbar, type TasksToolbarProps } from "./tasks-section-toolbar";
 import { TestProviders } from "./test-providers";
 import { loadI18n, t, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { FILTER_ALL } from "./task-filters";
 
-function renderToolbar(lang: Lang) {
+function renderToolbar(lang: Lang, over: Partial<TasksToolbarProps> = {}) {
   const props: TasksToolbarProps = {
     lang,
     onAdd: vi.fn(),
@@ -27,7 +28,7 @@ function renderToolbar(lang: Lang) {
     setSearch: vi.fn(),
     priorityFilter: "All",
     setPriorityFilter: vi.fn(),
-    effectiveFilters: { assignee: "All", group: "All", label: "All" },
+    effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
     setAssigneeFilter: vi.fn(),
     setGroupFilter: vi.fn(),
     setLabelFilter: vi.fn(),
@@ -44,6 +45,7 @@ function renderToolbar(lang: Lang) {
     clearDisabled: false,
     resetColWidths: vi.fn(),
     resetTableSize: vi.fn(),
+    ...over,
   };
   render(<TasksToolbar {...props} />, { wrapper: TestProviders });
   return props;
@@ -72,5 +74,44 @@ describe("TasksToolbar — every filter option has its own name (§672)", () => 
     expectRowUniqueNames({ minControls: props.uniqueLabels.length + 1, scope: select("tasksLabelFilterHint"), roles: ["option"] });
     // The toolbar's six selects, measured; kept exact so a lost select fails here.
     expectRowUniqueNames({ minControls: 6, roles: ["combobox"] });
+  });
+});
+
+describe("TasksToolbar — a value named like a fixed option stays its own option (§676)", () => {
+  beforeAll(() => loadI18n("de"));
+
+  // Free text can read exactly like a fixed option: a group named "No group",
+  // a label named "All labels", an assignee named "No assignee" beside the
+  // blank one. Such a value is shown quoted, so no two options share a name,
+  // and a value named "All" no longer shares the "no filter" sentinel.
+  const seeded = (lang: Lang): Partial<TasksToolbarProps> => ({
+    uniqueAssignees: ["", t(lang, "assigneeNone"), "Ada"],
+    uniqueGroups: ["All", t(lang, "allGroups"), t(lang, "groupNone").toUpperCase()],
+    uniqueLabels: ["All", t(lang, "allLabels")],
+  });
+
+  test.each(["en-US", "de"] as const)("names every option distinctly and quotes the look-alikes in %s", (lang) => {
+    const props = renderToolbar(lang, seeded(lang));
+    const select = (key: "assigneeFilterHint" | "tasksGroupFilterHint" | "tasksLabelFilterHint") =>
+      screen.getByRole("combobox", { name: t(lang, key) });
+    expectRowUniqueNames({ minControls: props.uniqueAssignees.length + 1, scope: select("assigneeFilterHint"), roles: ["option"] });
+    expectRowUniqueNames({ minControls: props.uniqueGroups.length + 2, scope: select("tasksGroupFilterHint"), roles: ["option"] });
+    expectRowUniqueNames({ minControls: props.uniqueLabels.length + 1, scope: select("tasksLabelFilterHint"), roles: ["option"] });
+    const quoted = (v: string) => t(lang, "filterQuotedValue", v);
+    expect(screen.getByRole("option", { name: quoted(t(lang, "assigneeNone")) })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: quoted(t(lang, "allGroups")) })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: quoted(t(lang, "groupNone").toUpperCase()) })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: quoted(t(lang, "allLabels")) })).toBeInTheDocument();
+    // A value that only shares a word with a fixed option is left as it is.
+    expect(screen.getAllByRole("option", { name: "All" })).toHaveLength(2);
+  });
+
+  test("picking a group named All filters by it, and the fixed option still clears the filter", () => {
+    const props = renderToolbar("en-US", seeded("en-US"));
+    const groups = screen.getByRole("combobox", { name: t("en-US", "tasksGroupFilterHint") });
+    fireEvent.change(groups, { target: { value: "All" } });
+    expect(props.setGroupFilter).toHaveBeenLastCalledWith("All");
+    fireEvent.change(groups, { target: { value: FILTER_ALL } });
+    expect(props.setGroupFilter).toHaveBeenLastCalledWith(FILTER_ALL);
   });
 });

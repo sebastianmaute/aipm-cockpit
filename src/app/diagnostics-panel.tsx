@@ -10,7 +10,7 @@ import { DataTable } from "./data-table";
 import { reportSilentFailure } from "./guard-feedback";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { useToastContext } from "./toast-context";
 
 export function DiagnosticsPanel({ lang, splitPairs }: { lang: Lang; splitPairs?: number }) {
@@ -73,34 +73,18 @@ export function DiagnosticsPanel({ lang, splitPairs }: { lang: Lang; splitPairs?
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={`rounded-md border border-line px-3 py-1.5 text-sm ${INTERACTIVE}`}
-          onClick={refresh}
-        >
+        <Button variant="secondary" size="sm" onClick={refresh}>
           {t(lang, "diagnosticsRefresh")}
-        </button>
-        <button
-          type="button"
-          className={`rounded-md border border-line px-3 py-1.5 text-sm ${INTERACTIVE}`}
-          onClick={copy}
-        >
+        </Button>
+        <Button variant="secondary" size="sm" onClick={copy}>
           {t(lang, "diagnosticsCopyBundle")}
-        </button>
-        <button
-          type="button"
-          className={`rounded-md border border-line px-3 py-1.5 text-sm ${INTERACTIVE}`}
-          onClick={download}
-        >
+        </Button>
+        <Button variant="secondary" size="sm" onClick={download}>
           {t(lang, "diagnosticsDownloadBundle")}
-        </button>
-        <button
-          type="button"
-          className={`rounded-md border border-line px-3 py-1.5 text-sm ${INTERACTIVE}`}
-          onClick={clear}
-        >
+        </Button>
+        <Button variant="secondary" size="sm" onClick={clear}>
           {t(lang, "diagnosticsClear")}
-        </button>
+        </Button>
       </div>
       {events.length === 0 ? (
         <EmptyState title={t(lang, "diagnosticsEmpty")} compact />

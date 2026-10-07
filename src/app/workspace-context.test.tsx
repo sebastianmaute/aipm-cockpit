@@ -6,6 +6,8 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { FILTER_ALL } from "./task-filters";
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -160,7 +162,7 @@ describe("WorkspaceProvider", () => {
     );
 
     expect(result.current.ws.uniqueAssignees).toEqual(["Bob"]);
-    expect(result.current.ws.effectiveFilters.assignee).toBe("All");
+    expect(result.current.ws.effectiveFilters.assignee).toBe(FILTER_ALL);
     expect(result.current.ws.filteredSortedTasks).toHaveLength(2);
     // The raw choice is untouched, so restoring the tasks restores the filter.
     expect(result.current.filters.assigneeFilter).toBe("Alice");
@@ -190,9 +192,31 @@ describe("WorkspaceProvider", () => {
       ),
     );
 
-    expect(result.current.ws.effectiveFilters.group).toBe("All");
-    expect(result.current.ws.effectiveFilters.label).toBe("All");
+    expect(result.current.ws.effectiveFilters.group).toBe(FILTER_ALL);
+    expect(result.current.ws.effectiveFilters.label).toBe(FILTER_ALL);
     expect(result.current.ws.filteredSortedTasks).toHaveLength(1);
+  });
+
+  // §676: a group, label or assignee literally named "All" used to share the
+  // "no filter" sentinel, so picking it filtered nothing.
+  test("a group, label and assignee literally named All filter to their own rows", () => {
+    const { result } = renderHook(() => ({ ws: useWorkspace(), filters: useFilters() }), { wrapper });
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 1, group: "All", labels: ["All"], assignee: "All" }),
+        makeTask({ id: 2, group: "Build", labels: ["API"], assignee: "Ada" }),
+      ]),
+    );
+    for (const pick of [
+      () => result.current.filters.setGroupFilter("All"),
+      () => result.current.filters.setLabelFilter("All"),
+      () => result.current.filters.setAssigneeFilter("All"),
+    ]) {
+      act(() => result.current.filters.resetFilterValues());
+      expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([1, 2]);
+      act(pick);
+      expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([1]);
+    }
   });
 
   // The group <select> offers a permanent "No group" option, but uniqueGroups
@@ -534,7 +558,7 @@ describe("WorkspaceProvider", () => {
       );
       act(() => result.current.filters.setAssigneeFilter("Ext Ernal"));
 
-      expect(result.current.ws.effectiveFilters.assignee).toBe("All");
+      expect(result.current.ws.effectiveFilters.assignee).toBe(FILTER_ALL);
     });
   });
 
@@ -627,5 +651,59 @@ describe("WorkspaceProvider", () => {
       expect(result.current.documents).toBe(before);
       expect(result.current.documentVersions).toEqual([]);
     });
+  });
+});
+
+describe("setRaid keeps the cause graph acyclic (§674)", () => {
+  function raidItem(id: number, causedByRaidIds: number[]): import("./types").RaidItem {
+    return {
+      id, category: "R", title: `Item ${id}`, status: "Open",
+      linkedTaskIds: [], causedByRaidIds, stakeholderIds: [], raisedDate: "2026-01-01",
+    };
+  }
+
+  beforeEach(() => clearDiagLog());
+
+  // Every writer of RAID state goes through this setter: the AI tools, inline
+  // edit, import, load, template apply and undo. So the two call shapes they
+  // use, a value and an updater, are the two this pins.
+  test("breaks a cycle handed over as a value, and logs the dropped link", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [1])]));
+    expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
+    const entry = readDiagLog().find((e) => e.code === "raid.causeCycleBroken");
+    expect(entry?.fields).toEqual({ count: 1, links: "2 caused by 1", on: "write" });
+  });
+
+  // ★★ The write that closes the loop loses its NEW link; the stored link on
+  // item 2, which this write never touched, survives. Pinned in both call shapes.
+  test("refuses the link an updater adds, and keeps the stored one", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    act(() => result.current.setRaid([raidItem(1, []), raidItem(2, [1])]));
+    act(() => result.current.setRaid((prev) => prev.map((r) => (r.id === 1 ? { ...r, causedByRaidIds: [2] } : r))));
+    expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[], [1]]);
+  });
+
+  test("refuses the link a value adds, and keeps the stored one", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [])]));
+    act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [1])]));
+    expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
+    expect(readDiagLog().find((e) => e.code === "raid.causeCycleBroken")?.fields).toEqual({ count: 1, links: "2 caused by 1", on: "write" });
+  });
+
+  test("logs a broken cycle once under StrictMode, which runs the updater twice", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper, reactStrictMode: true });
+    act(() => result.current.setRaid([raidItem(1, []), raidItem(2, [1])]));
+    act(() => result.current.setRaid((prev) => prev.map((r) => (r.id === 1 ? { ...r, causedByRaidIds: [2] } : r))));
+    expect(readDiagLog().filter((e) => e.code === "raid.causeCycleBroken")).toHaveLength(1);
+  });
+
+  test("keeps an acyclic value as the same array and logs nothing", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    const items = [raidItem(1, []), raidItem(2, [1])];
+    act(() => result.current.setRaid(items));
+    expect(result.current.raid).toBe(items);
+    expect(readDiagLog().some((e) => e.code === "raid.causeCycleBroken")).toBe(false);
   });
 });

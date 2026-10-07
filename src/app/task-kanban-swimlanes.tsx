@@ -19,7 +19,7 @@ import type { JiraExtraProject } from "./settings-types";
 import type { ProjectDocument } from "./document-model";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 
 interface TaskKanbanSwimlanesProps {
@@ -186,15 +186,16 @@ export function TaskKanbanSwimlanes({
             >
               <span className="truncate">{laneLabel}</span>
               {canRemove && (
-                <button
-                  type="button"
+                <IconButton
+                  size="xs"
+                  variant="danger"
                   onClick={() => onRemoveLane(lane.resourceId!)}
-                  aria-label={rowLabel(t(lang, "swimlaneRemoveLane"), laneToken)}
+                  label={rowLabel(t(lang, "swimlaneRemoveLane"), laneToken)}
                   title={t(lang, "swimlaneRemoveLane")}
-                  className={`shrink-0 rounded p-0.5 text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
+                  className="shrink-0"
                 >
                   <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
-                </button>
+                </IconButton>
               )}
             </div>
             {TASK_STATUSES.map((status) => {

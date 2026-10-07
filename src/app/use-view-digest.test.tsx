@@ -9,6 +9,7 @@ import { saveProjectAppearance } from "./project-appearance-prefs";
 import type { ProjectAppearancePref } from "./project-appearance-prefs";
 import type { Settings, SettingsOverrides } from "./settings-types";
 import type { Resource, Task } from "./types";
+import { FILTER_ALL } from "./task-filters";
 
 function task(id: number, name: string, over: Partial<Task> = {}): Task {
   return {
@@ -44,7 +45,7 @@ function input(over: Partial<ViewDigestInput> = {}): ViewDigestInput {
     view: "open-points",
     tasks,
     filteredSortedTasks: tasks,
-    effectiveFilters: { assignee: "All", group: "All", label: "All" },
+    effectiveFilters: { assignee: FILTER_ALL, group: FILTER_ALL, label: FILTER_ALL },
     resources: [],
     budgets: [],
     milestones: [],

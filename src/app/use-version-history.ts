@@ -14,6 +14,7 @@ import { applyRestore } from "./version-restore";
 import type { RestoreSelection } from "./version-restore";
 import type { TursoConfig } from "./turso-config";
 import { logDiag } from "./diagnostics";
+import { repairLoadedRaid } from "./raid-cause-repair";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
 import { readCaptureFormat, speaksForEmptySlices, stampCaptureFormat } from "./version-capture-format";
 
@@ -272,7 +273,12 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       const now = jsonToWorkspace(getPayload());
       const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
       const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
-      const restored = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
+      // §674: a version saved before the cause-cycle guard can hold a loop. Repair it
+      // here, as a load (it has no before-image either), and log it; handed to the
+      // setter raw it would be broken against the CURRENT state and logged as a write.
+      // Before the capture, so the auto version records what the app then holds.
+      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
+      const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);

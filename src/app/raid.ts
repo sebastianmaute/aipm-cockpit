@@ -180,6 +180,82 @@ export function wouldCreateCycle(
   return false;
 }
 
+export interface CauseCycleBreak {
+  /** The input array itself when nothing had to go, else a copy. */
+  items: readonly RaidItem[];
+  /** Each cause link that was removed, as child → parent. */
+  dropped: { childId: number; parentId: number }[];
+}
+
+/**
+ * Removes the cause links that close a loop, so the stored cause graph stays
+ * acyclic whichever path wrote it (§674). The edit modal refuses a cycle, but
+ * the AI tools, inline edit, import, load and template apply all write
+ * `causedByRaidIds` directly.
+ *
+ * ★★ With `prior` (the array before this write), every link `prior` already
+ * held is admitted FIRST, so the link that goes is one THIS write introduced.
+ * The write is refused, never an older link on a row the writer did not touch:
+ * that would delete stored data an undo of the write cannot bring back, since
+ * an undo restores only the rows the write edited.
+ *
+ * Within each round links are admitted in ascending item id, each item's in its
+ * stored order; a link is dropped when it would close a loop over the links
+ * already admitted. Without `prior` (a load, which has no before-image), the
+ * lower id in a two-item loop therefore keeps its cause. A link to an id no
+ * item carries is kept: dangling links are not a cycle.
+ *
+ * Returns the input array unchanged (same reference) when nothing is dropped,
+ * so a guard on a state setter costs no re-render.
+ */
+export function breakCauseCycles(items: readonly RaidItem[], prior?: readonly RaidItem[]): CauseCycleBreak {
+  const ids = new Set(items.map((r) => r.id));
+  const linkKey = (childId: number, parentId: number) => `${childId}:${parentId}`;
+  const priorLinks = new Set<string>();
+  for (const r of prior ?? []) for (const p of r.causedByRaidIds ?? []) priorLinks.add(linkKey(r.id, p));
+  const admitted = new Map<number, number[]>();
+  const reaches = (from: number, target: number): boolean => {
+    const seen = new Set<number>();
+    const stack = [from];
+    while (stack.length > 0) {
+      const cursor = stack.pop() as number;
+      if (cursor === target) return true;
+      if (seen.has(cursor)) continue;
+      seen.add(cursor);
+      for (const p of admitted.get(cursor) ?? []) stack.push(p);
+    }
+    return false;
+  };
+  const dropped: CauseCycleBreak["dropped"] = [];
+  const droppedKeys = new Set<string>();
+  const sorted = [...items].sort((a, b) => a.id - b.id);
+  // Round one admits the links `prior` held, round two the rest.
+  for (const fromPrior of [true, false]) {
+    for (const r of sorted) {
+      for (const parentId of r.causedByRaidIds ?? []) {
+        const key = linkKey(r.id, parentId);
+        if (priorLinks.has(key) !== fromPrior) continue;
+        if (ids.has(parentId) && reaches(parentId, r.id)) {
+          dropped.push({ childId: r.id, parentId });
+          droppedKeys.add(key);
+          continue;
+        }
+        admitted.set(r.id, [...(admitted.get(r.id) ?? []), parentId]);
+      }
+    }
+  }
+  if (dropped.length === 0) return { items, dropped };
+  const changed = new Set(dropped.map((d) => d.childId));
+  return {
+    items: items.map((r) =>
+      changed.has(r.id)
+        ? { ...r, causedByRaidIds: (r.causedByRaidIds ?? []).filter((p) => !droppedKeys.has(linkKey(r.id, p))) }
+        : r,
+    ),
+    dropped,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Column comparator — backs sortable RAID table headers.
 // ---------------------------------------------------------------------------

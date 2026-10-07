@@ -23,6 +23,7 @@ import {
 import { useDebounce } from "./use-debounce";
 import { type Priority } from "./types";
 import { type HealthFilter } from "./health";
+import { FILTER_ALL } from "./task-filters";
 
 export type SortKey =
   | "id"
@@ -110,9 +111,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [priorityFilter, setPriorityFilter] = useState<Priority | "All">("All");
-  const [assigneeFilter, setAssigneeFilter] = useState("All");
-  const [groupFilter, setGroupFilter] = useState("All");
-  const [labelFilter, setLabelFilter] = useState("All");
+  const [assigneeFilter, setAssigneeFilter] = useState(FILTER_ALL);
+  const [groupFilter, setGroupFilter] = useState(FILTER_ALL);
+  const [labelFilter, setLabelFilter] = useState(FILTER_ALL);
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -125,9 +126,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setSearch("");
     setSearchDebouncedOverride(null);
     setPriorityFilter("All");
-    setAssigneeFilter("All");
-    setGroupFilter("All");
-    setLabelFilter("All");
+    setAssigneeFilter(FILTER_ALL);
+    setGroupFilter(FILTER_ALL);
+    setLabelFilter(FILTER_ALL);
     setHealthFilter("all");
     setRaidFilterTaskId(null);
     setChangeFilterTaskId(null);

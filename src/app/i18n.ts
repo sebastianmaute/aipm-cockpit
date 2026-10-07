@@ -1708,6 +1708,10 @@ const enUS = {
   groupNone: "No group",
   assigneeNone: "No assignee",
   allLabels: "All labels",
+  // Footer of an exported Word file (§512 b): {0} is the page number, {1} the page count.
+  exportDocxPageOf: "Page {0} of {1}",
+  // A filter option whose free-text value reads like a fixed option ("No group"), shown quoted (§676).
+  filterQuotedValue: "“{0}”",
   allHealth: "All health",
   healthFilterLabel: "Health",
   healthFilterHint: "Show only tasks with the selected health rating.",

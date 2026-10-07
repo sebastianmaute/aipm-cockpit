@@ -90,6 +90,7 @@ import {
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
+import { guardRaidWrite } from "./raid-cause-repair";
 import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -295,12 +296,16 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const item = sanitized.raisedDate
           ? sanitized
           : { ...sanitized, raisedDate: clockRef.current.today };
-        const next = [...raidRef.current, item];
+        // ★★ §674: run the cycle guard here too, against the pre-op array, so the
+        // model is told the links that were STORED, not the ones it asked for.
+        // `guardRaidWrite` logs the refusal: `setRaid` will find nothing to drop.
+        const next = guardRaidWrite([...raidRef.current, item], raidRef.current);
+        const stored = next.find((r) => r.id === id) ?? item;
         raidRef.current = next;
         setRaid(next);
         // THREE args — "RAID #{0} created ({1}): {2}".
         logActivityAs?.("ai", "raid.created", item.id, item.category, item.title);
-        return toRaidSummary(item);
+        return toRaidSummary(stored);
       },
       updateRaid: (id, patch) => {
         if (isReadOnly) throw readOnlyError();
@@ -334,7 +339,15 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         if (!merged) throw new Error("invalid RAID item update");
         // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
-        const next = raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r));
+        // ★★ §674: the cycle guard runs here against the pre-op array, so a link
+        // that would close a loop is refused on THIS row and the summary reports
+        // what was stored. `setRaid` runs it again and finds nothing to drop,
+        // so `guardRaidWrite` logs the refusal here.
+        const next = guardRaidWrite(
+          raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r)),
+          raidRef.current,
+        );
+        const stored = next.find((r) => r.id === id) ?? merged;
         // `existing` is the STORED row and `raidRef.current` the PRE-op array —
         // both read ABOVE the reassignment on the next line. Capturing `merged`
         // would store the NEW values as the "before" image, making undo a
@@ -354,7 +367,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         raidRef.current = next;
         setRaid(next);
         logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
-        return toRaidSummary(merged);
+        return toRaidSummary(stored);
       },
       // ★★★ APPEND-ONLY (§515) — the one AI path that writes `escalations`. It
       //  ADDS one entry through the SAME pure builders the Escalate CTA uses, so

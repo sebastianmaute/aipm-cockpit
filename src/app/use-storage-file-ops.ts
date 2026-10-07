@@ -10,6 +10,7 @@
 // state, refs, the load/save effects, and the shared helpers passed in via deps.
 import type React from "react";
 import { logDiag } from "./diagnostics";
+import { repairLoadedRaid } from "./raid-cause-repair";
 import { whenSaved } from "./save-queue";
 import type { Lang } from "./i18n";
 import { t, tPlural } from "./i18n";
@@ -860,7 +861,10 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // never reaches this line, which is exactly the false drop the narrow predicate avoids.
         deps.bumpScopeEpoch();
         deps.setTasks(loaded.tasks);
-        deps.setRaid(loaded.raid);
+        // §674: repair a cause loop by the FILE's own graph. Handed to the setter
+        // raw, the outgoing project's links (whose ids collide) would decide which
+        // link of the loop survives, and the log would call it a refused write.
+        deps.setRaid(repairLoadedRaid(loaded.raid));
         // NOTE: absences and shifts intentionally NOT restored here —
         // faithful extraction of original behavior (not a bug fix).
         await deps.refreshBackendStatus();

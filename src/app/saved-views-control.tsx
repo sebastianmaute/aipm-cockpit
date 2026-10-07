@@ -8,6 +8,7 @@ import { useSavedViews } from "./use-saved-views";
 import { type SavedView, type SavedViewPayload } from "./saved-views";
 import { SavedViewsMenu } from "./saved-views-menu";
 import { useSettings } from "./use-settings";
+import { upgradeStoredFilter } from "./task-filters";
 
 interface SavedViewsControlProps {
   lang: Lang;
@@ -39,9 +40,10 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols, dataTourId 
   function applyView(v: SavedView) {
     f.setSearchImmediate(v.payload.search);
     f.setPriorityFilter(v.payload.priorityFilter);
-    f.setAssigneeFilter(v.payload.assigneeFilter);
-    f.setGroupFilter(v.payload.groupFilter);
-    f.setLabelFilter(v.payload.labelFilter);
+    // A view saved before §676 holds the old "All" sentinel.
+    f.setAssigneeFilter(upgradeStoredFilter(v.payload.assigneeFilter));
+    f.setGroupFilter(upgradeStoredFilter(v.payload.groupFilter));
+    f.setLabelFilter(upgradeStoredFilter(v.payload.labelFilter));
     // Default a stale/absent health filter to "all" so applying a view saved
     // without one clears a leftover RAG filter instead of silently keeping it.
     f.setHealthFilter(v.payload.healthFilter ?? "all");

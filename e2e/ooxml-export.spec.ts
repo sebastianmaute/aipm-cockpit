@@ -44,14 +44,26 @@ test("the Word export downloads a package with the landscape docx parts", async 
   await gotoApp(page);
   const parts = await download(page, "Word (.docx)");
   const names = [...parts.keys()];
-  // Every part of the baseline package, plus only content-driven ones: the seeded
-  // descriptions hold lists, and Word lists bring a numbering part (§154).
+  // Every part of the baseline package, plus only two kinds of extra: content-driven
+  // ones (the seeded descriptions hold lists, and Word lists bring a numbering part,
+  // §154) and the page header and footer every export carries, with the header's
+  // rels and the logo only when a brand logo is set (§512).
   for (const p of paths("docxLandscape")) expect(names, `missing part ${p}`).toContain(p);
   const extra = names.filter((n) => !paths("docxLandscape").includes(n));
-  expect(extra.filter((n) => n !== "word/numbering.xml")).toEqual([]);
+  const allowed = (n: string) =>
+    ["word/numbering.xml", "word/header1.xml", "word/footer1.xml", "word/_rels/header1.xml.rels"].includes(n) ||
+    /^word\/media\/brand-logo\.[a-z]+$/.test(n);
+  expect(extra.filter((n) => !allowed(n))).toEqual([]);
+  const types = text(parts.get("[Content_Types].xml"));
+  const rels = text(parts.get("word/_rels/document.xml.rels"));
   if (extra.includes("word/numbering.xml")) {
-    expect(text(parts.get("[Content_Types].xml"))).toContain('PartName="/word/numbering.xml"');
-    expect(text(parts.get("word/_rels/document.xml.rels"))).toContain('Target="numbering.xml"');
+    expect(types).toContain('PartName="/word/numbering.xml"');
+    expect(rels).toContain('Target="numbering.xml"');
+  }
+  for (const p of ["header1.xml", "footer1.xml"]) {
+    expect(names, `missing part word/${p}`).toContain(`word/${p}`);
+    expect(types).toContain(`PartName="/word/${p}"`);
+    expect(rels).toContain(`Target="${p}"`);
   }
   // The body really carries the workspace, not an empty shell.
   const body = text(parts.get("word/document.xml"));

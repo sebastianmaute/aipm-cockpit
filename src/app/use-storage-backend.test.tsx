@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
 import { t, type Lang, tPlural } from "./i18n";
-import type { Task } from "./types";
+import type { RaidItem, Task } from "./types";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 import type { DocumentAsset } from "./document-asset";
@@ -1449,6 +1449,25 @@ describe("useStorageBackend — broadcast send gating", () => {
     await act(async () => { await result.current.reloadCurrentProject(); });
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
     expect(unrecorded()).toEqual([]);
+  });
+
+  // §674 × §644 — a stored cause cycle is repaired on load. The REPAIRED array is the one
+  // recorded as loaded; recording the raw one made tab sync send the repair out as an edit,
+  // which overwrote other windows' unsaved RAID edits.
+  it("records the repaired RAID array of a load that held a cause cycle as loaded (§674)", async () => {
+    const raidRow = (id: number, causedByRaidIds: number[]) => ({ id, category: "R", title: `R${id}`, status: "Open", linkedTaskIds: [], causedByRaidIds, stakeholderIds: [], raisedDate: "2026-01-01" });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [raidRow(1, [2]), raidRow(2, [1])] as unknown as RaidItem[], absences: [], shifts: [] });
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    const ctx = syncContexts()[0];
+    if (ctx.role !== "main") throw new Error("expected a main context");
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
+    expect(ctx.isLoadedValue(result.current.raid)).toBe(true);
+    // The setter has nothing left to drop, so the load logs the repair itself.
+    // (`./diagnostics` is mocked in this file, so the call list is the ring.)
+    const { logDiag } = await import("./diagnostics");
+    const calls = vi.mocked(logDiag as (...a: unknown[]) => void).mock.calls.filter((c) => c[1] === "raid.causeCycleBroken");
+    expect(calls.map((c) => c[2])).toEqual([{ count: 1, links: "2 caused by 1", on: "load" }]);
   });
 });
 

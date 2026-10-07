@@ -25,7 +25,7 @@ export interface DigestInput {
    *  filter state (an orphaned filter can point at a value no task carries
    *  any more; `effectiveFilters` is what the table and the <select>s both
    *  actually apply, see AGENTS.md "Orphaned list filters"). Sentinel for
-   *  "no filter" is the shared `FILTER_ALL` ("All"). */
+   *  "no filter" is the shared `FILTER_ALL` (" (all)" since §676). */
   filters?: TaskFilterValues;
   /** ★★★ EVERY OTHER NARROWING THE PANE APPLIES, already rendered as text.
    *  `TaskFilterValues` is ONLY {assignee, group, label} — but the Open Points

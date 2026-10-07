@@ -6,6 +6,7 @@ import {
   makeDispatcherArgs,
 } from "../test/chat-dispatcher-fixture";
 import { type ToolDispatcher } from "./chat-tools";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { addNote } from "./note-log";
 import { type TestSeed } from "./test-providers";
@@ -1048,5 +1049,58 @@ describe("capturing a create would duplicate the row", () => {
     expect(after.map((row) => row.id)).toEqual([4, 1, 2, 3]);
     // …and the duplicate is a duplicate: TWO rows now carry the created name.
     expect(after.filter((row) => row.taskName === "Third").map((row) => row.id)).toEqual([4, 3]);
+  });
+});
+
+describe("an AI write that would close a RAID cause cycle (§674)", () => {
+  // The guard refuses the NEW link on the row the AI edited, and keeps the
+  // stored link on the row it never touched. Dropping the stored one instead
+  // would lose data this undo cannot restore: it restores only the edited row.
+  const CYCLE_SEED: TestSeed = {
+    ...SEED,
+    raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), causedByRaidIds: [1] }],
+  };
+
+  // The tool breaks the loop before `setRaid`, so the setter has nothing to drop:
+  // the diagnostics line has to come from the tool itself.
+  const cycleLog = () => readDiagLog().filter((e) => e.code === "raid.causeCycleBroken").map((e) => e.fields);
+  beforeEach(() => clearDiagLog());
+
+  test("keeps the stored link, refuses the new one, and one undo restores everything", () => {
+    const { result } = renderRealUndo(CYCLE_SEED);
+    // ★ Read back INSIDE the act, before any re-render: a later tool call in the
+    // same model turn reads the tool layer's own copy, which a re-render would
+    // resync from state and so hide a tool that skipped the guard.
+    let sameTurn: readonly number[] | undefined;
+    act(() => {
+      result.current.dispatcher.updateRaid(1, { title: "R1 edited", causedByRaidIds: [2] });
+      sameTurn = result.current.dispatcher.getRaidRow(1)?.causedByRaidIds;
+    });
+    expect(sameTurn).toEqual([]);
+    expect(cycleLog()).toEqual([{ count: 1, links: "1 caused by 2", on: "write" }]);
+    expect(result.current.dispatcher.getRaidRow(1)?.title).toBe("R1 edited");
+    expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(1)?.title).toBe("R1");
+    expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
+  });
+
+  test("createRaid refuses a new cause link that closes a loop through an existing dangling link", () => {
+    // Item 2 already names a cause id no item carries yet; the create mints that id
+    // (max+1 over the seed, deterministic because of the file's beforeEach).
+    const { result } = renderRealUndo({ ...SEED, raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), causedByRaidIds: [3] }] });
+    let created: { id: number } | null = null;
+    let sameTurn: readonly number[] | undefined;
+    act(() => {
+      created = result.current.dispatcher.createRaid({ category: "R", title: "R3", status: "Open", causedByRaidIds: [2] });
+      sameTurn = created ? result.current.dispatcher.getRaidRow(created.id)?.causedByRaidIds : undefined;
+    });
+    expect(created).toMatchObject({ id: 3 });
+    expect(sameTurn).toEqual([]);
+    expect(cycleLog()).toEqual([{ count: 1, links: "3 caused by 2", on: "write" }]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([3]);
   });
 });

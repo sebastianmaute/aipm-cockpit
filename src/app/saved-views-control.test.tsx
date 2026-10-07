@@ -5,6 +5,7 @@ import { FiltersProvider, useFilters } from "./filters-context";
 import { SavedViewsControl } from "./saved-views-control";
 import { loadSavedViews, saveSavedViews, type SavedViewPayload } from "./saved-views";
 import { SETTINGS_KEY } from "./use-settings";
+import { FILTER_ALL } from "./task-filters";
 
 function basePayload(overrides: Partial<SavedViewPayload> = {}): SavedViewPayload {
   return {
@@ -70,7 +71,7 @@ describe("SavedViewsControl", () => {
     expect(mine?.payload.hiddenCols).toContain("estimate");
     expect(mine?.payload.search).toBe("");
     expect(mine?.payload.priorityFilter).toBe("All");
-    expect(mine?.payload.assigneeFilter).toBe("All");
+    expect(mine?.payload.assigneeFilter).toBe(FILTER_ALL);
     expect(mine?.payload.sortKey).toBe("id");
     expect(mine?.payload.sortDir).toBe("asc");
   });
@@ -86,6 +87,31 @@ describe("SavedViewsControl", () => {
     });
 
     expect(setHiddenCols).toHaveBeenCalledWith(new Set(["spent"]));
+  });
+
+  // A view saved before §676 stored the old "All" sentinel; it must still mean
+  // "no filter", or every such view would start hiding all rows.
+  it("reads a view saved with the pre-§676 \"All\" sentinel as no filter", () => {
+    saveSavedViews([{ id: 1, name: "Old", payload: basePayload() }]);
+    expect(loadSavedViews()[0].payload.groupFilter).toBe("All");
+    function Probe() {
+      const f = useFilters();
+      const narrow = () => { f.setAssigneeFilter("Ada"); f.setGroupFilter("Build"); f.setLabelFilter("API"); };
+      return (<>
+        <button onClick={narrow}>narrow</button>
+        <span data-testid="tf">{JSON.stringify([f.assigneeFilter, f.groupFilter, f.labelFilter])}</span>
+      </>);
+    }
+    render(
+      <FiltersProvider>
+        <SavedViewsControl lang="en-US" hiddenCols={new Set()} setHiddenCols={vi.fn()} />
+        <Probe />
+      </FiltersProvider>,
+    );
+    fireEvent.click(screen.getByText("narrow"));
+    expect(JSON.parse(screen.getByTestId("tf").textContent ?? "")).toEqual(["Ada", "Build", "API"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Apply a saved view" }), { target: { value: "1" } });
+    expect(JSON.parse(screen.getByTestId("tf").textContent ?? "")).toEqual([FILTER_ALL, FILTER_ALL, FILTER_ALL]);
   });
 
   it("deletes the selected view", () => {

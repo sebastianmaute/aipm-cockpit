@@ -18,7 +18,7 @@ import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import type { HealthFilter } from "./health";
 import type { Settings } from "./settings-types";
-import type { TaskFilterValues } from "./task-filters";
+import { FILTER_ALL, type TaskFilterValues } from "./task-filters";
 import { SavedViewsControl } from "./saved-views-control";
 import { INTERACTIVE } from "./interaction-styles";
 import { ColumnConfigPopover } from "./column-config-popover";
@@ -97,6 +97,12 @@ export function TasksToolbar({
   healthFilter, setHealthFilter, hiddenCols, setHiddenCols, calendarControls, onClearAll, clearDisabled,
   resetColWidths, resetTableSize,
 }: TasksToolbarProps) {
+  // A value found on the tasks is free text, so it can read exactly like one
+  // of the select's fixed options ("No group", "All labels"); it is then shown
+  // in quotes so the two options do not share a name (§676).
+  const fold = (s: string) => s.trim().toLocaleLowerCase();
+  const optionName = (value: string, fixed: readonly TranslationKey[]) =>
+    fixed.some((key) => fold(t(lang, key)) === fold(value)) ? t(lang, "filterQuotedValue", value) : value;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <AddButton
@@ -184,10 +190,12 @@ export function TasksToolbar({
         onChange={(e) => setAssigneeFilter(e.target.value)}
         title={t(lang, "assigneeFilterHint")}
       >
-        <option value="All">{t(lang, "allAssignees")}</option>
+        <option value={FILTER_ALL}>{t(lang, "allAssignees")}</option>
         {/* uniqueAssignees KEEPS blanks, so label the unassigned option (value stays ""). */}
         {uniqueAssignees.map((a) => (
-          <option key={a} value={a}>{a === "" ? t(lang, "assigneeNone") : a}</option>
+          <option key={a} value={a}>
+            {a === "" ? t(lang, "assigneeNone") : optionName(a, ["allAssignees", "assigneeNone"])}
+          </option>
         ))}
       </Select>
       <Select
@@ -196,11 +204,11 @@ export function TasksToolbar({
         onChange={(e) => setGroupFilter(e.target.value)}
         title={t(lang, "tasksGroupFilterHint")}
       >
-        <option value="All">{t(lang, "allGroups")}</option>
+        <option value={FILTER_ALL}>{t(lang, "allGroups")}</option>
         <option value="">{t(lang, "groupNone")}</option>
         {uniqueGroups.map((g) => (
           <option key={g} value={g}>
-            {g}
+            {optionName(g, ["allGroups", "groupNone"])}
           </option>
         ))}
       </Select>
@@ -210,10 +218,10 @@ export function TasksToolbar({
         onChange={(e) => setLabelFilter(e.target.value)}
         title={t(lang, "tasksLabelFilterHint")}
       >
-        <option value="All">{t(lang, "allLabels")}</option>
+        <option value={FILTER_ALL}>{t(lang, "allLabels")}</option>
         {uniqueLabels.map((l) => (
           <option key={l} value={l}>
-            {l}
+            {optionName(l, ["allLabels"])}
           </option>
         ))}
       </Select>

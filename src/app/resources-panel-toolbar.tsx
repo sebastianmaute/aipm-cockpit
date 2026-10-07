@@ -14,7 +14,9 @@ import { Input } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import { TableFilter } from "./report-table";
 import type { PlanGranularity } from "./types";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
+import { IconButton } from "./icon-button";
+import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
 interface PlanningToolbarProps {
   lang: Lang;
@@ -152,38 +154,32 @@ export function CalendarToolbar({
       />
       {calendarMode !== "custom" && (
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label={t(lang, "calendarPrev")}
+          <IconButton
+            variant="bordered"
+            size="md"
+            label={t(lang, "calendarPrev")}
             title={t(lang, "calendarPrev")}
             onClick={onCalendarPrev}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
-            ◀
-          </button>
+            <ChevronLeftIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          </IconButton>
           <span className="min-w-[8rem] text-center font-medium text-foreground tabular-nums">
             {calendarMode === "week"
               ? shortDateRangeIso(winStartDate, winEndDate, lang)
               : new Date(`${winStartDate}T00:00:00Z`).toLocaleDateString(localeFor(lang), { month: "long", year: "numeric", timeZone: "UTC" })}
           </span>
-          <button
-            type="button"
-            aria-label={t(lang, "calendarNext")}
+          <IconButton
+            variant="bordered"
+            size="md"
+            label={t(lang, "calendarNext")}
             title={t(lang, "calendarNext")}
             onClick={onCalendarNext}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
-            ▶
-          </button>
-          <button
-            type="button"
-            aria-label={t(lang, "calendarToday")}
-            title={t(lang, "calendarToday")}
-            onClick={onCalendarToday}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-          >
+            <ChevronRightIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          </IconButton>
+          <Button variant="secondary" size="xs" title={t(lang, "calendarToday")} onClick={onCalendarToday}>
             {t(lang, "calendarToday")}
-          </button>
+          </Button>
         </div>
       )}
       {calendarMode === "custom" && (
@@ -208,15 +204,9 @@ export function CalendarToolbar({
               onChange={(e) => onCalendarTo(e.target.value)}
             />
           </label>
-          <button
-            type="button"
-            aria-label={t(lang, "calendarToday")}
-            title={t(lang, "calendarToday")}
-            onClick={onCalendarCustomToday}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-          >
+          <Button variant="secondary" size="xs" title={t(lang, "calendarToday")} onClick={onCalendarCustomToday}>
             {t(lang, "calendarToday")}
-          </button>
+          </Button>
         </div>
       )}
       <div className="ml-auto flex items-center gap-2">

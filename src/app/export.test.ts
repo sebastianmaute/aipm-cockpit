@@ -20,6 +20,7 @@ import type { Task, RaidItem, Milestone, ProjectMeta } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { t } from "./i18n";
 import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
+import { unzipBytes } from "../test/unzip-bytes";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers (shared with export-sections.test.ts style)
@@ -699,6 +700,23 @@ describe("exportWorkspace — browser print tab carries the CSP nonce (§468)", 
 
     expect(tab.html).toContain(`<style nonce="${NONCE}">`);
     expect(tab.html).not.toContain("<script");
+  });
+
+  // §512 b — the workspace export's Word file carries the branded header and footer.
+  it("gives the workspace .docx the project name in its header and page numbers in its footer", async () => {
+    const blobs: Blob[] = [];
+    // A subclass, not a plain object: the Word path also constructs URLs.
+    class CapturingUrl extends URL {
+      static createObjectURL = vi.fn((b: Blob) => { blobs.push(b); return "blob:x"; });
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", CapturingUrl);
+    const ws = { ...makeBaseWorkspace(), project: { name: "Harbour build", code: "HB" } as ProjectMeta };
+    await exportWorkspace(ws, "docx", defaultExportConfig, "en-US");
+    expect(blobs).toHaveLength(1);
+    const zip = await unzipBytes(blobs[0]);
+    expect(new TextDecoder().decode(zip.get("word/header1.xml"))).toContain("Harbour build");
+    expect(new TextDecoder().decode(zip.get("word/footer1.xml"))).toContain(t("en-US", "exportDocxPageOf").split("{0}")[0]);
   });
 
   it("never writes the live page's nonce into the popup-blocked fallback file", async () => {

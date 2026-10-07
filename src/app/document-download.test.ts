@@ -26,6 +26,8 @@ import { t } from "./i18n";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { ProjectMeta } from "./types";
+import { SETTINGS_KEY } from "./use-settings";
 import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
 vi.mock("./download", async (importOriginal) => {
@@ -320,6 +322,21 @@ describe("downloadDocument", () => {
     expect(downloads()[0][1].type).toBe(DOCX_MIME);
     expect(downloads()[1][0]).toMatch(/\.pptx$/);
     expect(downloads()[1][1].type).toBe(PPTX_MIME);
+  });
+
+  // §512 b — the Word file carries the project name, the device's logo and page numbers.
+  it("gives a .docx the branded header and footer, logo read from the stored settings", async () => {
+    const PNG_2x1 = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 2, 0, 0, 0, 1, 8, 6, 0, 0, 0]);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ branding: { logo: `data:image/png;base64,${btoa(String.fromCharCode(...PNG_2x1))}` } }));
+    try {
+      await downloadDocument(doc, "docx", { ...ws, project: { name: "Harbour build", code: "HB" } as ProjectMeta }, "en-US");
+    } finally {
+      localStorage.removeItem(SETTINGS_KEY);
+    }
+    const zip = await unzipBytes(downloads()[0][1]);
+    expect(new TextDecoder().decode(zip.get("word/header1.xml"))).toContain("Harbour build");
+    expect(zip.has("word/media/brand-logo.png")).toBe(true);
+    expect(new TextDecoder().decode(zip.get("word/footer1.xml"))).toContain('w:instr="NUMPAGES"');
   });
 
   it("opens a print tab for pdf, writes the auto-printing HTML, and downloads nothing", async () => {
