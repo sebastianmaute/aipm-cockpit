@@ -97,8 +97,12 @@ test.describe("eye-verify kit, batch 16", () => {
   test("§41 the task editor: create-RAID and new-linked-task on one row", async ({ page }) => {
     await open(page);
     await openView(page, "Open Points");
-    await page.getByRole("button", { name: /click to edit/ }).first().click();
-    await expect(page.getByRole("dialog").first()).toBeVisible();
+    // Task #3, not the first row: #1 is Jira-synced and read-only. Scroll the
+    // two buttons into the frame — they sit below the fields (eye check, batch 17).
+    await page.getByRole("button", { name: /^#3 — click to edit/ }).first().click();
+    const dialog = page.getByRole("dialog").first();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "+ New linked task", exact: true }).scrollIntoViewIfNeeded();
     await shoot(page, "08-task-editor");
   });
 

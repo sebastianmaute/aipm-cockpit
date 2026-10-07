@@ -58,10 +58,13 @@ interface TaskEditorExtrasProps {
 
 /**
  * The task editor's extra actions: the create-RAID mini-form and the
- * new-linked-task button, on ONE row. `flex-wrap` is what handles the RAID
- * mini expanding in place into a wide category+title form — the linked-task
- * button then drops to the next line on its own. Do NOT reach into the
- * mini's `open` state to size this row — the parent has no business knowing.
+ * new-linked-task button, on ONE row. The button is the mini's `trailing`
+ * slot, so it lands in whichever row the mini shows: beside the toggle when
+ * collapsed, after Add in the bottom-aligned form row when open (with
+ * `flex-wrap` dropping it to the next line when the form is wide). It used to
+ * sit after the whole mini in an `items-start` row, level with the form's
+ * labels (eye check, batch 17). Do NOT reach into the mini's `open` state
+ * to place it — the parent has no business knowing.
  * Rendered below the fields in the modal editor; caller gates on `!isPopout`.
  */
 export function TaskEditorExtras({
@@ -71,12 +74,16 @@ export function TaskEditorExtras({
   onNewLinkedTask,
 }: TaskEditorExtrasProps) {
   return (
-    <div className="flex flex-wrap items-start gap-2">
-      <TaskEditorRaidMini lang={lang} onAdd={onAddRaid} pending={pendingRaid} />
-      <Button variant="secondary" size="sm" onClick={onNewLinkedTask}>
-        {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
-      </Button>
-    </div>
+    <TaskEditorRaidMini
+      lang={lang}
+      onAdd={onAddRaid}
+      pending={pendingRaid}
+      trailing={
+        <Button variant="secondary" size="sm" onClick={onNewLinkedTask}>
+          {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
+        </Button>
+      }
+    />
   );
 }
 

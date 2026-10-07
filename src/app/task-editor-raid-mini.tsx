@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { Input, Select } from "./form-controls";
 import { RAID_CATEGORIES, type RaidCategory } from "./types";
@@ -20,6 +19,10 @@ export interface TaskEditorRaidMiniProps {
   onAdd: (spec: RaidSpec) => void;
   /** Create-mode staged specs (buffered until the parent id exists). */
   pending: readonly RaidSpec[];
+  /** Rendered at the end of whichever row is showing: beside the toggle when
+   *  collapsed, after Add in the bottom-aligned form row when open. The caller
+   *  never needs to know which. */
+  trailing?: ReactNode;
 }
 
 /**
@@ -28,7 +31,7 @@ export interface TaskEditorRaidMiniProps {
  * title. Renders the pending (buffered) specs so create-mode staging is visible.
  * Pure surface — the parent owns validation (sanitizeRaidItem) and persistence.
  */
-export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniProps) {
+export function TaskEditorRaidMini({ lang, onAdd, pending, trailing }: TaskEditorRaidMiniProps) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<RaidCategory>("R");
   const [title, setTitle] = useState("");
@@ -43,13 +46,12 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
   return (
     <div className="space-y-2">
       {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
-        >
-          {`+ ${t(lang, "taskEditorCreateRaid")}`}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+            {`+ ${t(lang, "taskEditorCreateRaid")}`}
+          </Button>
+          {trailing}
+        </div>
       ) : (
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -87,6 +89,7 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
           <Button size="sm" onClick={handleAdd}>
             {t(lang, "add")}
           </Button>
+          {trailing}
         </div>
       )}
       {pending.length > 0 && (

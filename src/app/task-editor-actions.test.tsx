@@ -132,6 +132,35 @@ describe("TaskEditorExtras", () => {
     expect(row?.contains(linkedTaskButton)).toBe(true);
   });
 
+  // Eye check, batch 17: with the RAID form open, the linked-task button sat
+  // level with the form's LABELS (`items-start` on the outer row) while Add and
+  // the fields sat at the bottom. It now renders INSIDE the mini's bottom-aligned
+  // form row when open, and beside the toggle when collapsed — not after the
+  // whole mini, whose staged list would otherwise drag a bottom-aligned button
+  // down with it.
+  it("puts the linked-task button in the RAID form's bottom-aligned row when open", () => {
+    render(
+      <TaskEditorExtras
+        lang="en-US"
+        onAddRaid={vi.fn()}
+        pendingRaid={[{ category: "R", title: "Staged risk" }]}
+        onNewLinkedTask={vi.fn()}
+      />,
+    );
+
+    const toggle = screen.getByRole("button", { name: "+ Create RAID" });
+    const collapsedRow = screen.getByRole("button", { name: "+ New linked task" }).parentElement;
+    expect(collapsedRow).toBe(toggle.parentElement);
+    expect(collapsedRow?.className).toMatch(/\bitems-center\b/);
+
+    fireEvent.click(toggle);
+    const formRow = screen.getByRole("button", { name: "Add" }).parentElement;
+    expect(screen.getByRole("button", { name: "+ New linked task" }).parentElement).toBe(formRow);
+    expect(formRow?.className).toMatch(/\bitems-end\b/);
+    // The staged list stays outside that row.
+    expect(formRow?.contains(screen.getByText("Staged risk"))).toBe(false);
+  });
+
   it("wires onAdd/pending through to the RAID mini and calls onNewLinkedTask on click", () => {
     const onAddRaid = vi.fn();
     const onNewLinkedTask = vi.fn();

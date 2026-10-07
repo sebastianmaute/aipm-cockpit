@@ -110,7 +110,8 @@ longer carries its own changelog comment.
 - **Matching buttons (§102).** The Resources calendar's previous and next buttons show chevron icons
   instead of ◀ and ▶, and those buttons, the Diagnostics actions, the view hint's dismiss button, a
   swimlane's remove button and the Help button now use the app's shared button styles. So do the
-  task editor's Send inquiry, Push to Jira and Jira sync buttons, Open Points' Delete selected and Clear
+  task editor's Send inquiry, Push to Jira, Jira sync and + Create RAID buttons (with the RAID form open,
+  + New linked task now lines up with its Add button), Open Points' Delete selected and Clear
   selection, and buttons in Settings → Next actions, Settings → Templates, Time bookings and the Action
   Center's AI analysis.
 
