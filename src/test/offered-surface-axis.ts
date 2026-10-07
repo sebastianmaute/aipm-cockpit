@@ -33,7 +33,9 @@
 // seed schema does not offer before the sanitizer runs, so `change.decisionDate`
 // cannot land that way. This paragraph was written before that filter and said
 // the hole was open. Nothing in this sweep tests the filter; do not read a green
-// run here as covering it.
+// run here as covering it. The proposal has an offered-surface relation of its
+// own, over its own seed schema: `ai-project-proposal.offered-surface.test.ts`
+// (§445).
 import { TOOL_DEFS } from "../app/chat-tool-defs";
 import {
   ABSENCES_CSV_COLUMNS,

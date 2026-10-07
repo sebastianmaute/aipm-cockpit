@@ -297,9 +297,10 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     // guard — structurally the same argument `create_task` makes on the create
     // path (`chat-tools-updates.ts`).
     "resources",
-    // `buildSeedTask` does the same over its own named fields. That is also why
-    // `assignee` survives here while `raid.owner` did not: same prompt sentence,
-    // opposite outcomes, because only the raid list runs through the filter.
+    // `buildSeedTask` does the same over its own named fields. ★ Named is not
+    // the same as OFFERED: it read `assignee`, `priority`, `group` and a `name`
+    // alias the task schema never offered (§445). That is now pinned by the
+    // "inert" relation in `ai-project-proposal.offered-surface.test.ts`.
     "tasks",
   ];
 
