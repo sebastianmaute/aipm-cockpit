@@ -157,6 +157,23 @@ export function changedInKind(v: unknown): unknown {
   return undefined;
 }
 
+/** The same object with its leaf values rotated one key along, or `undefined`
+ *  when that changes nothing. Every value it holds is one the object already
+ *  held, so a closed vocabulary (a RACI map's role codes) stays closed — the
+ *  one structured change `changedInKind` cannot make there, since it edits a
+ *  leaf into a value nobody stored. Shape only, like `changedInKind`. */
+export function rotatedLeaves(v: unknown): unknown {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const keys = Object.keys(v as Row).sort();
+  if (keys.length < 2) return undefined;
+  const obj = v as Row;
+  const out: Row = {};
+  keys.forEach((k, i) => {
+    out[k] = obj[keys[(i + 1) % keys.length]];
+  });
+  return keys.every((k) => out[k] === obj[k]) ? undefined : out;
+}
+
 const asRow = (r: unknown): Row | null => (r === null || r === undefined ? null : (r as Row));
 /** Runs under jsdom (`vitest.config.ts` `environment: "jsdom"`) — the rich-field
  *  pass this round trip's task decode runs (`sanitizeNoteFields` →
@@ -180,7 +197,15 @@ const asRow = (r: unknown): Row | null => (r === null || r === undefined ? null 
  *  cannot do it, and a ninth entity pointed here on "it has no row sanitizer
  *  either" reasoning is the drift that pin exists to catch. */
 export const taskAtRest = (row: Row): Row | null =>
-  asRow(jsonToWorkspace(JSON.stringify({ tasks: [row], raid: [] }), { strict: true }).tasks[0]);
+  asRow(jsonToWorkspace(JSON.stringify({ tasks: [row], raid: [], resources: [ENVELOPE_RESOURCE] }), { strict: true }).tasks[0]);
+
+/** ★★ WHY THE TASK ENVELOPE CARRIES A RESOURCE (§467). `migrateWorkspaceV5`
+ *  backfills a resource list from the task assignees whenever the loaded list
+ *  is EMPTY, and restamps `resourceId` to the id it mints — so an envelope with
+ *  no resources reshaped every `resourceId` probe and the field read
+ *  `unmeasured` on both arms. Any non-empty list stops the backfill; this row
+ *  exists for that alone and is deliberately not the one a probe points at. */
+const ENVELOPE_RESOURCE: Row = { id: 990001, firstName: "Envelope", lastName: "Resource" };
 
 /** The sanitizer each entity's WRITER runs on the given arm — the oracle for
  *  "can this column hold this value". Typed over `InlineEntity`, so a new
@@ -274,9 +299,13 @@ export function probeFor(args: {
   declared: boolean;
   reference: Row;
   seedRow: Row;
+  /** Another row the store produced on its own — the update arms pass the
+   *  create CONTROL row — whose value is tried as is when the derived ones are
+   *  refused. A value the store wrote itself is one the column can hold. */
+  alternate?: Row;
   compare: Compare;
 }): ProbeOutcome {
-  const { entity, arm, field, declared, reference, seedRow, compare } = args;
+  const { entity, arm, field, declared, reference, seedRow, alternate, compare } = args;
   if (MAIL_UNSAFE_BOOLEANS.has(`${entity}.${field}`)) {
     return { kind: "dead", reason: "unmeasured by mail-safety policy: a strict true would stage a real invitation (§443)" };
   }
@@ -300,17 +329,32 @@ export function probeFor(args: {
     return { kind: "unmeasured", reason: firstRefusal!, value: differing[0] };
   }
 
-  let candidate: unknown;
-  if (!isBlank(ref)) candidate = changedInKind(ref);
+  // ★★ CANDIDATES, WALKED IN ORDER, AND THE FIRST ONE THE WRITER HOLDS WINS —
+  //  the enum branch's walk, generalised (§467). In order: the reference
+  //  changed in kind; the seed's value (as is, or changed in kind where it
+  //  equals the reference); the alternate row's value as is; the reference's
+  //  own leaves rotated. Each later source is a value some row already holds,
+  //  which is what a closed shape (`utilizationMode`'s pair, a RACI map's
+  //  codes) needs and `changedInKind` cannot give it. Still shape only: no
+  //  source here names a field.
+  const candidates: unknown[] = [];
+  if (!isBlank(ref)) candidates.push(changedInKind(ref));
   const seeded = seedRow[field];
-  if (candidate === undefined && !isBlank(seeded)) {
-    candidate = eq(seeded, ref) ? changedInKind(seeded) : seeded;
-  }
+  if (!isBlank(seeded)) candidates.push(eq(seeded, ref) ? changedInKind(seeded) : seeded);
+  if (alternate && !isBlank(alternate[field])) candidates.push(alternate[field]);
+  if (!isBlank(ref)) candidates.push(rotatedLeaves(ref));
+  const defined = candidates.filter((c) => c !== undefined);
+  if (defined.length === 0) return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };
+  const differing = defined.filter((c) => !eq(c, ref));
+  if (differing.length === 0) return { kind: "dead", reason: "the derived probe equals the reference value" };
 
-  if (candidate === undefined) return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };
-  if (eq(candidate, ref)) return { kind: "dead", reason: "the derived probe equals the reference value" };
-  const refusal = admitProbe(entity, arm, field, reference, candidate, compare);
-  return refusal === undefined
-    ? { kind: "probe", value: candidate }
-    : { kind: "unmeasured", reason: refusal, value: candidate };
+  let firstRefusal: string | undefined;
+  for (const candidate of differing) {
+    const refusal = admitProbe(entity, arm, field, reference, candidate, compare);
+    if (refusal === undefined) return { kind: "probe", value: candidate };
+    firstRefusal ??= refusal;
+  }
+  // As in the enum branch: the FIRST differing candidate's refusal and value,
+  // so the reported reason is the one a reader reproduces by hand.
+  return { kind: "unmeasured", reason: firstRefusal!, value: differing[0] };
 }

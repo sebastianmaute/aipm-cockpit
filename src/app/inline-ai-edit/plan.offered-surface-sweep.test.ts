@@ -493,6 +493,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     let probed = 0;
     let skipped = 0;
     const reference = loadedSeedRow(entity);
+    // The row a create stores on its own: a second source of values the column
+    // can hold, tried when the ones derived from the seed are refused (§467).
+    const alternate = (await createWith(entity, {})).row ?? undefined;
     const control = await writerStampedFields(entity);
     // ★★ The positive observable for the control replay: every update writer
     //  stamps `localModifiedAt`, so a control that wrote nothing shows an empty
@@ -522,7 +525,7 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
 
     for (const field of undeclaredColumns(entity)) {
       const subject = `${entity}.${field}`;
-      const outcome = probeFor({ entity, arm: "update", field, declared: false, reference, seedRow: reference, compare: sameAt });
+      const outcome = probeFor({ entity, arm: "update", field, declared: false, reference, seedRow: reference, alternate, compare: sameAt });
       if (outcome.kind !== "probe") {
         skipped += 1;
         findings.push(finding(subject, outcome.kind, outcome.reason));
@@ -811,11 +814,6 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     // `assertJiraManagedUnchanged` (chat-task-patch.ts) then throws on every
     // `status`/`assignee` change Relation B probes. Blank on the control row too.
     { subject: "task.jiraKey", kind: "dead" },
-    // §467 — a harness limit, not the column: the task oracle's one-row
-    // `jsonToWorkspace` envelope (`taskAtRest`, sweep-probes.ts) carries no
-    // resources, so `migrateWorkspaceV5` backfills one from the assignee and
-    // restamps `resourceId` to its minted id (sent 4, held 1).
-    { subject: "task.resourceId", kind: "unmeasured" },
     // Blocker log — not seeded: a seeded log would also fix the seed's derived
     // `blockers` text, which Relation B probes as a DECLARED field, so the two
     // would fight. The column is unreachable from the model by construction
@@ -829,8 +827,6 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     { subject: "task.jiraKey", kind: "dead" },
     // Not seeded, for the create arm's blocker-log reason above.
     { subject: "task.blockerLog", kind: "dead" },
-    // §467 — the create arm's oracle-envelope restamp (sent 5, held 1).
-    { subject: "task.resourceId", kind: "unmeasured" },
     // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "task.calendarOptOut", kind: "unmeasured" },
   ],
@@ -876,32 +872,14 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "absence.calendarOptOut", kind: "unmeasured" },
   ],
-  "stakeholder:update": [
-    // §467 — a probe SHAPE, not a seed: the derived probe changes the seeded
-    // RACI code's own string leaf ("A" → "A probed"), which is not one of the
-    // closed codes `coerceRaciMap` accepts, so `sanitizeStakeholder` reshapes
-    // the map to `{}`. The enum branch of `probeFor` runs for a DECLARED
-    // field's schema enum only, and `raci` is undeclared; a probe holding
-    // another genuine RACI code (e.g. "R") would be held unchanged.
-    { subject: "stakeholder.raci", kind: "unmeasured" },
-  ],
-  "resource:create": [
-    // §467 — a probe SHAPE, not a seed: the control row's `utilizationMode` is
-    // the "percent" default, so the derived probe is "percent probed", outside
-    // the closed pair `sanitizeUtilizationMode` accepts; it maps anything but
-    // "hours" to "percent". No schema enum exists to draw "hours" from.
-    { subject: "resource.utilizationMode", kind: "unmeasured" },
-  ],
   "resource:update": [
-    // §467 — a probe SHAPE, not a seed: the seeded `active` is `false`, the
-    // only value `sanitizeResource` stores (an absent key IS active), so the
-    // one differing probe is `true`, which it never stores. Seeding `true`
-    // instead is not a fix — it stores nothing, leaving the column blank and
-    // the field `dead`.
+    // §467 — no probe the `stored` check can judge: the seeded `active` is
+    // `false`, the only value `sanitizeResource` stores (an absent key IS
+    // active), so the one differing probe is `true`, which it never stores.
+    // The field is still MEASURED, by the destroy check (§441): that `true`
+    // is sent anyway, and a missing guard clears the seeded `false`. The same
+    // holds for every `calendarOptOut` entry above.
     { subject: "resource.active", kind: "unmeasured" },
-    // §467 — a probe SHAPE: the seeded "hours" becomes "hours probed", which
-    // `sanitizeUtilizationMode` maps to "percent" (the create arm's reason).
-    { subject: "resource.utilizationMode", kind: "unmeasured" },
   ],
 };
 

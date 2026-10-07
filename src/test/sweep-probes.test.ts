@@ -10,6 +10,7 @@ import {
   type Compare,
   isBlank,
   probeFor,
+  rotatedLeaves,
   taskAtRest,
 } from "./sweep-probes";
 
@@ -309,5 +310,45 @@ describe("probeFor", () => {
       compare: sameAt,
     });
     expect(outcome).toEqual({ kind: "probe", value: "Pending" });
+  });
+});
+
+// §467 — the held-value sources `probeFor` walks to after the derived probe is
+// refused. Each case is one the sweep's ledger used to carry as `unmeasured`.
+describe("probeFor's held-value sources (§467)", () => {
+  it("rotates an object's own values between its keys, and gives up on fewer than two", () => {
+    expect(rotatedLeaves({ "30": "A", "31": "R" })).toEqual({ "30": "R", "31": "A" });
+    expect(rotatedLeaves({ "30": "A" })).toBeUndefined();
+    expect(rotatedLeaves({ "30": "A", "31": "A" })).toBeUndefined();
+    expect(rotatedLeaves(["A", "R"])).toBeUndefined();
+  });
+
+  // "A probed" is not a RACI code, so `coerceRaciMap` drops it; the rotation
+  // holds only codes the map already held.
+  it("probes a RACI map with its own codes rotated, which the writer holds", () => {
+    const reference = { id: 40, name: "Ada Lovelace", raci: { "30": "A", "31": "R" } };
+    const outcome = probeFor({
+      entity: "stakeholder", arm: "update", field: "raci", declared: false,
+      reference, seedRow: reference, compare: sameAt,
+    });
+    expect(outcome).toEqual({ kind: "probe", value: { "30": "R", "31": "A" } });
+  });
+
+  // "hours probed" maps to "percent" in `sanitizeUtilizationMode`; the
+  // alternate row's own "percent" is held as sent.
+  it("falls back to the alternate row's value when the derived probe is reshaped", () => {
+    const reference = { id: 4, firstName: "Ada", lastName: "Lovelace", utilizationMode: "hours" };
+    const args = {
+      entity: "resource" as const, arm: "update" as const, field: "utilizationMode", declared: false,
+      reference, seedRow: reference, compare: sameAt,
+    };
+    expect(probeFor(args).kind).toBe("unmeasured");
+    expect(probeFor({ ...args, alternate: { utilizationMode: "percent" } })).toEqual({ kind: "probe", value: "percent" });
+  });
+
+  // Without a resource in the envelope `migrateWorkspaceV5` backfills one from
+  // the assignee and restamps the FK to the id it mints.
+  it("keeps a task's resourceId at rest", () => {
+    expect(taskAtRest({ id: 1, taskName: "A task", assignee: "Ada Lovelace", resourceId: 5 })?.resourceId).toBe(5);
   });
 });
