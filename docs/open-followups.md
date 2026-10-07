@@ -913,6 +913,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§676](#676-a-group-label-or-assignee-named-like-a-fixed-filter-option-collides-with-that-option--closed-2026-10-06) | A group, label or assignee named like a fixed filter option collides with that option | — | — | **CLOSED** 2026-10-06 |
 | [§677](#677-the-reports-by-priority-block-crops-its-tiles-by-5px-at-its-default-height--closed-2026-10-06) | The Reports "By priority" block crops its tiles by 5px at its default height | — | — | **CLOSED** 2026-10-06 |
 | [§678](#678-a-storage-success-may-clear-a-turso-project-list-failure-banner-putting-the-loading-skeleton-back--closed-2026-10-06) | A storage success may clear a Turso project-list failure banner, putting the loading skeleton back | — | — | **CLOSED** 2026-10-06 |
+| [§679](#679-task-editor-a-long-inline-note-log-cannot-be-scrolled-to-its-older-notes--open) | Task editor: a long inline note log cannot be scrolled to its older notes | — | — | open |
+| [§680](#680-floating-notes-window-a-long-new-note-grows-past-the-window-with-no-scroll-bar--open) | Floating notes window: a long new note grows past the window with no scroll bar | — | — | open |
+| [§681](#681-the-pink-count-badge-fails-aa-contrast--open) | The pink count badge fails AA contrast | — | — | open |
+| [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--open) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44163,3 +44167,35 @@ What it does today: in a two-item cycle the edit modal lists the other item both
 If the same order happens in the app, the list-failure banner disappears while the list is still unloaded, and `showTursoListLoading` (`task-manager.tsx`) shows the loading skeleton again: the user sees a spinner instead of the error. §491's batch 15 step records the probe.
 
 **Close when** it is checked in a running app against a real or emulated Turso failure: either it does not reproduce (record how), or a later success no longer clears an unrelated list failure, with a test that orders the two reports.
+
+## 679. Task editor: a long inline note log cannot be scrolled to its older notes — OPEN
+
+**Status:** OPEN 2026-10-07 — reported by the owner from use, not reproduced yet and `never machine-verified`. In the task editor, a long note log scrolls inside its inline box only to the end of the topmost block of notes; the scroll bar that would reach the older notes sits below the visible area. Likely cause, unconfirmed: two nested scroll containers. `task-form-fields.tsx` wraps `NoteLogPanel` in a `max-h-72 overflow-auto` column, and `note-log-panel.tsx` renders its entry list as its own `min-h-0 flex-1 overflow-auto` list below the `shrink-0` composer.
+
+**Work item:** #602
+
+**Close when** every note of a log taller than the inline box can be reached with one scroll bar that stays inside the editor, pinned by a test of the panel's scroll containment, and the owner confirms it on the dev server.
+
+## 680. Floating notes window: a long new note grows past the window with no scroll bar — OPEN
+
+**Status:** OPEN 2026-10-07 — reported by the owner from use, not reproduced yet and `never machine-verified`. Typing a long new note in the floating notes window grows the input past the window's bottom edge, with no scroll bar, so the end of the draft cannot be reached. Likely cause, unconfirmed: the window is fixed-height and `overflow-hidden` (`floating-log-window.tsx`), the composer section in `note-log-panel.tsx` is `shrink-0`, and the `RichTextEditor` surface sets `min-h-24` with no maximum height or `overflow-auto`. The editing box of an existing note uses the same unbounded editor. Related to §679, same panel.
+
+**Work item:** #603
+
+**Close when** the composer stops at a maximum height and scrolls inside, with the note list still visible below it, in the floating window and the task editor alike, and the owner confirms it on the dev server.
+
+## 681. The pink count badge fails AA contrast — OPEN
+
+**Status:** OPEN 2026-10-07 — measured by axe during the §5 perf probe: a whole-page scan at 1008 tasks flagged the sidebar's pink count badge ("75") at 3.82:1. `CountBadge` (`count-badge.tsx`, `variant="pink"`) draws white 10 px text on `--ui-pink`; on the default Beacon scheme (`#e84663`) that computes to 3.83:1, under the 4.5:1 AA needs for small text. Computed for the other built-in schemes (`builtin-schemes.ts`, not scanned): Harbor light 4.63, Meridian light 4.74, Umber light 5.19, and every dark scheme worse than Beacon: Harbor 2.40, Meridian 2.66, Umber 2.61. ★ The axe gate cannot see it: at seed size no scanned view renders the badge. The badge appears in `sidebar-nav.tsx`, `top-bar.tsx` and `app-header.tsx`. Reproduce the scheme values: `grep -n '"--ui-pink"' src/app/builtin-schemes.ts`, then white against each hex with the WCAG relative-luminance formula.
+
+**Work item:** #608
+
+**Close when** the pink badge's text reaches 4.5:1 on every built-in scheme, light and dark, pinned by a unit test that computes the ratio from the scheme maps, and an axe scan that renders the badge passes.
+
+## 682. The Timelog connection test shows the scope as the raw words self/org, untranslated — OPEN
+
+**Status:** OPEN 2026-10-07 — found while checking the desktop rollout guide. Settings → Timelog → Test connection reports "Connected — N users, scope: self" (or "org"): `timelog-settings.tsx` passes the internal value (`"org"` / `"self"`, or `config.scopeMode`) straight into `timelogTestOk` / `timelogTestOkOne`, while the Data scope select beside it labels the same values through `timelogScopeSelf` / `timelogScopeOrg`. A German user sees English words. Reproduce: `grep -nE 'timelogTestOk|"(org|self)"' src/app/timelog-settings.tsx`.
+
+**Work item:** #609
+
+**Close when** the test message names the scope with the same translated label as the select, pinned by a test in both languages (`loadI18n("de")`).
