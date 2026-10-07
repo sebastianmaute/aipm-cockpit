@@ -116,6 +116,7 @@ Factors: the seed has 14 tasks, so factors **36, 72, 143** give 504 / 1008 / 200
 - Changes: `useDeepLinkRowFlash(view: AppView, opts?: { scrollToId?: (id: number) => void })` — when given, called with the target id BEFORE the existing `data-deeplink-row` query, and the query then runs on the next animation frame. The six other callers pass nothing and behave as today.
 
 - [ ] **Step 1: Tests:** `calls scrollToId before querying the row`; `is unchanged without opts` (existing tests stay green). Table-side: a deep link to row 900 of 1000 calls `scrollToIndex(899)`.
+- **Corrected during implementation (2026-10-07):** the hook reads `scrollToId` through `useEffectEvent`, so its effect calls the latest callback without re-running on every render. The table's callback (`scrollRowIntoRange`) is declared after `visibleRows` and the row window, below the hook call; that is safe because the hook only calls it from an effect. The table-side test lives in `tasks-section.test.tsx`, which already stubs the deep-link hook — the stub now records the options it is given.
 - [ ] **Step 2:** FAIL → implement → PASS. Mutation: skip the call; call after the query → red.
 - [ ] **Step 3:** Gates; commit `feat: deep links scroll a virtualized row into range before flashing it (§5)`.
 

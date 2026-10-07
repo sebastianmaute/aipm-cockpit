@@ -276,7 +276,12 @@ export function TasksSection({
   // test (it renders TasksSection with no prop); task-manager always passes one.
   const { holidaySet: fallbackHolidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
   const holidaySet = holidaySetProp ?? fallbackHolidaySet;
-  const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
+  // §5: a deep link to a row outside the virtualized window first scrolls it
+  // into range. `scrollRowIntoRange` is declared below, after `visibleRows`;
+  // the hook calls this only from an effect, after render, so it is defined.
+  const { flashId, containerRef } = useDeepLinkRowFlash("open-points", {
+    scrollToId: (id) => scrollRowIntoRange(id),
+  });
 
   // Inline "Ask Claude" task edit (SP1) — wired via a dedicated glue hook so this
   // pane stays lean; it owns the single active-edit popover element.
@@ -406,6 +411,10 @@ export function TasksSection({
     scrollRef: containerRef,
     estimateRowPx: TASK_ROW_ESTIMATE_PX,
   });
+  const scrollRowIntoRange = (id: number) => {
+    const index = visibleRows.findIndex((task) => task.id === id);
+    if (index >= 0) rowWindow.scrollToIndex(index);
+  };
 
   // ★★ TWO maps, not one, and this is not redundancy. The table renders
   // `visibleRows` (which also applies hide-finished) while both Kanban views

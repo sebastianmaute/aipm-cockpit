@@ -40,9 +40,34 @@ vi.mock("./task-row", () => ({
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 vi.mock("./use-holiday-set", () => ({ useHolidaySet: vi.fn() }));
+// §5 — `deepLink.opts` records the options the pane hands the deep-link hook,
+// so a test can invoke its `scrollToId` the way the hook's effect would.
+// `virtual` records the virtualizer's options and its scrollToIndex calls
+// (jsdom has no layout, so the real virtualizer would compute nothing).
+const { deepLink, virtual } = vi.hoisted(() => ({
+  deepLink: { opts: undefined as undefined | { scrollToId?: (id: number) => void } },
+  virtual: { lastOptions: null as null | { count: number; enabled?: boolean }, scrollToIndex: vi.fn() },
+}));
 vi.mock("./use-deeplink-row-flash", () => ({
-  useDeepLinkRowFlash: () => ({ flashId: null, containerRef: { current: null } }),
+  useDeepLinkRowFlash: (_view: string, opts?: { scrollToId?: (id: number) => void }) => {
+    deepLink.opts = opts;
+    return { flashId: null, containerRef: { current: null } };
+  },
   flashOutlineClass: () => "",
+}));
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (opts: { count: number; enabled?: boolean }) => {
+    virtual.lastOptions = opts;
+    const items = Array.from({ length: Math.min(20, opts.count) }, (_, i) => ({
+      index: i, start: i * 45, end: (i + 1) * 45, size: 45, key: i, lane: 0,
+    }));
+    return {
+      getVirtualItems: () => items,
+      getTotalSize: () => opts.count * 45,
+      scrollToIndex: virtual.scrollToIndex,
+      measureElement: () => {},
+    };
+  },
 }));
 // §548 — `pullArgs` records what the pane hands the pull hook. The pull hook is STUBBED for this
 // whole file (its return value is invented here), so its DROP behaviour is pinned in
@@ -1780,5 +1805,46 @@ describe("TasksSection — the scope epoch reaches the manual Outlook push/pull 
     render(<TasksSection {...makeProps()} m365Configured />);
     const items = pushArgs.at(-1)!.items as Array<{ id: number }>;
     expect(items.map((i) => i.id)).toEqual([1, 3]);
+  });
+});
+
+describe("TasksSection — a deep link scrolls a virtualized row into range (§5)", () => {
+  const manyTasks = Array.from({ length: 1000 }, (_, i) => ({
+    id: i + 1, taskName: `Task ${i + 1}`, assignee: "", priority: "Medium", status: "To Do",
+    dueDate: "", lastUpdateDate: "2026-05-01",
+  }));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    deepLink.opts = undefined;
+    virtual.lastOptions = null;
+    stubFilters();
+    stubTaskForm();
+    stubHolidaySet();
+  });
+
+  it("a deep link to row 900 of 1000 calls scrollToIndex(899)", () => {
+    stubSettings();
+    stubWorkspace(manyTasks, manyTasks);
+    render(<TasksSection {...makeProps()} />);
+    expect(virtual.lastOptions).toMatchObject({ count: 1000, enabled: true });
+    act(() => deepLink.opts!.scrollToId!(900));
+    expect(virtual.scrollToIndex).toHaveBeenCalledTimes(1);
+    expect(virtual.scrollToIndex).toHaveBeenCalledWith(899, { align: "center" });
+  });
+
+  it("does nothing for an id that is not among the visible rows", () => {
+    stubSettings();
+    stubWorkspace(manyTasks, manyTasks);
+    render(<TasksSection {...makeProps()} />);
+    act(() => deepLink.opts!.scrollToId!(5000));
+    expect(virtual.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("keeps the virtualizer off in the board view, which reuses the same scroll box", () => {
+    stubSettings({ tasksViewMode: "board" });
+    stubWorkspace(manyTasks, manyTasks);
+    render(<TasksSection {...makeProps()} />);
+    expect(virtual.lastOptions).toMatchObject({ count: 0, enabled: false });
   });
 });
