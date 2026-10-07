@@ -29,6 +29,7 @@ import {
   shouldWriteRolling, parseFilter, filterSpec, buildRunRecord, FILTER_ENV,
   tokenSubstringConflicts, PROBE_HARDENING, plantLabel, priorLabel,
   plantedProbeIds, compositionProbeId, COMPOSITION_ALT_IDS,
+  AGGREGATE_QUESTION, scoreAggregate, aggregateSummary,
 } from "./ai-eval-lib.mjs";
 
 /** One probe's difficulty knobs. The table itself lives in the lib — see
@@ -942,9 +943,12 @@ ${armA.turn}`;
     X: armWanted("X") ? 1 : 0,
     N: armWanted("N") ? reps : 0,
     R: armWanted("R") && rollingExists && last !== null ? reps : 0,
+    // ★ Arm M (§454): all five codes in one reply, `reps` times. A measurement
+    //   only — it never reaches `verdict`.
+    M: armWanted("M") ? reps : 0,
   };
   const requests =
-    activeProbes.length * (plan.A + plan.B + plan.X) + plan.N + plan.R;
+    activeProbes.length * (plan.A + plan.B + plan.X) + plan.N + plan.R + plan.M;
   console.log(`mode: ${decision.mode}`);
   console.log(
     `probes: ${activeProbes.length}/${PROBES.length}, reps: ${reps}, planned requests: ${requests}`,
@@ -1004,6 +1008,14 @@ ${armA.turn}`;
   type Scored = Reply & { outcome: string; otherBlocks: string[] };
   const perProbeReplies: Record<string, { A: Scored[]; B: Scored[]; X: Scored[] }> = {};
   const driftReplies: { R: Scored[]; N: Scored[] } = { R: [], N: [] };
+  // `rep` is the DISPATCH rep, kept because a failed request leaves a gap the
+  // array index would close up.
+  type AggregateScored = Reply & { score: ReturnType<typeof scoreAggregate>; rep: number };
+  const aggregateReplies: AggregateScored[] = [];
+  // ★★ Arm M's failures, kept OFF `complete`. M only measures, so a failed M
+  //    request is recorded on the aggregate and never voids the gated run —
+  //    "never gating" covers whether the run counts, not only its verdict.
+  const aggregateFailures: string[] = [];
   let complete = true;
 
   // ★★★ THE SCORER GETS THE WHOLE PLANTED SET, not this probe's designated
@@ -1083,6 +1095,20 @@ ${armA.turn}`;
         for (const p of PROBES) replayTokens[p.id] = plantedToken(p.id, replaySalt);
         driftReplies.R.push(await send(assembleReplay(rollingText), rTarget, replayTokens));
       }
+      if (armWanted("M")) {
+        // Arm A's prompt with the aggregate question: the same bytes the gate
+        // reads, asked for every code at once.
+        const arm = assembleArm("current", tokens, AGGREGATE_QUESTION);
+        // Only the TRANSPORT is caught: a scorer throw is a harness bug and
+        // still aborts the run, as it would on any other arm.
+        let reply: Reply | null = null;
+        try {
+          reply = await request(arm.system, arm.messages);
+        } catch (err) {
+          aggregateFailures.push(`rep ${rep}: ${String(err).slice(0, 200)}`);
+        }
+        if (reply) aggregateReplies.push({ ...reply, score: scoreAggregate(reply, probeTokens), rep });
+      }
     }
   } catch (err) {
     // ★★ No retry. A partial run is recorded as partial and the rolling
@@ -1143,20 +1169,26 @@ ${armA.turn}`;
   if (driftReplies.R.length !== plan.R || !driftReplies.R.every(isScored)) {
     census.push(`rolling replay: returned ${driftReplies.R.length} of ${plan.R} planned replies`);
   }
+  // Arm M's shortfall is reported on its own record and the terminal, never in
+  // `census` — which would mark the whole run incomplete (see aggregateFailures).
+  if (aggregateReplies.length !== plan.M) {
+    console.error(`aggregate (arm M): returned ${aggregateReplies.length} of ${plan.M} planned replies — recorded, the gated run is unaffected`);
+  }
   // ★★★ THE PLAN AGAINST THE CONSTANTS, NOT AGAINST ITSELF. This is the half
   //     every check above is structurally blind to, for the reason the census
   //     comment gives. `filter === null` is the standard run and the ONLY shape
   //     allowed to report PASS, so it must be the whole fixed run and nothing
   //     less; a narrowed run is already poison to `verdict` either way.
   if (filter === null) {
-    const wanted = `${PROBES.length} probes, reps ${REPS}, A ${REPS}/B ${REPS}/X 1`;
-    const planned = `${activeProbes.length} probes, reps ${reps}, A ${plan.A}/B ${plan.B}/X ${plan.X}`;
+    const wanted = `${PROBES.length} probes, reps ${REPS}, A ${REPS}/B ${REPS}/X 1/M ${REPS}`;
+    const planned = `${activeProbes.length} probes, reps ${reps}, A ${plan.A}/B ${plan.B}/X ${plan.X}/M ${plan.M}`;
     if (
       activeProbes.length !== PROBES.length
       || reps !== REPS
       || plan.A !== REPS
       || plan.B !== REPS
       || plan.X !== 1
+      || plan.M !== REPS
     ) {
       census.push(
         `unfiltered run planned ${planned}, but the standard run is ${wanted} — the plan itself fell short, which every per-arm check above is blind to`,
@@ -1225,6 +1257,21 @@ ${armA.turn}`;
   }
   collect("anchor", "N", driftReplies.N);
   collect("rolling", "R", driftReplies.R);
+  // Arm M: every reply short of five hits, plus one exemplar of a full one.
+  // `outcome` is the reply's score ("3/5"); `otherBlocks` names the codes it missed.
+  let aggregateExemplar = false;
+  aggregateReplies.forEach((r) => {
+    const full = r.score.hits === r.score.of;
+    if (full && aggregateExemplar) return;
+    if (full) aggregateExemplar = true;
+    samples.push({
+      probe: "aggregate", arm: "M", rep: r.rep, outcome: `${r.score.hits}/${r.score.of}`,
+      otherBlocks: Object.entries(r.score.codes).filter(([, o]) => o !== "hit").map(([id, o]) => `${id}:${o}`),
+      stopReason: r.stopReason ?? "(unrecorded)",
+      blockTypes: r.blockTypes ?? {},
+      text: truncate(r.text),
+    });
+  });
 
   // ★★ EVERY BILLED CLASS, SUMMED ACROSS THE WHOLE RUN AND PER ARM, plus the
   //    weighted total from `usageCostEquivalent`. Weighted, not summed: a cached
@@ -1238,6 +1285,7 @@ ${armA.turn}`;
     X: usageOf(activeProbes.flatMap((p) => perProbeReplies[p.id]?.X ?? [])),
     N: usageOf(driftReplies.N),
     R: usageOf(driftReplies.R),
+    M: usageOf(aggregateReplies),
   };
   const totalUsage = sumUsage(Object.values(armUsage));
   const usage = {
@@ -1246,7 +1294,7 @@ ${armA.turn}`;
         (n, p) => n + (perProbeReplies[p.id]?.A.length ?? 0)
           + (perProbeReplies[p.id]?.B.length ?? 0) + (perProbeReplies[p.id]?.X.length ?? 0),
         0,
-      ) + driftReplies.N.length + driftReplies.R.length,
+      ) + driftReplies.N.length + driftReplies.R.length + aggregateReplies.length,
     total: totalUsage,
     costEquivalent: usageCostEquivalent(totalUsage),
     byArm: armUsage,
@@ -1275,7 +1323,9 @@ ${armA.turn}`;
     ]),
     ...driftReplies.N, ...driftReplies.R,
   ];
-  const responseShape = summariseResponseShape(allReplies);
+  // Arm M's replies join the run-level census and the truncation count, which
+  // cover every reply; they are not `Scored`, so they ride beside `allReplies`.
+  const responseShape = summariseResponseShape([...allReplies, ...aggregateReplies]);
   const stopReasons = responseShape.stopReasons;
   // ★★★ WHICH PROBES AND ARMS WERE INSTRUMENT-LIMITED, at the top of the
   //     record. A truncated reply scores a miss whatever the model found, so a
@@ -1303,9 +1353,13 @@ ${armA.turn}`;
       }
     }
   }
+  if (aggregateReplies.some((r) => r.stopReason === "max_tokens")) {
+    truncatedProbes.add("aggregate");
+    truncatedArms.add("M");
+  }
   const truncation = {
-    replies: allReplies.filter((r) => r.stopReason === "max_tokens").length,
-    ofReplies: allReplies.length,
+    replies: [...allReplies, ...aggregateReplies].filter((r) => r.stopReason === "max_tokens").length,
+    ofReplies: allReplies.length + aggregateReplies.length,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     probes: [...truncatedProbes].sort(),
     arms: [...truncatedArms].sort(),
@@ -1372,6 +1426,15 @@ ${armA.turn}`;
             comparedAgainstRunDate: last?.date ?? null,
           },
     },
+    // ★★ Arm M (§454) — a measurement beside the gate, never part of it.
+    aggregate: plan.M === 0
+      ? null
+      : {
+          question: AGGREGATE_QUESTION,
+          planned: plan.M,
+          failures: aggregateFailures,
+          ...aggregateSummary(aggregateReplies.map((r) => r.score)),
+        },
     samples,
     complete,
   }) as { verdict: { code: number; reasons: string[]; notes: string[] } };
@@ -1389,6 +1452,10 @@ ${armA.turn}`;
 
   for (const r of v.reasons) console.error(r);
   for (const n of v.notes) console.log(n);
+  if (plan.M > 0) {
+    const agg = aggregateSummary(aggregateReplies.map((r) => r.score));
+    console.log(`aggregate (arm M, not gated): ${Math.round(agg.overall * agg.codes)}/${agg.codes} codes over ${agg.replies} replies`);
+  }
   console.log(`verdict: ${v.code === EXIT.PASS ? "PASS" : v.code === EXIT.REGRESSION ? "REGRESSION" : "UNUSABLE"}`);
   return v.code;
 }

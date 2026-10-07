@@ -18,6 +18,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **AI-proposed tasks can carry an owner, priority and group (§445).** When the new-project wizard asks the
+  AI to propose starter tasks, it can now give each one an assignee, a priority and a group. Before, the
+  wizard was told to name owners but had nowhere to put them on a task.
 - **Word lists are real Word lists (§154).** Bulleted and numbered lists in exported Word files and in
   documents downloaded as Word now use Word's own list numbering, so they renumber when you edit them
   and take Word's list styles. Each numbered list starts at 1. Checklist items keep their box.

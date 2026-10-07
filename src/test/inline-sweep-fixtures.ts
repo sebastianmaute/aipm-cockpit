@@ -116,9 +116,9 @@ export const KNOWLEDGE_LINKS = [
  *  value: it changes the seed's own value in kind, or sends it as is, and a
  *  column the seed leaves blank is `dead` — probed by nothing. Every value here
  *  is one `jsonToWorkspace` (the task arm's admission oracle, `migrateTask` +
- *  `sanitizeNoteFields`) holds unchanged, bar `resourceId`: the oracle's
- *  one-row envelope carries no resources, so `migrateWorkspaceV5` backfills one
- *  and restamps the FK, and the sweep ledgers it `unmeasured` for that reason.
+ *  `sanitizeNoteFields`) holds unchanged. `resourceId` is held because the
+ *  oracle's envelope carries a resource of its own, which stops
+ *  `migrateWorkspaceV5` backfilling one and restamping the FK (§467).
  *  None is one `update_task` reacts to: `buildPatch` (`chat-tools-updates.ts`)
  *  whitelists the declared fields, so none of these can move through a patch,
  *  and `createTask` builds its row field by field. `resourceId: 4` and the
@@ -373,8 +373,11 @@ export function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeho
     //  input, and it is assigned UNCONDITIONALLY, so an empty seed makes a wipe
     //  read back as the value already stored. Keys are milestone ids
     //  (`RACI_KEY_RE` is `/^\d+$/`) and values members of `RACI_ROLES`; #30 is
-    //  the milestone this fixture seeds elsewhere.
-    raci: { "30": "A" as const },
+    //  the milestone this fixture seeds elsewhere. ★ TWO KEYS ON PURPOSE (§467):
+    //  `probeFor` measures a closed-vocabulary map by rotating its own values
+    //  between keys (`rotatedLeaves`), which needs two distinct roles. #31 names
+    //  no seeded milestone; `coerceRaciMap` checks the key's shape only.
+    raci: { "30": "A" as const, "31": "R" as const },
     knowledgeLinks: KNOWLEDGE_LINKS,
     // ★★ For Relation A of `plan.offered-surface-sweep.test.ts`, which cannot
     //  probe a blank column: `TOKEN_EXCLUDED.stakeholder`, kept as seeded by
