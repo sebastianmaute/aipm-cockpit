@@ -311,7 +311,7 @@ function resolvePersonResourceIdForWrite(
  *
  * ★★ TWO call sites, because there are two load funnels: `applyWorkspace`
  * (`use-storage-backend.ts`, every backend's load / project switch / create) and
- * `applyRestoredWorkspace` (`task-manager.tsx`, Turso version-history restore).
+ * `applyRestoredWorkspace` (`use-version-history-wiring.ts`, Turso version-history restore).
  * The second fans STORED rows straight into state without touching the first,
  * so omitting it there silently reverts a project's task FKs to the pre-repair
  * shape until the next real load. A third funnel must call this too.

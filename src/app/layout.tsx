@@ -7,7 +7,7 @@ import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
 import { APP_VERSION } from "./version";
-import { checkoutToken } from "./checkout-token";
+import { bootNonce, checkoutToken } from "./checkout-token";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -50,6 +50,10 @@ export default async function RootLayout({
       // cwd. Dev only — undefined in production, so React omits the attribute
       // and no path-derived value ships (open-followups §58).
       data-checkout={checkoutToken(process.env.NODE_ENV, () => process.cwd())}
+      // The per-run nonce a Playwright run boots its dev server with, so the guard can
+      // also refuse a leftover server from THIS checkout, which data-checkout cannot.
+      // Dev only, and absent when the server was not booted with one (§58 (b)).
+      data-boot-nonce={bootNonce(process.env.NODE_ENV, process.env)}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">

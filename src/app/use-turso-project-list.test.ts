@@ -131,6 +131,43 @@ describe("useTursoProjectList — refresh", () => {
   });
 });
 
+// §678: the list's own failure, which the shared storage bridge's later `null` cannot clear.
+describe("useTursoProjectList — list failure", () => {
+  it("starts with no failure, and a failed fetch records one with its classified kind", async () => {
+    vi.mocked(listProjects).mockRejectedValue(new Error("Turso returned 503"));
+    const h = mount({ hydrated: false });
+    expect(h.result.current.tursoListFailure).toBeNull();
+    await act(async () => { await h.result.current.refreshTursoProjects(); });
+    expect(h.result.current.tursoListFailure).toEqual({ kind: "unreachable" });
+  });
+
+  it("classifies an unrecognised error as generic", async () => {
+    vi.mocked(listProjects).mockRejectedValue(new TypeError("Failed to fetch"));
+    const h = mount({ hydrated: false });
+    await act(async () => { await h.result.current.refreshTursoProjects(); });
+    expect(h.result.current.tursoListFailure).toEqual({ kind: "generic" });
+  });
+
+  it("only the list's next successful fetch clears it", async () => {
+    vi.mocked(listProjects).mockRejectedValueOnce(new Error("Turso returned 503"));
+    const h = mount({ hydrated: false });
+    await act(async () => { await h.result.current.refreshTursoProjects(); });
+    expect(h.result.current.tursoListFailure).not.toBeNull();
+    await act(async () => { await h.result.current.refreshTursoProjects(); });
+    expect(h.result.current.tursoListFailure).toBeNull();
+  });
+
+  it("is not shown outside Turso mode, and shows again on the way back", async () => {
+    vi.mocked(listProjects).mockRejectedValue(new Error("Turso returned 503"));
+    const h = mount({ hydrated: false });
+    await act(async () => { await h.result.current.refreshTursoProjects(); });
+    h.rerender({ portfolioMode: "file" });
+    expect(h.result.current.tursoListFailure).toBeNull();
+    h.rerender({ portfolioMode: "turso" });
+    expect(h.result.current.tursoListFailure).toEqual({ kind: "unreachable" });
+  });
+});
+
 describe("useTursoProjectList — refreshTursoProjects identity", () => {
   it("keeps one identity across a rerender with the same deps", async () => {
     const h = mount({ hydrated: false });

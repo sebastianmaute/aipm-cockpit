@@ -472,8 +472,10 @@ test meaningless:
 ### End-to-end — Playwright
 
 - Config: `playwright.config.ts` (Chromium-only by default; Firefox / WebKit
-  commented in). Auto-starts `npm run dev` on port 3000 (reuses an existing
-  dev server locally; spawns fresh in CI).
+  commented in). Auto-starts `npm run dev` on port 3000 (or `PORT`), locally and
+  in CI, and refuses a port that is already taken. Reuse is opt-in since §58 (b):
+  set `PLAYWRIGHT_REUSE_SERVER=1` and start your server with the same
+  `E2E_BOOT_NONCE` the run uses.
 - Location: `e2e/**/*.spec.ts` — kept out of `src/` so Vitest doesn't see it.
 - Sample test: `e2e/smoke.spec.ts` (root page loads, title matches, `<main>`
   visible).
@@ -505,7 +507,10 @@ In addition to running the suites:
    - If you touched Jira: hit Sync against a real Atlassian project.
 
 Critical flows still missing E2E coverage (write tests when you touch them):
-Jira sync, storage backend switching, voice commands, OOXML export.
+storage backend switching, voice commands. Jira sync, OOXML export and one AI chat
+tool call have mocked e2e specs (`e2e/jira-sync.spec.ts`, `e2e/ooxml-export.spec.ts`,
+`e2e/ai-chat-tool-call.spec.ts`); the Jira one mocks the app's `/api/jira/*` routes, so the
+server proxy is not driven and a real-Atlassian Sync is still worth doing by hand.
 
 ## Code style
 

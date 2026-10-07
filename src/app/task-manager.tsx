@@ -39,10 +39,10 @@ import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
-import { dropDanglingDependencies, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
+import { summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
-import { peekMintId, seedMintFromWorkspace } from "./id-mint-session";
+import { resourceDisplayName } from "./resource-foundation";
+import { peekMintId } from "./id-mint-session";
 import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { indexDocumentsByEntity } from "./document-ref";
@@ -79,6 +79,7 @@ import { useResourceQuickCreate } from "./use-resource-quick-create";
 import { useSettingsNavigation } from "./use-settings-navigation";
 import { useSettingsChangeLog } from "./use-settings-change-log";
 import { useTursoProjectList } from "./use-turso-project-list";
+import { useVersionHistoryWiring } from "./use-version-history-wiring";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
@@ -97,9 +98,6 @@ import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
-import { useVersionHistory } from "./use-version-history";
-import { DEFAULT_VERSION_RETENTION } from "./version-history";
-import { workspaceToJson, type Workspace } from "./workspace";
 import { buildDemoWorkspace } from "./demo-workspace";
 import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
@@ -158,10 +156,6 @@ import { ConfirmProvider } from "./confirm-dialog";
 // Connected display-timezone switcher. A module-level wrapper (static-components
 // rule) so it can read the DisplayTimezoneContext that wraps both shells — the
 // header element it produces is rendered inside the provider in both layouts.
-
-// Idle window before an auto version is captured after a save. Coalesces a
-// burst of saves into a single version.
-const VERSION_IDLE_MS = 180_000; // 3 minutes
 
 // Stable empty fallback so an unset `settings.jira.extraProjects` doesn't create
 // a fresh `[]` each render — that churns the task row context value and
@@ -281,16 +275,12 @@ function TaskManagerInner() {
     roles,
     setRoles,
     disciplines,
-    setDisciplines,
     grades,
-    setGrades,
     setBudgets,
     setFxRates,
     budgets,
     plan,
-    setPlan,
     status,
-    setStatus,
     milestones,
     setMilestones,
     changes,
@@ -301,12 +291,9 @@ function TaskManagerInner() {
     timelogLinks,
     setTimelogLinks,
     knowledgeItems,
-    setKnowledgeItems,
     insights,
-    documents, documentVersions, setInsights, setDocuments, setDocumentVersions,
+    documents, setInsights,
     settingsOverrides,
-    setSettingsOverrides,
-    setCalendarEvents,
     setFieldVisibility,
     fxRates,
     project,
@@ -409,7 +396,7 @@ function TaskManagerInner() {
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
-  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
+  const [storageDismissed, setStorageDismissed] = useState({ backend: false, list: false }); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   const [destructiveBannerDismissed, setDestructiveBannerDismissed] = useState(false);
   const [loadPauseBannerDismissed, setLoadPauseBannerDismissed] = useState(false); // §586/§587 — hides the banner only; the save gate stays shut.
@@ -418,10 +405,8 @@ function TaskManagerInner() {
   const versionNotifyRef = useRef<() => void>(() => {});
   const reportStorageOutcome = useCallback((err: unknown | null) => {
     if (err == null) {
-      // Recovery: clear the error and the dismissal so a later failure re-shows
-      // the banner (dismiss only hides the current failing run).
+      // Recovery clears this error, and with it a dismissal of it (in render below, §678).
       setStorageError(null);
-      setStorageErrorDismissed(false);
       versionNotifyRef.current(); // arm version-history idle capture on a good save
       return;
     }
@@ -565,11 +550,14 @@ function TaskManagerInner() {
 
   // The Turso project lists (active + archived), their load-once flag, the refresh and its
   // first-load effect — see use-turso-project-list.ts (§491).
-  const { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects } = useTursoProjectList({
+  const { tursoProjects, tursoArchived, tursoListLoaded, refreshTursoProjects, tursoListFailure } = useTursoProjectList({
     portfolioMode, hydrated, reportStorageOutcome,
     tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
     tursoAuthToken: settings.integrations?.turso?.authToken,
   });
+  const shownStorageError = storageError ?? tursoListFailure; // §678: a backend success clears only `storageError`
+  const shownStorageSource = storageError ? "backend" : tursoListFailure ? "list" : null; // §678: dismiss flags both; a flag lasts while its source fails
+  if ((storageDismissed.backend && !storageError) || (storageDismissed.list && !tursoListFailure)) setStorageDismissed({ backend: storageDismissed.backend && !!storageError, list: storageDismissed.list && !!tursoListFailure });
 
   // Baseline/variance trend snapshots. Active when the project's data lives in
   // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR
@@ -670,7 +658,7 @@ function TaskManagerInner() {
   // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasIncomplete` is NOT:
   // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
   // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
-  const storageOk = storageReady && !storageError;
+  const storageOk = storageReady && !shownStorageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -942,48 +930,6 @@ function TaskManagerInner() {
     openActionCenter,
   });
 
-  // Lazily serialize the CURRENT workspace for a version-history capture. The field
-  // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
-  // restore blanks what the capture never carried. NOT the save/export set in
-  // `use-storage-backend.ts` (which also carries fieldVisibility, features,
-  // documentAssets, activityLog, budgetHistory). Placed after the stakeholders hook for scope.
-  // ★★ `documentAssets` is DELIBERATELY not captured — the decision, its two reasons and its user-visible consequence are recorded in docs/AGENTS/documents.md, "Asset images (S3c-1)" (open-followups §254); pinned by "captures documents but not documentAssets".
-  const getVersionPayload = useCallback(
-    () => workspaceToJson({
-      tasks, raid, absences, shifts, resources, roles, disciplines, grades,
-      plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
-      steeringCommittee, timelogLinks,
-      knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents,
-    }),
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades,
-     plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
-     steeringCommittee, timelogLinks,
-     knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents],
-  );
-
-  // Fan a restored workspace into every setter — the SECOND load funnel, so it
-  // repeats applyWorkspace's task-FK backfill and dangling-dependency pass (§133)
-  // (but NOT `workspaceLoaded`: see it).
-  // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
-  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
-  // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
-  // ★★ `budgetHistory` is DELIBERATELY MISSING here too, but no longer for the STRUCTURAL reason above —
-  // `setBudgetHistory` is now in scope. The budget commit boundary is the series' only writer; undo and
-  // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
-  // instead, and a restore never blanks the recorded series either.
-  const applyRestoredWorkspace = useCallback((w: Workspace) => {
-    setTasks(dropDanglingDependencies(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? []))); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
-    setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
-    if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
-    setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems); setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []); setSettingsOverrides(w.settingsOverrides); setCalendarEvents(w.calendarEvents);
-    // Version restore replaces the SAME project's data — RAISE the id-minter
-    // high-water (never lower it) so an id freed by restoring an older (smaller)
-    // snapshot can't be reused this session. Side-effecting; runs on restore
-    // (callback), not during render.
-    seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
-
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
   // view so it survives the view remount that the modern shell performs.
@@ -1013,56 +959,15 @@ function TaskManagerInner() {
     }
   }, [createDemoProject, startTour, showToast, lang]);
 
-  // Stable onError so useVersionHistory's `refresh` callback keeps a stable
-  // identity — an inline arrow here re-creates refresh every render, re-running
-  // its effect and (on the Turso path) re-fetching the version list on every
-  // render. See use-version-history.ts for the matching inactive-path guard.
-  const handleVersionError = useCallback(
-    (err: unknown) => {
-      // reportStorageOutcome owns the sticky banner (all kinds) + the one-shot
-      // generic toast; version capture is best-effort and never blocks the main
-      // save.
-      reportStorageOutcome(err);
-    },
-    [reportStorageOutcome],
-  );
-
-  // Version history. Turso-only, main-window-only; the hook is inert otherwise.
-  // ★★★ DO NOT RE-GATE THIS `projectId` ON `portfolioMode`. It used to read
-  // `portfolioMode === "turso" ? (tursoProjectId ?? "") : ""`, and that ternary
-  // discarded an id which was ALREADY correct: `use-storage-backend.ts` seeds
-  // `tursoProjectId` from `loadCurrentTursoProjectId()` on mount whatever the
-  // portfolio mode is. So in single-DB Turso STORAGE — a configuration the app
-  // deliberately supports, and which `trendsActive` above and
-  // `workspace-section.tsx`'s `chatTursoMode` both handle by ORing the two
-  // signals — the ternary forced `""`, `use-version-history.ts` folds
-  // `!!projectId` into its `active` predicate, and the whole feature switched
-  // off while its view stayed visible: an empty timeline and a "save version"
-  // that silently did nothing, with no error, because the store was never
-  // reached and `onError` never fired.
-  // ★★★ THE DAMAGE WAS NOT MERELY A DEAD FEATURE. A user who had been on the
-  // Turso PORTFOLIO and was later detached to file mode (`use-storage-file-ops`
-  // writes `savePortfolioMode("file")` on a cross-mode file load and on the
-  // demo load — both non-destructive) still has every version stored under
-  // their real project id. Keying new ones anywhere else would fork the
-  // history and leave the originals unreachable, which is why this resolves to
-  // the SAME id the rest of the app uses rather than to a fallback constant.
-  // ★★ SAFE MODE IS COVERED FOR FREE, and that is load-bearing rather than
-  // incidental: `loadCurrentTursoProjectId()` returns null under `?safe`, so
-  // `tursoProjectId` seeds null, this stays `""`, and the hook is inert —
-  // Safe Mode must never write history under a key normal boot will not read.
-  const versionHistory = useVersionHistory({
-    config: tursoConfig,
-    projectId: tursoProjectId ?? "",
-    enabled: settings.storageConfig.kind === "turso" && !isPopout && isModuleEnabled("history", settings.features),
-    idleMs: VERSION_IDLE_MS,
-    retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
-    getPayload: getVersionPayload,
-    applyWorkspace: applyRestoredWorkspace,
-    logActivity: logActivityUser,
-    onError: handleVersionError,
+  // Version history: the capture payload, the restore fan-out (the SECOND load funnel), the error
+  // bridge and the `useVersionHistory` call — see use-version-history-wiring.ts (§491).
+  const versionHistory = useVersionHistoryWiring({
+    stakeholders, calendarEvents, tursoConfig, tursoProjectId, isPopout, logActivityUser,
+    reportStorageOutcome, versionNotifyRef,
+    storageKind: settings.storageConfig.kind,
+    features: settings.features,
+    versionHistoryRetention: settings.versionHistoryRetention,
   });
-  useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
 
   // Creating a resource from outside the Resources view (the picker's "+ Add",
   // the task editor's add-to-address-book) — extracted to useResourceQuickCreate.
@@ -2198,8 +2103,8 @@ function TaskManagerInner() {
       {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
         <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
-      {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageErrorDismissed(true)} />
+      {!isPopout && shownStorageError && shownStorageSource && !storageDismissed[shownStorageSource] && (
+        <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageDismissed({ backend: true, list: true })} />
       )}
       {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
       {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (
@@ -2543,12 +2448,10 @@ function TaskManagerInner() {
   // loading placeholder — otherwise the main app renders over an empty in-memory
   // workspace and then bounces to the empty-state when an empty list resolves
   // (the "full app flash before the new-project screen" bug on portfolio switch).
-  // ★ Gate on `!storageError`: if the list fetch FAILS (unreachable DB / bad
-  // token), `tursoListLoaded` never flips, so without this the skeleton would
-  // render forever with no banner/nav. Falling through to the app tree on an
-  // error restores the storage-error banner + Settings recovery path.
+  // ★ Gate on `!shownStorageError`: a FAILED list fetch never flips `tursoListLoaded`, so without it the
+  // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
   const showTursoListLoading =
-    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
+    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
   // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
   //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
   //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit

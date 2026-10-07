@@ -1179,7 +1179,7 @@ from the probe.
 carrier tags can actually reach the loader.
 
 ★★★ **`documentAssets` IS DELIBERATELY NOT CAPTURED IN VERSION HISTORY**, and this is the record of
-that decision (`docs/open-followups.md` §254). `getVersionPayload` (`task-manager.tsx`) enumerates its
+that decision (`docs/open-followups.md` §254). `getVersionPayload` (`use-version-history-wiring.ts`) enumerates its
 slices literally and `documentAssets` is not among them, while the SAVE set does carry it —
 `use-storage-backend.ts` carries it through load, save and both truncation-guarded write paths. So
 this is an omission from version history SPECIFICALLY, not a slice that does not exist anywhere.
@@ -1612,10 +1612,10 @@ the guard AND handed to `backend.save`), the autosave **deps array**, the broadc
 Reproduce: `grep -n "documentVersions" src/app/use-storage-backend.ts`.
 
 ★★★ **THERE ARE TWO LOAD FUNNELS AND THE SECOND IS EASY TO MISS.** `applyRestoredWorkspace` in
-`task-manager.tsx` fans a restored workspace into every setter **by hand** — a slice absent from
+`use-version-history-wiring.ts` fans a restored workspace into every setter **by hand** — a slice absent from
 that list is dropped on a Turso version restore even when the ordinary load path is perfect.
-Reproduce: `grep -n "setDocumentVersions" src/app/task-manager.tsx` → **3** lines (destructure,
-the restore call, the dep array).
+Reproduce: `grep -n "setDocumentVersions" src/app/use-version-history-wiring.ts` → **3** lines (destructure,
+the restore call, the dep array). It lived in `task-manager.tsx` until §491 moved it.
 
 ★ Both funnels use `?? []` because the context state is non-optional: the mutation engine
 spreads the previous array, which would throw on `undefined`.

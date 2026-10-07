@@ -61,10 +61,9 @@
 //    RED at its premise (the debounced save landed before the reload).
 //  Re-do all four before trusting a run after a refactor of the unload path.
 //
-// Run against a fresh server from THIS checkout, never one another worktree
-// started on the default port (`reuseExistingServer` would attach to it):
+// Run on a free port. The run boots its own server from THIS checkout and stops it
+// afterwards; on a taken port it refuses rather than attaching (since §58 (b)):
 //   PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1
-//   PORT=3107 npm run stop
 import type { BrowserContext, Page } from "@playwright/test";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 
