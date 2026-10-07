@@ -43,10 +43,9 @@
 // trusting a green run after any refactor of the capture path — a live-database
 // test that has quietly stopped exercising the product still passes.
 //
-// Run against a fresh server on an isolated port, never the reused one:
-//   PORT=3100 npm run dev
+// Run against a fresh server on an isolated port, never a reused one; since
+// §58 (b) the run boots its own server there, so there is nothing to start first:
 //   PORT=3100 npx playwright test e2e/version-history-documents.spec.ts --project=chromium --workers=1
-//   PORT=3100 npm run stop
 //
 // ── WHAT "THE HISTORY PANEL IS LIVE" HAD TO BECOME HERE, AND WHY ────────────
 //

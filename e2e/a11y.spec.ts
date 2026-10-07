@@ -186,8 +186,8 @@ test("guard: the served app is this checkout", async ({ page }) => {
     bootNonce: document.documentElement.getAttribute("data-boot-nonce"),
   }));
   const remedy =
-    `Stop that server, or run on a fresh port: PORT=3100 npm run dev ` +
-    `(stop with PORT=3100 npm run stop).`;
+    `Stop that server, or run on a fresh port, where the run boots its own: ` +
+    `PORT=3100 npx playwright test e2e/a11y.spec.ts --project=chromium.`;
   expect(
     served.version,
     `Served app reports data-app-version ${served.version ?? "(absent)"}, but this checkout's ` +

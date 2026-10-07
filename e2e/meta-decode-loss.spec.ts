@@ -73,11 +73,10 @@
 // ★ CI is permanently silent on this file (§215). It exists so §284 can be
 // RE-MEASURED by whoever has a database, not asserted once and believed forever.
 //
-// Run against a FRESH server on an isolated port, never the reused one — the
-// env pair is inlined at server start:
-//   PORT=3100 npm run dev
+// Run against a FRESH server on an isolated port, never a reused one — the
+// env pair is inlined at server start. Since §58 (b) the run boots its own
+// server on that port, so there is nothing to start first:
 //   PORT=3100 npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1
-//   PORT=3100 npm run stop
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
