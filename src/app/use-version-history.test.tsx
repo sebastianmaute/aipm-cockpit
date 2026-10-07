@@ -312,6 +312,26 @@ describe("useVersionHistory", () => {
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
   });
 
+  // §674 — a restored version can carry a RAID cause loop saved before the guard
+  // existed. The restore repairs it as a load and logs it, rather than handing the
+  // loop to the setter, which would break it against the current state.
+  it("restore removes a RAID cause loop from the restored workspace and logs it as a load", async () => {
+    const raidRow = (id: number, causedByRaidIds: number[]) => ({ id, category: "R", title: `R${id}`, status: "Open", linkedTaskIds: [], causedByRaidIds, stakeholderIds: [], raisedDate: "2026-01-01" });
+    const base = { raid: [raidRow(1, [2]), raidRow(2, [1])], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(JSON.stringify({ tasks: [{ id: 1, title: "Old" }], ...base }));
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
+    const applyWorkspace = vi.fn();
+    const { clearDiagLog, readDiagLog } = await import("./diagnostics");
+    clearDiagLog();
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace })));
+    await act(async () => { await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
+    const applied = applyWorkspace.mock.calls[0][0];
+    expect(applied.raid.map((r: { causedByRaidIds: number[] }) => r.causedByRaidIds)).toEqual([[2], []]);
+    expect(readDiagLog().filter((e) => e.code === "raid.causeCycleBroken").map((e) => e.fields)).toEqual([{ count: 1, links: "2 caused by 1", on: "load" }]);
+  });
+
   it("restore surfaces onError when the version payload could not be loaded (not silent)", async () => {
     vi.spyOn(store, "loadVersionPayload").mockResolvedValue(null);
     vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);

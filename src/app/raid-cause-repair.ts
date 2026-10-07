@@ -1,7 +1,11 @@
 // The one diagnostics line for a broken RAID cause loop (§674), shared by the
 // `setRaid` guard (workspace-context.tsx), the AI create and update tools
-// (use-register-tools.ts) and the load and restore paths, so a loop removed on
-// load is reported the same way as one refused on a write.
+// (use-register-tools.ts), the load paths (use-storage-backend.ts,
+// use-storage-file-ops.ts) and the version restore (use-version-history.ts),
+// so a loop removed on load is reported the same way as one refused on a write.
+// ★ The AI tools log from the tool body, outside a React updater, so the
+// setter's StrictMode dedupe does not cover them. Nothing re-runs a tool body
+// today; a dispatcher that ever did would log a refusal twice.
 //
 // ★★ Whoever breaks a loop BEFORE calling `setRaid` must log it here: the
 // setter then finds nothing to drop and logs nothing. That is every caller of
