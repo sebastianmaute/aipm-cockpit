@@ -4475,6 +4475,20 @@ describe("AI person writes keep the resource link in step with the name", () => 
     expect(shown(row)).toBe("Bob Jones");
   });
 
+  it("updateTask still applies a reassignment when the directory person's address is malformed", () => {
+    const { result, ids } = setup();
+    let carol = 0;
+    act(() => {
+      result.current.ws.setResources((prev) => [...prev, { id: 900, firstName: "Carol", lastName: "Diaz", email: "carol@localhost" } as never]);
+      carol = 900;
+    });
+    const id = linkedTask(result, ids.alice);
+    act(() => {
+      result.current.d.updateTask(id, { assignee: "Carol Diaz" });
+    });
+    expect(result.current.d.getTask(id)).toMatchObject({ assignee: "Carol Diaz", assigneeEmail: "", resourceId: carol });
+  });
+
   it("updateTask keeps an email the model names itself", () => {
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);

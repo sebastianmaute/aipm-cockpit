@@ -27,6 +27,7 @@
 //  derives nothing: the model's own value wins, and an untouched person keeps
 //  everything it had.
 import { linkPersonForWrite } from "./resource-foundation";
+import { isWriteSafeEmail } from "./sanitize-core";
 import type { Resource } from "./types";
 
 /** The entities whose rows name a person, and the input keys that name them. */
@@ -56,13 +57,18 @@ export function namesNewPerson(
 }
 
 /** The address a reassignment to `name` stores: the one directory person the
- *  name matches, or blank. An address the email guards would refuse (a
- *  delimiter in it) is never derived, so the derivation cannot make a write
- *  throw that the model's own input would not. */
+ *  name matches, or blank.
+ *
+ *  ★★ Only an address `isWriteSafeEmail` accepts is derived. Directory
+ *   addresses are loaded WITHOUT a format check, and the email write guards
+ *   refuse a CHANGED address that fails it, so deriving `noah@localhost` made
+ *   an approved reassignment throw on a task or an absence, and on a RAID item
+ *   store the address the card had listed as rejected (measured by cold
+ *   review). Blank is never refused, so a derived value cannot do either. */
 export function reassignEmail(name: string, resources: readonly Resource[]): string {
   const id = linkPersonForWrite({ assignee: name }, resources);
   const email = id === null ? "" : (resources.find((r) => r.id === id)?.email ?? "").trim();
-  return /[,;]/.test(email) ? "" : email;
+  return isWriteSafeEmail(email) ? email : "";
 }
 
 /**

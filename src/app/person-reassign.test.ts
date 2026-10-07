@@ -27,8 +27,11 @@ describe("person-reassign", () => {
     expect(reassignEmail("noah bennett", DIRECTORY)).toBe("noah@x.com");
     expect(reassignEmail("Charlie Nobody", DIRECTORY)).toBe("");
     expect(reassignEmail("Noah Bennett", [res(2, "Noah", "Bennett")])).toBe("");
-    // Never an address the email guards would refuse, so deriving cannot make a write throw.
+    // Never an address the email write guards would refuse (a delimiter, or a
+    // malformed address loaded unvalidated into the directory), so a derived
+    // value cannot make a write throw or store what the card calls rejected.
     expect(reassignEmail("Noah Bennett", [res(2, "Noah", "Bennett", "a;b@x.com")])).toBe("");
+    expect(reassignEmail("Noah Bennett", [res(2, "Noah", "Bennett", "noah@localhost")])).toBe("");
   });
 
   it("fills in only what the model left out, and returns the same input when nothing changes", () => {

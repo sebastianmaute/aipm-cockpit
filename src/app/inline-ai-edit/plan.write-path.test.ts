@@ -633,26 +633,29 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
 describe("write-path differential — §375 a reassignment shows what it stores", () => {
   const SOFIA = seedResource({ id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", emails: [], isExternal: false, active: true });
   const NOAH = seedResource({ id: 2, firstName: "Noah", lastName: "Bennett", email: "noah@x.com", emails: [], isExternal: false, active: true });
+  // A directory address loaded unvalidated, which the email write guards refuse.
+  const CAROL = seedResource({ id: 3, firstName: "Carol", lastName: "Diaz", email: "carol@localhost", emails: [], isExternal: false, active: true });
   const ENTITIES = [
     {
       entity: "task" as const, tool: "update_task", kind: "task" as TokenEntity, wsKey: "tasks" as WsKey, id: 1,
       nameField: "assignee", emailField: "assigneeEmail", fk: "resourceId",
-      seed: { resources: [SOFIA, NOAH], tasks: [{ ...seedTask(1, "First"), assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 }] },
+      seed: { resources: [SOFIA, NOAH, CAROL], tasks: [{ ...seedTask(1, "First"), assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 }] },
     },
     {
       entity: "raid" as const, tool: "update_raid_item", kind: "raid" as TokenEntity, wsKey: "raid" as WsKey, id: 10,
       nameField: "owner", emailField: "ownerEmail", fk: "ownerResourceId",
-      seed: { resources: [SOFIA, NOAH], raid: [seedRaid({ owner: "Sofia Ramirez", ownerEmail: "sofia@x.com", ownerResourceId: 1 })] },
+      seed: { resources: [SOFIA, NOAH, CAROL], raid: [seedRaid({ owner: "Sofia Ramirez", ownerEmail: "sofia@x.com", ownerResourceId: 1 })] },
     },
     {
       entity: "absence" as const, tool: "update_absence", kind: "absence" as TokenEntity, wsKey: "absences" as WsKey, id: 50,
       nameField: "assignee", emailField: "assigneeEmail", fk: "resourceId",
-      seed: { resources: [SOFIA, NOAH], absences: [seedGuardedAbsence({ assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 })] },
+      seed: { resources: [SOFIA, NOAH, CAROL], absences: [seedGuardedAbsence({ assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 })] },
     },
   ];
   const TARGETS = [
     { to: "Noah Bennett", email: "noah@x.com", link: 2 },
     { to: "Charlie Nobody", email: "", link: null },
+    { to: "Carol Diaz", email: "", link: 3 },
   ];
 
   describe.each(ENTITIES)("$entity", (e) => {
@@ -666,7 +669,7 @@ describe("write-path differential — §375 a reassignment shows what it stores"
       expect(after(e.emailField), "the address change has no preview line, or a different one").toBe(target.email);
       expect(stored[e.fk] ?? null).toBe(target.link);
 
-      const byId = new Map([SOFIA, NOAH].map((r) => [r.id, r]));
+      const byId = new Map([SOFIA, NOAH, CAROL].map((r) => [r.id, r]));
       const shown = effectivePersonName(String(stored[e.nameField] ?? ""), stored[e.fk] as number | null | undefined, byId);
       expect(shown.toLowerCase()).toBe(String(after(e.nameField)).toLowerCase());
 
@@ -674,10 +677,10 @@ describe("write-path differential — §375 a reassignment shows what it stores"
       // from the stored address, and the old address is gone.
       const reloaded =
         e.entity === "task"
-          ? backfillTaskResourceFks([SOFIA, NOAH], [stored as unknown as Task])[0]
+          ? backfillTaskResourceFks([SOFIA, NOAH, CAROL], [stored as unknown as Task])[0]
           : e.entity === "raid"
-            ? backfillResourceFks([SOFIA, NOAH], [], [stored as unknown as RaidItem], []).raid[0]
-            : backfillResourceFks([SOFIA, NOAH], [stored as unknown as Absence], [], []).absences[0];
+            ? backfillResourceFks([SOFIA, NOAH, CAROL], [], [stored as unknown as RaidItem], []).raid[0]
+            : backfillResourceFks([SOFIA, NOAH, CAROL], [stored as unknown as Absence], [], []).absences[0];
       expect((reloaded as unknown as Row)[e.fk] ?? null).toBe(target.link);
     });
   });
