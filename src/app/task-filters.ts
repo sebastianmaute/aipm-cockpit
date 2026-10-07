@@ -20,8 +20,10 @@
 /**
  * Sentinel for "no filter" — the value of every filter <select>'s first option.
  *
- * ★ It starts with a space ON PURPOSE (§676). A group, label or assignee is
- * trimmed on every write path, so no real value can equal it; the old
+ * ★ It starts with a space ON PURPOSE (§676). The group and label option lists
+ * are built from TRIMMED values (`uniqueGroups`, `labelOptions`), so neither
+ * can offer a value equal to it; the assignee list takes names as stored, so
+ * only an assignee saved with a leading space and this exact text could. The old
  * sentinel "All" could, and a group named "All" then filtered nothing. Not NUL
  * or another control character: the toolbar is server-rendered, and the HTML
  * parser rewrites U+0000 inside an attribute, which would split the option's
