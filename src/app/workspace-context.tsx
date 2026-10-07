@@ -21,7 +21,7 @@ import { descriptionText } from "./rich-text-projection";
 import { FILTER_ALL, labelOptions, resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
 import { isExternalTask } from "./task-external";
 import { breakCauseCycles } from "./raid";
-import { logDiag } from "./diagnostics";
+import { formatCauseLinks, logCauseCycleBreak } from "./raid-cause-repair";
 import { useSettings } from "./use-settings";
 import {
   PRIORITY_RANK,
@@ -192,24 +192,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [raid, setRaidState] = useState<readonly RaidItem[]>([]);
   // ★ The cause graph is kept acyclic HERE, on the data, not in each writer
   // (§674): the edit modal refuses a cycle, but the AI tools, inline edit,
-  // import, load and template apply all write `causedByRaidIds` directly.
+  // import and template apply all write `causedByRaidIds` directly.
   // `breakCauseCycles` returns the same array when nothing goes, so this costs
-  // no re-render, and a broken loop is logged rather than dropped silently.
+  // no re-render, and a refused link is logged rather than dropped silently.
   // ★★ `prev` goes in as the before-image, so the link that goes is the one this
   // write added, never an older link on a row the writer did not touch.
+  // ★★ The LOAD paths repair BEFORE they call this (`repairLoadedRaid`), so a
+  // loop in a loaded file is logged there, with `on: "load"`, and never here.
   const lastCycleLogRef = useRef<{ prev: readonly RaidItem[]; links: string } | null>(null);
   const setRaid = useCallback<Dispatch<SetStateAction<readonly RaidItem[]>>>((action) => {
     setRaidState((prev) => {
       const next = typeof action === "function" ? action(prev) : action;
       const { items, dropped } = breakCauseCycles(next, prev);
       if (dropped.length > 0) {
-        // `logDiag` keeps scalar fields only, so the links travel as one string.
-        const links = dropped.map((d) => `${d.childId} caused by ${d.parentId}`).join(", ");
+        const links = formatCauseLinks(dropped);
         // StrictMode runs an updater twice with the same `prev`; log the break once.
         const last = lastCycleLogRef.current;
         if (last?.prev !== prev || last.links !== links) {
           lastCycleLogRef.current = { prev, links };
-          logDiag("warn", "raid.causeCycleBroken", { count: dropped.length, links });
+          logCauseCycleBreak(dropped, "write");
         }
       }
       return items;

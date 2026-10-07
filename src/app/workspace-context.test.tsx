@@ -672,7 +672,7 @@ describe("setRaid keeps the cause graph acyclic (§674)", () => {
     act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [1])]));
     expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
     const entry = readDiagLog().find((e) => e.code === "raid.causeCycleBroken");
-    expect(entry?.fields).toEqual({ count: 1, links: "2 caused by 1" });
+    expect(entry?.fields).toEqual({ count: 1, links: "2 caused by 1", on: "write" });
   });
 
   // ★★ The write that closes the loop loses its NEW link; the stored link on
@@ -689,7 +689,7 @@ describe("setRaid keeps the cause graph acyclic (§674)", () => {
     act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [])]));
     act(() => result.current.setRaid([raidItem(1, [2]), raidItem(2, [1])]));
     expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
-    expect(readDiagLog().find((e) => e.code === "raid.causeCycleBroken")?.fields).toEqual({ count: 1, links: "2 caused by 1" });
+    expect(readDiagLog().find((e) => e.code === "raid.causeCycleBroken")?.fields).toEqual({ count: 1, links: "2 caused by 1", on: "write" });
   });
 
   test("logs a broken cycle once under StrictMode, which runs the updater twice", () => {

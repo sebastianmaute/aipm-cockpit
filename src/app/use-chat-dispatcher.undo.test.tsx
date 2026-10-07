@@ -1080,4 +1080,19 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
     expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
     expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
   });
+
+  test("createRaid refuses a new cause link that closes a loop through an existing dangling link", () => {
+    // Item 2 already names a cause id no item carries yet; the create mints that id
+    // (max+1 over the seed, deterministic because of the file's beforeEach).
+    const { result } = renderRealUndo({ ...SEED, raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), causedByRaidIds: [3] }] });
+    let created: { id: number } | null = null;
+    let sameTurn: readonly number[] | undefined;
+    act(() => {
+      created = result.current.dispatcher.createRaid({ category: "R", title: "R3", status: "Open", causedByRaidIds: [2] });
+      sameTurn = created ? result.current.dispatcher.getRaidRow(created.id)?.causedByRaidIds : undefined;
+    });
+    expect(created).toMatchObject({ id: 3 });
+    expect(sameTurn).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([3]);
+  });
 });

@@ -1463,6 +1463,11 @@ describe("useStorageBackend — broadcast send gating", () => {
     await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
     expect(result.current.raid.map((r) => r.causedByRaidIds)).toEqual([[2], []]);
     expect(ctx.isLoadedValue(result.current.raid)).toBe(true);
+    // The setter has nothing left to drop, so the load logs the repair itself.
+    // (`./diagnostics` is mocked in this file, so the call list is the ring.)
+    const { logDiag } = await import("./diagnostics");
+    const calls = vi.mocked(logDiag as (...a: unknown[]) => void).mock.calls.filter((c) => c[1] === "raid.causeCycleBroken");
+    expect(calls.map((c) => c[2])).toEqual([{ count: 1, links: "2 caused by 1", on: "load" }]);
   });
 });
 

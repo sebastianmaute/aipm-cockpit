@@ -12,7 +12,7 @@ import { announcedRevision, hasAuthoredRecords, isWorkspaceEmpty, nonEmptyCollec
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { dropDanglingDependencies } from "./sanitize";
-import { breakCauseCycles } from "./raid";
+import { repairLoadedRaid } from "./raid-cause-repair";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
@@ -615,8 +615,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★★ §674/§644: repair a stored cause cycle BEFORE marking, so the marked
     // array is the one state holds. Marking the raw one would make the guard in
     // `setRaid` hand state a copy that `isLoadedValue` does not recognise, and
-    // tab sync would broadcast the load as an edit.
-    setRaid(mark("raid", breakCauseCycles(workspace.raid ?? []).items)); setAbsences(mark("absences", workspace.absences ?? [])); setShifts(mark("shifts", workspace.shifts ?? []));
+    // tab sync would broadcast the load as an edit. `repairLoadedRaid` logs the
+    // removed links itself: the setter then has nothing to drop, so nothing to log.
+    setRaid(mark("raid", repairLoadedRaid(workspace.raid ?? []))); setAbsences(mark("absences", workspace.absences ?? [])); setShifts(mark("shifts", workspace.shifts ?? []));
     setResources(mark("resources", workspace.resources ?? [])); setRoles(mark("roles", workspace.roles ?? [])); setDisciplines(mark("disciplines", workspace.disciplines ?? [])); setGrades(mark("grades", workspace.grades ?? []));
     if (workspace.plan) setPlan(mark("plan", workspace.plan));
     setBudgets(mark("budgets", workspace.budgets ?? [])); setFxRates(mark("fxRates", workspace.fxRates ?? null)); setStatus(mark("status", workspace.status ?? {}));
