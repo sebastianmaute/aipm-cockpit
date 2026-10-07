@@ -45,7 +45,9 @@ create a new one.
 
 All of them are entered in **Settings** (in the sidebar). The Turso, Jira and Timelog settings each
 have a **Test connection** button: use it after pasting, before you rely on the integration. The AI
-key is checked when you leave its field, and the model list loads once it is accepted.
+key has no such button: when you leave its field the app checks only its FORMAT, and clears a
+malformed key with an error message. Whether Anthropic accepts the key shows once the **Model**
+list loads, because that list comes from Anthropic using the key.
 
 ### Claude API key
 
@@ -63,7 +65,8 @@ features are off until you turn them on.
 5. Recommended: set a monthly spend limit for the account in the console, so a runaway job cannot
    run up a large bill. Anyone who can use this laptop's profile can use the key.
 6. In the app, open **Settings → AI Assistant**, tick **Enable AI assistant**, and paste the key into
-   **Anthropic API key**. The **Model** list fills in once the key is accepted.
+   **Anthropic API key**. Leaving the field checks only that it looks like a key; the **Model**
+   list fills in once Anthropic accepts it. If the list stays empty, the key was not accepted.
 7. The first time you open the AI Assistant, it asks you to accept how your data is sent to
    Anthropic. Read it, then click **I understand — enable chat**.
 
@@ -85,9 +88,10 @@ section if you work from a project file.
 4. On the same database, create a **token** with **read and write** access. Choose an expiry that
    suits you, and note the date: when it expires the app can no longer reach the database until
    you create a new one. Copy the token; Turso shows it only once.
-   - If you prefer the command line, the same three steps are
-     `turso db create aipm-cockpit`, `turso db show aipm-cockpit --url` and
-     `turso db tokens create aipm-cockpit`.
+   - If you prefer the command line, sign in first with `turso auth login`, then run
+     `turso db create aipm-cockpit` (step 2), `turso db show aipm-cockpit --url` (step 3) and
+     `turso db tokens create aipm-cockpit --expiration 90d` (step 4). ★ Without `--expiration`
+     the command creates a token that NEVER expires; pass one, and note the date.
 5. In the app, open **Settings → Integrations**, turn on **Turso storage backend**, paste the URL
    into **Database URL** and the token into **Auth token**, then click **Test connection**. It
    should answer "Connected." Click **Apply**.
@@ -119,7 +123,8 @@ expired or was revoked), the app shows a banner; create a new token and paste it
 
 ### Timelog personal access token
 
-Optional. Lets the app read time bookings from Timelog for the Budget view.
+Optional. Lets the app read time bookings from Timelog into the **Time bookings** view, from where
+you can apply them to the Budget.
 
 1. Go to <https://login.timelog.com/personaltoken> and sign in with your Timelog account.
 2. Generate a **personal access token** and copy it.
@@ -128,8 +133,10 @@ Optional. Lets the app read time bookings from Timelog for the Budget view.
    **tenant** is `yourcompany`. Ask your Timelog administrator if you are not sure.
 4. In the app, open **Settings → Integrations**, tick **Enable Timelog integration**, and fill in
    **Host**, **Tenant**, **Account email** and **Personal access token**.
-5. Click **Test connection**. It reports how many people it can see and whether you get your own
-   bookings or the whole organisation's; that depends on your Timelog permissions, not on the app.
+5. Click **Test connection**. It reports how many people it can see and a scope: `self` (your own
+   bookings) or `org` (the whole organisation's). With **Data scope** on **Auto-detect**, the
+   default, that scope comes from your Timelog permissions. With **My bookings only** or **Whole
+   organisation** it reports the scope you chose, whatever your permissions allow.
 
 If the token is rejected later, generate a new one on the same page and paste it in.
 
