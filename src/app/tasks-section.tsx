@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
@@ -25,7 +25,7 @@ import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
-import { useTaskRowWindow, TASK_ROW_ESTIMATE_PX } from "./use-task-row-window";
+import type { TaskRowWindowHandle } from "./use-task-row-window";
 import { filterTasksByHealth } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
@@ -279,6 +279,12 @@ export function TasksSection({
   // §5: a deep link to a row outside the virtualized window first scrolls it
   // into range. `scrollRowIntoRange` is declared below, after `visibleRows`;
   // the hook calls this only from an effect, after render, so it is defined.
+  // ★★ ORDERING: the hook queries the row on the NEXT animation frame, and
+  // that works only because react-virtual re-renders the table through
+  // `flushSync` (its default `useFlushSync`) inside the scroll event that
+  // `scrollToIndex` causes, and a frame runs its scroll steps before its
+  // animation-frame callbacks. Turn `useFlushSync` off and the row is not in
+  // the DOM yet when the query runs, so the flash silently finds nothing.
   const { flashId, containerRef } = useDeepLinkRowFlash("open-points", {
     scrollToId: (id) => scrollRowIntoRange(id),
   });
@@ -401,19 +407,14 @@ export function TasksSection({
     () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
     [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
   );
-  // §5: above VIRTUALIZE_MIN_ROWS rows the table renders a window of rows.
-  // ★ The board and swimlane views reuse `containerRef` as THEIR scroll box, so
-  // the count is 0 outside the table — a live virtualizer would otherwise
-  // observe the board's scrolling and re-render this pane for nothing.
-  const isTableView = tasksViewMode !== "board" && tasksViewMode !== "swimlane";
-  const rowWindow = useTaskRowWindow({
-    count: isTableView ? visibleRows.length : 0,
-    scrollRef: containerRef,
-    estimateRowPx: TASK_ROW_ESTIMATE_PX,
-  });
+  // §5: above VIRTUALIZE_MIN_ROWS rows the table renders a window of rows. The
+  // window lives in `TasksTable`, which fills this handle; the board and
+  // swimlane views never mount it, so it stays null there and attaches nothing
+  // to the scroll box they share.
+  const rowWindowRef = useRef<TaskRowWindowHandle | null>(null);
   const scrollRowIntoRange = (id: number) => {
     const index = visibleRows.findIndex((task) => task.id === id);
-    if (index >= 0) rowWindow.scrollToIndex(index);
+    if (index >= 0) rowWindowRef.current?.scrollToIndex(index);
   };
 
   // ★★ TWO maps, not one, and this is not redundancy. The table renders
@@ -858,7 +859,8 @@ export function TasksSection({
             onJumpToChanges={onJumpToChanges}
             flashId={flashId}
             onAdd={openTaskEditor}
-            rowWindow={rowWindow}
+            scrollRef={containerRef}
+            rowWindowRef={rowWindowRef}
           />
         </RowContextProvider>
         )}

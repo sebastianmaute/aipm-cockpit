@@ -1,9 +1,9 @@
 import { describe, test, expect, vi } from "vitest";
 import { render, act } from "@testing-library/react";
-import { useRef } from "react";
+import { createRef, useRef, type Ref } from "react";
 import { TasksTable } from "./tasks-section-rows";
 import { RowContextProvider, type RowContextValue } from "./task-row";
-import { useTaskRowWindow, VIRTUALIZE_MIN_ROWS } from "./use-task-row-window";
+import { VIRTUALIZE_MIN_ROWS, type TaskRowWindowHandle } from "./use-task-row-window";
 import { visibleTaskCols } from "./open-points-table-geometry";
 import type { Task } from "./types";
 
@@ -18,18 +18,25 @@ const ROW_PX = 40;
 const WINDOW_START = 11;
 const WINDOW_END = 31; // exclusive
 const measureElementSpy = vi.fn();
+const scrollToIndexSpy = vi.fn();
+// `pinned.index` adds one row far from the window, the way the range extractor
+// does for a focused row (use-task-row-window.ts `withPinnedIndex`).
+const pinned: { index: number | null } = { index: null };
 
-vi.mock("@tanstack/react-virtual", () => ({
+vi.mock("@tanstack/react-virtual", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-virtual")>()),
   useVirtualizer: (opts: { count: number }) => {
-    const items: { index: number; start: number; end: number; size: number; key: number; lane: number }[] = [];
-    for (let i = WINDOW_START; i < Math.min(WINDOW_END, opts.count); i++) {
-      items.push({ index: i, start: i * ROW_PX, end: (i + 1) * ROW_PX, size: ROW_PX, key: i, lane: 0 });
-    }
+    const indexes: number[] = [];
+    for (let i = WINDOW_START; i < Math.min(WINDOW_END, opts.count); i++) indexes.push(i);
+    if (pinned.index !== null) indexes.push(pinned.index);
+    indexes.sort((a, b) => a - b);
+    const items = indexes.map((i) => ({ index: i, start: i * ROW_PX, end: (i + 1) * ROW_PX, size: ROW_PX, key: i, lane: 0 }));
     return {
       getVirtualItems: () => items,
       getTotalSize: () => opts.count * ROW_PX,
-      scrollToIndex: vi.fn(),
+      scrollToIndex: scrollToIndexSpy,
       measureElement: measureElementSpy,
+      takeSnapshot: () => [],
     };
   },
 }));
@@ -87,9 +94,8 @@ const CONTEXT: RowContextValue = {
 
 const TH = { sortKey: null, sortDir: "asc" as const, onSort: vi.fn(), onResize: vi.fn() };
 
-function Harness({ tasks }: { tasks: Task[] }) {
+function Harness({ tasks, handle }: { tasks: Task[]; handle?: Ref<TaskRowWindowHandle> }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const rowWindow = useTaskRowWindow({ count: tasks.length, scrollRef, estimateRowPx: ROW_PX });
   return (
     <div ref={scrollRef}>
       <RowContextProvider value={CONTEXT}>
@@ -116,7 +122,8 @@ function Harness({ tasks }: { tasks: Task[] }) {
           onJumpToChanges={vi.fn()}
           flashId={null}
           onAdd={vi.fn()}
-          rowWindow={rowWindow}
+          scrollRef={scrollRef}
+          rowWindowRef={handle ?? null}
         />
       </RowContextProvider>
     </div>
@@ -204,6 +211,41 @@ describe("TasksTable — virtualized row window (§5)", () => {
       window.dispatchEvent(new Event("afterprint"));
     });
     expect(taskRows(container)).toHaveLength(WINDOW_END - WINDOW_START);
+  });
+
+  test("a spacer row draws no divide-y border (an inline border: 0 beats the utility)", () => {
+    const { container } = render(<Harness tasks={makeTasks(250)} />);
+    for (const sp of spacerRows(container)) expect(sp.style.border).toMatch(/^0(px)?/);
+  });
+
+  test("renders a focused row held outside the window with its own spacer before it", () => {
+    pinned.index = 200;
+    try {
+      const count = 250;
+      const { container } = render(<Harness tasks={makeTasks(count)} />);
+      const rows = taskRows(container);
+      expect(rows.at(-1)!.getAttribute("data-index")).toBe("200");
+      expect(rows.at(-1)!.getAttribute("aria-rowindex")).toBe("202");
+      const spacers = spacerRows(container);
+      // Leading, the gap between the window and row 200, trailing.
+      expect(spacers.map((sp) => sp.cells[0].style.height)).toEqual([
+        `${WINDOW_START * ROW_PX}px`,
+        `${(200 - WINDOW_END) * ROW_PX}px`,
+        `${(count - 201) * ROW_PX}px`,
+      ]);
+      const tbodyRows = Array.from(container.querySelectorAll("tbody > tr"));
+      expect(tbodyRows.indexOf(spacers[1])).toBe(tbodyRows.indexOf(rows.at(-1)!) - 1);
+    } finally {
+      pinned.index = null;
+    }
+  });
+
+  test("hands the window's scrollToIndex to the pane through rowWindowRef", () => {
+    scrollToIndexSpy.mockClear();
+    const handle = createRef<TaskRowWindowHandle>();
+    render(<Harness tasks={makeTasks(250)} handle={handle} />);
+    handle.current!.scrollToIndex(120);
+    expect(scrollToIndexSpy).toHaveBeenCalledWith(120, { align: "center" });
   });
 
   test("drops back to the plain path with no spacer when a filter takes the count from 250 to 150", () => {

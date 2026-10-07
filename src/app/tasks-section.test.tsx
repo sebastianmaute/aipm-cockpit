@@ -55,7 +55,8 @@ vi.mock("./use-deeplink-row-flash", () => ({
   },
   flashOutlineClass: () => "",
 }));
-vi.mock("@tanstack/react-virtual", () => ({
+vi.mock("@tanstack/react-virtual", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-virtual")>()),
   useVirtualizer: (opts: { count: number; enabled?: boolean }) => {
     virtual.lastOptions = opts;
     const items = Array.from({ length: Math.min(20, opts.count) }, (_, i) => ({
@@ -66,6 +67,7 @@ vi.mock("@tanstack/react-virtual", () => ({
       getTotalSize: () => opts.count * 45,
       scrollToIndex: virtual.scrollToIndex,
       measureElement: () => {},
+      takeSnapshot: () => [],
     };
   },
 }));
@@ -1841,10 +1843,15 @@ describe("TasksSection — a deep link scrolls a virtualized row into range (§5
     expect(virtual.scrollToIndex).not.toHaveBeenCalled();
   });
 
-  it("keeps the virtualizer off in the board view, which reuses the same scroll box", () => {
-    stubSettings({ tasksViewMode: "board" });
+  // The row window lives in TasksTable, which the board and swimlane views never
+  // mount, so no virtualizer exists there to observe the scroll box they share.
+  it.each(["board", "swimlane"] as const)("creates no virtualizer in the %s view, which reuses the same scroll box", (mode) => {
+    stubSettings({ tasksViewMode: mode });
     stubWorkspace(manyTasks, manyTasks);
     render(<TasksSection {...makeProps()} />);
-    expect(virtual.lastOptions).toMatchObject({ count: 0, enabled: false });
+    expect(virtual.lastOptions).toBeNull();
+    // ...and a deep link there has no window to scroll, and does not throw.
+    act(() => deepLink.opts!.scrollToId!(900));
+    expect(virtual.scrollToIndex).not.toHaveBeenCalled();
   });
 });
