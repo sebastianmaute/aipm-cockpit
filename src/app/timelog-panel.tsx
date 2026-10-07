@@ -43,6 +43,7 @@ import { canApplyToBudget, canClearAllFetched, canFetchBookings, canLoadManagedP
 import { TimelogApplyNotices } from "./timelog-apply-notices";
 import { decideReapply } from "./timelog-reapply";
 import { bucketOverlay } from "./timelog-actuals";
+import { Button } from "./button";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -850,13 +851,14 @@ export function TimelogPanel({
                 could open one. §424's rule — a dialog declaring nothing is the
                 designed answer for progress, confirmations and gates. */}
             <span className="text-sm font-medium">{t(lang, "loadingTimelog")}</span>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               onClick={sync.cancel}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
             >
               {t(lang, "cancel")}
-            </button>
+            </Button>
           </Card>
         </Modal>
       )}

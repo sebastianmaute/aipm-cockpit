@@ -11,6 +11,7 @@ import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { INTERACTIVE } from "./interaction-styles";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { canClearAllFetched, canFetchBookings, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
+import { Button } from "./button";
 
 interface TimelogToolbarProps {
   lang: Lang;
@@ -72,14 +73,15 @@ export function TimelogToolbar({
           onSelectChange={onCustomerSelectChange}
           onFocusLoad={onCustomerFocusLoad}
         />
-        <button
+        <Button
+          variant="destructive"
+          size="sm"
           type="button"
           disabled={!canClearAllFetched({ isPopout, syncBusy, confirming, hasFetched: !!fetchedAt })}
           onClick={onClearAll}
-          className={`rounded-md border border-ui-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "clearAll")}
-        </button>
+        </Button>
         <button
           type="button"
           disabled={!canFetchBookings({ isPopout, syncBusy, confirming, isMisconfigured, projectCustomerId, selectedCount })}
