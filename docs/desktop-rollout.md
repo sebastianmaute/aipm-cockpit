@@ -23,14 +23,140 @@ The desktop app keeps its data separately from your web browser, so **it starts 
 
 You will need to enter these once:
 
-- Your AI (Anthropic) API key
-- Your Turso database URL and auth token, if you use Turso storage
-- Your Jira and Timelog tokens, if you use those integrations
-- Your speech-to-text key, if you use dictation
+- Your AI (Anthropic) API key, if you use the AI assistant — see [Claude API key](#claude-api-key)
+- Your Turso database URL and auth token, if you use Turso storage — see [Turso database](#turso-database)
+- Your Jira and Timelog tokens, if you use those integrations — see [Jira API token](#jira-api-token)
+  and [Timelog personal access token](#timelog-personal-access-token)
+- Your speech-to-text key, if you use cloud dictation — see [Speech-to-text key](#speech-to-text-key)
+
+None of them is required to start: the app works on its own, with your projects stored on this
+laptop, and each integration can be added later.
 
 If you work from a **project file**, open it once via the usual file picker; the app will remember it from then on.
 
 If you use **Turso storage**, your projects appear as soon as the token is entered — that data lives on the server, not on your laptop.
+
+## Getting your keys and tokens
+
+Every key below is a password. The app keeps each one encrypted on this laptop, and sends it only
+to the service it belongs to. Never paste one into a chat, an email or a ticket. If a laptop is
+lost, or a key may have leaked, delete it at the service (the same page you created it on) and
+create a new one.
+
+All of them are entered in **Settings** (in the sidebar). The Turso, Jira and Timelog settings each
+have a **Test connection** button: use it after pasting, before you rely on the integration. The AI
+key has no such button: when you leave its field the app checks only its FORMAT, and clears a
+malformed key with an error message. Whether Anthropic accepts the key shows under the **Model**
+field: when it does, the hint there disappears and the list fills with the available models. See
+step 6 of [Claude API key](#claude-api-key) for what the other hints mean.
+
+### Claude API key
+
+Used by the AI assistant (chat, AI suggestions, scheduled jobs, AI project creation). The AI
+features are off until you turn them on.
+
+1. Go to <https://console.anthropic.com> and sign in, or create an account. If your organisation
+   already has an Anthropic account, ask its administrator to invite you instead, so usage is
+   billed to the organisation.
+2. Make sure the account has credit: **Settings → Billing** in the console. Without credit every
+   request is refused.
+3. Open **Settings → API keys** (<https://console.anthropic.com/settings/keys>) and click
+   **Create key**. Give it a name you will recognise later, such as "AI PM Cockpit – laptop".
+4. Copy the key straight away. It starts with `sk-ant-`, and the console shows it **only once**.
+5. Recommended: set a monthly spend limit for the account in the console, so a runaway job cannot
+   run up a large bill. Anyone who can use this laptop's profile can use the key.
+6. In the app, open **Settings → AI Assistant**, tick **Enable AI assistant**, and paste the key into
+   **Anthropic API key**. Leaving the field checks only that it looks like a key. The
+   **Model** field always shows a default model, so look at the hint under it:
+   - **No hint, and the list holds the available models:** Anthropic accepted the key.
+   - **"Claude rejected your Anthropic API key…"** (under both the key and the Model field): the
+     key is mistyped or revoked. Create a new one (step 3).
+   - **"Your Anthropic API key isn't allowed to make this request…":** the key lacks permission.
+     Check it in the console, or use a different key.
+   - **"Enter a valid Anthropic API key to load available models." stays:** the check has not
+     finished yet, or could not reach Anthropic (for example, a company network blocks it).
+
+   This check does not show whether the account has credit. If the key is accepted but chat
+   requests fail, check **Settings → Billing** in the console (step 2).
+7. The first time you open the AI Assistant, it asks you to accept how your data is sent to
+   Anthropic. Read it, then click **I understand — enable chat**.
+
+If the key is ever rejected, the app shows a banner saying so; create a new key and paste it in.
+
+### Turso database
+
+Optional. Turso is a hosted database. Use it if you want your projects on a server (shared between
+devices, with version history and snapshot trends) rather than only on this laptop. Skip this
+section if you work from a project file.
+
+1. Go to <https://turso.tech> and sign up (a GitHub or Google account works). The free plan is
+   enough to start.
+2. In the Turso dashboard, create a **database**. Pick a location close to you. The name is up to
+   you, for example `aipm-cockpit`.
+3. Open the database and copy its **URL**. It looks like
+   `libsql://aipm-cockpit-yourname.aws-eu-west-1.turso.io`. Copy it exactly as Turso shows it,
+   including the region part; do not shorten it.
+4. On the same database, create a **token** with **read and write** access. Choose an expiry that
+   suits you, and note the date: when it expires the app can no longer reach the database until
+   you create a new one. Copy the token; Turso shows it only once.
+   - If you prefer the command line, sign in first with `turso auth login`, then run
+     `turso db create aipm-cockpit` (step 2), `turso db show aipm-cockpit --url` (step 3) and
+     `turso db tokens create aipm-cockpit --expiration 90d` (step 4). Without `--expiration`
+     the command creates a token that never expires, so pass one and note the date.
+5. In the app, open **Settings → Integrations**, turn on **Turso storage backend**, paste the URL
+   into **Database URL** and the token into **Auth token**, then click **Test connection**. It
+   should answer "Connected." Click **Apply**.
+6. Open **Settings → Storage** and choose **Turso database**.
+
+Use a token for this one database, not an account-wide or organisation token. If the test says
+the token was rejected, it has expired, been revoked, or belongs to a different database.
+
+### Jira API token
+
+Optional. Lets the app sync tasks with a Jira project. You need a Jira Cloud site (an address
+ending in `atlassian.net`) and an account that can browse and edit issues in the project.
+
+1. Go to <https://id.atlassian.com/manage-profile/security/api-tokens>, signed in with the
+   Atlassian account you use for Jira.
+2. Click **Create API token** (the plain one, not "Create API token with scopes"). Give it a name,
+   such as "AI PM Cockpit", and an expiry date. Note the date.
+3. Copy the token; Atlassian shows it only once.
+4. In the app, open **Settings → Integrations**, and in the **Jira** block:
+   - tick **Enable Jira sync**;
+   - **Site URL**: your Jira address, for example `https://your-company.atlassian.net`;
+   - **Atlassian account email**: the email you sign in to Jira with;
+   - **API token**: the token you just copied;
+   - **Token expires on**: the date you chose. The app then reminds you before the token runs out.
+5. Click **Test connection**, then pick the Jira **Project** to sync with.
+
+Your normal Jira password is never needed and never asked for. If Jira later rejects the token (it
+expired or was revoked), the app shows a banner; create a new token and paste it in.
+
+### Timelog personal access token
+
+Optional. Lets the app read time bookings from Timelog into the **Time bookings** view, from where
+you can apply them to the Budget.
+
+1. Go to <https://login.timelog.com/personaltoken> and sign in with your Timelog account.
+2. Generate a **personal access token** and copy it.
+3. Note two parts of the address you use for Timelog in your browser. For
+   `https://app2.timelog.com/yourcompany/...`, the **host** is `app2.timelog.com` and the
+   **tenant** is `yourcompany`. Ask your Timelog administrator if you are not sure.
+4. In the app, open **Settings → Integrations**, tick **Enable Timelog integration**, and fill in
+   **Host**, **Tenant**, **Account email** and **Personal access token**.
+5. Click **Test connection**. It reports how many people it can see and a scope: `self` (your own
+   bookings) or `org` (the whole organisation's). With **Data scope** on **Auto-detect**, the
+   default, that scope comes from your Timelog permissions. With **My bookings only** or **Whole
+   organisation** it reports the scope you chose, whatever your permissions allow.
+
+If the token is rejected later, generate a new one on the same page and paste it in.
+
+### Speech-to-text key
+
+Optional, and only for **cloud** dictation. The default dictation engine is the built-in browser
+one, which needs no key. To use a cloud engine instead, open **Settings → Dictation engine**, choose
+**Cloud (OpenAI-compatible)**, and enter the **Transcription endpoint base URL**, **Model** and
+**API key** your provider gives you. Recorded audio is sent to that endpoint.
 
 ## Everyday use
 

@@ -92,7 +92,8 @@ import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { type Task } from "../types";
+import { type Absence, type RaidItem, type Task } from "../types";
+import { backfillResourceFks, backfillTaskResourceFks, effectivePersonName } from "../resource-foundation";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { type Workspace } from "../workspace";
@@ -618,5 +619,69 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
     const stored = taskRow(snapshot(result.current.ws));
     expect(stored.taskName).toBe("First");
     expect(stored.priority).toBe(before.priority);
+  });
+});
+
+/** §375: a reassignment's DERIVED fields. A model call naming a new person and
+ *  nothing else also replaces the address (and, on an absence, the link), and the
+ *  writer re-derives a task's or RAID owner's link from the two. Two things must
+ *  hold, and neither is the probed field alone, which is all the sweep compares:
+ *  every derived change carries a preview line whose `after` is what was stored,
+ *  and the person every view then shows (`effectivePersonName`) is the name the
+ *  card promised. Seeded on LINKED rows that carry the OLD person's address,
+ *  which is the demo workspace's shape and the one the first fix missed. */
+describe("write-path differential — §375 a reassignment shows what it stores", () => {
+  const SOFIA = seedResource({ id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", emails: [], isExternal: false, active: true });
+  const NOAH = seedResource({ id: 2, firstName: "Noah", lastName: "Bennett", email: "noah@x.com", emails: [], isExternal: false, active: true });
+  // A directory address loaded unvalidated, which the email write guards refuse.
+  const CAROL = seedResource({ id: 3, firstName: "Carol", lastName: "Diaz", email: "carol@localhost", emails: [], isExternal: false, active: true });
+  const ENTITIES = [
+    {
+      entity: "task" as const, tool: "update_task", kind: "task" as TokenEntity, wsKey: "tasks" as WsKey, id: 1,
+      nameField: "assignee", emailField: "assigneeEmail", fk: "resourceId",
+      seed: { resources: [SOFIA, NOAH, CAROL], tasks: [{ ...seedTask(1, "First"), assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 }] },
+    },
+    {
+      entity: "raid" as const, tool: "update_raid_item", kind: "raid" as TokenEntity, wsKey: "raid" as WsKey, id: 10,
+      nameField: "owner", emailField: "ownerEmail", fk: "ownerResourceId",
+      seed: { resources: [SOFIA, NOAH, CAROL], raid: [seedRaid({ owner: "Sofia Ramirez", ownerEmail: "sofia@x.com", ownerResourceId: 1 })] },
+    },
+    {
+      entity: "absence" as const, tool: "update_absence", kind: "absence" as TokenEntity, wsKey: "absences" as WsKey, id: 50,
+      nameField: "assignee", emailField: "assigneeEmail", fk: "resourceId",
+      seed: { resources: [SOFIA, NOAH, CAROL], absences: [seedGuardedAbsence({ assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 })] },
+    },
+  ];
+  const TARGETS = [
+    { to: "Noah Bennett", email: "noah@x.com", link: 2 },
+    { to: "Charlie Nobody", email: "", link: null },
+    { to: "Carol Diaz", email: "", link: 3 },
+  ];
+
+  describe.each(ENTITIES)("$entity", (e) => {
+    it.each(TARGETS)("to $to", async (target) => {
+      const c: WriteCase = { name: `${e.entity} to ${target.to}`, tool: e.tool, entity: e.entity, kind: e.kind, wsKey: e.wsKey, id: e.id, seed: e.seed as TestSeed, input: { id: e.id, [e.nameField]: target.to }, expectStored: {} };
+      const { plan, stored } = await previewAndWrite(c);
+      const after = (field: string) => plan.updates.find((u) => u.field === field)?.after;
+
+      // RAID and absence rows store a blank address SPARSELY (an absent key).
+      expect(stored[e.emailField] ?? "", "the old person's address was kept").toBe(target.email);
+      expect(after(e.emailField), "the address change has no preview line, or a different one").toBe(target.email);
+      expect(stored[e.fk] ?? null).toBe(target.link);
+
+      const byId = new Map([SOFIA, NOAH, CAROL].map((r) => [r.id, r]));
+      const shown = effectivePersonName(String(stored[e.nameField] ?? ""), stored[e.fk] as number | null | undefined, byId);
+      expect(shown.toLowerCase()).toBe(String(after(e.nameField)).toLowerCase());
+
+      // A reload must not undo it: both load-time backfills fill an unset link
+      // from the stored address, and the old address is gone.
+      const reloaded =
+        e.entity === "task"
+          ? backfillTaskResourceFks([SOFIA, NOAH, CAROL], [stored as unknown as Task])[0]
+          : e.entity === "raid"
+            ? backfillResourceFks([SOFIA, NOAH, CAROL], [], [stored as unknown as RaidItem], []).raid[0]
+            : backfillResourceFks([SOFIA, NOAH, CAROL], [stored as unknown as Absence], [], []).absences[0];
+      expect((reloaded as unknown as Row)[e.fk] ?? null).toBe(target.link);
+    });
   });
 });

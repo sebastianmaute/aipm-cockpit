@@ -27,6 +27,7 @@ import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { IconButton } from "./icon-button";
 import { EraserIcon, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TOUR_ANCHORS } from "./app-tour";
+import { Button } from "./button";
 
 export type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
 
@@ -303,20 +304,22 @@ export function TasksSelectionBar({
         <ToggleButton lang={lang} pressed={bulkEditOpen} onToggle={onToggleBulkEdit}>
           {t(lang, "bulkEdit")}
         </ToggleButton>
-        <button
+        <Button
+          variant="destructive"
+          size="sm"
           type="button"
           onClick={onDeleteSelected}
-          className={`rounded-md border border-ui-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/5 ${INTERACTIVE}`}
         >
           {t(lang, "deleteSelected")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           type="button"
           onClick={clearSelection}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "clearSelection")}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import {
@@ -181,6 +181,77 @@ describe("useDeepLinkRowFlash", () => {
     fireEvent.click(getByText("go"));
 
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
+  describe("opts.scrollToId (§5 — a virtualized table)", () => {
+    /** A panel whose row 5 is NOT in the DOM until scrollToId brings it into
+     *  range — the shape of a row outside a virtualized table's window. */
+    function WindowedProbe({ scrollToId }: { scrollToId: (id: number) => void }) {
+      const [inRange, setInRange] = useState(false);
+      const { flashId, containerRef } = useDeepLinkRowFlash("changes", {
+        scrollToId: (id) => {
+          scrollToId(id);
+          setInRange(true);
+        },
+      });
+      const { requestOpen } = useWorkspaceTab();
+      return (
+        <div>
+          <span data-testid="flash">{String(flashId)}</span>
+          <button onClick={() => requestOpen("changes", 5)}>go</button>
+          <div ref={containerRef}>
+            <table>
+              <tbody>
+                {inRange && (
+                  <tr data-deeplink-row="5">
+                    <td>row</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    it("calls scrollToId before querying the row, and queries on the next frame", () => {
+      vi.useFakeTimers();
+      try {
+        const order: string[] = [];
+        const scrollToId = vi.fn(() => order.push("scrollToId"));
+        vi.mocked(Element.prototype.scrollIntoView).mockImplementation(() => {
+          order.push("scrollIntoView");
+        });
+        const { getByText, getByTestId } = render(
+          <Providers>
+            <WindowedProbe scrollToId={scrollToId} />
+          </Providers>,
+        );
+        fireEvent.click(getByText("go"));
+        expect(getByTestId("flash").textContent).toBe("5");
+        expect(scrollToId).toHaveBeenCalledTimes(1);
+        expect(scrollToId).toHaveBeenCalledWith(5);
+        // The query has NOT run yet: it waits a frame for the row to render.
+        expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+        act(() => {
+          vi.advanceTimersToNextFrame();
+        });
+        // The row scrollToId brought into range is found and centred.
+        expect(order).toEqual(["scrollToId", "scrollIntoView"]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("is unchanged without opts: no callback, the query alone", () => {
+      const { getByText } = render(
+        <Providers>
+          <Probe view="changes" />
+        </Providers>,
+      );
+      fireEvent.click(getByText("go"));
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("flashOutlineClass returns outline classes only when flashed", () => {

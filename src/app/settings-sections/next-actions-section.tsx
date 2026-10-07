@@ -21,6 +21,7 @@ import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
 import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select } from "../form-controls";
+import { Button } from "../button";
 
 interface NextActionsSectionProps {
   lang: Lang;
@@ -143,22 +144,24 @@ export function NextActionsSection({
 
       {canSuggest && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             type="button"
             onClick={runSuggest}
             disabled={suggest.busy}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {suggest.busy ? t(lang, "weightSuggestBusy") : t(lang, "weightSuggestRun")}
-          </button>
+          </Button>
           {displayed.length > 0 && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               onClick={acceptAll}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "weightSuggestAcceptAll")}
-            </button>
+            </Button>
           )}
           <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <input
@@ -247,14 +250,16 @@ export function NextActionsSection({
         );
       })}
 
-      <button
+      <Button
+        variant="secondary"
+        size="sm"
         type="button"
         onClick={resetDefaults}
         disabled={isDefault}
-        className={`mt-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+        className="mt-2"
       >
         {t(lang, "nextActionsReset")}
-      </button>
+      </Button>
 
       <hr className="my-3 border-line" />
       <div className="text-xs text-muted-foreground space-y-1">
@@ -310,13 +315,14 @@ export function NextActionsSection({
             >
               {t(lang, "settingsLearningReset")}
             </button>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               onClick={onOpenInsights}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "settingsLearningInsights")}
-            </button>
+            </Button>
           </div>
         </>
       )}

@@ -312,29 +312,33 @@ async function main(): Promise<void> {
   const sections = [{
     key: "tasks",
     title: "Tasks — link fidelity",
-    columns: ["Task", "Reference"],
+    // ★ ID and title first, as every real export section is: since §153 a multi-row
+    // .pptx section prints compact summary slides with NO links, and only a row
+    // whose rich cells sit AFTER those two columns gets a linked detail slide.
+    // With the rich cell in column 1 the workspace .pptx carried no link at all.
+    columns: ["ID", "Task", "Reference"],
     rows: [
-      ["Read the handbook", {
+      [1, "Read the handbook", {
         html: `Per the <a href="${HANDBOOK}"><strong>delivery handbook</strong></a>.`,
         text: "Per the delivery handbook.",
       }],
-      ["Watch live status", {
+      [2, "Watch live status", {
         html: `<a href="${STATUS_URL}">${STATUS_URL}</a>`,
         text: STATUS_URL,
       }],
-      ["Escalate", {
+      [3, "Escalate", {
         html: `Mail <a href="${MAILBOX}">pmo@example.com</a>.`,
         text: "Mail pmo@example.com.",
       }],
-      ["Re-read the handbook", {
+      [4, "Re-read the handbook", {
         html: `Again: <a href="${HANDBOOK}">delivery handbook</a>.`,
         text: "Again: delivery handbook.",
       }],
-      ["Policy note in bold", {
+      [5, "Policy note in bold", {
         html: `<strong><a href="${POLICY}">policy note</a></strong>`,
         text: "policy note",
       }],
-      ["Inert", {
+      [6, "Inert", {
         html: `<a href="${INERT_HREF}">not a link</a>`,
         text: "not a link",
       }],

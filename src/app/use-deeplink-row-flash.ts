@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 
@@ -15,6 +15,12 @@ export function flashOutlineClass(isFlashed: boolean): string {
  * carrying `data-deeplink-row="<id>"` into view (centered) and flash `flashId`
  * for DEEPLINK_FLASH_MS. Does NOT clear pendingOpen — the panel's own
  * editor-open effect still does. Graceful no-op when the row isn't in the DOM.
+ *
+ * `opts.scrollToId` (§5) is for a panel whose row may not be in the DOM because
+ * it renders only a window of rows (the virtualized Open Points table). It is
+ * called with the target id BEFORE the row query, and the query then runs on
+ * the next animation frame, once the panel has rendered the row. Panels that
+ * pass nothing behave exactly as before.
  */
 /** The deep-link target id for this `view`, or null when the pending request is
  *  for another view / a sentinel (id < 0) / nothing pending. */
@@ -26,7 +32,12 @@ function targetIdFor(
   return pendingOpen.id < 0 ? null : pendingOpen.id;
 }
 
-export function useDeepLinkRowFlash(view: AppView): {
+export interface DeepLinkRowFlashOptions {
+  /** Bring row `id` into the rendered range before it is queried. */
+  scrollToId?: (id: number) => void;
+}
+
+export function useDeepLinkRowFlash(view: AppView, opts?: DeepLinkRowFlashOptions): {
   flashId: number | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
 } {
@@ -49,6 +60,9 @@ export function useDeepLinkRowFlash(view: AppView): {
     { view: AppView; id: number } | null | undefined
   >(undefined);
   const targetId = targetIdFor(pendingOpen, view);
+  // An effect event, so the effect below reads the LATEST callback (it closes
+  // over the panel's current rows) without re-running whenever it changes.
+  const scrollToId = useEffectEvent((id: number) => opts?.scrollToId?.(id));
   if (pendingOpen !== handled) {
     setHandled(pendingOpen);
     if (targetId !== null) {
@@ -65,6 +79,7 @@ export function useDeepLinkRowFlash(view: AppView): {
   // auto-clear survive the pendingOpen clear.
   useEffect(() => {
     if (flashId === null) return;
+    scrollToId(flashId);
     const raf = requestAnimationFrame(() => {
       containerRef.current
         ?.querySelector(`[data-deeplink-row="${flashId}"]`)

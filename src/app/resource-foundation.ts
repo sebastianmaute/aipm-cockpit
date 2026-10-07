@@ -265,6 +265,34 @@ function resolvePersonResourceIdForWrite(
 }
 
 /**
+ * The resource link an AI write implies for the person reference it just
+ * wrote: a task's `assignee`/`assigneeEmail`, or a RAID item's
+ * `owner`/`ownerEmail`. `null` drops the link, so the written name is what
+ * every view shows.
+ *
+ * ★★★ WITHOUT THIS AN AI REASSIGNMENT IS INVISIBLE. A linked person wins over
+ *  the stored name ({@link effectivePersonName}), so a write that changed only
+ *  the name stored it and left the old person on screen. Found on the §375
+ *  eye check: "re-assign all tasks" applied every row of the review card, and
+ *  the demo project (every task linked) looked untouched.
+ *
+ * ★★ The STRICT write resolver, for the reason {@link backfillTaskResourceFks}
+ *  uses it: a wrong stored FK is not reversible, an unlinked name is. An
+ *  ambiguous or disagreeing reference therefore unlinks rather than guesses.
+ *
+ * ★ Callers re-resolve only when the write CHANGED the person reference. An
+ *  untouched one keeps its link even when the stored name has drifted from the
+ *  directory's; re-resolving it would drop a link nobody asked to change.
+ */
+export function linkPersonForWrite(
+  ref: { assignee?: string | null; assigneeEmail?: string | null },
+  resources: readonly Resource[],
+): number | null {
+  if (resources.length === 0) return null;
+  return resolvePersonResourceIdForWrite(ref, buildResourceLookupIndexes(resources));
+}
+
+/**
  * Idempotently fill an unset `Task.resourceId` from the directory, by
  * case-folded email first and then by a UNIQUE case-folded display name.
  *

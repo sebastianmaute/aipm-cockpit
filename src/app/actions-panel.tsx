@@ -28,6 +28,7 @@ import { TIER_RAG } from "./next-actions/action-cta";
 import { buildRowTokens } from "./row-tokens";
 import { Dot } from "./dot";
 import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
+import { Button } from "./button";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "now", labelKey: "actionTierNow" },
@@ -322,13 +323,14 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
                 could open one. §424's rule — a dialog declaring nothing is the
                 designed answer for progress, confirmations and gates. */}
             <span className="text-sm font-medium">{t(lang, "actionAiAnalyzing")}</span>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               onClick={aiAnalysis.onCancel}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             >
               {t(lang, "cancel")}
-            </button>
+            </Button>
           </Card>
         </Modal>
       )}

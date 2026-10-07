@@ -104,6 +104,13 @@ interface TaskRowProps {
   onJumpToChanges?: (taskId: number) => void;
   isStriped?: boolean;
   isFlashed?: boolean;
+  /** Set only while the table renders a row window (§5, `useTaskRowWindow`):
+   *  the row's 1-based position for `aria-rowindex`, its list index for the
+   *  virtualizer's `data-index`, and the virtualizer's measuring ref. Left
+   *  undefined on the plain path, which then renders exactly as before. */
+  ariaRowIndex?: number;
+  virtualIndex?: number;
+  measureRef?: (el: HTMLTableRowElement | null) => void;
 }
 
 function TaskRowImpl({
@@ -119,6 +126,9 @@ function TaskRowImpl({
   onJumpToChanges,
   isStriped = false,
   isFlashed = false,
+  ariaRowIndex,
+  virtualIndex,
+  measureRef,
 }: TaskRowProps) {
   const {
     lang,
@@ -273,6 +283,9 @@ function TaskRowImpl({
   return (
     <tr
       data-deeplink-row={task.id}
+      ref={measureRef}
+      data-index={virtualIndex}
+      aria-rowindex={ariaRowIndex}
       className={["group align-top", stateClass, flashOutlineClass(isFlashed)]
         .filter(Boolean)
         .join(" ")}

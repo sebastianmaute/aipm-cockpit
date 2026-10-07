@@ -12,6 +12,14 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Long task lists stay responsive (§5).** Above 200 visible rows, the Open Points table draws only the
+  rows near the screen. At about 1000 tasks, opening the table went from 8.3 s to 1.8 s in our
+  measurement; searching and changing a status got faster too, but less (about 2x and 1.6x). Printing still
+  prints every row in the browser, a deep link still scrolls to its row and flashes it, and an edit
+  you have open in a row is kept when you scroll that row out of view. One trade-off: the browser's own find (Ctrl+F) only sees the rows
+  currently drawn, so use the table's search box to find a task in a long list. Up to 200 rows the
+  table works exactly as before.
+
 - **Branded Word files (§512).** Exported Word files, both the project export and downloaded
   documents, now have a header with your logo and the project name and a footer with the page number
   ("Page 2 of 5"). A logo Word cannot show, such as an SVG, is left out and the name stays.
@@ -104,10 +112,25 @@ longer carries its own changelog comment.
   format is no longer supported show an empty box.
 - **Matching buttons (§102).** The Resources calendar's previous and next buttons show chevron icons
   instead of ◀ and ▶, and those buttons, the Diagnostics actions, the view hint's dismiss button, a
-  swimlane's remove button and the Help button now use the app's shared button styles.
+  swimlane's remove button and the Help button now use the app's shared button styles. So do the
+  task editor's Send inquiry, Push to Jira, Jira sync and + Create RAID buttons (with the RAID form open,
+  + New linked task now lines up with its Add button), Open Points' Delete selected and Clear
+  selection, and buttons in Settings → Next actions, Settings → Templates, Time bookings and the Action
+  Center's AI analysis.
 
 ### Fixed
 
+- **AI reassignments now show (§375).** Asking the assistant to reassign tasks changed the stored name but
+  kept the old person's link to the resource directory and their email address, so every view went on
+  showing the old person and status inquiries still went to them. When the assistant names a new person
+  without an email address, the task now takes the address of the directory person with that name and is
+  linked to them; if nobody in the directory has that name, or two people share it, the link and the old
+  address are dropped and the new name shows. That includes an address you typed for someone outside the
+  directory: if the assistant gives that person a different name, the address is dropped too (undo in the
+  main window brings it back). Changing only the capitals or spacing of a name keeps everything. The
+  review card lists the address change. The same applies
+  to RAID owners and absences (a reassigned RAID owner also no longer reverts to the old person after a
+  reload), and tasks and RAID items the assistant creates are linked to the person they name.
 - **A failed Turso project list keeps its error on screen (§678).** In multi-project Turso mode, when the
   project list could not be loaded, the storage banner could disappear again as soon as the workspace
   itself finished loading, and a loading placeholder took its place. The banner, and the red storage
@@ -198,6 +221,9 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Smaller task manager (§491).** The reminder banners moved to `use-reminder-banners.tsx` and the task
+  editor's footer buttons to `buildTaskEditorChrome`; `task-manager.tsx` went from 2535 to 2454 lines,
+  and its size baseline was lowered to match.
 - **Weekly release notes (§527).** `npm run release-notes` prints user-facing notes for a date window
   (the last seven days by default) from the CHANGELOG versions dated in it.
 - **IndexedDB stores come from one list (§99 follow-up).** `openIdb` now creates every record store

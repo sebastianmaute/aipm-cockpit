@@ -12,6 +12,7 @@ import { useCurrentWorkspace } from "../use-current-workspace";
 import { useSettings } from "../use-settings";
 import { useCommitOnPageHide } from "../use-commit-on-page-hide";
 import { buildRowTokens, rowLabel } from "../row-tokens";
+import { Button } from "../button";
 
 // Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
 // defeat the memo and trip react-hooks/exhaustive-deps (fatal here).
@@ -123,14 +124,16 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           <span>{t(lang, "templateIncludeContent")}</span>
         </label>
         <div className="flex justify-end">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             type="button"
             onClick={saveCurrent}
             disabled={!trimmed}
-            className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className="shrink-0"
           >
             {t(lang, "templateSaveAction")}
-          </button>
+          </Button>
         </div>
       </div>
 

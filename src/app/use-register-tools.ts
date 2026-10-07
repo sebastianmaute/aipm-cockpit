@@ -95,6 +95,8 @@ import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
+import { linkPersonForWrite } from "./resource-foundation";
+import { withReassignFields } from "./person-reassign";
 
 /** The register slice of `ToolDispatcher` — derived from it with `Pick` rather
  *  than re-declared, so a signature change on the tool contract lands here as a
@@ -174,6 +176,12 @@ export interface RegisterToolsDeps {
   raidRef: RefObject<readonly RaidItem[]>;
   stakeholdersRef: RefObject<readonly Stakeholder[]>;
   absencesRef: RefObject<readonly Absence[]>;
+}
+
+/** The owner link a RAID write implies: `linkPersonForWrite` over the owner
+ *  fields, which carry a task's assignee pair under other names (§375). */
+function linkRaidOwner(item: Pick<RaidItem, "owner" | "ownerEmail">, resources: readonly Resource[]): number | null {
+  return linkPersonForWrite({ assignee: item.owner, assigneeEmail: item.ownerEmail }, resources);
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
@@ -293,9 +301,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (!sanitized) throw new Error("invalid RAID item: title is required");
         // A malformed date the model supplied is dropped to "" by the sanitizer;
         // fall back to today so a created item always carries a raised date.
-        const item = sanitized.raisedDate
+        const dated = sanitized.raisedDate
           ? sanitized
           : { ...sanitized, raisedDate: clockRef.current.today };
+        // §375: the owner is linked when the directory names exactly them, so
+        // the RAID views show the person rather than a free-text name.
+        const ownerResourceId = linkRaidOwner(dated, resourcesRef.current);
+        const item = ownerResourceId === null ? dated : { ...dated, ownerResourceId };
         // ★★ §674: run the cycle guard here too, against the pre-op array, so the
         // model is told the links that were STORED, not the ones it asked for.
         // `guardRaidWrite` logs the refusal: `setRaid` will find nothing to drop.
@@ -307,11 +319,16 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         logActivityAs?.("ai", "raid.created", item.id, item.category, item.title);
         return toRaidSummary(stored);
       },
-      updateRaid: (id, patch) => {
+      updateRaid: (id, modelPatch) => {
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
-        refuseEmailWrite("ownerEmail", (patch as { ownerEmail?: unknown }).ownerEmail, existing.ownerEmail);
+        refuseEmailWrite("ownerEmail", (modelPatch as { ownerEmail?: unknown }).ownerEmail, existing.ownerEmail);
+        // ★★★ §375: a new owner named without an email takes the directory
+        //  person's address (or blank). Keeping the old owner's would decide the
+        //  link here AND re-link the old owner on the next load
+        //  (`backfillResourceFks` fills a null owner link from the address).
+        const patch = withReassignFields("raid", modelPatch, existing, resourcesRef.current);
         // ★★★ `dropUnacceptedRaidFields` FIRST — `sanitizeRaidItem` rebuilds a
         // whole record, so a value it refuses CLEARS the merged field rather
         // than leaving the stored one alone (or resets it to a hardcoded
@@ -324,7 +341,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // ★★ `rebuildRaidForUpdate` (M6): an optional date the patch leaves as
         // stored is carried verbatim — CSV/MD/Turso and IndexedDB store them
         // unvalidated, and the strict rebuild silently blanked one on any update.
-        const merged = rebuildRaidForUpdate(existing, {
+        const rebuilt = rebuildRaidForUpdate(existing, {
           ...existing,
           // ★ Guard OUTSIDE, matching milestone — see the note at that call
           // site for why the order is load-bearing. It is behaviour-NEUTRAL
@@ -337,7 +354,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
           id,
           localModifiedAt: new Date().toISOString(),
         });
-        if (!merged) throw new Error("invalid RAID item update");
+        if (!rebuilt) throw new Error("invalid RAID item update");
+        // ★★★ §375: a changed owner re-resolves the link, or the change is
+        //  stored and invisible — a linked owner's directory name wins on every
+        //  RAID view (`linkPersonForWrite`'s docstring). An untouched owner
+        //  keeps it.
+        const ownerChanged =
+          (rebuilt.owner ?? "") !== (existing.owner ?? "") || (rebuilt.ownerEmail ?? "") !== (existing.ownerEmail ?? "");
+        const merged = ownerChanged ? { ...rebuilt, ownerResourceId: linkRaidOwner(rebuilt, resourcesRef.current) } : rebuilt;
         // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
         // ★★ §674: the cycle guard runs here against the pre-op array, so a link
         // that would close a loop is refused on THIS row and the summary reports
@@ -876,7 +900,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = absencesRef.current.find((a) => a.id === id);
         if (!existing) return null;
-        const accepted = dropUnacceptedAbsenceFields(patch);
+        // ★★★ §375: a new assignee named without an email or a link takes the
+        //  directory person's (or none), never keeps the old person's link and
+        //  address, which kept the old name on screen. The card projects the
+        //  same fields (`person-reassign.ts`), and `resourceId` is disclosed there.
+        const accepted = dropUnacceptedAbsenceFields(withReassignFields("absence", patch, existing, resourcesRef.current));
         refuseInvalidAbsenceEmail(accepted, existing.assigneeEmail);
         // ★★ Carries an UNCHANGED kept-raw stored date — see updateMilestone (§539).
         const merged = rebuildAbsenceForUpdate(existing, {

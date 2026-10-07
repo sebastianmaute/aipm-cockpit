@@ -955,6 +955,15 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   //  ★ `() => false` rather than a shape check: an accepted well-formed id is
   //  still an owner reassignment the card cannot show. Nothing may reach this
   //  field from a model patch until the descriptor can disclose it.
+  //  ★★ §375: THE WRITER NOW DERIVES IT, and that does not reopen this guard.
+  //  `updateRaid` and `createRaid` (`use-register-tools.ts`) re-resolve the
+  //  link from the owner NAME and ADDRESS the card does show (`owner`,
+  //  `ownerEmail`), so the person every RAID view shows is the name the card
+  //  promised. On an UPDATE that names a new owner without an address,
+  //  `person-reassign.ts` projects the address on both the card and the write
+  //  first; a create links from the model's own owner and address. Pinned by
+  //  "§375 a reassignment shows what it stores" in `plan.write-path.test.ts`.
+  //  A model-SUPPLIED id is still refused here.
   ownerResourceId: () => false,
   // ★★ NOT MODEL-WRITABLE (§515): app-written by Escalate. The ONLY model-write guard — deliberately absent from TOKEN_EXCLUDED.raid.
   escalations: () => false,
