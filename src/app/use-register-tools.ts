@@ -90,7 +90,7 @@ import {
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
-import { breakCauseCycles } from "./raid";
+import { guardRaidWrite } from "./raid-cause-repair";
 import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -298,7 +298,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
           : { ...sanitized, raisedDate: clockRef.current.today };
         // ★★ §674: run the cycle guard here too, against the pre-op array, so the
         // model is told the links that were STORED, not the ones it asked for.
-        const next = breakCauseCycles([...raidRef.current, item], raidRef.current).items;
+        // `guardRaidWrite` logs the refusal: `setRaid` will find nothing to drop.
+        const next = guardRaidWrite([...raidRef.current, item], raidRef.current);
         const stored = next.find((r) => r.id === id) ?? item;
         raidRef.current = next;
         setRaid(next);
@@ -340,11 +341,12 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
         // ★★ §674: the cycle guard runs here against the pre-op array, so a link
         // that would close a loop is refused on THIS row and the summary reports
-        // what was stored. `setRaid` runs it again and finds nothing to drop.
-        const next = breakCauseCycles(
+        // what was stored. `setRaid` runs it again and finds nothing to drop,
+        // so `guardRaidWrite` logs the refusal here.
+        const next = guardRaidWrite(
           raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r)),
           raidRef.current,
-        ).items;
+        );
         const stored = next.find((r) => r.id === id) ?? merged;
         // `existing` is the STORED row and `raidRef.current` the PRE-op array —
         // both read ABOVE the reassignment on the next line. Capturing `merged`

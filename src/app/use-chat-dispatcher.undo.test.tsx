@@ -6,6 +6,7 @@ import {
   makeDispatcherArgs,
 } from "../test/chat-dispatcher-fixture";
 import { type ToolDispatcher } from "./chat-tools";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { addNote } from "./note-log";
 import { type TestSeed } from "./test-providers";
@@ -1060,6 +1061,11 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
     raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), causedByRaidIds: [1] }],
   };
 
+  // The tool breaks the loop before `setRaid`, so the setter has nothing to drop:
+  // the diagnostics line has to come from the tool itself.
+  const cycleLog = () => readDiagLog().filter((e) => e.code === "raid.causeCycleBroken").map((e) => e.fields);
+  beforeEach(() => clearDiagLog());
+
   test("keeps the stored link, refuses the new one, and one undo restores everything", () => {
     const { result } = renderRealUndo(CYCLE_SEED);
     // ★ Read back INSIDE the act, before any re-render: a later tool call in the
@@ -1071,6 +1077,7 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
       sameTurn = result.current.dispatcher.getRaidRow(1)?.causedByRaidIds;
     });
     expect(sameTurn).toEqual([]);
+    expect(cycleLog()).toEqual([{ count: 1, links: "1 caused by 2", on: "write" }]);
     expect(result.current.dispatcher.getRaidRow(1)?.title).toBe("R1 edited");
     expect(result.current.dispatcher.getRaidRow(1)?.causedByRaidIds).toEqual([]);
     expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([1]);
@@ -1093,6 +1100,7 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
     });
     expect(created).toMatchObject({ id: 3 });
     expect(sameTurn).toEqual([]);
+    expect(cycleLog()).toEqual([{ count: 1, links: "3 caused by 2", on: "write" }]);
     expect(result.current.dispatcher.getRaidRow(2)?.causedByRaidIds).toEqual([3]);
   });
 });

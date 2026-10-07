@@ -197,8 +197,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // no re-render, and a refused link is logged rather than dropped silently.
   // ★★ `prev` goes in as the before-image, so the link that goes is the one this
   // write added, never an older link on a row the writer did not touch.
-  // ★★ The LOAD paths repair BEFORE they call this (`repairLoadedRaid`), so a
-  // loop in a loaded file is logged there, with `on: "load"`, and never here.
+  // ★★ Two kinds of caller break a loop BEFORE they call this, and log it
+  // themselves (raid-cause-repair.ts), because this then has nothing to drop:
+  // the load paths (`repairLoadedRaid`, `on: "load"`) and the AI create and
+  // update tools (`guardRaidWrite`, `on: "write"`). The version restore
+  // (`applyRestoredWorkspace`, task-manager.tsx) does NOT: it hands its array
+  // here raw, so a loop in a restored version is broken against the current
+  // state and logged as a write. Harmless (same project, still acyclic), and
+  // left so because task-manager.tsx is at its size ratchet with no headroom.
   const lastCycleLogRef = useRef<{ prev: readonly RaidItem[]; links: string } | null>(null);
   const setRaid = useCallback<Dispatch<SetStateAction<readonly RaidItem[]>>>((action) => {
     setRaidState((prev) => {

@@ -1,6 +1,11 @@
 // The one diagnostics line for a broken RAID cause loop (§674), shared by the
-// `setRaid` guard (workspace-context.tsx) and the load paths, so a loop
-// removed on load is reported the same way as one refused on a write.
+// `setRaid` guard (workspace-context.tsx), the AI create and update tools
+// (use-register-tools.ts) and the load and restore paths, so a loop removed on
+// load is reported the same way as one refused on a write.
+//
+// ★★ Whoever breaks a loop BEFORE calling `setRaid` must log it here: the
+// setter then finds nothing to drop and logs nothing. That is every caller of
+// `guardRaidWrite` and `repairLoadedRaid` below.
 //
 // ★★ A load has no before-image, so `repairLoadedRaid` breaks a loop by
 // ascending item id; a write refuses its own new link instead (see
@@ -22,6 +27,15 @@ export function formatCauseLinks(dropped: CauseCycleBreak["dropped"]): string {
 export function logCauseCycleBreak(dropped: CauseCycleBreak["dropped"], on: "write" | "load"): void {
   if (dropped.length === 0) return;
   logDiag("warn", CAUSE_CYCLE_DIAG_CODE, { count: dropped.length, links: formatCauseLinks(dropped), on });
+}
+
+/** A written RAID array with any link that closes a loop against `prior`
+ *  refused and logged as a write. For a writer that needs the stored result
+ *  before `setRaid` runs, such as an AI tool reporting back in the same turn. */
+export function guardRaidWrite(next: readonly RaidItem[], prior: readonly RaidItem[]): readonly RaidItem[] {
+  const { items, dropped } = breakCauseCycles(next, prior);
+  logCauseCycleBreak(dropped, "write");
+  return items;
 }
 
 /** A loaded RAID array with any cause loop removed and logged. Same array when there was none. */

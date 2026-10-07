@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
-import { CAUSE_CYCLE_DIAG_CODE, formatCauseLinks, logCauseCycleBreak, repairLoadedRaid } from "./raid-cause-repair";
+import { CAUSE_CYCLE_DIAG_CODE, formatCauseLinks, guardRaidWrite, logCauseCycleBreak, repairLoadedRaid } from "./raid-cause-repair";
 import type { RaidItem } from "./types";
 
 function item(id: number, causedByRaidIds: number[]): RaidItem {
@@ -21,6 +21,19 @@ describe("raid-cause-repair (§674)", () => {
   test("repairLoadedRaid returns the same array and logs nothing when there is no loop", () => {
     const raid = [item(1, []), item(2, [1])];
     expect(repairLoadedRaid(raid)).toBe(raid);
+    expect(logged()).toEqual([]);
+  });
+
+  test("guardRaidWrite refuses the link the write added and logs it as a write", () => {
+    const prior = [item(1, []), item(2, [1])];
+    const out = guardRaidWrite([item(1, [2]), item(2, [1])], prior);
+    expect(out.map((r) => r.causedByRaidIds)).toEqual([[], [1]]);
+    expect(logged()).toEqual([{ count: 1, links: "1 caused by 2", on: "write" }]);
+  });
+
+  test("guardRaidWrite returns the same array and logs nothing when the write closes no loop", () => {
+    const next = [item(1, []), item(2, [1])];
+    expect(guardRaidWrite(next, [])).toBe(next);
     expect(logged()).toEqual([]);
   });
 
