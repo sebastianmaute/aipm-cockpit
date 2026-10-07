@@ -22,9 +22,11 @@
 // ★★ The draft-loss and scroll fixes below lean on virtual-core behaviour that
 // is not documented API: the public fields `itemSizeCache`/`measurementsCache`,
 // that switching off clears them in the virtualizer's own layout effect, and
-// that `getSize` falls back to `initialRect` when it turns back on. Any
-// `@tanstack/*` version change must re-run use-task-row-window.real-virtualizer.test.tsx
-// AND the PERF-gated probe (e2e/perf-task-table.spec.ts), which CI never runs.
+// that `getSize` falls back to `initialRect` when it turns back on.
+// use-task-row-window.real-virtualizer.test.tsx pins all three against the real
+// library and runs in CI's unit job, so a `@tanstack/*` bump that breaks one fails
+// there. The PERF-gated probe (e2e/perf-task-table.spec.ts), the only check against
+// a real browser layout, does not run in CI: run it by hand on any such bump.
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { defaultRangeExtractor, useVirtualizer, type Range, type Rect, type Virtualizer, type VirtualItem } from "@tanstack/react-virtual";
@@ -155,8 +157,8 @@ const NO_MEASUREMENTS: VirtualItem[] = [];
  *  ★ The size comes from `itemSizeCache`, not the item: a row measured after
  *  the last recompute still carries its ESTIMATE in `measurementsCache`. Only
  *  the key and the size are read back (virtual-core recomputes every start of a
- *  one-lane list when it turns back on), so
- *  a start that predates that measurement is harmless. */
+ *  one-lane list when it turns back on), so a start that predates that
+ *  measurement is harmless. */
 export function measuredRows(virtualizer: Virtualizer<HTMLElement, Element>): VirtualItem[] {
   const sizes = virtualizer.itemSizeCache;
   if (sizes.size === 0) return NO_MEASUREMENTS;

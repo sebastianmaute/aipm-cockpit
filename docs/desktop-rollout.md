@@ -46,8 +46,9 @@ create a new one.
 All of them are entered in **Settings** (in the sidebar). The Turso, Jira and Timelog settings each
 have a **Test connection** button: use it after pasting, before you rely on the integration. The AI
 key has no such button: when you leave its field the app checks only its FORMAT, and clears a
-malformed key with an error message. Whether Anthropic accepts the key shows once the **Model**
-list loads, because that list comes from Anthropic using the key.
+malformed key with an error message. Whether Anthropic accepts the key shows under the **Model**
+field: the hint "Enter a valid Anthropic API key to load available models." stays there until
+Anthropic accepts the key, then disappears as the list fills with the available models.
 
 ### Claude API key
 
@@ -65,8 +66,10 @@ features are off until you turn them on.
 5. Recommended: set a monthly spend limit for the account in the console, so a runaway job cannot
    run up a large bill. Anyone who can use this laptop's profile can use the key.
 6. In the app, open **Settings → AI Assistant**, tick **Enable AI assistant**, and paste the key into
-   **Anthropic API key**. Leaving the field checks only that it looks like a key; the **Model**
-   list fills in once Anthropic accepts it. If the list stays empty, the key was not accepted.
+   **Anthropic API key**. Leaving the field checks only that it looks like a key. The
+   **Model** field always shows a default model, so look at the hint under it: while it reads
+   "Enter a valid Anthropic API key to load available models.", the key has not been accepted
+   (mistyped, revoked, or the account has no credit). It disappears once Anthropic accepts the key.
 7. The first time you open the AI Assistant, it asks you to accept how your data is sent to
    Anthropic. Read it, then click **I understand — enable chat**.
 

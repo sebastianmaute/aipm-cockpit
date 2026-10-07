@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { Virtualizer, defaultRangeExtractor, elementScroll, observeElementOffset, observeElementRect } from "@tanstack/virtual-core";
+import { Virtualizer, defaultRangeExtractor, elementScroll, observeElementOffset, observeElementRect } from "@tanstack/react-virtual";
 import { liveBoxRect, measuredRows, useTaskRowWindow, type TaskRowWindow } from "./use-task-row-window";
 
 // ★★ NO MOCK in this file. use-task-row-window.test.tsx mocks `useVirtualizer`,
@@ -13,8 +13,10 @@ import { liveBoxRect, measuredRows, useTaskRowWindow, type TaskRowWindow } from 
 //  - switched back on, its private `getSize()` falls back to `initialRect` until its
 //    observer reports, so the first windowed range comes from the hook's live
 //    box size.
-// Any `@tanstack/*` version change must re-run this file AND the PERF-gated
-// probe (e2e/perf-task-table.spec.ts), which is the only real-browser check.
+// It imports through `@tanstack/react-virtual`, which re-exports virtual-core, so it
+// runs the same module instance as the hook. It runs in CI's unit job; the PERF-gated
+// probe (e2e/perf-task-table.spec.ts), the only real-browser check, does not, so run
+// that by hand on any `@tanstack/*` version change.
 
 const ROW_PX = 45;
 const COUNT = 1000;
@@ -136,7 +138,7 @@ describe("virtual-core as useTaskRowWindow drives it (§5, no mock)", () => {
 });
 
 describe("useTaskRowWindow over the real virtualizer (§5, no mock)", () => {
-  test("a print round trip keeps the measured heights and renders rows on its first windowed commit", () => {
+  test("a threshold round trip (above 200, below, above again) keeps the measured heights and renders rows on its first windowed commit", () => {
     const box = makeBox();
     const scrollRef = { current: box };
     const headRef = { current: null };

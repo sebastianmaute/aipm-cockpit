@@ -12,6 +12,14 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Long task lists stay responsive (§5).** Above 200 visible rows, the Open Points table draws only the
+  rows near the screen. At about 1000 tasks, opening the table went from 8.3 s to 1.8 s in our
+  measurement; searching and changing a status got faster too, but less (about 2x and 1.6x). Printing still
+  prints every row, a deep link still scrolls to its row and flashes it, and a row you are editing
+  stays in place while you scroll. One trade-off: the browser's own find (Ctrl+F) only sees the rows
+  currently drawn, so use the table's search box to find a task in a long list. Up to 200 rows the
+  table works exactly as before.
+
 - **Branded Word files (§512).** Exported Word files, both the project export and downloaded
   documents, now have a header with your logo and the project name and a footer with the page number
   ("Page 2 of 5"). A logo Word cannot show, such as an SVG, is left out and the name stays.
