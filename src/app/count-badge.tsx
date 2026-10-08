@@ -13,9 +13,11 @@ import type { HTMLAttributes } from "react";
 
 export type CountBadgeVariant = "pink" | "dark-blue" | "grey";
 
-// variant → brand tint (fill + AA-safe white text).
+// variant → brand tint (fill + AA-safe white text). Pink rides the derived
+// `--count-badge-pink`, not raw `--ui-pink`: white on raw pink is 3.83:1 on
+// Beacon and under 2.7:1 in every dark built-in (§681).
 const VARIANT_CLASS: Record<CountBadgeVariant, string> = {
-  pink: "bg-ui-pink text-white",
+  pink: "bg-[var(--count-badge-pink)] text-white",
   "dark-blue": "bg-ui-dark-blue text-white",
   grey: "bg-ui-medium-grey text-white",
 };

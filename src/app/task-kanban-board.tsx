@@ -3,7 +3,10 @@
 // Named distinctly from the pure `task-kanban.ts` (grouping engine) it imports:
 // a bare `./task-kanban` import resolves `.ts` AHEAD of `.tsx`, so a sibling
 // `task-kanban.tsx` would silently hijack the engine import (see AGENTS.md).
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "./button";
+import { usePrinting } from "./use-printing";
+import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
 import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
@@ -103,6 +106,49 @@ export function TaskKanban({
   aiEditEnabled,
 }: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
+  // Per-column card limits; a missing entry means one page. Lives as long as the board
+  // does: a remount (another view, the load hold) starts every column at one page again.
+  const [limits, setLimits] = useState<Partial<Record<TaskStatus, number>>>({});
+  // ★ A deep link to a card past its column's cap. useDeepLinkRowFlash sets `flashId`
+  //   during render and queries [data-deeplink-row] only on the NEXT animation frame, so
+  //   the card must be in the DOM from this render: a render-time reconcile raises the
+  //   column's limit here (React re-runs this render with it before committing). Not the
+  //   hook's `scrollToId` callback: that runs from an effect, a commit too late, and an
+  //   effect may not set state (set-state-in-effect is fatal). Seeded with a sentinel,
+  //   not the live prop, so a fresh mount honours a pending flash (remount-swallow rule).
+  const [seenFlash, setSeenFlash] = useState<number | null | undefined>(undefined);
+  if (flashId !== seenFlash) {
+    setSeenFlash(flashId);
+    if (flashId != null) {
+      for (const status of TASK_STATUSES) {
+        const index = cols[status].findIndex((tk) => tk.id === flashId);
+        if (index < 0) continue;
+        // Only ever raise: a column the user already opened past the card stays open.
+        if (index >= (limits[status] ?? KANBAN_COLUMN_PAGE)) {
+          setLimits((prev) => ({
+            ...prev,
+            [status]: Math.max(prev[status] ?? KANBAN_COLUMN_PAGE, Math.ceil((index + 1) / KANBAN_COLUMN_PAGE) * KANBAN_COLUMN_PAGE),
+          }));
+        }
+        break;
+      }
+    }
+  }
+  // ★ Focus after "Show more": the first card the click revealed takes focus. Without it a
+  //   keyboard user lands on <body> when the last page removes the button, and below the
+  //   new cards otherwise. The click records the column and the index here; the effect
+  //   below focuses the card once it is in the DOM. A ref and a DOM call, no state.
+  const reveal = useRef<{ column: Element; index: number } | null>(null);
+  useEffect(() => {
+    const target = reveal.current;
+    if (!target) return;
+    reveal.current = null;
+    const card = target.column.querySelectorAll(`[data-testid^="kanban-card-"]`)[target.index];
+    card?.querySelector<HTMLElement>("button, select, [tabindex]")?.focus();
+  });
+  // A printout must hold every card.
+  const printing = usePrinting();
+  const limitOf = (status: TaskStatus): number => (printing ? Infinity : (limits[status] ?? KANBAN_COLUMN_PAGE));
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
       {TASK_STATUSES.map((status) => (
@@ -123,7 +169,7 @@ export function TaskKanban({
             <span className="text-xs text-muted-foreground">{cols[status].length}</span>
           </h3>
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
-            {cols[status].map((task) => {
+            {cols[status].slice(0, limitOf(status)).map((task) => {
               const synced = isJiraSynced(task);
               return (
                 <article
@@ -164,9 +210,36 @@ export function TaskKanban({
                 </article>
               );
             })}
+            <ShowMoreButton
+              lang={lang}
+              status={status}
+              hidden={cols[status].length - Math.min(cols[status].length, limitOf(status))}
+              onShowMore={(button) => {
+                const column = button.closest("section");
+                if (column) reveal.current = { column, index: Math.min(cols[status].length, limitOf(status)) };
+                setLimits((prev) => ({ ...prev, [status]: (prev[status] ?? KANBAN_COLUMN_PAGE) + KANBAN_COLUMN_PAGE }));
+              }}
+            />
           </div>
         </section>
       ))}
     </div>
+  );
+}
+
+/** The "Show more" button under a capped column; nothing when no card is hidden. Its
+ *  name carries the column, so the six buttons are told apart (axe cannot see a duplicate). */
+function ShowMoreButton({ lang, status, hidden, onShowMore }: {
+  lang: Lang;
+  status: TaskStatus;
+  hidden: number;
+  /** Called with the button, so the board can find the column it sits in. */
+  onShowMore: (button: HTMLButtonElement) => void;
+}) {
+  if (hidden <= 0) return null;
+  return (
+    <Button variant="ghost" size="xs" data-testid={`kanban-show-more-${status}`} onClick={(e) => onShowMore(e.currentTarget)}>
+      {t(lang, "kanbanShowMore", String(Math.min(KANBAN_COLUMN_PAGE, hidden)), t(lang, statusLabelKey(status)), String(hidden))}
+    </Button>
   );
 }

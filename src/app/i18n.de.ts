@@ -160,6 +160,7 @@ export const de: Record<TranslationKey, string> = {
   tasksViewModeLabel: "Ansicht",
   tasksViewTable: "Tabelle",
   tasksViewBoard: "Board",
+  kanbanShowMore: "{0} weitere in {1} anzeigen ({2} ausgeblendet)",
   tasksViewSwimlane: "Swimlanes",
   swimlaneUnassigned: "Nicht zugewiesen",
   swimlaneAddLane: "Personenspur hinzufügen",

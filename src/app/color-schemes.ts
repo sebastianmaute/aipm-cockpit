@@ -44,6 +44,7 @@ const DERIVED_TOKENS = [
   "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",
   "--control-state-border", "--control-state-border-pink", "--control-state-border-green",
+  "--count-badge-pink",
 ] as const;
 const VALID_TOKENS = new Set([
   ...CORE_TOKENS.map((t) => t.token),

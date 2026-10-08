@@ -19,6 +19,9 @@ import { evaluateSaveGuard } from "./save-guard";
  * called with a `filter` cannot tell a delete from an edit. So one more
  * UI delete handler added tomorrow fails NOTHING here. That asymmetry is
  * filed, not fixed — see the register entry this file's commit names.
+ * ★ Since 2026-10-08 `destructive-save-arming.ui.test.ts` covers the commonest
+ * UI shape (a `.filter(` handed to a counted slice's setter) by discovering the
+ * sites from the code; other removal shapes are still unseen (§293).
  *
  * ★★ A SECOND, MUCH SMALLER HOLE WAS CLOSED, and it is not the same one. The
  * registry is now checked in BOTH directions: every tool has a row, and every

@@ -157,6 +157,7 @@ const enUS = {
   tasksViewModeLabel: "View",
   tasksViewTable: "Table",
   tasksViewBoard: "Board",
+  kanbanShowMore: "Show {0} more in {1} ({2} hidden)",
   tasksViewSwimlane: "Swimlanes",
   swimlaneUnassigned: "Unassigned",
   swimlaneAddLane: "Add person lane",

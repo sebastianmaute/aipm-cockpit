@@ -162,10 +162,18 @@ describe("resolveSchemeColors — pinned derived tokens are held to their floor 
     expect(out["--muted-foreground"]).toBe("#eeeeee");
   });
 
+  it("holds a pinned --count-badge-pink to 4.5 against its white text, darkening even in a dark scheme (§681)", () => {
+    // A dark card would make nudgeToAa LIGHTEN; the badge's text is white, so only darkening helps.
+    const out = resolveSchemeColors({ "--ui-pink": "#e88bb0", "--surface-muted": "#1b2836", "--count-badge-pink": "#e88bb0" });
+    expect(contrastRatio("#ffffff", out["--count-badge-pink"]!)).toBeGreaterThanOrEqual(4.5);
+    expect(relLuminance(hexToRgb(out["--count-badge-pink"]!))).toBeLessThan(relLuminance(hexToRgb("#e88bb0")));
+  });
+
   it("cannot change a built-in scheme: none pins a floor-checked token", () => {
     // The floor check acts only on a PIN, so this is the property that keeps built-ins unchanged.
     const checked = ["--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong", "--rag-red-text", "--rag-amber-text",
-      "--rag-green-text", "--control-state-border", "--control-state-border-pink", "--control-state-border-green"];
+      "--rag-green-text", "--control-state-border", "--control-state-border-pink", "--control-state-border-green",
+      "--count-badge-pink"];
     let maps = 0;
     for (const scheme of BUILTIN_SCHEMES) {
       for (const map of [scheme.light, scheme.dark]) {
