@@ -141,9 +141,9 @@ describe("dropDanglingDependencies — reference-equality arms", () => {
 describe("dependency string codec — parse/serialize arms", () => {
   it("parseDependenciesString drops empty parts, bad types, non-positive ids, and dupes; caps at 20", () => {
     expect(parseDependenciesString(123)).toEqual([]); // non-string
+    // §135: SS:2 is a second link to task 2, so it goes with the exact FS:2 dupe.
     expect(parseDependenciesString("|FS:2|NOPE:3|FS:0|FS:-1|FS:2|SS:2")).toEqual([
       { taskId: 2, type: "FS" },
-      { taskId: 2, type: "SS" },
     ]);
     const many = Array.from({ length: 40 }, (_, i) => `FS:${i + 1}`).join("|");
     expect(parseDependenciesString(many)).toHaveLength(20);

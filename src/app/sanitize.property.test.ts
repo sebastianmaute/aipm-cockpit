@@ -131,12 +131,12 @@ describe("sanitize — properties", () => {
     });
     fc.assert(
       fc.property(fc.array(depArb, { maxLength: 15 }), (deps) => {
-        // The functions dedupe by `${taskId}:${type}` and cap at 20; mirror that
-        // to compute the expected canonical form.
+        // The functions keep the first link to each task (§135) and cap at 20;
+        // mirror that to compute the expected canonical form.
         const seen = new Set<string>();
         const expected: TaskDependency[] = [];
         for (const d of deps) {
-          const key = `${d.taskId}:${d.type}`;
+          const key = String(d.taskId);
           if (seen.has(key)) continue;
           seen.add(key);
           expected.push(d);

@@ -422,7 +422,7 @@ function isDependencyType(v: unknown): v is DependencyType {
 
 /**
  * Append a validated `(taskId, type)` dependency to `out`, deduping on the
- * `${tid}:${type}` key via `seen`. Shared by the object-shaped and the
+ * task id alone via `seen` (one link per task pair, §135). Shared by the object-shaped and the
  * string-encoded decoders. Returns `true` once the list reaches
  * `DEPENDENCIES_MAX_COUNT` (the caller should then stop).
  */
@@ -432,7 +432,10 @@ function pushUniqueDependency(
   tid: number,
   type: DependencyType,
 ): boolean {
-  const key = `${tid}:${type}`;
+  // §135: keyed on the task ALONE, so a pair carries one link type and the
+  // first one wins. Keying on `${tid}:${type}` let a second type to the same
+  // task survive, invisible in the editor's one-chip-per-task picker.
+  const key = String(tid);
   if (seen.has(key)) return false;
   seen.add(key);
   out.push({ taskId: tid, type });
@@ -446,7 +449,7 @@ function pushUniqueDependency(
  *   • Aren't shaped `{ taskId: number, type: DependencyType }`
  *   • Reference a missing task id (not in `knownTaskIds`)
  *   • Reference the task itself (self-loops are nonsensical)
- *   • Duplicate an earlier (taskId, type) pair
+ *   • Link a task an earlier entry already links, whatever its type (§135)
  *   • Exceed `DEPENDENCIES_MAX_COUNT`
  *
  * Does NOT check for cycles across the full task graph — that's a
@@ -545,8 +548,11 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
 
 /**
  * After parsing a full task list from disk, run this once to drop dependency
- * entries pointing at task ids that didn't survive (e.g. file was hand-edited).
- * Tasks without dangling references are returned as-is for reference equality,
+ * entries pointing at task ids that didn't survive (e.g. file was hand-edited),
+ * and every link after the first to the same task (§135: one link per task
+ * pair). JSON and IndexedDB loads reach no other dedupe, so this is where a
+ * mixed-type pair from a hand-edited file collapses.
+ * Tasks with nothing to drop are returned as-is for reference equality,
  * and when NO task changed the SAME array comes back — the load funnels (§133)
  * call this on every load and record what they apply by identity (§644), so a
  * fresh array for an unchanged list would be a needless new value.
@@ -556,9 +562,12 @@ export function dropDanglingDependencies(tasks: Task[]): Task[] {
   let changed = false;
   const out = tasks.map((t) => {
     if (!t.dependencies || t.dependencies.length === 0) return t;
-    const clean = t.dependencies.filter(
-      (d) => d.taskId !== t.id && knownIds.has(d.taskId),
-    );
+    const linked = new Set<number>();
+    const clean = t.dependencies.filter((d) => {
+      if (d.taskId === t.id || !knownIds.has(d.taskId) || linked.has(d.taskId)) return false;
+      linked.add(d.taskId);
+      return true;
+    });
     if (clean.length === t.dependencies.length) return t;
     changed = true;
     return { ...t, dependencies: clean };

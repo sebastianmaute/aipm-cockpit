@@ -98,6 +98,14 @@ export function resolveSuccessorLinks(args: {
       alreadyPresent += 1;
       continue;
     }
+    // §135: one link per task pair. The target already depending on ownId with
+    // ANOTHER type means the user is changing that type, so it is replaced in
+    // place; appending would be dropped by the sanitizer as a second link.
+    if (current.some((d) => d.taskId === ownId)) {
+      const after = current.map((d) => (d.taskId === ownId ? { taskId: ownId, type: link.type } : d));
+      edits.set(target.id, { before, after });
+      continue;
+    }
     // The real sanitizer owns the 20-link cap, the dangling-ref check and
     // de-duplication. With duplicates already handled above, a non-growing
     // array now means a genuine refusal.
