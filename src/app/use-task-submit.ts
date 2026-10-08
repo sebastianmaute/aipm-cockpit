@@ -33,6 +33,7 @@ import { describeTextCap } from "./sanitize-report";
 import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 import { smoothScrollBehavior } from "./reduced-motion";
+import { reportSilentFailure } from "./guard-feedback";
 
 export interface UseTaskSubmitArgs {
   form: TaskFormDraft;
@@ -354,6 +355,18 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         const stamp = new Date().toISOString();
         const updatedId = editingId;
         const prevTask = tasksRef.current.find((r) => r.id === editingId);
+        // A concurrent writer deleted the task while this editor was open: the
+        // map below would match nothing and drop the edit in silence. Report it
+        // as the RAID and change editors do, write nothing, and close cleanly.
+        // (The editor already warns with a banner: deleted-elsewhere-notice.tsx.)
+        if (!prevTask) {
+          reportSilentFailure(showToast, lang, "task.editVanished", "concurrent delete during edit", "guardEditVanished");
+          setEditingId(null);
+          setForm(emptyForm());
+          setSubmitted(false);
+          setTaskModalOpen(false);
+          return;
+        }
         // ★★★ Resolve against the edited task carrying THIS SAVE's predecessors,
         // not its stored ones — the same reason the create path resolves against
         // a list containing the new task. The cycle walk starts at the owning

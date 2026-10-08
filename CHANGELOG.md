@@ -131,6 +131,8 @@ longer carries its own changelog comment.
   task editor's Blockers button) is now disabled instead of opening a window that closes at once. The
   editor also says why: a banner at the top reports that the item was deleted elsewhere and that your
   changes won't be saved, and a line under the disabled button explains it, read out with the button.
+  Saving a task that was deleted elsewhere now shows the same "deleted elsewhere" error the RAID and
+  Change editors give; it used to close the editor and drop your changes without a word.
 - **Long notes stay reachable (§679, §680).** In the floating notes window, a long new note grew past
   the bottom of the window with no scroll bar. The note box, and the box for editing an existing note,
   now stop at a maximum height and scroll inside, so the notes below stay in view. (In the task editor, a

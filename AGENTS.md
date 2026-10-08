@@ -800,7 +800,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      `resolveEntitySave` call (`grep -rn "editVanished" src/app --include=*.ts --include=*.tsx | grep -v test`) — editing a
      row a concurrent writer already deleted would make the map-replace a silent no-op, so each calls
      `reportSilentFailure` instead of dropping the edit; TASKS are immune by construction, deciding on
-     `editingId !== null` (`grep -n "editingId !== null" src/app/use-task-submit.ts`) and never on id-existence.
+     `editingId !== null` (`grep -n "editingId !== null" src/app/use-task-submit.ts`) and never on id-existence. ★ They
+     do report a concurrent DELETE (2026-10-08): saving a task whose stored row is gone shows the same
+     `guardEditVanished` toast and writes nothing (`grep -n "task.editVanished" src/app/use-task-submit.ts`);
+     until then the update mapped over nothing and the edit vanished in silence.
      ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
      against an untouched list passes whichever way the handler decides — seed the collision explicitly.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`

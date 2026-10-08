@@ -16,6 +16,7 @@ beforeEach(() => {
   __resetMintStateForTests();
 });
 import { useTaskSubmit } from "./use-task-submit";
+import { t } from "./i18n";
 import type { TaskFormDraft } from "./task-form-context";
 import type { NoteLogEntry, Task } from "./types";
 
@@ -144,6 +145,30 @@ describe("useTaskSubmit", () => {
     // Form changed assignee Alice → Bob and taskName Test task → Valid Task.
     expect(changes).toContainEqual({ field: "assignee", from: "Alice", to: "Bob" });
     expect(changes.some((c) => c.field === "taskName")).toBe(true);
+  });
+
+  // A concurrent writer deleted the edited task before Save: the update would map
+  // over nothing and drop the edit in silence. Report it like the RAID and change
+  // editors do (the same guardEditVanished toast), write nothing, close the editor.
+  it("refuses to save a task deleted elsewhere: error toast, no write, no log, editor closed", () => {
+    const setTasks = vi.fn();
+    const setEditingId = vi.fn();
+    const showToast = vi.fn();
+    const logActivity = vi.fn();
+    const logActivityChanges = vi.fn();
+    const setTaskModalOpen = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({ editingId: 1, tasks: [], tasksRef: { current: [] }, setTasks, setEditingId, showToast, logActivity, logActivityChanges, setTaskModalOpen }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardEditVanished"));
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityChanges).not.toHaveBeenCalled();
+    expect(setEditingId).toHaveBeenCalledWith(null);
+    expect(setTaskModalOpen).toHaveBeenCalledWith(false);
   });
 
   it("handleCancelEdit resets editingId", () => {
