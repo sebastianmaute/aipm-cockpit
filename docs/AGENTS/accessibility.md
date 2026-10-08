@@ -263,7 +263,9 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   tests total in the spec file (measured 2026-10-08 with `npx playwright test e2e/a11y.spec.ts --list`; this line once said 128/129 while the file held 131, and on 2026-10-08 said 140 over a breakdown still summing to 132). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
-  `grep -c "a11y:"` over that output splits scans from the guard.
+  `grep "›" | grep -vc "guard"` over that output counts the axe tests (139 on 2026-10-08). ★ Not
+  `grep -c "a11y:"`, which this line used to give: the chart-readout scan has no `a11y:` prefix, so it
+  undercounts by one (138) and a reader adding the guard gets 139, not the total.
   ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
   put in IndexedDB. A slice with no data renders its EMPTY STATE at scan time, so the run is green over
   a panel with no rows, no per-row controls and nothing to collide. Seeding `documents` for the first

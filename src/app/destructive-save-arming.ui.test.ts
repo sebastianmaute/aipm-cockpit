@@ -241,9 +241,9 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(sites.filter((s) => s.key.startsWith("task-manager.tsx#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
   });
 
-  // A site that resolves to a component (PascalCase) or the module is judged by
-  // that whole scope, where any arm passes it: refuse it rather than pass it.
-  it("every site resolves to a named handler, not a component or the module", () => {
+  // A site that resolves to a component (PascalCase), a hook (`useX`) or the module is
+  // judged by that whole scope, where any arm passes it: refuse it rather than pass it.
+  it("every site resolves to a named handler, not a component, a hook or the module", () => {
     const unresolved = sites.filter(isUnresolved).map((s) => `${s.file}:${s.line} ${s.fn}`);
     expect(unresolved).toEqual([]);
   });
