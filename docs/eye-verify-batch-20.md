@@ -33,11 +33,10 @@ npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --
   but no test can see a native tooltip appear.
 - [ ] **Item 2.** `item2-row-with-ask-claude.png`: the sparkles icon sits in its own narrow cell
   and does not overlap the checkbox.
-- [ ] **Item 3, a finding to rule on.** `item3b-id-cell-default.png`: with a Jira key and a document
-  link on the same task, the badges do NOT sit on one line. They stack under the ID, one per line.
-  `item3b-id-cell-narrowest.png`: after dragging the ID column as narrow as it goes, the column
-  clips its content, so the ID and the Jira key are cut off. Say whether the stacking is fine, and
-  whether the narrowest width should be wider (a fix would raise the ID column's minimum width).
+- [ ] **Item 3.** `item3b-id-cell-default.png` and `item3b-id-cell-narrowest.png`: with a Jira key and
+  a second badge on the same task, the badges stack under the ID, one per line, and nothing is cut off.
+  The narrowest width used to clip the ID and the Jira key; since 2026-10-08 the column is 104px by
+  default and cannot be dragged narrower. Check the wider ID column looks right in the table.
 - [ ] **Item 4.** `item4-documents-expanded.png` and `item4-documents-collapsed.png`: the panel
   reflows sensibly when the body collapses, and the underlined chevron next to the name reads well.
 - [ ] **Item 6, needs a real Turso project.** In a Turso-backed project, open **Documents** and look

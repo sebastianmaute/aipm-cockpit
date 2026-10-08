@@ -85,9 +85,31 @@ function readSized<TId extends string>(
   }
 }
 
+/** The narrowest a dragged column may become when its table names no floor of its own. */
+const DEFAULT_MIN_COL_WIDTH_PX = 40;
+/** One shared empty floor map, so the default never changes `startColResize`'s identity. */
+const NO_FLOORS: Readonly<Record<string, number>> = Object.freeze({});
+
+/** A stored width below the column's floor is raised to it, so a width saved
+ *  before the floor existed cannot keep the column narrower than it now allows. */
+function clampToFloors<TId extends string>(
+  widths: Partial<Record<TId, number>>,
+  minWidths: Readonly<Partial<Record<TId, number>>>,
+): Partial<Record<TId, number>> {
+  const out: Record<string, number> = {};
+  for (const [k, w] of Object.entries(widths) as [string, number][]) {
+    out[k] = Math.max((minWidths as Record<string, number>)[k] ?? DEFAULT_MIN_COL_WIDTH_PX, w);
+  }
+  return out as Partial<Record<TId, number>>;
+}
+
+/** `minWidths` names a per-column floor for a drag (default 40px). A column whose
+ *  content must never clip, such as Open Points' ID cell and its badges (§414),
+ *  sets one. Pass a stable (module-level) object. */
 export function useColumnResize<TId extends string>(
   tableId: string,
   defaults: Readonly<Record<TId, number>>,
+  minWidths: Readonly<Partial<Record<TId, number>>> = NO_FLOORS as Readonly<Partial<Record<TId, number>>>,
 ): {
   /** Every column, defaults filled in. The long-standing public contract. */
   colWidths: Record<TId, number>;
@@ -98,7 +120,7 @@ export function useColumnResize<TId extends string>(
   resetColWidths: () => void;
 } {
   const storageKey = `${KEY_PREFIX}:${tableId}`;
-  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => readSized<TId>(storageKey, defaults));
+  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => clampToFloors<TId>(readSized<TId>(storageKey, defaults), minWidths));
 
   const colWidths = useMemo(
     () => ({ ...defaults, ...sizedWidths }) as Record<TId, number>,
@@ -179,7 +201,7 @@ export function useColumnResize<TId extends string>(
       const { col: c, startX, startW } = dragRef.current;
       setSizedWidths((prev) => ({
         ...prev,
-        [c]: Math.max(40, startW + mv.clientX - startX),
+        [c]: Math.max((minWidths as Record<string, number>)[c] ?? DEFAULT_MIN_COL_WIDTH_PX, startW + mv.clientX - startX),
       }));
     }
     function onUp() {
@@ -189,7 +211,7 @@ export function useColumnResize<TId extends string>(
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  }, [defaults]);
+  }, [defaults, minWidths]);
 
   return { colWidths, sizedWidths, startColResize, resetColWidths };
 }

@@ -31,6 +31,15 @@ describe("useColumnManager", () => {
       expect(result.current.sizedWidths.taskName).toBe(300);
     });
 
+    // §414: below its default the ID cell clipped `#<id>` and its badges, so a
+    // width stored before the floor existed is raised to it.
+    it("holds the ID column to its default width as a floor", () => {
+      localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ v: 2, widths: { id: 40, assignee: 60 } }));
+      const { result } = renderHook(() => useColumnManager());
+      expect(result.current.sizedWidths.id).toBe(104);
+      expect(result.current.sizedWidths.assignee).toBe(60);
+    });
+
     it("reads widths from the v2 table key, ignoring a stale open-points blob", () => {
       // The pre-bump blob held all 18 keys, so it masked every default. Bumping
       // the tableId is what lets the new declared widths actually reach a user

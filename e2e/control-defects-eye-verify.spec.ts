@@ -330,18 +330,37 @@ test.describe("control-defects eye-verify (§414)", () => {
     expect(atDefault.broken, "a badge broke inside itself at the default width").toEqual([]);
     await shot(cell, "item3b-id-cell-default.png");
 
-    // Drag the ID header's resize handle to the left, past any minimum.
+    // Anything in the cell that ends past the cell's right edge is clipped.
+    const clipped = () =>
+      cell.evaluate((td) => {
+        const edge = td.getBoundingClientRect().right + 0.5;
+        return [...td.querySelectorAll("*")]
+          .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().right > edge)
+          .map((el) => (el.textContent ?? "").trim() || el.tagName);
+      });
+    expect(await clipped(), "clipped at the default width").toEqual([]);
+
+    // Drag the ID header's resize handle. ANTI-VACUITY: widen first, so a handle
+    // that does nothing cannot pass the floor check below; then drag far left.
     const idHeader = page.locator("thead th").filter({ hasText: /^ID/ }).first();
     const handle = idHeader.locator(".cursor-col-resize");
     const before = (await idHeader.boundingBox())!.width;
-    const h = (await handle.boundingBox())!;
-    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(h.x - 600, h.y + h.height / 2, { steps: 10 });
-    await page.mouse.up();
+    const drag = async (dx: number) => {
+      const h = (await handle.boundingBox())!;
+      await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(h.x + h.width / 2 + dx, h.y + h.height / 2, { steps: 10 });
+      await page.mouse.up();
+    };
+    await drag(60);
+    expect((await idHeader.boundingBox())!.width, "the drag did not widen the ID column").toBeGreaterThan(before + 30);
+    await drag(-800);
     const after = (await idHeader.boundingBox())!.width;
-    expect(after, "the drag did not narrow the ID column").toBeLessThan(before);
+    // §414 fix (2026-10-08): the ID column's floor is its default width, because
+    // below it the cell clipped the ID and the Jira key.
+    expect(after, "the ID column went below its floor").toBeGreaterThanOrEqual(before - 0.5);
     expect((await brokenBadges()).broken, `a badge broke inside itself at the narrowest width (${Math.round(after)}px)`).toEqual([]);
+    expect(await clipped(), `clipped at the narrowest width (${Math.round(after)}px)`).toEqual([]);
     await shot(cell, "item3b-id-cell-narrowest.png");
   });
 

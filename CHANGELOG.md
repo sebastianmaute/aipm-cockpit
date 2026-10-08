@@ -145,6 +145,9 @@ longer carries its own changelog comment.
 - **The Timelog connection test names the scope in your language (§682).** Settings → Timelog → Test
   connection reported the data scope as the raw words "self" or "org", in English even in the German interface.
   It now uses the same wording as the Data scope list beside it, such as "Whole organisation".
+- **Jira keys fit the Open Points ID column (§414).** A task's Jira key badge was wider than the ID
+  column, so it spilled into the next column, and dragging the column narrower cut it off. The column is
+  now a little wider by default and cannot be dragged narrower than that.
 - **The R/A/G status letters are readable (§683).** The small round chips that show a red, amber or green
   rating with its letter drew a white letter that was hard to read on amber and green in every colour
   scheme, and on red in most. Red and green now use a slightly deeper colour behind the white letter, and
