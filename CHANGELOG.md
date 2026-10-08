@@ -37,7 +37,8 @@ longer carries its own changelog comment.
   tasks with a different type (for example both finish-to-start and start-to-start), which could arrive
   from an import, a hand-edited file or the AI assistant, was invisible in the task editor and could not
   be removed on its own. The first link is now kept and the other dropped when the project loads or is
-  written to. Picking a different type for an existing successor in the task editor changes its type.
+  written to, and a load that drops one records it in Settings → Diagnostics. Picking a different type
+  for an existing successor in the task editor changes its type and says so.
 
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.

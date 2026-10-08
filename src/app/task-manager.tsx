@@ -708,7 +708,6 @@ function TaskManagerInner() {
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
 
-
   // --- Insights → Action Loop (#6B SP1) --------------------------------------
   // The detect → reconcile runner and the four lifecycle handlers live in
   // `useInsightLifecycle` (use-insight-lifecycle.ts, §491). `landingProjectId`

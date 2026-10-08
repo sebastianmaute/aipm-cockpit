@@ -34,7 +34,9 @@ export function useCappedGroups(
   flashId: number | null,
   cardSelector: string,
 ): CappedGroups {
-  // A missing entry means one page.
+  // A missing entry means one page. ★ A raised limit survives a filter, search or
+  // sort change: narrowing to fewer cards just shows them all, and clearing it again
+  // shows as many as the user had opened. It resets only on a remount.
   const [limits, setLimits] = useState<Readonly<Record<string, number>>>({});
   // ★ A deep link to a card past its group's cap. useDeepLinkRowFlash sets `flashId`
   //   during render and queries [data-deeplink-row] only on the NEXT animation frame, so
