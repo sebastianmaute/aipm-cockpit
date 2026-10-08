@@ -323,8 +323,8 @@ interface ChatProposalProps {
 }
 
 /** Optional in-memory per-project conversation store (from WorkspaceTabProvider)
- *  so the chat survives view-navigation remounts. Absent in tests/popout →
- *  ChatPanel behaves as a fresh, non-persisted conversation. */
+ *  so the chat survives view-navigation remounts. Absent in tests →
+ *  ChatPanel behaves as a fresh, non-persisted conversation (tests). */
 interface ChatConversationStoreProps {
   projectId?: string;
   /** The image byte-store key for the chat card's document download (§207): the

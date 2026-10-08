@@ -21,13 +21,13 @@ import { loadRegistry } from "./projects-registry";
 import type { StorageKind } from "./workspace";
 
 /** The keys a pre-§207 build wrote a SINGLE-TENANT database's image bytes under:
- *  the registry id of whichever Turso-storage project was current, or
- *  `ASSET_PARTITION_FALLBACK` with none. Together with the single-tenant key they
- *  are the scope that key reads, lists and deletes (document-assets-schema.ts).
- *  A registry project on any OTHER storage is left out: its bytes ride the same
- *  integration database, but its metadata is its own file's, not this one's. */
+ *  the registry id of whichever project was current at the time, or
+ *  `ASSET_PARTITION_FALLBACK` with none. That is EVERY registry id, whatever its
+ *  `storageConfig.kind`: production stores only file and browser entries (switching
+ *  storage to Turso changes settings, never the entry), so filtering on kind would
+ *  leave the scope empty and hide every old image (final review of §207). */
 export function singleTenantLegacyAssetKeys(): string[] {
-  const ids = loadRegistry().projects.filter((p) => p.storageConfig.kind === "turso").map((p) => p.id);
+  const ids = loadRegistry().projects.map((p) => p.id);
   return [ASSET_PARTITION_FALLBACK, ...ids.filter((id) => id !== ASSET_PARTITION_FALLBACK)];
 }
 

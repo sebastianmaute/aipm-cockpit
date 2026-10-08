@@ -7,17 +7,17 @@
 // SINGLE statement; batching several images into one pipeline is unmeasured.
 import { runTursoPipeline } from "./turso-pipeline";
 import {
-  DOCUMENT_ASSET_DATA_DDL, assetDataSelect, assetDataIdsSelect, assetDataUpsert,
+  DOCUMENT_ASSET_DATA_DDL, SINGLE_TENANT_ASSET_PARTITION, assetDataSelect, assetDataIdsSelect, assetDataUpsert,
   assetDataDelete, rowsToAssetData, type AssetDataRow,
 } from "./document-assets-schema";
 import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
-import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { singleTenantLegacyAssetKeys } from "./asset-partition-live";
 
-/** The legacy keys `projectId`'s reads, lists and deletes also reach (§207):
- *  the single-tenant scope under that key, none otherwise. Read live, at call
- *  time, so every surface reaches the same scope without threading it. */
+/** The legacy keys `projectId`'s reads and lists also reach (§207): the
+ *  single-tenant scope under that key, none otherwise. Read live, at call time,
+ *  so every surface reaches the same scope without threading it. ★ The ONLY
+ *  resolver: the schema builders take the keys as a required argument. */
 const legacyKeysFor = (projectId: string): string[] =>
   projectId === SINGLE_TENANT_ASSET_PARTITION ? singleTenantLegacyAssetKeys() : [];
 

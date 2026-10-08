@@ -61,6 +61,7 @@
 // thing that may call `setAssets`.
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { logDiag } from "./diagnostics";
 import type { DocumentAsset } from "./document-asset";
 import {
   checkUploadCandidate, processUpload, hashBytes, findDuplicate,
@@ -425,11 +426,14 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     //    delete before reaching here).
     allowDestructiveSaveRef.current?.();
     commitAssets((prev) => prev.filter((a) => a.id !== id));
-    // Best-effort byte cleanup. Under the single-tenant key it reaches the same
-    // scope the read does (§207), so a pre-§207 copy goes too and the image stops
-    // rendering where documents still embed it. A row left behind by a FAILED
-    // delete is the one leftover, and it is not reported as an upload error.
-    void deleteAssetData(config, id, projectId).catch(() => {});
+    // Byte cleanup. Under the single-tenant key it writes a tombstone the scoped
+    // read honours (§207), so the image stops rendering where documents still
+    // embed it, a pre-§207 copy included. A FAILED delete leaves the image
+    // rendering there, so it is recorded in the diagnostics log; it is not shown
+    // as an upload error, since the metadata removal the user asked for is done.
+    void deleteAssetData(config, id, projectId).catch((err: unknown) => {
+      logDiag("warn", "documentAsset.deleteFailed", { message: err instanceof Error ? err.message : String(err) });
+    });
   }, [commitAssets, config, projectId]);
 
   return { upload, remove, rename, danglingIds, busyId, error };

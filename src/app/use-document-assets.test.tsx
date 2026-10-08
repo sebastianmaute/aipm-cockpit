@@ -9,6 +9,7 @@ vi.mock("./document-assets-store", () => ({
   saveAssetData: vi.fn(), deleteAssetData: vi.fn(), loadAssetDataIds: vi.fn(),
 }));
 import { saveAssetData, deleteAssetData, loadAssetDataIds } from "./document-assets-store";
+import * as diagnostics from "./diagnostics";
 
 const config = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
 
@@ -623,6 +624,7 @@ describe("useDocumentAssets — rename and remove", () => {
   });
 
   it("swallows a byte-delete failure — the metadata removal already committed", async () => {
+    const diag = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     vi.mocked(deleteAssetData).mockRejectedValue(new Error("network"));
     const assets: DocumentAsset[] = [
       { id: "a1", name: "x.png", mime: "image/png", size: 1, hash: "h1", createdAt: "" },
@@ -633,6 +635,9 @@ describe("useDocumentAssets — rename and remove", () => {
     await waitFor(() => expect(deleteAssetData).toHaveBeenCalled());
     // No throw, no error surfaced from this direction.
     expect(result.current.error).toBeNull();
+    // §207 final review: a failed delete can leave the image rendering where documents
+    // embed it, so it is recorded in the diagnostics log rather than dropped.
+    await waitFor(() => expect(diag).toHaveBeenCalledWith("warn", "documentAsset.deleteFailed", { message: "network" }));
   });
 });
 
