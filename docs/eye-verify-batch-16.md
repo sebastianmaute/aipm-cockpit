@@ -69,8 +69,10 @@ surface needs something the seeded browser cannot provide, such as a model turn,
   "Notes log (n)" button opens the floating notes window.
 - [ ] **By hand:** the inline note log and the floating notes window open at the same time on one
   task. A screen reader names their controls apart.
+  ★ 2026-10-08: the inline log was removed later that day, so this item no longer applies.
 - [ ] **By hand:** the note log's disclosure summary is readable in every built-in scheme, light
   and dark.
+  ★ 2026-10-08: the inline log was removed later that day, so this item no longer applies.
 
 ## §41: 0.211.0 surfaces (#104)
 

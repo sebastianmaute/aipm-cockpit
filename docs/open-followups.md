@@ -1774,9 +1774,9 @@ log**. Not verified:
   Both are structurally identical to RAID's swap and are unit-tested, but nobody has looked at them.
 - **Both note surfaces open at once.** The inline log suffixes its control names and the floating
   window does not, so the two should not collide — but ★ the axe gate reports *missing* accessible
-  names, never *duplicated* ones (same blind spot as §15), so nothing automated covers this.
+  names, never *duplicated* ones (same blind spot as §15), so nothing automated covers this. ★ 2026-10-08: the inline task-editor log this describes was removed later that day (the task editor now opens the floating notes window), so the item checks a surface that no longer exists.
 - **The `max-h-72` scroll boundary** on the inline log with a genuinely long note log. ★ 2026-10-08: superseded by §679: the owner's check found this broken, and the fix REMOVED the boundary (the editor form is now the one scroller), so this item's expectation no longer applies. ★ Later 2026-10-08: §679 closed on the owner's sign-off, then the owner had the inline log removed, so the task editor opens the floating notes window instead.
-- **The disclosure summary's contrast** across the built-in scheme combos. ★★ This read "the six
+- **The disclosure summary's contrast** across the built-in scheme combos. ★ 2026-10-08: the inline task-editor log this describes was removed later that day (the task editor now opens the floating notes window), so the item checks a surface that no longer exists. ★★ This read "the six
   scheme combos … the axe matrix scans five of the six", which was wrong in both halves by
   2026-08-25: there are **seven** combos (beacon joined the roster) and the matrix now scans **all
   seven** — umber-dark, the one it silently skipped, was added on this branch. The item stays open

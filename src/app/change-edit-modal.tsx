@@ -79,7 +79,9 @@ export interface ChangeEditModalProps {
   onOpenNotes?: (id: number) => void;
   /** The STORED change's note count, for the Notes button. Not the draft's: the
    *  draft is a snapshot taken at open, while the notes window writes straight
-   *  through to the workspace, so a note added with the editor open must count. */
+   *  through to the workspace, so a note added with the editor open must count.
+   *  ★ A prop, unlike the RAID editor, which counts from the `raid` list it already
+   *  takes: this modal receives no `changes` list, so the panel computes it. */
   noteCount: number;
   /** §486 — Outlook sync is configured for change decision dates; shows the
    *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */

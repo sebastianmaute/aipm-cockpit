@@ -59,9 +59,11 @@ Since §222 (2026-10-02) a picture is scaled down onto the current slide when at
 is still free, and otherwise starts the next slide. Two samples sit clear of that line.
 
 - [ ] `7a-deck-short-lead.pptx` in **PowerPoint**: one line of text, then the "Screenshot" picture
-  scaled onto the SAME slide below it, readable and not overlapping the text. One content slide.
+  scaled onto the SAME slide below it, readable and not overlapping the text. Two slides in all: the
+  title slide, then that one.
 - [ ] `7b-deck-long-lead.pptx` in **PowerPoint**: a long paragraph fills most of the first slide,
-  and the "Screenshot" picture starts the NEXT slide, at full slide size.
+  and the "Screenshot" picture starts the NEXT slide, as large as the slide's body area allows. Three
+  slides in all: the title slide, the text, then the picture.
 - [ ] Either way: say whether the layout reads well.
 
 ## Item 8: one image used four times
