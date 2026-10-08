@@ -690,16 +690,21 @@ store at call time; the schema builders take the keys as a required argument). �
 Turso-kind entries: production stores only file and browser registry entries — switching storage to
 Turso changes settings, never the entry — so a kind filter left the scope empty and hid every old
 image (a review finding). The read prefers the key's own row; that is the whole migration, with
-nothing re-keyed. ★★ A DELETE WRITES A TOMBSTONE: it replaces the key's own row with
-`ASSET_DELETED_MARKER`, and the scoped read and list skip a tombstoned id however many legacy copies
-remain, so deleting an old image stops it rendering where documents still embed it. The legacy rows
-stay, by the owner's decision: a FILE project in the registry may share the image (a project converted
-to Turso copies its metadata, ids included) and its copy must keep working under its own key. A failed
-delete is logged (`documentAsset.deleteFailed`). ★★★ NOTHING OUTSIDE THE SCOPE IS REACHED. Unique ids
-(`crypto.randomUUID()`) rule out collisions, NOT copies: a workspace exported from project A and imported
-into B shares A's asset ids, so a read across projects would show A's bytes in B as healthy images,
-which vanish when A deletes them or is hard-deleted. A tenant key reads, lists and deletes its own
-partition only. The mitigations still in place beside it are the Safe Mode
+nothing re-keyed. ★★ A DELETE WRITES A TOMBSTONE: a row `(id, ASSET_DELETED_PARTITION, "")`, then the
+key's own bytes go; the scoped read and list skip a tombstoned id however many legacy copies remain, so
+deleting an old image stops it rendering where documents still embed it. It is a KEY, not a marker in
+the data column, so neither check loads any image's bytes; saving the id's bytes again under the
+single-tenant key clears it (the dangling-repair path). The legacy rows stay, by the owner's decision: a
+FILE project in the registry may share the image, and its copy must keep working under its own key. A
+failed delete is logged (`documentAsset.deleteFailed`). ★★★ THE SINGLE-TENANT SCOPE DELIBERATELY TAKES
+IN EVERY REGISTRY PROJECT'S PARTITION, with three consequences: (1) a file project sharing an id shows
+its bytes here as healthy images, and they vanish if THAT project deletes its copy — the tombstone
+protects the file project from this one's deletes, not the reverse; (2) the scope is THIS browser's
+registry, so removing a project from it leaves the pre-§207 images written under its id unreachable
+here (bytes kept); (3) another device or browser has its own registry and does not reach this one's
+pre-§207 images. Unique ids (`crypto.randomUUID()`) rule out collisions, NOT copies, which is why a
+TENANT key reads, lists and deletes its own partition only: a workspace imported from project A into B
+shares A's asset ids, and a wider read would show A's bytes in B until A deleted them. The mitigations still in place beside it are the Safe Mode
 refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
 `""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as

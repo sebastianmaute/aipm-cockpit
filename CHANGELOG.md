@@ -150,7 +150,9 @@ longer carries its own changelog comment.
 - **Document images no longer go missing after switching projects on single-database Turso storage
   (§207).** With Turso storage and no Turso project selected, switching to another project in the
   project list showed every embedded image as missing until you switched back. Images are now stored
-  under one key for that database, and images saved before this change are still found.
+  under one key for that database, and images saved before this change are still found when you open
+  the project in the browser they were saved from, as long as its old project is still in your
+  project list.
 
 - **The Notes log count in the Change and RAID editors updates while the editor is open.** A note added
   in the floating notes window with the editor open did not change the editor's "Notes log (n)" count
