@@ -1,10 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { test, expect, openView } from "./seed";
 import {
   OUT, RUNS, SEED_TASKS, SIZES, SEARCH, FILTER, POLL,
   median, timed, settled, bootScaled, busyMs,
 } from "./perf-helpers";
+import { KANBAN_COLUMN_PAGE } from "../src/app/task-kanban-board";
 
 // §5 perf probe, Kanban board, Phase 0 of the board's own decision (the table's spec,
 // docs/superpowers/specs/2026-10-07-list-virtualization-design.md, leaves the board out of
@@ -17,8 +19,10 @@ import {
 // ★ OFF unless PERF=1, so CI skips it. Run it alone, on a fresh server, right after the
 //   table probe so both sets come from the same machine state:
 //   PORT=3150 PERF=1 npx playwright test e2e/perf-task-board.spec.ts --project=chromium --workers=1
-// ★ The board renders every card (nothing is virtualized), so "holds N tasks" is a plain
-//   count of the cards, and each timing stops only once that count is what it should be.
+// ★ Since the column cap (docs/superpowers/specs/2026-10-08-kanban-column-cap-design.md) a
+//   column renders at most KANBAN_COLUMN_PAGE cards, so "holds N tasks" is read from the
+//   column headers, whose counts are the true totals, and each timing stops only once that
+//   sum is what it should be. Every read also checks no column renders past the cap.
 
 const CARDS = "article[data-testid^=\"kanban-card-\"]";
 const COLUMNS = "section[data-testid^=\"kanban-col-\"]";
@@ -39,13 +43,26 @@ interface Result {
 }
 const results: Result[] = [];
 
-const cardCount = (page: Page): Promise<number> => page.locator(CARDS).count();
+/** Each column's header total and rendered card count, in column order. */
+function columnCounts(page: Page): Promise<{ total: number; rendered: number }[]> {
+  return page.locator(COLUMNS).evaluateAll((cols, sel) => cols.map((c) => ({
+    total: Number(c.querySelector("h3 span:last-child")?.textContent ?? "0"),
+    rendered: c.querySelectorAll(sel).length,
+  })), CARDS);
+}
 
-/** The scroll box of the column holding the most cards, and that count. */
+/** The tasks the board holds: the sum of the column header totals. */
+async function cardCount(page: Page): Promise<number> {
+  const counts = await columnCounts(page);
+  for (const c of counts) expect(c.rendered).toBeLessThanOrEqual(KANBAN_COLUMN_PAGE);
+  return counts.reduce((n, c) => n + c.total, 0);
+}
+
+/** The column holding the most tasks: its index and its header total. */
 async function fullestColumn(page: Page): Promise<{ index: number; cards: number }> {
-  const counts = await page.locator(COLUMNS).evaluateAll((cols, sel) => cols.map((c) => c.querySelectorAll(sel).length), CARDS);
-  const cards = Math.max(...counts);
-  return { index: counts.indexOf(cards), cards };
+  const totals = (await columnCounts(page)).map((c) => c.total);
+  const cards = Math.max(...totals);
+  return { index: totals.indexOf(cards), cards };
 }
 
 for (const { size, factor } of SIZES) {
@@ -74,17 +91,19 @@ for (const { size, factor } of SIZES) {
       }));
 
       // The first enabled card status select: a Jira-synced card's is disabled. The
-      // change moves the card to another column, so wait for the moved card, not the select.
+      // change moves the card to another column, where it may land past the cap, so wait
+      // for that column's header total to rise rather than for the card.
       const select = page.locator(`${CARDS} select[aria-label^="Status"]:not([disabled])`).first();
-      const cardId = await select.evaluate((el) => el.closest("article")!.getAttribute("data-testid"));
       const current = await select.inputValue();
       const next = await select.evaluate(
         (el, cur) => [...(el as HTMLSelectElement).options].map((o) => o.value).find((v) => v && v !== cur) ?? cur,
         current,
       );
+      const nextTotal = () => page.locator(`[data-testid="kanban-col-${next}"] h3 span:last-child`).textContent().then(Number);
+      const before = await nextTotal();
       status.push(await timed(async () => {
         await select.selectOption(next);
-        await expect(page.locator(`[data-testid="kanban-col-${next}"] [data-testid="${cardId}"]`)).toHaveCount(1, { timeout: POLL.timeout });
+        await expect.poll(nextTotal, POLL).toBe(before + 1);
       }));
 
       const box = page.getByRole("searchbox", { name: SEARCH, exact: true });
@@ -122,6 +141,21 @@ for (const { size, factor } of SIZES) {
       size, tasks: expected, openMs: median(open), statusMs: median(status), searchMs: median(search),
       filterMs: median(filter), scrollMs: median(scroll), busyAfterMs: median(busy), fullestColumn: fullest,
     });
+    // ★ On the same page, after the timings: the capped board, with its Show more
+    // buttons, under the same tags and blocking filter as e2e/a11y.spec.ts. The board is
+    // not in A11Y_VIEWS, so this is the only axe pass over it at size.
+    if (size === 1000) {
+      await test.step("capped board: axe stays clean", async () => {
+        await expect(page.locator('[data-testid^="kanban-show-more-"]').first()).toBeVisible();
+        const results = await new AxeBuilder({ page })
+          .include(COLUMNS)
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+          .analyze();
+        const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+        const summary = blocking.map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`).join("\n");
+        expect(blocking, `capped board a11y violations:\n${summary}`).toEqual([]);
+      });
+    }
   });
 }
 
