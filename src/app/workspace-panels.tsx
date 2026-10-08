@@ -198,7 +198,8 @@ export function DocumentsTabPanel({
   // ★ That expression is only TRUSTWORTHY because of the gate above: it is
   // consumed solely alongside a non-null `tursoConfig`, and Safe Mode — the one
   // state in which its two inputs disagree about which portfolio is loaded —
-  // forces that config to null. Do not reuse it anywhere that lacks the gate.
+  // forces that config to null. Any other caller needs its own Safe Mode refusal
+  // (see asset-partition-live.ts; the chat card's is an empty key in workspace-section.tsx).
   const assetsProjectId = liveAssetPartitionKey(settings.storageConfig.kind);
   // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
   // The toolbar has always drawn one, but `onResetSize` was optional, the panel

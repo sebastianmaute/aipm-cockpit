@@ -330,7 +330,8 @@ interface ChatConversationStoreProps {
   /** The image byte-store key for the chat card's document download (§207): the
    *  key the Documents pane writes under (`liveAssetPartitionKey`), which is NOT
    *  the thread's `projectId` on single-tenant Turso storage. Falls back to
-   *  `projectId` when absent (tests, popouts). */
+   *  `projectId` when absent (tests, popouts); "" (Safe Mode) gives the tool block
+   *  no image loader. */
   assetsProjectId?: string;
   getChatConversation?: (projectId: string) => ChatConversation | undefined;
   saveChatConversation?: (projectId: string, conv: ChatConversation) => void;

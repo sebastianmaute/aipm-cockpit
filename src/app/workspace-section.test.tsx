@@ -12,6 +12,7 @@ import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
 import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
+import { __resetSafeModeCache } from "./safe-mode";
 import { defaultSettings } from "./settings-types";
 import { createRef } from "react";
 import type { ToolDispatcher } from "./chat-tools";
@@ -836,6 +837,22 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     const props = chatPanelMock.props.at(-1)!;
     expect(props.assetsProjectId).toBe(SINGLE_TENANT_ASSET_PARTITION);
     expect(props.projectId).toBe("registry-7");
+  });
+
+  // Safe Mode degrades the live key's inputs, so the chat card refuses image reads there
+  // (an empty key gives the tool block no loader), as the Documents pane does.
+  it("hands ChatPanel an empty asset key in Safe Mode", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    window.history.replaceState({}, "", "/?safe=1");
+    __resetSafeModeCache();
+    try {
+      render(<WorkspaceSection {...makeProps({ mode: "file", currentProjectId: "registry-7" })} />, { wrapper: Wrapper });
+      await screen.findByTestId("chat-panel");
+      expect(chatPanelMock.props.at(-1)!.assetsProjectId).toBe("");
+    } finally {
+      window.history.replaceState({}, "", "/");
+      __resetSafeModeCache();
+    }
   });
 
   it("mode=turso with NO Turso credentials configured: ChatPanel receives tursoMode false", async () => {
