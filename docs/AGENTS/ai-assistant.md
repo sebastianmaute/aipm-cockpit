@@ -166,7 +166,7 @@
   gets a complete answer. With no argument its output carries no `scope` key — byte-for-byte the old dump. Derived data reaches the dispatcher as
   un-memoized GETTERS on `ChatDispatcherArgs` (`getDashboardModel`/`getBudgetRollup`/`getAllocationsSnapshot`),
   each read through its own ref so an unused read tool costs nothing per render. Build the getter in
-  `task-manager.tsx` beside the others; the allocations getter is built through `makeAllocationsSnapshotGetter`
+  `use-chat-dispatcher-wiring.ts` beside the others; the allocations getter is built through `makeAllocationsSnapshotGetter`
   (in `alloc-plan.ts`), which is where scope forwarding is pinned. ★ This used to say the dep array "stays `[args.isReadOnly]`", which
   is no longer true — it is `[args.isReadOnly, documentTools]`, because `documentTools` is a REAL dep rather
   than a ref-routed value (a `useMemo`'d object captured by the spread, whose identity must change when a
@@ -649,7 +649,7 @@
   (`useChatThreads`, `useChatDispatcher`, and the two files) is still real, which is all that gate ever
   proves. ★★ The STRUCTURAL observation survives, and it is the whole reason the transport looks the way it
   does: `useChatThreads` is called in `chat-panel.tsx`, which mounts BELOW `useChatDispatcher` (called in
-  `task-manager.tsx`), so thread state sits UNDER the point where the AI snapshot is assembled and cannot
+  `use-chat-dispatcher-wiring.ts`, which `task-manager.tsx` calls), so thread state sits UNDER the point where the AI snapshot is assembled and cannot
   reach the dispatcher as a prop without moving that ownership. What was wrong was the conclusion drawn from
   it. The answer was never to lift thread state — it was to stop routing it through the render tree at all:
   `chat-threads-registry.ts` is a module-level single slot the panel PUBLISHES into and the dispatcher READS

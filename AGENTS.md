@@ -719,6 +719,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-trend-snapshots.ts` (the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
   `dashboardModel`; coverage-GATED, pinned by its own `renderHook` test, memos kept on purpose — its header says why),
   `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
+  `use-chat-dispatcher-wiring.ts` (the `useChatDispatcher` call and its `getBudgetRollup` / `getAllocationsSnapshot` /
+  `getDashboardModel` read-tool getters),
   `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
@@ -767,7 +769,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
   `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. A seventeenth, `use-trend-snapshots.ts`
   (§491), holds the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
-  `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. ★ Apply APPENDS a template's
+  `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. An eighteenth,
+  `use-chat-dispatcher-wiring.ts` (§491), holds the assistant's tool dispatcher: the `useChatDispatcher` call and the
+  two derived read-tool getters, which read their slices from `useWorkspace()`. It is coverage-GATED, pinned by its own
+  `renderHook` test, and memoizes nothing — the getters are rebuilt every render on purpose, because the dispatcher
+  reads each through a ref. ★ It forwards the dispatcher's args field by field, so a NEW optional `ChatDispatcherArgs`
+  field is dropped there until added (its header says why). ★ Apply APPENDS a template's
   seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
   features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
