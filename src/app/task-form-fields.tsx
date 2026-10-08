@@ -560,6 +560,9 @@ export function TaskFormFields({
               ? `${t(lang, "noteLogTitle")} (${storedTask.noteLog?.length ?? 0})`
               : t(lang, "noteLogTitle")}
           </button>
+          {/* The deleted-elsewhere line sits in the LAST launcher's cell: here
+              only when the Blockers button is hidden. */}
+          {deletedElsewhere && !isVisible("blockers") && <DeletedElsewhereHint id={deletedHintId} lang={lang} />}
         </div>
 
         {/* Blocker log launcher, beside the Notes control. The blockers text is
@@ -582,11 +585,7 @@ export function TaskFormFields({
                 ? t(lang, "blockerLogButton", openBlockerCount(storedTask.blockerLog))
                 : t(lang, "blockerLogTitle")}
             </button>
-          </div>
-        )}
-        {deletedElsewhere && (
-          <div className="sm:col-span-2">
-            <DeletedElsewhereHint id={deletedHintId} lang={lang} withBlockers={isVisible("blockers")} />
+            {deletedElsewhere && <DeletedElsewhereHint id={deletedHintId} lang={lang} withBlockers />}
           </div>
         )}
 

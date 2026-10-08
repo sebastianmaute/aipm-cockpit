@@ -114,7 +114,8 @@ describe("RAID owner email follows the changed-only write rule", () => {
       <RaidEditModal
         lang="en-US"
         tasks={[]}
-        raid={[]}
+        // The stored item itself, as in the app; an empty list would model one deleted elsewhere.
+        raid={[initial]}
         stakeholdersEnabled
         stakeholders={[]}
         resources={resources}

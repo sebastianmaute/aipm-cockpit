@@ -12,8 +12,11 @@
 import { Banner } from "./banner";
 import { t, type Lang } from "./i18n";
 
-/** The editor-level warning. `role="status"` (Banner's default for `warn`):
- *  the deletion happened elsewhere, so a polite announcement fits. */
+/** The editor-level warning. `role="status"` (Banner's default for `warn`),
+ *  since the deletion happened elsewhere. ★ A live region inserted already
+ *  holding its text is announced UNRELIABLY (often by NVDA with Chrome, often
+ *  not by VoiceOver), so do not count on it: the disabled button's description
+ *  and the error toast on Save are what reliably reach a screen-reader user. */
 export function DeletedElsewhereBanner({ lang }: { lang: Lang }) {
   return (
     <Banner severity="warn" className="sm:col-span-2" data-deleted-elsewhere-banner>

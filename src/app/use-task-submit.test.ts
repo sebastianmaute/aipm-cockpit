@@ -157,13 +157,17 @@ describe("useTaskSubmit", () => {
     const logActivity = vi.fn();
     const logActivityChanges = vi.fn();
     const setTaskModalOpen = vi.fn();
+    const setContacts = vi.fn();
     const { result } = renderHook(() =>
       useTaskSubmit(
-        makeArgs({ editingId: 1, tasks: [], tasksRef: { current: [] }, setTasks, setEditingId, showToast, logActivity, logActivityChanges, setTaskModalOpen }),
+        makeArgs({ editingId: 1, tasks: [], tasksRef: { current: [] }, setTasks, setEditingId, showToast, logActivity, logActivityChanges, setTaskModalOpen, setContacts }),
       ),
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    // The ONLY toast: no "fields adjusted" before it, and no address-book write.
+    expect(showToast).toHaveBeenCalledTimes(1);
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardEditVanished"));
+    expect(setContacts).not.toHaveBeenCalled();
     expect(setTasks).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
     expect(logActivityChanges).not.toHaveBeenCalled();
