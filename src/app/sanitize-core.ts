@@ -553,12 +553,14 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
  * After parsing a full task list from disk, run this once to drop dependency
  * entries pointing at task ids that didn't survive (e.g. file was hand-edited),
  * and every link after the first to the same task (§135: one link per task
- * pair; the FIRST in stored order is kept). Every load reaches it — both load
- * funnels run it, and the CSV/Markdown decoders too — so this is where a
- * mixed-type pair from an import, an older build or a hand-edited file
- * collapses. ★ Not silently: each pass that drops a link of a DIFFERENT type
- * logs one `dependency.mixedPairCollapsed` warning with the counts (an exact
- * duplicate loses nothing and is not counted).
+ * pair; the FIRST in stored order is kept). Both load funnels run it, so do the
+ * CSV/Markdown decoders and the header's Open file (which applies tasks outside
+ * the funnels), so this is where a mixed-type pair from an import, an older
+ * build or a hand-edited file collapses. ★ Not silently: each pass that drops a
+ * link of a DIFFERENT type logs one `dependency.mixedPairCollapsed` warning with
+ * the counts (an exact duplicate loses nothing and is not counted). ★ The same
+ * warning REPEATS on every load until something saves the project: the collapse
+ * changes only what is in memory, and the stored pair is untouched until then.
  * Tasks with nothing to drop are returned as-is for reference equality,
  * and when NO task changed the SAME array comes back — the load funnels (§133)
  * call this on every load and record what they apply by identity (§644), so a

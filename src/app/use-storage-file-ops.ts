@@ -58,7 +58,7 @@ import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
-import { summarizeUnsafeEmailRecords } from "./sanitize";
+import { dropDanglingDependencies, summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
 
 /** Live closure values the file/local project flows read each render. */
@@ -860,7 +860,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // between the replacement and the announcement. A CANCELLED picker or a declined confirm
         // never reaches this line, which is exactly the false drop the narrow predicate avoids.
         deps.bumpScopeEpoch();
-        deps.setTasks(loaded.tasks);
+        deps.setTasks(dropDanglingDependencies([...loaded.tasks])); // §135/§133: this applies outside the load funnel, so it runs the funnel's dependency pass itself (a mixed pair is collapsed and reported, a dangling link dropped).
         // §674: repair a cause loop by the FILE's own graph. Handed to the setter
         // raw, the outgoing project's links (whose ids collide) would decide which
         // link of the loop survives, and the log would call it a refused write.

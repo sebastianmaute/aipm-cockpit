@@ -76,10 +76,10 @@ export function DependencyLinkGroup({
     return m;
   }, [allTasks]);
 
-  // ★★ ONE CHIP PER TASK, first link wins — the rule the sanitizer and both load
-  // funnels now enforce (§135: one link per task pair; `pushUniqueDependency` and
-  // `dropDanglingDependencies` in sanitize-core.ts keep the first link to a
-  // task). So a mixed-type pair such as [{2,"FS"},{2,"SS"}] does not survive a
+  // ★★ ONE CHIP PER TASK, first link wins — the rule the writes and every load now
+  // enforce (§135: one link per task pair; `sanitizeDependencies` keeps the first
+  // link to a task on a write, and `dropDanglingDependencies` on a load — the string
+  // decoder keeps a mixed pair for it, so the collapse is reported in one place). So a mixed-type pair such as [{2,"FS"},{2,"SS"}] does not survive a
   // load, and this collapse is a defensive mirror of that rule rather than a
   // display-only hiding of stored data, which is what it was before §135.
   //

@@ -391,11 +391,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             r.id === editingId ? { ...r, dependencies: cleanDependencies } : r,
           ),
         });
-        if (successors.skipped > 0) {
-          showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
-        }
+        // ★ The type-change notice FIRST: the toast is one slot (a later call replaces
+        // the earlier), and a refused link is the message the user must not miss.
         if (successors.typeChanged > 0) {
           showToast("info", tPlural(lang, "depSuccessorsTypeChanged", successors.typeChanged, successors.typeChanged));
+        }
+        if (successors.skipped > 0) {
+          showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
         }
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a

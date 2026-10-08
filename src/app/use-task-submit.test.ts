@@ -16,7 +16,7 @@ beforeEach(() => {
   __resetMintStateForTests();
 });
 import { useTaskSubmit } from "./use-task-submit";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { TaskFormDraft } from "./task-form-context";
 import type { NoteLogEntry, Task } from "./types";
 
@@ -1512,13 +1512,13 @@ describe("useTaskSubmit — a successor type change (§135)", () => {
   const target = makeTask({ id: 2, dependencies: [{ taskId: 3, type: "FF" }, { taskId: 1, type: "FS" }] });
   const other = makeTask({ id: 3 });
 
-  function save(links: { taskId: number; type: "FS" | "SS" | "FF" | "SF" }[], create = false) {
+  function save(links: { taskId: number; type: "FS" | "SS" | "FF" | "SF" }[]) {
     const setTasks = vi.fn();
     const showToast = vi.fn();
     const all = [own, target, other];
     const { result } = renderHook(() =>
       useTaskSubmit(makeArgs({
-        setTasks, showToast, editingId: create ? null : 1, tasks: all, tasksRef: { current: all },
+        setTasks, showToast, editingId: 1, tasks: all, tasksRef: { current: all },
         form: { ...validForm(), successorLinks: links },
       })),
     );
@@ -1534,7 +1534,15 @@ describe("useTaskSubmit — a successor type change (§135)", () => {
 
   it("tells the user a link's type changed", () => {
     const { showToast } = save([{ taskId: 2, type: "SS" }]);
-    expect(showToast).toHaveBeenCalledWith("info", "1 successor link changed its type: two tasks are linked by one type.");
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "depSuccessorsTypeChanged", 1, 1));
+    expect(tPlural("en-US", "depSuccessorsTypeChanged", 1, 1)).toContain("only one dependency type");
+  });
+
+  // The toast is one slot, so the refusal must come LAST or the notice hides it.
+  it("leaves the 'not applied' warning showing when a save also changes a type", () => {
+    const { showToast } = save([{ taskId: 2, type: "SS" }, { taskId: 99, type: "FS" }]);
+    expect(showToast).toHaveBeenCalledTimes(2);
+    expect(showToast.mock.calls.at(-1)).toEqual(["info", tPlural("en-US", "depSuccessorsSkipped", 1, 1)]);
   });
 
   it("says nothing, and changes nothing, when the link already has that type", () => {
