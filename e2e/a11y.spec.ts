@@ -111,11 +111,12 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
 // block-editor scan + 1 Reports cumulative-chart scan + 2 Turso-storage
 // Settings tests (the second runs axe in two states, but counts once) (all
-// five harbor-light only, hardcoded — none scales with the combo count) = 131
-// `a11y:`-prefixed tests, + 1 chart-readout scan whose name does NOT carry
+// five harbor-light only, hardcoded — none scales with the combo count) = 131,
+// + the pink-count-badge scans (§681, ONE PER COMBO like the Kanban ones, so 7 today
+// and scaling with COMBOS) = 138 `a11y:`-prefixed tests, + 1 chart-readout scan whose name does NOT carry
 // that prefix (its name is asserted verbatim by the chart-hover-readout plan,
 // so `grep -c "a11y:"` undercounts by exactly one) + the one non-scan guard
-// below = 133 tests.
+// below = 140 tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
@@ -123,9 +124,10 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // instead of re-measuring. The 128/129 above were likewise MEASURED, not
 // derived, in the commit that added the umber-dark combo, and 129/130
 // re-measured when the Reports cumulative scan was added (§557), and 131/133
-// when the two Turso-storage tests were (§548). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 133 total
-//   …then `grep -c "a11y:"` over that output       # 131 (+1 unprefixed)
+// when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
+// scans were (§681). Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 140 total
+//   …then `grep -c "a11y:"` over that output       # 138 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },

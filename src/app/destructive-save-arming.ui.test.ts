@@ -19,8 +19,8 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  *
  * ★★★ ITS BOUND. Only that SHAPE is seen. A removal written another way passes
  * unseen: a list computed elsewhere and handed to the setter (`commitBuckets`
- * in `use-budget-buckets.ts`), `setX([])`, a splice, or a generic setter such as
- * the undo runner's. Those stay a by-hand review, as §293 records. And "the
+ * in `use-budget-buckets.ts`), `setX([])`, a splice, a generic setter such as
+ * the undo runner's, or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
  * enclosing function calls it" is a PRESENCE check, not an ordering or branch
  * check — whether the arm fires on the right path is each route's own test.
  *
@@ -85,7 +85,7 @@ function isArmCall(n: ts.Node): boolean {
   if (!ts.isCallExpression(n)) return false;
   if (calleeName(n) === ARM) return true;
   const e = n.expression;
-  return ts.isPropertyAccessExpression(e) && e.name.text === "current" && /(^|.)allowDestructiveSaveRef$/.test(e.expression.getText());
+  return ts.isPropertyAccessExpression(e) && e.name.text === "current" && /(^|\.)allowDestructiveSaveRef$/.test(e.expression.getText());
 }
 
 /** The name a function is known by: its declaration, the variable or property it
@@ -93,13 +93,23 @@ function isArmCall(n: ts.Node): boolean {
  *  is passed as. Undefined for an unnamed inner callback, so the walk goes on up. */
 function functionName(fn: ts.Node): string | undefined {
   if (ts.isFunctionDeclaration(fn) || ts.isMethodDeclaration(fn)) return fn.name?.getText();
+  // Climb through every call the function is an ARGUMENT of (`useCallback(fn, deps)`,
+  // `guardEdit(fn)`, …) to the name the result is bound to.
+  let node: ts.Node = fn;
   let p: ts.Node = fn.parent;
-  if (ts.isCallExpression(p) && ts.isIdentifier(p.expression) && /^use(Callback|Memo)$/.test(p.expression.text)) p = p.parent;
+  while (ts.isCallExpression(p) && p.arguments.some((a) => a === node)) {
+    node = p;
+    p = p.parent;
+  }
   if (ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) return p.name.text;
   if (ts.isPropertyAssignment(p)) return p.name.getText();
   if (ts.isJsxExpression(p) && ts.isJsxAttribute(p.parent)) return p.parent.name.getText();
   return undefined;
 }
+
+/** A site named for a component (PascalCase) or the module: judged by that whole
+ *  scope, where any arm would pass it, so it is refused rather than judged. */
+const isUnresolved = (s: Site): boolean => s.fn === "<module>" || /^[A-Z]/.test(s.fn);
 
 /** Every filter-into-counted-setter site in one source. Pure, so the fixture
  *  cases below can feed it text. */
@@ -166,6 +176,22 @@ describe("scanSource (the scanner itself)", () => {
     expect(site).toMatchObject({ fn: "onClear", armed: true });
   });
 
+  // ★★ Review finding: `onClearUnlinked: guardEdit(() => { … })` left the arrow
+  //   unnamed, the walk climbed to the COMPONENT, and an arm anywhere in the
+  //   component then "armed" this site — deleting its own arm stayed green.
+  it("names a handler passed through a wrapper call, and judges only its own body", () => {
+    const [site] = scan(
+      `function Comp() { allowDestructiveSaveRef.current?.(); const h = { onClear: guardEdit(() => { setRaid((p) => p.filter(Boolean)); }) }; }`,
+    );
+    expect(site).toMatchObject({ fn: "onClear", armed: false });
+  });
+
+  it("refuses a site that only resolves to its component", () => {
+    const [site] = scan(`function Comp() { useEffect(() => { setTasks((p) => p.filter(Boolean)); }); }`);
+    expect(site!.fn).toBe("Comp");
+    expect(isUnresolved(site!)).toBe(true);
+  });
+
   it("names an inline JSX handler by its prop", () => {
     const [site] = scan(`const el = <X onRemove={() => setTasks((p) => p.filter(Boolean))} />;`);
     expect(site!.fn).toBe("onRemove");
@@ -184,6 +210,15 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(countedSetters().size).toBeGreaterThanOrEqual(13);
     expect(sites.length).toBeGreaterThanOrEqual(15);
     expect(sites.map((s) => s.key)).toContain("use-raid-items.ts#handleDeleteRaidItem#setRaid");
+    // The unbounded route behind a wrapper call (guardEdit), judged by its own body.
+    expect(sites.filter((s) => s.key.startsWith("task-manager.tsx#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
+  });
+
+  // A site that resolves to a component (PascalCase) or the module is judged by
+  // that whole scope, where any arm passes it: refuse it rather than pass it.
+  it("every site resolves to a named handler, not a component or the module", () => {
+    const unresolved = sites.filter(isUnresolved).map((s) => `${s.file}:${s.line} ${s.fn}`);
+    expect(unresolved).toEqual([]);
   });
 
   it("every filter-delete on a counted slice arms, or says why not", () => {

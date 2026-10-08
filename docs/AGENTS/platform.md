@@ -27,7 +27,7 @@
   route must arm it: `destructive-save-arming.test.ts` checks the AI tools, and
   `destructive-save-arming.ui.test.ts` checks every `.filter(` handed to a counted slice's setter (it
   finds them in the code, so a new one fails until armed or given a reason in `UNARMED_BY_DESIGN`). A
-  removal written any other way (a list computed elsewhere, `setX([])`) is not checked by anything (§293).
+  removal written any other way (a list computed elsewhere, `setX([])`, a setter passed down under another name) is not checked by anything (§293).
   ★★★ **NO AUTOMATIC SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS BEEN APPLIED (§586, §587).** Before it,
   render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (an applied Turso
   URL/token change, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
