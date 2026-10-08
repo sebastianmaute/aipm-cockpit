@@ -27,7 +27,7 @@ longer carries its own changelog comment.
 ### Changed
 
 - **Big Kanban boards open faster (§5).** On the Open Points board, each status column now shows up to 100
-  cards and a "Show 100 more" button under them. The count in the column header is still the full count. A
+  cards, then a "Show more" button that names the column and how many cards are hidden. The count in the column header is still the full count. A
   link to a task further down a column opens the column far enough to show it, and printing the board still
   prints every card.
 - **AI-proposed tasks can carry an owner, priority and group (§445).** When the new-project wizard asks the

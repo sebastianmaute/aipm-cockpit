@@ -6,7 +6,7 @@ import {
   OUT, RUNS, SEED_TASKS, SIZES, SEARCH, FILTER, POLL,
   median, timed, settled, bootScaled, busyMs,
 } from "./perf-helpers";
-import { KANBAN_COLUMN_PAGE } from "../src/app/task-kanban-board";
+import { KANBAN_COLUMN_PAGE } from "../src/app/kanban-column-page";
 
 // §5 perf probe, Kanban board, Phase 0 of the board's own decision (the table's spec,
 // docs/superpowers/specs/2026-10-07-list-virtualization-design.md, leaves the board out of

@@ -33,19 +33,32 @@ const APP = join(process.cwd(), "src", "app");
 const ARM = "allowDestructiveSave";
 
 /** A filter-into-setter site whose function deliberately does not arm, keyed
- *  `file#function#setter`. The reason must say why no arm is needed THERE. */
-const UNARMED_BY_DESIGN: Readonly<Record<string, string>> = {
-  "use-task-row-handlers.ts#onDelete#setTasks":
-    "One confirmed row, and isMassDeletion needs prev - cur >= 5, so it cannot trip the guard; an arm would only " +
-    "hand the bypass to the next save (§323, pinned in is-workspace-empty.test.ts).",
-  "use-resource-directory.ts#purgeCalendarFor#setAbsences":
-    "A helper, not a route: its two callers, handleDeleteResource and handleBulkDeleteResources, arm.",
-  "use-resource-directory.ts#purgeCalendarFor#setShifts":
-    "A helper, not a route: its two callers, handleDeleteResource and handleBulkDeleteResources, arm.",
-  "use-reference-data.ts#onReorderDisciplines#setDisciplines":
-    "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
-  "use-reference-data.ts#onReorderGrades#setGrades":
-    "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
+ *  `file#function#setter`. The reason must say why no arm is needed THERE, and
+ *  `sites` is how many unarmed sites the key covers: a second filter-delete added
+ *  under an exempt key then fails until someone reviews it and raises the count. */
+const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string }>> = {
+  "use-task-row-handlers.ts#onDelete#setTasks": {
+    sites: 1,
+    reason:
+      "One confirmed row, and isMassDeletion needs prev - cur >= 5, so it cannot trip the guard; an arm would only " +
+      "hand the bypass to the next save (§323, pinned in is-workspace-empty.test.ts).",
+  },
+  "use-resource-directory.ts#purgeCalendarFor#setAbsences": {
+    sites: 1,
+    reason: "A helper, not a route: its two callers, handleDeleteResource and handleBulkDeleteResources, arm.",
+  },
+  "use-resource-directory.ts#purgeCalendarFor#setShifts": {
+    sites: 1,
+    reason: "A helper, not a route: its two callers, handleDeleteResource and handleBulkDeleteResources, arm.",
+  },
+  "use-reference-data.ts#onReorderDisciplines#setDisciplines": {
+    sites: 1,
+    reason: "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
+  },
+  "use-reference-data.ts#onReorderGrades#setGrades": {
+    sites: 1,
+    reason: "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
+  },
 };
 
 interface Site { key: string; file: string; fn: string; setter: string; line: number; armed: boolean }
@@ -231,5 +244,14 @@ describe("destructive-save arming, UI surface (§293)", () => {
   it("every UNARMED_BY_DESIGN entry names a live, unarmed site", () => {
     const unarmed = new Set(sites.filter((s) => !s.armed).map((s) => s.key));
     expect(Object.keys(UNARMED_BY_DESIGN).filter((k) => !unarmed.has(k))).toEqual([]);
+  });
+
+  // An exemption is keyed by file#function#setter, so a SECOND filter-delete added to an
+  // exempt function would share the key; the count makes it a deliberate edit.
+  it("every UNARMED_BY_DESIGN entry covers exactly the sites it counts", () => {
+    const off = Object.entries(UNARMED_BY_DESIGN)
+      .map(([key, entry]) => ({ key, counted: entry.sites, found: sites.filter((s) => !s.armed && s.key === key).length }))
+      .filter((e) => e.counted !== e.found);
+    expect(off).toEqual([]);
   });
 });

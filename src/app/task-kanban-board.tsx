@@ -6,6 +6,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./button";
 import { usePrinting } from "./use-printing";
+import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
+
+export { KANBAN_COLUMN_PAGE };
 import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
@@ -80,11 +83,6 @@ const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
  *  statuses; flex-1 distributes leftover container width evenly between
  *  those bounds. Below the floor, the existing overflow-x-auto on the
  *  container takes over exactly as it does today. */
-/** A status column renders at most this many cards, then a "Show more" button that
- *  adds this many again (§5, docs/superpowers/specs/2026-10-08-kanban-column-cap-design.md).
- *  At or under it a column renders exactly as it did before the cap. */
-export const KANBAN_COLUMN_PAGE = 100;
-
 export const KANBAN_STATUS_COL_CLASS = "min-w-64 max-w-[25rem] flex-1 shrink-0";
 
 export function TaskKanban({
@@ -129,7 +127,10 @@ export function TaskKanban({
         if (index < 0) continue;
         // Only ever raise: a column the user already opened past the card stays open.
         if (index >= (limits[status] ?? KANBAN_COLUMN_PAGE)) {
-          setLimits((prev) => ({ ...prev, [status]: Math.ceil((index + 1) / KANBAN_COLUMN_PAGE) * KANBAN_COLUMN_PAGE }));
+          setLimits((prev) => ({
+            ...prev,
+            [status]: Math.max(prev[status] ?? KANBAN_COLUMN_PAGE, Math.ceil((index + 1) / KANBAN_COLUMN_PAGE) * KANBAN_COLUMN_PAGE),
+          }));
         }
         break;
       }
