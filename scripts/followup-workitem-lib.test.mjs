@@ -157,10 +157,12 @@ describe("workItemViolations", () => {
     // drifting: every `**Work item:** #N` line in the file belongs to an open
     // entry (the ON_CLOSED rule above), so the two counts must agree. The 50
     // floor is the one the sibling followup gates use for a scan that read
-    // nothing (`check-followup-index.mjs`, `check-followup-claims.mjs`).
+    // nothing (`check-followup-index.mjs`, `check-followup-claims.mjs`). Those
+    // gates fail BELOW 50 and pass at it, so this must too: a strict `> 50`
+    // broke CI the day the register reached exactly 50 linked entries.
     const rawIssueLines = register().match(/^\*\*Work item:\*\* #\d+/gm) ?? [];
     expect(withIssue.length).toBe(rawIssueLines.length);
-    expect(withIssue.length).toBeGreaterThan(50);
+    expect(withIssue.length).toBeGreaterThanOrEqual(50);
   });
 });
 
