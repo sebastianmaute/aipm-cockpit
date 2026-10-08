@@ -15,10 +15,21 @@
 // does not, so the key can name a partition the workspace on screen never wrote.
 // Every caller must refuse byte access in Safe Mode alongside it: the Documents
 // pane forces its Turso config to null, the chat card gets an empty key (no loader).
-import { assetPartitionKey } from "./document-assets-schema";
+import { ASSET_PARTITION_FALLBACK, assetPartitionKey } from "./document-assets-schema";
 import { loadCurrentTursoProjectId, loadPortfolioMode } from "./portfolio-mode";
 import { loadRegistry } from "./projects-registry";
 import type { StorageKind } from "./workspace";
+
+/** The keys a pre-§207 build wrote a SINGLE-TENANT database's image bytes under:
+ *  the registry id of whichever Turso-storage project was current, or
+ *  `ASSET_PARTITION_FALLBACK` with none. Together with the single-tenant key they
+ *  are the scope that key reads, lists and deletes (document-assets-schema.ts).
+ *  A registry project on any OTHER storage is left out: its bytes ride the same
+ *  integration database, but its metadata is its own file's, not this one's. */
+export function singleTenantLegacyAssetKeys(): string[] {
+  const ids = loadRegistry().projects.filter((p) => p.storageConfig.kind === "turso").map((p) => p.id);
+  return [ASSET_PARTITION_FALLBACK, ...ids.filter((id) => id !== ASSET_PARTITION_FALLBACK)];
+}
 
 export function liveAssetPartitionKey(storageKind: StorageKind): string {
   return assetPartitionKey({

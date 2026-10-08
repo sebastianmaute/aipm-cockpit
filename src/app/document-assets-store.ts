@@ -12,6 +12,14 @@ import {
 } from "./document-assets-schema";
 import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
+import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
+import { singleTenantLegacyAssetKeys } from "./asset-partition-live";
+
+/** The legacy keys `projectId`'s reads, lists and deletes also reach (§207):
+ *  the single-tenant scope under that key, none otherwise. Read live, at call
+ *  time, so every surface reaches the same scope without threading it. */
+const legacyKeysFor = (projectId: string): string[] =>
+  projectId === SINGLE_TENANT_ASSET_PARTITION ? singleTenantLegacyAssetKeys() : [];
 
 const ddl = (): SqlStmt[] => DOCUMENT_ASSET_DATA_DDL.map((sql) => ({ sql }));
 
@@ -22,7 +30,7 @@ const ddl = (): SqlStmt[] => DOCUMENT_ASSET_DATA_DDL.map((sql) => ({ sql }));
 export async function loadAssetData(
   config: TursoConfig | null, id: string, projectId: string,
 ): Promise<string | null> {
-  const results = await runTursoPipeline(config, [...ddl(), ...assetDataSelect(id, projectId)]);
+  const results = await runTursoPipeline(config, [...ddl(), ...assetDataSelect(id, projectId, legacyKeysFor(projectId))]);
   const rows = rowsToAssetData(results[DOCUMENT_ASSET_DATA_DDL.length]);
   return rows[0]?.data ?? null;
 }
@@ -33,7 +41,7 @@ export async function loadAssetData(
 export async function loadAssetDataIds(
   config: TursoConfig | null, projectId: string,
 ): Promise<string[]> {
-  const results = await runTursoPipeline(config, [...ddl(), ...assetDataIdsSelect(projectId)]);
+  const results = await runTursoPipeline(config, [...ddl(), ...assetDataIdsSelect(projectId, legacyKeysFor(projectId))]);
   return rowsToAssetData(results[DOCUMENT_ASSET_DATA_DDL.length]).map((r) => r.id);
 }
 
@@ -44,5 +52,5 @@ export async function saveAssetData(config: TursoConfig | null, row: AssetDataRo
 export async function deleteAssetData(
   config: TursoConfig | null, id: string, projectId: string,
 ): Promise<void> {
-  await runTursoPipeline(config, [...ddl(), ...assetDataDelete(id, projectId)]);
+  await runTursoPipeline(config, [...ddl(), ...assetDataDelete(id, projectId, legacyKeysFor(projectId))]);
 }

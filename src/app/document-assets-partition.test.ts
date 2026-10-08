@@ -63,35 +63,60 @@ describe("asset byte statements executed against SQLite (§207)", () => {
     for (const sql of DOCUMENT_ASSET_DATA_DDL) db.exec(sql);
   });
 
+  // The single-tenant SCOPE: its own key plus the keys a pre-§207 build wrote a
+  // single-tenant database's bytes under — the registry ids of Turso-storage projects
+  // and ASSET_PARTITION_FALLBACK. Read, list and delete reach the same set and
+  // nothing outside it (final review of §207).
+  const LEGACY = ["r1", ASSET_PARTITION_FALLBACK];
+
   describe("under the single-tenant key", () => {
-    it("reads bytes written under an older key, so a registry switch leaves no asset dangling", () => {
+    it("reads bytes written under a legacy key, so a registry switch leaves no asset dangling", () => {
       put("a1", "r1", "OLD");
-      expect(run(assetDataSelect("a1", ST)).map((r) => r.data)).toEqual(["OLD"]);
+      expect(run(assetDataSelect("a1", ST, LEGACY)).map((r) => r.data)).toEqual(["OLD"]);
     });
 
-    it("prefers its own row when the id sits in several partitions", () => {
+    it("prefers its own row when the id sits in several partitions of the scope", () => {
       put("a1", "r1", "OLD");
       put("a1", ST, "NEW");
-      put("a1", "r2", "OTHER");
-      expect(run(assetDataSelect("a1", ST)).map((r) => r.data)).toEqual(["NEW"]);
+      put("a1", ASSET_PARTITION_FALLBACK, "OTHER");
+      expect(run(assetDataSelect("a1", ST, LEGACY)).map((r) => r.data)).toEqual(["NEW"]);
     });
 
-    it("lists each stored id once across partitions, without bytes", () => {
+    it("does not read a partition outside the scope (another tenant, a file project)", () => {
+      put("a1", "t2", "THEIRS");
+      expect(run(assetDataSelect("a1", ST, LEGACY))).toEqual([]);
+    });
+
+    it("lists each id in the scope once, without bytes, and nothing outside it", () => {
       put("a1", "r1", "X");
-      put("a1", "r2", "Y");
-      put("a2", "r2", "Z");
-      const rows = run(assetDataIdsSelect(ST));
+      put("a1", ST, "Y");
+      put("a2", ASSET_PARTITION_FALLBACK, "Z");
+      put("a3", "t2", "THEIRS");
+      const rows = run(assetDataIdsSelect(ST, LEGACY));
       expect(rows.map((r) => r.id).sort()).toEqual(["a1", "a2"]);
       expect(rows.every((r) => r.data === "")).toBe(true);
     });
 
-    // An id two projects share (an imported workspace) must not lose the other
-    // project's bytes; the legacy copy is left as an orphan instead.
-    it("deletes only its own row", () => {
+    // A pre-§207 image deleted from the library must stop rendering: before the scope,
+    // a strict delete left the legacy row and the cross-partition read found it again.
+    it("deletes the id across the scope, after which its read is honestly empty", () => {
       put("a1", ST, "NEW");
       put("a1", "r1", "OLD");
-      run(assetDataDelete("a1", ST));
-      expect(run(assetDataSelect("a1", "r1")).map((r) => r.data)).toEqual(["OLD"]);
+      put("a1", ASSET_PARTITION_FALLBACK, "OLDER");
+      run(assetDataDelete("a1", ST, LEGACY));
+      expect(run(assetDataSelect("a1", ST, LEGACY))).toEqual([]);
+    });
+
+    it("leaves a shared id outside the scope alone when it deletes", () => {
+      put("a1", ST, "NEW");
+      put("a1", "t2", "THEIRS");
+      run(assetDataDelete("a1", ST, LEGACY));
+      expect(run(assetDataSelect("a1", "t2")).map((r) => r.data)).toEqual(["THEIRS"]);
+    });
+
+    it("reaches its own key alone when no legacy keys are given", () => {
+      put("a1", "r1", "OLD");
+      expect(run(assetDataSelect("a1", ST))).toEqual([]);
     });
   });
 

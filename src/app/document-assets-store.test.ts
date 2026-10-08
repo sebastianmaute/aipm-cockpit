@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   loadAssetData, saveAssetData, deleteAssetData, loadAssetDataIds,
 } from "./document-assets-store";
-import { DOCUMENT_ASSET_DATA_DDL } from "./document-assets-schema";
+import { DOCUMENT_ASSET_DATA_DDL, SINGLE_TENANT_ASSET_PARTITION, ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
+import { saveRegistry } from "./projects-registry";
 import type { PipelineResultLike } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 
@@ -81,5 +82,41 @@ describe("document-assets-store", () => {
     expect(await loadAssetDataIds(config, "p1")).toEqual(["a1"]);
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts[stmts.length - 1].sql).toContain("'' AS data");
+  });
+});
+
+// §207 final review: under the single-tenant key the store reaches the same SCOPE for
+// read, list and delete — its own key, ASSET_PARTITION_FALLBACK and the registry ids of
+// Turso-storage projects (where a pre-§207 build wrote this database's bytes). A
+// registry project on other storage is never in it.
+describe("document-assets-store — the single-tenant scope (§207)", () => {
+  const argsOf = (call: number) =>
+    vi.mocked(runTursoPipeline).mock.calls[call][1].at(-1)!.args!.map((a) => a.value);
+
+  beforeEach(() => {
+    saveRegistry({
+      projects: [
+        { id: "r-turso", name: "T", code: "T", storageConfig: { kind: "turso" } },
+        { id: "r-file", name: "F", code: "F", storageConfig: { kind: "local-json" } },
+      ],
+      currentProjectId: "r-turso",
+    } as unknown as Parameters<typeof saveRegistry>[0]);
+    vi.mocked(runTursoPipeline).mockResolvedValue([ddlAck]);
+  });
+
+  it("reads, lists and deletes across the scope, and never a file project's partition", async () => {
+    await loadAssetData(config, "a1", SINGLE_TENANT_ASSET_PARTITION);
+    await loadAssetDataIds(config, SINGLE_TENANT_ASSET_PARTITION);
+    await deleteAssetData(config, "a1", SINGLE_TENANT_ASSET_PARTITION);
+    for (const call of [0, 1, 2]) {
+      const args = argsOf(call);
+      expect(args).toEqual(expect.arrayContaining([SINGLE_TENANT_ASSET_PARTITION, ASSET_PARTITION_FALLBACK, "r-turso"]));
+      expect(args).not.toContain("r-file");
+    }
+  });
+
+  it("keeps a tenant key strict, whatever the registry holds", async () => {
+    await deleteAssetData(config, "a1", "t1");
+    expect(argsOf(0)).toEqual(["a1", "t1"]);
   });
 });
