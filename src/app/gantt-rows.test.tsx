@@ -20,6 +20,7 @@ const base = {
   // is unreachable from here for exactly that reason; it is covered by
   // `gantt.test.tsx`, which renders the panel.
   rowToken: m.name,
+  rowKey: `m-${m.id}`,
 };
 
 function countDiamonds(c: HTMLElement): number {
