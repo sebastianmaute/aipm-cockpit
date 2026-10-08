@@ -916,7 +916,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§679](#679-task-editor-a-long-inline-note-log-cannot-be-scrolled-to-its-older-notes--open) | Task editor: a long inline note log cannot be scrolled to its older notes | — | — | open |
 | [§680](#680-floating-notes-window-a-long-new-note-grows-past-the-window-with-no-scroll-bar--open) | Floating notes window: a long new note grows past the window with no scroll bar | — | — | open |
 | [§681](#681-the-pink-count-badge-fails-aa-contrast--closed-2026-10-08) | The pink count badge fails AA contrast | — | — | **CLOSED** 2026-10-08 |
-| [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--open) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | open |
+| [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--closed-2026-10-08) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | **CLOSED** 2026-10-08 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44192,10 +44192,10 @@ If the same order happens in the app, the list-failure banner disappears while t
 
 **Close when** the pink badge's text reaches 4.5:1 on every built-in scheme, light and dark, pinned by a unit test that computes the ratio from the scheme maps, and an axe scan that renders the badge passes.
 
-## 682. The Timelog connection test shows the scope as the raw words self/org, untranslated — OPEN
+## 682. The Timelog connection test shows the scope as the raw words self/org, untranslated — CLOSED 2026-10-08
 
-**Status:** OPEN 2026-10-07 — found while checking the desktop rollout guide. Settings → Timelog → Test connection reports "Connected — N users, scope: self" (or "org"): `timelog-settings.tsx` passes the internal value (`"org"` / `"self"`, or `config.scopeMode`) straight into `timelogTestOk` / `timelogTestOkOne`, while the Data scope select beside it labels the same values through `timelogScopeSelf` / `timelogScopeOrg`. A German user sees English words. Reproduce: `grep -nE 'timelogTestOk|"(org|self)"' src/app/timelog-settings.tsx`.
+**Status:** CLOSED 2026-10-08 — `timelog-settings.tsx` now holds one map, `SCOPE_LABEL_KEY`, from each scope mode to its label key; the Data scope select renders its options from it, and the connection-test message passes `t(lang, SCOPE_LABEL_KEY[scope])` for the effective scope (auto is still resolved from the privileges first, so the message never reads "Auto-detect"). `timelog-settings.test.tsx` checks both auto branches in English and in German (`loadI18n("de")`): the message must end with the select's label and must not end with the raw word, and a separate case pins that the German labels are real translations. Measured with `npx vitest run src/app/timelog-settings.test.tsx --maxWorkers=2`: 40 passed. Mutants 3/3 killed: passing the raw scope again (4 red), swapping the self and org keys (4 red), always naming org (2 red).
 
-**Work item:** #609
+**Status before this update:** OPEN 2026-10-07 — found while checking the desktop rollout guide. Settings → Timelog → Test connection reports "Connected — N users, scope: self" (or "org"): `timelog-settings.tsx` passes the internal value (`"org"` / `"self"`, or `config.scopeMode`) straight into `timelogTestOk` / `timelogTestOkOne`, while the Data scope select beside it labels the same values through `timelogScopeSelf` / `timelogScopeOrg`. A German user sees English words. Reproduce: `grep -nE 'timelogTestOk|"(org|self)"' src/app/timelog-settings.tsx`.
 
 **Close when** the test message names the scope with the same translated label as the select, pinned by a test in both languages (`loadI18n("de")`).

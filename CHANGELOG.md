@@ -120,6 +120,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The Timelog connection test names the scope in your language (§682).** Settings → Timelog → Test
+  connection reported the data scope as the raw words "self" or "org", in English even in the German interface.
+  It now uses the same wording as the Data scope list beside it, such as "Whole organisation".
 - **The pink count badges are readable (§681).** The small pink counters on the bell and in the sidebar
   drew white numbers on a pink too light for them, worst in the dark colour schemes. Each scheme now
   uses a deeper pink for the badge, so the number meets the WCAG AA contrast minimum everywhere.
