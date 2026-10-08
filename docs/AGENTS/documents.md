@@ -683,16 +683,18 @@ key has to follow the BACKEND LAYOUT rather than the portfolio/registry state (�
 project selected keys on that tenant project; any other Turso storage writes under
 `SINGLE_TENANT_ASSET_PARTITION` whatever registry project is current (a tenant id left stored while the
 portfolio is in file mode included: its bytes were written under the registry id until §207); any
-other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key ALONE a
-read and the id list reach every partition, preferring the key's own row (`assetDataSelect`,
-`assetDataIdsSelect`): that is the whole migration, since bytes stored under an older key stay readable
-and nothing had to be re-keyed. ★★★ IT IS CONFINED ON PURPOSE. Unique ids (`crypto.randomUUID()`) rule
-out collisions, NOT copies: a workspace exported from project A and imported into B shares A's asset
-ids, so a tenant read across partitions would show A's bytes in B as healthy images, which vanish when
-A deletes them or is hard-deleted, and which B's own delete cannot remove. A tenant key therefore reads,
-lists and deletes its own partition only, and a delete is strict under every key — under the
-single-tenant key a legacy copy under the registry id is left behind as an orphan rather than risk
-another project's bytes for a shared id. The mitigations still in place beside it are the Safe Mode
+other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key a read,
+the id list AND a delete reach one SCOPE: the key plus the keys a pre-§207 build wrote that database's
+bytes under — `ASSET_PARTITION_FALLBACK` and the registry ids of Turso-storage projects
+(`singleTenantLegacyAssetKeys`, resolved by the store at call time). The read prefers the key's own row.
+That is the whole migration (old bytes stay readable, nothing re-keyed), and the delete reaching the
+same scope is what makes deleting an old image actually remove it — a strict delete left the legacy row
+for the scoped read to find again, so the image kept rendering (a final-review finding). ★★★ NOTHING
+OUTSIDE THE SCOPE IS REACHED, ON PURPOSE. Unique ids (`crypto.randomUUID()`) rule out collisions, NOT
+copies: a workspace exported from project A and imported into B shares A's asset ids, so a read across
+projects would show A's bytes in B as healthy images, which vanish when A deletes them or is
+hard-deleted, and a wider delete would remove A's. A tenant key reads, lists and deletes its own
+partition only. The mitigations still in place beside it are the Safe Mode
 refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
 `""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as
@@ -705,7 +707,10 @@ future caller following the old claim cannot open a second partition. ★ The fa
 not a sentinel for "unpartitioned": every input to it is deterministic, so a later session in the
 same state finds the same bytes — see §207 for why that makes it sound and Safe Mode unsound.
 
-★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.**
+★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.** ★ So does
+the chat card's document download: `workspace-section.tsx` hands `ChatPanel` an EMPTY asset key in Safe
+Mode, which leaves its tool block with no image loader (`asset-partition-live.ts` states the rule for
+every caller of the live key).
 `DocumentsTabPanel` (`workspace-panels.tsx`) derives the byte store's key from `loadPortfolioMode()`
 and `loadCurrentTursoProjectId()`, and BOTH force a degraded value under `?safe=1` (mode `"file"`,
 id `null`) while `loadRegistry()` carries no such guard. Without a gate, a Turso-portfolio user

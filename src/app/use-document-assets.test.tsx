@@ -223,7 +223,7 @@ describe("useDocumentAssets — write order", () => {
     // pins that a racing diff must NOT re-mark a fresh upload. On its own that
     // is satisfied just as well by "suppress every id this session wrote" — a
     // plain written-ids Set — which never forgets, so an asset whose byte row
-    // later vanishes (§207 desync, another tab, a failed remove) would read
+    // later vanishes (another tab, a failed remove; the single-tenant desync until §207 closed) would read
     // HEALTHY for the rest of the session. That is a false "fine" in place of a
     // false "broken", which the hook's own comment calls the worse direction
     // because the user is given no signal at all.
@@ -265,7 +265,7 @@ describe("useDocumentAssets — write order", () => {
     await act(async () => { await result.current.upload(pngFile("second.png", 8)); });
     await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(false));
 
-    // Now the row vanishes — a failed remove, another tab, the §207 desync.
+    // Now the row vanishes — a failed remove, or another tab (once also the §207 desync).
     // `first`'s write is two epochs old, so the guard must NOT suppress it.
     present = [];
     await act(async () => { await result.current.upload(pngFile("third.png", 12)); });

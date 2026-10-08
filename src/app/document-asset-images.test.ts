@@ -303,7 +303,7 @@ describe("attachAssetImages", () => {
   // is supplied" above. `documentAssets` is an OPTIONAL slice left `undefined`
   // when empty, metadata rows are dropped INDIVIDUALLY on load while the byte
   // rows are untouched, and metadata and bytes live in different tables with
-  // different lifecycles (§207 records them desynchronising in production) —
+  // different lifecycles (§207 recorded them desynchronising in production until it closed) —
   // four mechanisms that hand a live `mimeFor` an id it knows nothing about.
   // ★★ WHAT THIS DOES AND DOES NOT BUY, because the distinction was overstated
   // once already. A MISS and an absent lookup converge on the identical value
@@ -315,7 +315,7 @@ describe("attachAssetImages", () => {
   // miss is a distinct DOMAIN case with four real mechanisms behind it (an
   // optional slice set to undefined when empty; rows dropped individually on
   // load while bytes survive; metadata and bytes in different tables with
-  // different lifecycles, per §207; and the `<img>` reference living in a third
+  // different lifecycles (see §207, closed); and the `<img>` reference living in a third
   // slice) — not because it discriminates a distinct branch here.
   it("falls through to a typeless Blob when the mime lookup misses", async () => {
     const el = root('<img data-asset-id="orphan">');

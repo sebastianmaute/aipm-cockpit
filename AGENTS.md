@@ -765,7 +765,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the template list and the Save-as-template and Apply-template actions; it reads the workspace setters and the
   template snapshot builder from context, takes `features` as a dep rather than reading `useSettings` (a second
   instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
-  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. ★ Apply APPENDS a template's
+  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. A seventeenth, `use-trend-snapshots.ts`
+  (§491), holds the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
+  `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. ★ Apply APPENDS a template's
   seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
   features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.

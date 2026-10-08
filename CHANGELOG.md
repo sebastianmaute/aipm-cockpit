@@ -32,6 +32,8 @@ longer carries its own changelog comment.
   still show, a row you are dragging stays put, and printing still prints every row. The Swimlanes view
   shows 100 cards per person and status, and the activity log 100 rows, each with a "Show more" button;
   printing shows everything, and the activity log's search, filters and sort still cover every entry.
+  As with the task table, the browser's own find (Ctrl+F) only sees the rows and cards currently drawn,
+  so use the view's search box to find something in a long list.
 
 - **Two tasks are linked by at most one dependency type (§135).** A second link between the same two
   tasks with a different type (for example both finish-to-start and start-to-start), which could arrive
