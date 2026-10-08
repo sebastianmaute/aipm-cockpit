@@ -16,7 +16,7 @@
 // whole-pane empty state shows the same copy and a second inline copy of that
 // ternary is how the two drift.
 
-import { useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { GanttDependencyLayer, GanttHeader } from "./gantt-chrome";
@@ -24,6 +24,7 @@ import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
   fmtFull,
   type GanttBarEdit,
@@ -46,7 +47,13 @@ import {
  * and the fallback would hide it behind a plausible bare name.
  */
 export function ganttRowKey(row: GanttRow): string {
-  return row.kind === "task" ? `t-${row.task.id}` : `m-${row.milestone.id}`;
+  return row.kind === "task" ? ganttTaskRowKey(row.task.id) : `m-${row.milestone.id}`;
+}
+
+/** A task row's key, as `ganttRowKey` spells it, for a caller holding a task id
+ *  rather than a row (the row window's pinned drag rows). */
+export function ganttTaskRowKey(taskId: number): string {
+  return `t-${taskId}`;
 }
 
 /** The three "why is this empty" strings, decided once by GanttPanel. */
@@ -154,6 +161,83 @@ export function GanttChart({
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
+  // §5 row window (use-gantt-row-window.ts): above 200 rows only the rows near the
+  // viewport render, with spacers for the rest; the overlays above already draw from
+  // row indexes over the full height. A row being dragged — to reorder, or its bar
+  // moved or resized — stays mounted wherever it scrolls.
+  const rowKeys = useMemo(() => rows.map(ganttRowKey), [rows]);
+  const barDragTaskId = barDrag?.taskId ?? null;
+  const pinnedKeys = useMemo(
+    () => [draggingId, barDragTaskId].flatMap((id) => (id == null ? [] : [ganttTaskRowKey(id)])),
+    [draggingId, barDragTaskId],
+  );
+  const rowWindow = useGanttRowWindow({ keys: rowKeys, scrollRef, pinnedKeys });
+
+  const renderRow = (row: GanttRow) => {
+    // ★★ No lookup and no skip here, for either kind (§273): each row
+    // carries the geometry it is drawn with, and GanttPanel numbered
+    // exactly these rows. Deciding again here is how a drawn row
+    // came to be numbered against a twin that was never drawn.
+    if (row.kind === "task") {
+      const { task, bar } = row;
+      return (
+        <GanttTaskRow
+          key={`t-${task.id}`}
+          task={task}
+          // ★ The map is built over THIS list and keyed by the same
+          // function, so a miss would mean `rows` and the token memo
+          // had diverged. The bare name is the honest fallback —
+          // correct label, possibly ambiguous — rather than an empty
+          // accessible name.
+          rowToken={rowTokens.get(ganttRowKey(row)) ?? task.taskName}
+          rowKey={ganttRowKey(row)}
+          bar={bar}
+          lang={lang}
+          today={today}
+          timelineWidthPx={timelineWidthPx}
+          nameColWidth={nameColWidth}
+          range={range}
+          absencesByAssigneeKey={absencesByAssigneeKey}
+          showAbsences={prefs.showAbsences}
+          resourcesById={resourcesById}
+          critical={critical}
+          draggingId={draggingId}
+          dropTargetId={dropTargetId}
+          setDraggingId={setDraggingId}
+          setDropTargetId={setDropTargetId}
+          handleDrop={handleDrop}
+          interactingWithBarRef={interactingWithBarRef}
+          barDrag={barDrag}
+          barDragDeltaDays={barDragDeltaDays}
+          previewDates={previewDates}
+          startBarDrag={startBarDrag}
+          onUpdateBar={onUpdateBar}
+          onEditTask={onEditTask}
+        />
+      );
+    }
+    const { milestone: m, date } = row;
+    return (
+      <GanttMilestoneRow
+        key={`m-${m.id}`}
+        m={m}
+        date={date}
+        // ★ Same reasoning as the task row's token above.
+        rowToken={rowTokens.get(ganttRowKey(row)) ?? m.name}
+        rowKey={ganttRowKey(row)}
+        lang={lang}
+        range={range}
+        timelineWidthPx={timelineWidthPx}
+        nameColWidth={nameColWidth}
+        tasksById={tasksById}
+        todayISO={todayISO}
+        onEditMilestone={onEditMilestone}
+        baselineDate={baselineMilestoneDates?.get(m.id)}
+        showBaseline={prefs.showBaseline}
+      />
+    );
+  };
+
   return (
     <div
       ref={scrollRef}
@@ -251,68 +335,19 @@ export function GanttChart({
                 each non-achieved milestone is spliced into the task sequence at
                 its due-date position (buildGanttRows). Milestone rows aren't part
                 of the critical-path / dependency math. */}
-            {rows.map((row) => {
-              // ★★ No lookup and no skip here, for either kind (§273): each row
-              // carries the geometry it is drawn with, and GanttPanel numbered
-              // exactly these rows. Deciding again here is how a drawn row
-              // came to be numbered against a twin that was never drawn.
-              if (row.kind === "task") {
-                const { task, bar } = row;
-                return (
-                  <GanttTaskRow
-                    key={`t-${task.id}`}
-                    task={task}
-                    // ★ The map is built over THIS list and keyed by the same
-                    // function, so a miss would mean `rows` and the token memo
-                    // had diverged. The bare name is the honest fallback —
-                    // correct label, possibly ambiguous — rather than an empty
-                    // accessible name.
-                    rowToken={rowTokens.get(ganttRowKey(row)) ?? task.taskName}
-                    bar={bar}
-                    lang={lang}
-                    today={today}
-                    timelineWidthPx={timelineWidthPx}
-                    nameColWidth={nameColWidth}
-                    range={range}
-                    absencesByAssigneeKey={absencesByAssigneeKey}
-                    showAbsences={prefs.showAbsences}
-                    resourcesById={resourcesById}
-                    critical={critical}
-                    draggingId={draggingId}
-                    dropTargetId={dropTargetId}
-                    setDraggingId={setDraggingId}
-                    setDropTargetId={setDropTargetId}
-                    handleDrop={handleDrop}
-                    interactingWithBarRef={interactingWithBarRef}
-                    barDrag={barDrag}
-                    barDragDeltaDays={barDragDeltaDays}
-                    previewDates={previewDates}
-                    startBarDrag={startBarDrag}
-                    onUpdateBar={onUpdateBar}
-                    onEditTask={onEditTask}
-                  />
-                );
-              }
-              const { milestone: m, date } = row;
-              return (
-                <GanttMilestoneRow
-                  key={`m-${m.id}`}
-                  m={m}
-                  date={date}
-                  // ★ Same reasoning as the task row's token above.
-                  rowToken={rowTokens.get(ganttRowKey(row)) ?? m.name}
-                  lang={lang}
-                  range={range}
-                  timelineWidthPx={timelineWidthPx}
-                  nameColWidth={nameColWidth}
-                  tasksById={tasksById}
-                  todayISO={todayISO}
-                  onEditMilestone={onEditMilestone}
-                  baselineDate={baselineMilestoneDates?.get(m.id)}
-                  showBaseline={prefs.showBaseline}
-                />
-              );
-            })}
+            {rowWindow.enabled ? (
+              <>
+                {rowWindow.items.map(({ index, padBefore }) => (
+                  <Fragment key={ganttRowKey(rows[index]!)}>
+                    {padBefore > 0 && <div aria-hidden style={{ height: padBefore }} />}
+                    {renderRow(rows[index]!)}
+                  </Fragment>
+                ))}
+                {rowWindow.padBottom > 0 && <div aria-hidden style={{ height: rowWindow.padBottom }} />}
+              </>
+            ) : (
+              rows.map(renderRow)
+            )}
 
             {onAddTask && (
               <div

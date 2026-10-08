@@ -1,6 +1,7 @@
 // src/app/sanitize-core.ts — primitive value/field sanitizers + length caps
 // shared by the per-entity sanitizers in sanitize-entities.ts. Re-exported
 // via sanitize.ts (the barrel). i18n-free, pure.
+import { logDiag } from "./diagnostics";
 import {
   DEPENDENCY_TYPES,
   type DependencyType,
@@ -421,9 +422,9 @@ function isDependencyType(v: unknown): v is DependencyType {
 }
 
 /**
- * Append a validated `(taskId, type)` dependency to `out`, deduping on the
- * `${tid}:${type}` key via `seen`. Shared by the object-shaped and the
- * string-encoded decoders. Returns `true` once the list reaches
+ * Append a validated `(taskId, type)` dependency to `out` unless `seen` already
+ * holds `key`. Shared by the object-shaped and the string-encoded decoders, which
+ * key differently (§135, see each). Returns `true` once the list reaches
  * `DEPENDENCIES_MAX_COUNT` (the caller should then stop).
  */
 function pushUniqueDependency(
@@ -431,8 +432,8 @@ function pushUniqueDependency(
   seen: Set<string>,
   tid: number,
   type: DependencyType,
+  key: string,
 ): boolean {
-  const key = `${tid}:${type}`;
   if (seen.has(key)) return false;
   seen.add(key);
   out.push({ taskId: tid, type });
@@ -446,7 +447,7 @@ function pushUniqueDependency(
  *   • Aren't shaped `{ taskId: number, type: DependencyType }`
  *   • Reference a missing task id (not in `knownTaskIds`)
  *   • Reference the task itself (self-loops are nonsensical)
- *   • Duplicate an earlier (taskId, type) pair
+ *   • Link a task an earlier entry already links, whatever its type (§135)
  *   • Exceed `DEPENDENCIES_MAX_COUNT`
  *
  * Does NOT check for cycles across the full task graph — that's a
@@ -469,7 +470,9 @@ export function sanitizeDependencies(
     if (!isDependencyType(type)) continue;
     if (ownTaskId !== null && tid === ownTaskId) continue;
     if (!knownTaskIds.has(tid)) continue;
-    if (pushUniqueDependency(out, seen, tid, type)) break;
+    // §135: keyed on the task ALONE, so a pair carries one link type and the
+    // first one wins — a write builds one link per task pair.
+    if (pushUniqueDependency(out, seen, tid, type, String(tid))) break;
   }
   return out;
 }
@@ -538,15 +541,27 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
     if (!isDependencyType(type)) continue;
     const tid = Number(idStr);
     if (!Number.isFinite(tid) || tid <= 0) continue;
-    if (pushUniqueDependency(out, seen, tid, type)) break;
+    // ★ Keyed on the PAIR: a decoder drops only an exact duplicate. A second type to
+    // the same task is left for `dropDanglingDependencies`, which every load runs
+    // after decoding, so the §135 collapse happens — and is reported — in ONE place.
+    if (pushUniqueDependency(out, seen, tid, type, `${tid}:${type}`)) break;
   }
   return out;
 }
 
 /**
  * After parsing a full task list from disk, run this once to drop dependency
- * entries pointing at task ids that didn't survive (e.g. file was hand-edited).
- * Tasks without dangling references are returned as-is for reference equality,
+ * entries pointing at task ids that didn't survive (e.g. file was hand-edited),
+ * and every link after the first to the same task (§135: one link per task
+ * pair; the FIRST in stored order is kept). Both load funnels run it, so do the
+ * CSV/Markdown decoders and the header's Open file (which applies tasks outside
+ * the funnels), so this is where a mixed-type pair from an import, an older
+ * build or a hand-edited file collapses. ★ Not silently: each pass that drops a
+ * link of a DIFFERENT type logs one `dependency.mixedPairCollapsed` warning with
+ * the counts (an exact duplicate loses nothing and is not counted). ★ The same
+ * warning REPEATS on every load until something saves the project: the collapse
+ * changes only what is in memory, and the stored pair is untouched until then.
+ * Tasks with nothing to drop are returned as-is for reference equality,
  * and when NO task changed the SAME array comes back — the load funnels (§133)
  * call this on every load and record what they apply by identity (§644), so a
  * fresh array for an unchanged list would be a needless new value.
@@ -554,15 +569,33 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
 export function dropDanglingDependencies(tasks: Task[]): Task[] {
   const knownIds = new Set(tasks.map((t) => t.id));
   let changed = false;
+  let collapsedLinks = 0;
+  let collapsedTasks = 0;
   const out = tasks.map((t) => {
     if (!t.dependencies || t.dependencies.length === 0) return t;
-    const clean = t.dependencies.filter(
-      (d) => d.taskId !== t.id && knownIds.has(d.taskId),
-    );
+    const linked = new Map<number, DependencyType>();
+    let collapsedHere = 0;
+    const clean = t.dependencies.filter((d) => {
+      if (d.taskId === t.id || !knownIds.has(d.taskId)) return false;
+      const kept = linked.get(d.taskId);
+      if (kept !== undefined) {
+        if (kept !== d.type) collapsedHere += 1;
+        return false;
+      }
+      linked.set(d.taskId, d.type);
+      return true;
+    });
     if (clean.length === t.dependencies.length) return t;
+    if (collapsedHere > 0) {
+      collapsedLinks += collapsedHere;
+      collapsedTasks += 1;
+    }
     changed = true;
     return { ...t, dependencies: clean };
   });
+  if (collapsedLinks > 0) {
+    logDiag("warn", "dependency.mixedPairCollapsed", { tasks: collapsedTasks, links: collapsedLinks });
+  }
   return changed ? out : tasks;
 }
 

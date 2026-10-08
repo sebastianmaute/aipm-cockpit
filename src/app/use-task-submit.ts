@@ -249,13 +249,24 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         liveIds: ReadonlySet<number>,
         stamp: string,
       ): Task => {
+        // ★ Against the SANITIZED baseline the resolver compared with, not the raw
+        // `before`: a stored mixed pair keeps its FIRST type, so its second half is not
+        // 'already there' — counted raw, picking it looked like nothing to add while the
+        // notice reported a type change (final review of §135).
+        const baseline = sanitizeDependencies(edit.before, liveIds, row.id);
         const added = edit.after.filter(
-          (a) => !edit.before.some((b) => b.taskId === a.taskId && b.type === a.type),
+          (a) => !baseline.some((b) => b.taskId === a.taskId && b.type === a.type),
         );
+        // §135: one link per task pair. An added link to a task the row already
+        // links is a TYPE CHANGE, so it replaces that link in place; appended
+        // behind it, the first-link-wins sanitizer would keep the old type.
+        const live = row.dependencies ?? [];
+        const replaced = live.map((d) => added.find((a) => a.taskId === d.taskId) ?? d);
+        const appended = added.filter((a) => !live.some((d) => d.taskId === a.taskId));
         return {
           ...row,
           dependencies: sanitizeDependencies(
-            [...(row.dependencies ?? []), ...added],
+            [...replaced, ...appended],
             liveIds,
             row.id,
           ),
@@ -385,6 +396,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             r.id === editingId ? { ...r, dependencies: cleanDependencies } : r,
           ),
         });
+        // ★ The type-change notice FIRST: the toast is one slot (a later call replaces
+        // the earlier), and a refused link is the message the user must not miss.
+        if (successors.typeChanged > 0) {
+          showToast("info", tPlural(lang, "depSuccessorsTypeChanged", successors.typeChanged, successors.typeChanged));
+        }
         if (successors.skipped > 0) {
           showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
         }

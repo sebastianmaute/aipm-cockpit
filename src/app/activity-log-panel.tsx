@@ -40,6 +40,9 @@ import { INTERACTIVE } from "./interaction-styles";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useConfirm } from "./confirm-dialog";
+import { Button } from "./button";
+import { useCappedGroups } from "./use-capped-groups";
+import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -197,6 +200,9 @@ function normalizeChanges(v: unknown): RowChange[] {
   return rows;
 }
 
+/** The cap's one group: the whole table. */
+const LOG_GROUP = "log";
+
 function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
@@ -329,6 +335,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     });
     return sorted;
   }, [enriched, groupFilter, actorFilter, matcher, sortKey, sortDir]);
+  // §5 (owner decision 2026-10-08, after the probe measured a full log at +733 ms to open):
+  // the board's cap over the filtered, sorted rows — a page at a time behind "Show more",
+  // every row while printing. Search, filters and sort still read every entry.
+  const cappedGroups = useMemo(() => new Map([[LOG_GROUP, visible]]), [visible]);
+  const cap = useCappedGroups(cappedGroups, null, "tbody tr");
+  const hiddenRows = cap.hiddenOf(LOG_GROUP);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -529,8 +541,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, kind, timestamp, actorKey, actorLabel, message, changes }) => (
-                <tr key={entry.id} className="align-top">
+              {visible.slice(0, cap.limitOf(LOG_GROUP)).map(({ entry, kind, timestamp, actorKey, actorLabel, message, changes }) => (
+                <tr key={entry.id} tabIndex={-1} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     {/* The COERCED timestamp, not `entry.timestamp` — same rule
                         as `kind` below; a stored object reaches `dateTime` and
@@ -580,6 +592,17 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                 </tr>
               ))}
           </DataTable>
+          {hiddenRows > 0 && (
+            <Button
+              variant="ghost"
+              size="xs"
+              data-testid="activity-show-more"
+              className="mt-2"
+              onClick={(e) => cap.showMore(LOG_GROUP, e.currentTarget.parentElement)}
+            >
+              {t(lang, "activityShowMore", String(Math.min(KANBAN_COLUMN_PAGE, hiddenRows)), String(hiddenRows))}
+            </Button>
+          )}
         </div>
       )}
     </section>

@@ -675,14 +675,37 @@ wrong: adding the byte table wipes the entire image library on the next workspac
 the metadata row from the registry orphans every byte row and leaves the library empty. Verify with
 `grep -n 'TABLE_NAMES: readonly' src/app/turso-schema.ts`, which shows the derivation on one line.
 
-★★ **SINGLE-TENANT METADATA HAS NO `project_id` COLUMN AND THE BYTE TABLE ALWAYS DOES**, so the two
-halves are partitioned by different things and cannot be guaranteed to agree. `colDdl` emits no
-project column at all for the single-DB layout (the whole database IS the project), while
-`DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always —
-and the key it is given comes from a UI-level read of the portfolio/registry state, not from the
-workspace the metadata rode in on. Nothing reconciles them. The consequence is recorded as §207;
-the mitigations that ARE in place are the Safe Mode refusal below and the `hardDeleteProject`
-cleanup above.
+★★ **SINGLE-TENANT METADATA HAS NO `project_id` COLUMN AND THE BYTE TABLE ALWAYS DOES**, so the
+key has to follow the BACKEND LAYOUT rather than the portfolio/registry state (§207, closed).
+`colDdl` emits no project column for the single-DB layout (the whole database IS the project), while
+`DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always.
+`assetPartitionKey` (`document-assets-schema.ts`): Turso storage in Turso portfolio mode with a
+project selected keys on that tenant project; any other Turso storage writes under
+`SINGLE_TENANT_ASSET_PARTITION` whatever registry project is current (a tenant id left stored while the
+portfolio is in file mode included: its bytes were written under the registry id until §207); any
+other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key a read
+and the id list reach one SCOPE: the key plus the keys a pre-§207 build wrote that database's bytes
+under — `ASSET_PARTITION_FALLBACK` and EVERY registry id (`singleTenantLegacyAssetKeys`, resolved by the
+store at call time; the schema builders take the keys as a required argument). ★★★ Every id, not only
+Turso-kind entries: production stores only file and browser registry entries — switching storage to
+Turso changes settings, never the entry — so a kind filter left the scope empty and hid every old
+image (a review finding). The read prefers the key's own row; that is the whole migration, with
+nothing re-keyed. ★★ A DELETE WRITES A TOMBSTONE: a row `(id, ASSET_DELETED_PARTITION, "")`, then the
+key's own bytes go; the scoped read and list skip a tombstoned id however many legacy copies remain, so
+deleting an old image stops it rendering where documents still embed it. It is a KEY, not a marker in
+the data column, so neither check loads any image's bytes; saving the id's bytes again under the
+single-tenant key clears it (the dangling-repair path). The legacy rows stay, by the owner's decision: a
+FILE project in the registry may share the image, and its copy must keep working under its own key. A
+failed delete is logged (`documentAsset.deleteFailed`). ★★★ THE SINGLE-TENANT SCOPE DELIBERATELY TAKES
+IN EVERY REGISTRY PROJECT'S PARTITION, with three consequences: (1) a file project sharing an id shows
+its bytes here as healthy images, and they vanish if THAT project deletes its copy — the tombstone
+protects the file project from this one's deletes, not the reverse; (2) the scope is THIS browser's
+registry, so removing a project from it leaves the pre-§207 images written under its id unreachable
+here (bytes kept); (3) another device or browser has its own registry and does not reach this one's
+pre-§207 images. Unique ids (`crypto.randomUUID()`) rule out collisions, NOT copies, which is why a
+TENANT key reads, lists and deletes its own partition only: a workspace imported from project A into B
+shares A's asset ids, and a wider read would show A's bytes in B until A deleted them. The mitigations still in place beside it are the Safe Mode
+refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
 `""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as
 this feature existed and NO call site ever produced one — anything written by a caller who believed
@@ -694,7 +717,10 @@ future caller following the old claim cannot open a second partition. ★ The fa
 not a sentinel for "unpartitioned": every input to it is deterministic, so a later session in the
 same state finds the same bytes — see §207 for why that makes it sound and Safe Mode unsound.
 
-★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.**
+★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.** ★ So does
+the chat card's document download: `workspace-section.tsx` hands `ChatPanel` an EMPTY asset key in Safe
+Mode, which leaves its tool block with no image loader (`asset-partition-live.ts` states the rule for
+every caller of the live key).
 `DocumentsTabPanel` (`workspace-panels.tsx`) derives the byte store's key from `loadPortfolioMode()`
 and `loadCurrentTursoProjectId()`, and BOTH force a degraded value under `?safe=1` (mode `"file"`,
 id `null`) while `loadRegistry()` carries no such guard. Without a gate, a Turso-portfolio user

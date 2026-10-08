@@ -31,7 +31,7 @@ const TOOL_TURN: ChatConversation = {
   ],
 };
 
-function renderPanel(exportFooter: string | undefined) {
+function renderPanel(exportFooter: string | undefined, assetsProjectId?: string) {
   seen.props.length = 0;
   render(
     <ChatPanel
@@ -40,6 +40,7 @@ function renderPanel(exportFooter: string | undefined) {
       dispatcher={{} as unknown as ToolDispatcher}
       onAcceptConsent={vi.fn()}
       projectId="p1"
+      assetsProjectId={assetsProjectId}
       getChatConversation={() => TOOL_TURN}
       saveChatConversation={vi.fn()}
       getScopeEpoch={() => 0}
@@ -60,5 +61,19 @@ describe("ChatPanel hands the export footer to each tool block", () => {
     renderPanel(undefined);
     expect(seen.props.length).toBeGreaterThan(0);
     expect(seen.props.at(-1)!.exportFooter).toBeUndefined();
+  });
+});
+
+// §207 review fix: the tool block reads image bytes under the ASSET key the Documents
+// pane writes with, which on single-tenant Turso storage is not the thread's project id.
+describe("ChatPanel hands the asset key to each tool block", () => {
+  it("passes the asset key, not the thread's project id", () => {
+    renderPanel(undefined, "single-tenant");
+    expect(seen.props.at(-1)!.projectId).toBe("single-tenant");
+  });
+
+  it("falls back to the thread's project id when no asset key is given", () => {
+    renderPanel(undefined);
+    expect(seen.props.at(-1)!.projectId).toBe("p1");
   });
 });

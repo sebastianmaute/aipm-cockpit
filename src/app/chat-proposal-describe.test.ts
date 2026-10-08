@@ -298,8 +298,8 @@ describe("describeProposal", () => {
       expect(rows[0].plan.links[0].field).toBe("dependencies");
     });
 
-    // The writer keys a link on the (taskId, type) PAIR, so this IS a drop plus
-    // an add. Rendering task titles alone would make it invisible — the
+    // A type change replaces the link (one link per task pair, §135), so this IS
+    // a drop plus an add. Rendering task titles alone would make it invisible — the
     // same-titled-swap hazard `LinkDiff`'s own docstring records.
     test("shows a type-only change", () => {
       const rows = describeProposal(

@@ -12,9 +12,7 @@ import { exportFooterText } from "./export-footer";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { getTursoConfig } from "./turso-config";
-import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
-import { loadPortfolioMode, loadCurrentTursoProjectId } from "./portfolio-mode";
-import { loadRegistry } from "./projects-registry";
+import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
 import type { Lang } from "./i18n";
 
@@ -189,21 +187,20 @@ export function DocumentsTabPanel({
     [safeMode, tursoUrl, tursoToken],
   );
   // ★★ Project id scoping the asset byte store's `(id, project_id)` rows.
-  // `DocumentsTabPanel` has no `currentProjectId` PROP — workspace-section.tsx
-  // is baselined at exactly 1000 lines with zero headroom, so it cannot be
-  // threaded through — so this reads the SAME two sources task-manager.tsx's
-  // `landingProjectId` combines, directly: Turso portfolio mode's
-  // last-selected project id, or the file registry's current entry. Read
-  // fresh each render (no effect) — synchronous localStorage reads in render
-  // are pure and this repo already relies on that elsewhere.
+  // `DocumentsTabPanel` has no `currentProjectId` PROP, so this reads its inputs
+  // directly and lets `assetPartitionKey` mirror the backend layout
+  // `createBackend` builds (§207): the tenant id for a tenant Turso backend,
+  // one fixed key for a single-tenant one (its metadata is global to the
+  // database, so a registry switch must not move the key), and the old
+  // portfolio / registry key for every other storage. Read fresh each render
+  // (no effect) — synchronous localStorage reads in render are pure and this
+  // repo already relies on that elsewhere.
   // ★ That expression is only TRUSTWORTHY because of the gate above: it is
   // consumed solely alongside a non-null `tursoConfig`, and Safe Mode — the one
   // state in which its two inputs disagree about which portfolio is loaded —
-  // forces that config to null. Do not reuse it anywhere that lacks the gate.
-  const assetsProjectId =
-    loadPortfolioMode() === "turso"
-      ? (loadCurrentTursoProjectId() || ASSET_PARTITION_FALLBACK)
-      : (loadRegistry().currentProjectId || ASSET_PARTITION_FALLBACK);
+  // forces that config to null. Any other caller needs its own Safe Mode refusal
+  // (see asset-partition-live.ts; the chat card's is an empty key in workspace-section.tsx).
+  const assetsProjectId = liveAssetPartitionKey(settings.storageConfig.kind);
   // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
   // The toolbar has always drawn one, but `onResetSize` was optional, the panel
   // fell back to a no-op, and this call site never passed it — so the button

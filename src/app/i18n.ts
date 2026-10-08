@@ -1697,6 +1697,9 @@ const enUS = {
   depUnlinkSuccessor: "Remove successor",
   depSuccessorsSkipped: "{0} successor links were not applied — the task was removed, is at its dependency limit, or would create a cycle.",
   depSuccessorsSkippedOne: "1 successor link was not applied — the task was removed, is at its dependency limit, or would create a cycle.",
+  // §135: one link per task pair, so a successor picked again with another type replaces the old one.
+  depSuccessorsTypeChanged: "{0} successor links changed type: two tasks can be linked by only one dependency type.",
+  depSuccessorsTypeChangedOne: "1 successor link changed type: two tasks can be linked by only one dependency type.",
   depRelations: "Relations",
   depDependsOn: "Depends on",
   depMissing: "missing",
@@ -1966,6 +1969,7 @@ const enUS = {
   activitySearchRegex: "Regex",
   activitySearchInvalidRegex: "Invalid regex",
   activityNoMatches: "No entries match the filters.",
+  activityShowMore: "Show {0} more ({1} hidden)",
   popoutOpenInNewWindow: "Open in new window",
   popoutReuseWindow: "Reuse popout window",
   tabResources: "Resources",

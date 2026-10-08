@@ -137,22 +137,20 @@ describe("resolveSuccessorLinks", () => {
     expect(edits.size).toBe(0);
   });
 
-  // A DIFFERENT type to the same target is a new link, not a duplicate — the
-  // stored identity is the (taskId, type) pair, and sanitizeDependencies dedupes
-  // on both. Guards against an alreadyPresent check written on taskId alone.
-  it("treats a second link type to the same target as a real addition", () => {
+  // §135: one link per task pair, so a DIFFERENT type to the same target is a
+  // type CHANGE — it replaces the stored link, and is neither already present
+  // nor a refusal. Guards against an alreadyPresent check written on taskId alone.
+  it("treats a second link type to the same target as a type change", () => {
     const tasks = [task(1, "Own"), task(2, "Target", [{ taskId: 1, type: "FS" }])];
-    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
+    const { edits, skipped, alreadyPresent, typeChanged } = resolveSuccessorLinks({
       ownId: 1,
       links: [{ taskId: 2, type: "SS" }],
       tasks,
     });
     expect(skipped).toBe(0);
     expect(alreadyPresent).toBe(0);
-    expect(edits.get(2)?.after).toEqual([
-      { taskId: 1, type: "FS" },
-      { taskId: 1, type: "SS" },
-    ]);
+    expect(typeChanged).toBe(1);
+    expect(edits.get(2)?.after).toEqual([{ taskId: 1, type: "SS" }]);
   });
 
   it("returns an empty resolution for an empty link list", () => {
@@ -180,7 +178,9 @@ describe("resolveSuccessorLinks", () => {
     });
   });
 
-  it("accumulates two staged links to the same target instead of overwriting", () => {
+  // §135: one link per task pair, so the second staged link to the same target
+  // changes the type the first one staged; `before` stays the RAW stored array.
+  it("a second staged link to the same target changes the staged type", () => {
     const tasks = [
       task(1, "Own"),
       task(2, "Target", [{ taskId: 9, type: "SS" }]),
@@ -200,7 +200,6 @@ describe("resolveSuccessorLinks", () => {
       before: [{ taskId: 9, type: "SS" }],
       after: [
         { taskId: 9, type: "SS" },
-        { taskId: 1, type: "FS" },
         { taskId: 1, type: "SF" },
       ],
     });

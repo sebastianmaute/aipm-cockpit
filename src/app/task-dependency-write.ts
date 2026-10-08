@@ -87,7 +87,9 @@ function classifyDependencyEntries(
       rejected.push({ taskId, type, reason: "unknown-id" });
       continue;
     }
-    const key = `${taskId}:${type}`;
+    // §135: one link per task pair, so a second type to the same task is a
+    // duplicate too, matching `sanitizeDependencies`.
+    const key = String(taskId);
     if (seenKeys.has(key)) {
       rejected.push({ taskId, type, reason: "duplicate" });
       continue;

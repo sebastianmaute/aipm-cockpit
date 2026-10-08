@@ -35,6 +35,11 @@ export interface SuccessorResolution {
    *  refusals told the user "1 successor link(s) were not applied" about a link
    *  that was, in fact, present. Call sites stay SILENT on this count. */
   alreadyPresent: number;
+  /** Links that CHANGED the type of a link the target already had to this task
+   *  (§135: one link per task pair). Applied, and reported: the successor group
+   *  is never seeded from stored links, so picking an existing successor with
+   *  the default type would otherwise change its type without a word. */
+  typeChanged: number;
 }
 
 /**
@@ -60,6 +65,7 @@ export function resolveSuccessorLinks(args: {
   const edits = new Map<number, SuccessorEdit>();
   let skipped = 0;
   let alreadyPresent = 0;
+  let typeChanged = 0;
   const taskById = new Map<number, Task>(tasks.map((t) => [t.id, t]));
   const knownIds = new Set(tasks.map((t) => t.id));
 
@@ -98,6 +104,15 @@ export function resolveSuccessorLinks(args: {
       alreadyPresent += 1;
       continue;
     }
+    // §135: one link per task pair. The target already depending on ownId with
+    // ANOTHER type means the user is changing that type, so it is replaced in
+    // place; appending would be dropped by the sanitizer as a second link.
+    if (current.some((d) => d.taskId === ownId)) {
+      const after = current.map((d) => (d.taskId === ownId ? { taskId: ownId, type: link.type } : d));
+      edits.set(target.id, { before, after });
+      typeChanged += 1;
+      continue;
+    }
     // The real sanitizer owns the 20-link cap, the dangling-ref check and
     // de-duplication. With duplicates already handled above, a non-growing
     // array now means a genuine refusal.
@@ -113,5 +128,5 @@ export function resolveSuccessorLinks(args: {
     edits.set(target.id, { before, after });
   }
 
-  return { edits, skipped, alreadyPresent };
+  return { edits, skipped, alreadyPresent, typeChanged };
 }

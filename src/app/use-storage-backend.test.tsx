@@ -1307,6 +1307,27 @@ describe("useStorageBackend — handlers", () => {
     expect(result.current.tasks[0]?.id).toBe(99);
   });
 
+  // §135 review fix: Open file applies the file's tasks without the load funnel, so it
+  // runs the same dependency pass itself — a mixed pair keeps its first link, and a
+  // link to a task the file does not hold is dropped.
+  it("onOpenStorageFile collapses a mixed dependency pair and drops a dangling link", async () => {
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [
+        { id: 1, taskName: "A" },
+        { id: 2, taskName: "B", dependencies: [{ taskId: 1, type: "FS" }, { taskId: 1, type: "SS" }, { taskId: 77, type: "FS" }] },
+      ] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks.find((tk) => tk.id === 2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+  });
+
   it("onOpenStorageFile shows the unsafe-email notice AFTER the opened toast (spec Part 2)", async () => {
     (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
     mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });

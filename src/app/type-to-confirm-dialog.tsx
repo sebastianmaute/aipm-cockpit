@@ -6,6 +6,7 @@
 // destructive action uses ui-pink.
 
 import { useId, useState } from "react";
+import { Button } from "./button";
 import { t, type Lang } from "./i18n";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
@@ -138,13 +139,9 @@ export function TypeToConfirmDialog({
             </span>
           </label>
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
-            >
+            <Button variant="secondary" size="sm" onClick={onCancel}>
               {t(lang, "cancel")}
-            </button>
+            </Button>
             <button
               type="button"
               disabled={!matched}

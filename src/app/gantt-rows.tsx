@@ -29,6 +29,7 @@ import {
 } from "./gantt-engine";
 
 export function GanttTaskRow({
+  rowKey,
   task,
   rowToken,
   bar,
@@ -63,6 +64,9 @@ export function GanttTaskRow({
    * and cannot know whether another row carries the same name.
    */
   rowToken: string;
+  /** The row's key (`ganttRowKey`), set as `data-gantt-row` on the row root: the
+   *  Gantt row window (§5) reads it to keep a focused row mounted. */
+  rowKey: string;
   bar: { start: Date; end: Date };
   lang: Lang;
   today: Date;
@@ -95,6 +99,7 @@ export function GanttTaskRow({
   const isDropTarget = dropTargetId === task.id && draggingId !== task.id;
   return (
     <div
+      data-gantt-row={rowKey}
       draggable
       onDragStart={(e) => {
         // If the bar's pointerdown handler just fired (the user
@@ -414,6 +419,7 @@ export function GanttTaskRow({
 }
 
 export function GanttMilestoneRow({
+  rowKey,
   m,
   date: md,
   rowToken,
@@ -434,6 +440,9 @@ export function GanttMilestoneRow({
    * the same view. With no collision this IS `m.name`.
    */
   rowToken: string;
+  /** The row's key (`ganttRowKey`), set as `data-gantt-row` on the row root: the
+   *  Gantt row window (§5) reads it to keep a focused row mounted. */
+  rowKey: string;
   /**
    * The milestone's parsed date, carried on its `GanttRow` (§273). GanttPanel
    * leaves out any milestone whose date does not parse before it builds rows, so
@@ -471,6 +480,7 @@ export function GanttMilestoneRow({
   const atRisk = mstatus === "at-risk";
   return (
     <div
+      data-gantt-row={rowKey}
       className="relative flex border-b border-line"
       style={{ height: ROW_HEIGHT_PX }}
     >
