@@ -228,7 +228,8 @@ longer carries its own changelog comment.
 ### Development
 
 - **Smaller task manager (§491).** The reminder banners moved to `use-reminder-banners.tsx` and the task
-  editor's footer buttons to `buildTaskEditorChrome`; `task-manager.tsx` went from 2535 to 2454 lines,
+  editor's footer buttons to `buildTaskEditorChrome`, then the project menu's Save-as-template and
+  Apply-template actions to `use-template-actions.ts`; `task-manager.tsx` went from 2535 to 2409 lines,
   and its size baseline was lowered to match.
 - **Weekly release notes (§527).** `npm run release-notes` prints user-facing notes for a date window
   (the last seven days by default) from the CHANGELOG versions dated in it.

@@ -716,6 +716,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
   version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
   `use-reminder-banners.tsx` (the Birthday and Jira-token banners and the budget-bucket toast),
+  `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
   `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
@@ -758,7 +759,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-reminder-banners.tsx` (§491), holds the two reminder banners with their snooze and dismiss state and the
   bucket toast keyed on the ending-bucket ids; it returns the banner fragment that `bannersEl` renders first. It is
   NOT coverage-gated — a `.tsx`, so `vitest.config.ts`'s `src/app/**/*.tsx` exclusion covers it — and is pinned by its
-  own test plus `task-manager.reminder-banners-callsite.test.tsx`. The
+  own test plus `task-manager.reminder-banners-callsite.test.tsx`. A sixteenth, `use-template-actions.ts` (§491), holds
+  the template list and the Save-as-template and Apply-template actions; it reads the workspace setters and the
+  template snapshot builder from context, takes `features` as a dep rather than reading `useSettings` (a second
+  instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
+  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. ★ Apply APPENDS a template's
+  seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
+  features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
