@@ -17,10 +17,15 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * written reason in `UNARMED_BY_DESIGN`. A new filter-delete therefore fails here
  * until someone decides, which a registry could never force.
  *
- * ★★★ ITS BOUND. Only that SHAPE is seen. A removal written another way passes
- * unseen: a list computed elsewhere and handed to the setter (`commitBuckets`
- * in `use-budget-buckets.ts`), `setX([])`, a splice, a generic setter such as
- * the undo runner's, or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
+ * Since 2026-10-08 a removal SHAPE is any of: a `.filter(` or `.splice(` in the
+ * setter's value, a value or updater that results in `[]`, or a local variable
+ * initialised by a `.filter(`/`.splice(` and handed to the setter.
+ *
+ * ★★★ ITS BOUND. A removal written another way passes unseen: a list computed in
+ * ANOTHER function and handed in (`commitBuckets` in `use-budget-buckets.ts`), a
+ * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
+ * row, a generic setter such as the undo runner's, or a counted slice's setter
+ * handed down under another name. Those stay a by-hand review, as §293 records. And "the
  * enclosing function calls it" is a PRESENCE check, not an ordering or branch
  * check — whether the arm fires on the right path is each route's own test.
  *
@@ -89,8 +94,60 @@ function contains(node: ts.Node, pred: (n: ts.Node) => boolean): boolean {
   return found;
 }
 
-const isFilterCall = (n: ts.Node): boolean =>
-  ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "filter";
+const isMethodCall = (name: string) => (n: ts.Node): boolean =>
+  ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === name;
+const isFilterCall = isMethodCall("filter");
+const isSpliceCall = isMethodCall("splice");
+const isEmptyArray = (n: ts.Node): boolean => ts.isArrayLiteralExpression(n) && n.elements.length === 0;
+
+/** Strip parentheses and `as`/`satisfies`/`!` wrappers, so `([] as Task[])` reads as `[]`. */
+function unwrap(n: ts.Expression): ts.Expression {
+  for (;;) {
+    if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isNonNullExpression(n)) n = n.expression;
+    else return n;
+  }
+}
+
+/** The value an expression or an updater arrow RESULTS in: `[]`, `() => []`, `(p) => { return []; }`. */
+function resultsInEmptyArray(arg: ts.Expression): boolean {
+  const e = unwrap(arg);
+  if (isEmptyArray(e)) return true;
+  if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) {
+    if (!ts.isBlock(e.body)) return isEmptyArray(unwrap(e.body));
+    return contains(e.body, (n) => ts.isReturnStatement(n) && !!n.expression && isEmptyArray(unwrap(n.expression)));
+  }
+  return false;
+}
+
+/** The SHAPES of a removal this scan sees in a value: a `.filter(`, a `.splice(`, or a result of `[]`. */
+const isRemovalValue = (v: ts.Expression): boolean =>
+  contains(v, isFilterCall) || contains(v, isSpliceCall) || resultsInEmptyArray(v);
+
+/** The initializer of `name`'s `const`/`let` declaration in the nearest function scope around `from`. */
+function localInitializer(from: ts.Node, name: string): ts.Expression | undefined {
+  let scope: ts.Node | undefined = from.parent;
+  while (scope && !ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
+  if (!scope) return undefined;
+  let init: ts.Expression | undefined;
+  contains(scope, (n) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) { init = n.initializer; return true; }
+    return false;
+  });
+  return init;
+}
+
+/** A removal handed to the setter: its argument has a removal shape, or is a local
+ *  variable initialised by a `.filter(` or `.splice(` (`const kept = prev.filter(…); setX(kept)`).
+ *  ★ A local initialised to `[]` is NOT counted: that is the rebuild accumulator
+ *  (`const next = []` then a push per kept row, as in `use-jira-sync.ts`), and whether it
+ *  drops a row depends on the loop, which this scan cannot read. */
+function isRemovalArgument(arg: ts.Expression): boolean {
+  if (isRemovalValue(arg)) return true;
+  const e = unwrap(arg);
+  if (!ts.isIdentifier(e)) return false;
+  const init = localInitializer(arg, e.text);
+  return !!init && (contains(init, isFilterCall) || contains(init, isSpliceCall));
+}
 /** `allowDestructiveSave()`, `x.allowDestructiveSave?.()`, or the ref a hook keeps it in,
  *  `allowDestructiveSaveRef.current?.()`. Never `allowDestructiveSaveAnyway`, the user's own
  *  save-anyway, which is not a route arming itself. */
@@ -136,7 +193,7 @@ function scanSource(file: string, text: string, setters: ReadonlySet<string>): S
   const visit = (n: ts.Node): void => {
     if (ts.isCallExpression(n)) {
       const setter = calleeName(n);
-      if (setter && setters.has(setter) && n.arguments.some((a) => contains(a, isFilterCall))) {
+      if (setter && setters.has(setter) && n.arguments.some(isRemovalArgument)) {
         let fn: ts.Node | undefined = n.parent;
         let name: string | undefined;
         for (; fn; fn = fn.parent) {
@@ -224,8 +281,23 @@ describe("scanSource (the scanner itself)", () => {
     expect(site!.fn).toBe("onRemove");
   });
 
-  it("ignores an edit, an unlisted setter, and a filter outside the setter's argument", () => {
-    expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(k); }`)).toEqual([]);
+  it("ignores an edit, an unlisted setter, a filter outside the setter's value, and a rebuild accumulator", () => {
+    expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
+    expect(scan(`function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`)).toEqual([]);
+    expect(scan(`function e() { setTasks((p) => p.length ? p : []); }`)).toEqual([]);
+  });
+
+  // §293, widened 2026-10-08: the other written shapes of a removal.
+  it.each([
+    ["a clear to []", `function clear() { setTasks([]); }`],
+    ["a clear through a cast", `function clear() { setTasks([] as Task[]); }`],
+    ["an updater returning []", `function clear() { setTasks(() => []); }`],
+    ["an updater block returning []", `function clear() { setTasks((p) => { log(p); return []; }); }`],
+    ["a splice", `function del(i) { setTasks((p) => { const c = [...p]; c.splice(i, 1); return c; }); }`],
+    ["a local filtered list", `function del(id) { const kept = tasks.filter((t) => t.id !== id); setTasks(kept); }`],
+    ["a local spliced list", `function del(i) { const gone = rows.splice(i, 1); setTasks(gone); }`],
+  ])("finds %s", (_label, src) => {
+    expect(scan(src).map((x) => x.setter)).toEqual(["setTasks"]);
   });
 });
 
@@ -237,6 +309,8 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(countedSetters().size).toBeGreaterThanOrEqual(13);
     expect(sites.length).toBeGreaterThanOrEqual(15);
     expect(sites.map((s) => s.key)).toContain("use-raid-items.ts#handleDeleteRaidItem#setRaid");
+    // A clear to `[]`, seen since the 2026-10-08 widening, not by any `.filter(`.
+    expect(sites.find((s) => s.key === "use-bulk-operations.ts#handleClearAll#setTasks")?.armed).toBe(true);
     // The unbounded route behind a wrapper call (guardEdit), judged by its own body.
     expect(sites.filter((s) => s.key.startsWith("task-manager.tsx#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
   });
