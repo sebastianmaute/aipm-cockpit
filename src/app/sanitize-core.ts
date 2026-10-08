@@ -1,6 +1,7 @@
 // src/app/sanitize-core.ts — primitive value/field sanitizers + length caps
 // shared by the per-entity sanitizers in sanitize-entities.ts. Re-exported
 // via sanitize.ts (the barrel). i18n-free, pure.
+import { logDiag } from "./diagnostics";
 import {
   DEPENDENCY_TYPES,
   type DependencyType,
@@ -421,9 +422,9 @@ function isDependencyType(v: unknown): v is DependencyType {
 }
 
 /**
- * Append a validated `(taskId, type)` dependency to `out`, deduping on the
- * task id alone via `seen` (one link per task pair, §135). Shared by the object-shaped and the
- * string-encoded decoders. Returns `true` once the list reaches
+ * Append a validated `(taskId, type)` dependency to `out` unless `seen` already
+ * holds `key`. Shared by the object-shaped and the string-encoded decoders, which
+ * key differently (§135, see each). Returns `true` once the list reaches
  * `DEPENDENCIES_MAX_COUNT` (the caller should then stop).
  */
 function pushUniqueDependency(
@@ -431,11 +432,8 @@ function pushUniqueDependency(
   seen: Set<string>,
   tid: number,
   type: DependencyType,
+  key: string,
 ): boolean {
-  // §135: keyed on the task ALONE, so a pair carries one link type and the
-  // first one wins. Keying on `${tid}:${type}` let a second type to the same
-  // task survive, invisible in the editor's one-chip-per-task picker.
-  const key = String(tid);
   if (seen.has(key)) return false;
   seen.add(key);
   out.push({ taskId: tid, type });
@@ -472,7 +470,9 @@ export function sanitizeDependencies(
     if (!isDependencyType(type)) continue;
     if (ownTaskId !== null && tid === ownTaskId) continue;
     if (!knownTaskIds.has(tid)) continue;
-    if (pushUniqueDependency(out, seen, tid, type)) break;
+    // §135: keyed on the task ALONE, so a pair carries one link type and the
+    // first one wins — a write builds one link per task pair.
+    if (pushUniqueDependency(out, seen, tid, type, String(tid))) break;
   }
   return out;
 }
@@ -541,7 +541,10 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
     if (!isDependencyType(type)) continue;
     const tid = Number(idStr);
     if (!Number.isFinite(tid) || tid <= 0) continue;
-    if (pushUniqueDependency(out, seen, tid, type)) break;
+    // ★ Keyed on the PAIR: a decoder drops only an exact duplicate. A second type to
+    // the same task is left for `dropDanglingDependencies`, which every load runs
+    // after decoding, so the §135 collapse happens — and is reported — in ONE place.
+    if (pushUniqueDependency(out, seen, tid, type, `${tid}:${type}`)) break;
   }
   return out;
 }
@@ -550,8 +553,12 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
  * After parsing a full task list from disk, run this once to drop dependency
  * entries pointing at task ids that didn't survive (e.g. file was hand-edited),
  * and every link after the first to the same task (§135: one link per task
- * pair). JSON and IndexedDB loads reach no other dedupe, so this is where a
- * mixed-type pair from a hand-edited file collapses.
+ * pair; the FIRST in stored order is kept). Every load reaches it — both load
+ * funnels run it, and the CSV/Markdown decoders too — so this is where a
+ * mixed-type pair from an import, an older build or a hand-edited file
+ * collapses. ★ Not silently: each pass that drops a link of a DIFFERENT type
+ * logs one `dependency.mixedPairCollapsed` warning with the counts (an exact
+ * duplicate loses nothing and is not counted).
  * Tasks with nothing to drop are returned as-is for reference equality,
  * and when NO task changed the SAME array comes back — the load funnels (§133)
  * call this on every load and record what they apply by identity (§644), so a
@@ -560,18 +567,33 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
 export function dropDanglingDependencies(tasks: Task[]): Task[] {
   const knownIds = new Set(tasks.map((t) => t.id));
   let changed = false;
+  let collapsedLinks = 0;
+  let collapsedTasks = 0;
   const out = tasks.map((t) => {
     if (!t.dependencies || t.dependencies.length === 0) return t;
-    const linked = new Set<number>();
+    const linked = new Map<number, DependencyType>();
+    let collapsedHere = 0;
     const clean = t.dependencies.filter((d) => {
-      if (d.taskId === t.id || !knownIds.has(d.taskId) || linked.has(d.taskId)) return false;
-      linked.add(d.taskId);
+      if (d.taskId === t.id || !knownIds.has(d.taskId)) return false;
+      const kept = linked.get(d.taskId);
+      if (kept !== undefined) {
+        if (kept !== d.type) collapsedHere += 1;
+        return false;
+      }
+      linked.set(d.taskId, d.type);
       return true;
     });
     if (clean.length === t.dependencies.length) return t;
+    if (collapsedHere > 0) {
+      collapsedLinks += collapsedHere;
+      collapsedTasks += 1;
+    }
     changed = true;
     return { ...t, dependencies: clean };
   });
+  if (collapsedLinks > 0) {
+    logDiag("warn", "dependency.mixedPairCollapsed", { tasks: collapsedTasks, links: collapsedLinks });
+  }
   return changed ? out : tasks;
 }
 

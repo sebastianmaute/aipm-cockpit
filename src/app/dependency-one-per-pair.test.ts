@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dropDanglingDependencies, parseDependenciesString, sanitizeDependencies } from "./sanitize";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { resolveSuccessorLinks } from "./successor-links";
 import type { Task, TaskDependency } from "./types";
+import * as diagnostics from "./diagnostics";
 
 // §135: a task pair carries at most ONE dependency type (owner decision
 // 2026-10-08). A second link to the same task with a different type used to
@@ -27,11 +28,34 @@ describe("one dependency link per task pair (§135)", () => {
     )).toEqual([{ taskId: 2, type: "FS" }, { taskId: 3, type: "FF" }]);
   });
 
-  it("parseDependenciesString (CSV, Markdown, Turso) keeps the first link to a task", () => {
-    expect(parseDependenciesString("SS:2|FS:2|FF:3")).toEqual([
-      { taskId: 2, type: "SS" },
-      { taskId: 3, type: "FF" },
-    ]);
+  // The decoder leaves the mixed pair for the load pass, which every load runs after
+  // decoding (CSV, Markdown, Turso) — so the collapse and its report happen once.
+  it("a decoded mixed pair is collapsed by the load pass, keeping the first in stored order", () => {
+    const decoded = parseDependenciesString("SS:2|FS:2|FF:3");
+    expect(decoded).toEqual([{ taskId: 2, type: "SS" }, { taskId: 2, type: "FS" }, { taskId: 3, type: "FF" }]);
+    const out = dropDanglingDependencies([task(1, decoded), task(2), task(3)]);
+    expect(out[0].dependencies).toEqual([{ taskId: 2, type: "SS" }, { taskId: 3, type: "FF" }]);
+  });
+
+  describe("the load pass reports what it collapsed", () => {
+    beforeEach(() => vi.restoreAllMocks());
+
+    it("logs one warning with the counts when a mixed pair is collapsed", () => {
+      const log = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+      dropDanglingDependencies([
+        task(1, [{ taskId: 2, type: "FS" }, { taskId: 2, type: "SS" }, { taskId: 2, type: "FF" }]),
+        task(3, [{ taskId: 2, type: "FS" }, { taskId: 2, type: "SF" }]),
+        task(2),
+      ]);
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith("warn", "dependency.mixedPairCollapsed", { tasks: 2, links: 3 });
+    });
+
+    it("logs nothing for an exact duplicate or a dangling link, which lose no relation type", () => {
+      const log = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+      dropDanglingDependencies([task(1, [{ taskId: 2, type: "FS" }, { taskId: 2, type: "FS" }, { taskId: 9, type: "SS" }]), task(2)]);
+      expect(log).not.toHaveBeenCalled();
+    });
   });
 
   // The two load funnels run this over every load, JSON and IndexedDB included,
