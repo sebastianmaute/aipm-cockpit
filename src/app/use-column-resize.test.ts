@@ -52,6 +52,40 @@ describe("useColumnResize", () => {
     });
   });
 
+  // §414: a column may name its own floor, and only that column is held to it.
+  it("clamps a dragged column to its own floor, others to 40 px", () => {
+    const floors = { a: 90 };
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, floors));
+    const ev = { clientX: 100, preventDefault: () => {} } as unknown as React.MouseEvent;
+    act(() => { result.current.startColResize("a", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: -200 })); });
+    expect(result.current.colWidths.a).toBe(90);
+    act(() => { window.dispatchEvent(new MouseEvent("mouseup")); });
+    act(() => { result.current.startColResize("b", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: -500 })); });
+    expect(result.current.colWidths.b).toBe(40);
+    act(() => { window.dispatchEvent(new MouseEvent("mouseup")); });
+  });
+
+  it("raises a stored width below the column's floor to the floor", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { a: 45, b: 45 } }));
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, { a: 90 }));
+    expect(result.current.sizedWidths).toEqual({ a: 90, b: 45 });
+  });
+
+  it("on load clamps only to a named floor, never to the 40 px drag default", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { b: 20 } }));
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, { a: 90 }));
+    expect(result.current.sizedWidths).toEqual({ b: 20 });
+  });
+
+  it("drops a stored width raised exactly to the default, so it is not persisted as a drag", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { a: 30 } }));
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, { a: DEFAULTS.a }));
+    expect(result.current.sizedWidths).toEqual({});
+    expect(result.current.colWidths.a).toBe(DEFAULTS.a);
+  });
+
   it("reset replaces state with defaults and removes the namespaced key", async () => {
     localStorage.setItem(KEY("t1"), JSON.stringify({ a: 999 }));
     const { result } = renderHook(() => useColumnResize("t1", DEFAULTS));

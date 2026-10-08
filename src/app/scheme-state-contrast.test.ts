@@ -113,6 +113,7 @@ describe("scheme state contrast", () => {
       "--ui-dark-blue": cssHex("--ui-dark-blue"), "--ui-pink": cssHex("--ui-pink"),
       "--line": cssHex("--line"), "--ui-green": cssHex("--ui-green"),
       "--surface-muted": cssHex("--surface-muted"),
+      "--rag-red": cssHex("--rag-red"), "--rag-amber": cssHex("--rag-amber"), "--rag-green": cssHex("--rag-green"),
     } as SchemeColorMap);
     // resolveSchemeColors is base-wins, so the five inputs above deliberately
     // EXCLUDE the three --control-state-border* tokens: feeding them in would
@@ -124,6 +125,18 @@ describe("scheme state contrast", () => {
     // The count badge's fill is held to 4.5 against its WHITE text, not --line.
     expect(cssHex("--count-badge-pink")).toBe(derived["--count-badge-pink"]);
     expect(ratio("#ffffff", cssHex("--count-badge-pink"))).toBeGreaterThanOrEqual(4.5);
+    // The RAG letter chip's three tokens (§683), each against what it is paired with.
+    for (const token of ["--rag-badge-red", "--rag-badge-green", "--rag-badge-amber-ink"]) {
+      expect(cssHex(token), token).toBe(derived[token]);
+    }
+    expect(ratio("#ffffff", cssHex("--rag-badge-red"))).toBeGreaterThanOrEqual(4.5);
+    expect(ratio("#ffffff", cssHex("--rag-badge-green"))).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(cssHex("--rag-badge-amber-ink"), cssHex("--rag-amber"))).toBeGreaterThanOrEqual(4.5);
+    // scheme-tokens.ts judges a pinned ink with no scheme amber against this fallback
+    // by value (RAG_AMBER_FALLBACK), so the two must agree.
+    expect(readFileSync("src/app/scheme-tokens.ts", "utf8")).toContain(
+      `const RAG_AMBER_FALLBACK = "${cssHex("--rag-amber")}";`,
+    );
   });
 });
 
@@ -133,5 +146,20 @@ describe("scheme state contrast", () => {
 describe("count badge contrast (§681)", () => {
   test.each(COMBOS)("$id: white text clears 4.5:1 on --count-badge-pink", ({ colors }) => {
     expect(ratio("#ffffff", colors["--count-badge-pink"]!)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+// §683. RagBadge draws a 9px bold letter: white on --rag-badge-red and
+// --rag-badge-green, --rag-badge-amber-ink on raw --rag-amber. White on the raw
+// RAG colours measured 1.68-5.02, passing in two of the 21 pairs only.
+describe("RAG letter chip contrast (§683)", () => {
+  test.each(COMBOS)("$id: every RAG letter clears 4.5:1 on its fill", ({ colors }) => {
+    expect(ratio("#ffffff", colors["--rag-badge-red"]!), "red").toBeGreaterThanOrEqual(4.5);
+    expect(ratio("#ffffff", colors["--rag-badge-green"]!), "green").toBeGreaterThanOrEqual(4.5);
+    expect(ratio(colors["--rag-badge-amber-ink"]!, colors["--rag-amber"]!), "amber").toBeGreaterThanOrEqual(4.5);
+  });
+  // Amber keeps the scheme's own fill: that is the point of the dark letter.
+  test.each(COMBOS)("$id: the amber chip ink is dark, never the scheme's light foreground", ({ colors }) => {
+    expect(relLuminance(hexToRgb(colors["--rag-badge-amber-ink"]!))).toBeLessThan(0.05);
   });
 });

@@ -96,6 +96,20 @@ jobs:
           # main.js" -- so the bracket class matches either separator rather than assuming one.
           grep -qE 'node_modules[/\\]electron-updater[/\\]out[/\\]main\.js' <<<"$listing" || { echo "electron-updater guard: node_modules/electron-updater/out/main.js is not in the packaged app -- check desktop/package.json dependencies"; exit 1; }
           grep -qE 'node_modules[/\\]builder-util-runtime([/\\]|$)' <<<"$listing" || { echo "electron-updater guard: node_modules/builder-util-runtime (electron-updater's own runtime dependency) is not in the packaged app"; exit 1; }
+      - name: The packaged exe carries the Electron fuses
+        shell: bash
+        run: |
+          # §561. Fuses exist only in a packaged binary, so this is the one place they can be read.
+          # electron-fuses ships with @electron/fuses, which electron-builder installs; its read prints
+          # one "  <Fuse> is Enabled|Disabled" line per fuse (measured on a stock and a fused electron.exe).
+          fuses=desktop/node_modules/.bin/electron-fuses
+          exe="desktop/release/win-unpacked/AI PM Cockpit.exe"
+          test -f "$exe" || { echo "fuse guard: $exe is missing -- the packaged tree moved"; exit 1; }
+          out=$("$fuses" read --app "$exe" | sed 's/\x1b\[[0-9;]*m//g') || { echo "fuse guard: electron-fuses read failed on $exe"; exit 1; }
+          echo "$out"
+          for want in "RunAsNode is Disabled" "EnableNodeCliInspectArguments is Disabled" "EnableNodeOptionsEnvironmentVariable is Disabled" "OnlyLoadAppFromAsar is Enabled"; do
+            grep -qxF "  $want" <<<"$out" || { echo "fuse guard: expected \"$want\" -- see electronFuses in desktop/electron-builder.yml"; exit 1; }
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-files

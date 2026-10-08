@@ -82,6 +82,12 @@
      Harbor-light --ui-pink already clears it (4.63), so the derivation returns
      the base; scheme-state-contrast.test.ts pins the equivalence. */
   --count-badge-pink: #c24a76;
+  /* The RAG letter chip (§683): red and green fills darkened so a white letter
+     clears 4.5:1, and the dark letter amber takes instead. Harbor-light values
+     of the derivation; scheme-state-contrast.test.ts pins the equivalence. */
+  --rag-badge-red: #b33f3f;
+  --rag-badge-green: #28855f;
+  --rag-badge-amber-ink: #15212e;
 
   /* ---- CI-style role tokens. These Harbor-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (Petrol / Mockup / Harbor /

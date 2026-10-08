@@ -135,6 +135,12 @@ interface AaRule {
 
 const AA_TEXT = 4.5;
 const STATE_BORDER = 3;
+/** The amber RAG chip's letter before any nudge: the Harbor-light foreground,
+ *  fixed rather than read from the scheme because a dark scheme's foreground is
+ *  LIGHT, and a light letter on amber is the defect §683 closes. */
+const RAG_BADGE_INK = "#15212e";
+/** `--rag-amber` in `globals.css :root`, what the chip paints when a scheme sets no amber. */
+const RAG_AMBER_FALLBACK = "#cf8a1c";
 
 /** A text variant: 4.5 against `reference`. `lighten` is the purple override
  *  described on `nudgeToContrast`; omitted, the mode is read off `reference`. */
@@ -226,6 +232,36 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   for (const [base, token] of [["--rag-red", "--rag-red-text"], ["--rag-amber", "--rag-amber-text"], ["--rag-green", "--rag-green-text"]] as const) {
     const rag = baseOr(base, token);
     if (rag) rules.push(aaTextRule(token, rag, surface));
+  }
+  // The RAG letter chip (§683, `RagBadge`). Red and green keep a WHITE letter,
+  // so their fills are darkened against white in every mode, as for the pink
+  // count badge above. Amber keeps its own fill and takes a DARK letter instead:
+  // darkening amber until white clears 4.5 turns it brown (Beacon #f4c11c →
+  // #7f650f), and a dark letter on raw amber measures 5.40-9.69 in all seven
+  // built-ins. A dark letter alone does not work for the other two: red on the
+  // light built-ins measures 3.25-4.21 and Umber-light green 4.13.
+  for (const [base, token] of [["--rag-red", "--rag-badge-red"], ["--rag-green", "--rag-badge-green"]] as const) {
+    const fill = baseOr(base, token);
+    if (fill) rules.push(aaTextRule(token, fill, "#ffffff", false));
+  }
+  // ★★ The ink CAN fail to reach 4.5 by darkening: `--rag-amber` is user-editable,
+  //   and once a custom amber is deep enough (luminance under ~0.175, e.g. #8a5a10)
+  //   no dark ink clears it, while white does. So a short ink falls back to black or
+  //   white, whichever contrasts more, in the derivation itself, not only for a pin.
+  //   A pinned ink with no amber of its own is judged against the amber the chip
+  //   actually paints then: the `globals.css` fallback.
+  const amber = colors["--rag-amber"] ?? (colors["--rag-badge-amber-ink"] ? RAG_AMBER_FALLBACK : undefined);
+  if (amber) {
+    rules.push({
+      token: "--rag-badge-amber-ink",
+      base: RAG_BADGE_INK,
+      reference: amber,
+      floor: AA_TEXT,
+      nudge: (color) => {
+        const nudged = nudgeToAa(color, amber, false);
+        return ratio(nudged, amber) >= AA_TEXT ? nudged : blackOrWhite(amber);
+      },
+    });
   }
   return rules;
 }

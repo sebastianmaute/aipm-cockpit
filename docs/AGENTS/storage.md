@@ -417,8 +417,12 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   connection in the caller's turn, runs everything in one transaction and commits it. Three known
   limits, each recovered by the unload journal rather than by IndexedDB:
   - (a) A local-file save that has to wait on its Web Lock (`withSaveLock`) at tab close is lost, by the
-    browser-storage measurement above that a lock wait loses the close-time save. That is unverified for
-    files: no e2e closes a tab on a local-file project.
+    browser-storage measurement above that a lock wait loses the close-time save. MEASURED for files on
+    2026-10-08 (§661, `e2e/local-file-close-save.spec.ts`, opt-in): the save requests its lock and the tab
+    is gone before it writes; the unload journal holds the edit and the next open restores it, up to
+    `UNLOAD_JOURNAL_MAX_CHARS`. ★★ That spec runs in installed Chrome: Playwright's bundled Chromium
+    closes the page when it reads a stored OPFS handle back out of IndexedDB, so no local-file e2e can
+    run on it.
   - (b) A pagehide save queued behind a save that is already running (`save-queue.ts`) starts in a later
     task and is lost the same way.
   - (c) The load's `migrateWorkspaceV10` backfill writes (`idbBulkUpdate` in `BrowserBackend.load`) skip

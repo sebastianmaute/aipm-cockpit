@@ -21,7 +21,14 @@ export const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDa
 export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   sel: 36, // a 16px checkbox plus its tap padding
   status: 28, // holds a single ~10px RAG dot
-  id: 80,
+  // `#<id>` over its badges. A Jira badge such as "LOP-101" needs 99px with the
+  // cell's 2×16px padding in Windows' monospace font and 103px in Courier New,
+  // which has the same character widths as Liberation Mono, the usual Linux
+  // fallback (measured 2026-10-08, §414). At the old 80 it spilled into the next
+  // column, and narrowed further it was cut off. 112 leaves room on every OS
+  // (owner decision 2026-10-08). A key longer than about nine characters still
+  // overflows; widen the column for those.
+  id: 112,
   taskName: 200,
   assignee: 140,
   startDate: 110,
@@ -48,3 +55,11 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   //   every gate green. Pinned by open-points-table-geometry.test.ts.
   actions: 88,
 };
+
+/** Per-column drag floors for the Open Points table (`useColumnResize`'s
+ *  `minWidths`). The ID cell holds `#<id>` and its badges (Jira, RAID, documents,
+ *  changes), and narrowed below the width they need the cell clipped them:
+ *  measured 2026-10-08 by the §414 eye-verify spec's item 3b, which drags the
+ *  column as far left as it goes. So the ID column can be widened but not
+ *  narrowed below its default. */
+export const MIN_COL_WIDTHS: Readonly<Record<string, number>> = Object.freeze({ id: DEFAULT_COL_WIDTHS.id! });

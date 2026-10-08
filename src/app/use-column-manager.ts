@@ -16,7 +16,7 @@ const NEW_HIDDEN_IN_V2 = ["createdDate"] as const;
  *  It lives there, not here, because the pure geometry module needs it and this
  *  module is `"use client"` — importing it from here dragged React into the
  *  geometry module's graph, defeating the extraction that created the leaf. */
-import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
+import { DEFAULT_COL_WIDTHS, MIN_COL_WIDTHS } from "./tasks-section-columns";
 export { DEFAULT_COL_WIDTHS };
 
 /** Open Points table column state. The width/drag/reset concern delegates to the
@@ -57,6 +57,7 @@ export function useColumnManager(): {
   const { sizedWidths, startColResize, resetColWidths } = useColumnResize<string>(
     "open-points-v2",
     DEFAULT_COL_WIDTHS,
+    MIN_COL_WIDTHS,
   );
 
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {

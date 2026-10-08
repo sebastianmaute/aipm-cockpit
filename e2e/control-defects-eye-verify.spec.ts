@@ -1,13 +1,20 @@
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { join } from "node:path";
+import type { Locator } from "@playwright/test";
 
 // Browser eye-verify for open-followups §414 (the control-defects batch). Each
 // item there is a layout/hover/native-tooltip claim jsdom cannot observe. This
 // spec converts the ones that CAN be driven headlessly into real assertions;
-// items 5 and 6 stay owed (see the bottom of the file) because they need a
+// item 6 stays owed (see the bottom of the file) because it needs a
 // Turso-backed seed that `./seed` does not provide.
 //
 // These are FINDINGS, not fixes — a failing assertion here is a legitimate
 // result about the shipped code, not a bug in the test.
+//
+// The taste calls the owner signs off are saved as screenshots under the
+// git-ignored eye-verify-output/batch-20/414/ (docs/eye-verify-batch-20.md lists them).
+const shot = (target: Locator, name: string) =>
+  target.screenshot({ path: join(process.cwd(), "eye-verify-output", "batch-20", "414", name) });
 
 test.describe("control-defects eye-verify (§414)", () => {
   // Item 1 — the disabled Turso-hint buttons are reachable by pointer.
@@ -153,9 +160,13 @@ test.describe("control-defects eye-verify (§414)", () => {
     expect(glyphBox!.x + glyphBox!.width).toBeLessThanOrEqual(cellBox!.x + cellBox!.width + TOLERANCE_PX);
     expect(glyphBox!.y).toBeGreaterThanOrEqual(cellBox!.y - TOLERANCE_PX);
     expect(glyphBox!.y + glyphBox!.height).toBeLessThanOrEqual(cellBox!.y + cellBox!.height + TOLERANCE_PX);
+    await shot(row, "item2-row-with-ask-claude.png");
   });
 
-  // Item 3 — the ID-column badge run does not wrap.
+  // Item 3, as first written: a smoke test only. ★★ SUPERSEDED for the claim by
+  // "item 3b" below, which has the two-badge fixture this test lacks and MEASURED
+  // the opposite of this test's title: two or more badges stack under the ID rather
+  // than share a line. This one still passes only because no cell here holds two.
   //
   // The ID cell (`<Td className="font-mono …">` in task-row.tsx) renders
   // `#<id>` plus zero or more of the Jira/RAID/document/changes badges, each
@@ -169,7 +180,7 @@ test.describe("control-defects eye-verify (§414)", () => {
   //    other two hold plain text and no `.whitespace-nowrap` descendant, so
   //    `badgeCount === 0` skips them. Do not "tighten" this to the ID cell on
   //    the strength of the old claim without re-running that grep.
-  test("item 3: the ID-column badge run stays on one line", async ({ page }) => {
+  test("item 3 (smoke, superseded by 3b): single badges in the ID cells render", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
     });
@@ -212,9 +223,9 @@ test.describe("control-defects eye-verify (§414)", () => {
     //     "non-vacuity guard", which is a false-coverage claim: seven
     //     single-badge rows satisfy it. It is kept because it still catches a
     //     seed that stops rendering badges at all.
-    //     Closing this for real needs a fixture that puts TWO badges in one ID
-    //     cell; until then the geometry here is a smoke test, and
-    //     `docs/open-followups.md` §414 records the same limitation.
+    //     The two-badge fixture this needed is "item 3b" (2026-10-08), which
+    //     sets `settings.jira.siteUrl` so the seed's Jira tasks show a second
+    //     badge, and which found that such badges stack (§414).
     expect(sawAnyBadge).toBe(true);
   });
 
@@ -256,26 +267,163 @@ test.describe("control-defects eye-verify (§414)", () => {
 
     const bodyText = page.getByText("Delivery is on track for the October go-live gate.");
     await expect(bodyText).toBeVisible();
+    const panel = page.locator("#panel-documents");
+    await shot(panel, "item4-documents-expanded.png");
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(bodyText).toBeHidden();
+    await shot(panel, "item4-documents-collapsed.png");
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(bodyText).toBeVisible();
   });
+
+  // Item 3, with the fixture the test above lacks (2026-10-08). The seed's Jira
+  // tasks show their Jira badge once `settings.jira.siteUrl` is set, beside the
+  // badge they already carry, so a cell holds two.
+  // ★★ MEASURED 2026-10-08: the badges do NOT share a line, even at the default
+  // width. They are inline siblings in a plain <td>, so with two or more they stack
+  // under the ID, one per line. What `whitespace-nowrap` guarantees, and what this
+  // pins, is that no single badge breaks inside itself. Whether the stack is
+  // acceptable is the owner's call, from the two screenshots this writes (default
+  // width, and after dragging the ID column's resize handle as far left as it goes).
+  test("item 3b: with two badges in one ID cell, no badge breaks inside itself, also at the narrowest width", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "aipm-cockpit:settings",
+        JSON.stringify({ tourSeen: true, jira: { siteUrl: "https://example.atlassian.net", email: "", apiToken: "", projectKey: "" } }),
+      );
+    });
+    await gotoApp(page);
+    await openView(page, "Open Points");
+    await waitForViewSettled(page);
+
+    // The seed's Jira tasks carry a second badge too (e.g. a change link), once the
+    // Jira badge renders. The badges are the ID cell's children AFTER the `#id`
+    // button, found by STRUCTURE: selecting them by `.whitespace-nowrap`, the class
+    // under test, would make a dropped class read as "no badges" rather than a break.
+    const cells = page.locator("tr[data-deeplink-row] td.font-mono");
+    const index = await cells.evaluateAll((tds) => tds.findIndex((td) => td.children.length - 1 >= 2));
+    expect(index, "no ID cell with two badges").toBeGreaterThanOrEqual(0);
+    const cell = cells.nth(index);
+    // A badge that broke inside itself is taller than one line of its own text.
+    const brokenBadges = () =>
+      cell.evaluate((td) => {
+        const out: string[] = [];
+        const kids = [...td.children].slice(1) as HTMLElement[];
+        for (const el of kids) {
+          // The Jira badge sits in a wrapper <span>; measure the badge itself.
+          const badge = (el.children.length === 1 && el.tagName === "SPAN" ? el.firstElementChild : el) as HTMLElement;
+          const cs = getComputedStyle(badge);
+          const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5;
+          const rects = badge.getClientRects().length;
+          const height = badge.getBoundingClientRect().height;
+          if (rects > 1 || height > line * 1.6 + 8) out.push(`${(badge.textContent ?? "").trim()} (${Math.round(height)}px, ${rects} boxes)`);
+        }
+        return { n: kids.length, broken: out };
+      });
+    // ANTI-VACUITY: the property needs at least two badges in the one cell.
+    const atDefault = await brokenBadges();
+    expect(atDefault.n, "badges in the ID cell").toBeGreaterThanOrEqual(2);
+    expect(atDefault.broken, "a badge broke inside itself at the default width").toEqual([]);
+    await shot(cell, "item3b-id-cell-default.png");
+
+    // Anything in the cell that ends past the cell's right edge is clipped.
+    const clipped = () =>
+      cell.evaluate((td) => {
+        const edge = td.getBoundingClientRect().right + 0.5;
+        return [...td.querySelectorAll("*")]
+          .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().right > edge)
+          .map((el) => (el.textContent ?? "").trim() || el.tagName);
+      });
+    expect(await clipped(), "clipped at the default width").toEqual([]);
+
+    // Drag the ID header's resize handle. ANTI-VACUITY: widen first, so a handle
+    // that does nothing cannot pass the floor check below; then drag far left.
+    const idHeader = page.locator("thead th").filter({ hasText: /^ID/ }).first();
+    const handle = idHeader.locator(".cursor-col-resize");
+    const before = (await idHeader.boundingBox())!.width;
+    const drag = async (dx: number) => {
+      const h = (await handle.boundingBox())!;
+      await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(h.x + h.width / 2 + dx, h.y + h.height / 2, { steps: 10 });
+      await page.mouse.up();
+    };
+    await drag(60);
+    expect((await idHeader.boundingBox())!.width, "the drag did not widen the ID column").toBeGreaterThan(before + 30);
+    await drag(-800);
+    const after = (await idHeader.boundingBox())!.width;
+    // §414 fix (2026-10-08): the ID column's floor is its default width, because
+    // below it the cell clipped the ID and the Jira key.
+    expect(after, "the ID column went below its floor").toBeGreaterThanOrEqual(before - 0.5);
+    expect((await brokenBadges()).broken, `a badge broke inside itself at the narrowest width (${Math.round(after)}px)`).toEqual([]);
+    expect(await clipped(), `clipped at the narrowest width (${Math.round(after)}px)`).toEqual([]);
+    await shot(cell, "item3b-id-cell-narrowest.png");
+  });
+
+  // Item 5: the Knowledge "Attach to" picker by keyboard alone (2026-10-08). Open,
+  // arrow, Enter commits; then Escape closes the list WITHOUT dismissing the add
+  // panel around it, and focus stays in the field (docs/AGENTS/ui-shell.md, dismissal).
+  test("item 5: the Knowledge attach-to picker works by keyboard alone", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await gotoApp(page);
+    await openView(page, "Knowledge");
+    await waitForViewSettled(page);
+
+    await page.getByRole("button", { name: "+ Add link", exact: true }).click();
+    const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeVisible();
+    const search = page.getByRole("combobox", { name: "Attach to", exact: true });
+    await search.focus();
+
+    await page.keyboard.type("*");
+    const list = page.getByRole("listbox");
+    await expect(list).toBeVisible();
+    await expect(search).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    const activeId = await search.getAttribute("aria-activedescendant");
+    expect(activeId, "no active option after ArrowDown").toBeTruthy();
+    const picked = ((await page.locator(`[id="${activeId}"]`).textContent()) ?? "").trim();
+    expect(picked).not.toBe("");
+    await page.keyboard.press("Enter");
+    await expect(list).toBeHidden();
+    // The committed value shows above the field as "<Kind>: <name>"; the option
+    // carries the same two parts without the separator.
+    // The label row is the picker root's first child: walk up from the input to
+    // the box whose previous sibling holds it (`single-entity-picker.tsx`).
+    const selectedText = () =>
+      search.evaluate((input) => {
+        for (let el: Element | null = input; el; el = el.parentElement) {
+          const prev = el.previousElementSibling;
+          if (prev && prev.classList.contains("mb-1")) return prev.textContent ?? "";
+        }
+        return null;
+      });
+    await expect.poll(selectedText).not.toContain("Standalone");
+    expect(((await selectedText()) ?? "").replace(": ", "").replace(/\s+/g, " ").trim()).toBe(picked.replace(/\s+/g, " "));
+
+    // Escape closes the list, and only the list.
+    await page.keyboard.type("*");
+    await expect(list).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(list).toBeHidden();
+    await expect(search).toBeFocused();
+    await expect(cancel).toBeVisible();
+    await expect(page.getByRole("tabpanel").filter({ has: search })).toHaveCount(1);
+    // A second Escape, with the list already closed, still leaves the add panel open.
+    await page.keyboard.press("Escape");
+    await expect(cancel).toBeVisible();
+  });
 });
 
-// Items 5 and 6 are deliberately NOT written here.
-//
-// Item 5 (keyboard-only operation of the Knowledge attach-to `SingleEntityPicker`)
-// needs a real interactive keyboard walk (open/arrow/Enter/Escape) verified
-// against the Escape/Tab dismissal protocol in docs/AGENTS/ui-shell.md — that
-// is a genuine browser interaction question, not a geometry one, and nothing
-// about it is blocked by the file-mode seed. It stays owed because writing it
-// well needs its own pass, not because it cannot be automated; recorded here
-// so it is not silently dropped.
+// Item 6 is deliberately NOT written here. (Item 5, once listed here too, is the
+// keyboard test above since 2026-10-08.)
 //
 // Item 6 (an asset's name reading as interactive) needs a REAL Turso project:
 // `documents-asset-section.tsx` only passes `loadImage` (the prop gating the

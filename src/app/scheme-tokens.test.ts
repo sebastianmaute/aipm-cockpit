@@ -169,11 +169,38 @@ describe("resolveSchemeColors — pinned derived tokens are held to their floor 
     expect(relLuminance(hexToRgb(out["--count-badge-pink"]!))).toBeLessThan(relLuminance(hexToRgb("#e88bb0")));
   });
 
+  it("holds the RAG chip's pinned fills and amber ink to 4.5, darkening in a dark scheme too (§683)", () => {
+    const out = resolveSchemeColors({
+      "--surface-muted": "#1b2836", "--rag-red": "#ef7676", "--rag-green": "#4bc394", "--rag-amber": "#e8b25a",
+      "--rag-badge-red": "#ef7676", "--rag-badge-green": "#4bc394", "--rag-badge-amber-ink": "#6b5a3a",
+    });
+    expect(contrastRatio("#ffffff", out["--rag-badge-red"]!)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#ffffff", out["--rag-badge-green"]!)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(out["--rag-badge-amber-ink"]!, "#e8b25a")).toBeGreaterThanOrEqual(4.5);
+    expect(relLuminance(hexToRgb(out["--rag-badge-red"]!))).toBeLessThan(relLuminance(hexToRgb("#ef7676")));
+    expect(relLuminance(hexToRgb(out["--rag-badge-amber-ink"]!))).toBeLessThan(relLuminance(hexToRgb("#6b5a3a")));
+  });
+
+  // Review finding: --rag-amber is user-editable, and past a point no DARK ink clears a
+  // deep custom amber, while the old white letter did. The derivation falls back.
+  it.each(["#8a5a10", "#a0522d", "#9a6a00", "#000000", "#ffffff"])(
+    "derives an amber chip ink that clears 4.5 on a custom amber %s",
+    (amber) => {
+      const out = resolveSchemeColors({ "--rag-amber": amber });
+      expect(contrastRatio(out["--rag-badge-amber-ink"]!, amber)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("holds a pinned amber ink to the globals.css fallback amber when the scheme sets no amber (§683)", () => {
+    const out = resolveSchemeColors({ "--rag-badge-amber-ink": "#eeeeee" });
+    expect(contrastRatio(out["--rag-badge-amber-ink"]!, "#cf8a1c")).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("cannot change a built-in scheme: none pins a floor-checked token", () => {
     // The floor check acts only on a PIN, so this is the property that keeps built-ins unchanged.
     const checked = ["--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong", "--rag-red-text", "--rag-amber-text",
       "--rag-green-text", "--control-state-border", "--control-state-border-pink", "--control-state-border-green",
-      "--count-badge-pink"];
+      "--count-badge-pink", "--rag-badge-red", "--rag-badge-green", "--rag-badge-amber-ink"];
     let maps = 0;
     for (const scheme of BUILTIN_SCHEMES) {
       for (const map of [scheme.light, scheme.dark]) {

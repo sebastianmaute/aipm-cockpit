@@ -358,4 +358,6 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   `checks: { "color-contrast": { options: { ignoreLength: true } } }` (absent from axe's `RunOptions`
   type, so pass it through a variable); the "pink count badge" scans in `e2e/a11y.spec.ts` show the shape,
   and assert the node landed in PASSES so a skipped node cannot read as clean. Page-wide, the same option
-  immediately flagged the RAG letter chip (white on `--rag-amber`, 1.82-3.01:1 in every combo).
+  immediately flagged the RAG letter chip (white on `--rag-amber`, 1.82-3.01:1 in every combo), fixed by
+  §683; its "RAG letter chip" scans select chips by `data-rag-chip` and require a judged pass for each of R,
+  A and G, since the default seed has no red (its status overrides are A, A, G, G) and pins the three through those overrides.
