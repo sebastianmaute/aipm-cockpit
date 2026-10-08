@@ -683,17 +683,22 @@ key has to follow the BACKEND LAYOUT rather than the portfolio/registry state (�
 project selected keys on that tenant project; any other Turso storage writes under
 `SINGLE_TENANT_ASSET_PARTITION` whatever registry project is current (a tenant id left stored while the
 portfolio is in file mode included: its bytes were written under the registry id until §207); any
-other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key a read,
-the id list AND a delete reach one SCOPE: the key plus the keys a pre-§207 build wrote that database's
-bytes under — `ASSET_PARTITION_FALLBACK` and the registry ids of Turso-storage projects
-(`singleTenantLegacyAssetKeys`, resolved by the store at call time). The read prefers the key's own row.
-That is the whole migration (old bytes stay readable, nothing re-keyed), and the delete reaching the
-same scope is what makes deleting an old image actually remove it — a strict delete left the legacy row
-for the scoped read to find again, so the image kept rendering (a final-review finding). ★★★ NOTHING
-OUTSIDE THE SCOPE IS REACHED, ON PURPOSE. Unique ids (`crypto.randomUUID()`) rule out collisions, NOT
-copies: a workspace exported from project A and imported into B shares A's asset ids, so a read across
-projects would show A's bytes in B as healthy images, which vanish when A deletes them or is
-hard-deleted, and a wider delete would remove A's. A tenant key reads, lists and deletes its own
+other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key a read
+and the id list reach one SCOPE: the key plus the keys a pre-§207 build wrote that database's bytes
+under — `ASSET_PARTITION_FALLBACK` and EVERY registry id (`singleTenantLegacyAssetKeys`, resolved by the
+store at call time; the schema builders take the keys as a required argument). ★★★ Every id, not only
+Turso-kind entries: production stores only file and browser registry entries — switching storage to
+Turso changes settings, never the entry — so a kind filter left the scope empty and hid every old
+image (a review finding). The read prefers the key's own row; that is the whole migration, with
+nothing re-keyed. ★★ A DELETE WRITES A TOMBSTONE: it replaces the key's own row with
+`ASSET_DELETED_MARKER`, and the scoped read and list skip a tombstoned id however many legacy copies
+remain, so deleting an old image stops it rendering where documents still embed it. The legacy rows
+stay, by the owner's decision: a FILE project in the registry may share the image (a project converted
+to Turso copies its metadata, ids included) and its copy must keep working under its own key. A failed
+delete is logged (`documentAsset.deleteFailed`). ★★★ NOTHING OUTSIDE THE SCOPE IS REACHED. Unique ids
+(`crypto.randomUUID()`) rule out collisions, NOT copies: a workspace exported from project A and imported
+into B shares A's asset ids, so a read across projects would show A's bytes in B as healthy images,
+which vanish when A deletes them or is hard-deleted. A tenant key reads, lists and deletes its own
 partition only. The mitigations still in place beside it are the Safe Mode
 refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
