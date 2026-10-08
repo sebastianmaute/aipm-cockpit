@@ -26,6 +26,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Big Kanban boards open faster (§5).** On the Open Points board, each status column now shows up to 100
+  cards, then a "Show more" button that names the column and how many cards are hidden. The count in the
+  column header is still the full count. A link to a task further down a column opens the column far enough
+  to show it, and printing the board still prints every card.
 - **AI-proposed tasks can carry an owner, priority and group (§445).** When the new-project wizard asks the
   AI to propose starter tasks, it can now give each one an assignee, a priority and a group. Before, the
   wizard was told to name owners but had nowhere to put them on a task.
@@ -120,6 +124,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The Timelog connection test names the scope in your language (§682).** Settings → Timelog → Test
+  connection reported the data scope as the raw words "self" or "org", in English even in the German interface.
+  It now uses the same wording as the Data scope list beside it, such as "Whole organisation".
+- **The pink count badges are readable (§681).** The small pink counters on the bell and in the sidebar
+  drew white numbers on a pink too light for them, worst in the dark colour schemes. Each scheme now
+  uses a deeper pink for the badge, so the number meets the WCAG AA contrast minimum everywhere.
 - **AI reassignments now show (§375).** Asking the assistant to reassign tasks changed the stored name but
   kept the old person's link to the resource directory and their email address, so every view went on
   showing the old person and status inquiries still went to them. When the assistant names a new person

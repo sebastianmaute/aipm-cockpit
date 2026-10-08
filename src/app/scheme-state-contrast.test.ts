@@ -121,5 +121,17 @@ describe("scheme state contrast", () => {
       expect(cssHex(token), token).toBe(derived[token]);
       expect(ratio(cssHex(token), cssHex("--line")), token).toBeGreaterThanOrEqual(3);
     }
+    // The count badge's fill is held to 4.5 against its WHITE text, not --line.
+    expect(cssHex("--count-badge-pink")).toBe(derived["--count-badge-pink"]);
+    expect(ratio("#ffffff", cssHex("--count-badge-pink"))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+// §681. The pink CountBadge draws white 10px text on this fill, so SC 1.4.3
+// needs 4.5:1 between them in every combo. Raw --ui-pink measured 3.83 on
+// beacon-light and 2.40-2.66 in the three dark combos.
+describe("count badge contrast (§681)", () => {
+  test.each(COMBOS)("$id: white text clears 4.5:1 on --count-badge-pink", ({ colors }) => {
+    expect(ratio("#ffffff", colors["--count-badge-pink"]!)).toBeGreaterThanOrEqual(4.5);
   });
 });

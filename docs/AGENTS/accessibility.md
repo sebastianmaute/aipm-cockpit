@@ -255,14 +255,17 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
   Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
   COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
+  + 7 pink-count-badge scans (one per combo, §681)
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
   scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
-  hardcoded, so none scales with the combo count) = **132** axe tests, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **133**
-  tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
+  hardcoded, so none scales with the combo count) = **139** axe tests, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **140**
+  tests total in the spec file (measured 2026-10-08 with `npx playwright test e2e/a11y.spec.ts --list`; this line once said 128/129 while the file held 131, and on 2026-10-08 said 140 over a breakdown still summing to 132). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
-  `grep -c "a11y:"` over that output splits scans from the guard.
+  `grep "›" | grep -vc "guard"` over that output counts the axe tests (139 on 2026-10-08). ★ Not
+  `grep -c "a11y:"`, which this line used to give: the chart-readout scan has no `a11y:` prefix, so it
+  undercounts by one (138) and a reader adding the guard gets 139, not the total.
   ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
   put in IndexedDB. A slice with no data renders its EMPTY STATE at scan time, so the run is green over
   a panel with no rows, no per-row controls and nothing to collide. Seeding `documents` for the first
@@ -348,3 +351,11 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   + a fresh port both pass (cost ~5 debug cycles once). Also re-run after killing a `PORT=3100` axe
   server if `.next/dev/types/*` got corrupted (phantom tsc errors in GENERATED files → `Remove-Item
   -Recurse -Force .next`, not source).
+- **★★★ AXE DOES NOT JUDGE THE CONTRAST OF A ONE-CHARACTER TEXT NODE.** With default options it files
+  it under INCOMPLETE ("Element content is too short to determine if it is actual text content"), never
+  as a violation, so every count pill and letter chip is outside the gate whatever its colours. Measured
+  2026-10-08 (§681): the pink count badge at 3.83:1 scanned clean. The opt-in is the run option
+  `checks: { "color-contrast": { options: { ignoreLength: true } } }` (absent from axe's `RunOptions`
+  type, so pass it through a variable); the "pink count badge" scans in `e2e/a11y.spec.ts` show the shape,
+  and assert the node landed in PASSES so a skipped node cannot read as clean. Page-wide, the same option
+  immediately flagged the RAG letter chip (white on `--rag-amber`, 1.82-3.01:1 in every combo).

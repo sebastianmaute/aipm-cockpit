@@ -1,6 +1,6 @@
 "use client";
 import { useId, useState } from "react";
-import { t, tPlural, type Lang } from "./i18n";
+import { t, tPlural, type Lang, type TranslationKey } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { FieldHint } from "./field-hint";
 import { Banner } from "./banner";
@@ -43,6 +43,14 @@ interface Props {
   onLinksChange?: (next: TimelogLinks) => void;
 }
 
+/** The label for each scope mode, shared by the Data scope select and the
+ *  connection-test message so the two cannot name a scope differently (§682). */
+const SCOPE_LABEL_KEY: Record<TimelogScopeMode, TranslationKey> = {
+  auto: "timelogScopeAuto",
+  self: "timelogScopeSelf",
+  org: "timelogScopeOrg",
+};
+
 export function TimelogSettings({ lang, config, onChange, links, onLinksChange }: Props) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -83,13 +91,16 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
       const effective = effectiveTimelogConfig(config);
       const creds = { host: effective.host, tenant: effective.tenant, token: effective.apiToken };
       const [users, priv] = await Promise.all([listUsers(creds), getPrivileges(creds)]);
+      // The EFFECTIVE scope: auto is resolved first, so the message never reads "Auto-detect".
       const scope =
         config.scopeMode === "auto"
           ? priv.registrationAllTasks
             ? "org"
             : "self"
           : config.scopeMode;
-      setTestResult(tPlural(lang, "timelogTestOk", users.length, String(users.length), scope));
+      setTestResult(
+        tPlural(lang, "timelogTestOk", users.length, String(users.length), t(lang, SCOPE_LABEL_KEY[scope])),
+      );
       set({ tokenInvalidAt: undefined });
     } catch (e) {
       const status =
@@ -197,9 +208,9 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               value={config.scopeMode}
               onChange={(e) => set({ scopeMode: e.target.value as TimelogScopeMode })}
             >
-              <option value="auto">{t(lang, "timelogScopeAuto")}</option>
-              <option value="self">{t(lang, "timelogScopeSelf")}</option>
-              <option value="org">{t(lang, "timelogScopeOrg")}</option>
+              {(Object.keys(SCOPE_LABEL_KEY) as TimelogScopeMode[]).map((mode) => (
+                <option key={mode} value={mode}>{t(lang, SCOPE_LABEL_KEY[mode])}</option>
+              ))}
             </Select>
           </label>
           <Button

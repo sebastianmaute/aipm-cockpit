@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("./use-secrets", () => ({ saveSecretValue: vi.fn().mockResolvedValue(undefined) }));
@@ -66,6 +66,45 @@ describe("TimelogSettings", () => {
     // PLURAL spelling is absent, not merely that the singular is present.
     expect(await screen.findByText(/Connected — 1 user,/)).toBeInTheDocument();
     expect(screen.queryByText(/1 users/)).toBeNull();
+  });
+
+  // §682: the message names the scope with the select's own label, never the
+  // internal "self"/"org" value. Both auto branches, in both languages.
+  describe("§682: the scope is named with the select's translated label", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+
+    async function runTest(lang: "en-US" | "de", allTasks: boolean): Promise<string> {
+      vi.mocked(timelogApi.listUsers).mockResolvedValue([
+        { userId: 1, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true },
+        { userId: 2, firstName: "Grace", lastName: "Hopper", initials: "GH", email: "grace@example.com", isActive: true },
+      ]);
+      vi.mocked(timelogApi.getPrivileges).mockResolvedValue({ registrationAllTasks: allTasks });
+      const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "t", apiToken: "tok" };
+      render(<TimelogSettings lang={lang} config={cfg} onChange={() => {}} />);
+      fireEvent.click(screen.getByRole("button", { name: t(lang, "timelogTestLabel") }));
+      const prefix = lang === "de" ? /^Verbunden — 2 Benutzer/ : /^Connected — 2 users/;
+      return (await screen.findByText(prefix)).textContent ?? "";
+    }
+
+    it.each([
+      ["en-US", true, "timelogScopeOrg", "org"],
+      ["en-US", false, "timelogScopeSelf", "self"],
+      ["de", true, "timelogScopeOrg", "org"],
+      ["de", false, "timelogScopeSelf", "self"],
+    ] as const)("%s, all tasks %s: names the scope as %s", async (lang, allTasks, key, raw) => {
+      const text = await runTest(lang, allTasks);
+      expect(text.endsWith(`: ${t(lang, key)}`), text).toBe(true);
+      expect(text.endsWith(`: ${raw}`), text).toBe(false);
+    });
+
+    // ANTI-VACUITY: a German label that fell back to English would pass the
+    // case above against an untranslated message just the same.
+    it("the German labels are real translations", () => {
+      expect(t("de", "timelogScopeOrg")).toBe("Gesamte Organisation");
+      expect(t("de", "timelogScopeSelf")).toBe("Nur meine Buchungen");
+    });
   });
 
   // ★ The other branch, so a "fix" hardcoding the singular is red too.

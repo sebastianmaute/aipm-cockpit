@@ -180,6 +180,13 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
   if (pinkBorder) {
     rules.push(stateBorderRule("--control-state-border-pink", pinkBorder, line));
   }
+  // The pink CountBadge's FILL (§681). Its text is always white, so the reference
+  // is white and the nudge always DARKENS, in a dark scheme too — the card plays
+  // no part. Raw --ui-pink under white measured 3.83 on beacon-light and
+  // 2.40-2.66 in the three dark built-ins; the light Harbor/Meridian/Umber
+  // pinks already clear 4.5, so the loop returns them unchanged.
+  const badgePink = baseOr("--ui-pink", "--count-badge-pink");
+  if (badgePink) rules.push(aaTextRule("--count-badge-pink", badgePink, "#ffffff", false));
   // The accent set is now THREE. Green joined when the dictation mic adopted
   // ToggleButton: its listening cue had been the icon colour alone, and raw
   // --ui-green vs --muted-foreground clears 3:1 in exactly ONE of the seven

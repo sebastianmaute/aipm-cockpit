@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
-import { test, expect, openView, reseedWorkspace, FROZEN_NOW, NAV_SELECTOR } from "./seed";
-import { SEED_WORKSPACE } from "./seed-workspace";
-import { scaleWorkspace } from "../src/app/scale-workspace";
-import type { Workspace } from "../src/app/workspace";
+import { test, expect, openView } from "./seed";
+import {
+  OUT, RUNS, SEED_TASKS, SIZES, SEARCH, FILTER, SETTLE_MS, POLL,
+  median, timed, settled, bootScaled, busyMs,
+} from "./perf-helpers";
 
 // §5 perf probe (docs/superpowers/specs/2026-10-07-list-virtualization-design.md).
 // Times the Open Points table at about 500, 1000 and 2000 tasks: opening the view, one
@@ -32,29 +33,14 @@ import type { Workspace } from "../src/app/workspace";
 //   puts a SETTLE_MS floor under `searchMs` and `filterMs`: "a" changes no row, so the
 //   only way to see the keystroke land is to wait out the debounce.
 
-const OUT = "eye-verify-output/perf";
-const RUNS = 3;
-const SEED_TASKS = (SEED_WORKSPACE.tasks as unknown[]).length;
-// The seed has 14 tasks; these factors give 504, 1008 and 2002.
-const SIZES = [
-  { size: 500, factor: 36 },
-  { size: 1000, factor: 72 },
-  { size: 2000, factor: 143 },
-] as const;
 const ROWS = "tbody tr[data-deeplink-row]";
 const SPACERS = "tbody tr[data-row-spacer]";
-const SEARCH = "Search task name, assignee, blockers, notes…";
-// ★ "a" matches EVERY seed task (each assignee name holds one), so `searchMs` times the
-// keystroke's re-render, not a filter; it is kept because Phase 0's numbers used it.
-// "Noah" matches 5 of the 14 seed tasks, so `filterMs` times a search that changes the list.
-const FILTER = "Noah";
+// `searchMs` types "a", which changes no row; it is kept because Phase 0's numbers used it.
+// `filterMs` types FILTER, which changes the list (both in perf-helpers.ts).
 // One seed task, "Quarterly OKR review": 72 rows at 1008 tasks, under the threshold.
 const SMALL_FILTER = "Quarterly";
-const SETTLE_MS = 300;
 const SCROLL_ROWS = 400;
 const ROW_PX = 45; // TASK_ROW_ESTIMATE_PX
-const SHELL_TIMEOUT = 180_000;
-const POLL = { timeout: 120_000, intervals: [20] };
 
 test.skip(!process.env.PERF, "perf probe: set PERF=1 to run it");
 test.describe.configure({ mode: "serial" });
@@ -71,14 +57,6 @@ interface Result {
 }
 const results: Result[] = [];
 
-const median = (xs: number[]): number => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
-
-async function timed(fn: () => Promise<void>): Promise<number> {
-  const t0 = performance.now();
-  await fn();
-  return Math.round(performance.now() - t0);
-}
-
 /** How many tasks the Open Points table holds: its aria-rowcount when it renders a row
  *  window, else the rendered task rows. -1 while no task row is on screen. */
 function tableTaskCount(page: Page): Promise<number> {
@@ -91,15 +69,7 @@ function tableTaskCount(page: Page): Promise<number> {
 }
 
 /** Resolves once the task count has held still for two reads SETTLE_MS apart. */
-async function countSettled(page: Page): Promise<number> {
-  let last = Number.NaN;
-  for (;;) {
-    const n = await tableTaskCount(page);
-    if (n === last) return n;
-    last = n;
-    await page.waitForTimeout(SETTLE_MS);
-  }
-}
+const countSettled = (page: Page): Promise<number> => settled(page, () => tableTaskCount(page));
 
 /** The table's scroll box. */
 function scrollBox(page: Page) {
@@ -132,27 +102,6 @@ function topVisibleRow(page: Page): Promise<number> {
 }
 const windowTop = async (page: Page) => Math.min(...(await rowIndexes(page)));
 const windowBottom = async (page: Page) => Math.max(...(await rowIndexes(page)));
-
-/** gotoApp's two waits with a longer limit: the 2002-task workspace takes longer than
- *  gotoApp's default 5 s to show the shell, and raising that for every spec would hide
- *  a slow boot everywhere else. */
-async function bootScaled(page: Page, factor: number): Promise<void> {
-  await page.addInitScript(() => {
-    localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
-  });
-  await reseedWorkspace(page, scaleWorkspace(SEED_WORKSPACE as unknown as Workspace, factor) as unknown as Record<string, unknown>);
-  await page.clock.install({ time: FROZEN_NOW });
-  await page.goto("/");
-  await expect(page.locator("main").first()).toBeVisible({ timeout: SHELL_TIMEOUT });
-  await page.waitForFunction(
-    ({ name, sel }) =>
-      [...document.querySelectorAll(sel)].some(
-        (e) => (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ") === name,
-      ),
-    { name: "Dashboard", sel: NAV_SELECTOR },
-    { timeout: SHELL_TIMEOUT },
-  );
-}
 
 for (const { size, factor } of SIZES) {
   test(`Open Points at ${size} tasks`, async ({ page }) => {
@@ -219,7 +168,7 @@ for (const { size, factor } of SIZES) {
       // How long the page stays busy once the full list is back: a task queued from
       // Node runs only when the main thread is free. A first run hit openView's 20s
       // poll limit here at 504 tasks, so this is measured rather than assumed.
-      busy.push(await timed(() => page.evaluate(() => new Promise<void>((r) => setTimeout(r, 0)))));
+      busy.push(await busyMs(page));
     }
 
     results.push({
@@ -255,9 +204,10 @@ async function virtualizedChecks(page: Page, expected: number): Promise<void> {
   }
 
   // Same tags and same blocking filter as the axe gate in e2e/a11y.spec.ts, scoped to
-  // the Open Points pane. ★ Scoped because at this size the NAV fails on its own: the
-  // pink count badge (white on ui-pink, 3.82:1 at 10px) shows a 2-digit count the
-  // 14-task seed never reaches. That is not the table's and is reported in §5.
+  // the Open Points pane, which is what this check is about. ★ The scope was first forced
+  // by the NAV failing on its own at this size: the pink count badge (white on ui-pink,
+  // 3.82:1 at 10px) showed a 2-digit count the 14-task seed never reaches. §681 fixed
+  // that badge; the scope stays because the rest of the page is the a11y gate's job.
   const results = await new AxeBuilder({ page })
     .include("section:has(" + ROWS + ")")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

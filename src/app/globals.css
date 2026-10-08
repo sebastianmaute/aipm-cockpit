@@ -78,6 +78,10 @@
   --control-state-border: #153a5c;
   --control-state-border-pink: #c24a76;
   --control-state-border-green: #1f8e83;
+  /* Fill of the pink CountBadge, held to 4.5:1 under its white text (§681).
+     Harbor-light --ui-pink already clears it (4.63), so the derivation returns
+     the base; scheme-state-contrast.test.ts pins the equivalence. */
+  --count-badge-pink: #c24a76;
 
   /* ---- CI-style role tokens. These Harbor-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (Petrol / Mockup / Harbor /

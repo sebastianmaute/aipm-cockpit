@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView, seedTimelogSettings, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, reseedWorkspace, seedTimelogSettings, waitForViewSettled } from "./seed";
+import { SEED_WORKSPACE } from "./seed-workspace";
 import {
   HARBOR_DARK, HARBOR_LIGHT,
   MERIDIAN_DARK, MERIDIAN_LIGHT,
@@ -110,11 +111,12 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
 // block-editor scan + 1 Reports cumulative-chart scan + 2 Turso-storage
 // Settings tests (the second runs axe in two states, but counts once) (all
-// five harbor-light only, hardcoded — none scales with the combo count) = 131
-// `a11y:`-prefixed tests, + 1 chart-readout scan whose name does NOT carry
+// five harbor-light only, hardcoded — none scales with the combo count) = 131,
+// + the pink-count-badge scans (§681, ONE PER COMBO like the Kanban ones, so 7 today
+// and scaling with COMBOS) = 138 `a11y:`-prefixed tests, + 1 chart-readout scan whose name does NOT carry
 // that prefix (its name is asserted verbatim by the chart-hover-readout plan,
 // so `grep -c "a11y:"` undercounts by exactly one) + the one non-scan guard
-// below = 133 tests.
+// below = 140 tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
@@ -122,9 +124,10 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // instead of re-measuring. The 128/129 above were likewise MEASURED, not
 // derived, in the commit that added the umber-dark combo, and 129/130
 // re-measured when the Reports cumulative scan was added (§557), and 131/133
-// when the two Turso-storage tests were (§548). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 133 total
-//   …then `grep -c "a11y:"` over that output       # 131 (+1 unprefixed)
+// when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
+// scans were (§681). Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 140 total
+//   …then `grep -c "a11y:"` over that output       # 138 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -697,3 +700,69 @@ test("a11y: harbor-light — Turso storage Apply controls (passphrase token)", a
   await waitForViewSettled(page);
   await expectNoBlockingViolations(page, "Turso Apply (passphrase, wrong passphrase)");
 });
+
+// §681: the pink CountBadge. The seed carries no "now" action, so no scanned view
+// above renders a badge and the gate could not see white-on-pink at 3.83:1
+// (beacon) or under 2.7:1 (every dark built-in). One overdue, blocked, urgent
+// task makes `nowCount` positive, which draws the badge on the top bar's bell
+// in every view. Records are put by id, so this adds the task to the seed.
+const BADGE_TASK = {
+  ...((SEED_WORKSPACE.tasks as Record<string, unknown>[]).find((t) => t.status !== "Done") ?? {}),
+  id: 99001,
+  taskName: "Vendor sign-off (overdue)",
+  status: "In Progress",
+  priority: "Urgent",
+  dueDate: "2026-08-01",
+  lastUpdateDate: "2026-07-01",
+  blockers: "Waiting on vendor sign-off",
+  completedDate: undefined,
+};
+
+for (const combo of COMBOS) {
+  const id = `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
+  test(`a11y: ${id} — pink count badge (§681)`, async ({ page }) => {
+    await page.addInitScript(seedScript(combo));
+    await reseedWorkspace(page, { tasks: [BADGE_TASK] });
+    await gotoApp(page);
+    await waitForViewSettled(page);
+
+    // ANTI-VACUITY: a scan with no badge on the page is the gap this closes.
+    const badge = page.locator('[class*="count-badge-pink"]').first();
+    await expect(badge, "no pink count badge rendered").toBeVisible();
+    // The CASCADE, which the unit test cannot see: the badge paints the
+    // derived token this combo resolves to, not raw --ui-pink.
+    const spec = SCHEME_SEED[combo.scheme];
+    const fill = resolveSchemeColors(combo.dark && spec.dark ? spec.dark : spec.light)["--count-badge-pink"]!;
+    const rgb = fill.match(/[0-9a-f]{2}/gi)!.map((h) => parseInt(h, 16));
+    await expect(badge).toHaveCSS("background-color", `rgb(${rgb.join(", ")})`);
+
+    // The page as the gate sees it, default options.
+    await expectNoBlockingViolations(page, `${id} pink count badge`);
+
+    // ★★ That scan CANNOT see the badge. A one-character count is "too short
+    //    to determine if it is actual text content" for axe, which files it
+    //    under INCOMPLETE and never as a violation — measured: raw --ui-pink at
+    //    3.83:1 passed the scan above. `ignoreLength` makes axe judge it, and
+    //    the badge must then appear among the PASSES, so a scan that skipped it
+    //    cannot read as clean. Scoped to the badge with `include`: page-wide,
+    //    `ignoreLength` also judges every other one-letter chip, which is a
+    //    separate finding, not this entry's.
+    // `checks` is a run option axe honours but its RunOptions type omits, so it
+    // rides in a variable (no excess-property check) beside the typed `runOnly`.
+    const judgeShortText = {
+      runOnly: { type: "rule" as const, values: ["color-contrast"] },
+      checks: { "color-contrast": { options: { ignoreLength: true } } },
+    };
+    const results = await new AxeBuilder({ page })
+      .include('[class*="count-badge-pink"]')
+      .options(judgeShortText)
+      .analyze();
+    const badgeNodes = (list: typeof results.passes) =>
+      list.filter((r) => r.id === "color-contrast").flatMap((r) => r.nodes).filter((n) => n.html.includes("count-badge-pink"));
+    expect(badgeNodes(results.passes).length, "axe judged no badge").toBeGreaterThan(0);
+    expect(badgeNodes(results.incomplete), "axe left a badge unjudged").toEqual([]);
+    const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+    const summary = blocking.map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`).join("\n");
+    expect(blocking, `${id} pink count badge a11y violations:\n${summary}`).toEqual([]);
+  });
+}
