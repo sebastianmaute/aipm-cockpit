@@ -2,9 +2,11 @@
 
 // The reusable BODY of an entity's note log: the composer block + the
 // newest-first list of entries, with inline edit/delete. Extracted verbatim
-// from `notes-window.tsx` so the same surface can be mounted BOTH in the
+// from `notes-window.tsx` so the same surface could be mounted BOTH in the
 // floating window and inside the task editor modal without a copy-paste clone
-// (`dup:check` is a blocking gate).
+// (`dup:check` is a blocking gate). Since 2026-10-08 the task editor opens the
+// floating window instead (the owner's request), so the window is its one mount;
+// the per-surface label suffixes below stay so a second mount cannot collide.
 //
 // This component owns ONLY its own composer/edit draft state. Window chrome —
 // drag, resize, the dismissal/focus wiring, the `role="dialog"` container —
@@ -86,8 +88,8 @@ function NoteEntryRow(props: NoteEntryRowProps) {
     dictation,
     enabled: true,
     // Carries the same `suffix` the Edit/Delete buttons above do: two
-    // NoteLogPanels can be mounted at once (the floating notes window and the
-    // one inside the task editor), and without it both mics announce
+    // NoteLogPanels can be mounted at once (the task editor once mounted one
+    // beside the floating window), and without it both mics announce
     // identically — WCAG 2.4.6.
     label: editLabel,
     onAppendFinal: appendToEdit,
@@ -121,6 +123,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
               label={editLabel}
               lang={lang}
               editorRef={editEditor}
+              bounded
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -183,9 +186,8 @@ export interface NoteLogPanelProps {
    *  log to the model and nothing exposes the other two. A blanket disclosure
    *  would therefore be a false claim on two of the three surfaces — the exact
    *  defect this prop exists to avoid, and a default of `true` would
-   *  reintroduce it silently. Set by the two places that know the register:
-   *  `notesWindowProps` (from the open target) and `notePanelPropsFor` (from
-   *  its `kind` argument), both in use-notes-window.ts. */
+   *  reintroduce it silently. Set by `notesWindowProps` in use-notes-window.ts
+   *  from the open target, which knows the register. */
   aiReadable: boolean;
 }
 
@@ -217,8 +219,8 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
     dictation: settings.dictation,
     enabled: true,
     // Qualified for the same reason the Add button below is: with both the
-    // floating notes window and the task editor's panel open, two composer mics
-    // are in the DOM at once and would otherwise share one name (WCAG 2.4.6).
+    // floating notes window and a second panel open, two composer mics would be
+    // in the DOM at once and would otherwise share one name (WCAG 2.4.6).
     // ★★ ONE expression for the mic AND the composer beside it — see
     // `editLabel` in NoteEntryRow for what a second spelling of this cost.
     label: composerLabel,
@@ -274,6 +276,9 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             label={composerLabel}
             lang={lang}
             editorRef={composerEditor}
+            // §680: the floating window is fixed-height, so an unbounded draft
+            // would push the notes below it out of reach.
+            bounded
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">

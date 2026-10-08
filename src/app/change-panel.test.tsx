@@ -1132,3 +1132,45 @@ describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
   // passes and the test fails on the lookups instead. Only the second mutant
   // proves the §261-specific half; keep both in mind before trusting a red here.
 });
+
+// A note added in the floating window while the change editor is open lands in
+// `changes`, not in the editor's draft, and the editor's button must count it.
+describe("ChangePanel — the open editor's Notes count follows the stored change", () => {
+  it("updates when a note arrives while the editor is open", () => {
+    const note = (id: number) => ({ id, timestamp: "2026-06-01T09:00:00.000Z", html: `<p>n${id}</p>`, text: `n${id}` });
+    const before = [ci({ id: 1, title: "Scope cut", noteLog: [note(1)] })];
+    const { getByText, getByRole, rerender } = render(<ChangePanel {...base} changes={before} />, { wrapper: Providers });
+    fireEvent.click(getByText("Scope cut").closest("tr")!);
+    const label = (n: number) => `${t("en-US", "noteLogTitle")} (${n})`;
+    expect(getByRole("button", { name: label(1) })).toBeInTheDocument();
+    const after = [ci({ id: 1, title: "Scope cut", noteLog: [note(1), note(2)] })];
+    rerender(<ChangePanel {...base} changes={after} />);
+    expect(getByRole("button", { name: label(2) })).toBeInTheDocument();
+  });
+});
+
+describe("ChangePanel — the open editor's Notes button once the change is deleted elsewhere", () => {
+  it("disables the button with no count", () => {
+    const before = [ci({ id: 1, title: "Scope cut" })];
+    const { getByText, queryByRole, rerender } = render(<ChangePanel {...base} changes={before} />, { wrapper: Providers });
+    fireEvent.click(getByText("Scope cut").closest("tr")!);
+    expect(queryByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
+    rerender(<ChangePanel {...base} changes={[]} />);
+    // The editor stays open on its draft (a concurrent delete does not close it), so
+    // its Notes button is still there, now disabled and without a count.
+    expect(queryByRole("button", { name: t("en-US", "noteLogTitle") })).toBeDisabled();
+    expect(queryByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeNull();
+  });
+});
+
+describe("ChangePanel — a new change draft never shows another change's count", () => {
+  it("keeps the bare, disabled Notes button when a concurrent writer takes the new id", () => {
+    const { getByRole, rerender } = render(<ChangePanel {...base} changes={[]} />, { wrapper: Providers });
+    fireEvent.click(getByRole("button", { name: `+ ${t("en-US", "changesAdd")}` }));
+    const bare = t("en-US", "noteLogTitle");
+    expect(getByRole("button", { name: bare })).toBeDisabled();
+    const taken = [ci({ id: 1, title: "Concurrent", noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }] })];
+    rerender(<ChangePanel {...base} changes={taken} />);
+    expect(getByRole("button", { name: bare })).toBeDisabled();
+  });
+});

@@ -211,7 +211,9 @@ function assetPolicy(
  *  `loadExportAssets`: entering it with `undefined` would produce a
  *  byte-identical file via its own catch, so only this guard keeps the export
  *  independent of how wide that catch stays. */
-async function assetsFor(
+// Exported for `scripts/sample-image-exports.ts` (the §219 eye-verify kit), so
+// its samples go through this exact per-format policy rather than a copy of it.
+export async function assetsFor(
   doc: ProjectDocument,
   ws: Workspace,
   format: DocFormat,

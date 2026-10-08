@@ -11,11 +11,8 @@ import { ActivityLogProvider } from "./activity-log-context";
 import { useToast } from "./use-toast";
 import { useSettings } from "./use-settings";
 import { useApplyFavicon } from "./use-favicon";
-import { useTemplates } from "./use-templates";
-import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
-import { applyTemplate } from "./template-apply";
-import { useCurrentWorkspace } from "./use-current-workspace";
-import { ALL_MODULE_IDS, disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
+import { useTemplateActions } from "./use-template-actions";
+import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -39,7 +36,6 @@ import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
-import { summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { resourceDisplayName } from "./resource-foundation";
 import { peekMintId } from "./id-mint-session";
@@ -281,7 +277,6 @@ function TaskManagerInner() {
     setMilestones,
     changes,
     setChanges,
-    setStakeholders,
     steeringCommittee,
     setSteeringCommittee,
     timelogLinks,
@@ -290,7 +285,6 @@ function TaskManagerInner() {
     insights,
     documents, setInsights,
     settingsOverrides,
-    setFieldVisibility,
     fxRates,
     project,
     setProject,
@@ -745,47 +739,8 @@ function TaskManagerInner() {
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
     useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
-  // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
-  // assembles a Workspace from the live workspace-context collections the same
-  // way the app hands one to storage, so the captured template + applied seed
-  // match exactly what would be persisted. Features are NOT applied on apply
-  // (only fieldVisibility + optional seed); the setters trigger the autosave.
-  const { templates: projectTemplates, addTemplate } = useTemplates();
-  const buildCurrentWorkspace = useCurrentWorkspace();
-  const handleSaveTemplate = useCallback(
-    (input: SaveTemplateInput) => {
-      addTemplate(
-        templateFromWorkspace(buildCurrentWorkspace(), settings.features, input, crypto.randomUUID()),
-      );
-      showToast("info", t(lang, "templateSaved"));
-    },
-    [addTemplate, buildCurrentWorkspace, settings.features, showToast, lang],
-  );
-  const handleApplyTemplate = useCallback(
-    (id: string, opts: { includeSeed: boolean }) => {
-      const tpl = projectTemplates.find((x) => x.id === id);
-      if (!tpl) return;
-      const current = buildCurrentWorkspace();
-      const next = applyTemplate(current, tpl, opts);
-      setFieldVisibility(next.fieldVisibility);
-      // Apply the template's functions to the current project too (reactive via
-      // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
-      // only valid ids in registry order are set — mirrors creation behavior.
-      setFeatures(ALL_MODULE_IDS.filter((id) => tpl.features.includes(id)));
-      if (opts.includeSeed) {
-        setTasks(next.tasks);
-        setMilestones(next.milestones ?? []);
-        setRaid(next.raid);
-        setChanges(next.changes ?? []);
-        setStakeholders(next.stakeholders ?? []);
-        setBudgets(next.budgets ?? []);
-      }
-      showToast("info", t(lang, "templateApplied"));
-      const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null;
-      if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
-    },
-    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
-  );
+  // Save/Apply template actions for the project menu — extracted to useTemplateActions.
+  const { projectTemplates, handleSaveTemplate, handleApplyTemplate } = useTemplateActions({ lang, showToast, features: settings.features });
 
   // Stakeholder-comms reminder items. The banner/modal/toast surfaces moved into
   // the Action Center; `comms.items` still feeds buildActionInput (commsReminders).
@@ -1006,7 +961,7 @@ function TaskManagerInner() {
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
 
   // Shared floating note-log window (tasks + RAID + changes), popout-gated at the mount below (see use-notes-window.ts).
-  const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
+  const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
   // Floating blocker window (tasks only), popout-gated at the mount below beside NotesWindow (see use-blockers-window.ts).
   const { openTaskBlockers, blockersWindowProps } = useBlockersWindow({ tasks, setTasks, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
 
@@ -2133,7 +2088,6 @@ function TaskManagerInner() {
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
-        taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
         taskOnOpenBlockers={editingId !== null ? () => openTaskBlockers(editingId) : undefined /* as notes: existing task only; a new draft has no id to target */}
         budgetLink={budgetLink}
         taskCalendarSyncEnabled={calendarTaskEnabled}

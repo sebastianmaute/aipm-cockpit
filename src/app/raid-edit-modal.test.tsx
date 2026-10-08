@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cloneElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
@@ -45,11 +45,13 @@ function makeDraft(over: Partial<RaidItem> = {}): RaidItem {
 }
 
 function modalEl(over: Partial<RaidItem> = {}, onSave: (item: RaidItem) => void = vi.fn()) {
+  // The stored list holds the edited item itself, as in the app: an empty list
+  // would render every test as an item deleted elsewhere.
   return (
     <RaidEditModal
       lang="en-US"
       tasks={[]}
-      raid={[]}
+      raid={[makeDraft(over)]}
       stakeholdersEnabled
       stakeholders={[]}
       resources={[]}
@@ -112,7 +114,8 @@ describe("RAID owner email follows the changed-only write rule", () => {
       <RaidEditModal
         lang="en-US"
         tasks={[]}
-        raid={[]}
+        // The stored item itself, as in the app; an empty list would model one deleted elsewhere.
+        raid={[initial]}
         stakeholdersEnabled
         stakeholders={[]}
         resources={resources}
@@ -822,5 +825,61 @@ describe("RaidEditModal — Sync to Outlook (§486)", () => {
   it("is absent while Outlook sync is not configured", () => {
     render(<Host initial={makeDraft()} onSave={vi.fn()} />, { wrapper });
     expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});
+
+// The notes window writes straight through to the workspace while the editor's
+// draft is a snapshot taken at open, so the button counts the STORED row.
+describe("RaidEditModal — Notes button count", () => {
+  it("shows the stored row's note count, not the draft's", () => {
+    const stored = makeDraft({ id: 9, noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }, { id: 2, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n2</p>", text: "n2" }] });
+    render(cloneElement(modalEl({ id: 9, noteLog: [] }), { raid: [stored] }), { wrapper });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (2)` })).toBeInTheDocument();
+  });
+});
+
+describe("RaidEditModal — Notes button when the stored row is gone", () => {
+  it("is disabled with no count once another writer deleted the item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], onOpenNotes: vi.fn() }), { wrapper });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+  });
+  it("is enabled while the stored row exists (positive control)", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [makeDraft({ id: 9 })], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
+  });
+});
+
+describe("RaidEditModal — a new draft never shows another item's count", () => {
+  it("ignores a stored row that took the new draft's id", () => {
+    const other = makeDraft({ id: 9, noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }] });
+    render(cloneElement(modalEl({ id: 9 }), { raid: [other], isNew: true, onOpenNotes: vi.fn() }), { wrapper });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+  });
+});
+
+// Deleted by another writer while the editor is open: a banner says so, and the
+// disabled Notes button is described by a line explaining why.
+describe("RaidEditModal — deleted-elsewhere notice", () => {
+  const BANNER = t("en-US", "editorDeletedElsewhere");
+  const HINT = t("en-US", "noteLogDeletedElsewhere");
+  it("shows the banner and describes the disabled Notes button when the stored row is gone", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.getByText(BANNER)).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(HINT);
+  });
+  it("shows neither for a saved item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [makeDraft({ id: 9 })], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).not.toHaveAttribute("aria-describedby");
+  });
+  it("shows neither for a new, unsaved item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], isNew: true, onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
   });
 });

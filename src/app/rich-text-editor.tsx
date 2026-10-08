@@ -121,6 +121,11 @@ export interface RichTextEditorProps {
    *  MOUNT, like every other `useEditor` option, so pass a STABLE id and keep
    *  the element it names mounted. */
   ariaDescribedBy?: string;
+  /** Cap the editor's height and scroll inside it past the cap. A ceiling, not
+   *  a size: the editor still starts at its one height. For an editor inside a
+   *  fixed-height surface, where an unbounded draft would push everything after
+   *  it out of reach (the note-log composer, §680). Read at MOUNT. */
+  bounded?: boolean;
 }
 
 // ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
@@ -303,9 +308,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
         role: "textbox",
         "aria-multiline": "true",
         // ★ One height for one editor. A caller needing more room passes a
-        // class; do not reintroduce a size variant for it.
+        // class; do not reintroduce a size variant for it. `bounded` is not
+        // one: it adds a CEILING over the same starting height (§680).
         class:
-          `min-h-24 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green`,
+          `min-h-24 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green${props.bounded ? " max-h-48 overflow-y-auto" : ""}`,
       },
       handleKeyDown: (_view, event) => {
         // commitOnEnter: plain Enter commits (suppress Tiptap's paragraph split);

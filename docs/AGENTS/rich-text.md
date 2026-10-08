@@ -90,9 +90,10 @@ register's fix to another is how two of them broke. Read the note that names you
   added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
   omits `noteLog` from its payload). ★ 0.211.1 went further and removed the field from the DRAFT too:
   `emptyForm` carries no `noteLog`, so `TaskFormDraft` (a `ReturnType<typeof emptyForm>`) has no such
-  key and there is nothing for a future writer to put back into `payload`. The unsaved-task fallback
-  button shows NO count at all — a hardcoded `0` would be true only by WIRING (task-manager gates
-  `taskNotePanel` on `editingId !== null`), not by construction. Re-adding the field is a typecheck
+  key and there is nothing for a future writer to put back into `payload`. Since 2026-10-08 the task editor
+  has no inline log: its "Notes log (n)" button opens the floating window, like the Change and RAID
+  editors, and reads its count from the STORED row (`storedTask.noteLog`), never from the draft. For an
+  unsaved task the button is disabled and shows NO count, since there is no stored row. Re-adding the field is a typecheck
   error before it is a data-loss bug — keep it that way.
   ★★★ RAID HAD THE SAME DEFECT AND IT IS FIXED DIFFERENTLY — do not copy the task approach there.
   `raid-panel.tsx` seeds `useState<RaidItem | null>` with a full-row SNAPSHOT at edit-open, the notes

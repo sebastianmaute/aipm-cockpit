@@ -6,7 +6,6 @@ import { resourceDisplayName } from "./resource-foundation";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { NotesWindowProps } from "./notes-window";
-import type { NoteLogPanelProps } from "./note-log-panel";
 
 /** Which register the open note log belongs to. Each kind resolves its own
  *  display name field (`taskName` / `title`) and its own `*.updated` activity
@@ -37,11 +36,6 @@ export interface UseNotesWindowResult {
   openRaidNotes: (id: number) => void;
   openChangeNotes: (id: number) => void;
   notesWindowProps: NotesWindowProps;
-  /** Panel props for a SECOND, always-mounted surface (the in-editor note log).
-   *  `notesWindowProps` can't serve it: its entries derive from `notesTarget`,
-   *  which is null unless the floating window is open. Reuses the same
-   *  `noteHandlersFor` so both surfaces share ONE write path. */
-  notePanelPropsFor: (kind: NotesTargetKind, id: number) => NoteLogPanelProps;
 }
 
 // Shared floating note-log window orchestration extracted from task-manager.
@@ -209,22 +203,5 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
     openRaidNotes: (id: number) => setNotesTarget({ kind: "raid", id }),
     openChangeNotes: (id: number) => setNotesTarget({ kind: "change", id }),
     notesWindowProps,
-    // ★ `labelSuffix` is REQUIRED here, unlike the floating window (whose dialog
-    //   label already names the entity). With both surfaces open on the same
-    //   task, un-suffixed names would collide into two identical "Edit – #1"
-    //   buttons — axe checks that a name EXISTS, never that it is unique.
-    notePanelPropsFor: (kind, id) => ({
-      entries: logOf(kind, id),
-      ...noteHandlersFor(kind, id),
-      self: notesSelf,
-      resources,
-      lang,
-      labelSuffix: nameOf(kind, id),
-      // Same rule as `notesWindowProps` above, off this call's own register:
-      // only `get_task` exposes a note log to the model. Production only ever
-      // calls this with "task", but the discriminator stays real so a second
-      // register mounting an in-editor panel cannot inherit a false claim.
-      aiReadable: kind === "task",
-    }),
   };
 }

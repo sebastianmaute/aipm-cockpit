@@ -536,6 +536,7 @@ function ChangePanelBody({
             onCancel={closeModal}
             onDelete={commitDelete}
             onOpenNotes={onOpenNotes}
+            noteCount={storedNoteCount(changes, draft.id, isNew)}
             calendarSyncEnabled={calendarEnabled}
           />
         )
@@ -697,6 +698,15 @@ function ChangePanelBody({
 // site by routing every handler through `useStableHandlers` (open-followups §1);
 // that is the pattern to reach for here too. docs/open-followups.md §170.
 const ChangePanelMemo = memo(ChangePanelBody);
+
+/** The stored change's note count for the open editor, or `null` when that change
+ *  is gone (deleted by another writer) or not saved yet. A new draft always gets
+ *  `null`: its id was minted at open, and a concurrent writer may have taken it. */
+function storedNoteCount(changes: readonly ChangeItem[], id: number, isNew: boolean): number | null {
+  if (isNew) return null;
+  const stored = changes.find((c) => c.id === id);
+  return stored ? (stored.noteLog?.length ?? 0) : null;
+}
 
 export function ChangePanel(props: ChangePanelProps) {
   return (

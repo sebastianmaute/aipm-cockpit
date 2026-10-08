@@ -1,6 +1,5 @@
 import { describe, test, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -8,8 +7,7 @@ import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import { t, loadI18n } from "./i18n";
-import type { NoteLogPanelProps } from "./note-log-panel";
-import type { BudgetBucket, NoteLogEntry } from "./types";
+import type { BudgetBucket } from "./types";
 
 const EN = "en-US" as const;
 
@@ -342,123 +340,6 @@ describe("TaskFormModal — Documents field", () => {
   test("renders no budget-bucket field when budgetLink is absent", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.queryByLabelText("Budget bucket")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Inline note log (slice B)
-// ---------------------------------------------------------------------------
-
-// TWO entries, so the summary count is distinguishable from the unsaved-task
-// fallback's 0. There is no competing draft copy any more — the form carries
-// no note log (open-followups §29) — so the count can only come from these.
-const PANEL_ENTRIES: NoteLogEntry[] = [
-  { id: 1, timestamp: "2026-01-01T10:00:00Z", html: "<p>Kickoff held</p>", text: "Kickoff held", authorResourceId: 1, authorName: "Alice Anders" },
-  { id: 2, timestamp: "2026-01-02T10:00:00Z", html: "<p>Charter signed</p>", text: "Charter signed", authorResourceId: 1, authorName: "Alice Anders" },
-];
-
-function notePanelProps(over: Partial<NoteLogPanelProps> = {}) {
-  const onAdd = vi.fn();
-  const onEdit = vi.fn();
-  const onDelete = vi.fn();
-  const taskNotePanel: NoteLogPanelProps = {
-    entries: PANEL_ENTRIES,
-    onAdd,
-    onEdit,
-    onDelete,
-    self: 1,
-    resources: [],
-    lang: EN,
-    labelSuffix: "Draft charter",
-    // The task register — the one note log `get_task` exposes to the model.
-    aiReadable: true,
-    ...over,
-  };
-  return { onAdd, onEdit, onDelete, taskNotePanel };
-}
-
-/** Opens the notes `<details>` and returns it. */
-function openNotesDisclosure(): HTMLDetailsElement {
-  const summary = screen.getByText(new RegExp(`^${t(EN, "noteLogTitle")} \\(`));
-  const details = summary.closest("details") as HTMLDetailsElement;
-  expect(details).not.toBeNull();
-  // jsdom implements summary activation, but assert rather than assume — a
-  // silently-still-closed disclosure would make the assertions below vacuous.
-  fireEvent.click(summary);
-  expect(details.open).toBe(true);
-  return details;
-}
-
-describe("inline note log (slice B)", () => {
-  beforeEach(() => {
-    stubTaskForm();
-  });
-
-  it("renders the log inline and writes through on add", async () => {
-    const user = userEvent.setup();
-    const { onAdd, taskNotePanel } = notePanelProps();
-    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
-
-    openNotesDisclosure();
-    // Read path: the LIVE workspace entries render.
-    expect(screen.getByText("Kickoff held")).toBeInTheDocument();
-    expect(screen.getByText("Charter signed")).toBeInTheDocument();
-
-    // ★ The composer carries `labelSuffix` now, exactly as the Add button below
-    //   does — the two `RichTextEditor` labels were the only controls in
-    //   `note-log-panel.tsx` that ignored it, which collided with the floating
-    //   notes window when both surfaces were mounted.
-    const surface = await screen.findByRole("textbox", {
-      name: `${t(EN, "noteLogPlaceholder")} – Draft charter`,
-    });
-    await user.click(surface);
-    await user.type(surface, "Fresh in-editor note");
-    fireEvent.click(
-      screen.getByRole("button", { name: `${t(EN, "noteLogAdd")} – Draft charter` }),
-    );
-
-    // ★ headline claim: the WRITE reaches the workspace handler. A read-only
-    //   assertion would stay green with the whole write path removed.
-    expect(onAdd).toHaveBeenCalled();
-    const [html, text] = onAdd.mock.calls[0];
-    expect(text).toBe("Fresh in-editor note");
-    expect(html).toContain("Fresh in-editor note");
-  });
-
-  it("keeps the disabled Notes button for an unsaved task", () => {
-    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
-    // No panel threaded (a new draft has no id to write to) → the launcher button.
-    // No count is shown at all for this fallback (see task-form-fields.tsx).
-    const button = screen.getByRole("button", { name: t(EN, "noteLogTitle") });
-    expect(button).toBeDisabled();
-    expect(button.closest("details")).toBeNull();
-  });
-
-  it("shows the live entry count in the summary", () => {
-    const { taskNotePanel } = notePanelProps();
-    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
-    // The panel holds 2 and the unsaved-task fallback renders NO count at all,
-    // so "(2)" can only have come from the live panel props.
-    expect(screen.getByText(`${t(EN, "noteLogTitle")} (2)`)).toBeInTheDocument();
-  });
-
-  it("reaches the notes disclosure by keyboard", async () => {
-    const user = userEvent.setup();
-    const { taskNotePanel } = notePanelProps();
-    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
-
-    const summary = screen.getByText(`${t(EN, "noteLogTitle")} (2)`);
-    // A real <summary>, so Enter/Space toggle natively — the tabIndex below must
-    // not be standing in for a div dressed up as a disclosure.
-    expect(summary.tagName).toBe("SUMMARY");
-    // ★ .focus() proves nothing — it succeeds on tabIndex={-1}. Only walking the
-    //   tab order proves the disclosure is genuinely reachable.
-    let reached = false;
-    for (let i = 0; i < 200 && !reached; i += 1) {
-      await user.tab();
-      reached = document.activeElement === summary;
-    }
-    expect(reached).toBe(true);
   });
 });
 

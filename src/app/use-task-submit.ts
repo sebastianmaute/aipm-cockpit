@@ -33,6 +33,7 @@ import { describeTextCap } from "./sanitize-report";
 import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 import { smoothScrollBehavior } from "./reduced-motion";
+import { reportSilentFailure } from "./guard-feedback";
 
 export interface UseTaskSubmitArgs {
   form: TaskFormDraft;
@@ -189,9 +190,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         calendarOptOut: form.calendarOptOut ? true : undefined,
         // ★★ `noteLog` is DELIBERATELY absent — from this payload AND from the
         // form draft itself (`emptyForm` carries no such field). The note log is
-        // WRITE-THROUGH — NoteLogPanel (inline in the editor) and the floating
-        // notes window both commit straight to the workspace row, and never
-        // touch this draft. A draft copy would go stale the instant a note is
+        // WRITE-THROUGH — the floating notes window (which the editor's Notes
+        // button opens) commits straight to the workspace row, and never
+        // touches this draft. A draft copy would go stale the instant a note is
         // added/edited/deleted, and since `payload` is spread OVER `row` it
         // would overwrite the live log with that stale copy — silent data
         // loss. The write-through path is the sole owner.
@@ -200,6 +201,21 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // window writes (the editor's Blockers button opens it). Leaving both
         // out of this payload carries them from the STORED row on an edit.
       };
+
+      // A concurrent writer deleted the task while this editor was open: the
+      // update below would match nothing and drop the edit in silence. Report it
+      // as the RAID and change editors do and close cleanly, BEFORE any side
+      // effect (the adjustments toast, the contact upsert), so a refused save
+      // writes nothing. The editor already warns with a banner
+      // (deleted-elsewhere-notice.tsx).
+      if (editingId !== null && !tasksRef.current.some((r) => r.id === editingId)) {
+        reportSilentFailure(showToast, lang, "task.editVanished", "concurrent delete during edit", "guardEditVanished");
+        setEditingId(null);
+        setForm(emptyForm());
+        setSubmitted(false);
+        setTaskModalOpen(false);
+        return;
+      }
 
       if (adj.count() > 0) {
         showToast("info", tPlural(lang, "fieldsAdjusted", adj.count(), adj.count()));
@@ -392,6 +408,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           });
         });
         setEditingId(null);
+        // Always found: the guard at the top of this handler returned for a task
+        // deleted elsewhere. The `if` only narrows the type.
         if (prevTask) {
           // Single-item edit, so tasksRef's row equals the mapped row — recompute
           // the same next value to diff prev→next for the undo capture + audit detail.
@@ -417,13 +435,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           } else {
             logActivity("task.updated", updatedId, taskName);
           }
-          // ★ Only this branch can decide a transition: it is the only one
-          // holding a BEFORE row. The `else` below fires when tasksRef has no
-          // matching row, so there is no delivered-ness to compare against.
+          // ★ A transition needs a BEFORE row to compare delivered-ness against,
+          // which `prevTask` is.
           const transition = statusActivityKind(prevTask, nextTask);
           if (transition) logActivity(transition, updatedId, taskName);
-        } else {
-          logActivity("task.updated", updatedId, taskName);
         }
         recordSuccessorEdits(successors, tasksRef.current);
       } else {

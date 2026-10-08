@@ -1335,3 +1335,26 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     expect(screen.getByText("2026-05-20 · Noah Bennett")).toBeTruthy();
   });
 });
+
+// A note added in the floating window while the RAID editor is open lands in the
+// workspace's `raid`, not in the editor's draft, and the editor's button must count it.
+describe("RaidPanel — the open editor's Notes count follows the stored item", () => {
+  it("updates when a note arrives while the editor is open", () => {
+    const note = (id: number) => ({ id, timestamp: "2026-06-01T09:00:00.000Z", html: `<p>n${id}</p>`, text: `n${id}` });
+    const tree = (raid: RaidItem[]) => (
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <RaidPanel {...makeProps({ raid })} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>
+    );
+    const { getByText, getByRole, rerender } = render(tree([makeRaidItem({ id: 1, title: "Alpha", severity: "Low", noteLog: [note(1)] })]));
+    fireEvent.click(getByText("Alpha").closest("tr")!);
+    const label = (n: number) => `${t("en-US", "noteLogTitle")} (${n})`;
+    expect(getByRole("button", { name: label(1) })).toBeInTheDocument();
+    rerender(tree([makeRaidItem({ id: 1, title: "Alpha", severity: "Low", noteLog: [note(1), note(2)] })]));
+    expect(getByRole("button", { name: label(2) })).toBeInTheDocument();
+  });
+});

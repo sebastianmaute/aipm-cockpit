@@ -63,10 +63,16 @@ surface needs something the seeded browser cannot provide, such as a model turn,
   editor, with nothing clipped.
 - [ ] **By hand:** a task whose note log is long. The inline log stops at its scroll height and
   scrolls inside it.
+  ★ 2026-10-08: superseded by §679. This check found the item broken, and the fix removed the
+  inline box's height cap, so the editor form now scrolls the whole log and this expectation no
+  longer applies. Later the same day the inline log was removed altogether: the task editor's
+  "Notes log (n)" button opens the floating notes window.
 - [ ] **By hand:** the inline note log and the floating notes window open at the same time on one
   task. A screen reader names their controls apart.
+  ★ 2026-10-08: the inline log was removed later that day, so this item no longer applies.
 - [ ] **By hand:** the note log's disclosure summary is readable in every built-in scheme, light
   and dark.
+  ★ 2026-10-08: the inline log was removed later that day, so this item no longer applies.
 
 ## §41: 0.211.0 surfaces (#104)
 

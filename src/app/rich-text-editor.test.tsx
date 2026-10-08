@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { useRef } from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/core";
 import { RichTextEditor, EXTENSIONS, TASK_ITEM, type RichTextEditorHandle } from "./rich-text-editor";
@@ -47,6 +47,19 @@ describe("RichTextEditor", () => {
   it("renders the editor surface with the given accessible label", async () => {
     setup();
     expect(await screen.findByRole("textbox", { name: "Body" })).toBeTruthy();
+  });
+  it("caps the height only when bounded, and keeps the one starting height either way (§680)", async () => {
+    setup({ bounded: true });
+    const capped = await screen.findByRole("textbox", { name: "Body" });
+    expect(capped.className).toMatch(/\bmin-h-24\b/);
+    expect(capped.className).toMatch(/\bmax-h-48\b/);
+    expect(capped.className).toMatch(/\boverflow-y-auto\b/);
+    cleanup();
+    setup();
+    const plain = await screen.findByRole("textbox", { name: "Body" });
+    expect(plain.className).toMatch(/\bmin-h-24\b/);
+    expect(plain.className).not.toMatch(/\bmax-h-/);
+    expect(plain.className).not.toMatch(/\boverflow-y-auto\b/);
   });
   // There is ONE editor now, so there is ONE control set: the Tiptap "Simple"
   // template's. Headings are an icon-triggered menu button (rich-text-toolbar.tsx),

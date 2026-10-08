@@ -465,18 +465,18 @@ describe("TaskFormFields description + notes button", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "noteLogAdd") })).toBeNull();
   });
 
-  it("renders a 'Notes (N)' button that opens the note-log window when clicked", async () => {
+  // Opening the window from a SAVED task is pinned in the Blockers describe below
+  // ("editor Notes button opens the floating window …"). For an unsaved task the
+  // button is disabled by construction (no stored row), even if a handler is
+  // threaded, which production never does.
+  it("keeps the Notes button disabled, with no count, for an unsaved task even with a handler", async () => {
     const onOpenNotes = vi.fn();
     const user = userEvent.setup();
     render(<Harness onOpenNotes={onOpenNotes} />, { wrapper: TestProviders });
-
-    // The unsaved-task fallback renders no count at all (a hardcoded 0 would only
-    // be true by wiring, not by construction) — label is bare "Notes log".
-    const btn = screen.getByRole("button", {
-      name: t("en-US", "noteLogTitle"),
-    });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
     await user.click(btn);
-    expect(onOpenNotes).toHaveBeenCalledTimes(1);
+    expect(onOpenNotes).not.toHaveBeenCalled();
   });
 });
 
@@ -495,6 +495,11 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
       { id: 1, text: "Vendor", createdAt: "2026-05-01T09:00:00.000Z" },
       { id: 2, text: "Legal", createdAt: "2026-05-02T09:00:00.000Z" },
       { id: 3, text: "Old", createdAt: "2026-04-01T09:00:00.000Z", resolvedAt: "2026-04-02T09:00:00.000Z" },
+    ],
+    noteLog: [
+      { id: 1, timestamp: "2026-05-01T09:00:00.000Z", html: "<p>Kickoff held</p>", text: "Kickoff held" },
+      { id: 2, timestamp: "2026-05-02T09:00:00.000Z", html: "<p>Charter signed</p>", text: "Charter signed" },
+      { id: 3, timestamp: "2026-05-03T09:00:00.000Z", html: "<p>Scope agreed</p>", text: "Scope agreed" },
     ],
     description: "",
   };
@@ -528,6 +533,79 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
     expect(btn).toBeEnabled();
     await user.click(btn);
     expect(onOpenBlockers).toHaveBeenCalledTimes(1);
+  });
+
+  // The owner asked for the notes log to pop out like the Change editor's
+  // (2026-10-08); it rendered inline from 2026-07-29.
+  it("editor Notes button opens the floating window, shows the stored count, and renders no inline log", async () => {
+    const onOpenNotes = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={onOpenNotes} tasksForDeps={[STORED]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+
+    // 3 notes on the stored row; the draft carries none, so "(3)" can only come from it.
+    const btn = screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (3)` });
+    expect(btn).toBeEnabled();
+    await user.click(btn);
+    expect(onOpenNotes).toHaveBeenCalledTimes(1);
+    // No inline log: neither a note's text nor the panel's Add button renders in the
+    // editor. Both are synchronous: the composer itself sits behind a lazy boundary, so
+    // a query for it could pass before it would have mounted.
+    expect(screen.queryByText("Kickoff held")).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(`^${t("en-US", "noteLogAdd")}`) })).toBeNull();
+  });
+
+  it("disables Notes and Blockers, with no counts, once the edited task's stored row is gone", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} onOpenBlockers={vi.fn()} tasksForDeps={[]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeDisabled();
+  });
+
+  it("shows the deleted-elsewhere banner and describes both disabled buttons when the stored task is gone", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} onOpenBlockers={vi.fn()} tasksForDeps={[]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.getByText(t("en-US", "editorDeletedElsewhere"))).toBeInTheDocument();
+    const hint = t("en-US", "noteBlockerLogDeletedElsewhere");
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toHaveAccessibleDescription(hint);
+    expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toHaveAccessibleDescription(hint);
+  });
+
+  it("shows no deleted-elsewhere notice for a saved task or a new one", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Harness onOpenNotes={vi.fn()} tasksForDeps={[STORED]} />, { wrapper: TestProviders });
+    expect(screen.queryByText(t("en-US", "editorDeletedElsewhere"))).toBeNull();
+    unmount();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} tasksForDeps={[STORED]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.queryByText(t("en-US", "editorDeletedElsewhere"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "noteBlockerLogDeletedElsewhere"))).toBeNull();
   });
 
   it("for a new task the Blockers button is disabled with no count, like Notes", () => {

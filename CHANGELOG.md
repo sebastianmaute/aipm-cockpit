@@ -26,6 +26,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
+  The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
+  notes window beside the editor. As before, a note added there is saved at once and kept if you cancel
+  the editor, and the button is disabled for a task that has not been saved yet.
 - **Big Kanban boards open faster (§5).** On the Open Points board, each status column now shows up to 100
   cards, then a "Show more" button that names the column and how many cards are hidden. The count in the
   column header is still the full count. A link to a task further down a column opens the column far enough
@@ -124,6 +128,20 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The Notes log count in the Change and RAID editors updates while the editor is open.** A note added
+  in the floating notes window with the editor open did not change the editor's "Notes log (n)" count
+  until you reopened it; the count now comes from the saved item, as in the task editor. If someone else
+  deletes the item while its editor is open, the Notes button in the Change, RAID and task editors (and the
+  task editor's Blockers button) is now disabled instead of opening a window that closes at once. The
+  editor also says why: a banner at the top reports that the item was deleted elsewhere and that your
+  changes won't be saved, and a line under the disabled button explains it, read out with the button.
+  Saving a task that was deleted elsewhere now shows the same "deleted elsewhere" error the RAID and
+  Change editors give; it used to close the editor and drop your changes without a word.
+- **Long notes stay reachable (§679, §680).** In the floating notes window, a long new note grew past
+  the bottom of the window with no scroll bar. The note box, and the box for editing an existing note,
+  now stop at a maximum height and scroll inside, so the notes below stay in view. (In the task editor, a
+  long note log could not be scrolled to its older notes; the task editor now opens the floating window
+  instead, see the Changed entry above.)
 - **The Timelog connection test names the scope in your language (§682).** Settings → Timelog → Test
   connection reported the data scope as the raw words "self" or "org", in English even in the German interface.
   It now uses the same wording as the Data scope list beside it, such as "Whole organisation".
@@ -236,8 +254,13 @@ longer carries its own changelog comment.
 
 ### Development
 
+- **Image samples for the Office and PDF check (§219).** `npx jiti scripts/sample-image-exports.ts <dir>`
+  writes 15 Word, PowerPoint and HTML samples for the manual image check in `docs/eye-verify-batch-19.md`
+  (two images, the export budget, a missing image, WebP, deck length, a reused image), each through the
+  same per-format image rules a real download uses.
 - **Smaller task manager (§491).** The reminder banners moved to `use-reminder-banners.tsx` and the task
-  editor's footer buttons to `buildTaskEditorChrome`; `task-manager.tsx` went from 2535 to 2454 lines,
+  editor's footer buttons to `buildTaskEditorChrome`, then the project menu's Save-as-template and
+  Apply-template actions to `use-template-actions.ts`; `task-manager.tsx` went from 2535 to 2408 lines,
   and its size baseline was lowered to match.
 - **Weekly release notes (§527).** `npm run release-notes` prints user-facing notes for a date window
   (the last seven days by default) from the CHANGELOG versions dated in it.

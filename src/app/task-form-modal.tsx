@@ -16,7 +16,6 @@ import type { Absence, Resource, Task } from "./types";
 import { TaskFormFields } from "./task-form-fields";
 import { type TaskFieldErrors } from "./task-validation";
 import type { TaskBudgetLink } from "./use-task-budget-link";
-import type { NoteLogPanelProps } from "./note-log-panel";
 import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 
 export interface TaskFormModalProps {
@@ -57,11 +56,6 @@ export interface TaskFormModalProps {
   /** Opens the blocker window for the edited task; absent → the in-form
    *  "Blockers" button is disabled, exactly as the Notes button. */
   onOpenBlockers?: () => void;
-  /** Live note-log panel for the edited task, rendered INLINE in a collapsed
-   *  disclosure. Writes go STRAIGHT THROUGH to the workspace (not the form
-   *  draft), so a note survives Cancel — correct for an append-only journal.
-   *  Absent (an unsaved new task) → the disabled launcher button stays. */
-  taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
   /** §486 — Outlook sync is configured for tasks; shows the per-item
@@ -98,7 +92,6 @@ export function TaskFormModal({
   editorExtras,
   onOpenNotes,
   onOpenBlockers,
-  taskNotePanel,
   budgetLink,
   calendarSyncEnabled,
 }: TaskFormModalProps) {
@@ -187,7 +180,6 @@ export function TaskFormModal({
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
             onOpenNotes={onOpenNotes}
             onOpenBlockers={onOpenBlockers}
-            taskNotePanel={taskNotePanel}
             budgetLink={budgetLink}
           />
           {calendarSyncEnabled && (

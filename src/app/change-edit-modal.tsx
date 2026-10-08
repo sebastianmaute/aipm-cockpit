@@ -8,6 +8,7 @@
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { DeletedElsewhereBanner, DeletedElsewhereHint } from "./deleted-elsewhere-notice";
 import { type Lang, t, type TranslationKey, tPlural } from "./i18n";
 import {
   CHANGE_STATUSES,
@@ -77,6 +78,14 @@ export interface ChangeEditModalProps {
    *  popouts; the button is also disabled for an unsaved (new) draft, which has
    *  no persisted id to resolve. */
   onOpenNotes?: (id: number) => void;
+  /** The STORED change's note count, for the Notes button. Not the draft's: the
+   *  draft is a snapshot taken at open, while the notes window writes straight
+   *  through to the workspace, so a note added with the editor open must count.
+   *  ★ A prop, unlike the RAID editor, which counts from the `raid` list it already
+   *  takes: this modal receives no `changes` list, so the panel computes it.
+   *  `null` means the stored change is gone (or not saved yet): no count, and the
+   *  button is disabled. */
+  noteCount: number | null;
   /** §486 — Outlook sync is configured for change decision dates; shows the
    *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */
   calendarSyncEnabled?: boolean;
@@ -121,8 +130,13 @@ export function ChangeEditModal({
   onCancel,
   onDelete,
   onOpenNotes,
+  noteCount,
   calendarSyncEnabled,
 }: ChangeEditModalProps) {
+  // Editing a change another writer deleted (`noteCount` is null for it, see the
+  // prop): the editor stays open on its draft, so say so, and why Notes is disabled.
+  const deletedElsewhere = !isNew && noteCount === null;
+  const deletedHintId = useId();
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("change");
   const [error, setError] = useState<string | null>(null);
@@ -329,6 +343,7 @@ export function ChangeEditModal({
       widthClassName="w-[1280px] min-w-[460px]"
       heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
+          {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
           {/* Title */}
           {/* ★ `htmlFor` is kept as an explicit binding, but is no longer
               LOAD-BEARING: the hint AND the dictation mic now sit OUTSIDE the
@@ -453,22 +468,27 @@ export function ChangeEditModal({
           )}
 
           {/* Running note log — opens the shared floating notes window. Disabled
-              for an unsaved draft (no persisted id yet) or in popouts (no
-              handler threaded).
-              ★ The count reads the edit-open DRAFT snapshot, so it can
-              under-report while the notes window is open. Cosmetic and
-              deliberate: the log itself is write-through and safe, and RAID
-              behaves identically. */}
+              for an unsaved draft (no persisted id yet), in popouts (no handler
+              threaded), and once the stored change is gone (deleted by another
+              writer while this editor is open: the window would close at once).
+              The count is the STORED change's (`noteCount`), so a note added
+              while this editor is open counts. */}
           <div className="flex items-center gap-2 sm:col-span-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={() => onOpenNotes?.(draft.id)}
-              disabled={!onOpenNotes || isNew}
+              disabled={!onOpenNotes || isNew || noteCount === null}
+              aria-describedby={deletedElsewhere ? deletedHintId : undefined}
             >
-              {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
+              {noteCount === null ? t(lang, "noteLogTitle") : `${t(lang, "noteLogTitle")} (${noteCount})`}
             </Button>
           </div>
+          {deletedElsewhere && (
+            <div className="sm:col-span-2">
+              <DeletedElsewhereHint id={deletedHintId} lang={lang} />
+            </div>
+          )}
 
           {/* Impact (level — part of the `impact` field group) */}
           {isVisible("impact") && (
