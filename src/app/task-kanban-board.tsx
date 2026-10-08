@@ -113,6 +113,28 @@ export function TaskKanban({
   // Per-column card limits; a missing entry means one page. Lives as long as the board
   // does: a remount (another view, the load hold) starts every column at one page again.
   const [limits, setLimits] = useState<Partial<Record<TaskStatus, number>>>({});
+  // ★ A deep link to a card past its column's cap. useDeepLinkRowFlash sets `flashId`
+  //   during render and queries [data-deeplink-row] only on the NEXT animation frame, so
+  //   the card must be in the DOM from this render: a render-time reconcile raises the
+  //   column's limit here (React re-runs this render with it before committing). Not the
+  //   hook's `scrollToId` callback: that runs from an effect, a commit too late, and an
+  //   effect may not set state (set-state-in-effect is fatal). Seeded with a sentinel,
+  //   not the live prop, so a fresh mount honours a pending flash (remount-swallow rule).
+  const [seenFlash, setSeenFlash] = useState<number | null | undefined>(undefined);
+  if (flashId !== seenFlash) {
+    setSeenFlash(flashId);
+    if (flashId != null) {
+      for (const status of TASK_STATUSES) {
+        const index = cols[status].findIndex((tk) => tk.id === flashId);
+        if (index < 0) continue;
+        // Only ever raise: a column the user already opened past the card stays open.
+        if (index >= (limits[status] ?? KANBAN_COLUMN_PAGE)) {
+          setLimits((prev) => ({ ...prev, [status]: Math.ceil((index + 1) / KANBAN_COLUMN_PAGE) * KANBAN_COLUMN_PAGE }));
+        }
+        break;
+      }
+    }
+  }
   // A printout must hold every card.
   const printing = usePrinting();
   const limitOf = (status: TaskStatus): number => (printing ? Infinity : (limits[status] ?? KANBAN_COLUMN_PAGE));

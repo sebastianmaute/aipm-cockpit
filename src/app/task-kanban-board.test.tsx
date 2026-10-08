@@ -89,6 +89,42 @@ describe("TaskKanban column cap (§5)", () => {
     expect(cardsIn("Done")).toHaveLength(100);
   });
 
+  describe("deep-link flash (§5, spec Collisions 3)", () => {
+    // The hook queries [data-deeplink-row] on the NEXT animation frame, so the card
+    // must be rendered by the render that carries the new flashId.
+    it("a flashId past the cap renders that card in the same render", () => {
+      const all = tasksIn("To Do", 300);
+      const view = board(all);
+      view.rerender(all, all[249]!.id);
+      expect(screen.getByTestId(`kanban-card-${all[249]!.id}`)).toBeInTheDocument();
+      expect(cardsIn("To Do")).toHaveLength(300);
+    });
+
+    it("a fresh mount with a pending flashId honours it", () => {
+      const all = tasksIn("To Do", 300);
+      board(all, { flashId: all[249]!.id });
+      expect(screen.getByTestId(`kanban-card-${all[249]!.id}`)).toBeInTheDocument();
+    });
+
+    // Review Focus 3.
+    it("a flash never lowers an expanded column", () => {
+      const all = tasksIn("To Do", 300);
+      const view = board(all);
+      fireEvent.click(moreButton("To Do")!);
+      fireEvent.click(moreButton("To Do")!);
+      view.rerender(all, all[9]!.id);
+      expect(cardsIn("To Do")).toHaveLength(300);
+    });
+
+    // Review Focus 4.
+    it("an unknown flashId changes nothing", () => {
+      const all = tasksIn("To Do", 300);
+      const view = board(all);
+      view.rerender(all, 999999);
+      expect(cardsIn("To Do")).toHaveLength(100);
+    });
+  });
+
   describe("printing", () => {
     afterEach(() => vi.unstubAllGlobals());
 
