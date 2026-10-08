@@ -6,7 +6,10 @@ describe("CountBadge", () => {
   test("renders the count and the pink tint by default", () => {
     render(<CountBadge>3</CountBadge>);
     const el = screen.getByText("3");
-    expect(el.className).toContain("bg-ui-pink");
+    // The derived AA fill, never raw --ui-pink (§681; ratios pinned in
+    // scheme-state-contrast.test.ts).
+    expect(el.className).toContain("bg-[var(--count-badge-pink)]");
+    expect(el.className).not.toContain("bg-ui-pink");
     expect(el.className).toContain("text-white");
     // Canonical pill shape.
     expect(el.className).toContain("rounded-full");

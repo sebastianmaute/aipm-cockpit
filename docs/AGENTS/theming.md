@@ -119,7 +119,7 @@
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
-  (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
+  (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the pinned derived tokens (`DERIVED_TOKENS` in `color-schemes.ts`; count them there, this line said 7 while it held 10);
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
   "New from Petrol/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs a
   **7-combo** matrix on the FOUR BUILT-INS — harbor light+dark, meridian light+dark, umber light+dark,
@@ -308,6 +308,14 @@
   `dark:` override re-pins the raw accent in exactly the schemes that fail the floor. `ToggleButton`'s
   own `dark:border-*` variants were DELETED rather than remapped for this reason, and
   `toggle-button.test.tsx` pins their absence.
+- **★★ The pink count badge's fill — `--count-badge-pink` (§681).** `CountBadge`'s pink variant draws
+  white 10px text, and raw `--ui-pink` under white measured 3.83:1 on Beacon and 2.40-2.66:1 in the three
+  dark built-ins. `aaRules` derives this fill from `--ui-pink` against `#ffffff` with the nudge forced to
+  DARKEN in every mode: the reference is the badge's own text, so the card plays no part, and lightening (what
+  `nudgeToAa` would pick on a dark card) can only make it worse. The three light pinks that already clear 4.5
+  come back unchanged. ★★ Do NOT reuse `--ui-pink-strong` for a white-on-pink fill: it is derived LIGHTER in
+  the dark schemes, for pink TEXT on a dark card. Per-combo ratios are pinned by `scheme-state-contrast.test.ts`;
+  the `e2e/a11y.spec.ts` "pink count badge" scans check the painted colour and axe in all seven combos.
 - **★★ Non-colour state markers on the two toggle primitives (SC 1.4.1).** The state-border tokens above
   close CONTRAST for the primitive's own three accents — never for a consumer that overrides the border
   (§335, above); they do NOT close colour-as-sole-cue either way, which is a separate guarantee. `ToggleButton`

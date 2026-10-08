@@ -120,6 +120,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The pink count badges are readable (§681).** The small pink counters on the bell and in the sidebar
+  drew white numbers on a pink too light for them, worst in the dark colour schemes. Each scheme now
+  uses a deeper pink for the badge, so the number meets the WCAG AA contrast minimum everywhere.
 - **AI reassignments now show (§375).** Asking the assistant to reassign tasks changed the stored name but
   kept the old person's link to the resource directory and their email address, so every view went on
   showing the old person and status inquiries still went to them. When the assistant names a new person

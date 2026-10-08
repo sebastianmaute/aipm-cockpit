@@ -348,3 +348,11 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   + a fresh port both pass (cost ~5 debug cycles once). Also re-run after killing a `PORT=3100` axe
   server if `.next/dev/types/*` got corrupted (phantom tsc errors in GENERATED files → `Remove-Item
   -Recurse -Force .next`, not source).
+- **★★★ AXE DOES NOT JUDGE THE CONTRAST OF A ONE-CHARACTER TEXT NODE.** With default options it files
+  it under INCOMPLETE ("Element content is too short to determine if it is actual text content"), never
+  as a violation, so every count pill and letter chip is outside the gate whatever its colours. Measured
+  2026-10-08 (§681): the pink count badge at 3.83:1 scanned clean. The opt-in is the run option
+  `checks: { "color-contrast": { options: { ignoreLength: true } } }` (absent from axe's `RunOptions`
+  type, so pass it through a variable); the "pink count badge" scans in `e2e/a11y.spec.ts` show the shape,
+  and assert the node landed in PASSES so a skipped node cannot read as clean. Page-wide, the same option
+  immediately flagged the RAG letter chip (white on `--rag-amber`, 1.82-3.01:1 in every combo).
