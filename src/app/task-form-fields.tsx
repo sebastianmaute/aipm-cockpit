@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { DeletedElsewhereBanner, DeletedElsewhereHint } from "./deleted-elsewhere-notice";
 import { ComboInput } from "./combo-input";
 import { EffortField } from "./effort-field";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
@@ -120,6 +121,10 @@ export function TaskFormFields({
   // blocker log is write-through, like notes), so the health preview and the
   // Blockers button's open count read the live row instead of a stale copy.
   const storedTask = isEditing ? tasksForDeps.find((tk) => tk.id === editingId) : undefined;
+  // Editing a task whose stored row another writer deleted: the editor stays
+  // open on its draft, so say so, and why Notes and Blockers are disabled.
+  const deletedElsewhere = isEditing && !storedTask;
+  const deletedHintId = useId();
   const { isVisible } = useModalVisibility("task");
   // §672 — bucket names carry no uniqueness rule, so two buckets can share one, and the option
   // text is all that tells them apart, on screen and to AT alike. A repeated name gets an
@@ -180,6 +185,7 @@ export function TaskFormFields({
 
   return (
     <>
+      {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
       <TaskFormSection index={1} title={t(lang, "taskFormSectionDetails")}>
         <Field label={t(lang, "id")}>
           <input
@@ -546,6 +552,7 @@ export function TaskFormFields({
             type="button"
             onClick={onOpenNotes}
             disabled={!onOpenNotes || !storedTask}
+            aria-describedby={deletedElsewhere ? deletedHintId : undefined}
             title={t(lang, "noteLogOpenHint")}
             className={LOG_LAUNCHER_CLASS}
           >
@@ -567,6 +574,7 @@ export function TaskFormFields({
               type="button"
               onClick={onOpenBlockers}
               disabled={!onOpenBlockers || !storedTask}
+              aria-describedby={deletedElsewhere ? deletedHintId : undefined}
               title={t(lang, "taskHintBlockers")}
               className={LOG_LAUNCHER_CLASS}
             >
@@ -574,6 +582,11 @@ export function TaskFormFields({
                 ? t(lang, "blockerLogButton", openBlockerCount(storedTask.blockerLog))
                 : t(lang, "blockerLogTitle")}
             </button>
+          </div>
+        )}
+        {deletedElsewhere && (
+          <div className="sm:col-span-2">
+            <DeletedElsewhereHint id={deletedHintId} lang={lang} withBlockers={isVisible("blockers")} />
           </div>
         )}
 

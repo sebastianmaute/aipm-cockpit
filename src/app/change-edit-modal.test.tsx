@@ -779,3 +779,23 @@ describe("ChangeEditModal — Notes button when the stored change is gone", () =
     expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
   });
 });
+
+describe("ChangeEditModal — deleted-elsewhere notice", () => {
+  const BANNER = t("en-US", "editorDeletedElsewhere");
+  const HINT = t("en-US", "noteLogDeletedElsewhere");
+  it("shows the banner and describes the disabled Notes button when the stored change is gone", () => {
+    renderModal({ noteCount: null, onOpenNotes: vi.fn() });
+    expect(screen.getByText(BANNER)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toHaveAccessibleDescription(HINT);
+  });
+  it("shows neither for a saved change", () => {
+    renderModal({ noteCount: 0, onOpenNotes: vi.fn() });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+  it("shows neither for a new, unsaved change", () => {
+    renderModal({ noteCount: null, isNew: true, onOpenNotes: vi.fn() });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+});

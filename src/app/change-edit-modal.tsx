@@ -8,6 +8,7 @@
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { DeletedElsewhereBanner, DeletedElsewhereHint } from "./deleted-elsewhere-notice";
 import { type Lang, t, type TranslationKey, tPlural } from "./i18n";
 import {
   CHANGE_STATUSES,
@@ -132,6 +133,10 @@ export function ChangeEditModal({
   noteCount,
   calendarSyncEnabled,
 }: ChangeEditModalProps) {
+  // Editing a change another writer deleted (`noteCount` is null for it, see the
+  // prop): the editor stays open on its draft, so say so, and why Notes is disabled.
+  const deletedElsewhere = !isNew && noteCount === null;
+  const deletedHintId = useId();
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("change");
   const [error, setError] = useState<string | null>(null);
@@ -338,6 +343,7 @@ export function ChangeEditModal({
       widthClassName="w-[1280px] min-w-[460px]"
       heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
+          {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
           {/* Title */}
           {/* ★ `htmlFor` is kept as an explicit binding, but is no longer
               LOAD-BEARING: the hint AND the dictation mic now sit OUTSIDE the
@@ -473,10 +479,16 @@ export function ChangeEditModal({
               size="sm"
               onClick={() => onOpenNotes?.(draft.id)}
               disabled={!onOpenNotes || isNew || noteCount === null}
+              aria-describedby={deletedElsewhere ? deletedHintId : undefined}
             >
               {noteCount === null ? t(lang, "noteLogTitle") : `${t(lang, "noteLogTitle")} (${noteCount})`}
             </Button>
           </div>
+          {deletedElsewhere && (
+            <div className="sm:col-span-2">
+              <DeletedElsewhereHint id={deletedHintId} lang={lang} />
+            </div>
+          )}
 
           {/* Impact (level — part of the `impact` field group) */}
           {isVisible("impact") && (

@@ -8,7 +8,8 @@
 // (change-edit-modal.tsx / stakeholder-edit-modal.tsx) the panel owns the
 // draft state and passes it down with change callbacks.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { DeletedElsewhereBanner, DeletedElsewhereHint } from "./deleted-elsewhere-notice";
 import { useDraggable } from "./use-draggable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
@@ -125,6 +126,10 @@ export function RaidEditModal({
   // The stored row behind this draft, for the Notes button (see there). None for a
   // new draft: its id was minted at open, and a concurrent writer may have taken it.
   const storedRow = isNew ? undefined : raid.find((r) => r.id === draft.id);
+  // Editing an item another writer deleted: the editor stays open on its draft,
+  // so say so, and why Notes is disabled.
+  const deletedElsewhere = !isNew && !storedRow;
+  const deletedHintId = useId();
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
@@ -347,6 +352,7 @@ export function RaidEditModal({
       widthClassName="w-[1280px] min-w-[460px]"
       heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
+          {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">
             {/* ★★ A `<div>`, NOT a `<label>`. Neither a radiogroup nor a
@@ -529,6 +535,7 @@ export function RaidEditModal({
               size="sm"
               onClick={() => onOpenNotes?.(draft.id)}
               disabled={!onOpenNotes || isNew || !storedRow}
+              aria-describedby={deletedElsewhere ? deletedHintId : undefined}
             >
               {/* The STORED row's count, not the draft's: the draft is a snapshot
                   taken at open, while the notes window writes straight through to
@@ -538,6 +545,11 @@ export function RaidEditModal({
               {storedRow ? `${t(lang, "noteLogTitle")} (${storedRow.noteLog?.length ?? 0})` : t(lang, "noteLogTitle")}
             </Button>
           </div>
+          {deletedElsewhere && (
+            <div className="sm:col-span-2">
+              <DeletedElsewhereHint id={deletedHintId} lang={lang} />
+            </div>
+          )}
 
           {/* §515 — read-only escalation record, written by the Next-actions
               Escalate CTA. Re-validated: JSON/IndexedDB rows skip the sanitizer. */}

@@ -45,11 +45,13 @@ function makeDraft(over: Partial<RaidItem> = {}): RaidItem {
 }
 
 function modalEl(over: Partial<RaidItem> = {}, onSave: (item: RaidItem) => void = vi.fn()) {
+  // The stored list holds the edited item itself, as in the app: an empty list
+  // would render every test as an item deleted elsewhere.
   return (
     <RaidEditModal
       lang="en-US"
       tasks={[]}
-      raid={[]}
+      raid={[makeDraft(over)]}
       stakeholdersEnabled
       stakeholders={[]}
       resources={[]}
@@ -853,5 +855,30 @@ describe("RaidEditModal — a new draft never shows another item's count", () =>
     render(cloneElement(modalEl({ id: 9 }), { raid: [other], isNew: true, onOpenNotes: vi.fn() }), { wrapper });
     const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
     expect(btn).toBeDisabled();
+  });
+});
+
+// Deleted by another writer while the editor is open: a banner says so, and the
+// disabled Notes button is described by a line explaining why.
+describe("RaidEditModal — deleted-elsewhere notice", () => {
+  const BANNER = t("en-US", "editorDeletedElsewhere");
+  const HINT = t("en-US", "noteLogDeletedElsewhere");
+  it("shows the banner and describes the disabled Notes button when the stored row is gone", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.getByText(BANNER)).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(HINT);
+  });
+  it("shows neither for a saved item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [makeDraft({ id: 9 })], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).not.toHaveAttribute("aria-describedby");
+  });
+  it("shows neither for a new, unsaved item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], isNew: true, onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByText(HINT)).toBeNull();
   });
 });

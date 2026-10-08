@@ -575,6 +575,39 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
     expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeDisabled();
   });
 
+  it("shows the deleted-elsewhere banner and describes both disabled buttons when the stored task is gone", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} onOpenBlockers={vi.fn()} tasksForDeps={[]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.getByText(t("en-US", "editorDeletedElsewhere"))).toBeInTheDocument();
+    const hint = t("en-US", "noteBlockerLogDeletedElsewhere");
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toHaveAccessibleDescription(hint);
+    expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toHaveAccessibleDescription(hint);
+  });
+
+  it("shows no deleted-elsewhere notice for a saved task or a new one", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Harness onOpenNotes={vi.fn()} tasksForDeps={[STORED]} />, { wrapper: TestProviders });
+    expect(screen.queryByText(t("en-US", "editorDeletedElsewhere"))).toBeNull();
+    unmount();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} tasksForDeps={[STORED]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.queryByText(t("en-US", "editorDeletedElsewhere"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "noteBlockerLogDeletedElsewhere"))).toBeNull();
+  });
+
   it("for a new task the Blockers button is disabled with no count, like Notes", () => {
     render(<Harness />, { wrapper: TestProviders });
     const btn = screen.getByRole("button", { name: t("en-US", "blockerLogTitle") });

@@ -128,7 +128,9 @@ longer carries its own changelog comment.
   in the floating notes window with the editor open did not change the editor's "Notes log (n)" count
   until you reopened it; the count now comes from the saved item, as in the task editor. If someone else
   deletes the item while its editor is open, the Notes button in the Change, RAID and task editors (and the
-  task editor's Blockers button) is now disabled instead of opening a window that closes at once.
+  task editor's Blockers button) is now disabled instead of opening a window that closes at once. The
+  editor also says why: a banner at the top reports that the item was deleted elsewhere and that your
+  changes won't be saved, and a line under the disabled button explains it, read out with the button.
 - **Long notes stay reachable (§679, §680).** In the floating notes window, a long new note grew past
   the bottom of the window with no scroll bar. The note box, and the box for editing an existing note,
   now stop at a maximum height and scroll inside, so the notes below stay in view. (In the task editor, a
