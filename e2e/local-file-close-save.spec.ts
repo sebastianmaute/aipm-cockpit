@@ -58,9 +58,10 @@ test("§661: a tab closed with an unsaved local-file edit — the file misses it
         tx.onerror = () => reject(tx.error);
       };
     });
-    const k = "aipm-cockpit:settings";
-    const s = JSON.parse(localStorage.getItem(k) ?? "{}");
-    localStorage.setItem(k, JSON.stringify({ ...s, tourSeen: true, storageConfig: { kind: "local-json" } }));
+    // A FRESH settings object, never the stored one read back: settings are a shallow
+    // merge over defaults, and copying the stored blob would re-write whatever the app
+    // put there (CodeQL flags that flow as clear-text secrets, rightly in general).
+    localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true, storageConfig: { kind: "local-json" } }));
   }, { name: FILE, text: workspaceToJson(SEED_WORKSPACE as unknown as Workspace) });
 
   await page.reload();
