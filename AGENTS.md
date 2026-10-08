@@ -413,9 +413,14 @@ npm run followups:index:check # heading ⟺ index-row GATE over docs/open-follow
                             # ★★ Exit 1 = DRIFT (a heading with no row, a row with no heading, a
                             # §number used twice, or a table that is not exactly what a rebuild writes);
                             # exit 2 = the gate COULD NOT SCAN (markers missing or duplicated, either set
-                            # empty, a row the rebuild cannot parse, or under the 50-per-axis floor its
-                            # two sibling followup gates already use). A scan that reads nothing passes everything, so
+                            # empty, a row the rebuild cannot parse, or under its 50-per-axis floor). A scan that reads nothing passes everything, so
                             # 2 is the load-bearing code and demands the opposite response to 1.
+                            # ★★ That 50 counts EVERY heading, closed ones included, so it never falls
+                            # on a closure. The gates that count OPEN entries (claims · status ·
+                            # workitems · github) import ONE floor instead, `MIN_OPEN_ENTRIES` in
+                            # `followup-claims-lib.mjs` — 50 until 2026-10-08, when 50 linked entries
+                            # meant the next closure would turn CI red. Read it there, not here:
+                            #   grep -n "MIN_OPEN_ENTRIES =" scripts/followup-claims-lib.mjs
                             # ★★★ THE MARKER MATCH IS WHOLE-LINE AND THAT IS LOAD-BEARING. The marker
                             # strings have also appeared inside fenced code samples above the real
                             # table, and `src.indexOf(INDEX_BEGIN)` then slices the SAMPLE, which holds

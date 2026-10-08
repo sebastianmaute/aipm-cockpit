@@ -10,6 +10,18 @@ import { ABSENCE_MARKERS, isGatedSymbolName } from "./agents-symbols-lib.mjs";
 
 export const REGISTER = "docs/open-followups.md";
 
+/** ★★★ THE ONE VACUITY FLOOR FOR EVERY GATE THAT COUNTS OPEN ENTRIES — claims,
+ *  status, workitems and github import it rather than carrying a copy each. A
+ *  scan below it exits 2 (CANNOT SCAN): the guard is against a parser that
+ *  reads ALMOST nothing (one heading shape recognised, the rest silently
+ *  dropped) and then reports full coverage at exit 0. It is NOT a quota on the
+ *  register. It was 50 in five places until 2026-10-08, when the register held
+ *  exactly 50 issue-linked entries and 60 open ones, so closing a single issue
+ *  would have turned CI red for a register that was healthy. 10 still sits far
+ *  below any real register and far above the one-shape parse it exists to
+ *  catch. Today's open count: `npm run followups:status:check` prints it. */
+export const MIN_OPEN_ENTRIES = 10;
+
 /** ★★★ THIS SWEEP'S OWN FILES, EXCLUDED FROM THE TREE IT JUDGES AGAINST — the
  *  same hazard `GATE_SELF_FILES` documents at three stars in the symbol gate,
  *  reproduced here because the design invites it: the test file's whole method

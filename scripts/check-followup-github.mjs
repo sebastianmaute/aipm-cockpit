@@ -59,8 +59,6 @@ const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 const BODY_EXCERPT_CHARS = 2000;
 const PER_PAGE = 100;
 const MAX_PAGES = 50;
-const MIN_OPEN_ENTRIES = 50;
-const MIN_REGISTER_ISSUES = 50;
 
 // ★★★ Checked FIRST, before anything else — including the token. Until the flip
 // sets the repository variable, issues live on GitLab and this job must stay a
@@ -107,7 +105,7 @@ function apiBase() {
   return raw.slice(0, end);
 }
 
-function readOpenEntries(parseEntries, isClosed) {
+function readOpenEntries(parseEntries, isClosed, MIN_OPEN_ENTRIES) {
   let src;
   try {
     src = readFileSync(REGISTER, "utf8");
@@ -186,7 +184,9 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length > 0) throw new CannotCompare(`unknown argument(s) ${args.join(" ")} — this command takes none`);
 
-  const { parseEntries, isClosed } = await import("./followup-claims-lib.mjs");
+  // One floor for both axes: the shared vacuity floor (followup-claims-lib.mjs).
+  const { parseEntries, isClosed, MIN_OPEN_ENTRIES } = await import("./followup-claims-lib.mjs");
+  const MIN_REGISTER_ISSUES = MIN_OPEN_ENTRIES;
   const { compareWithTracker, TRACKER_PROBLEM_HELP } = await import("./followup-workitem-lib.mjs");
   const { parseNextLink, toTrackerIssue } = await import("./github-issues-lib.mjs");
 
@@ -194,7 +194,7 @@ async function main() {
   if (!repo) throw new CannotCompare("missing GITHUB_REPOSITORY");
 
   const timeout = timeoutMs();
-  const entries = readOpenEntries(parseEntries, isClosed);
+  const entries = readOpenEntries(parseEntries, isClosed, MIN_OPEN_ENTRIES);
   const startUrl = `${apiBase()}/repos/${repo}/issues?state=open&per_page=${PER_PAGE}`;
   const issues = await fetchOpenIssues(startUrl, timeout, toTrackerIssue, parseNextLink);
 

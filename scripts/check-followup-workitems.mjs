@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
+import { parseEntries, isClosed, MIN_OPEN_ENTRIES } from "./followup-claims-lib.mjs";
 import { workItemViolations, VIOLATION_HELP } from "./followup-workitem-lib.mjs";
 
 const REGISTER = "docs/open-followups.md";
@@ -17,10 +17,10 @@ try {
 
 const entries = parseEntries(src);
 const open = entries.filter((e) => !isClosed(e.title));
-/** ★★★ 50, NOT 0 — the same floor as the two sibling gates over this file, for
- *  the same measured reason: a parser that drops all but one heading shape
- *  otherwise reports full coverage at exit 0. */
-const MIN_OPEN_ENTRIES = 50;
+/** ★★★ NOT 0 — the shared `MIN_OPEN_ENTRIES` (followup-claims-lib.mjs), the same
+ *  floor as the sibling gates over this file, for the same measured reason: a
+ *  parser that drops all but one heading shape otherwise reports full coverage
+ *  at exit 0. */
 if (open.length < MIN_OPEN_ENTRIES) {
   console.error(
     `CANNOT SCAN: parsed only ${open.length} open entries from ${REGISTER}` +

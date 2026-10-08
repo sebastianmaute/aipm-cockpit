@@ -47,9 +47,11 @@ const { missingRows, orphanRows, duplicateHeadings, duplicateRows, headingCount,
  *  nothing, which is the reachable failure: a parser that recognises one shape
  *  and silently drops the rest would report "3 headings scanned — in sync" over
  *  a register with 410 unexamined entries, at exit 0, in a BLOCKING job.
- *  `check-followup-claims.mjs` and `check-followup-status.mjs` have always
- *  refused below 50; this matches their floor rather than inventing a third
- *  number. */
+ *  ★★ It is deliberately NOT the shared `MIN_OPEN_ENTRIES` (followup-claims-lib.mjs)
+ *  the open-entry gates use: this gate counts EVERY heading and row, closed
+ *  ones included, and a closure keeps its heading, so the count never falls
+ *  when an issue closes and the stricter 50 costs nothing. The open-entry
+ *  floor had to drop to 10 because that count DOES fall. */
 const MIN_ENTRIES = 50;
 if (headingCount < MIN_ENTRIES || rowCount < MIN_ENTRIES) {
   console.error(

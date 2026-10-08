@@ -31,7 +31,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { isClosed, parseEntries } from "./followup-claims-lib.mjs";
+import { isClosed, MIN_OPEN_ENTRIES, parseEntries } from "./followup-claims-lib.mjs";
 import { parseWorkItem, workItemLines } from "./followup-workitem-lib.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
@@ -242,11 +242,14 @@ const ROWS = [
     outHas: ["CANNOT COMPARE: missing GITHUB_REPOSITORY"],
   },
   {
-    name: "fewer than 50 register issues exits 2 — a blind fetch, not drift",
-    respond: paged(REAL.slice(0, 10)),
+    name: "fewer than MIN_OPEN_ENTRIES register issues exits 2 — a blind fetch, not drift",
+    respond: paged(REAL.slice(0, MIN_OPEN_ENTRIES - 1)),
     code: 2,
     requests: [pageReq(1)],
-    outHas: ["fetched only 10 register issues among 10 open issues (floor is 50 register issues)"],
+    outHas: [
+      `fetched only ${MIN_OPEN_ENTRIES - 1} register issues among ${MIN_OPEN_ENTRIES - 1} open issues ` +
+        `(floor is ${MIN_OPEN_ENTRIES} register issues)`,
+    ],
   },
   {
     // ★★ The floor counts REGISTER issues: counted over all open issues, these 60
@@ -352,12 +355,14 @@ const ROWS = [
     outHas: ["unknown argument(s) --fix"],
   },
   {
-    name: "fewer than 50 open entries exits 2 and sends nothing",
-    cwd: () => smallRegisterDir(10),
+    name: "fewer than MIN_OPEN_ENTRIES open entries exits 2 and sends nothing",
+    cwd: () => smallRegisterDir(MIN_OPEN_ENTRIES - 1),
     respond: paged(REAL),
     code: 2,
     requests: [],
-    outHas: ["parsed only 10 open entries from docs/open-followups.md (floor is 50)"],
+    outHas: [
+      `parsed only ${MIN_OPEN_ENTRIES - 1} open entries from docs/open-followups.md (floor is ${MIN_OPEN_ENTRIES})`,
+    ],
   },
   {
     // ★★ The canary starts 10 chars before the 2000-char excerpt cut. Redacted

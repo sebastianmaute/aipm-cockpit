@@ -19,7 +19,7 @@ import {
   entryViolations,
   CLOSED_CUTOFF,
 } from "./followup-status-lib.mjs";
-import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
+import { parseEntries, isClosed, MIN_OPEN_ENTRIES } from "./followup-claims-lib.mjs";
 
 const entry = (...body) => ({ n: 1, title: "t", startLine: 1, body });
 const register = () =>
@@ -237,8 +237,8 @@ describe("closed-entry gate (§429)", () => {
 // An earlier cut tripped exit 2 only at ZERO entries, so a parser that
 // recognised one heading shape and dropped the rest reported "1 open entries
 // scanned — all conforming" at exit 0, green, inside a BLOCKING job. Measured
-// against a fixture, then fixed to match `check-followup-claims.mjs`'s
-// long-standing floor of 50 rather than inventing a second number.
+// against a fixture, then fixed to the floor `check-followup-claims.mjs` used.
+// Since 2026-10-08 every such gate imports one `MIN_OPEN_ENTRIES`.
 //
 // ★ Newlines here are REAL, inside template literals, not `\n` escapes. Three
 // separate patches in this file's history were mangled by escape handling before
@@ -288,7 +288,14 @@ no headings here
 body
 `);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/floor is 50/);
+    expect(r.stderr).toContain(`(floor is ${MIN_OPEN_ENTRIES})`);
+  });
+
+  it("exits 2 one below the shared floor and 0 at it — the floor is MIN_OPEN_ENTRIES, not a copy", () => {
+    const below = runAgainst(manyConforming(MIN_OPEN_ENTRIES - 1));
+    expect(below.status).toBe(2);
+    expect(below.stderr).toContain(`(floor is ${MIN_OPEN_ENTRIES})`);
+    expect(runAgainst(manyConforming(MIN_OPEN_ENTRIES)).status).toBe(0);
   });
 
   it("exits 1 on drift once enough entries parse", () => {
