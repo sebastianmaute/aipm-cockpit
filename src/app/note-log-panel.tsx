@@ -121,6 +121,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
               label={editLabel}
               lang={lang}
               editorRef={editEditor}
+              bounded
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -274,6 +275,9 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             label={composerLabel}
             lang={lang}
             editorRef={composerEditor}
+            // §680: the floating window is fixed-height, so an unbounded draft
+            // would push the notes below it out of reach.
+            bounded
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">

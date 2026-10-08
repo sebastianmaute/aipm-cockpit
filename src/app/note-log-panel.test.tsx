@@ -131,6 +131,20 @@ describe("NoteLogPanel", () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
+  // §680: both editors sit in fixed-height surfaces (the floating window), so
+  // each caps its height and scrolls inside. The composer's cap is also pinned
+  // in a real browser by e2e/note-log-scroll.spec.ts; the edit box's only here.
+  it("caps the composer and the edit box, which then scroll inside (§680)", async () => {
+    setup();
+    const composer = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
+    expect(composer.className).toMatch(/\bmax-h-48\b/);
+    expect(composer.className).toMatch(/\boverflow-y-auto\b/);
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1` }));
+    const editor = await screen.findByRole("textbox", { name: t(EN, "edit") });
+    expect(editor.className).toMatch(/\bmax-h-48\b/);
+    expect(editor.className).toMatch(/\boverflow-y-auto\b/);
+  });
+
   it("edits a note: committing calls onEdit(id, html, text)", async () => {
     const { onEdit } = setup();
     fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1` }));

@@ -120,6 +120,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Long note logs and long notes stay reachable (§679, §680).** In the task editor, a long note log
+  scrolled inside a small box of its own, inside the editor's scrolling form, so older notes and the
+  box's scroll bar ended up out of reach. The log now takes its full height and the editor's one scroll
+  bar reaches every note. In the floating notes window, a long new note grew past the bottom of the
+  window with no scroll bar; the note box, and the box for editing an existing note, now stop at a
+  maximum height and scroll inside, so the notes below stay in view.
 - **AI reassignments now show (§375).** Asking the assistant to reassign tasks changed the stored name but
   kept the old person's link to the resource directory and their email address, so every view went on
   showing the old person and status inquiries still went to them. When the assistant names a new person

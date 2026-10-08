@@ -561,10 +561,14 @@ export function TaskFormFields({
             >
               {t(lang, "noteLogTitle")} ({taskNotePanel.entries.length})
             </summary>
-            {/* ★ NoteLogPanel's root is a FRAGMENT and its entry list relies on
-                `min-h-0 flex-1`, so the consumer must supply the bounded flex
-                column; without it the list grows unbounded inside the modal. */}
-            <div className="mt-2 flex max-h-72 flex-col overflow-auto pr-2">
+            {/* ★ NoteLogPanel's root is a FRAGMENT whose entry list is
+                `min-h-0 flex-1 overflow-auto`: inside a BOUNDED flex column (the
+                floating notes window) it is the scroller. Here the column is
+                deliberately UNBOUNDED, so the list takes its full height and the
+                editor form is the one scroller. A height cap here (it was
+                `max-h-72`) left the list a ~100 px strip scrolling inside the box
+                inside the form, its scroll bar below the form's fold (§679). */}
+            <div className="mt-2 flex flex-col">
               <NoteLogPanel {...taskNotePanel} />
             </div>
           </details>
