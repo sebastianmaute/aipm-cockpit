@@ -124,6 +124,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The Notes log count in the Change and RAID editors updates while the editor is open.** A note added
+  in the floating notes window with the editor open did not change the editor's "Notes log (n)" count
+  until you reopened it; the count now comes from the saved item, as in the task editor.
 - **Long note logs and long notes stay reachable (§679, §680).** In the task editor, a long note log
   scrolled inside a small box of its own, inside the editor's scrolling form, so older notes and the
   box's scroll bar ended up out of reach. The log now takes its full height and the editor's one scroll

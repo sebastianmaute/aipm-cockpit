@@ -77,6 +77,10 @@ export interface ChangeEditModalProps {
    *  popouts; the button is also disabled for an unsaved (new) draft, which has
    *  no persisted id to resolve. */
   onOpenNotes?: (id: number) => void;
+  /** The STORED change's note count, for the Notes button. Not the draft's: the
+   *  draft is a snapshot taken at open, while the notes window writes straight
+   *  through to the workspace, so a note added with the editor open must count. */
+  noteCount: number;
   /** §486 — Outlook sync is configured for change decision dates; shows the
    *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */
   calendarSyncEnabled?: boolean;
@@ -121,6 +125,7 @@ export function ChangeEditModal({
   onCancel,
   onDelete,
   onOpenNotes,
+  noteCount,
   calendarSyncEnabled,
 }: ChangeEditModalProps) {
   const showToast = useToastContext();
@@ -466,7 +471,7 @@ export function ChangeEditModal({
               onClick={() => onOpenNotes?.(draft.id)}
               disabled={!onOpenNotes || isNew}
             >
-              {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
+              {t(lang, "noteLogTitle")} ({noteCount})
             </Button>
           </div>
 

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cloneElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
@@ -822,5 +822,15 @@ describe("RaidEditModal — Sync to Outlook (§486)", () => {
   it("is absent while Outlook sync is not configured", () => {
     render(<Host initial={makeDraft()} onSave={vi.fn()} />, { wrapper });
     expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});
+
+// The notes window writes straight through to the workspace while the editor's
+// draft is a snapshot taken at open, so the button counts the STORED row.
+describe("RaidEditModal — Notes button count", () => {
+  it("shows the stored row's note count, not the draft's", () => {
+    const stored = makeDraft({ id: 9, noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }, { id: 2, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n2</p>", text: "n2" }] });
+    render(cloneElement(modalEl({ id: 9, noteLog: [] }), { raid: [stored] }), { wrapper });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (2)` })).toBeInTheDocument();
   });
 });

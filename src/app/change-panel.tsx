@@ -536,6 +536,7 @@ function ChangePanelBody({
             onCancel={closeModal}
             onDelete={commitDelete}
             onOpenNotes={onOpenNotes}
+            noteCount={changes.find((c) => c.id === draft.id)?.noteLog?.length ?? 0}
             calendarSyncEnabled={calendarEnabled}
           />
         )

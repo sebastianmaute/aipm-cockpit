@@ -39,6 +39,7 @@ const draft: ChangeItem = { id: 1, title: "Widen scope", description: "", type: 
 const base = {
   lang: "en-US" as const, tasks: [], raid: [], draft, isNew: false,
   onChange: vi.fn(), onApplyStatus: vi.fn(), onSave: vi.fn(), onCancel: vi.fn(), onDelete: vi.fn(),
+  noteCount: 0,
 };
 
 function change(over: Partial<ChangeItem> = {}): ChangeItem {
@@ -756,5 +757,14 @@ describe("ChangeEditModal — Sync to Outlook (§486)", () => {
   it("is absent while Outlook sync is not configured", () => {
     renderModal();
     expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});
+
+// The notes window writes straight through to the workspace while the draft is a
+// snapshot taken at open, so the button shows the stored count it is handed.
+describe("ChangeEditModal — Notes button count", () => {
+  it("shows noteCount, not the draft's note log length", () => {
+    renderModal({ noteCount: 3, draft: change({ noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }] }) });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (3)` })).toBeInTheDocument();
   });
 });

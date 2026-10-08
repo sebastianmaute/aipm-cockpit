@@ -527,7 +527,10 @@ export function RaidEditModal({
               onClick={() => onOpenNotes?.(draft.id)}
               disabled={!onOpenNotes || isNew}
             >
-              {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
+              {/* The STORED row's count, not the draft's: the draft is a snapshot
+                  taken at open, while the notes window writes straight through to
+                  the workspace, so a note added with the editor open must count. */}
+              {t(lang, "noteLogTitle")} ({raid.find((r) => r.id === draft.id)?.noteLog?.length ?? 0})
             </Button>
           </div>
 
