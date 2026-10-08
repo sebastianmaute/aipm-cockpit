@@ -89,6 +89,32 @@ describe("TaskKanban column cap (§5)", () => {
     expect(cardsIn("Done")).toHaveLength(100);
   });
 
+  // Final review: a keyboard user who presses Show more must land on the first card it
+  // revealed — not on <body> when the button unmounts, and not below the new cards.
+  describe("focus after Show more", () => {
+    const firstFocusableIn = (taskId: number) =>
+      screen.getByTestId(`kanban-card-${taskId}`).querySelector<HTMLElement>("button, select, [tabindex]");
+
+    it("moves focus to the first newly revealed card", () => {
+      const all = tasksIn("To Do", 250);
+      board(all);
+      const button = moreButton("To Do")!;
+      button.focus();
+      fireEvent.click(button);
+      expect(document.activeElement).toBe(firstFocusableIn(all[100]!.id));
+    });
+
+    it("keeps focus on a card when the last page removes the button", () => {
+      const all = tasksIn("To Do", 150);
+      board(all);
+      const button = moreButton("To Do")!;
+      button.focus();
+      fireEvent.click(button);
+      expect(moreButton("To Do")).toBeNull();
+      expect(document.activeElement).toBe(firstFocusableIn(all[100]!.id));
+    });
+  });
+
   describe("deep-link flash (§5, spec Collisions 3)", () => {
     // The hook queries [data-deeplink-row] on the NEXT animation frame, so the card
     // must be rendered by the render that carries the new flashId.

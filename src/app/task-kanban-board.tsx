@@ -3,7 +3,7 @@
 // Named distinctly from the pure `task-kanban.ts` (grouping engine) it imports:
 // a bare `./task-kanban` import resolves `.ts` AHEAD of `.tsx`, so a sibling
 // `task-kanban.tsx` would silently hijack the engine import (see AGENTS.md).
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./button";
 import { usePrinting } from "./use-printing";
 import { type Lang, t } from "./i18n";
@@ -135,6 +135,18 @@ export function TaskKanban({
       }
     }
   }
+  // ★ Focus after "Show more": the first card the click revealed takes focus. Without it a
+  //   keyboard user lands on <body> when the last page removes the button, and below the
+  //   new cards otherwise. The click records the column and the index here; the effect
+  //   below focuses the card once it is in the DOM. A ref and a DOM call, no state.
+  const reveal = useRef<{ column: Element; index: number } | null>(null);
+  useEffect(() => {
+    const target = reveal.current;
+    if (!target) return;
+    reveal.current = null;
+    const card = target.column.querySelectorAll(`[data-testid^="kanban-card-"]`)[target.index];
+    card?.querySelector<HTMLElement>("button, select, [tabindex]")?.focus();
+  });
   // A printout must hold every card.
   const printing = usePrinting();
   const limitOf = (status: TaskStatus): number => (printing ? Infinity : (limits[status] ?? KANBAN_COLUMN_PAGE));
@@ -203,9 +215,11 @@ export function TaskKanban({
               lang={lang}
               status={status}
               hidden={cols[status].length - Math.min(cols[status].length, limitOf(status))}
-              onShowMore={() =>
-                setLimits((prev) => ({ ...prev, [status]: (prev[status] ?? KANBAN_COLUMN_PAGE) + KANBAN_COLUMN_PAGE }))
-              }
+              onShowMore={(button) => {
+                const column = button.closest("section");
+                if (column) reveal.current = { column, index: Math.min(cols[status].length, limitOf(status)) };
+                setLimits((prev) => ({ ...prev, [status]: (prev[status] ?? KANBAN_COLUMN_PAGE) + KANBAN_COLUMN_PAGE }));
+              }}
             />
           </div>
         </section>
@@ -220,11 +234,12 @@ function ShowMoreButton({ lang, status, hidden, onShowMore }: {
   lang: Lang;
   status: TaskStatus;
   hidden: number;
-  onShowMore: () => void;
+  /** Called with the button, so the board can find the column it sits in. */
+  onShowMore: (button: HTMLButtonElement) => void;
 }) {
   if (hidden <= 0) return null;
   return (
-    <Button variant="ghost" size="xs" data-testid={`kanban-show-more-${status}`} onClick={onShowMore}>
+    <Button variant="ghost" size="xs" data-testid={`kanban-show-more-${status}`} onClick={(e) => onShowMore(e.currentTarget)}>
       {t(lang, "kanbanShowMore", String(Math.min(KANBAN_COLUMN_PAGE, hidden)), t(lang, statusLabelKey(status)), String(hidden))}
     </Button>
   );
