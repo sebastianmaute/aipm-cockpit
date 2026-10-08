@@ -190,6 +190,7 @@ function ChatPanelImpl({
   onChatSeedConsumed,
   onConfigureAi,
   projectId = "default",
+  assetsProjectId,
   getChatConversation,
   saveChatConversation,
   tursoMode = false,
@@ -239,6 +240,7 @@ function ChatPanelImpl({
       onChatSeedConsumed={onChatSeedConsumed}
       onConfigureAi={onConfigureAi}
       projectId={projectId}
+      assetsProjectId={assetsProjectId}
       getChatConversation={getChatConversation}
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
@@ -325,6 +327,11 @@ interface ChatProposalProps {
  *  ChatPanel behaves as a fresh, non-persisted conversation. */
 interface ChatConversationStoreProps {
   projectId?: string;
+  /** The image byte-store key for the chat card's document download (§207): the
+   *  key the Documents pane writes under (`liveAssetPartitionKey`), which is NOT
+   *  the thread's `projectId` on single-tenant Turso storage. Falls back to
+   *  `projectId` when absent (tests, popouts). */
+  assetsProjectId?: string;
   getChatConversation?: (projectId: string) => ChatConversation | undefined;
   saveChatConversation?: (projectId: string, conv: ChatConversation) => void;
 }
@@ -347,6 +354,7 @@ function ChatPanelInner({
   onChatSeedConsumed,
   onConfigureAi,
   projectId = "default",
+  assetsProjectId,
   getChatConversation,
   saveChatConversation,
   tursoMode = false,
@@ -1503,7 +1511,7 @@ function ChatPanelInner({
                     input={item.input}
                     result={item.result}
                     error={item.error}
-                    lang={lang} tursoConfig={tursoConfig} projectId={projectId} exportFooter={exportFooter}
+                    lang={lang} tursoConfig={tursoConfig} projectId={assetsProjectId ?? projectId} exportFooter={exportFooter}
                   />
                 )}
                 {/* ★★★ THE ID MATCH IS THE CLEAR. The marker is persisted and

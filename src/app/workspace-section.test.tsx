@@ -11,6 +11,7 @@ import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
+import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { defaultSettings } from "./settings-types";
 import { createRef } from "react";
 import type { ToolDispatcher } from "./chat-tools";
@@ -823,6 +824,18 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     const props = chatPanelMock.props.at(-1)!;
     expect(props.tursoMode).toBe(true);
     expect(props.tursoConfig).not.toBeNull();
+  });
+
+  // §207 review fix: the chat card's document download reads image bytes, and must
+  // read them under the key the Documents pane writes them under — not the chat
+  // thread's portfolio id, which on single-tenant Turso storage is the registry id.
+  it("hands ChatPanel the asset key the Documents pane uses, not the chat thread's project id", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    render(<WorkspaceSection {...makeProps({ mode: "file", currentProjectId: "registry-7" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.assetsProjectId).toBe(SINGLE_TENANT_ASSET_PARTITION);
+    expect(props.projectId).toBe("registry-7");
   });
 
   it("mode=turso with NO Turso credentials configured: ChatPanel receives tursoMode false", async () => {

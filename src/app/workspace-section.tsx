@@ -1,5 +1,6 @@
 "use client";
 import type React from "react";
+import { liveAssetPartitionKey } from "./asset-partition-live";
 import {
   useCallback,
   useMemo,
@@ -440,6 +441,9 @@ export function WorkspaceSection({
             chatSeed={pendingChatSeed}
             onChatSeedConsumed={clearChatSeed}
             projectId={currentProjectId ?? "default"}
+            // §207: image bytes for the chat card's document download, under the SAME
+            // key the Documents pane writes them with — not the thread's project id.
+            assetsProjectId={liveAssetPartitionKey(settings.storageConfig.kind)}
             getChatConversation={getChatConversation}
             saveChatConversation={saveChatConversation}
             tursoMode={chatTursoMode}
