@@ -53,7 +53,7 @@ async function labelled(id: string, label: string, w: number, h: number, bg: str
 }
 
 /** A labelled image of gaussian noise, which PNG cannot compress: about 4.7 MB,
- *  under the 5 MB upload cap, so six of them pass the 25 MB HTML budget. */
+ *  under the 5 MB upload cap, so six of them exceed the 25 MB HTML budget. */
 async function noisy(id: string, label: string): Promise<Img> {
   const w = 1250;
   const h = 1250;
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
     blocks: unknown[],
     images: Img[],
     formats: Format[],
-    check: (format: Format, text: string, media: string[]) => string | null,
+    check: (format: Format, text: string, media: string[], slides: string[]) => string | null,
     gone: string[] = [],
   ): Promise<void> {
     const doc = { id: 1, title, blocks, createdAt: "2026-10-08T00:00:00.000Z", updatedAt: "2026-10-08T00:00:00.000Z" } as unknown as Doc;
@@ -137,6 +137,7 @@ async function main(): Promise<void> {
       let bytes: Buffer;
       let text: string;
       let media: string[] = [];
+      let slides: string[] = [];
       if (format === "html") {
         text = renderDocumentHtml(doc, ws, "en-US", "standalone", assets);
         bytes = Buffer.from(text, "utf8");
@@ -145,10 +146,15 @@ async function main(): Promise<void> {
         bytes = Buffer.from(await blob.arrayBuffer());
         const zip = await unzipBytes(blob);
         media = [...zip.keys()].filter((k) => /\/media\//.test(k));
+        // Each slide's XML, in slide order, so a check can say which slide a picture is on.
+        slides = [...zip.entries()]
+          .filter(([k]) => /^ppt\/slides\/slide\d+\.xml$/.test(k))
+          .sort(([x], [y]) => Number(x.match(/\d+/)![0]) - Number(y.match(/\d+/)![0]))
+          .map(([, v]) => new TextDecoder().decode(v));
         text = [...zip.entries()].filter(([k]) => k.endsWith(".xml")).map(([, v]) => new TextDecoder().decode(v)).join("\n");
       }
       const name = `${file}.${format}`;
-      const problem = check(format, text, media);
+      const problem = check(format, text, media, slides);
       if (problem) {
         failures.push(`${name}: ${problem}`);
         continue;
@@ -202,11 +208,27 @@ async function main(): Promise<void> {
   await sample("6-webp", "§219 item 6: a WebP image", [para("Below: a WebP image."), img("webp-image", "WebP"), para("End.")],
     [w], ["docx", "pptx"], (_f, _text, media) => (media.some((m) => m.endsWith(".webp")) ? null : `expected a .webp media part, found ${media.join(", ") || "none"}`));
 
-  // Item 7: deck length — prose plus one ordinary screenshot.
+  // Item 7: deck length. Since §222 a picture is scaled onto the current slide when
+  // at least half a slide (8 of 16 body lines) is left, else it starts the next one.
+  // Two samples sit well clear of that threshold, and the check reads which slide
+  // the picture landed on rather than trusting the line arithmetic.
   const shot = await labelled("screenshot", "Screenshot", 1600, 900, "#dddddd");
-  await sample("7-deck-length", "§219 item 7: prose and one screenshot",
-    [para(PROSE), para(PROSE), img("screenshot", "Screenshot"), para(PROSE)], [shot], ["pptx"],
-    (_f, _text, media) => (media.length === 1 ? null : `expected 1 media part, found ${media.length}`));
+  const slideOf = (slides: string[], needle: string) => slides.findIndex((x) => x.includes(needle));
+  await sample("7a-deck-short-lead", "§219 item 7a: one line, then a screenshot",
+    [para("SHORT-LEAD: one line before the screenshot."), img("screenshot", "Screenshot")], [shot], ["pptx"],
+    (_f, _text, media, slides) => {
+      if (media.length !== 1) return `expected 1 media part, found ${media.length}`;
+      const t = slideOf(slides, "SHORT-LEAD"), pic = slideOf(slides, "<p:pic>");
+      return t >= 0 && t === pic ? null : `expected the screenshot on the text's slide, found text on ${t + 1}, picture on ${pic + 1}`;
+    });
+  const longLead = "LONG-LEAD: " + "This sentence fills the slide so the screenshot has too little room left. ".repeat(12);
+  await sample("7b-deck-long-lead", "§219 item 7b: a long paragraph, then a screenshot",
+    [para(longLead), img("screenshot", "Screenshot")], [shot], ["pptx"],
+    (_f, _text, media, slides) => {
+      if (media.length !== 1) return `expected 1 media part, found ${media.length}`;
+      const t = slideOf(slides, "LONG-LEAD"), pic = slideOf(slides, "<p:pic>");
+      return t >= 0 && pic === t + 1 ? null : `expected the screenshot on the slide after the text, found text on ${t + 1}, picture on ${pic + 1}`;
+    });
 
   // Item 8: one image used several times — once alone twice, then twice in one paragraph.
   const reused = await labelled("reused", "Reused", 600, 300, "#d7b8e8");

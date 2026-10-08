@@ -554,9 +554,11 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
     expect(btn).toBeEnabled();
     await user.click(btn);
     expect(onOpenNotes).toHaveBeenCalledTimes(1);
-    // No inline log: neither a note's text nor a composer renders in the editor.
+    // No inline log: neither a note's text nor the panel's Add button renders in the
+    // editor. Both are synchronous: the composer itself sits behind a lazy boundary, so
+    // a query for it could pass before it would have mounted.
     expect(screen.queryByText("Kickoff held")).toBeNull();
-    expect(screen.queryByRole("textbox", { name: new RegExp(`^${t("en-US", "noteLogPlaceholder")}`) })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(`^${t("en-US", "noteLogAdd")}`) })).toBeNull();
   });
 
   it("for a new task the Blockers button is disabled with no count, like Notes", () => {

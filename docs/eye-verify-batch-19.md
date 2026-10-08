@@ -8,7 +8,7 @@ what you saw, and note anything that looks wrong beside its line.
 npx jiti scripts/sample-image-exports.ts eye-verify-output/batch-19/office
 ```
 
-It writes 14 files to `eye-verify-output/batch-19/office/` (git-ignored) and refuses any that fails
+It writes 15 files to `eye-verify-output/batch-19/office/` (git-ignored) and refuses any that fails
 its byte-level checks. Every image carries a big label and, on most, its pixel size, so you can
 tell the images apart and judge order and size by eye. The images go through the same per-format
 rule a real download uses: HTML and PDF are capped at 25 MB of images, Word and PowerPoint are not.
@@ -32,7 +32,7 @@ used.
 
 `4-over-budget.*` holds six 4.7 MB images, "Big 1" to "Big 6", about 28 MB in all.
 
-- [ ] `4-over-budget.html` in a **browser** (it is a 31 MB file): Big 1 to Big 5 draw, and where
+- [ ] `4-over-budget.html` in a **browser** (about 31 MB, as the script reports it): Big 1 to Big 5 draw, and where
   Big 6 would be there is the text "[Image: big-6.png]". Print it to PDF: the PDF shows the same.
 - [ ] `4-over-budget.docx` in **Word** and `4-over-budget.pptx` in **PowerPoint**: all six draw,
   with no placeholder. Word and PowerPoint have no budget.
@@ -44,7 +44,7 @@ used.
 
 - [ ] In all three (`.html` in a browser, `.docx` in Word, `.pptx` in PowerPoint): "Present"
   draws, and where the second image would be there is a visible marker, not a silent gap. In Word
-  and PowerPoint that is the text "[Image: gone.png]"; the HTML shows an empty box with a dashed border.
+  and PowerPoint that is the text "[Image: gone.png]"; the HTML shows a box with a dashed border, holding the image's alt text, "Gone".
 
 ## Item 6: WebP
 
@@ -55,9 +55,14 @@ used.
 
 ## Item 7: deck length
 
-- [ ] `7-deck-length.pptx` in **PowerPoint**: count the slides. The "Screenshot" picture is expected
-  to sit alone on its own slide, between the slides of text. Note the count and whether that
-  layout reads well.
+Since §222 (2026-10-02) a picture is scaled down onto the current slide when at least half the slide
+is still free, and otherwise starts the next slide. Two samples sit clear of that line.
+
+- [ ] `7a-deck-short-lead.pptx` in **PowerPoint**: one line of text, then the "Screenshot" picture
+  scaled onto the SAME slide below it, readable and not overlapping the text. One content slide.
+- [ ] `7b-deck-long-lead.pptx` in **PowerPoint**: a long paragraph fills most of the first slide,
+  and the "Screenshot" picture starts the NEXT slide, at full slide size.
+- [ ] Either way: say whether the layout reads well.
 
 ## Item 8: one image used four times
 

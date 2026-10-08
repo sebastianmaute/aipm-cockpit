@@ -52,8 +52,8 @@ export function NotesWindow(props: NotesWindowProps) {
           `role="dialog"` aria-label already announces the entity, so its row
           controls are unambiguous within it — adding a real suffix would
           change every existing accessible name. `labelSuffix` is now a
-          required prop specifically so a future third mount site cannot
-          omit it and collide silently; this is the "no suffix" case, made
+          required prop specifically so a second mount site (the task
+          editor had one until 2026-10-08) cannot omit it and collide silently; this is the "no suffix" case, made
           explicit rather than implicit.
 
           ★ `aiReadable` is FORWARDED, never defaulted here: this window serves

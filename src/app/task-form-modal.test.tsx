@@ -343,13 +343,6 @@ describe("TaskFormModal — Documents field", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Inline note log (slice B)
-// ---------------------------------------------------------------------------
-
-// TWO entries, so the summary count is distinguishable from the unsaved-task
-// fallback's 0. There is no competing draft copy any more — the form carries
-// no note log (open-followups §29) — so the count can only come from these.
 describe("task-form-modal panel size", () => {
   beforeEach(() => {
     stubTaskForm();
