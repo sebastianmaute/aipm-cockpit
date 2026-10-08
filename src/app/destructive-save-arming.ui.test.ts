@@ -102,8 +102,11 @@ function isArmCall(n: ts.Node): boolean {
 }
 
 /** The name a function is known by: its declaration, the variable or property it
- *  is assigned to (through a `useCallback`/`useMemo` wrapper), or the JSX prop it
- *  is passed as. Undefined for an unnamed inner callback, so the walk goes on up. */
+ *  is assigned to (through any call it is an argument of, such as `useCallback` or
+ *  `guardEdit`), or the JSX prop it is passed as. Undefined for an unnamed inner
+ *  callback, so the walk goes on up. ★ A local result can name it too
+ *  (`const r = ids.map(() => setX(…filter…))` names the site `r`): that fails
+ *  CLOSED, as an unarmed `r`, so read such a red as a naming miss, not a missing arm. */
 function functionName(fn: ts.Node): string | undefined {
   if (ts.isFunctionDeclaration(fn) || ts.isMethodDeclaration(fn)) return fn.name?.getText();
   // Climb through every call the function is an ARGUMENT of (`useCallback(fn, deps)`,
@@ -120,9 +123,10 @@ function functionName(fn: ts.Node): string | undefined {
   return undefined;
 }
 
-/** A site named for a component (PascalCase) or the module: judged by that whole
- *  scope, where any arm would pass it, so it is refused rather than judged. */
-const isUnresolved = (s: Site): boolean => s.fn === "<module>" || /^[A-Z]/.test(s.fn);
+/** A site named for a component (PascalCase), a hook (`useX`) or the module: judged by
+ *  that whole scope, where any arm would pass it, so it is refused rather than judged.
+ *  A refused site has no exemption path: give the delete a named handler instead. */
+const isUnresolved = (s: Site): boolean => s.fn === "<module>" || /^([A-Z]|use[A-Z0-9])/.test(s.fn);
 
 /** Every filter-into-counted-setter site in one source. Pure, so the fixture
  *  cases below can feed it text. */
@@ -202,6 +206,16 @@ describe("scanSource (the scanner itself)", () => {
   it("refuses a site that only resolves to its component", () => {
     const [site] = scan(`function Comp() { useEffect(() => { setTasks((p) => p.filter(Boolean)); }); }`);
     expect(site!.fn).toBe("Comp");
+    expect(isUnresolved(site!)).toBe(true);
+  });
+
+  // ★ Review finding: a hook body is a scope too. An unnamed effect in a hook that
+  //   arms in ANOTHER handler would otherwise be judged armed.
+  it("refuses a site that only resolves to its hook", () => {
+    const [site] = scan(
+      `export function useFoo() { const del = useCallback(() => { allowDestructiveSave(); }, []); useEffect(() => { setRaid((p) => p.filter(Boolean)); }, []); }`,
+    );
+    expect(site).toMatchObject({ fn: "useFoo", armed: true });
     expect(isUnresolved(site!)).toBe(true);
   });
 

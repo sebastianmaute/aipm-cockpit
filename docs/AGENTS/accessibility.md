@@ -255,11 +255,12 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
   Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
   COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
+  + 7 pink-count-badge scans (one per combo, §681)
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
   scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
-  hardcoded, so none scales with the combo count) = **132** axe tests, plus ONE non-scan guard test
+  hardcoded, so none scales with the combo count) = **139** axe tests, plus ONE non-scan guard test
   (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **140**
-  tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
+  tests total in the spec file (measured 2026-10-08 with `npx playwright test e2e/a11y.spec.ts --list`; this line once said 128/129 while the file held 131, and on 2026-10-08 said 140 over a breakdown still summing to 132). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
   `grep -c "a11y:"` over that output splits scans from the guard.
