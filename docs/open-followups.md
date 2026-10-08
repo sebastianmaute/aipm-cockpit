@@ -323,7 +323,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--closed-2026-09-14) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | **CLOSED** 2026-09-14 |
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
-| [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--open) | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open |
+| [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--closed-2026-10-08) | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | **CLOSED** 2026-10-08 |
 | [§83](#83-emailname-disagreement-in-the-fk-backfill-resolves-silently-to-email--closed-2026-09-25) | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | closed |
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
@@ -6696,11 +6696,15 @@ two are controls that pass under both old and new code, and none exercised the a
 
 ---
 
-## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — open
+## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — CLOSED 2026-10-08
 
-**Status:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-10-08 — the premise is disproved, and the backfill stays where it is (owner's decision). Three findings, each with its command:
+1. **The chain is not one-shot, so moving the backfill into it would not make it one-shot.** `schemaVersion` is written and never read: `grep -rn schemaVersion src/app --include=*.ts --include=*.tsx | grep -v test` lists only the writer in `workspace.ts` and two comments. Every `migrateWorkspaceV5`…`V10` is an idempotent pass that runs again on every decode; V9 already re-links absences, RAID and shifts by email on every load, exactly as this backfill does for tasks.
+2. **The chain no longer misses CSV, Markdown or Turso.** `grep -rn "migrateWorkspaceV10(" src/app --include=*.ts | grep -v test` finds it in all five decoders: JSON (`workspace.ts`), IndexedDB (`browser-backend.ts`), CSV (`csv-codecs-decode.ts`), Markdown (`markdown-codecs-decode.ts`) and Turso (`turso-schema.ts`).
+3. **The reverse is the real reach constraint.** Three inputs never pass a decoder and reach only the funnel call: the version restore, which parses with a raw `JSON.parse` (`use-version-history.ts`), and the two built workspaces of create project and create demo project (`use-storage-file-ops.ts`, `use-storage-turso-ops.ts`). Moving the backfill into the chain alone would lose all three, and keeping both would only add a pass.
+★ The one real concern below, that nothing can say "this task names someone who is deliberately NOT the same-named directory resource", is a data-model question, not a placement one, and it applies to V9's absences, RAID and shifts equally. It would need a new entry, filed on `origin/main`.
 
-**Work item:** #122
+**Status before this update:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 `backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
 `applyRestoredWorkspace` (`use-version-history-wiring.ts`, in `task-manager.tsx` until §491 moved it), not from `migrateWorkspaceV*`. That placement is
