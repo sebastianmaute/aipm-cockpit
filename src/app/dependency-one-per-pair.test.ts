@@ -4,6 +4,7 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import { resolveSuccessorLinks } from "./successor-links";
 import type { Task, TaskDependency } from "./types";
 import * as diagnostics from "./diagnostics";
+import { TOOL_DEFS } from "./chat-tool-defs";
 
 // §135: a task pair carries at most ONE dependency type (owner decision
 // 2026-10-08). A second link to the same task with a different type used to
@@ -93,5 +94,12 @@ describe("one dependency link per task pair (§135)", () => {
       before: [{ taskId: 1, type: "FS" }, { taskId: 3, type: "FF" }],
       after: [{ taskId: 1, type: "SS" }, { taskId: 3, type: "FF" }],
     });
+  });
+
+  // The model learns the rule from the tool's own description, or it reads a refused
+  // second type as an exact repeat (final review of §135).
+  it("the set_task_dependencies tool tells the model a pair carries one type", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "set_task_dependencies")!;
+    expect(def.description).toContain("only ONE type");
   });
 });

@@ -249,8 +249,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         liveIds: ReadonlySet<number>,
         stamp: string,
       ): Task => {
+        // ★ Against the SANITIZED baseline the resolver compared with, not the raw
+        // `before`: a stored mixed pair keeps its FIRST type, so its second half is not
+        // 'already there' — counted raw, picking it looked like nothing to add while the
+        // notice reported a type change (final review of §135).
+        const baseline = sanitizeDependencies(edit.before, liveIds, row.id);
         const added = edit.after.filter(
-          (a) => !edit.before.some((b) => b.taskId === a.taskId && b.type === a.type),
+          (a) => !baseline.some((b) => b.taskId === a.taskId && b.type === a.type),
         );
         // §135: one link per task pair. An added link to a task the row already
         // links is a TYPE CHANGE, so it replaces that link in place; appended

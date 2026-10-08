@@ -1546,6 +1546,26 @@ describe("useTaskSubmit — a successor type change (§135)", () => {
     expect(showToast.mock.calls.at(-1)).toEqual(["info", tPlural("en-US", "depSuccessorsSkipped", 1, 1)]);
   });
 
+  // Final review: a target still holding a mixed pair in memory (FS then SS to this
+  // task) keeps FS, so picking SS IS a change — counted against the RAW stored list it
+  // looked like nothing to add, and the notice claimed a change that was never written.
+  it("applies the type change a notice reports, even over a stored mixed pair", () => {
+    const mixed = makeTask({ id: 2, dependencies: [{ taskId: 1, type: "FS" }, { taskId: 1, type: "SS" }, { taskId: 3, type: "FF" }] });
+    const setTasks = vi.fn();
+    const showToast = vi.fn();
+    const all = [own, mixed, other];
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, showToast, editingId: 1, tasks: all, tasksRef: { current: all },
+        form: { ...validForm(), successorLinks: [{ taskId: 2, type: "SS" }] },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls.at(-1)![0] as (p: Task[]) => Task[];
+    expect(updater(all).find((r) => r.id === 2)!.dependencies).toEqual([{ taskId: 1, type: "SS" }, { taskId: 3, type: "FF" }]);
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
   it("says nothing, and changes nothing, when the link already has that type", () => {
     const { stored, showToast } = save([{ taskId: 2, type: "FS" }]);
     expect(stored).toEqual([{ taskId: 3, type: "FF" }, { taskId: 1, type: "FS" }]);
