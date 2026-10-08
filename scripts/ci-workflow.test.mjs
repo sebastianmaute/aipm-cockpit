@@ -381,6 +381,21 @@ describe("release.yml", () => {
     expect(b).toContain("node_modules[/\\\\]electron-updater[/\\\\]out[/\\\\]main\\.js");
     expect(b).toContain("node_modules[/\\\\]builder-util-runtime");
   });
+
+  // §561: the four fuses electron-builder.yml sets, read off the packaged exe. Each one the guard
+  // checks must be one the builder config sets, with the same value, so neither can drift alone.
+  it("guards that the packaged exe carries the electron-builder.yml fuses", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/fuses=desktop\/node_modules\/\.bin\/electron-fuses/);
+    expect(b).toContain('exe="desktop/release/win-unpacked/AI PM Cockpit.exe"');
+    expect(b).toMatch(/"\$fuses" read --app "\$exe"/);
+    const wants = [...b.matchAll(/"(\w+) is (Enabled|Disabled)"/g)].map((m) => [m[1], m[2] === "Enabled"]);
+    const eb = read("desktop/electron-builder.yml");
+    const block = /^electronFuses:\n((?:\s+.*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    const set = [...block.matchAll(/^\s+(\w+):\s*(true|false)/gm)].map((m) => [m[1].toLowerCase(), m[2] === "true"]);
+    expect(set.length).toBeGreaterThanOrEqual(4);
+    expect(wants.map(([k, v]) => [k.toLowerCase(), v]).sort()).toEqual(set.sort());
+  });
 });
 
 describe("electron-builder.yml agrees with the release library", () => {
