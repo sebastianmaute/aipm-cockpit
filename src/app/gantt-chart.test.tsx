@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { GanttChart } from "./gantt-chart";
 import { DEFAULT_PREFS, type GanttRow } from "./gantt-engine";
@@ -22,7 +22,7 @@ const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d))
 const MIN = utc(2026, 6, 1);
 const MAX = utc(2026, 7, 1);
 
-function renderChart(rows: GanttRow[]) {
+function renderChart(rows: GanttRow[], over: Partial<React.ComponentProps<typeof GanttChart>> = {}) {
   return render(
     <GanttChart
       scrollRef={{ current: null }}
@@ -63,6 +63,7 @@ function renderChart(rows: GanttRow[]) {
       startBarDrag={() => {}}
       onEditTask={() => {}}
       onEditMilestone={() => {}}
+      {...over}
     />,
   );
 }
@@ -90,5 +91,53 @@ describe("GanttChart row set (§273)", () => {
 
     expect(screen.getByRole("button", { name: "Design" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Kickoff" })).toBeInTheDocument();
+  });
+});
+
+// §5 row window (use-gantt-row-window.ts): above VIRTUALIZE_MIN_ROWS rows only a window of
+// rows renders, each row root names its key for the focus pin, and a dragged row stays.
+describe("GanttChart row window (§5)", () => {
+  const taskRows = (n: number): GanttRow[] =>
+    Array.from({ length: n }, (_, i) => ({
+      kind: "task" as const,
+      task: { id: i + 1, taskName: `T${i + 1}`, assignee: "", priority: "Medium", dueDate: "" } as unknown as Task,
+      bar: { start: utc(2026, 6, 5), end: utc(2026, 6, 10) },
+    }));
+  const rendered = () => [...document.querySelectorAll("[data-gantt-row]")].map((e) => e.getAttribute("data-gantt-row"));
+  // jsdom lays nothing out, and a 0 × 0 scroll box gives the virtualizer an empty range.
+  // A 640 px box (20 rows) stands in for the browser's.
+  const sized = (prop: "offsetHeight" | "offsetWidth", px: number) => {
+    const before = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)!;
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => px });
+    return () => Object.defineProperty(HTMLElement.prototype, prop, before);
+  };
+  let restore: (() => void)[] = [];
+  beforeEach(() => {
+    restore = [sized("offsetHeight", 640), sized("offsetWidth", 1000)];
+  });
+  afterEach(() => restore.forEach((r) => r()));
+
+  it("renders every row, each naming its key, at the threshold", () => {
+    renderChart(taskRows(200));
+    expect(rendered()).toHaveLength(200);
+    expect(rendered()[199]).toBe("t-200");
+  });
+
+  it("renders a window of rows above the threshold", () => {
+    renderChart(taskRows(250));
+    const keys = rendered();
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.length).toBeLessThan(250);
+    expect(keys[0]).toBe("t-1");
+  });
+
+  it("keeps the row being dragged mounted outside the window", () => {
+    renderChart(taskRows(250), { draggingId: 240 });
+    expect(rendered()).toContain("t-240");
+  });
+
+  it("keeps the row whose bar is being dragged mounted outside the window", () => {
+    renderChart(taskRows(250), { barDrag: { taskId: 245 } as never });
+    expect(rendered()).toContain("t-245");
   });
 });
