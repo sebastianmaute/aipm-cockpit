@@ -563,12 +563,13 @@ export function TaskFormFields({
             </summary>
             {/* ★ NoteLogPanel's root is a FRAGMENT whose entry list is
                 `min-h-0 flex-1 overflow-auto`: inside a BOUNDED flex column (the
-                floating notes window) it is the scroller. Here the column is
-                deliberately UNBOUNDED, so the list takes its full height and the
-                editor form is the one scroller. A height cap here (it was
-                `max-h-72`) left the list a ~100 px strip scrolling inside the box
-                inside the form, its scroll bar below the form's fold (§679). */}
-            <div className="mt-2 flex flex-col">
+                floating notes window) it is the scroller. Here the wrapper is a
+                plain BLOCK with no height, so those flex classes do nothing, the
+                list takes its full height and the editor form is the one
+                scroller. A height cap here (it was `max-h-72` on a flex column)
+                left the list a ~100 px strip scrolling inside the box inside the
+                form, its scroll bar below the form's fold (§679). */}
+            <div className="mt-2">
               <NoteLogPanel {...taskNotePanel} />
             </div>
           </details>

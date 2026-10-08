@@ -308,7 +308,8 @@ export function RichTextEditor(props: RichTextEditorProps) {
         role: "textbox",
         "aria-multiline": "true",
         // ★ One height for one editor. A caller needing more room passes a
-        // class; do not reintroduce a size variant for it.
+        // class; do not reintroduce a size variant for it. `bounded` is not
+        // one: it adds a CEILING over the same starting height (§680).
         class:
           `min-h-24 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green${props.bounded ? " max-h-48 overflow-y-auto" : ""}`,
       },
