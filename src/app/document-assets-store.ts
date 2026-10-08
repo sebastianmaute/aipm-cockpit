@@ -27,11 +27,13 @@ export async function loadAssetData(
   return rows[0]?.data ?? null;
 }
 
-/** Ids present in the byte table, in any partition (§207 — the same set
- *  `loadAssetData` can read). The library diffs this against the metadata
- *  slice to mark rows dangling without pulling a single image. */
-export async function loadAssetDataIds(config: TursoConfig | null): Promise<string[]> {
-  const results = await runTursoPipeline(config, [...ddl(), ...assetDataIdsSelect()]);
+/** Ids present in the byte table that `loadAssetData` can read under
+ *  `projectId` (§207). The library diffs this against the metadata slice to
+ *  mark rows dangling without pulling a single image. */
+export async function loadAssetDataIds(
+  config: TursoConfig | null, projectId: string,
+): Promise<string[]> {
+  const results = await runTursoPipeline(config, [...ddl(), ...assetDataIdsSelect(projectId)]);
   return rowsToAssetData(results[DOCUMENT_ASSET_DATA_DDL.length]).map((r) => r.id);
 }
 

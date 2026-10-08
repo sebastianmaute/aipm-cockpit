@@ -64,18 +64,23 @@ export const ASSET_PARTITION_FALLBACK = "default";
 /** The ONE key a single-tenant Turso backend writes asset bytes under (§207).
  *  That layout's METADATA table has no `project_id` column — the database IS
  *  the project — so its bytes must not be split by whichever file-registry
- *  project happens to be current. Bytes stored under an older key (the
- *  registry id, or `ASSET_PARTITION_FALLBACK`) are still read, because
- *  `assetDataSelect` finds an id in any partition; a delete under this key
- *  clears every partition, since the whole database is one project. */
+ *  project happens to be current. Under THIS key alone a read and the id list
+ *  reach every partition (`assetDataSelect`, `assetDataIdsSelect`): before
+ *  §207 those bytes were written under the registry id or
+ *  `ASSET_PARTITION_FALLBACK`, and that is how they stay readable with nothing
+ *  re-keyed. A delete stays strict, so a legacy row is left behind as an orphan
+ *  (no metadata points at it) rather than risking another project's bytes. */
 export const SINGLE_TENANT_ASSET_PARTITION = "single-tenant";
 
-/** The byte-store key for the backend in scope (§207), mirroring the layout
- *  `createBackend` (storage.ts) builds: Turso STORAGE with a non-empty tenant
- *  project id is the TENANT backend (whatever the portfolio mode says — the
- *  stored id alone decides it there), Turso storage without one is
- *  SINGLE-TENANT. Any other storage keeps the key it always had, because its
- *  metadata rides each registry project's own file. */
+/** The byte-store key for the backend in scope (§207). Turso storage in TURSO
+ *  portfolio mode with a project selected keys on that tenant project, strictly
+ *  — what the project hard-delete sweep removes. Turso storage otherwise takes
+ *  the single-tenant key, including a tenant id left stored from an earlier
+ *  Turso-portfolio session while the portfolio is now in FILE mode: `createBackend`
+ *  builds a tenant backend from that id, but its bytes were written under the
+ *  file registry's id until §207, and only the single-tenant key reads those.
+ *  Any other storage keeps the key it always had, because its metadata rides
+ *  each registry project's own file. */
 export function assetPartitionKey(args: {
   storageKind: StorageKind;
   tursoProjectId: string | null;
@@ -83,7 +88,9 @@ export function assetPartitionKey(args: {
   registryProjectId: string | null;
 }): string {
   const { storageKind, tursoProjectId, portfolioMode, registryProjectId } = args;
-  if (storageKind === "turso") return tursoProjectId || SINGLE_TENANT_ASSET_PARTITION;
+  if (storageKind === "turso") {
+    return portfolioMode === "turso" && tursoProjectId ? tursoProjectId : SINGLE_TENANT_ASSET_PARTITION;
+  }
   return portfolioMode === "turso"
     ? (tursoProjectId || ASSET_PARTITION_FALLBACK)
     : (registryProjectId || ASSET_PARTITION_FALLBACK);
@@ -120,23 +127,32 @@ export const DOCUMENT_ASSET_DATA_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS document_asset_data (id TEXT, project_id TEXT, data TEXT, PRIMARY KEY (id, project_id))`,
 ];
 
-/** One asset's bytes. ★★ Found in ANY partition, preferring `projectId`'s row
- *  (§207). An asset id is a `crypto.randomUUID()`, so every row carrying it is
- *  that asset's bytes; the partition decides where a write lands and what a
- *  project delete sweeps, not whether a read may see it. That is also the
- *  migration: bytes stored under a key an older build used stay readable, so
- *  nothing had to be re-keyed. */
-export const assetDataSelect = (id: string, projectId: string): SqlStmt[] => [{
-  sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1`,
-  args: [txt(id), txt(projectId)],
-}];
+/** One asset's bytes, under `projectId`. ★★ Under `SINGLE_TENANT_ASSET_PARTITION`
+ *  ONLY, any partition is read, preferring the key's own row (§207): that is the
+ *  migration for bytes an older build wrote under the registry id. Every other
+ *  key, a tenant project's above all, reads its own partition and nothing else.
+ *  ★ The cross-partition read is NOT harmless in general, which is why it is
+ *  confined: an exported workspace imported into another project shares its
+ *  asset ids, so a tenant read across partitions would show project A's bytes
+ *  in project B, healthy-looking, until A deleted them (review of §207). */
+export const assetDataSelect = (id: string, projectId: string): SqlStmt[] =>
+  projectId === SINGLE_TENANT_ASSET_PARTITION
+    ? [{
+        sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1`,
+        args: [txt(id), txt(projectId)],
+      }]
+    : [{
+        sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id = ?`,
+        args: [txt(id), txt(projectId)],
+      }];
 
 /** Ids only — the library lists names and sizes from the METADATA slice, so it
- *  must never pull bytes to render. Every partition, each id once, matching
- *  what `assetDataSelect` can read (§207). */
-export const assetDataIdsSelect = (): SqlStmt[] => [{
-  sql: `SELECT DISTINCT id, '' AS project_id, '' AS data FROM document_asset_data`,
-}];
+ *  must never pull bytes to render. The same reach as `assetDataSelect`: every
+ *  partition (each id once) under the single-tenant key, the key's own otherwise. */
+export const assetDataIdsSelect = (projectId: string): SqlStmt[] =>
+  projectId === SINGLE_TENANT_ASSET_PARTITION
+    ? [{ sql: `SELECT DISTINCT id, '' AS project_id, '' AS data FROM document_asset_data` }]
+    : [{ sql: `SELECT id, project_id, '' AS data FROM document_asset_data WHERE project_id = ?`, args: [txt(projectId)] }];
 
 export function assetDataUpsert(row: AssetDataRow): SqlStmt[] {
   return [{
@@ -145,13 +161,14 @@ export function assetDataUpsert(row: AssetDataRow): SqlStmt[] {
   }];
 }
 
-/** A tenant delete stays inside its partition. A single-tenant delete clears
- *  the id from EVERY partition (§207): the database is one project, and bytes
- *  an older build wrote under the registry id would otherwise outlive it. */
-export const assetDataDelete = (id: string, projectId: string): SqlStmt[] =>
-  projectId === SINGLE_TENANT_ASSET_PARTITION
-    ? [{ sql: `DELETE FROM document_asset_data WHERE id = ?`, args: [txt(id)] }]
-    : [{ sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] }];
+/** A delete stays inside `projectId`'s partition, whatever the key. Under the
+ *  single-tenant key a legacy copy under the registry id is left behind as an
+ *  orphan: clearing every partition would also remove another project's bytes
+ *  for an id two projects share (an imported workspace) — review of §207. */
+export const assetDataDelete = (id: string, projectId: string): SqlStmt[] => [{
+  sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`,
+  args: [txt(id), txt(projectId)],
+}];
 
 export function rowsToAssetData(res: PipelineResultLike | undefined): AssetDataRow[] {
   return rowObjects(res).map((r) => ({

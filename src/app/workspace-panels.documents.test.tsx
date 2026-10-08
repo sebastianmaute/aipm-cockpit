@@ -347,9 +347,10 @@ describe("DocumentsTabPanel — the assetPane bag", () => {
     await waitFor(() => expect(assetPaneOf(seen.at(-1)!).projectId).toBe(SINGLE_TENANT_ASSET_PARTITION));
   });
 
-  it("keys tenant Turso storage on the tenant project id", async () => {
+  it("keys tenant Turso storage on the tenant project id in Turso portfolio mode", async () => {
     renderTab(false, () => {
       seedFilePortfolioWithTurso();
+      savePortfolioMode("turso");
       saveCurrentTursoProjectId("tenant-9");
       window.localStorage.setItem(
         SETTINGS_KEY,

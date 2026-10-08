@@ -679,15 +679,21 @@ the metadata row from the registry orphans every byte row and leaves the library
 key has to follow the BACKEND LAYOUT rather than the portfolio/registry state (§207, closed).
 `colDdl` emits no project column for the single-DB layout (the whole database IS the project), while
 `DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always.
-`assetPartitionKey` (`document-assets-schema.ts`) mirrors `createBackend`: Turso storage with a
-tenant id keys on that id, Turso storage without one writes under `SINGLE_TENANT_ASSET_PARTITION`
-whatever registry project is current, and any other storage keeps the portfolio/registry key it
-always had. ★★ A READ finds an asset id in ANY partition, preferring the current key
-(`assetDataSelect`), and the dangling-id list spans every partition (`assetDataIdsSelect`). That is
-sound because asset ids are `crypto.randomUUID()`, and it is the whole migration: bytes stored under a
-key an older build used stay readable, so nothing had to be re-keyed. A single-tenant delete clears
-the id from every partition; a tenant delete stays in its own. The mitigations still in place
-beside it are the Safe Mode refusal below and the `hardDeleteProject` cleanup above.
+`assetPartitionKey` (`document-assets-schema.ts`): Turso storage in Turso portfolio mode with a
+project selected keys on that tenant project; any other Turso storage writes under
+`SINGLE_TENANT_ASSET_PARTITION` whatever registry project is current (a tenant id left stored while the
+portfolio is in file mode included: its bytes were written under the registry id until §207); any
+other storage keeps the portfolio/registry key it always had. ★★ Under the single-tenant key ALONE a
+read and the id list reach every partition, preferring the key's own row (`assetDataSelect`,
+`assetDataIdsSelect`): that is the whole migration, since bytes stored under an older key stay readable
+and nothing had to be re-keyed. ★★★ IT IS CONFINED ON PURPOSE. Unique ids (`crypto.randomUUID()`) rule
+out collisions, NOT copies: a workspace exported from project A and imported into B shares A's asset
+ids, so a tenant read across partitions would show A's bytes in B as healthy images, which vanish when
+A deletes them or is hard-deleted, and which B's own delete cannot remove. A tenant key therefore reads,
+lists and deletes its own partition only, and a delete is strict under every key — under the
+single-tenant key a legacy copy under the registry id is left behind as an orphan rather than risk
+another project's bytes for a shared id. The mitigations still in place beside it are the Safe Mode
+refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
 `""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as
 this feature existed and NO call site ever produced one — anything written by a caller who believed

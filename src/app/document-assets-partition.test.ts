@@ -8,21 +8,22 @@ import type { SqlStmt } from "./turso-schema";
 
 // §207: single-tenant asset METADATA is global to the database, but the BYTES
 // were keyed on the file registry's current project, so a registry switch read
-// every image under a different key and every asset turned dangling. The key
-// now follows the backend layout `createBackend` builds, and a read finds an
-// asset's bytes by its id in any partition (ids are `crypto.randomUUID()`),
-// preferring the current key — which is also how bytes already stored under
-// an old key stay readable without a re-key migration.
+// every image under a different key and every asset turned dangling. A
+// single-tenant backend now writes under one fixed key, and under that key ALONE
+// a read reaches every partition, which keeps bytes written under an old key
+// readable without a re-key. A tenant project stays strict: an imported
+// workspace shares asset ids with the project it came from, so a tenant read
+// across partitions would show another project's bytes (review of §207).
 
 describe("assetPartitionKey (§207)", () => {
-  it("keys a tenant Turso backend on its tenant project id", () => {
+  it("keys a tenant project in Turso portfolio mode on its id", () => {
     expect(assetPartitionKey({ storageKind: "turso", tursoProjectId: "t1", portfolioMode: "turso", registryProjectId: "r1" })).toBe("t1");
   });
 
-  // createBackend builds the tenant backend from the stored id whatever the
-  // portfolio mode says, so the key must follow it there too.
-  it("follows the tenant id in file portfolio mode too, as createBackend does", () => {
-    expect(assetPartitionKey({ storageKind: "turso", tursoProjectId: "t1", portfolioMode: "file", registryProjectId: "r1" })).toBe("t1");
+  // A tenant id left stored from an earlier Turso-portfolio session: its bytes were
+  // written under the registry id until §207, which only the single-tenant key reads.
+  it("takes the single-tenant key for a stale tenant id in file portfolio mode", () => {
+    expect(assetPartitionKey({ storageKind: "turso", tursoProjectId: "t1", portfolioMode: "file", registryProjectId: "r1" })).toBe(SINGLE_TENANT_ASSET_PARTITION);
   });
 
   it("keys a single-tenant Turso backend on one fixed key, whatever registry project is current", () => {
@@ -55,50 +56,68 @@ describe("asset byte statements executed against SQLite (§207)", () => {
   const run = (stmts: SqlStmt[]) =>
     stmts.flatMap((s) => db.prepare(s.sql).all(...(s.args ?? []).map((a) => a.value ?? null)) as Record<string, string>[]);
   const put = (id: string, projectId: string, data: string) => run(assetDataUpsert({ id, projectId, data }));
+  const ST = SINGLE_TENANT_ASSET_PARTITION;
 
   beforeEach(() => {
     db = new DatabaseSync(":memory:");
     for (const sql of DOCUMENT_ASSET_DATA_DDL) db.exec(sql);
   });
 
-  it("reads bytes written under another key, so a registry switch leaves no asset dangling", () => {
-    put("a1", "r1", "OLD");
-    expect(run(assetDataSelect("a1", SINGLE_TENANT_ASSET_PARTITION)).map((r) => r.data)).toEqual(["OLD"]);
+  describe("under the single-tenant key", () => {
+    it("reads bytes written under an older key, so a registry switch leaves no asset dangling", () => {
+      put("a1", "r1", "OLD");
+      expect(run(assetDataSelect("a1", ST)).map((r) => r.data)).toEqual(["OLD"]);
+    });
+
+    it("prefers its own row when the id sits in several partitions", () => {
+      put("a1", "r1", "OLD");
+      put("a1", ST, "NEW");
+      put("a1", "r2", "OTHER");
+      expect(run(assetDataSelect("a1", ST)).map((r) => r.data)).toEqual(["NEW"]);
+    });
+
+    it("lists each stored id once across partitions, without bytes", () => {
+      put("a1", "r1", "X");
+      put("a1", "r2", "Y");
+      put("a2", "r2", "Z");
+      const rows = run(assetDataIdsSelect(ST));
+      expect(rows.map((r) => r.id).sort()).toEqual(["a1", "a2"]);
+      expect(rows.every((r) => r.data === "")).toBe(true);
+    });
+
+    // An id two projects share (an imported workspace) must not lose the other
+    // project's bytes; the legacy copy is left as an orphan instead.
+    it("deletes only its own row", () => {
+      put("a1", ST, "NEW");
+      put("a1", "r1", "OLD");
+      run(assetDataDelete("a1", ST));
+      expect(run(assetDataSelect("a1", "r1")).map((r) => r.data)).toEqual(["OLD"]);
+    });
   });
 
-  it("prefers the current key's row when the id sits in several partitions", () => {
-    put("a1", "r1", "OLD");
-    put("a1", SINGLE_TENANT_ASSET_PARTITION, "NEW");
-    put("a1", "r2", "OTHER");
-    expect(run(assetDataSelect("a1", SINGLE_TENANT_ASSET_PARTITION)).map((r) => r.data)).toEqual(["NEW"]);
+  describe("under a tenant key", () => {
+    it("does not read another project's bytes for a shared id", () => {
+      put("a1", "t2", "THEIRS");
+      expect(run(assetDataSelect("a1", "t1"))).toEqual([]);
+    });
+
+    it("lists only its own ids", () => {
+      put("a1", "t1", "MINE");
+      put("a2", "t2", "THEIRS");
+      expect(run(assetDataIdsSelect("t1")).map((r) => r.id)).toEqual(["a1"]);
+    });
+
+    it("deletes inside its own partition, after which its read is honestly empty", () => {
+      put("a1", "t1", "MINE");
+      put("a1", "t2", "THEIRS");
+      run(assetDataDelete("a1", "t1"));
+      expect(run(assetDataSelect("a1", "t1"))).toEqual([]);
+      expect(run(assetDataSelect("a1", "t2")).map((r) => r.data)).toEqual(["THEIRS"]);
+    });
   });
 
   it("returns no row for an id stored nowhere", () => {
     put("a1", "r1", "OLD");
-    expect(run(assetDataSelect("a2", "r1"))).toEqual([]);
-  });
-
-  it("lists each stored id once across partitions, without bytes", () => {
-    put("a1", "r1", "X");
-    put("a1", "r2", "Y");
-    put("a2", "r2", "Z");
-    const rows = run(assetDataIdsSelect());
-    expect(rows.map((r) => r.id).sort()).toEqual(["a1", "a2"]);
-    expect(rows.every((r) => r.data === "")).toBe(true);
-  });
-
-  it("a single-tenant delete removes the asset's bytes from every partition", () => {
-    put("a1", "r1", "OLD");
-    put("a1", SINGLE_TENANT_ASSET_PARTITION, "NEW");
-    put("a2", "r1", "KEEP");
-    run(assetDataDelete("a1", SINGLE_TENANT_ASSET_PARTITION));
-    expect(run(assetDataIdsSelect()).map((r) => r.id)).toEqual(["a2"]);
-  });
-
-  it("a tenant delete stays inside its own partition", () => {
-    put("a1", "t1", "MINE");
-    put("a1", "t2", "THEIRS");
-    run(assetDataDelete("a1", "t1"));
-    expect(run(assetDataSelect("a1", "t1")).map((r) => r.data)).toEqual(["THEIRS"]);
+    expect(run(assetDataSelect("a2", ST))).toEqual([]);
   });
 });

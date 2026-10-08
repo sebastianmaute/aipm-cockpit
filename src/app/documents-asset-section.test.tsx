@@ -733,10 +733,10 @@ describe("documents asset byte partition", () => {
     expect(await screen.findByRole("button", { name: t("en-US", "upload") })).toBeEnabled();
   });
 
-  // ★★ The key is asserted as a LITERAL: comparing it to the exported constant
-  //    would stay green if the constant moved. The dangling-id read takes no
-  //    key since §207 — it lists every partition, as the byte read can see one.
-  it("writes bytes under the fallback partition and lists dangling ids across partitions", async () => {
+  // ★★ ONE key, asserted as a LITERAL on both sides. Comparing the two calls to
+  //    each other would stay green if both drifted together, and comparing
+  //    either to the exported constant would stay green if the constant moved.
+  it("writes bytes to and reads dangling ids from the same fallback partition", async () => {
     const d = doc(1, []);
     renderSection({ selected: d, documents: [d], projectId: "" });
 
@@ -745,7 +745,7 @@ describe("documents asset byte partition", () => {
     await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(1));
     expect(vi.mocked(saveAssetData).mock.calls[0][1].projectId).toBe("default");
     expect(vi.mocked(loadAssetDataIds).mock.calls.length).toBeGreaterThan(0);
-    for (const call of vi.mocked(loadAssetDataIds).mock.calls) expect(call).toHaveLength(1);
+    for (const [, key] of vi.mocked(loadAssetDataIds).mock.calls) expect(key).toBe("default");
   });
 
   it("passes a real project id straight through, without substituting the fallback", async () => {

@@ -270,7 +270,7 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
       // already bumped the epoch and every comparison below would be inert.
       const startEpoch = epochRef.current;
       try {
-        const presentIds = await loadAssetDataIds(config);
+        const presentIds = await loadAssetDataIds(config, projectId);
         if (cancelled) return;
         const present = new Set(presentIds);
         const next = new Set<string>();
