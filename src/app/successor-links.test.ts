@@ -142,13 +142,14 @@ describe("resolveSuccessorLinks", () => {
   // nor a refusal. Guards against an alreadyPresent check written on taskId alone.
   it("treats a second link type to the same target as a type change", () => {
     const tasks = [task(1, "Own"), task(2, "Target", [{ taskId: 1, type: "FS" }])];
-    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
+    const { edits, skipped, alreadyPresent, typeChanged } = resolveSuccessorLinks({
       ownId: 1,
       links: [{ taskId: 2, type: "SS" }],
       tasks,
     });
     expect(skipped).toBe(0);
     expect(alreadyPresent).toBe(0);
+    expect(typeChanged).toBe(1);
     expect(edits.get(2)?.after).toEqual([{ taskId: 1, type: "SS" }]);
   });
 

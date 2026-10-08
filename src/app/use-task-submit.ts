@@ -252,10 +252,16 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         const added = edit.after.filter(
           (a) => !edit.before.some((b) => b.taskId === a.taskId && b.type === a.type),
         );
+        // §135: one link per task pair. An added link to a task the row already
+        // links is a TYPE CHANGE, so it replaces that link in place; appended
+        // behind it, the first-link-wins sanitizer would keep the old type.
+        const live = row.dependencies ?? [];
+        const replaced = live.map((d) => added.find((a) => a.taskId === d.taskId) ?? d);
+        const appended = added.filter((a) => !live.some((d) => d.taskId === a.taskId));
         return {
           ...row,
           dependencies: sanitizeDependencies(
-            [...(row.dependencies ?? []), ...added],
+            [...replaced, ...appended],
             liveIds,
             row.id,
           ),
@@ -387,6 +393,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         });
         if (successors.skipped > 0) {
           showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
+        }
+        if (successors.typeChanged > 0) {
+          showToast("info", tPlural(lang, "depSuccessorsTypeChanged", successors.typeChanged, successors.typeChanged));
         }
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a

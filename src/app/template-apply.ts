@@ -54,12 +54,19 @@ function remapDeps(
   map: Map<number, number>,
 ): TaskDependency[] {
   if (!Array.isArray(deps)) return [];
+  // §135: one link per task pair, the first kept. A template saved before that rule can
+  // hold a mixed pair, and an applied seed reaches state without passing a load.
+  const linked = new Set<number>();
   return deps
     .map((d) => {
       const t = map.get(d.taskId);
       return t !== undefined ? { ...d, taskId: t } : null;
     })
-    .filter((d): d is TaskDependency => d !== null);
+    .filter((d): d is TaskDependency => {
+      if (d === null || linked.has(d.taskId)) return false;
+      linked.add(d.taskId);
+      return true;
+    });
 }
 
 /**

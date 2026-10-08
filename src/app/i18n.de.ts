@@ -1602,6 +1602,8 @@ export const de: Record<TranslationKey, string> = {
   depUnlinkSuccessor: "Nachfolger entfernen",
   depSuccessorsSkipped: "{0} Nachfolger-Verknüpfungen wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht oder würde einen Zyklus erzeugen.",
   depSuccessorsSkippedOne: "1 Nachfolger-Verknüpfung wurde nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht oder würde einen Zyklus erzeugen.",
+  depSuccessorsTypeChanged: "Bei {0} Nachfolger-Verknüpfungen wurde der Typ geändert: Zwei Aufgaben verbindet nur ein Typ.",
+  depSuccessorsTypeChangedOne: "Bei 1 Nachfolger-Verknüpfung wurde der Typ geändert: Zwei Aufgaben verbindet nur ein Typ.",
   depRelations: "Beziehungen",
   depDependsOn: "Abhängig von",
   depMissing: "fehlt",

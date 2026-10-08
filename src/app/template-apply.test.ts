@@ -71,6 +71,18 @@ describe("applyTemplate", () => {
     const ws = applyTemplate(emptyWorkspace(), tpl({ tasks: [mkTask(1, "S")] }), { includeSeed: false });
     expect(ws.tasks).toHaveLength(0);
   });
+  // §135 review fix: a template saved before one-link-per-pair can hold a mixed pair,
+  // and applying it writes tasks without a load, so the apply keeps the first link.
+  it("keeps one link per task pair from a seed that holds a mixed pair", () => {
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ tasks: [mkTask(1, "S1"), mkTask(2, "S2", [{ taskId: 1, type: "FS" }, { taskId: 1, type: "SS" }])] }),
+      { includeSeed: true },
+    );
+    const s1 = ws.tasks.find((t) => t.taskName === "S1")!;
+    expect(ws.tasks.find((t) => t.taskName === "S2")!.dependencies).toEqual([{ taskId: s1.id, type: "FS" }]);
+  });
+
   it("drops dependency refs that point outside the seed", () => {
     const ws = applyTemplate(
       emptyWorkspace(),

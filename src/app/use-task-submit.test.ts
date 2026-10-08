@@ -1503,3 +1503,43 @@ describe("useTaskSubmit — remainingEstimateMinutes threading", () => {
     expect(seeded.remainingEstimateMinutes).toBe(240);
   });
 });
+
+// §135 review fix: one link per task pair, so picking an existing successor with
+// ANOTHER type changes that link's type at SAVE — the resolver said so, but the
+// save appended the new link behind the stored one and the sanitizer kept the old.
+describe("useTaskSubmit — a successor type change (§135)", () => {
+  const own = makeTask({ id: 1 });
+  const target = makeTask({ id: 2, dependencies: [{ taskId: 3, type: "FF" }, { taskId: 1, type: "FS" }] });
+  const other = makeTask({ id: 3 });
+
+  function save(links: { taskId: number; type: "FS" | "SS" | "FF" | "SF" }[], create = false) {
+    const setTasks = vi.fn();
+    const showToast = vi.fn();
+    const all = [own, target, other];
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, showToast, editingId: create ? null : 1, tasks: all, tasksRef: { current: all },
+        form: { ...validForm(), successorLinks: links },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const arg = setTasks.mock.calls.at(-1)![0] as Task[] | ((p: Task[]) => Task[]);
+    const next = typeof arg === "function" ? arg(all) : arg;
+    return { stored: next.find((r) => r.id === 2)!.dependencies, showToast };
+  }
+
+  it("stores the new type in place of the old, keeping the target's other links", () => {
+    expect(save([{ taskId: 2, type: "SS" }]).stored).toEqual([{ taskId: 3, type: "FF" }, { taskId: 1, type: "SS" }]);
+  });
+
+  it("tells the user a link's type changed", () => {
+    const { showToast } = save([{ taskId: 2, type: "SS" }]);
+    expect(showToast).toHaveBeenCalledWith("info", "1 successor link changed its type: two tasks are linked by one type.");
+  });
+
+  it("says nothing, and changes nothing, when the link already has that type", () => {
+    const { stored, showToast } = save([{ taskId: 2, type: "FS" }]);
+    expect(stored).toEqual([{ taskId: 3, type: "FF" }, { taskId: 1, type: "FS" }]);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});

@@ -83,9 +83,10 @@ describe("one dependency link per task pair (§135)", () => {
   // the type. It replaces the stored link rather than adding a second one.
   it("a successor link to a target that already has another type replaces that type", () => {
     const tasks = [task(1), task(2, [{ taskId: 1, type: "FS" }, { taskId: 3, type: "FF" }]), task(3)];
-    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
+    const { edits, skipped, alreadyPresent, typeChanged } = resolveSuccessorLinks({
       ownId: 1, links: [{ taskId: 2, type: "SS" }], tasks,
     });
+    expect(typeChanged).toBe(1);
     expect(skipped).toBe(0);
     expect(alreadyPresent).toBe(0);
     expect(edits.get(2)).toEqual({
