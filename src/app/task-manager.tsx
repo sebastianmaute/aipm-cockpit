@@ -89,16 +89,15 @@ import { useDesktopVersionRequest } from "./use-desktop-version-request";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
-import { useSnapshots } from "./use-snapshots";
+import { useTrendSnapshots } from "./use-trend-snapshots";
 import { buildDemoWorkspace } from "./demo-workspace";
-import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { useInsightLifecycle } from "./use-insight-lifecycle";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
 import { getTursoConfig } from "./turso-config";
-import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { buildTaskEditorChrome } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -139,7 +138,6 @@ import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { usePortfolioProjects } from "./use-portfolio-projects";
 import { useNextActions } from "./use-next-actions";
 import type { SuggestedAction } from "./next-actions";
-import { computeActionTrends } from "./next-actions/trends";
 import { resolveTimezone, createProjectClock } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -289,7 +287,6 @@ function TaskManagerInner() {
     project,
     setProject,
     setFeatures,
-    budgetHistory,
     setBudgetHistory,
   } = useWorkspace();
 
@@ -549,57 +546,12 @@ function TaskManagerInner() {
   const shownStorageSource = storageError ? "backend" : tursoListFailure ? "list" : null; // §678: dismiss flags both; a flag lasts while its source fails
   if ((storageDismissed.backend && !storageError) || (storageDismissed.list && !tursoListFailure)) setStorageDismissed({ backend: storageDismissed.backend && !!storageError, list: storageDismissed.list && !!tursoListFailure });
 
-  // Baseline/variance trend snapshots. Active when the project's data lives in
-  // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR
-  // turso portfolio mode (Move-to-Turso) — in the main window with recording on.
-  const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
-  const trendsActive =
-    (settings.storageConfig.kind === "turso" || portfolioMode === "turso") &&
-    // Require a usable Turso config: storage kind can be "turso" while the URL /
-    // token are still unset or quarantined, and snapshot capture must not run
-    // (and throw StorageNotReadyError) against a null config.
-    tursoConfig !== null &&
-    !isPopout && snapshotsCfg.enabled &&
-    isModuleEnabled("trends", settings.features);
-  const snapshots = useSnapshots({
-    active: trendsActive, cadence: snapshotsCfg.cadence, tasks, workspaceReady: workspaceLoaded,
-    tursoConfig,
-    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
-    today: new Date(),
-    buildContext: () => {
-      // No snapshots here: a capture (`buildSnapshot`) reads only the model's burndown, progress,
-      // EVM and RAGs, none of which depend on them — and the list is this `useSnapshots` call's own
-      // return value, so passing it would need a self-reference.
-      const model = computeDashboard(
-        buildLiveDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
-          { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
-          null,
-        ),
-      );
-      return {
-        model,
-        tasks,
-        milestones,
-        buckets: budgets,
-        planEndDate: plan.endDate,
-      };
-    },
-    onError: (err) => {
-      // reportStorageOutcome now owns both the banner (all kinds) and the
-      // one-shot generic toast, so no explicit fallback toast is needed here.
-      reportStorageOutcome(err);
-    },
-    showToast, lang,
+  // Trend snapshots (recording gate, the useSnapshots call, the next-actions trend directions) and the
+  // render-scope dashboard model — see use-trend-snapshots.ts (§491).
+  const { trendsActive, snapshots, trends, actionTrends, dashboardModel } = useTrendSnapshots({
+    settings, portfolioMode, tursoConfig, isPopout, workspaceLoaded, tursoProjectId,
+    holidaySet, today, activityLog, reportStorageOutcome, showToast, lang,
   });
-  const trends = { ...snapshots, active: trendsActive };
-
-  // Aggregate-metric trend directions for the next-actions confidence ranking.
-  // Only meaningful when snapshots are recorded (Turso); undefined otherwise.
-  const actionTrends = useMemo(
-    () => (trendsActive ? computeActionTrends(snapshots.snapshots) : undefined),
-    [trendsActive, snapshots.snapshots],
-  );
 
   const raidEnabled = isModuleEnabled("raid", settings.features);
   const changesEnabled = isModuleEnabled("changes", settings.features);
@@ -756,23 +708,6 @@ function TaskManagerInner() {
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
 
-  // Render-scope dashboard model, read by Next Actions (`buildActionInput`'s `dashboard`), both
-  // `getDashboardModel` handlers (the AI assistant's dashboard snapshot and the meeting report) —
-  // NOT by the dashboard panel, which builds its own module-gated model and also passes `disciplines`/`grades`.
-  // Unlike the snapshot buildContext above it also passes the recorded snapshots, behind the
-  // same `trendsActive` gate the panel's `tursoActive` prop carries.
-  const snapshotRecords = snapshots.snapshots;
-  const dashboardModel = useMemo(
-    () =>
-      computeDashboard(
-        buildLiveDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
-          { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
-          { active: trendsActive, snapshots: snapshotRecords },
-        ),
-      ),
-    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes, budgetHistory, trendsActive, snapshotRecords],
-  );
 
   // --- Insights → Action Loop (#6B SP1) --------------------------------------
   // The detect → reconcile runner and the four lifecycle handlers live in

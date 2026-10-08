@@ -716,6 +716,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
   version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
   `use-reminder-banners.tsx` (the Birthday and Jira-token banners and the budget-bucket toast),
+`use-trend-snapshots.ts` (the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
+`dashboardModel`; coverage-GATED, pinned by its own `renderHook` test, memos kept on purpose — its header says why),
   `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
   `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
