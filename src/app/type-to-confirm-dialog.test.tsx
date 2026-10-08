@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
+import { Button } from "./button";
 
 const base = {
   lang: "en-US" as const,
@@ -29,6 +30,18 @@ describe("TypeToConfirmDialog", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Apollo" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  // §102: Cancel is the shared secondary Button. The confirm stays hand-rolled: it is a
+  // FILLED pink button and no Button variant draws that.
+  it("renders Cancel as the secondary Button", () => {
+    // The primitive's own classes, rendered rather than spelled, so a Button change cannot
+    // leave this assertion pinning a stale copy.
+    const ref = render(<Button variant="secondary" size="sm">x</Button>);
+    const expected = ref.container.querySelector("button")!.className;
+    ref.unmount();
+    render(<TypeToConfirmDialog {...base} />);
+    expect(screen.getByRole("button", { name: /cancel/i }).className).toBe(expected);
   });
 
   it("calls onCancel from the Cancel button", () => {

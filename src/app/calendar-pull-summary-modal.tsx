@@ -9,7 +9,7 @@
 
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { useRowTokens } from "./use-row-tokens";
 
 interface AppliedRow {
@@ -52,8 +52,6 @@ interface CalendarPullSummaryModalProps {
 
 const nameOfConflict = (c: ConflictRow) => c.name;
 
-const BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted";
 
 export function CalendarPullSummaryModal({
   lang,
@@ -84,13 +82,13 @@ export function CalendarPullSummaryModal({
               A wrong entry is worse than no icon. See docs/open-followups.md
               §456 for the entry collecting all seven. */}
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className={`${BUTTON_CLASS} ${INTERACTIVE}`}
           >
             {t(lang, "alertModalClose")}
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-6 px-6 py-4">
@@ -131,8 +129,9 @@ export function CalendarPullSummaryModal({
                       {c.outlookEndDate ? ` – ${c.outlookEndDate}` : ""}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         aria-label={`${t(lang, "calendarPullKeepApp")} – ${conflictTokens.get(c.id) ?? c.name}`}
                         onClick={() =>
                           onKeepApp({
@@ -142,12 +141,12 @@ export function CalendarPullSummaryModal({
                             appEndDate: c.appEndDate,
                           })
                         }
-                        className={`${BUTTON_CLASS} ${INTERACTIVE}`}
                       >
                         {t(lang, "calendarPullKeepApp")}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         aria-label={`${t(lang, "calendarPullTakeOutlook")} – ${conflictTokens.get(c.id) ?? c.name}`}
                         onClick={() =>
                           onTakeOutlook({
@@ -157,10 +156,9 @@ export function CalendarPullSummaryModal({
                             outlookEndDate: c.outlookEndDate,
                           })
                         }
-                        className={`${BUTTON_CLASS} ${INTERACTIVE}`}
                       >
                         {t(lang, "calendarPullTakeOutlook")}
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}

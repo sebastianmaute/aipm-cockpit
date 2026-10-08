@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
+import { Button } from "./button";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -273,5 +274,21 @@ describe("CalendarPullSummaryModal date-range (absence) rows", () => {
     );
     expect(screen.getByText(/2026-09-01 – 2026-09-10/)).toBeTruthy();
     expect(screen.getByText(/2026-09-02 – 2026-09-12/)).toBeTruthy();
+  });
+});
+
+// §102: the modal's four text buttons (Close and, per conflict, keep-app / take-Outlook /
+// the deletion's) are the shared secondary Button.
+describe("CalendarPullSummaryModal buttons", () => {
+  it("renders every text button as the secondary Button", () => {
+    // The primitive's own classes, rendered rather than spelled, so a Button change cannot
+    // leave this assertion pinning a stale copy.
+    const ref = render(<Button variant="secondary" size="sm">x</Button>);
+    const expected = ref.container.querySelector("button")!.className;
+    ref.unmount();
+    setup();
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.length).toBeGreaterThan(1);
+    for (const b of buttons) expect(b.className).toBe(expected);
   });
 });

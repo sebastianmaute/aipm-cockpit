@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildTaskEditorChrome, TaskDeleteButton, TaskEditorActions, TaskEditorExtras, type TaskEditorChromeDeps } from "./task-editor-actions";
 import type { Task } from "./types";
+import { Button } from "./button";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -90,6 +91,18 @@ describe("TaskDeleteButton", () => {
 
     fireEvent.click(btn);
     expect(onDelete).toHaveBeenCalledWith(99);
+  });
+
+  // §102: the footer's Delete was the last hand-rolled footer button (px-4, beside three
+  // size="sm" buttons). It is the destructive Button now, plus its dark-mode hover.
+  it("renders Delete as the destructive Button at the footer's size", () => {
+    // The primitive's own classes, rendered rather than spelled, so a Button change cannot
+    // leave this assertion pinning a stale copy.
+    const ref = render(<Button variant="destructive" size="sm">x</Button>);
+    const expected = ref.container.querySelector("button")!.className;
+    ref.unmount();
+    render(<TaskDeleteButton lang="en-US" taskId={1} onDelete={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Delete" }).className).toBe(`${expected} dark:hover:bg-ui-pink/5`);
   });
 
   it("remains available for a Jira-synced task (delete is NOT gated on jiraKey)", () => {
