@@ -675,14 +675,19 @@ wrong: adding the byte table wipes the entire image library on the next workspac
 the metadata row from the registry orphans every byte row and leaves the library empty. Verify with
 `grep -n 'TABLE_NAMES: readonly' src/app/turso-schema.ts`, which shows the derivation on one line.
 
-★★ **SINGLE-TENANT METADATA HAS NO `project_id` COLUMN AND THE BYTE TABLE ALWAYS DOES**, so the two
-halves are partitioned by different things and cannot be guaranteed to agree. `colDdl` emits no
-project column at all for the single-DB layout (the whole database IS the project), while
-`DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always —
-and the key it is given comes from a UI-level read of the portfolio/registry state, not from the
-workspace the metadata rode in on. Nothing reconciles them. The consequence is recorded as §207;
-the mitigations that ARE in place are the Safe Mode refusal below and the `hardDeleteProject`
-cleanup above.
+★★ **SINGLE-TENANT METADATA HAS NO `project_id` COLUMN AND THE BYTE TABLE ALWAYS DOES**, so the
+key has to follow the BACKEND LAYOUT rather than the portfolio/registry state (§207, closed).
+`colDdl` emits no project column for the single-DB layout (the whole database IS the project), while
+`DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always.
+`assetPartitionKey` (`document-assets-schema.ts`) mirrors `createBackend`: Turso storage with a
+tenant id keys on that id, Turso storage without one writes under `SINGLE_TENANT_ASSET_PARTITION`
+whatever registry project is current, and any other storage keeps the portfolio/registry key it
+always had. ★★ A READ finds an asset id in ANY partition, preferring the current key
+(`assetDataSelect`), and the dangling-id list spans every partition (`assetDataIdsSelect`). That is
+sound because asset ids are `crypto.randomUUID()`, and it is the whole migration: bytes stored under a
+key an older build used stay readable, so nothing had to be re-keyed. A single-tenant delete clears
+the id from every partition; a tenant delete stays in its own. The mitigations still in place
+beside it are the Safe Mode refusal below and the `hardDeleteProject` cleanup above.
 ★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
 `""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as
 this feature existed and NO call site ever produced one — anything written by a caller who believed

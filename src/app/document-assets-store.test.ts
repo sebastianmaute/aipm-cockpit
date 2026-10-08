@@ -78,7 +78,7 @@ describe("document-assets-store", () => {
       ddlAck,
       selectResult(["id", "project_id", "data"], [["a1", "p1", ""]]),
     ]);
-    expect(await loadAssetDataIds(config, "p1")).toEqual(["a1"]);
+    expect(await loadAssetDataIds(config)).toEqual(["a1"]);
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts[stmts.length - 1].sql).toContain("'' AS data");
   });

@@ -13,9 +13,11 @@ describe("document-assets-schema", () => {
     expect(DOCUMENT_ASSET_DATA_DDL[0]).toContain("PRIMARY KEY (id, project_id)");
   });
 
-  it("selects one asset's bytes, scoped by project", () => {
+  // §207: by id in ANY partition, preferring the project's own row —
+  // executed against SQLite in document-assets-partition.test.ts.
+  it("selects one asset's bytes, preferring the project's partition", () => {
     const [stmt] = assetDataSelect("a1", "p1");
-    expect(stmt.sql).toContain("WHERE id = ? AND project_id = ?");
+    expect(stmt.sql).toContain("WHERE id = ? ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1");
     expect(stmt.args?.map((a) => a.value)).toEqual(["a1", "p1"]);
   });
 
@@ -23,10 +25,9 @@ describe("document-assets-schema", () => {
   //    must never carry real bytes back, or listing a project's documents
   //    would pull every image's base64 payload just to render a row count.
   it("selects an ids-only row shape, never the real data column contents", () => {
-    const [stmt] = assetDataIdsSelect("p1");
+    const [stmt] = assetDataIdsSelect();
     expect(stmt.sql).toContain("'' AS data");
     expect(stmt.sql).not.toMatch(/SELECT id, project_id, data FROM/);
-    expect(stmt.args?.map((a) => a.value)).toEqual(["p1"]);
   });
 
   // ★★ INSERT OR REPLACE, never DELETE-then-INSERT: runTursoPipeline only opens
@@ -44,7 +45,7 @@ describe("document-assets-schema", () => {
     expect(stmt.args?.every((a) => a.type === "text")).toBe(true);
   });
 
-  it("requires a project id to delete, so a delete cannot reach across projects", () => {
+  it("requires a project id to delete, so a tenant delete cannot reach across projects", () => {
     const [stmt] = assetDataDelete("a1", "p1");
     expect(stmt.sql).toContain("WHERE id = ? AND project_id = ?");
   });
