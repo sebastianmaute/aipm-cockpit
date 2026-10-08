@@ -1,5 +1,7 @@
 "use client";
 import type React from "react";
+import { liveAssetPartitionKey } from "./asset-partition-live";
+import { isSafeMode } from "./safe-mode";
 import {
   useCallback,
   useMemo,
@@ -440,6 +442,11 @@ export function WorkspaceSection({
             chatSeed={pendingChatSeed}
             onChatSeedConsumed={clearChatSeed}
             projectId={currentProjectId ?? "default"}
+            // §207: image bytes for the chat card's document download, under the SAME
+            // key the Documents pane writes them with — not the thread's project id.
+            // ★ "" in Safe Mode: the key's inputs degrade there, so the card gets no
+            // image loader at all, as the pane refuses its library (workspace-panels.tsx).
+            assetsProjectId={isSafeMode() ? "" : liveAssetPartitionKey(settings.storageConfig.kind)}
             getChatConversation={getChatConversation}
             saveChatConversation={saveChatConversation}
             tursoMode={chatTursoMode}

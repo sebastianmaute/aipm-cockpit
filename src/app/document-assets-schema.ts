@@ -16,6 +16,8 @@
 // chat-threads, ...) makes the same choice via the shared txt()/int() builders.
 
 import { rowObjects, txt, type PipelineResultLike, type SqlStmt } from "./turso-schema";
+import type { StorageKind } from "./workspace";
+import type { PortfolioMode } from "./portfolio-mode";
 
 /** The partition key used when the caller has no project id to give — a Turso
  *  portfolio with nothing selected yet, or a file registry with no current
@@ -59,6 +61,60 @@ import { rowObjects, txt, type PipelineResultLike, type SqlStmt } from "./turso-
  *  the old, never-implemented docstring cannot open a second partition. */
 export const ASSET_PARTITION_FALLBACK = "default";
 
+/** The ONE key a single-tenant Turso backend writes asset bytes under (§207).
+ *  That layout's METADATA table has no `project_id` column — the database IS
+ *  the project — so its bytes must not be split by whichever file-registry
+ *  project happens to be current. Under THIS key a read and the id list reach
+ *  one SCOPE: the key itself plus the `legacyKeys` the caller passes — the keys
+ *  a pre-§207 build wrote this database's bytes under: the registry id of
+ *  whichever project was current (a FILE project's id — production stores no
+ *  other kind of registry entry) and `ASSET_PARTITION_FALLBACK`
+ *  (`singleTenantLegacyAssetKeys` in asset-partition-live.ts lists them). That
+ *  is how old bytes stay readable with nothing re-keyed. A DELETE writes a
+ *  tombstone row under `ASSET_DELETED_PARTITION`, which hides the id from the
+ *  scoped read and list, and leaves the legacy rows alone: a file project in the
+ *  registry may share them, and its copy must keep working (owner decision,
+ *  2026-10-08). ★★ The scope DELIBERATELY takes in every registry project's
+ *  partition, so a file project that shares an id shows its bytes here too, and
+ *  they vanish if that project deletes its copy; the tombstone protects that
+ *  project from this one's deletes, not the reverse. The scope is this browser's
+ *  registry: a project removed from it, or another device's registry, leaves
+ *  its pre-§207 images unreachable here (bytes kept). Tenant keys reach nothing
+ *  but their own partition. */
+export const SINGLE_TENANT_ASSET_PARTITION = "single-tenant";
+
+/** The partition a single-tenant DELETE writes its tombstone under (§207): a row
+ *  `(id, ASSET_DELETED_PARTITION, "")` means "deleted here", and the scoped read
+ *  and list skip the id however many legacy copies remain. A KEY, not a marker
+ *  VALUE in the data column, so neither check has to load any image's bytes (the
+ *  id list runs on every library change). Saving bytes for the id again under the
+ *  single-tenant key clears it. No registry or tenant id has this shape. */
+export const ASSET_DELETED_PARTITION = "single-tenant:deleted";
+
+/** The byte-store key for the backend in scope (§207). Turso storage in TURSO
+ *  portfolio mode with a project selected keys on that tenant project, strictly
+ *  — what the project hard-delete sweep removes. Turso storage otherwise takes
+ *  the single-tenant key, including a tenant id left stored from an earlier
+ *  Turso-portfolio session while the portfolio is now in FILE mode: `createBackend`
+ *  builds a tenant backend from that id, but its bytes were written under the
+ *  file registry's id until §207, and only the single-tenant key reads those.
+ *  Any other storage keeps the key it always had, because its metadata rides
+ *  each registry project's own file. */
+export function assetPartitionKey(args: {
+  storageKind: StorageKind;
+  tursoProjectId: string | null;
+  portfolioMode: PortfolioMode;
+  registryProjectId: string | null;
+}): string {
+  const { storageKind, tursoProjectId, portfolioMode, registryProjectId } = args;
+  if (storageKind === "turso") {
+    return portfolioMode === "turso" && tursoProjectId ? tursoProjectId : SINGLE_TENANT_ASSET_PARTITION;
+  }
+  return portfolioMode === "turso"
+    ? (tursoProjectId || ASSET_PARTITION_FALLBACK)
+    : (registryProjectId || ASSET_PARTITION_FALLBACK);
+}
+
 export interface AssetDataRow {
   id: string;
   /** The caller's project scope, verbatim — part of the composite key in BOTH
@@ -75,20 +131,12 @@ export interface AssetDataRow {
    *  sentinel now would orphan the whole existing library behind a migration
    *  this table has no version marker to drive.
    *
-   *  ★★ KNOWN LIMITATION — the two halves are not guaranteed to agree, and
-   *  this key cannot close that on its own. In single-tenant Turso the
-   *  METADATA table `document_assets` is an ENTITY_SPECS row with NO
-   *  `project_id` column, so metadata is GLOBAL to the database, while this
-   *  table's PK is `(id, project_id)` unconditionally. One global metadata set
-   *  can therefore face several byte partitions: a file-portfolio user on
-   *  single-tenant Turso storage who switches registry project keeps the same
-   *  metadata rows but reads bytes under a different key, and every asset
-   *  reads as dangling until they switch back. Nothing is LOST — the bytes
-   *  stay under the key that wrote them, and re-selecting the original project
-   *  restores them. Closing it properly means keying on the BACKEND LAYOUT
-   *  (tenant → the tenant project id; single-tenant → one fixed key), which is
-   *  a decision only the layer that builds the backend can make; it is not
-   *  expressible in this module. */
+   *  ★★ The key follows the BACKEND LAYOUT (`assetPartitionKey`, §207): in
+   *  single-tenant Turso the METADATA table `document_assets` has NO
+   *  `project_id` column, so metadata is GLOBAL to the database, and its bytes
+   *  are written under `SINGLE_TENANT_ASSET_PARTITION` rather than the file
+   *  registry's current id. Before §207 they were not, so a registry switch
+   *  read every asset under another key and showed it dangling. */
   projectId: string;
   /** base64, no data: prefix. */
   data: string;
@@ -98,29 +146,75 @@ export const DOCUMENT_ASSET_DATA_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS document_asset_data (id TEXT, project_id TEXT, data TEXT, PRIMARY KEY (id, project_id))`,
 ];
 
-export const assetDataSelect = (id: string, projectId: string): SqlStmt[] => [{
-  sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id = ?`,
-  args: [txt(id), txt(projectId)],
-}];
+/** `?, ?, …` for `n` bound values. */
+const placeholders = (n: number): string => Array.from({ length: n }, () => "?").join(", ");
+/** The single-tenant scope's keys: the key first, then each legacy key once. */
+const scopeKeys = (projectId: string, legacyKeys: readonly string[]): string[] =>
+  [projectId, ...legacyKeys.filter((k, i) => k !== projectId && legacyKeys.indexOf(k) === i)];
+
+/** One asset's bytes, under `projectId`. ★★ Under `SINGLE_TENANT_ASSET_PARTITION`
+ *  the read reaches the single-tenant SCOPE (the key plus `legacyKeys`, see
+ *  `SINGLE_TENANT_ASSET_PARTITION`), preferring the key's own row, and finds
+ *  nothing for an id that key has tombstoned (§207). Every other key, a tenant
+ *  project's above all, reads its own partition only: an imported workspace
+ *  shares asset ids with its source project, so a wider read would show project
+ *  A's bytes in project B, healthy-looking, until A deleted them.
+ *  ★ `legacyKeys` is REQUIRED, never defaulted: the store resolves it
+ *  (`legacyKeysFor`), and a caller that skipped it would silently lose every
+ *  pre-§207 image. Pass `[]` for any other key. */
+export const assetDataSelect = (id: string, projectId: string, legacyKeys: readonly string[]): SqlStmt[] => {
+  if (projectId !== SINGLE_TENANT_ASSET_PARTITION) {
+    return [{
+      sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id = ?`,
+      args: [txt(id), txt(projectId)],
+    }];
+  }
+  const scope = scopeKeys(projectId, legacyKeys);
+  return [{
+    sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id IN (${placeholders(scope.length)}) AND NOT EXISTS (SELECT 1 FROM document_asset_data WHERE id = ? AND project_id = ?) ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1`,
+    args: [txt(id), ...scope.map(txt), txt(id), txt(ASSET_DELETED_PARTITION), txt(projectId)],
+  }];
+};
 
 /** Ids only — the library lists names and sizes from the METADATA slice, so it
- *  must never pull bytes to render. */
-export const assetDataIdsSelect = (projectId: string): SqlStmt[] => [{
-  sql: `SELECT id, project_id, '' AS data FROM document_asset_data WHERE project_id = ?`,
-  args: [txt(projectId)],
-}];
-
-export function assetDataUpsert(row: AssetDataRow): SqlStmt[] {
+ *  must never pull bytes to render. The same reach as `assetDataSelect`: the
+ *  single-tenant scope (each id once, a tombstoned id never) under that key, the
+ *  key's own partition otherwise. `legacyKeys` is required, as there. */
+export const assetDataIdsSelect = (projectId: string, legacyKeys: readonly string[]): SqlStmt[] => {
+  if (projectId !== SINGLE_TENANT_ASSET_PARTITION) {
+    return [{ sql: `SELECT id, project_id, '' AS data FROM document_asset_data WHERE project_id = ?`, args: [txt(projectId)] }];
+  }
+  const scope = scopeKeys(projectId, legacyKeys);
   return [{
+    sql: `SELECT DISTINCT id, '' AS project_id, '' AS data FROM document_asset_data WHERE project_id IN (${placeholders(scope.length)}) AND id NOT IN (SELECT id FROM document_asset_data WHERE project_id = ?)`,
+    args: [...scope.map(txt), txt(ASSET_DELETED_PARTITION)],
+  }];
+};
+
+/** Writes an asset's bytes. Under `SINGLE_TENANT_ASSET_PARTITION` it also clears a
+ *  tombstone for the id, AFTER the write (a failure between the two leaves the
+ *  bytes stored and still hidden, never a deleted image shown). */
+export function assetDataUpsert(row: AssetDataRow): SqlStmt[] {
+  const write: SqlStmt = {
     sql: `INSERT OR REPLACE INTO document_asset_data (id, project_id, data) VALUES (?, ?, ?)`,
     args: [txt(row.id), txt(row.projectId), txt(row.data)],
-  }];
+  };
+  return row.projectId === SINGLE_TENANT_ASSET_PARTITION
+    ? [write, { sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(row.id), txt(ASSET_DELETED_PARTITION)] }]
+    : [write];
 }
 
-export const assetDataDelete = (id: string, projectId: string): SqlStmt[] => [{
-  sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`,
-  args: [txt(id), txt(projectId)],
-}];
+/** Under `SINGLE_TENANT_ASSET_PARTITION` a delete writes the tombstone FIRST, then
+ *  removes the key's own row: a failure between the two leaves the image hidden
+ *  with its bytes still stored, never shown again from a legacy copy. The legacy
+ *  rows stay — a file project may still use them (owner decision 2026-10-08).
+ *  Any other key deletes its own row. */
+export const assetDataDelete = (id: string, projectId: string): SqlStmt[] => {
+  const own: SqlStmt = { sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] };
+  return projectId === SINGLE_TENANT_ASSET_PARTITION
+    ? [{ sql: `INSERT OR REPLACE INTO document_asset_data (id, project_id, data) VALUES (?, ?, '')`, args: [txt(id), txt(ASSET_DELETED_PARTITION)] }, own]
+    : [own];
+};
 
 export function rowsToAssetData(res: PipelineResultLike | undefined): AssetDataRow[] {
   return rowObjects(res).map((r) => ({

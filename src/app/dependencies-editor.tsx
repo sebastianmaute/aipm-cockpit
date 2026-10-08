@@ -76,31 +76,21 @@ export function DependencyLinkGroup({
     return m;
   }, [allTasks]);
 
-  // ★★ ONE CHIP PER TASK, first link wins. `sanitizeDependencies` dedupes on the
-  // (taskId, type) PAIR (`pushUniqueDependency` keys on `${tid}:${type}`), so
-  // [{2,"FS"},{2,"SS"}] survives sanitization and persists — reachable via the AI
-  // `update_task` tool, a CSV/JSON import or a hand-edited file.
+  // ★★ ONE CHIP PER TASK, first link wins — the rule the writes and every load now
+  // enforce (§135: one link per task pair; `sanitizeDependencies` keeps the first
+  // link to a task on a write, and `dropDanglingDependencies` on a load — the string
+  // decoder keeps a mixed pair for it, so the collapse is reported in one place).
+  // So a mixed-type pair such as [{2,"FS"},{2,"SS"}] does not survive a load, and
+  // this collapse is a defensive mirror of that rule rather than a display-only
+  // hiding of stored data, which is what it was before §135.
   //
-  // ★★★ The hazard this answers belongs to the NEW picker, not to the editor it
-  // replaced — do not read this as a bug fix. `EntityLinkPicker` keys chips by
-  // ENTITY ID, so two links to the same task would take the same React key and
-  // either ✕ would remove both. The OLD editor had neither problem: it keyed
-  // each row `${dep.taskId}-${dep.type}-${i}` and removed BY INDEX, so removing
-  // just the SS half of the pair above WAS possible there and is not here. That
-  // is the deliberate trade — collapsing to one chip per task makes the
-  // one-per-task model explicit rather than accidental, and feeds BOTH the chip
-  // list and the exclusion set so display, exclusion and removal cannot
-  // disagree. Removal stays filter-by-taskId: one chip, one ✕, task unlinked.
-  //
-  // ★★ The cost is DISPLAY-ONLY, which is why the trade is affordable: `links`
-  // (i.e. `form.dependencies` / `form.successorLinks`) still holds BOTH entries,
-  // and `sanitizeDependencies` dedupes on the PAIR, so a save that never touches
-  // this field round-trips both. A second link to the same task with a different
-  // type is simply no longer shown or individually removable — the only way to
-  // drop it from here is to ✕ the task entirely and re-add the one you want.
-  // The picker itself can never mint such a pair (the second link's task is
-  // already excluded from the options), so this only ever normalises data that
-  // arrived from outside the modal.
+  // `EntityLinkPicker` keys chips by ENTITY ID, so two links to the same task
+  // would take the same React key and either ✕ would remove both. Collapsing
+  // feeds BOTH the chip list and the exclusion set, so display, exclusion and
+  // removal cannot disagree. Removal stays filter-by-taskId: one chip, one ✕,
+  // task unlinked. The picker itself can never mint such a pair (a linked
+  // task is excluded from the options). To change a link's type, ✕ the task
+  // and re-add it with the type you want.
   const uniqueLinks = useMemo(() => {
     const seen = new Set<number>();
     const out: TaskDependency[] = [];

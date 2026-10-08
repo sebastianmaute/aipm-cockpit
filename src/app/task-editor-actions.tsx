@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
-import { INTERACTIVE } from "./interaction-styles";
 import { TaskEditorRaidMini } from "./task-editor-raid-mini";
 import type { RaidSpec } from "./use-task-editor-buffer";
 import type { Task } from "./types";
@@ -98,13 +97,11 @@ export function TaskDeleteButton({
   onDelete: (id: number) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onDelete(taskId)}
-      className={`rounded-md border border-ui-pink/40 bg-surface px-4 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-pink/50 dark:hover:bg-ui-pink/5 ${INTERACTIVE}`}
-    >
+    // §102: the destructive Button at the footer's size (it was hand-rolled at px-4 beside
+    // three size="sm" buttons), keeping its softer dark-mode hover.
+    <Button variant="destructive" size="sm" onClick={() => onDelete(taskId)} className="dark:hover:bg-ui-pink/5">
       {t(lang, "delete")}
-    </button>
+    </Button>
   );
 }
 

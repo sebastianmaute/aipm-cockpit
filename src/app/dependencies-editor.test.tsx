@@ -111,9 +111,8 @@ describe("DependencyLinkGroup", () => {
     expect(onChange).toHaveBeenCalledWith([{ taskId: 2, type: "FS" }]);
   });
 
-  // ★★ `sanitizeDependencies` dedupes on the (taskId, type) PAIR, so this is a
-  // legal STORED shape — it arrives via the AI `update_task` tool, a CSV/JSON
-  // import or a hand-edited file, never from this picker. Rendered raw it was
+  // ★★ Since §135 no load or write path stores this shape (one link per task
+  // pair), but the editor still collapses it defensively. Rendered raw it was
   // two chips sharing one React key, and either ✕ removed both.
   it("renders one chip per task for a duplicated link, and its ✕ clears both", async () => {
     const user = userEvent.setup();

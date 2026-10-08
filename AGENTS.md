@@ -716,6 +716,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
   version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
   `use-reminder-banners.tsx` (the Birthday and Jira-token banners and the budget-bucket toast),
+  `use-trend-snapshots.ts` (the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
+  `dashboardModel`; coverage-GATED, pinned by its own `renderHook` test, memos kept on purpose — its header says why),
   `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
   `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
@@ -763,7 +765,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the template list and the Save-as-template and Apply-template actions; it reads the workspace setters and the
   template snapshot builder from context, takes `features` as a dep rather than reading `useSettings` (a second
   instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
-  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. ★ Apply APPENDS a template's
+  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. A seventeenth, `use-trend-snapshots.ts`
+  (§491), holds the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
+  `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. ★ Apply APPENDS a template's
   seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
   features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.

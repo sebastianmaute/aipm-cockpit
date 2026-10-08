@@ -131,8 +131,9 @@ describe("sanitize — properties", () => {
     });
     fc.assert(
       fc.property(fc.array(depArb, { maxLength: 15 }), (deps) => {
-        // The functions dedupe by `${taskId}:${type}` and cap at 20; mirror that
-        // to compute the expected canonical form.
+        // The string decoder drops exact (taskId, type) duplicates and caps at 20;
+        // mirror that to compute the expected canonical form. (A mixed pair is the
+        // load pass's to collapse, §135.)
         const seen = new Set<string>();
         const expected: TaskDependency[] = [];
         for (const d of deps) {

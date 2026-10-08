@@ -79,6 +79,7 @@ import { emptyRegistry, saveRegistry } from "./projects-registry";
 import { savePortfolioMode, saveCurrentTursoProjectId } from "./portfolio-mode";
 import { __resetSafeModeCache } from "./safe-mode";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 
 /** A loopback URL so `getTursoConfig` needs no auth token: it requires one only
  *  for `https://` endpoints. That keeps the settings fixture clear of the
@@ -330,6 +331,34 @@ describe("DocumentsTabPanel — the assetPane bag", () => {
     renderTab(false, seedFilePortfolioWithTurso);
     await screen.findByTestId("documents-panel-stub");
     expect(assetPaneOf(seen.at(-1)!).projectId).toBe(FILE_PROJECT_ID);
+  });
+
+  // §207: single-tenant Turso STORAGE has global metadata, so the key must not
+  // follow the file registry. The registry id is seeded and must NOT win.
+  it("keys single-tenant Turso storage on the fixed key, not the registry project", async () => {
+    renderTab(false, () => {
+      seedFilePortfolioWithTurso();
+      window.localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ storageConfig: { kind: "turso" }, integrations: { turso: { enabled: true, databaseUrl: TURSO_URL } } }),
+      );
+    });
+    await screen.findByTestId("documents-panel-stub");
+    await waitFor(() => expect(assetPaneOf(seen.at(-1)!).projectId).toBe(SINGLE_TENANT_ASSET_PARTITION));
+  });
+
+  it("keys tenant Turso storage on the tenant project id in Turso portfolio mode", async () => {
+    renderTab(false, () => {
+      seedFilePortfolioWithTurso();
+      savePortfolioMode("turso");
+      saveCurrentTursoProjectId("tenant-9");
+      window.localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ storageConfig: { kind: "turso" }, integrations: { turso: { enabled: true, databaseUrl: TURSO_URL } } }),
+      );
+    });
+    await screen.findByTestId("documents-panel-stub");
+    await waitFor(() => expect(assetPaneOf(seen.at(-1)!).projectId).toBe("tenant-9"));
   });
 
   it("threads the LIVE documentAssets slice — `assets` and `setAssets` are two halves of one seam", async () => {

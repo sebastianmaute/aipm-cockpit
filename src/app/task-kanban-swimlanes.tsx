@@ -21,6 +21,9 @@ import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { IconButton } from "./icon-button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { Button } from "./button";
+import { useCappedGroups } from "./use-capped-groups";
+import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
 
 interface TaskKanbanSwimlanesProps {
   lang: Lang;
@@ -154,6 +157,17 @@ export function TaskKanbanSwimlanes({
     [grouping, lang],
   );
 
+  // The board's column cap, per person × status cell (§5, owner decision 2026-10-08):
+  // see use-capped-groups.ts. Keyed by lane AND status, so each cell pages on its own.
+  const cellGroups = useMemo(() => {
+    const m = new Map<string, readonly Task[]>();
+    for (const lane of grouping.lanes) {
+      for (const status of TASK_STATUSES) m.set(cellKey(lane.key, status), grouping.cells[lane.key][status]);
+    }
+    return m;
+  }, [grouping]);
+  const cap = useCappedGroups(cellGroups, flashId, `[data-testid^="swimlane-card-"]`);
+
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 flex-col overflow-auto pb-2">
       <div className="flex">
@@ -200,6 +214,8 @@ export function TaskKanbanSwimlanes({
             </div>
             {TASK_STATUSES.map((status) => {
               const statusLabel = t(lang, statusLabelKey(status));
+              const key = cellKey(lane.key, status);
+              const hidden = cap.hiddenOf(key);
               return (
                 <div
                   key={status}
@@ -238,7 +254,7 @@ export function TaskKanbanSwimlanes({
                   }}
                   className={`flex ${STATUS_COL_CLASS} flex-col gap-2 border-r border-b border-line p-2`}
                 >
-                  {laneCells[status].map((task) => {
+                  {laneCells[status].slice(0, cap.limitOf(key)).map((task) => {
                     const synced = isJiraSynced(task);
                     return (
                       <article
@@ -283,6 +299,16 @@ export function TaskKanbanSwimlanes({
                       </article>
                     );
                   })}
+                  {hidden > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      data-testid={`swimlane-show-more-${lane.key}-${status}`}
+                      onClick={(e) => cap.showMore(key, e.currentTarget.closest('[role="group"]'))}
+                    >
+                      {t(lang, "kanbanShowMore", String(Math.min(KANBAN_COLUMN_PAGE, hidden)), t(lang, "swimlaneCell", laneToken, statusLabel), String(hidden))}
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -291,4 +317,9 @@ export function TaskKanbanSwimlanes({
       })}
     </div>
   );
+}
+
+/** One cell's key in the cap: lane and status, unambiguous whatever a lane key holds. */
+function cellKey(laneKey: string, status: TaskStatus): string {
+  return JSON.stringify([laneKey, status]);
 }

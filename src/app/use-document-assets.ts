@@ -61,6 +61,7 @@
 // thing that may call `setAssets`.
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { logDiag } from "./diagnostics";
 import type { DocumentAsset } from "./document-asset";
 import {
   checkUploadCandidate, processUpload, hashBytes, findDuplicate,
@@ -238,7 +239,7 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
   // REPLACES the whole set and discards the clear — and nothing re-runs it,
   // because none of its deps changed again. Suppressing every id this session
   // wrote closes that and opens a worse hole: the id stays suppressed for the
-  // rest of the session, so a byte row that later vanishes (§207 desync,
+  // rest of the session, so a byte row that later vanishes (another tab, a failed remove; until §207 closed, also the single-tenant desync,
   // another tab, a failed remove) would read HEALTHY forever — a false "fine"
   // in place of a false "broken", which is the worse direction because the user
   // is given no signal at all. Keying on a monotonic epoch makes the
@@ -425,11 +426,14 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     //    delete before reaching here).
     allowDestructiveSaveRef.current?.();
     commitAssets((prev) => prev.filter((a) => a.id !== id));
-    // Best-effort byte cleanup. A leftover byte row with no metadata
-    // referencing it is inert and never surfaced — unlike a metadata row
-    // with no bytes (the dangling case), this direction has no user-visible
-    // consequence, so a failure here is not reported as an upload error.
-    void deleteAssetData(config, id, projectId).catch(() => {});
+    // Byte cleanup. Under the single-tenant key it writes a tombstone the scoped
+    // read honours (§207), so the image stops rendering where documents still
+    // embed it, a pre-§207 copy included. A FAILED delete leaves the image
+    // rendering there, so it is recorded in the diagnostics log; it is not shown
+    // as an upload error, since the metadata removal the user asked for is done.
+    void deleteAssetData(config, id, projectId).catch((err: unknown) => {
+      logDiag("warn", "documentAsset.deleteFailed", { message: err instanceof Error ? err.message : String(err) });
+    });
   }, [commitAssets, config, projectId]);
 
   return { upload, remove, rename, danglingIds, busyId, error };

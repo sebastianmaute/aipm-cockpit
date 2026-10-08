@@ -141,6 +141,8 @@ describe("dropDanglingDependencies — reference-equality arms", () => {
 describe("dependency string codec — parse/serialize arms", () => {
   it("parseDependenciesString drops empty parts, bad types, non-positive ids, and dupes; caps at 20", () => {
     expect(parseDependenciesString(123)).toEqual([]); // non-string
+    // The decoder drops only the exact FS:2 duplicate; SS:2 is left for the load
+    // pass, which collapses (and reports) a mixed pair in one place (§135).
     expect(parseDependenciesString("|FS:2|NOPE:3|FS:0|FS:-1|FS:2|SS:2")).toEqual([
       { taskId: 2, type: "FS" },
       { taskId: 2, type: "SS" },
