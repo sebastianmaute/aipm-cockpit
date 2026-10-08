@@ -308,6 +308,14 @@
   `dark:` override re-pins the raw accent in exactly the schemes that fail the floor. `ToggleButton`'s
   own `dark:border-*` variants were DELETED rather than remapped for this reason, and
   `toggle-button.test.tsx` pins their absence.
+- **★★ The RAG letter chip — `--rag-badge-red`, `--rag-badge-green`, `--rag-badge-amber-ink` (§683).**
+  `RagBadge` draws a 9px bold letter, and white on the raw RAG colours measured 1.68-5.02:1. Red and green
+  keep the white letter on fills `aaRules` darkens against `#ffffff` (the same rule shape as the pink badge
+  below). Amber keeps the scheme's own fill and takes a DARK letter derived against it from a fixed
+  `#15212e`, never the scheme's `--foreground`, which is light in a dark scheme: darkening amber until white
+  clears 4.5 turns it brown. ★★ Do NOT use `healthDot` for a lettered chip; it is the raw colour, right for
+  the plain dot only. Ratios: `scheme-state-contrast.test.ts`; painted colours and axe: the `e2e/a11y.spec.ts`
+  "RAG letter chip" scans.
 - **★★ The pink count badge's fill — `--count-badge-pink` (§681).** `CountBadge`'s pink variant draws
   white 10px text, and raw `--ui-pink` under white measured 3.83:1 on Beacon and 2.40-2.66:1 in the three
   dark built-ins. `aaRules` derives this fill from `--ui-pink` against `#ffffff` with the nudge forced to

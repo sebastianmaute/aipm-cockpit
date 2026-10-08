@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView, reseedWorkspace, seedTimelogSettings, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, reseedWorkspace, seedTimelogSettings, skipTour, waitForViewSettled } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
 import {
   HARBOR_DARK, HARBOR_LIGHT,
@@ -125,9 +125,9 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // derived, in the commit that added the umber-dark combo, and 129/130
 // re-measured when the Reports cumulative scan was added (§557), and 131/133
 // when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
-// scans were (§681). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 140 total
-//   …then `grep -c "a11y:"` over that output       # 138 (+1 unprefixed)
+// scans were (§681), and 145/147 when the RAG-letter-chip scans were (§683). Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 147 total
+//   …then `grep -c "a11y:"` over that output       # 145 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -764,5 +764,72 @@ for (const combo of COMBOS) {
     const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
     const summary = blocking.map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`).join("\n");
     expect(blocking, `${id} pink count badge a11y violations:\n${summary}`).toEqual([]);
+  });
+}
+
+// §683: the RAG letter chip (`RagBadge`). White on the raw RAG colours measured
+// 1.68-5.02:1, and like the pink badge above the default scan could not see it:
+// a one-letter chip is "too short" for axe and lands in INCOMPLETE. The seed
+// computes amber everywhere, so the overall, schedule and budget overrides are
+// pinned to R, A and G and the hero's "Adjust health ratings" panel is opened:
+// all three letters are then on screen at once. Each chip must paint the token
+// pair its letter resolves to in this combo, and a chip-scoped scan with
+// `ignoreLength` must judge every chip and list it among the passes.
+const CHIP_TOKENS = {
+  R: ["--rag-badge-red", null],
+  A: ["--rag-amber", "--rag-badge-amber-ink"],
+  G: ["--rag-badge-green", null],
+} as const;
+const rgbOf = (hex: string) => `rgb(${hex.match(/[0-9a-f]{2}/gi)!.map((h) => parseInt(h, 16)).join(", ")})`;
+
+for (const combo of COMBOS) {
+  const id = `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
+  test(`a11y: ${id} — RAG letter chip (§683)`, async ({ page }) => {
+    await page.addInitScript(seedScript(combo));
+    await skipTour(page);
+    await reseedWorkspace(page, { status: { ragOverride: "R", scheduleOverride: "A", budgetOverride: "G" } });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+    await waitForViewSettled(page);
+    await page.locator("summary", { hasText: "Adjust health ratings" }).click();
+
+    // A hidden chip is skipped by axe, so only visible ones count.
+    const chips = page.locator("[data-rag-chip]:visible");
+    await expect(chips.first(), "no RAG letter chip rendered").toBeVisible();
+    const spec = SCHEME_SEED[combo.scheme];
+    const colors = resolveSchemeColors(combo.dark && spec.dark ? spec.dark : spec.light);
+    const letters = new Set<string>();
+    for (const chip of await chips.all()) {
+      const letter = ((await chip.textContent()) ?? "").trim() as keyof typeof CHIP_TOKENS;
+      expect(Object.keys(CHIP_TOKENS), `unexpected chip text "${letter}"`).toContain(letter);
+      letters.add(letter);
+      const [fill, ink] = CHIP_TOKENS[letter];
+      // The CASCADE, which the unit test cannot see.
+      await expect(chip).toHaveCSS("background-color", rgbOf(colors[fill]!));
+      await expect(chip).toHaveCSS("color", ink ? rgbOf(colors[ink]!) : "rgb(255, 255, 255)");
+    }
+    // ANTI-VACUITY: a letter never rendered is a letter never checked.
+    expect([...letters].sort().join(""), "RAG letters on screen").toBe("AGR");
+
+    await expectNoBlockingViolations(page, `${id} RAG letter chip`);
+
+    const judgeShortText = {
+      runOnly: { type: "rule" as const, values: ["color-contrast"] },
+      checks: { "color-contrast": { options: { ignoreLength: true } } },
+    };
+    const results = await new AxeBuilder({ page })
+      .include("[data-rag-chip]")
+      .options(judgeShortText)
+      .analyze();
+    const chipNodes = (list: typeof results.passes) =>
+      list.filter((r) => r.id === "color-contrast").flatMap((r) => r.nodes).filter((n) => n.html.includes("data-rag-chip"));
+    for (const letter of ["R", "A", "G"]) {
+      const judged = chipNodes(results.passes).filter((n) => n.html.includes(`data-rag-chip="${letter}"`));
+      expect(judged.length, `axe judged no ${letter} chip`).toBeGreaterThan(0);
+    }
+    expect(chipNodes(results.incomplete), "axe left a chip unjudged").toEqual([]);
+    const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+    const summary = blocking.map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`).join("\n");
+    expect(blocking, `${id} RAG letter chip a11y violations:\n${summary}`).toEqual([]);
   });
 }

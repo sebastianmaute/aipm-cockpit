@@ -135,6 +135,10 @@ interface AaRule {
 
 const AA_TEXT = 4.5;
 const STATE_BORDER = 3;
+/** The amber RAG chip's letter before any nudge: the Harbor-light foreground,
+ *  fixed rather than read from the scheme because a dark scheme's foreground is
+ *  LIGHT, and a light letter on amber is the defect §683 closes. */
+const RAG_BADGE_INK = "#15212e";
 
 /** A text variant: 4.5 against `reference`. `lighten` is the purple override
  *  described on `nudgeToContrast`; omitted, the mode is read off `reference`. */
@@ -227,6 +231,19 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
     const rag = baseOr(base, token);
     if (rag) rules.push(aaTextRule(token, rag, surface));
   }
+  // The RAG letter chip (§683, `RagBadge`). Red and green keep a WHITE letter,
+  // so their fills are darkened against white in every mode, as for the pink
+  // count badge above. Amber keeps its own fill and takes a DARK letter instead:
+  // darkening amber until white clears 4.5 turns it brown (Beacon #f4c11c →
+  // #7f650f), and a dark letter on raw amber measures 5.40-9.69 in all seven
+  // built-ins. A dark letter alone does not work for the other two: red on the
+  // light built-ins measures 3.25-4.21 and Umber-light green 4.13.
+  for (const [base, token] of [["--rag-red", "--rag-badge-red"], ["--rag-green", "--rag-badge-green"]] as const) {
+    const fill = baseOr(base, token);
+    if (fill) rules.push(aaTextRule(token, fill, "#ffffff", false));
+  }
+  const amber = colors["--rag-amber"];
+  if (amber) rules.push(aaTextRule("--rag-badge-amber-ink", RAG_BADGE_INK, amber, false));
   return rules;
 }
 

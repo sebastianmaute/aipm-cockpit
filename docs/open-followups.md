@@ -917,7 +917,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§680](#680-floating-notes-window-a-long-new-note-grows-past-the-window-with-no-scroll-bar--closed-2026-10-08) | Floating notes window: a long new note grows past the window with no scroll bar | — | — | **CLOSED** 2026-10-08 |
 | [§681](#681-the-pink-count-badge-fails-aa-contrast--closed-2026-10-08) | The pink count badge fails AA contrast | — | — | **CLOSED** 2026-10-08 |
 | [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--closed-2026-10-08) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | **CLOSED** 2026-10-08 |
-| [§683](#683-the-rag-letter-chips-white-letter-fails-aa-contrast--open) | The RAG letter chip's white letter fails AA contrast | — | — | open |
+| [§683](#683-the-rag-letter-chips-white-letter-fails-aa-contrast--closed-2026-10-08) | The RAG letter chip's white letter fails AA contrast | — | — | **CLOSED** 2026-10-08 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44198,9 +44198,11 @@ If the same order happens in the app, the list-failure banner disappears while t
 
 **Close when** the test message names the scope with the same translated label as the select, pinned by a test in both languages (`loadI18n("de")`).
 
-## 683. The RAG letter chip's white letter fails AA contrast — OPEN
+## 683. The RAG letter chip's white letter fails AA contrast — CLOSED 2026-10-08
 
-**Status:** OPEN 2026-10-08 — found by the peer session during the §681 work on the Amber chip, then measured for all three colours. `RagBadge` (`rag-badge.tsx`) draws a white 9 px bold letter on the health colour (`healthDot[value]`, `health.ts`). White against the resolved token, per built-in scheme mode, measured 2026-10-08 with the probe below (`npx jiti rag-chip-contrast.ts` from the repo root):
+**Status:** CLOSED 2026-10-08 — owner chose the hybrid: red and green keep a white letter on derived darker fills (`--rag-badge-red`, `--rag-badge-green`), amber keeps its own fill and takes a derived dark letter (`--rag-badge-amber-ink`, from a fixed `#15212e`, because a dark scheme's `--foreground` is light). All three are `aaRules` derivations in `scheme-tokens.ts` and ride `DERIVED_TOKENS`, so imported themes and pins are held to the floor too. `RagBadge` no longer uses `healthDot`, and carries `data-rag-chip`. Resolved pairs: harbor-light R #b33f3f 5.68, A #15212e on #cf8a1c 5.67, G #28855f 4.55; harbor-dark R #ad5555 4.99, A 8.49, G #2e785b 5.31; meridian-light R #d83a3a 4.58 (unchanged), A 5.40, G #107635 5.73; meridian-dark R #af5252 5.06, A 8.93, G #227844 5.47; umber-light R #bd4a30 5.02 (unchanged), A 5.74, G #5c752d 5.20; umber-dark R #a25845 5.23, A 8.31, G #60713a 5.36; beacon-light R #b84b38 5.12, A 9.69, G #2f7900 5.45. Unit: `npx vitest run src/app/scheme-state-contrast.test.ts src/app/scheme-tokens.test.ts src/app/rag-badge.test.tsx src/app/color-schemes.test.ts src/app/builtin-schemes.test.ts --reporter=dot --maxWorkers=2`, 131 passed; mutants 4/4 killed (drop the red rule: 9 red; amber ink against white instead of amber: 1; fills against the card instead of white: 5; amber chip back to a white letter: 1). e2e: `npx playwright test e2e/a11y.spec.ts --project=chromium -g "RAG letter chip" --workers=1` with `PORT=3150`, 7 passed. The seed computes amber everywhere, so each scan pins the overall, schedule and budget overrides to R, A and G, opens "Adjust health ratings", requires all three letters on screen, checks each chip's painted fill and letter colour, runs the default scan, then a chip-scoped `ignoreLength` scan that must list an R, an A and a G chip among the passes. e2e mutants 2/2 killed: raw colours with white letters fail the colour check in all seven combos; with the colour check removed too, axe alone fails all seven (the failing chip lands under violations, so no judged pass for that letter).
+
+**Status before this update:** OPEN 2026-10-08 — found by the peer session during the §681 work on the Amber chip, then measured for all three colours. `RagBadge` (`rag-badge.tsx`) draws a white 9 px bold letter on the health colour (`healthDot[value]`, `health.ts`). White against the resolved token, per built-in scheme mode, measured 2026-10-08 with the probe below (`npx jiti rag-chip-contrast.ts` from the repo root):
 
 | Scheme mode | red | amber | green |
 |---|---|---|---|
@@ -44225,7 +44227,5 @@ for (const s of BUILTIN_SCHEMES) for (const [mode, m] of [["light", s.light], ["
   console.log(s.id + "-" + mode, (["--rag-red", "--rag-amber", "--rag-green"] as const).map((t) => contrastRatio("#ffffff", c[t]!).toFixed(2)).join(" "));
 }
 ```
-
-**Work item:** #616
 
 **Close when** the letter on every `RagBadge` colour (R, A, G) reaches 4.5:1 on every built-in scheme, light and dark, pinned by a unit test that computes the ratios from the scheme maps, and an axe scan with `ignoreLength`, scoped to a rendered chip, lists it under passes.
