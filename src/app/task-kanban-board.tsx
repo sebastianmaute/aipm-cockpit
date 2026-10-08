@@ -3,7 +3,9 @@
 // Named distinctly from the pure `task-kanban.ts` (grouping engine) it imports:
 // a bare `./task-kanban` import resolves `.ts` AHEAD of `.tsx`, so a sibling
 // `task-kanban.tsx` would silently hijack the engine import (see AGENTS.md).
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Button } from "./button";
+import { usePrinting } from "./use-printing";
 import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
@@ -78,6 +80,11 @@ const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
  *  statuses; flex-1 distributes leftover container width evenly between
  *  those bounds. Below the floor, the existing overflow-x-auto on the
  *  container takes over exactly as it does today. */
+/** A status column renders at most this many cards, then a "Show more" button that
+ *  adds this many again (§5, docs/superpowers/specs/2026-10-08-kanban-column-cap-design.md).
+ *  At or under it a column renders exactly as it did before the cap. */
+export const KANBAN_COLUMN_PAGE = 100;
+
 export const KANBAN_STATUS_COL_CLASS = "min-w-64 max-w-[25rem] flex-1 shrink-0";
 
 export function TaskKanban({
@@ -103,6 +110,12 @@ export function TaskKanban({
   aiEditEnabled,
 }: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
+  // Per-column card limits; a missing entry means one page. Lives as long as the board
+  // does: a remount (another view, the load hold) starts every column at one page again.
+  const [limits, setLimits] = useState<Partial<Record<TaskStatus, number>>>({});
+  // A printout must hold every card.
+  const printing = usePrinting();
+  const limitOf = (status: TaskStatus): number => (printing ? Infinity : (limits[status] ?? KANBAN_COLUMN_PAGE));
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
       {TASK_STATUSES.map((status) => (
@@ -123,7 +136,7 @@ export function TaskKanban({
             <span className="text-xs text-muted-foreground">{cols[status].length}</span>
           </h3>
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
-            {cols[status].map((task) => {
+            {cols[status].slice(0, limitOf(status)).map((task) => {
               const synced = isJiraSynced(task);
               return (
                 <article
@@ -164,9 +177,33 @@ export function TaskKanban({
                 </article>
               );
             })}
+            <ShowMoreButton
+              lang={lang}
+              status={status}
+              hidden={cols[status].length - Math.min(cols[status].length, limitOf(status))}
+              onShowMore={() =>
+                setLimits((prev) => ({ ...prev, [status]: (prev[status] ?? KANBAN_COLUMN_PAGE) + KANBAN_COLUMN_PAGE }))
+              }
+            />
           </div>
         </section>
       ))}
     </div>
+  );
+}
+
+/** The "Show more" button under a capped column; nothing when no card is hidden. Its
+ *  name carries the column, so the six buttons are told apart (axe cannot see a duplicate). */
+function ShowMoreButton({ lang, status, hidden, onShowMore }: {
+  lang: Lang;
+  status: TaskStatus;
+  hidden: number;
+  onShowMore: () => void;
+}) {
+  if (hidden <= 0) return null;
+  return (
+    <Button variant="ghost" size="xs" data-testid={`kanban-show-more-${status}`} onClick={onShowMore}>
+      {t(lang, "kanbanShowMore", String(Math.min(KANBAN_COLUMN_PAGE, hidden)), t(lang, statusLabelKey(status)), String(hidden))}
+    </Button>
   );
 }
