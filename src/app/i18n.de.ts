@@ -1851,6 +1851,7 @@ export const de: Record<TranslationKey, string> = {
   activitySearchRegex: "Regex",
   activitySearchInvalidRegex: "Ungültiger Regex",
   activityNoMatches: "Keine Einträge entsprechen den Filtern.",
+  activityShowMore: "{0} weitere anzeigen ({1} ausgeblendet)",
   popoutOpenInNewWindow: "In neuem Fenster öffnen",
   popoutReuseWindow: "Bereits geöffnetes Fenster wiederverwenden",
   tabResources: "Ressourcen",

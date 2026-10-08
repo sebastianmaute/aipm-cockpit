@@ -1966,6 +1966,7 @@ const enUS = {
   activitySearchRegex: "Regex",
   activitySearchInvalidRegex: "Invalid regex",
   activityNoMatches: "No entries match the filters.",
+  activityShowMore: "Show {0} more ({1} hidden)",
   popoutOpenInNewWindow: "Open in new window",
   popoutReuseWindow: "Reuse popout window",
   tabResources: "Resources",

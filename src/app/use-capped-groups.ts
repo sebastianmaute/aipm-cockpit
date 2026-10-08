@@ -28,7 +28,9 @@ export interface CappedGroups {
  * @param cardSelector matches one group's card elements inside `container`.
  */
 export function useCappedGroups(
-  groups: ReadonlyMap<string, readonly { id: number }[]>,
+  // An item's `id` is read only for the deep link; a group that cannot be deep-linked
+  // (the activity log's rows) need not carry one.
+  groups: ReadonlyMap<string, readonly unknown[]>,
   flashId: number | null,
   cardSelector: string,
 ): CappedGroups {
@@ -46,7 +48,7 @@ export function useCappedGroups(
     setSeenFlash(flashId);
     if (flashId != null) {
       for (const [key, cards] of groups) {
-        const index = cards.findIndex((c) => c.id === flashId);
+        const index = cards.findIndex((c) => (c as { id?: unknown } | null)?.id === flashId);
         if (index < 0) continue;
         // Only ever raise: a group the user already opened past the card stays open.
         if (index >= (limits[key] ?? KANBAN_COLUMN_PAGE)) {
@@ -68,8 +70,11 @@ export function useCappedGroups(
     const target = reveal.current;
     if (!target) return;
     reveal.current = null;
-    const card = target.container.querySelectorAll(cardSelector)[target.index];
-    card?.querySelector<HTMLElement>("button, select, [tabindex]")?.focus();
+    const card = target.container.querySelectorAll<HTMLElement>(cardSelector)[target.index];
+    // A card holding no control of its own (an activity-log row) is focused itself,
+    // which is why such rows carry tabIndex={-1}.
+    const focusable = card?.matches("[tabindex]") ? card : card?.querySelector<HTMLElement>("button, select, [tabindex]");
+    focusable?.focus();
   });
   // A printout must hold every card.
   const printing = usePrinting();
