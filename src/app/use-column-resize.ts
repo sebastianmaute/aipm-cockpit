@@ -95,7 +95,9 @@ const NO_FLOORS: Readonly<Record<string, number>> = Object.freeze({});
  *  Only named floors apply here, never the 40px drag default: no other table's
  *  stored widths change. A width raised exactly to the column's default is
  *  dropped, so it reads as "not user-set" and still follows a later default
- *  change rather than being persisted as if the user had dragged to it. */
+ *  change rather than being persisted as if the user had dragged to it.
+ *  ★ That drop assumes floor <= default. A floor ABOVE its default would keep
+ *  the raised width and persist it as a drag; raise the default with the floor. */
 function clampToFloors<TId extends string>(
   widths: Partial<Record<TId, number>>,
   minWidths: Readonly<Partial<Record<TId, number>>>,
