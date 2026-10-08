@@ -219,7 +219,7 @@ async function main(): Promise<void> {
     (_f, _text, media, slides) => {
       if (media.length !== 1) return `expected 1 media part, found ${media.length}`;
       const t = slideOf(slides, "SHORT-LEAD"), pic = slideOf(slides, "<p:pic>");
-      return t >= 0 && t === pic ? null : `expected the screenshot on the text's slide, found text on ${t + 1}, picture on ${pic < 0 ? "none" : pic + 1}`;
+      return t >= 0 && t === pic ? null : `expected the screenshot on the text's slide, found text on ${t < 0 ? "none" : t + 1}, picture on ${pic < 0 ? "none" : pic + 1}`;
     });
   const longLead = "LONG-LEAD: " + "This sentence fills the slide so the screenshot has too little room left. ".repeat(12);
   await sample("7b-deck-long-lead", "§219 item 7b: a long paragraph, then a screenshot",
@@ -227,7 +227,7 @@ async function main(): Promise<void> {
     (_f, _text, media, slides) => {
       if (media.length !== 1) return `expected 1 media part, found ${media.length}`;
       const t = slideOf(slides, "LONG-LEAD"), pic = slideOf(slides, "<p:pic>");
-      return t >= 0 && pic === t + 1 ? null : `expected the screenshot on the slide after the text, found text on ${t + 1}, picture on ${pic < 0 ? "none" : pic + 1}`;
+      return t >= 0 && pic === t + 1 ? null : `expected the screenshot on the slide after the text, found text on ${t < 0 ? "none" : t + 1}, picture on ${pic < 0 ? "none" : pic + 1}`;
     });
 
   // Item 8: one image used several times — once alone twice, then twice in one paragraph.

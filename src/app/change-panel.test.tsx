@@ -1162,3 +1162,15 @@ describe("ChangePanel — the open editor's Notes button once the change is dele
     expect(queryByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeNull();
   });
 });
+
+describe("ChangePanel — a new change draft never shows another change's count", () => {
+  it("keeps the bare, disabled Notes button when a concurrent writer takes the new id", () => {
+    const { getByRole, rerender } = render(<ChangePanel {...base} changes={[]} />, { wrapper: Providers });
+    fireEvent.click(getByRole("button", { name: `+ ${t("en-US", "changesAdd")}` }));
+    const bare = t("en-US", "noteLogTitle");
+    expect(getByRole("button", { name: bare })).toBeDisabled();
+    const taken = [ci({ id: 1, title: "Concurrent", noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }] })];
+    rerender(<ChangePanel {...base} changes={taken} />);
+    expect(getByRole("button", { name: bare })).toBeDisabled();
+  });
+});

@@ -122,8 +122,9 @@ export function RaidEditModal({
   onOpenNotes,
   calendarSyncEnabled,
 }: RaidEditModalProps) {
-  // The stored row behind this draft, for the Notes button (see there).
-  const storedRow = raid.find((r) => r.id === draft.id);
+  // The stored row behind this draft, for the Notes button (see there). None for a
+  // new draft: its id was minted at open, and a concurrent writer may have taken it.
+  const storedRow = isNew ? undefined : raid.find((r) => r.id === draft.id);
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();

@@ -846,3 +846,12 @@ describe("RaidEditModal — Notes button when the stored row is gone", () => {
     expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
   });
 });
+
+describe("RaidEditModal — a new draft never shows another item's count", () => {
+  it("ignores a stored row that took the new draft's id", () => {
+    const other = makeDraft({ id: 9, noteLog: [{ id: 1, timestamp: "2026-06-01T09:00:00.000Z", html: "<p>n1</p>", text: "n1" }] });
+    render(cloneElement(modalEl({ id: 9 }), { raid: [other], isNew: true, onOpenNotes: vi.fn() }), { wrapper });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+  });
+});
