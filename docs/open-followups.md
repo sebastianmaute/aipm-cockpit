@@ -32258,7 +32258,9 @@ three costs above are properties of the extra control, not of the tooltip primit
 
 ## 414. The browser eye-verify owed by the control-defects batch — OPEN
 
-**Status:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
+**Status:** OPEN 2026-10-08 — waits for the owner's sign-off on `docs/eye-verify-batch-20.md`. Batch 20 automated what a browser can measure: `npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --workers=1`, 6 passed. New: item 5 is now a keyboard test (type opens, arrows move, Enter commits, Escape closes only the list with focus kept and the add panel open; mutant 1/1 killed: Escape no longer dismissing the list); item 3 has a fixture with two badges in one ID cell (a seeded task gains a Jira key). ★ Item 3 finding: the badges do NOT share a line. They are inline siblings in a plain `<td>`, so two or more stack under the ID even at the default width; no single badge breaks inside itself, which is what the test now pins. Dragging the ID column as narrow as it goes clips the cell, cutting off the ID and the Jira key. Whether either needs a fix is the owner's call, from the screenshots. Item 1 also ran in Firefox on 2026-10-08 (a throwaway config, Firefox 155, 3 of 3 passed): the pointer reaches the title wrapper there too; whether the native tooltip then shows is still for the eye. Item 6 still needs a real Turso project. The spec saves five screenshots to the git-ignored `eye-verify-output/batch-20/414/`.
+
+**Status before this update:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
 
 **Work item:** #274
 

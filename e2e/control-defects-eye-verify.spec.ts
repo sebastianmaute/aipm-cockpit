@@ -1,13 +1,21 @@
-import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, reseedWorkspace, waitForViewSettled } from "./seed";
+import { join } from "node:path";
+import type { Locator } from "@playwright/test";
+import { SEED_WORKSPACE } from "./seed-workspace";
 
 // Browser eye-verify for open-followups §414 (the control-defects batch). Each
 // item there is a layout/hover/native-tooltip claim jsdom cannot observe. This
 // spec converts the ones that CAN be driven headlessly into real assertions;
-// items 5 and 6 stay owed (see the bottom of the file) because they need a
+// item 6 stays owed (see the bottom of the file) because it needs a
 // Turso-backed seed that `./seed` does not provide.
 //
 // These are FINDINGS, not fixes — a failing assertion here is a legitimate
 // result about the shipped code, not a bug in the test.
+//
+// The taste calls the owner signs off are saved as screenshots under the
+// git-ignored eye-verify-output/batch-20/414/ (docs/eye-verify-batch-20.md lists them).
+const shot = (target: Locator, name: string) =>
+  target.screenshot({ path: join(process.cwd(), "eye-verify-output", "batch-20", "414", name) });
 
 test.describe("control-defects eye-verify (§414)", () => {
   // Item 1 — the disabled Turso-hint buttons are reachable by pointer.
@@ -153,6 +161,7 @@ test.describe("control-defects eye-verify (§414)", () => {
     expect(glyphBox!.x + glyphBox!.width).toBeLessThanOrEqual(cellBox!.x + cellBox!.width + TOLERANCE_PX);
     expect(glyphBox!.y).toBeGreaterThanOrEqual(cellBox!.y - TOLERANCE_PX);
     expect(glyphBox!.y + glyphBox!.height).toBeLessThanOrEqual(cellBox!.y + cellBox!.height + TOLERANCE_PX);
+    await shot(row, "item2-row-with-ask-claude.png");
   });
 
   // Item 3 — the ID-column badge run does not wrap.
@@ -256,26 +265,148 @@ test.describe("control-defects eye-verify (§414)", () => {
 
     const bodyText = page.getByText("Delivery is on track for the October go-live gate.");
     await expect(bodyText).toBeVisible();
+    const panel = page.locator("#panel-documents");
+    await shot(panel, "item4-documents-expanded.png");
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(bodyText).toBeHidden();
+    await shot(panel, "item4-documents-collapsed.png");
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(bodyText).toBeVisible();
   });
+
+  // Item 3, with the fixture the test above lacks (2026-10-08). The seed never puts
+  // two badges in one ID cell, so the first task that carries one gains a Jira key
+  // too: the Jira badge renders once `settings.jira.siteUrl` is set.
+  // ★★ MEASURED 2026-10-08: the badges do NOT share a line, even at the default
+  // width. They are inline siblings in a plain <td>, so with two or more they stack
+  // under the ID, one per line. What `whitespace-nowrap` guarantees, and what this
+  // pins, is that no single badge breaks inside itself. Whether the stack is
+  // acceptable is the owner's call, from the two screenshots this writes (default
+  // width, and after dragging the ID column's resize handle as far left as it goes).
+  test("item 3b: with two badges in one ID cell, no badge breaks inside itself, also at the narrowest width", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "aipm-cockpit:settings",
+        JSON.stringify({ tourSeen: true, jira: { siteUrl: "https://example.atlassian.net", email: "", apiToken: "", projectKey: "" } }),
+      );
+    });
+    await gotoApp(page);
+    await openView(page, "Open Points");
+    await waitForViewSettled(page);
+
+    const badged = page.locator("tr[data-deeplink-row] td.font-mono").filter({ has: page.locator(".whitespace-nowrap") }).first();
+    const idText = (await badged.textContent()) ?? "";
+    const id = Number(/#(\d+)/.exec(idText)?.[1]);
+    expect(id, `no task id in "${idText}"`).toBeGreaterThan(0);
+    const task = (SEED_WORKSPACE.tasks as Record<string, unknown>[]).find((t) => t.id === id);
+    expect(task, `task ${id} not in the seed`).toBeDefined();
+    await reseedWorkspace(page, { tasks: [{ ...task, jiraKey: "CIP-101" }] });
+    await page.reload();
+    await gotoApp(page);
+    await openView(page, "Open Points");
+    await waitForViewSettled(page);
+
+    const cell = page.locator("tr[data-deeplink-row] td.font-mono").filter({ hasText: `#${id}` }).first();
+    const badges = cell.locator(".whitespace-nowrap");
+    // A badge that broke inside itself is taller than one line of its own text.
+    const brokenBadges = async () => {
+      const n = await badges.count();
+      const broken: string[] = [];
+      for (let j = 0; j < n; j++) {
+        const b = badges.nth(j);
+        const { height, line } = await b.evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return { height: el.getBoundingClientRect().height, line: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5 };
+        });
+        if (height > line * 1.6 + 8) broken.push(`${((await b.textContent()) ?? "").trim()} (${Math.round(height)}px)`);
+      }
+      return { n, broken };
+    };
+    // ANTI-VACUITY: the property needs at least two badges in the one cell.
+    const atDefault = await brokenBadges();
+    expect(atDefault.n, "badges in the ID cell").toBeGreaterThanOrEqual(2);
+    expect(atDefault.broken, "a badge broke inside itself at the default width").toEqual([]);
+    await shot(cell, "item3b-id-cell-default.png");
+
+    // Drag the ID header's resize handle to the left, past any minimum.
+    const idHeader = page.locator("thead th").filter({ hasText: /^ID/ }).first();
+    const handle = idHeader.locator(".cursor-col-resize");
+    const before = (await idHeader.boundingBox())!.width;
+    const h = (await handle.boundingBox())!;
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x - 600, h.y + h.height / 2, { steps: 10 });
+    await page.mouse.up();
+    const after = (await idHeader.boundingBox())!.width;
+    expect(after, "the drag did not narrow the ID column").toBeLessThan(before);
+    expect((await brokenBadges()).broken, `a badge broke inside itself at the narrowest width (${Math.round(after)}px)`).toEqual([]);
+    await shot(cell, "item3b-id-cell-narrowest.png");
+  });
+
+  // Item 5: the Knowledge "Attach to" picker by keyboard alone (2026-10-08). Open,
+  // arrow, Enter commits; then Escape closes the list WITHOUT dismissing the add
+  // panel around it, and focus stays in the field (docs/AGENTS/ui-shell.md, dismissal).
+  test("item 5: the Knowledge attach-to picker works by keyboard alone", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await gotoApp(page);
+    await openView(page, "Knowledge");
+    await waitForViewSettled(page);
+
+    await page.getByRole("button", { name: "+ Add link", exact: true }).click();
+    const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeVisible();
+    const search = page.getByRole("combobox", { name: "Attach to", exact: true });
+    await search.focus();
+
+    await page.keyboard.type("*");
+    const list = page.getByRole("listbox");
+    await expect(list).toBeVisible();
+    await expect(search).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    const activeId = await search.getAttribute("aria-activedescendant");
+    expect(activeId, "no active option after ArrowDown").toBeTruthy();
+    const picked = ((await page.locator(`[id="${activeId}"]`).textContent()) ?? "").trim();
+    expect(picked).not.toBe("");
+    await page.keyboard.press("Enter");
+    await expect(list).toBeHidden();
+    // The committed value shows above the field as "<Kind>: <name>"; the option
+    // carries the same two parts without the separator.
+    // The label row is the picker root's first child: walk up from the input to
+    // the box whose previous sibling holds it (`single-entity-picker.tsx`).
+    const selectedText = () =>
+      search.evaluate((input) => {
+        for (let el: Element | null = input; el; el = el.parentElement) {
+          const prev = el.previousElementSibling;
+          if (prev && prev.classList.contains("mb-1")) return prev.textContent ?? "";
+        }
+        return null;
+      });
+    await expect.poll(selectedText).not.toContain("Standalone");
+    expect(((await selectedText()) ?? "").replace(": ", "").replace(/\s+/g, " ").trim()).toBe(picked.replace(/\s+/g, " "));
+
+    // Escape closes the list, and only the list.
+    await page.keyboard.type("*");
+    await expect(list).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(list).toBeHidden();
+    await expect(search).toBeFocused();
+    await expect(cancel).toBeVisible();
+    await expect(page.getByRole("tabpanel").filter({ has: search })).toHaveCount(1);
+    // A second Escape, with the list already closed, still leaves the add panel open.
+    await page.keyboard.press("Escape");
+    await expect(cancel).toBeVisible();
+  });
 });
 
-// Items 5 and 6 are deliberately NOT written here.
-//
-// Item 5 (keyboard-only operation of the Knowledge attach-to `SingleEntityPicker`)
-// needs a real interactive keyboard walk (open/arrow/Enter/Escape) verified
-// against the Escape/Tab dismissal protocol in docs/AGENTS/ui-shell.md — that
-// is a genuine browser interaction question, not a geometry one, and nothing
-// about it is blocked by the file-mode seed. It stays owed because writing it
-// well needs its own pass, not because it cannot be automated; recorded here
-// so it is not silently dropped.
+// Item 6 is deliberately NOT written here. (Item 5, once listed here too, is the
+// keyboard test above since 2026-10-08.)
 //
 // Item 6 (an asset's name reading as interactive) needs a REAL Turso project:
 // `documents-asset-section.tsx` only passes `loadImage` (the prop gating the
