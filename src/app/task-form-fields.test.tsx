@@ -496,6 +496,11 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
       { id: 2, text: "Legal", createdAt: "2026-05-02T09:00:00.000Z" },
       { id: 3, text: "Old", createdAt: "2026-04-01T09:00:00.000Z", resolvedAt: "2026-04-02T09:00:00.000Z" },
     ],
+    noteLog: [
+      { id: 1, timestamp: "2026-05-01T09:00:00.000Z", html: "<p>Kickoff held</p>", text: "Kickoff held" },
+      { id: 2, timestamp: "2026-05-02T09:00:00.000Z", html: "<p>Charter signed</p>", text: "Charter signed" },
+      { id: 3, timestamp: "2026-05-03T09:00:00.000Z", html: "<p>Scope agreed</p>", text: "Scope agreed" },
+    ],
     description: "",
   };
 
@@ -528,6 +533,30 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
     expect(btn).toBeEnabled();
     await user.click(btn);
     expect(onOpenBlockers).toHaveBeenCalledTimes(1);
+  });
+
+  // The owner asked for the notes log to pop out like the Change editor's
+  // (2026-10-08); it rendered inline from 2026-07-29.
+  it("editor Notes button opens the floating window, shows the stored count, and renders no inline log", async () => {
+    const onOpenNotes = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={onOpenNotes} tasksForDeps={[STORED]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+
+    // 3 notes on the stored row; the draft carries none, so "(3)" can only come from it.
+    const btn = screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (3)` });
+    expect(btn).toBeEnabled();
+    await user.click(btn);
+    expect(onOpenNotes).toHaveBeenCalledTimes(1);
+    // No inline log: neither a note's text nor a composer renders in the editor.
+    expect(screen.queryByText("Kickoff held")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: new RegExp(`^${t("en-US", "noteLogPlaceholder")}`) })).toBeNull();
   });
 
   it("for a new task the Blockers button is disabled with no count, like Notes", () => {

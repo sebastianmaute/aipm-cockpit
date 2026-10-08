@@ -130,32 +130,13 @@ describe("useNotesWindow — target lifetime (§662)", () => {
   });
 });
 
-describe("useNotesWindow — notePanelPropsFor", () => {
-  it("resolves entries from the live entity while the floating window is SHUT", () => {
-    const { result } = setup();
-    // The gap this exists to close: `notesWindowProps` derives its entries from
-    // `notesTarget`, which is null until the window opens — so the always-mounted
-    // in-editor panel cannot reuse them.
-    expect(result.current.notesTarget).toBeNull();
-    expect(result.current.notesWindowProps.entries).toEqual([]);
-
-    expect(result.current.notePanelPropsFor("task", 7).entries).toHaveLength(1);
-    expect(result.current.notePanelPropsFor("task", 8).entries).toEqual([]);
-  });
-
-  it("carries a labelSuffix so a second mounted surface cannot collide", () => {
-    const { result } = setup();
-    // ★ REQUIRED here, unlike the floating window (whose dialog label already
-    //   names the entity): with both surfaces open on one task an absent suffix
-    //   renders two identical "Edit – #1" buttons. axe checks that a name EXISTS,
-    //   never that it is unique, so no gate would catch the regression.
-    expect(result.current.notePanelPropsFor("task", 7).labelSuffix).toBe("Draft charter");
-    expect(result.current.notePanelPropsFor("raid", 3).labelSuffix).toBe("Vendor delay");
-  });
-
+describe("useNotesWindow — the floating window's write path", () => {
   it("writes an added note straight through to the workspace", () => {
     const { result, setTasks, logActivity } = setup();
-    result.current.notePanelPropsFor("task", 7).onAdd("<p>New</p>", "New");
+    act(() => {
+      result.current.openTaskNotes(7);
+    });
+    result.current.notesWindowProps.onAdd("<p>New</p>", "New");
 
     expect(setTasks).toHaveBeenCalledTimes(1);
     // Functional setter — the bulk "N saves in one tick" landmine.
@@ -178,7 +159,10 @@ describe("useNotesWindow — notePanelPropsFor", () => {
 
   it("logs a RAID note write with ALL THREE template arguments", () => {
     const { result, setRaid, logActivity } = setup();
-    result.current.notePanelPropsFor("raid", 3).onAdd("<p>New</p>", "New");
+    act(() => {
+      result.current.openRaidNotes(3);
+    });
+    result.current.notesWindowProps.onAdd("<p>New</p>", "New");
 
     expect(setRaid).toHaveBeenCalledTimes(1);
     const next = (setRaid.mock.calls[0][0] as (p: RaidItem[]) => RaidItem[])(RAID);
@@ -196,8 +180,8 @@ describe("useNotesWindow — notePanelPropsFor", () => {
 
     // ★ THREE call sites share this shape, and onAdd alone leaves two unpinned;
     //   the arity was dropped independently at each one.
-    result.current.notePanelPropsFor("raid", 3).onEdit(1, "<p>Edited</p>", "Edited");
-    result.current.notePanelPropsFor("raid", 3).onDelete(1);
+    result.current.notesWindowProps.onEdit(1, "<p>Edited</p>", "Edited");
+    result.current.notesWindowProps.onDelete(1);
     expect(logActivity).toHaveBeenCalledTimes(3);
     expect(logActivity.mock.calls[1]).toEqual(["raid.updated", 3, "R", "Vendor delay"]);
     expect(logActivity.mock.calls[2]).toEqual(["raid.updated", 3, "R", "Vendor delay"]);
@@ -257,23 +241,17 @@ describe("useNotesWindow — the change arm", () => {
     expect(next.find((c) => c.id === 5)?.noteLog).toEqual([]);
   });
 
-  it("serves the in-editor panel from the live change while the window is SHUT", () => {
-    const { result } = setup();
-    expect(result.current.notesTarget).toBeNull();
-    expect(result.current.notePanelPropsFor("change", 5).entries).toHaveLength(1);
-    expect(result.current.notePanelPropsFor("change", 6).entries).toEqual([]);
-    // labelSuffix keeps a second mounted surface's per-entry controls unique.
-    expect(result.current.notePanelPropsFor("change", 5).labelSuffix).toBe("Scope cut");
-  });
-
   // ★★★ WRITE-THROUGH. The log is owned by the notes window, NOT by the change
   // editor's draft: `handleSaveChange` reads `noteLog` back from the STORED row
   // (Task 5), so routing a note commit through it would read the note back out
-  // and LOSE it. This pins that the panel's onAdd lands in `changes` directly —
+  // and LOSE it. This pins that the window's onAdd lands in `changes` directly —
   // `setChanges` is the only setter it touches.
   it("writes a note straight into `changes`, never through a change-save handler", () => {
     const { result, setChanges, setTasks, setRaid } = setup();
-    result.current.notePanelPropsFor("change", 5).onAdd("<p>From the editor</p>", "From the editor");
+    act(() => {
+      result.current.openChangeNotes(5);
+    });
+    result.current.notesWindowProps.onAdd("<p>From the editor</p>", "From the editor");
 
     expect(setChanges).toHaveBeenCalledTimes(1);
     expect(setTasks).not.toHaveBeenCalled();
@@ -313,15 +291,5 @@ describe("useNotesWindow — the AI read-access flag", () => {
       result.current.openChangeNotes(5);
     });
     expect(result.current.notesWindowProps.aiReadable).toBe(false);
-  });
-
-  // The in-editor panel takes its register as an argument instead of from
-  // state; in production it is only ever called with "task", so this is the one
-  // place the other two branches are exercised at all.
-  it("marks the in-editor panel readable by the register it is asked for", () => {
-    const { result } = setup();
-    expect(result.current.notePanelPropsFor("task", 7).aiReadable).toBe(true);
-    expect(result.current.notePanelPropsFor("raid", 3).aiReadable).toBe(false);
-    expect(result.current.notePanelPropsFor("change", 5).aiReadable).toBe(false);
   });
 });

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ComboInput } from "./combo-input";
 import { EffortField } from "./effort-field";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
-import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependencyLinkGroup } from "./dependencies-editor";
@@ -83,11 +82,6 @@ export interface TaskFormFieldsProps {
   /** Opens the floating blocker window for the edited task. Absent (an unsaved
    *  new task, as for `onOpenNotes`) → the Blockers button is disabled. */
   onOpenBlockers?: () => void;
-  /** Live note-log panel props for the edited task. Present → the log renders
-   *  INLINE here and writes straight through to the workspace; absent (an
-   *  unsaved new task) → the disabled launcher button above is used instead.
-   *  A PROP, not a context read: this component's own tests render it bare. */
-  taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls, absent when the budget module is off. A PROP,
    *  not a context read: this component's own tests render it bare, where a
    *  `useWorkspace()` call would throw. */
@@ -115,7 +109,6 @@ export function TaskFormFields({
   onAddAssigneeToAddressBook,
   onOpenNotes,
   onOpenBlockers,
-  taskNotePanel,
   budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
@@ -538,59 +531,27 @@ export function TaskFormFields({
         </div>
         )}
 
-        {/* Running dated note log. With a panel threaded (an existing task) it
-            renders INLINE and writes straight through to the workspace — a note
-            added here survives Cancel, which is correct for an append-only
-            journal. Without one (an unsaved new task) the disabled button
-            remains, as there is no id to write to. The count reads the LIVE
-            panel entries — the form draft carries no note log at all
-            (open-followups §29), so a write-through add moves the number
-            immediately. */}
-        {taskNotePanel ? (
-          <details className="sm:col-span-2 rounded-md border border-line bg-surface p-2">
-            {/* ★ `tabIndex={0}` is a no-op for a browser (a <summary> is already
-                sequentially focusable at this DOM position, so no second tab
-                stop appears) but it is NOT redundant here: `use-focus-trap`'s
-                FOCUSABLE_SELECTOR — which drives this modal's Tab containment —
-                has no `summary` arm, so a bare one is invisible to the trap.
-                @testing-library/user-event's selector omits it too, which is why
-                the keyboard test cannot pass without this. */}
-            <summary
-              tabIndex={0}
-              className="cursor-pointer text-sm font-medium text-ui-dark-blue dark:text-ui-light-grey"
-            >
-              {t(lang, "noteLogTitle")} ({taskNotePanel.entries.length})
-            </summary>
-            {/* ★ NoteLogPanel's root is a FRAGMENT whose entry list is
-                `min-h-0 flex-1 overflow-auto`: inside a BOUNDED flex column (the
-                floating notes window) it is the scroller. Here the wrapper is a
-                plain BLOCK with no height, so those flex classes do nothing, the
-                list takes its full height and the editor form is the one
-                scroller. A height cap here (it was `max-h-72` on a flex column)
-                left the list a ~100 px strip scrolling inside the box inside the
-                form, its scroll bar below the form's fold (§679). */}
-            <div className="mt-2">
-              <NoteLogPanel {...taskNotePanel} />
-            </div>
-          </details>
-        ) : (
-          <div className="sm:col-span-2">
-            <button
-              type="button"
-              onClick={onOpenNotes}
-              disabled={!onOpenNotes}
-              title={t(lang, "noteLogOpenHint")}
-              className={LOG_LAUNCHER_CLASS}
-            >
-              {/* No count: this branch renders only for an UNSAVED task, which has
-                  no id for the write-through path to append to. A hardcoded 0 would
-                  be true only by WIRING (task-manager gates taskNotePanel on
-                  `editingId !== null`), not by construction — so show no number at
-                  all rather than one a future caller could falsify. */}
-              {t(lang, "noteLogTitle")}
-            </button>
-          </div>
-        )}
+        {/* Running dated note log: a launcher for the floating notes window,
+            as in the Change and RAID editors (the owner asked for pop-out only,
+            2026-10-08; it was inline from 2026-07-29). The window writes
+            straight through to the workspace, so a note added there survives
+            Cancel, which is right for an append-only journal. The count is the
+            STORED row's, like Blockers below: the form draft carries no note log
+            (open-followups §29). For an unsaved task the button is disabled with
+            no count, as there is no id for the window to write to. */}
+        <div className="sm:col-span-2">
+          <button
+            type="button"
+            onClick={onOpenNotes}
+            disabled={!onOpenNotes}
+            title={t(lang, "noteLogOpenHint")}
+            className={LOG_LAUNCHER_CLASS}
+          >
+            {storedTask
+              ? `${t(lang, "noteLogTitle")} (${storedTask.noteLog?.length ?? 0})`
+              : t(lang, "noteLogTitle")}
+          </button>
+        </div>
 
         {/* Blocker log launcher, beside the Notes control. The blockers text is
             DERIVED from the log and written only through the floating blocker

@@ -26,6 +26,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
+  The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
+  notes window beside the editor. As before, a note added there is saved at once and kept if you cancel
+  the editor, and the button is disabled for a task that has not been saved yet.
 - **AI-proposed tasks can carry an owner, priority and group (§445).** When the new-project wizard asks the
   AI to propose starter tasks, it can now give each one an assignee, a priority and a group. Before, the
   wizard was told to name owners but had nowhere to put them on a task.

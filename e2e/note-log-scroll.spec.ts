@@ -31,43 +31,36 @@ async function boot(page: Page): Promise<void> {
 }
 
 test.describe("note log scrolling (§679, §680)", () => {
-  test("§679 the task editor's inline log has no scroller of its own, so the form reaches the oldest note", async ({ page }) => {
+  // Since 2026-10-08 the task editor has no inline log: its button pops out the
+  // floating window, like the Change and RAID editors (the owner's request). §679
+  // is then the window's list reaching the oldest note of a long log.
+  test("§679 the task editor's Notes log button opens the floating window, whose list reaches the oldest note", async ({ page }) => {
     await boot(page);
     await openView(page, "Open Points");
     // Task #3: #1 and #2 are Jira-synced and read-only.
     await page.getByRole("button", { name: /^#3 — click to edit/ }).first().click();
-    const dialog = page.getByRole("dialog").first();
-    const summary = dialog.locator("summary", { hasText: "Notes log" });
-    await summary.scrollIntoViewIfNeeded();
-    await summary.click();
-    const list = dialog.locator("details ul").first();
+    const editor = page.getByRole("dialog").first();
+    // No inline log in the editor: no disclosure and no note text.
+    await expect(editor.locator("details", { hasText: "Notes log" })).toHaveCount(0);
+    await expect(editor.getByText("Note 1:")).toHaveCount(0);
+    await editor.getByRole("button", { name: `Notes log (${NOTE_COUNT})`, exact: true }).click();
+    const win = page.locator("[role=dialog].fixed.resize");
+    await expect(win).toBeVisible();
+    const list = win.locator("ul").first();
     await expect(list.locator(":scope > li")).toHaveCount(NOTE_COUNT);
 
-    // Neither the list nor the box around it scrolls: the form is the one scroller.
-    const nested = await list.evaluate((ul) => {
-      const box = ul.parentElement as HTMLElement;
-      return {
-        listOverflow: ul.scrollHeight - ul.clientHeight,
-        boxOverflow: box.scrollHeight - box.clientHeight,
-      };
-    });
-    expect(nested.listOverflow).toBeLessThanOrEqual(1);
-    expect(nested.boxOverflow).toBeLessThanOrEqual(1);
-
-    // Wheeling over the form reaches the oldest note inside the form's visible area.
-    // (The middle of the form, not the list: the list now starts below the fold.)
-    const formBox = await dialog.locator("form").first().boundingBox();
-    await page.mouse.move(formBox!.x + formBox!.width / 2, formBox!.y + formBox!.height / 2);
+    // Newest first, so the oldest note is last. Step the wheel over the list until
+    // it is fully inside the window.
     const oldest = list.locator(":scope > li").last();
     await expect(oldest).toContainText("Note 1:");
     const inView = () =>
       oldest.evaluate((li) => {
-        const f = (li.closest("form") as HTMLElement).getBoundingClientRect();
+        const w = (li.closest("[role=dialog]") as HTMLElement).getBoundingClientRect();
         const r = li.getBoundingClientRect();
-        return r.top >= f.top - 1 && r.bottom <= f.bottom + 1;
+        return r.top >= w.top - 1 && r.bottom <= w.bottom + 1;
       });
-    // Step the wheel and stop once the oldest note is fully inside the form: the fields
-    // after the log could carry it past the top if the wheel ran straight to the end.
+    const box = await list.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + Math.min(box!.height / 2, 40));
     let reached = await inView();
     for (let i = 0; i < 120 && !reached; i++) {
       await page.mouse.wheel(0, 120);
