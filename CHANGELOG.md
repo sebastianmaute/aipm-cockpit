@@ -225,6 +225,11 @@ longer carries its own changelog comment.
 
 ### Security
 
+- **Next.js 16.3.8.** The version in use, 16.3.6, fell inside six advisories, the worst high
+  severity (GHSA-cjq9-62q9-8jv4, server-side request forgery in image optimization); the others cover cache
+  poisoning of static and incrementally regenerated pages, draft content leaking through `use cache`, and
+  information disclosure in metadata image routes and the development server. `next` and
+  `eslint-config-next` move to 16.3.8, the patch release that fixes all six.
 - `sharp` moves from 0.35.4 to 0.35.5, closing a high-severity issue in its bundled librsvg
   (CVE-2026-96889). The advisory was published after the previous release. sharp reaches the
   app through Next.js, so the fix raises the version it is held to in `overrides`.
