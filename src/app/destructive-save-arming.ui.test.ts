@@ -19,10 +19,14 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  *
  * Since 2026-10-08 a removal SHAPE is any of: a `.filter(` or `.splice(` in the
  * setter's value, a value or updater that results in `[]`, or a local variable
- * initialised by a `.filter(`/`.splice(` and handed to the setter.
+ * initialised by a `.filter(`/`.splice(` and handed to the setter. Since batch 21
+ * also a COMMITTER: a setter handed a parameter of its own function, so a list
+ * computed by any caller passes through it (`commitBuckets` in
+ * `use-budget-buckets.ts` is the one today; `isParameterHandOff` says what it
+ * does not see).
  *
  * ★★★ ITS BOUND. A removal written another way passes unseen: a list computed in
- * ANOTHER function and handed in (`commitBuckets` in `use-budget-buckets.ts`), a
+ * another function and handed STRAIGHT to a setter by a local alias, a
  * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
  * row, a conditional clear (`setX(cond ? [] : p)`), a local declared in an OUTER
  * function (the lookup reads the nearest function only, and takes the first
@@ -150,6 +154,21 @@ function isRemovalArgument(arg: ts.Expression): boolean {
   const init = localInitializer(arg, e.text);
   return !!init && (contains(init, isFilterCall) || contains(init, isSpliceCall));
 }
+
+/** A COMMITTER: the setter is handed a parameter of the function it sits in
+ *  (`function commitBuckets(next) { …; setBudgets(next); }`). Whatever list a
+ *  caller computes — a `.filter(` in another file included — reaches the slice
+ *  through here, so the committer is judged as a removal route itself. Its
+ *  callers are not followed: the committer is the one place every one of them
+ *  passes through. ★ Only a plain identifier parameter of the NEAREST function
+ *  counts; a destructured one, or a local alias of a parameter, is not seen. */
+function isParameterHandOff(arg: ts.Expression): boolean {
+  const e = unwrap(arg);
+  if (!ts.isIdentifier(e)) return false;
+  let fn: ts.Node | undefined = arg.parent;
+  while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
+  return !!fn && fn.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === e.text);
+}
 /** `allowDestructiveSave()`, `x.allowDestructiveSave?.()`, or the ref a hook keeps it in,
  *  `allowDestructiveSaveRef.current?.()`. Never `allowDestructiveSaveAnyway`, the user's own
  *  save-anyway, which is not a route arming itself. */
@@ -195,7 +214,7 @@ function scanSource(file: string, text: string, setters: ReadonlySet<string>): S
   const visit = (n: ts.Node): void => {
     if (ts.isCallExpression(n)) {
       const setter = calleeName(n);
-      if (setter && setters.has(setter) && n.arguments.some(isRemovalArgument)) {
+      if (setter && setters.has(setter) && n.arguments.some((a) => isRemovalArgument(a) || isParameterHandOff(a))) {
         let fn: ts.Node | undefined = n.parent;
         let name: string | undefined;
         for (; fn; fn = fn.parent) {
@@ -298,8 +317,15 @@ describe("scanSource (the scanner itself)", () => {
     ["a splice", `function del(i) { setTasks((p) => { const c = [...p]; c.splice(i, 1); return c; }); }`],
     ["a local filtered list", `function del(id) { const kept = tasks.filter((t) => t.id !== id); setTasks(kept); }`],
     ["a local spliced list", `function del(i) { const gone = rows.splice(i, 1); setTasks(gone); }`],
+    ["a committer handed its own parameter", `function commit(next) { setTasks(next); }`],
+    ["a committer's parameter through a cast", `const commit = (next) => { setTasks(next as Task[]); };`],
   ])("finds %s", (_label, src) => {
     expect(scan(src).map((x) => x.setter)).toEqual(["setTasks"]);
+  });
+
+  it("judges a committer by its own body, and ignores a parameter of an OUTER function", () => {
+    expect(scan(`function commit(next) { if (gone) allowDestructiveSave?.(); setTasks(next); }`)[0]).toMatchObject({ fn: "commit", armed: true });
+    expect(scan(`function outer(next) { const h = () => { setTasks(next); }; }`)).toEqual([]);
   });
 });
 
@@ -315,6 +341,8 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(sites.find((s) => s.key === "use-bulk-operations.ts#handleClearAll#setTasks")?.armed).toBe(true);
     // The unbounded route behind a wrapper call (guardEdit), judged by its own body.
     expect(sites.filter((s) => s.key.startsWith("task-manager.tsx#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
+    // A committer, seen since batch 21: any caller's list reaches setBudgets through it.
+    expect(sites.find((s) => s.key === "use-budget-buckets.ts#commitBuckets#setBudgets")?.armed).toBe(true);
   });
 
   // A site that resolves to a component (PascalCase), a hook (`useX`) or the module is
