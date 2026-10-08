@@ -35,7 +35,7 @@ npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --
   and does not overlap the checkbox.
 - [ ] **Item 3.** `item3b-id-cell-default.png` and `item3b-id-cell-narrowest.png`: with a Jira key and
   a second badge on the same task, the badges stack under the ID, one per line, and nothing is cut off.
-  The narrowest width used to clip the ID and the Jira key; since 2026-10-08 the column is 104px by
+  The narrowest width used to clip the ID and the Jira key; since 2026-10-08 the column is 112px by
   default and cannot be dragged narrower. Check the wider ID column looks right in the table.
 - [ ] **Item 4.** `item4-documents-expanded.png` and `item4-documents-collapsed.png`: the panel
   reflows sensibly when the body collapses, and the underlined chevron next to the name reads well.

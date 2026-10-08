@@ -85,7 +85,9 @@ test("§661: a tab closed with an unsaved local-file edit — the file misses it
   await p2.goto("/favicon.ico");
   await p2.waitForTimeout(1500);
   // MEASURED 2026-10-08, 3 of 3: the close-time save requests its lock and the tab is
-  // gone before it writes, so the FILE does not have the edit.
+  // gone before it writes, so the FILE does not have the edit. ★ This pins today's
+  // defect, not the goal: if the file save stops waiting for its lock at close (the
+  // other option §661 leaves to the owner), INVERT this assertion; do not delete it.
   expect(await readFile(p2), "the close-time save reached the file (the finding changed)").not.toContain(newName);
   const journal = await p2.evaluate(() =>
     Object.entries(localStorage).filter(([k]) => k.startsWith("aipm-cockpit:unload-journal:")).map(([, v]) => v).join(""));

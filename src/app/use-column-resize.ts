@@ -90,15 +90,23 @@ const DEFAULT_MIN_COL_WIDTH_PX = 40;
 /** One shared empty floor map, so the default never changes `startColResize`'s identity. */
 const NO_FLOORS: Readonly<Record<string, number>> = Object.freeze({});
 
-/** A stored width below the column's floor is raised to it, so a width saved
- *  before the floor existed cannot keep the column narrower than it now allows. */
+/** A stored width below a column's EXPLICIT floor is raised to it, so a width saved
+ *  before the floor existed cannot keep the column narrower than it now allows.
+ *  Only named floors apply here, never the 40px drag default: no other table's
+ *  stored widths change. A width raised exactly to the column's default is
+ *  dropped, so it reads as "not user-set" and still follows a later default
+ *  change rather than being persisted as if the user had dragged to it. */
 function clampToFloors<TId extends string>(
   widths: Partial<Record<TId, number>>,
   minWidths: Readonly<Partial<Record<TId, number>>>,
+  defaults: Readonly<Record<TId, number>>,
 ): Partial<Record<TId, number>> {
   const out: Record<string, number> = {};
   for (const [k, w] of Object.entries(widths) as [string, number][]) {
-    out[k] = Math.max((minWidths as Record<string, number>)[k] ?? DEFAULT_MIN_COL_WIDTH_PX, w);
+    const floor = (minWidths as Record<string, number>)[k];
+    const clamped = floor === undefined ? w : Math.max(floor, w);
+    if (floor !== undefined && clamped !== w && clamped === (defaults as Record<string, number>)[k]) continue;
+    out[k] = clamped;
   }
   return out as Partial<Record<TId, number>>;
 }
@@ -120,7 +128,7 @@ export function useColumnResize<TId extends string>(
   resetColWidths: () => void;
 } {
   const storageKey = `${KEY_PREFIX}:${tableId}`;
-  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => clampToFloors<TId>(readSized<TId>(storageKey, defaults), minWidths));
+  const [sizedWidths, setSizedWidths] = useState<Partial<Record<TId, number>>>(() => clampToFloors<TId>(readSized<TId>(storageKey, defaults), minWidths, defaults));
 
   const colWidths = useMemo(
     () => ({ ...defaults, ...sizedWidths }) as Record<TId, number>,

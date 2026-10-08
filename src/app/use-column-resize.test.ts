@@ -73,6 +73,19 @@ describe("useColumnResize", () => {
     expect(result.current.sizedWidths).toEqual({ a: 90, b: 45 });
   });
 
+  it("on load clamps only to a named floor, never to the 40 px drag default", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { b: 20 } }));
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, { a: 90 }));
+    expect(result.current.sizedWidths).toEqual({ b: 20 });
+  });
+
+  it("drops a stored width raised exactly to the default, so it is not persisted as a drag", () => {
+    localStorage.setItem(KEY("t1"), JSON.stringify({ v: 2, widths: { a: 30 } }));
+    const { result } = renderHook(() => useColumnResize("t1", DEFAULTS, { a: DEFAULTS.a }));
+    expect(result.current.sizedWidths).toEqual({});
+    expect(result.current.colWidths.a).toBe(DEFAULTS.a);
+  });
+
   it("reset replaces state with defaults and removes the namespaced key", async () => {
     localStorage.setItem(KEY("t1"), JSON.stringify({ a: 999 }));
     const { result } = renderHook(() => useColumnResize("t1", DEFAULTS));

@@ -32,12 +32,19 @@ describe("useColumnManager", () => {
     });
 
     // §414: below its default the ID cell clipped `#<id>` and its badges, so a
-    // width stored before the floor existed is raised to it.
+    // width stored before the floor existed is raised to it. Raised exactly to the
+    // default, it reads as not user-set, so `sizedWidths` drops it.
     it("holds the ID column to its default width as a floor", () => {
       localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ v: 2, widths: { id: 40, assignee: 60 } }));
       const { result } = renderHook(() => useColumnManager());
-      expect(result.current.sizedWidths.id).toBe(104);
+      expect(result.current.sizedWidths.id).toBeUndefined();
       expect(result.current.sizedWidths.assignee).toBe(60);
+    });
+
+    it("keeps a stored ID width above the floor", () => {
+      localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ v: 2, widths: { id: 150 } }));
+      const { result } = renderHook(() => useColumnManager());
+      expect(result.current.sizedWidths.id).toBe(150);
     });
 
     it("reads widths from the v2 table key, ignoring a stale open-points blob", () => {

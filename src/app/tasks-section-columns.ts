@@ -22,10 +22,13 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   sel: 36, // a 16px checkbox plus its tap padding
   status: 28, // holds a single ~10px RAG dot
   // `#<id>` over its badges. A Jira badge such as "LOP-101" needs 99px with the
-  // cell's 2×16px padding, measured 2026-10-08 (§414): at the old 80 it spilled
-  // into the next column, and narrowed further it was cut off. A key longer than
-  // about eight characters still overflows; widen the column for those.
-  id: 104,
+  // cell's 2×16px padding in Windows' monospace font and 103px in Courier New,
+  // which has the same character widths as Liberation Mono, the usual Linux
+  // fallback (measured 2026-10-08, §414). At the old 80 it spilled into the next
+  // column, and narrowed further it was cut off. 112 leaves room on every OS
+  // (owner decision 2026-10-08). A key longer than about nine characters still
+  // overflows; widen the column for those.
+  id: 112,
   taskName: 200,
   assignee: 140,
   startDate: 110,
