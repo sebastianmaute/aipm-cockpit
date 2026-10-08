@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { KANBAN_COLUMN_PAGE, TaskKanban } from "./task-kanban-board";
+import { TaskKanban } from "./task-kanban-board";
+import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
 import { loadI18n, t } from "./i18n";
 import { statusLabelKey } from "./task-status-ui";
 import type { Lang } from "./i18n";

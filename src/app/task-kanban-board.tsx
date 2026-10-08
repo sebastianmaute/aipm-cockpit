@@ -7,8 +7,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./button";
 import { usePrinting } from "./use-printing";
 import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
-
-export { KANBAN_COLUMN_PAGE };
 import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
