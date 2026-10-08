@@ -757,7 +757,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§517](#517-the-simple-view-principle-is-not-applied-app-wide-and-no-chromeless-view-shows-only-the-top-one-to-three-next-actions--open) | The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions | AI PM Cockpit demo 2026-09-11 (U-1), GitLab #58; mirrored into the register 2026-09-13 | M–L — the chromeless next-actions view first, then the principle across overviews | open |
 | [§518](#518-there-is-no-single-action-focus-mode-that-steps-through-the-next-actions-one-at-a-time--open) | There is no single-action focus mode that steps through the next actions one at a time | AI PM Cockpit demo 2026-09-11 (U-2), GitLab #59; mirrored into the register 2026-09-13 | M — a one-at-a-time mode with position dots and complete-to-advance for every action type | open |
 | [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
-| [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
+| [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--closed-2026-10-08) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | **CLOSED** 2026-10-08 |
 | [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
 | [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--closed-2026-10-03) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | **CLOSED** 2026-10-03 |
 | [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--closed-2026-10-03) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | **CLOSED** 2026-10-03 |
@@ -806,7 +806,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--closed-2026-09-21) | The Jira proxy logs the raw fetch-rejection object server-side | audit (2026-09) | S | **CLOSED** 2026-09-21 |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--closed-2026-09-26) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose | slice (2026-09) | S–M | **CLOSED** 2026-09-26 |
-| [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
+| [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--closed-2026-10-08) | Screen readers may never deliver the chart readout's arrow keys | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | **CLOSED** 2026-10-08 |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--closed-2026-09-21) | The spoken readout capitalises mid-sentence | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | closed |
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--closed-2026-09-27) | AGENTS.md's tsc guidance cannot detect a vacuous run | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | **CLOSED** 2026-09-27 |
@@ -38744,9 +38744,11 @@ Size S–M for routing unknown voice commands; the wider intent-driven principle
 
 **Work item:** #62
 
-## 520. The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan — OPEN
+## 520. The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan — CLOSED 2026-10-08
 
-**Status:** OPEN 2026-09-13 — `grep -n "screen-reader-friendly" docs/features.md` → 1 hit, the untested claim;
+**Status:** CLOSED 2026-10-08 — by owner decision 2026-10-08, won't do: closed because no screen reader is available to run the hand audit this entry asks for. Nothing changed in the code. The second half, axe on the surfaces outside `A11Y_VIEWS` (Projects, Knowledge, Resources → Calendar, the create wizard, the task editor), is dropped with it and was not done. Reopen as a new entry if a screen reader becomes available or an axe scan of those surfaces is wanted on its own.
+
+**Status before this update:** OPEN 2026-09-13 — `grep -n "screen-reader-friendly" docs/features.md` → 1 hit, the untested claim;
 `grep -n "const A11Y_VIEWS" e2e/a11y.spec.ts` → 17 views. No manual screen-reader record exists; never
 machine-verified.
 
@@ -38763,8 +38765,6 @@ bump).
 Size M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces.
 
 **Source:** GitLab #63 (U-6, source::demo-2026-09-11)
-
-**Work item:** #63
 
 ## 521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — CLOSED 2026-09-13
 
@@ -40673,13 +40673,13 @@ once, first moving any State prose that exists nowhere else into its entry; or c
 claim to say it is a normaliser rather than a proof. Any of them needs the 78 prose cells checked
 individually before a rebuild is ever run for real.
 
-## 569. Screen readers may never deliver the chart readout's arrow keys — OPEN
+## 569. Screen readers may never deliver the chart readout's arrow keys — CLOSED 2026-10-08
 
-**Status:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
+**Status:** CLOSED 2026-10-08 — by owner decision 2026-10-08, won't do: closed because no screen reader is available to run the NVDA/JAWS pass this entry needs. Nothing changed in the code: the readout trigger still has no `role="application"` and no forms-mode instructions, and the browse-mode concern remains unmeasured. Reopen as a new entry if a screen reader becomes available.
+
+**Status before this update:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
 1.9.0 "James"); the browse-mode mechanism is established from NVDA/JAWS documentation, not measured against
 either screen reader — never machine-verified.
-
-**Work item:** #354
 
 The readout trigger in `src/app/burndown-chart.tsx` is a plain `<button type="button">` wired via
 `readout.triggerProps`, and `useChartReadout` (`src/app/use-chart-readout.ts`) attaches its `onKeyDown` to
