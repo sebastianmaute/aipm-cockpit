@@ -26,6 +26,22 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Large Gantt charts, swimlanes and activity logs stay responsive (§5).** Above 200 rows the Gantt
+  draws only the rows near the screen: at about 2000 tasks it now opens in about 7 s instead of over a
+  minute, and a search keystroke takes under 2 s instead of 20. Dependency arrows to rows off screen
+  still show, a row you are dragging stays put, and printing still prints every row. The Swimlanes view
+  shows 100 cards per person and status, and the activity log 100 rows, each with a "Show more" button;
+  printing shows everything, and the activity log's search, filters and sort still cover every entry.
+
+- **Two tasks are linked by at most one dependency type (§135).** A second link between the same two
+  tasks with a different type (for example both finish-to-start and start-to-start), which could arrive
+  from an import, a hand-edited file or the AI assistant, was invisible in the task editor and could not
+  be removed on its own. The first link is now kept and the other dropped when the project loads or is
+  written to. Picking a different type for an existing successor in the task editor changes its type.
+
+- **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
+  type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
+
 - **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
   The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
   notes window beside the editor. As before, a note added there is saved at once and kept if you cancel
@@ -127,6 +143,11 @@ longer carries its own changelog comment.
   Center's AI analysis.
 
 ### Fixed
+
+- **Document images no longer go missing after switching projects on single-database Turso storage
+  (§207).** With Turso storage and no Turso project selected, switching to another project in the
+  project list showed every embedded image as missing until you switched back. Images are now stored
+  under one key for that database, and images saved before this change are still found.
 
 - **The Notes log count in the Change and RAID editors updates while the editor is open.** A note added
   in the floating notes window with the editor open did not change the editor's "Notes log (n)" count
