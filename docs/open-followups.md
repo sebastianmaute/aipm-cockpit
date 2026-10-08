@@ -917,6 +917,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§680](#680-floating-notes-window-a-long-new-note-grows-past-the-window-with-no-scroll-bar--closed-2026-10-08) | Floating notes window: a long new note grows past the window with no scroll bar | — | — | **CLOSED** 2026-10-08 |
 | [§681](#681-the-pink-count-badge-fails-aa-contrast--closed-2026-10-08) | The pink count badge fails AA contrast | — | — | **CLOSED** 2026-10-08 |
 | [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--closed-2026-10-08) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | **CLOSED** 2026-10-08 |
+| [§683](#683-the-rag-letter-chips-white-letter-fails-aa-contrast--open) | The RAG letter chip's white letter fails AA contrast | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44196,3 +44197,35 @@ If the same order happens in the app, the list-failure banner disappears while t
 **Status before this update:** OPEN 2026-10-07 — found while checking the desktop rollout guide. Settings → Timelog → Test connection reports "Connected — N users, scope: self" (or "org"): `timelog-settings.tsx` passes the internal value (`"org"` / `"self"`, or `config.scopeMode`) straight into `timelogTestOk` / `timelogTestOkOne`, while the Data scope select beside it labels the same values through `timelogScopeSelf` / `timelogScopeOrg`. A German user sees English words. Reproduce: `grep -nE 'timelogTestOk|"(org|self)"' src/app/timelog-settings.tsx`.
 
 **Close when** the test message names the scope with the same translated label as the select, pinned by a test in both languages (`loadI18n("de")`).
+
+## 683. The RAG letter chip's white letter fails AA contrast — OPEN
+
+**Status:** OPEN 2026-10-08 — found by the peer session during the §681 work on the Amber chip, then measured for all three colours. `RagBadge` (`rag-badge.tsx`) draws a white 9 px bold letter on the health colour (`healthDot[value]`, `health.ts`). White against the resolved token, per built-in scheme mode, measured 2026-10-08 with the probe below (`npx jiti rag-chip-contrast.ts` from the repo root):
+
+| Scheme mode | red | amber | green |
+|---|---|---|---|
+| harbor-light | 4.36 | 2.87 | 3.40 |
+| harbor-dark | 2.79 | 1.92 | 2.20 |
+| meridian-light | 4.58 | 3.02 | 3.30 |
+| meridian-dark | 2.85 | 1.82 | 2.26 |
+| umber-light | 5.02 | 2.84 | 3.94 |
+| umber-dark | 2.95 | 1.96 | 2.23 |
+| beacon-light | 3.87 | 1.68 | 3.11 |
+
+Small text needs 4.5:1, so only red on Meridian light and Umber light passes; amber and green fail everywhere. The axe gate cannot see any of it for the reason §681 recorded: with default options axe files a one-character text node under INCOMPLETE ("too short") and never judges its contrast.
+
+```ts
+// rag-chip-contrast.ts (repo root; not committed)
+import { BUILTIN_SCHEMES } from "./src/app/builtin-schemes";
+import { resolveSchemeColors } from "./src/app/scheme-tokens";
+import { contrastRatio } from "./src/app/scheme-contrast";
+for (const s of BUILTIN_SCHEMES) for (const [mode, m] of [["light", s.light], ["dark", s.dark]] as const) {
+  if (!m) continue;
+  const c = resolveSchemeColors(m);
+  console.log(s.id + "-" + mode, (["--rag-red", "--rag-amber", "--rag-green"] as const).map((t) => contrastRatio("#ffffff", c[t]!).toFixed(2)).join(" "));
+}
+```
+
+**Work item:** #616
+
+**Close when** the letter on every `RagBadge` colour (R, A, G) reaches 4.5:1 on every built-in scheme, light and dark, pinned by a unit test that computes the ratios from the scheme maps, and an axe scan with `ignoreLength`, scoped to a rendered chip, lists it under passes.
