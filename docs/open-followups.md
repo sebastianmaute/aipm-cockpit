@@ -254,7 +254,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§2](#2-use-resource-plannerts-is-30-over-the-800-line-ceiling--closed-post-02120) | ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED** post-0.212.0 |
 | [§3](#3-optimize_wbs-never-built--owed-from-r4) | `optimize_wbs` never built — owed from R4 | R4 (0.201.0) | ? | open |
 | [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
-| [§5](#5-list-virtualization-the-open-points-table-is-done-kanban-board-gantt-and-activity-log-remain-audit-14) | List virtualization: the Open Points table is done; Kanban board, Gantt and activity log remain (audit #14) | audit (2026-07) | L | open |
+| [§5](#5-list-virtualization-the-open-points-table-and-the-kanban-board-are-done-the-swimlane-view-gantt-and-activity-log-remain-audit-14) | List virtualization: the Open Points table and the Kanban board are done; the swimlane view, Gantt and activity log remain (audit #14) | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled--closed-2026-10-03) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | **CLOSED** 2026-10-03 |
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review--closed-2026-10-03) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | **CLOSED** 2026-10-03 |
 | [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
