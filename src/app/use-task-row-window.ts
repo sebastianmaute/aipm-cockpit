@@ -28,7 +28,8 @@
 // there. The PERF-gated probe (e2e/perf-task-table.spec.ts), the only check against
 // a real browser layout, does not run in CI: run it by hand on any such bump.
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePrinting } from "./use-printing";
 import { defaultRangeExtractor, useVirtualizer, type Range, type Rect, type Virtualizer, type VirtualItem } from "@tanstack/react-virtual";
 
 /** The table switches to a row window only ABOVE this many visible rows. */
@@ -78,48 +79,6 @@ export function withPinnedIndex(indexes: readonly number[], pinned: number): num
   if (pinned < 0 || indexes.includes(pinned)) return [...indexes];
   return [...indexes, pinned].sort((a, b) => a - b);
 }
-
-// ── Printing ────────────────────────────────────────────────────────────────
-// A printout must hold EVERY row, so the window switches off while printing.
-// Two sources, because neither covers every path alone:
-//  - the `print` media query, which flips for an emulated print medium;
-//  - `beforeprint`/`afterprint`, which Chromium dispatches for a real print,
-//    including one the browser starts (Ctrl+P) rather than `window.print()`.
-//    The desktop shell's File → Print… is such a print (docs/AGENTS/desktop.md
-//    "Print and the menu"). ★ NOT yet verified on a packaged desktop build —
-//    owed, recorded in §5.
-// An external-store change outside a React event renders at sync priority,
-// flushed in the microtask checkpoint right after the `beforeprint` handler —
-// before the print layout is taken.
-let printEventActive = false;
-
-function subscribePrint(onChange: () => void): () => void {
-  if (typeof window === "undefined") return noop;
-  const mql = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
-  const onBefore = () => {
-    printEventActive = true;
-    onChange();
-  };
-  const onAfter = () => {
-    printEventActive = false;
-    onChange();
-  };
-  mql?.addEventListener("change", onChange);
-  window.addEventListener("beforeprint", onBefore);
-  window.addEventListener("afterprint", onAfter);
-  return () => {
-    mql?.removeEventListener("change", onChange);
-    window.removeEventListener("beforeprint", onBefore);
-    window.removeEventListener("afterprint", onAfter);
-  };
-}
-
-function getPrintSnapshot(): boolean {
-  if (printEventActive) return true;
-  return typeof window.matchMedia === "function" && window.matchMedia("print").matches;
-}
-
-const getServerPrintSnapshot = () => false;
 
 /** The list index of the task row holding focus inside `box`, or -1.
  *
@@ -213,7 +172,7 @@ export function useTaskRowWindow(opts: {
 }): TaskRowWindow {
   const { ids, scrollRef, headRef, estimateRowPx } = opts;
   const count = ids.length;
-  const printing = useSyncExternalStore(subscribePrint, getPrintSnapshot, getServerPrintSnapshot);
+  const printing = usePrinting();
   const enabled = count > VIRTUALIZE_MIN_ROWS && !printing;
   const headPx = useHeadHeight(headRef, enabled);
   // ★ Keyed by task id, not index, so a sort or an insert moves each measured
