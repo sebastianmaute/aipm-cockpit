@@ -139,6 +139,8 @@ const STATE_BORDER = 3;
  *  fixed rather than read from the scheme because a dark scheme's foreground is
  *  LIGHT, and a light letter on amber is the defect §683 closes. */
 const RAG_BADGE_INK = "#15212e";
+/** `--rag-amber` in `globals.css :root`, what the chip paints when a scheme sets no amber. */
+const RAG_AMBER_FALLBACK = "#cf8a1c";
 
 /** A text variant: 4.5 against `reference`. `lighten` is the purple override
  *  described on `nudgeToContrast`; omitted, the mode is read off `reference`. */
@@ -242,8 +244,25 @@ function aaRules(colors: SchemeColorMap): AaRule[] {
     const fill = baseOr(base, token);
     if (fill) rules.push(aaTextRule(token, fill, "#ffffff", false));
   }
-  const amber = colors["--rag-amber"];
-  if (amber) rules.push(aaTextRule("--rag-badge-amber-ink", RAG_BADGE_INK, amber, false));
+  // ★★ The ink CAN fail to reach 4.5 by darkening: `--rag-amber` is user-editable,
+  //   and once a custom amber is deep enough (luminance under ~0.175, e.g. #8a5a10)
+  //   no dark ink clears it, while white does. So a short ink falls back to black or
+  //   white, whichever contrasts more, in the derivation itself, not only for a pin.
+  //   A pinned ink with no amber of its own is judged against the amber the chip
+  //   actually paints then: the `globals.css` fallback.
+  const amber = colors["--rag-amber"] ?? (colors["--rag-badge-amber-ink"] ? RAG_AMBER_FALLBACK : undefined);
+  if (amber) {
+    rules.push({
+      token: "--rag-badge-amber-ink",
+      base: RAG_BADGE_INK,
+      reference: amber,
+      floor: AA_TEXT,
+      nudge: (color) => {
+        const nudged = nudgeToAa(color, amber, false);
+        return ratio(nudged, amber) >= AA_TEXT ? nudged : blackOrWhite(amber);
+      },
+    });
+  }
   return rules;
 }
 

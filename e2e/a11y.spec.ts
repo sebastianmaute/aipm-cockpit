@@ -770,8 +770,9 @@ for (const combo of COMBOS) {
 // §683: the RAG letter chip (`RagBadge`). White on the raw RAG colours measured
 // 1.68-5.02:1, and like the pink badge above the default scan could not see it:
 // a one-letter chip is "too short" for axe and lands in INCOMPLETE. The seed
-// computes amber everywhere, so the overall, schedule and budget overrides are
-// pinned to R, A and G and the hero's "Adjust health ratings" panel is opened:
+// carries no red: its status overrides are A, A, G, G, and with the adjust panel
+// closed only the overall (A) chip shows. So the overall, schedule and budget
+// overrides are pinned to R, A and G and the hero's "Adjust health ratings" panel is opened:
 // all three letters are then on screen at once. Each chip must paint the token
 // pair its letter resolves to in this combo, and a chip-scoped scan with
 // `ignoreLength` must judge every chip and list it among the passes.

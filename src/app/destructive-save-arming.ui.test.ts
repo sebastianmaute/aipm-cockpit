@@ -24,8 +24,10 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * ★★★ ITS BOUND. A removal written another way passes unseen: a list computed in
  * ANOTHER function and handed in (`commitBuckets` in `use-budget-buckets.ts`), a
  * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
- * row, a generic setter such as the undo runner's, or a counted slice's setter
- * handed down under another name. Those stay a by-hand review, as §293 records. And "the
+ * row, a conditional clear (`setX(cond ? [] : p)`), a local declared in an OUTER
+ * function (the lookup reads the nearest function only, and takes the first
+ * same-named declaration in it, nested closures included), a generic setter such
+ * as the undo runner's, or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
  * enclosing function calls it" is a PRESENCE check, not an ordering or branch
  * check — whether the arm fires on the right path is each route's own test.
  *

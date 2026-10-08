@@ -1,7 +1,6 @@
-import { test, expect, gotoApp, openView, reseedWorkspace, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 import { join } from "node:path";
 import type { Locator } from "@playwright/test";
-import { SEED_WORKSPACE } from "./seed-workspace";
 
 // Browser eye-verify for open-followups §414 (the control-defects batch). Each
 // item there is a layout/hover/native-tooltip claim jsdom cannot observe. This
@@ -164,7 +163,10 @@ test.describe("control-defects eye-verify (§414)", () => {
     await shot(row, "item2-row-with-ask-claude.png");
   });
 
-  // Item 3 — the ID-column badge run does not wrap.
+  // Item 3, as first written: a smoke test only. ★★ SUPERSEDED for the claim by
+  // "item 3b" below, which has the two-badge fixture this test lacks and MEASURED
+  // the opposite of this test's title: two or more badges stack under the ID rather
+  // than share a line. This one still passes only because no cell here holds two.
   //
   // The ID cell (`<Td className="font-mono …">` in task-row.tsx) renders
   // `#<id>` plus zero or more of the Jira/RAID/document/changes badges, each
@@ -178,7 +180,7 @@ test.describe("control-defects eye-verify (§414)", () => {
   //    other two hold plain text and no `.whitespace-nowrap` descendant, so
   //    `badgeCount === 0` skips them. Do not "tighten" this to the ID cell on
   //    the strength of the old claim without re-running that grep.
-  test("item 3: the ID-column badge run stays on one line", async ({ page }) => {
+  test("item 3 (smoke, superseded by 3b): single badges in the ID cells render", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
     });
@@ -221,9 +223,9 @@ test.describe("control-defects eye-verify (§414)", () => {
     //     "non-vacuity guard", which is a false-coverage claim: seven
     //     single-badge rows satisfy it. It is kept because it still catches a
     //     seed that stops rendering badges at all.
-    //     Closing this for real needs a fixture that puts TWO badges in one ID
-    //     cell; until then the geometry here is a smoke test, and
-    //     `docs/open-followups.md` §414 records the same limitation.
+    //     The two-badge fixture this needed is "item 3b" (2026-10-08), which
+    //     sets `settings.jira.siteUrl` so the seed's Jira tasks show a second
+    //     badge, and which found that such badges stack (§414).
     expect(sawAnyBadge).toBe(true);
   });
 
@@ -278,9 +280,9 @@ test.describe("control-defects eye-verify (§414)", () => {
     await expect(bodyText).toBeVisible();
   });
 
-  // Item 3, with the fixture the test above lacks (2026-10-08). The seed never puts
-  // two badges in one ID cell, so the first task that carries one gains a Jira key
-  // too: the Jira badge renders once `settings.jira.siteUrl` is set.
+  // Item 3, with the fixture the test above lacks (2026-10-08). The seed's Jira
+  // tasks show their Jira badge once `settings.jira.siteUrl` is set, beside the
+  // badge they already carry, so a cell holds two.
   // ★★ MEASURED 2026-10-08: the badges do NOT share a line, even at the default
   // width. They are inline siblings in a plain <td>, so with two or more they stack
   // under the ID, one per line. What `whitespace-nowrap` guarantees, and what this
@@ -298,34 +300,30 @@ test.describe("control-defects eye-verify (§414)", () => {
     await openView(page, "Open Points");
     await waitForViewSettled(page);
 
-    const badged = page.locator("tr[data-deeplink-row] td.font-mono").filter({ has: page.locator(".whitespace-nowrap") }).first();
-    const idText = (await badged.textContent()) ?? "";
-    const id = Number(/#(\d+)/.exec(idText)?.[1]);
-    expect(id, `no task id in "${idText}"`).toBeGreaterThan(0);
-    const task = (SEED_WORKSPACE.tasks as Record<string, unknown>[]).find((t) => t.id === id);
-    expect(task, `task ${id} not in the seed`).toBeDefined();
-    await reseedWorkspace(page, { tasks: [{ ...task, jiraKey: "CIP-101" }] });
-    await page.reload();
-    await gotoApp(page);
-    await openView(page, "Open Points");
-    await waitForViewSettled(page);
-
-    const cell = page.locator("tr[data-deeplink-row] td.font-mono").filter({ hasText: `#${id}` }).first();
-    const badges = cell.locator(".whitespace-nowrap");
+    // The seed's Jira tasks carry a second badge too (e.g. a change link), once the
+    // Jira badge renders. The badges are the ID cell's children AFTER the `#id`
+    // button, found by STRUCTURE: selecting them by `.whitespace-nowrap`, the class
+    // under test, would make a dropped class read as "no badges" rather than a break.
+    const cells = page.locator("tr[data-deeplink-row] td.font-mono");
+    const index = await cells.evaluateAll((tds) => tds.findIndex((td) => td.children.length - 1 >= 2));
+    expect(index, "no ID cell with two badges").toBeGreaterThanOrEqual(0);
+    const cell = cells.nth(index);
     // A badge that broke inside itself is taller than one line of its own text.
-    const brokenBadges = async () => {
-      const n = await badges.count();
-      const broken: string[] = [];
-      for (let j = 0; j < n; j++) {
-        const b = badges.nth(j);
-        const { height, line } = await b.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          return { height: el.getBoundingClientRect().height, line: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5 };
-        });
-        if (height > line * 1.6 + 8) broken.push(`${((await b.textContent()) ?? "").trim()} (${Math.round(height)}px)`);
-      }
-      return { n, broken };
-    };
+    const brokenBadges = () =>
+      cell.evaluate((td) => {
+        const out: string[] = [];
+        const kids = [...td.children].slice(1) as HTMLElement[];
+        for (const el of kids) {
+          // The Jira badge sits in a wrapper <span>; measure the badge itself.
+          const badge = (el.children.length === 1 && el.tagName === "SPAN" ? el.firstElementChild : el) as HTMLElement;
+          const cs = getComputedStyle(badge);
+          const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5;
+          const rects = badge.getClientRects().length;
+          const height = badge.getBoundingClientRect().height;
+          if (rects > 1 || height > line * 1.6 + 8) out.push(`${(badge.textContent ?? "").trim()} (${Math.round(height)}px, ${rects} boxes)`);
+        }
+        return { n: kids.length, broken: out };
+      });
     // ANTI-VACUITY: the property needs at least two badges in the one cell.
     const atDefault = await brokenBadges();
     expect(atDefault.n, "badges in the ID cell").toBeGreaterThanOrEqual(2);

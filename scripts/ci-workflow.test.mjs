@@ -391,7 +391,9 @@ describe("release.yml", () => {
     expect(b).toMatch(/"\$fuses" read --app "\$exe"/);
     const wants = [...b.matchAll(/"(\w+) is (Enabled|Disabled)"/g)].map((m) => [m[1], m[2] === "Enabled"]);
     const eb = read("desktop/electron-builder.yml");
-    const block = /^electronFuses:\n((?:\s+.*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    // To the next top-level key: indented lines and blank lines only (`\s+` would
+    // swallow a newline and run on into the next key).
+    const block = /^electronFuses:\n((?:[ \t]+.*\n|\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
     const set = [...block.matchAll(/^\s+(\w+):\s*(true|false)/gm)].map((m) => [m[1].toLowerCase(), m[2] === "true"]);
     expect(set.length).toBeGreaterThanOrEqual(4);
     expect(wants.map(([k, v]) => [k.toLowerCase(), v]).sort()).toEqual(set.sort());

@@ -132,6 +132,11 @@ describe("scheme state contrast", () => {
     expect(ratio("#ffffff", cssHex("--rag-badge-red"))).toBeGreaterThanOrEqual(4.5);
     expect(ratio("#ffffff", cssHex("--rag-badge-green"))).toBeGreaterThanOrEqual(4.5);
     expect(ratio(cssHex("--rag-badge-amber-ink"), cssHex("--rag-amber"))).toBeGreaterThanOrEqual(4.5);
+    // scheme-tokens.ts judges a pinned ink with no scheme amber against this fallback
+    // by value (RAG_AMBER_FALLBACK), so the two must agree.
+    expect(readFileSync("src/app/scheme-tokens.ts", "utf8")).toContain(
+      `const RAG_AMBER_FALLBACK = "${cssHex("--rag-amber")}";`,
+    );
   });
 });
 

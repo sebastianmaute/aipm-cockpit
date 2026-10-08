@@ -181,6 +181,21 @@ describe("resolveSchemeColors — pinned derived tokens are held to their floor 
     expect(relLuminance(hexToRgb(out["--rag-badge-amber-ink"]!))).toBeLessThan(relLuminance(hexToRgb("#6b5a3a")));
   });
 
+  // Review finding: --rag-amber is user-editable, and past a point no DARK ink clears a
+  // deep custom amber, while the old white letter did. The derivation falls back.
+  it.each(["#8a5a10", "#a0522d", "#9a6a00", "#000000", "#ffffff"])(
+    "derives an amber chip ink that clears 4.5 on a custom amber %s",
+    (amber) => {
+      const out = resolveSchemeColors({ "--rag-amber": amber });
+      expect(contrastRatio(out["--rag-badge-amber-ink"]!, amber)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("holds a pinned amber ink to the globals.css fallback amber when the scheme sets no amber (§683)", () => {
+    const out = resolveSchemeColors({ "--rag-badge-amber-ink": "#eeeeee" });
+    expect(contrastRatio(out["--rag-badge-amber-ink"]!, "#cf8a1c")).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("cannot change a built-in scheme: none pins a floor-checked token", () => {
     // The floor check acts only on a PIN, so this is the property that keeps built-ins unchanged.
     const checked = ["--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong", "--rag-red-text", "--rag-amber-text",
