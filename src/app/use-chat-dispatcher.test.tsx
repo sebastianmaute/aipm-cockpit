@@ -2998,10 +2998,15 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
   // invisible to all of them. Same structural blind spot, and same remedy, as
   // `knowledge-panel.test.tsx`'s workspace-section scan. Deliberately narrow: it
   // proves the prop is passed, not that the value is right.
-  it("is handed the bypass by its call site in task-manager", () => {
-    const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
-    const start = src.indexOf("useChatDispatcher({");
-    expect(start, "useChatDispatcher call not found in task-manager.tsx").toBeGreaterThan(-1);
+  // ★ Two hops since §491: task-manager hands it to `useChatDispatcherWiring`,
+  // which forwards it to `useChatDispatcher`. Each hop is scanned in its own file.
+  it.each([
+    ["task-manager.tsx", "useChatDispatcherWiring({"],
+    ["use-chat-dispatcher-wiring.ts", "useChatDispatcher({"],
+  ])("is handed the bypass by its call site in %s", (file, opener) => {
+    const src = readFileSync(join(__dirname, file), "utf8");
+    const start = src.indexOf(opener);
+    expect(start, `${opener} call not found in ${file}`).toBeGreaterThan(-1);
     const call = src.slice(start, src.indexOf("\n  });", start));
     expect(call).toMatch(/^\s*allowDestructiveSave,\s*$/m);
   });

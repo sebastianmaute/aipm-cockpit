@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { computeBudgetReport, type ProjectReport } from "./budget-report";
-import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
+import { computeBudgetReport } from "./budget-report";
 import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
-import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useChatDispatcherWiring } from "./use-chat-dispatcher-wiring";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useToast } from "./use-toast";
@@ -1154,38 +1153,9 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  // Deliberately NOT memoized: this runs only when the assistant calls
-  // get_dashboard_snapshot, so an unused read tool costs nothing per render.
-  // Passes `tasks` (which the dashboard's own computeBudgetReport call omits),
-  // so earnedValue / costPerformanceIndex here are the real figures.
-  const getBudgetRollup = (): ProjectReport | null => {
-    if (!isModuleEnabled("budget", settings.features)) return null;
-    return computeBudgetReport(
-      budgets,
-      plan,
-      roles,
-      resources,
-      settings.resources.workdayHours,
-      holidaySet,
-      absences,
-      tasks,
-      fxRates,
-    ).project;
-  };
-
-  // Deliberately NOT memoized: the snapshot is built only when the assistant
-  // calls list_allocations, so an unused read tool costs nothing per render.
-  // The factory forwards the call's §12 scope — see its docstring for why it
-  // is not an inline arrow.
-  const getAllocationsSnapshot = makeAllocationsSnapshotGetter({
-    resources,
-    plan,
-    absences,
-    workdayHours: settings.resources.workdayHours,
-    holidaySet,
-  });
-
-  const dispatcher = useChatDispatcher({
+  // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
+  // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
+  const dispatcher = useChatDispatcherWiring({
     settings,
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
     clock,
@@ -1211,9 +1181,7 @@ function TaskManagerInner() {
     //   ★ What the old note actually forbade still holds: do NOT add this to the
     //   dispatcher's memo deps.
     undo: chatUndoBatch.undo,
-    getDashboardModel: () => dashboardModel,
-    getBudgetRollup,
-    getAllocationsSnapshot,
+    dashboardModel,
   });
 
   const {
