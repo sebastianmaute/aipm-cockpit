@@ -768,3 +768,14 @@ describe("ChangeEditModal — Notes button count", () => {
     expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (3)` })).toBeInTheDocument();
   });
 });
+
+describe("ChangeEditModal — Notes button when the stored change is gone", () => {
+  it("is disabled with no count when noteCount is null", () => {
+    renderModal({ noteCount: null, onOpenNotes: vi.fn() });
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toBeDisabled();
+  });
+  it("is enabled with a count when the change exists (positive control)", () => {
+    renderModal({ noteCount: 0, onOpenNotes: vi.fn() });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
+  });
+});

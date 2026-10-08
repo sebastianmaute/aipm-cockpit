@@ -122,6 +122,8 @@ export function RaidEditModal({
   onOpenNotes,
   calendarSyncEnabled,
 }: RaidEditModalProps) {
+  // The stored row behind this draft, for the Notes button (see there).
+  const storedRow = raid.find((r) => r.id === draft.id);
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
@@ -525,12 +527,14 @@ export function RaidEditModal({
               variant="secondary"
               size="sm"
               onClick={() => onOpenNotes?.(draft.id)}
-              disabled={!onOpenNotes || isNew}
+              disabled={!onOpenNotes || isNew || !storedRow}
             >
               {/* The STORED row's count, not the draft's: the draft is a snapshot
                   taken at open, while the notes window writes straight through to
-                  the workspace, so a note added with the editor open must count. */}
-              {t(lang, "noteLogTitle")} ({raid.find((r) => r.id === draft.id)?.noteLog?.length ?? 0})
+                  the workspace, so a note added with the editor open must count.
+                  No stored row (deleted by another writer while this editor is
+                  open): no count, and disabled, since the window would close. */}
+              {storedRow ? `${t(lang, "noteLogTitle")} (${storedRow.noteLog?.length ?? 0})` : t(lang, "noteLogTitle")}
             </Button>
           </div>
 

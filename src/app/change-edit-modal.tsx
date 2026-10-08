@@ -81,8 +81,10 @@ export interface ChangeEditModalProps {
    *  draft is a snapshot taken at open, while the notes window writes straight
    *  through to the workspace, so a note added with the editor open must count.
    *  ★ A prop, unlike the RAID editor, which counts from the `raid` list it already
-   *  takes: this modal receives no `changes` list, so the panel computes it. */
-  noteCount: number;
+   *  takes: this modal receives no `changes` list, so the panel computes it.
+   *  `null` means the stored change is gone (or not saved yet): no count, and the
+   *  button is disabled. */
+  noteCount: number | null;
   /** §486 — Outlook sync is configured for change decision dates; shows the
    *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */
   calendarSyncEnabled?: boolean;
@@ -460,20 +462,19 @@ export function ChangeEditModal({
           )}
 
           {/* Running note log — opens the shared floating notes window. Disabled
-              for an unsaved draft (no persisted id yet) or in popouts (no
-              handler threaded).
-              ★ The count reads the edit-open DRAFT snapshot, so it can
-              under-report while the notes window is open. Cosmetic and
-              deliberate: the log itself is write-through and safe, and RAID
-              behaves identically. */}
+              for an unsaved draft (no persisted id yet), in popouts (no handler
+              threaded), and once the stored change is gone (deleted by another
+              writer while this editor is open: the window would close at once).
+              The count is the STORED change's (`noteCount`), so a note added
+              while this editor is open counts. */}
           <div className="flex items-center gap-2 sm:col-span-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={() => onOpenNotes?.(draft.id)}
-              disabled={!onOpenNotes || isNew}
+              disabled={!onOpenNotes || isNew || noteCount === null}
             >
-              {t(lang, "noteLogTitle")} ({noteCount})
+              {noteCount === null ? t(lang, "noteLogTitle") : `${t(lang, "noteLogTitle")} (${noteCount})`}
             </Button>
           </div>
 

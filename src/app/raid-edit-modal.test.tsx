@@ -834,3 +834,15 @@ describe("RaidEditModal — Notes button count", () => {
     expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (2)` })).toBeInTheDocument();
   });
 });
+
+describe("RaidEditModal — Notes button when the stored row is gone", () => {
+  it("is disabled with no count once another writer deleted the item", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [], onOpenNotes: vi.fn() }), { wrapper });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
+  });
+  it("is enabled while the stored row exists (positive control)", () => {
+    render(cloneElement(modalEl({ id: 9 }), { raid: [makeDraft({ id: 9 })], onOpenNotes: vi.fn() }), { wrapper });
+    expect(screen.getByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
+  });
+});

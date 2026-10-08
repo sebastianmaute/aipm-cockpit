@@ -1148,3 +1148,17 @@ describe("ChangePanel — the open editor's Notes count follows the stored chang
     expect(getByRole("button", { name: label(2) })).toBeInTheDocument();
   });
 });
+
+describe("ChangePanel — the open editor's Notes button once the change is deleted elsewhere", () => {
+  it("disables the button with no count", () => {
+    const before = [ci({ id: 1, title: "Scope cut" })];
+    const { getByText, queryByRole, rerender } = render(<ChangePanel {...base} changes={before} />, { wrapper: Providers });
+    fireEvent.click(getByText("Scope cut").closest("tr")!);
+    expect(queryByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeEnabled();
+    rerender(<ChangePanel {...base} changes={[]} />);
+    // The editor stays open on its draft (a concurrent delete does not close it), so
+    // its Notes button is still there, now disabled and without a count.
+    expect(queryByRole("button", { name: t("en-US", "noteLogTitle") })).toBeDisabled();
+    expect(queryByRole("button", { name: `${t("en-US", "noteLogTitle")} (0)` })).toBeNull();
+  });
+});

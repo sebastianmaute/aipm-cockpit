@@ -538,12 +538,14 @@ export function TaskFormFields({
             Cancel, which is right for an append-only journal. The count is the
             STORED row's, like Blockers below: the form draft carries no note log
             (open-followups §29). For an unsaved task the button is disabled with
-            no count, as there is no id for the window to write to. */}
+            no count, as there is no id for the window to write to; so is a task
+            whose stored row is gone (deleted by another writer while the editor
+            is open), since the window would close at once. */}
         <div className="sm:col-span-2">
           <button
             type="button"
             onClick={onOpenNotes}
-            disabled={!onOpenNotes}
+            disabled={!onOpenNotes || !storedTask}
             title={t(lang, "noteLogOpenHint")}
             className={LOG_LAUNCHER_CLASS}
           >
@@ -564,7 +566,7 @@ export function TaskFormFields({
             <button
               type="button"
               onClick={onOpenBlockers}
-              disabled={!onOpenBlockers}
+              disabled={!onOpenBlockers || !storedTask}
               title={t(lang, "taskHintBlockers")}
               className={LOG_LAUNCHER_CLASS}
             >

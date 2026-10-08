@@ -465,18 +465,18 @@ describe("TaskFormFields description + notes button", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "noteLogAdd") })).toBeNull();
   });
 
-  it("renders a 'Notes (N)' button that opens the note-log window when clicked", async () => {
+  // Opening the window from a SAVED task is pinned in the Blockers describe below
+  // ("editor Notes button opens the floating window …"). For an unsaved task the
+  // button is disabled by construction (no stored row), even if a handler is
+  // threaded, which production never does.
+  it("keeps the Notes button disabled, with no count, for an unsaved task even with a handler", async () => {
     const onOpenNotes = vi.fn();
     const user = userEvent.setup();
     render(<Harness onOpenNotes={onOpenNotes} />, { wrapper: TestProviders });
-
-    // The unsaved-task fallback renders no count at all (a hardcoded 0 would only
-    // be true by wiring, not by construction) — label is bare "Notes log".
-    const btn = screen.getByRole("button", {
-      name: t("en-US", "noteLogTitle"),
-    });
+    const btn = screen.getByRole("button", { name: t("en-US", "noteLogTitle") });
+    expect(btn).toBeDisabled();
     await user.click(btn);
-    expect(onOpenNotes).toHaveBeenCalledTimes(1);
+    expect(onOpenNotes).not.toHaveBeenCalled();
   });
 });
 
@@ -559,6 +559,20 @@ describe("TaskFormFields — Blockers button (blocker log)", () => {
     // a query for it could pass before it would have mounted.
     expect(screen.queryByText("Kickoff held")).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(`^${t("en-US", "noteLogAdd")}`) })).toBeNull();
+  });
+
+  it("disables Notes and Blockers, with no counts, once the edited task's stored row is gone", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <EditTask />
+        <Harness onOpenNotes={vi.fn()} onOpenBlockers={vi.fn()} tasksForDeps={[]} />
+      </>,
+      { wrapper: TestProviders },
+    );
+    await user.click(screen.getByRole("button", { name: "edit-task" }));
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "blockerLogTitle") })).toBeDisabled();
   });
 
   it("for a new task the Blockers button is disabled with no count, like Notes", () => {
