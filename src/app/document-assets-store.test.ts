@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   loadAssetData, saveAssetData, deleteAssetData, loadAssetDataIds,
 } from "./document-assets-store";
-import { DOCUMENT_ASSET_DATA_DDL, SINGLE_TENANT_ASSET_PARTITION, ASSET_PARTITION_FALLBACK, ASSET_DELETED_MARKER } from "./document-assets-schema";
+import { DOCUMENT_ASSET_DATA_DDL, SINGLE_TENANT_ASSET_PARTITION, ASSET_PARTITION_FALLBACK, ASSET_DELETED_PARTITION } from "./document-assets-schema";
 import { saveRegistry } from "./projects-registry";
 import type { PipelineResultLike } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
@@ -114,10 +114,11 @@ describe("document-assets-store — the single-tenant scope (§207)", () => {
     }
   });
 
-  it("deletes by a tombstone under its own key, touching no registry project's row", async () => {
+  it("deletes by a tombstone row, then its own row, touching no registry project's row", async () => {
     await deleteAssetData(config, "a1", SINGLE_TENANT_ASSET_PARTITION);
-    expect(stmtOf(0).sql).toContain("INSERT OR REPLACE");
-    expect(argsOf(0)).toEqual(["a1", SINGLE_TENANT_ASSET_PARTITION, ASSET_DELETED_MARKER]);
+    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1].slice(DOCUMENT_ASSET_DATA_DDL.length);
+    expect(stmts.map((s) => s.sql.split(" ")[0])).toEqual(["INSERT", "DELETE"]);
+    expect(stmts.map((s) => s.args!.map((a) => a.value))).toEqual([["a1", ASSET_DELETED_PARTITION], ["a1", SINGLE_TENANT_ASSET_PARTITION]]);
   });
 
   it("keeps a tenant key strict, whatever the registry holds", async () => {

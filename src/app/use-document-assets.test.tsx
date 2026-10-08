@@ -638,6 +638,7 @@ describe("useDocumentAssets — rename and remove", () => {
     // §207 final review: a failed delete can leave the image rendering where documents
     // embed it, so it is recorded in the diagnostics log rather than dropped.
     await waitFor(() => expect(diag).toHaveBeenCalledWith("warn", "documentAsset.deleteFailed", { message: "network" }));
+    diag.mockRestore();
   });
 });
 

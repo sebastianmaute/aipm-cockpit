@@ -71,18 +71,25 @@ export const ASSET_PARTITION_FALLBACK = "default";
  *  other kind of registry entry) and `ASSET_PARTITION_FALLBACK`
  *  (`singleTenantLegacyAssetKeys` in asset-partition-live.ts lists them). That
  *  is how old bytes stay readable with nothing re-keyed. A DELETE writes a
- *  tombstone (`ASSET_DELETED_MARKER`) under this key, which hides the id from
- *  the scoped read and list, and leaves the legacy rows alone: a file project
- *  in the registry may share them, and its copy must keep working (owner
- *  decision, 2026-10-08). Nothing outside the scope is reached: an imported
- *  workspace shares asset ids with its source project. */
+ *  tombstone row under `ASSET_DELETED_PARTITION`, which hides the id from the
+ *  scoped read and list, and leaves the legacy rows alone: a file project in the
+ *  registry may share them, and its copy must keep working (owner decision,
+ *  2026-10-08). ★★ The scope DELIBERATELY takes in every registry project's
+ *  partition, so a file project that shares an id shows its bytes here too, and
+ *  they vanish if that project deletes its copy; the tombstone protects that
+ *  project from this one's deletes, not the reverse. The scope is this browser's
+ *  registry: a project removed from it, or another device's registry, leaves
+ *  its pre-§207 images unreachable here (bytes kept). Tenant keys reach nothing
+ *  but their own partition. */
 export const SINGLE_TENANT_ASSET_PARTITION = "single-tenant";
 
-/** The bytes a single-tenant delete writes in place of an image (§207): a row
- *  under `SINGLE_TENANT_ASSET_PARTITION` carrying this value means "deleted
- *  here", and the scoped read and list skip the id however many legacy copies
- *  remain. `!` is outside the base64 alphabet, so no image's bytes equal it. */
-export const ASSET_DELETED_MARKER = "!deleted";
+/** The partition a single-tenant DELETE writes its tombstone under (§207): a row
+ *  `(id, ASSET_DELETED_PARTITION, "")` means "deleted here", and the scoped read
+ *  and list skip the id however many legacy copies remain. A KEY, not a marker
+ *  VALUE in the data column, so neither check has to load any image's bytes (the
+ *  id list runs on every library change). Saving bytes for the id again under the
+ *  single-tenant key clears it. No registry or tenant id has this shape. */
+export const ASSET_DELETED_PARTITION = "single-tenant:deleted";
 
 /** The byte-store key for the backend in scope (§207). Turso storage in TURSO
  *  portfolio mode with a project selected keys on that tenant project, strictly
@@ -164,8 +171,8 @@ export const assetDataSelect = (id: string, projectId: string, legacyKeys: reado
   }
   const scope = scopeKeys(projectId, legacyKeys);
   return [{
-    sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id IN (${placeholders(scope.length)}) AND NOT EXISTS (SELECT 1 FROM document_asset_data WHERE id = ? AND project_id = ? AND data = ?) ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1`,
-    args: [txt(id), ...scope.map(txt), txt(id), txt(projectId), txt(ASSET_DELETED_MARKER), txt(projectId)],
+    sql: `SELECT id, project_id, data FROM document_asset_data WHERE id = ? AND project_id IN (${placeholders(scope.length)}) AND NOT EXISTS (SELECT 1 FROM document_asset_data WHERE id = ? AND project_id = ?) ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END LIMIT 1`,
+    args: [txt(id), ...scope.map(txt), txt(id), txt(ASSET_DELETED_PARTITION), txt(projectId)],
   }];
 };
 
@@ -179,29 +186,34 @@ export const assetDataIdsSelect = (projectId: string, legacyKeys: readonly strin
   }
   const scope = scopeKeys(projectId, legacyKeys);
   return [{
-    sql: `SELECT DISTINCT id, '' AS project_id, '' AS data FROM document_asset_data WHERE project_id IN (${placeholders(scope.length)}) AND id NOT IN (SELECT id FROM document_asset_data WHERE project_id = ? AND data = ?)`,
-    args: [...scope.map(txt), txt(projectId), txt(ASSET_DELETED_MARKER)],
+    sql: `SELECT DISTINCT id, '' AS project_id, '' AS data FROM document_asset_data WHERE project_id IN (${placeholders(scope.length)}) AND id NOT IN (SELECT id FROM document_asset_data WHERE project_id = ?)`,
+    args: [...scope.map(txt), txt(ASSET_DELETED_PARTITION)],
   }];
 };
 
+/** Writes an asset's bytes. Under `SINGLE_TENANT_ASSET_PARTITION` it also clears a
+ *  tombstone for the id, AFTER the write (a failure between the two leaves the
+ *  bytes stored and still hidden, never a deleted image shown). */
 export function assetDataUpsert(row: AssetDataRow): SqlStmt[] {
-  return [{
+  const write: SqlStmt = {
     sql: `INSERT OR REPLACE INTO document_asset_data (id, project_id, data) VALUES (?, ?, ?)`,
     args: [txt(row.id), txt(row.projectId), txt(row.data)],
-  }];
+  };
+  return row.projectId === SINGLE_TENANT_ASSET_PARTITION
+    ? [write, { sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(row.id), txt(ASSET_DELETED_PARTITION)] }]
+    : [write];
 }
 
-/** Under `SINGLE_TENANT_ASSET_PARTITION` a delete REPLACES the key's own row
- *  with `ASSET_DELETED_MARKER` (its bytes go; the id stays hidden from the scoped
- *  read even where a legacy copy remains — a file project may still use that
- *  copy, owner decision 2026-10-08). Any other key deletes its own row. One
- *  statement either way, so the pipeline needs no transaction. `legacyKeys` is
- *  accepted for symmetry with the read and list and is not reached. */
-export const assetDataDelete = (id: string, projectId: string, legacyKeys: readonly string[]): SqlStmt[] => {
-  void legacyKeys;
+/** Under `SINGLE_TENANT_ASSET_PARTITION` a delete writes the tombstone FIRST, then
+ *  removes the key's own row: a failure between the two leaves the image hidden
+ *  with its bytes still stored, never shown again from a legacy copy. The legacy
+ *  rows stay — a file project may still use them (owner decision 2026-10-08).
+ *  Any other key deletes its own row. */
+export const assetDataDelete = (id: string, projectId: string): SqlStmt[] => {
+  const own: SqlStmt = { sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] };
   return projectId === SINGLE_TENANT_ASSET_PARTITION
-    ? assetDataUpsert({ id, projectId, data: ASSET_DELETED_MARKER })
-    : [{ sql: `DELETE FROM document_asset_data WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] }];
+    ? [{ sql: `INSERT OR REPLACE INTO document_asset_data (id, project_id, data) VALUES (?, ?, '')`, args: [txt(id), txt(ASSET_DELETED_PARTITION)] }, own]
+    : [own];
 };
 
 export function rowsToAssetData(res: PipelineResultLike | undefined): AssetDataRow[] {

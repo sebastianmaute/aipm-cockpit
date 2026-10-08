@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   DOCUMENT_ASSET_DATA_DDL, assetDataSelect, assetDataIdsSelect, assetDataUpsert, assetDataDelete,
-  assetPartitionKey, ASSET_PARTITION_FALLBACK, SINGLE_TENANT_ASSET_PARTITION, ASSET_DELETED_MARKER,
+  assetPartitionKey, ASSET_PARTITION_FALLBACK, SINGLE_TENANT_ASSET_PARTITION, ASSET_DELETED_PARTITION,
 } from "./document-assets-schema";
 import type { SqlStmt } from "./turso-schema";
 
@@ -106,40 +106,49 @@ describe("asset byte statements executed against SQLite (§207)", () => {
       put("a1", ST, "NEW");
       put("a1", "r-file", "OLD");
       put("a1", ASSET_PARTITION_FALLBACK, "OLDER");
-      run(assetDataDelete("a1", ST, LEGACY));
+      run(assetDataDelete("a1", ST));
       expect(run(assetDataSelect("a1", ST, LEGACY))).toEqual([]);
     });
 
     it("a delete hides the id from the list", () => {
       put("a1", "r-file", "OLD");
       put("a2", ST, "KEEP");
-      run(assetDataDelete("a1", ST, LEGACY));
+      run(assetDataDelete("a1", ST));
       expect(run(assetDataIdsSelect(ST, LEGACY)).map((r) => r.id)).toEqual(["a2"]);
     });
 
     // The file project that shares the id keeps its copy, under its own key.
     it("a delete leaves the file project's copy readable under that project's key", () => {
       put("a1", "r-file", "OLD");
-      run(assetDataDelete("a1", ST, LEGACY));
+      run(assetDataDelete("a1", ST));
       expect(run(assetDataSelect("a1", "r-file", [])).map((r) => r.data)).toEqual(["OLD"]);
     });
 
     it("a delete removes this database's own bytes, not just hides them", () => {
       put("a1", ST, "NEW");
-      run(assetDataDelete("a1", ST, LEGACY));
-      const stored = db.prepare("SELECT data FROM document_asset_data WHERE id = ? AND project_id = ?").all("a1", ST) as { data: string }[];
-      expect(stored.map((r) => r.data)).toEqual([ASSET_DELETED_MARKER]);
+      run(assetDataDelete("a1", ST));
+      const rows = db.prepare("SELECT project_id, data FROM document_asset_data WHERE id = ?").all("a1") as { project_id: string; data: string }[];
+      expect(rows).toEqual([{ project_id: ASSET_DELETED_PARTITION, data: "" }]);
+    });
+
+    // The §212 repair path re-uploads the same image under the same id.
+    it("saving the id's bytes again after a delete makes it readable and listed again", () => {
+      put("a1", "r-file", "OLD");
+      run(assetDataDelete("a1", ST));
+      put("a1", ST, "AGAIN");
+      expect(run(assetDataSelect("a1", ST, LEGACY)).map((r) => r.data)).toEqual(["AGAIN"]);
+      expect(run(assetDataIdsSelect(ST, LEGACY)).map((r) => r.id)).toEqual(["a1"]);
     });
 
     it("leaves a shared id outside the scope alone when it deletes", () => {
       put("a1", ST, "NEW");
       put("a1", "t2", "THEIRS");
-      run(assetDataDelete("a1", ST, LEGACY));
+      run(assetDataDelete("a1", ST));
       expect(run(assetDataSelect("a1", "t2", [])).map((r) => r.data)).toEqual(["THEIRS"]);
     });
 
-    it("the deleted marker is no valid base64, so no image's bytes can equal it", () => {
-      expect(/^[A-Za-z0-9+/]*={0,2}$/.test(ASSET_DELETED_MARKER)).toBe(false);
+    it("the tombstone partition is none of the keys the scope reads", () => {
+      expect([ST, ASSET_PARTITION_FALLBACK, ...LEGACY]).not.toContain(ASSET_DELETED_PARTITION);
     });
   });
 
@@ -158,7 +167,7 @@ describe("asset byte statements executed against SQLite (§207)", () => {
     it("deletes inside its own partition, after which its read is honestly empty", () => {
       put("a1", "t1", "MINE");
       put("a1", "t2", "THEIRS");
-      run(assetDataDelete("a1", "t1", []));
+      run(assetDataDelete("a1", "t1"));
       expect(run(assetDataSelect("a1", "t1", []))).toEqual([]);
       expect(run(assetDataSelect("a1", "t2", [])).map((r) => r.data)).toEqual(["THEIRS"]);
     });

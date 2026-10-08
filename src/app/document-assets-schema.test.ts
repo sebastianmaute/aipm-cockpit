@@ -47,7 +47,7 @@ describe("document-assets-schema", () => {
   });
 
   it("requires a project id to delete, so a delete cannot reach across projects", () => {
-    const [stmt] = assetDataDelete("a1", "p1", []);
+    const [stmt] = assetDataDelete("a1", "p1");
     expect(stmt.sql).toContain("WHERE id = ? AND project_id = ?");
   });
 

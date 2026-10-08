@@ -52,5 +52,5 @@ export async function saveAssetData(config: TursoConfig | null, row: AssetDataRo
 export async function deleteAssetData(
   config: TursoConfig | null, id: string, projectId: string,
 ): Promise<void> {
-  await runTursoPipeline(config, [...ddl(), ...assetDataDelete(id, projectId, legacyKeysFor(projectId))]);
+  await runTursoPipeline(config, [...ddl(), ...assetDataDelete(id, projectId)]);
 }
