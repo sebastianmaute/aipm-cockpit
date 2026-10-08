@@ -1534,8 +1534,9 @@ describe("useTaskSubmit — a successor type change (§135)", () => {
 
   it("tells the user a link's type changed", () => {
     const { showToast } = save([{ taskId: 2, type: "SS" }]);
-    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "depSuccessorsTypeChanged", 1, 1));
-    expect(tPlural("en-US", "depSuccessorsTypeChanged", 1, 1)).toContain("only one dependency type");
+    // A literal, not tPlural(...): comparing the code to the same function cannot catch a
+    // wrong key or wording.
+    expect(showToast).toHaveBeenCalledWith("info", "1 successor link changed type: two tasks can be linked by only one dependency type.");
   });
 
   // The toast is one slot, so the refusal must come LAST or the notice hides it.
