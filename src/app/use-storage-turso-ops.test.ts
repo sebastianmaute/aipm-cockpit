@@ -276,6 +276,21 @@ describe("useTursoProjectOps — §103 truncation", () => {
     expect(reportProjectError).toHaveBeenCalledTimes(1);
   });
 
+  // The demo reads `null` as "the Turso create failed" and picks its fallback from it, so the two
+  // early returns before the try block must resolve `null` as well, having written nothing.
+  it("createTursoProject resolves null, writing nothing, when there is no usable Turso config", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(async () => {}, { tursoConfigNow: () => null, setTursoProjectId });
+    vi.mocked(portfolioCreate).mockClear();
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-10", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
+    expect(portfolioCreate).not.toHaveBeenCalled();
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+    expect(result.current.showToast).toHaveBeenCalledWith("error", t("en-US", "projectsTursoUnreachable"));
+  });
+
   it("createTursoProject with no seed shows no notice (positive control above)", async () => {
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => {
@@ -444,7 +459,9 @@ describe("a flush whose edits could not be kept stops the op (§4)", () => {
   it("createTursoProject writes nothing and does not switch", async () => {
     const setTursoProjectId = vi.fn();
     const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
-    await act(async () => { await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
     expect(saveMock).not.toHaveBeenCalled();
     expect(setTursoProjectId).not.toHaveBeenCalled();
   });
