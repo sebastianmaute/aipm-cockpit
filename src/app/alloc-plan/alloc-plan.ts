@@ -922,8 +922,8 @@ export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): Allocat
 }
 
 /**
- * The `getAllocationsSnapshot` getter `task-manager.tsx` hands the chat
- * dispatcher: live render-scope inputs bound, the tool call's scope forwarded.
+ * The `getAllocationsSnapshot` getter `use-chat-dispatcher-wiring.ts` hands the
+ * chat dispatcher: live render-scope inputs bound, the tool call's scope forwarded.
  * Extracted so the scope hop is pinned by a unit test — inlined in the
  * orchestrator, dropping `scope` there type-checked and passed every test
  * while turning every scoped call back into the full dump (§12). Build it

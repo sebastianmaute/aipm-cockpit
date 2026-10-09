@@ -92,7 +92,7 @@ types through the validator was weighed and rejected.
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
   plan). `useInsightRecommendations` (`use-insight-recommendations.ts`, called from task-manager right after
-  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) owns the generate/apply/reject handlers and the
+  `useChatDispatcherWiring` so apply can reach `dispatcher`/`runTool`) owns the generate/apply/reject handlers and the
   `insightActions` bag; task-manager renders the `recommendation-review-modal.tsx` (Confirm →
   replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`).
   ★★ THAT ADVANCE IS NO LONGER UNCONDITIONAL. Every proposed `update_*` call is stamped with an
