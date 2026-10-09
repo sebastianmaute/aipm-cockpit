@@ -160,7 +160,7 @@ type Row = {
   op: string;
   arm: (g: Gate, b: Backends) => void;
   value: unknown;
-  call: (h: Hook) => Promise<void>;
+  call: (h: Hook) => Promise<unknown>;
   /** §596 — the op's `holdDuring(..., scope)` argument, asserted by the third test
    *  below. ★★★ THE FLAGS WERE UNPINNED AND `onPickStorageFile` WAS NOT EVEN IN
    *  THIS TABLE — the op whose misclassification caused B1 in the first place. A
@@ -237,7 +237,7 @@ async function startHeld(row: Row) {
   await waitFor(() => expect(hook.result.current.loadPending).toBe(false)); // the first load has settled
   const g = makeGate();
   row.arm(g, b);
-  let op: Promise<void> = Promise.resolve();
+  let op: Promise<unknown> = Promise.resolve();
   act(() => { op = row.call(hook.result.current); });
   const settled = op.then(() => "fulfilled" as const, () => "rejected" as const);
   await waitFor(() => expect(g.touched()).toBe(true)); // control: the op is parked on its first await

@@ -228,6 +228,25 @@ describe("useTursoProjectOps — §103 truncation", () => {
     expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
   });
 
+  it("createTursoProject resolves to the id it handed to portfolioCreate", async () => {
+    const { result } = renderWithRealGuard(async () => {});
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-5", name: "New", code: "N" } as never); });
+    const createdId = vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2];
+    expect(typeof createdId).toBe("string");
+    expect(returned).toBe(createdId);
+  });
+
+  it("createTursoProject resolves null when portfolioCreate throws, reporting the error once", async () => {
+    const reportProjectError = vi.fn();
+    const { result } = renderWithRealGuard(async () => {}, { reportProjectError });
+    vi.mocked(portfolioCreate).mockRejectedValueOnce(new Error("boom"));
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-6", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
+    expect(reportProjectError).toHaveBeenCalledTimes(1);
+  });
+
   it("createTursoProject with no seed shows no notice (positive control above)", async () => {
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => {
