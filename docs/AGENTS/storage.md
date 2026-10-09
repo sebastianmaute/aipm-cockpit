@@ -157,8 +157,8 @@ a Markdown fence the decoder's regex misses reads as absent (§630's "Known limi
 
 ### The destructive-refusal banner's dismissal (`use-storage-banner-reshow.ts`)
 
-Moved here verbatim from the comment above `destructiveRefusalSeen`, then in `task-manager.tsx`, to give
-that file headroom under its size baseline; the reconcile itself now lives in `use-storage-banner-reshow.ts`
+Moved here from the comment above `destructiveRefusalSeen`, then in `task-manager.tsx`, to give that
+file headroom under its size baseline (verbatim then; the seed note below has since been repointed); the reconcile itself now lives in `use-storage-banner-reshow.ts`
 (§491). "The SAME render-time reconcile" below refers to the one just above it in that file, for the
 truncation banner (`truncationBannerDismissed`).
 
@@ -205,8 +205,9 @@ what leaves the NEXT one visible.
 
 ★ Seeded `null`, the guard's OWN starting value rather than the live one —
 it mounts in this same render (task-manager calls `useStorageBackend`, which owns
-the guard, earlier in the same render), so null is what it really is here, and seeding from the live value is the
-remount-swallow shape that drops a pending report.
+the guard, earlier in the same render), so null is what it really is here, and
+seeding from the live value is the remount-swallow shape that drops a pending
+report.
 
 ### The op hold (`holdDuring`, §548)
 

@@ -20,12 +20,12 @@ const CLEAN: Causes = {
   malformedQuotesNonce: 0,
   destructiveRefusal: null,
   loadPause: null,
-} as Causes;
+};
 
-const TRUNC = { entries: 5, blocks: 0 } as unknown as Causes["truncation"];
-const REFUSAL = {
+const TRUNC: NonNullable<Causes["truncation"]> = { entries: 5, blocks: 0 };
+const REFUSAL: NonNullable<Causes["destructiveRefusal"]> = {
   prevCollections: 4, prevRecords: 900, curCollections: 1, curRecords: 53, fullWipe: false,
-} as unknown as Causes["destructiveRefusal"];
+};
 
 function useHarness(causes: Causes) {
   const [truncationDismissed, setTruncationBannerDismissed] = useState(true);
@@ -88,7 +88,7 @@ describe("useStorageBannerReshow — the incomplete-load banner", () => {
   });
 
   it("re-shows on a NEW truncation object, even with equal counts", () => {
-    const h = transition(STANDING, { ...STANDING, truncation: { ...(TRUNC as object) } as Causes["truncation"] });
+    const h = transition(STANDING, { ...STANDING, truncation: { ...TRUNC } });
     expect(flags(h)).toEqual([false, true, true]);
   });
 
@@ -112,7 +112,7 @@ describe("useStorageBannerReshow — the incomplete-load banner", () => {
 
 describe("useStorageBannerReshow — the destructive-refusal banner", () => {
   it("re-shows on a different refusal object", () => {
-    const h = transition({ ...CLEAN, destructiveRefusal: REFUSAL }, { ...CLEAN, destructiveRefusal: { ...(REFUSAL as object) } as Causes["destructiveRefusal"] });
+    const h = transition({ ...CLEAN, destructiveRefusal: REFUSAL }, { ...CLEAN, destructiveRefusal: { ...REFUSAL } });
     expect(flags(h)).toEqual([true, false, true]);
   });
 

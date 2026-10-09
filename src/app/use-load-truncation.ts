@@ -291,8 +291,9 @@ export interface LoadTruncationGuard {
    *
    *  ★★★ THE COUNT CANNOT SERVE AS THAT KEY, which is the whole reason this
    *  exists. `use-storage-banner-reshow.ts` (called from `task-manager.tsx`)
-   *  re-opens a dismissed banner by comparing what it last saw against what the guard reports now; on the decode path `truncation`
-   *  is `null` on both sides, so the counts object never moves, and
+   *  re-opens a dismissed banner by comparing what it last saw against what
+   *  the guard reports now; on the decode path `truncation` is `null` on both
+   *  sides, so the counts object never moves, and
    *  `decodeFailureCount` is a NUMBER — two projects in a row failing the same
    *  two slices compare equal. Either way the second project's banner arrives
    *  already dismissed while saving is paused, and nothing tells the user.
