@@ -1,0 +1,3461 @@
+[
+  {
+    "id": "2026-03-13T17:00:00.000Z",
+    "capturedAt": "2026-03-13T17:00:00.000Z",
+    "bucket": "2026-W11",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": true,
+    "remainingHours": 635.1999999999999,
+    "remainingCost": 87924,
+    "pctComplete": 4,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.25396825396825395,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": null,
+        "plannedCost": 42888,
+        "actualCost": null
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-03-20T17:00:00.000Z",
+    "capturedAt": "2026-03-20T17:00:00.000Z",
+    "bucket": "2026-W12",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 635.1999999999999,
+    "remainingCost": 87924,
+    "pctComplete": 4,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.17777777777777778,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": null,
+        "plannedCost": 42888,
+        "actualCost": null
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-03-27T17:00:00.000Z",
+    "capturedAt": "2026-03-27T17:00:00.000Z",
+    "bucket": "2026-W13",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 635.1999999999999,
+    "remainingCost": 87924,
+    "pctComplete": 7,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.38620689655172413,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": null,
+        "plannedCost": 42888,
+        "actualCost": null
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-04-03T17:00:00.000Z",
+    "capturedAt": "2026-04-03T17:00:00.000Z",
+    "bucket": "2026-W14",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 319.19999999999993,
+    "remainingCost": 44369,
+    "pctComplete": 11,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.5517241379310345,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-04-10T17:00:00.000Z",
+    "capturedAt": "2026-04-10T17:00:00.000Z",
+    "bucket": "2026-W15",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 319.19999999999993,
+    "remainingCost": 44369,
+    "pctComplete": 11,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.41450777202072536,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-04-17T17:00:00.000Z",
+    "capturedAt": "2026-04-17T17:00:00.000Z",
+    "bucket": "2026-W16",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 319.19999999999993,
+    "remainingCost": 44369,
+    "pctComplete": 15,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.6632124352331606,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-04-24T17:00:00.000Z",
+    "capturedAt": "2026-04-24T17:00:00.000Z",
+    "bucket": "2026-W17",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 319.19999999999993,
+    "remainingCost": 44369,
+    "pctComplete": 15,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.7619047619047619,
+    "cpi": 0.5589519650655022,
+    "overallRag": "A",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-05-01T17:00:00.000Z",
+    "capturedAt": "2026-05-01T17:00:00.000Z",
+    "bucket": "2026-W18",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 18.199999999999932,
+    "remainingCost": 2514,
+    "pctComplete": 19,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.6829268292682927,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": 18.199999999999932,
+        "plannedCost": 0,
+        "actualCost": 2514
+      }
+    ]
+  },
+  {
+    "id": "2026-05-08T17:00:00.000Z",
+    "capturedAt": "2026-05-08T17:00:00.000Z",
+    "bucket": "2026-W19",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 18.199999999999932,
+    "remainingCost": 2514,
+    "pctComplete": 22,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.8130081300813008,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": 18.199999999999932,
+        "plannedCost": 0,
+        "actualCost": 2514
+      }
+    ]
+  },
+  {
+    "id": "2026-05-15T17:00:00.000Z",
+    "capturedAt": "2026-05-15T17:00:00.000Z",
+    "bucket": "2026-W20",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 18.199999999999932,
+    "remainingCost": 2514,
+    "pctComplete": 26,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.7883211678832117,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": 18.199999999999932,
+        "plannedCost": 0,
+        "actualCost": 2514
+      }
+    ]
+  },
+  {
+    "id": "2026-05-22T17:00:00.000Z",
+    "capturedAt": "2026-05-22T17:00:00.000Z",
+    "bucket": "2026-W21",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 18.199999999999932,
+    "remainingCost": 2514,
+    "pctComplete": 26,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.7883211678832117,
+    "overallRag": "A",
+    "scheduleRag": "A",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 629.5999999999999,
+        "actualHours": 635.1999999999999,
+        "plannedCost": 87152,
+        "actualCost": 87924
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 308.4,
+        "actualHours": 319.19999999999993,
+        "plannedCost": 42888,
+        "actualCost": 44369
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 0,
+        "actualHours": 18.199999999999932,
+        "plannedCost": 0,
+        "actualCost": 2514
+      }
+    ]
+  },
+  {
+    "id": "2026-05-29T17:00:00.000Z",
+    "capturedAt": "2026-05-29T17:00:00.000Z",
+    "bucket": "2026-W22",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 1465,
+    "remainingCost": 197790,
+    "pctComplete": 30,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.75,
+    "overallRag": "G",
+    "scheduleRag": "A",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2076.4,
+        "actualHours": 2082,
+        "plannedCost": 282428,
+        "actualCost": 283200
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1755.2,
+        "actualHours": 1766,
+        "plannedCost": 238164,
+        "actualCost": 239645
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1446.8000000000002,
+        "actualHours": 1465,
+        "plannedCost": 195276,
+        "actualCost": 197790
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 904.4000000000001,
+        "actualHours": null,
+        "plannedCost": 125348,
+        "actualCost": null
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": null,
+        "plannedCost": 74336,
+        "actualCost": null
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-06-05T17:00:00.000Z",
+    "capturedAt": "2026-06-05T17:00:00.000Z",
+    "bucket": "2026-W23",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 956,
+    "remainingCost": 132225,
+    "pctComplete": 30,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.4371584699453552,
+    "overallRag": "A",
+    "scheduleRag": "A",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2076.4,
+        "actualHours": 2082,
+        "plannedCost": 282428,
+        "actualCost": 283200
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1755.2,
+        "actualHours": 1766,
+        "plannedCost": 238164,
+        "actualCost": 239645
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1446.8000000000002,
+        "actualHours": 1465,
+        "plannedCost": 195276,
+        "actualCost": 197790
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 904.4000000000001,
+        "actualHours": 956,
+        "plannedCost": 125348,
+        "actualCost": 132225
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": null,
+        "plannedCost": 74336,
+        "actualCost": null
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-06-12T17:00:00.000Z",
+    "capturedAt": "2026-06-12T17:00:00.000Z",
+    "bucket": "2026-W24",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 956,
+    "remainingCost": 132225,
+    "pctComplete": 33,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.5100182149362478,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2076.4,
+        "actualHours": 2082,
+        "plannedCost": 282428,
+        "actualCost": 283200
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1755.2,
+        "actualHours": 1766,
+        "plannedCost": 238164,
+        "actualCost": 239645
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1446.8000000000002,
+        "actualHours": 1465,
+        "plannedCost": 195276,
+        "actualCost": 197790
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 904.4000000000001,
+        "actualHours": 956,
+        "plannedCost": 125348,
+        "actualCost": 132225
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": null,
+        "plannedCost": 74336,
+        "actualCost": null
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-06-19T17:00:00.000Z",
+    "capturedAt": "2026-06-19T17:00:00.000Z",
+    "bucket": "2026-W25",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 956,
+    "remainingCost": 132225,
+    "pctComplete": 37,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.5259515570934256,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2076.4,
+        "actualHours": 2082,
+        "plannedCost": 282428,
+        "actualCost": 283200
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1755.2,
+        "actualHours": 1766,
+        "plannedCost": 238164,
+        "actualCost": 239645
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1446.8000000000002,
+        "actualHours": 1465,
+        "plannedCost": 195276,
+        "actualCost": 197790
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 904.4000000000001,
+        "actualHours": 956,
+        "plannedCost": 125348,
+        "actualCost": 132225
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": null,
+        "plannedCost": 74336,
+        "actualCost": null
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-06-26T17:00:00.000Z",
+    "capturedAt": "2026-06-26T17:00:00.000Z",
+    "bucket": "2026-W26",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 1016,
+    "remainingCost": 143325,
+    "pctComplete": 37,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.5259515570934256,
+    "overallRag": "G",
+    "scheduleRag": "G",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2136.4,
+        "actualHours": 2142,
+        "plannedCost": 293528,
+        "actualCost": 294300
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1815.2,
+        "actualHours": 1826,
+        "plannedCost": 249264,
+        "actualCost": 250745
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1506.8000000000002,
+        "actualHours": 1525,
+        "plannedCost": 206376,
+        "actualCost": 208890
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 964.4000000000001,
+        "actualHours": 1016,
+        "plannedCost": 136448,
+        "actualCost": 143325
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": null,
+        "plannedCost": 74336,
+        "actualCost": null
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-07-03T17:00:00.000Z",
+    "capturedAt": "2026-07-03T17:00:00.000Z",
+    "bucket": "2026-W27",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 605,
+    "remainingCost": 83135,
+    "pctComplete": 37,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 1,
+    "cpi": 0.4405797101449275,
+    "overallRag": "A",
+    "scheduleRag": "A",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2136.4,
+        "actualHours": 2142,
+        "plannedCost": 293528,
+        "actualCost": 294300
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1815.2,
+        "actualHours": 1826,
+        "plannedCost": 249264,
+        "actualCost": 250745
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1506.8000000000002,
+        "actualHours": 1525,
+        "plannedCost": 206376,
+        "actualCost": 208890
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 964.4000000000001,
+        "actualHours": 1016,
+        "plannedCost": 136448,
+        "actualCost": 143325
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": 605,
+        "plannedCost": 74336,
+        "actualCost": 83135
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-07-10T17:00:00.000Z",
+    "capturedAt": "2026-07-10T17:00:00.000Z",
+    "bucket": "2026-W28",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 605,
+    "remainingCost": 83135,
+    "pctComplete": 41,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.8648648648648649,
+    "cpi": 0.5565217391304348,
+    "overallRag": "A",
+    "scheduleRag": "A",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 33.33333333333333
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2136.4,
+        "actualHours": 2142,
+        "plannedCost": 293528,
+        "actualCost": 294300
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1815.2,
+        "actualHours": 1826,
+        "plannedCost": 249264,
+        "actualCost": 250745
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1506.8000000000002,
+        "actualHours": 1525,
+        "plannedCost": 206376,
+        "actualCost": 208890
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 964.4000000000001,
+        "actualHours": 1016,
+        "plannedCost": 136448,
+        "actualCost": 143325
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": 605,
+        "plannedCost": 74336,
+        "actualCost": 83135
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-07-17T17:00:00.000Z",
+    "capturedAt": "2026-07-17T17:00:00.000Z",
+    "bucket": "2026-W29",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 605,
+    "remainingCost": 83135,
+    "pctComplete": 41,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.7804878048780488,
+    "cpi": 0.5565217391304348,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 33.33333333333333
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2136.4,
+        "actualHours": 2142,
+        "plannedCost": 293528,
+        "actualCost": 294300
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 1815.2,
+        "actualHours": 1826,
+        "plannedCost": 249264,
+        "actualCost": 250745
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1506.8000000000002,
+        "actualHours": 1525,
+        "plannedCost": 206376,
+        "actualCost": 208890
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 964.4000000000001,
+        "actualHours": 1016,
+        "plannedCost": 136448,
+        "actualCost": 143325
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 536.8000000000002,
+        "actualHours": 605,
+        "plannedCost": 74336,
+        "actualCost": 83135
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 312.8000000000002,
+        "actualHours": null,
+        "plannedCost": 43936,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-07-24T17:00:00.000Z",
+    "capturedAt": "2026-07-24T17:00:00.000Z",
+    "bucket": "2026-W30",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 1047.4,
+    "remainingCost": 155862.27272727265,
+    "pctComplete": 41,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.7804878048780488,
+    "cpi": 0.5565217391304348,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-17"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 33.33333333333333
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2578.8,
+        "actualHours": 2584.4,
+        "plannedCost": 366255.27272727265,
+        "actualCost": 367027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2257.6000000000004,
+        "actualHours": 2268.4,
+        "plannedCost": 321991.27272727265,
+        "actualCost": 323472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1949.2000000000003,
+        "actualHours": 1967.4,
+        "plannedCost": 279103.27272727265,
+        "actualCost": 281617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1406.8000000000002,
+        "actualHours": 1458.4,
+        "plannedCost": 209175.27272727265,
+        "actualCost": 216052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 979.2000000000003,
+        "actualHours": 1047.4,
+        "plannedCost": 147063.27272727265,
+        "actualCost": 155862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 654.4000000000001,
+        "actualHours": null,
+        "plannedCost": 100092.50172612193,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 240.80000000000018,
+        "actualHours": null,
+        "plannedCost": 39585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-07-31T17:00:00.000Z",
+    "capturedAt": "2026-07-31T17:00:00.000Z",
+    "bucket": "2026-W31",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 1047.4,
+    "remainingCost": 155862.27272727265,
+    "pctComplete": 44,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.75,
+    "cpi": 0.6297872340425532,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-31"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 33.33333333333333
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2578.8,
+        "actualHours": 2584.4,
+        "plannedCost": 366255.27272727265,
+        "actualCost": 367027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2257.6000000000004,
+        "actualHours": 2268.4,
+        "plannedCost": 321991.27272727265,
+        "actualCost": 323472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1949.2000000000003,
+        "actualHours": 1967.4,
+        "plannedCost": 279103.27272727265,
+        "actualCost": 281617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1406.8000000000002,
+        "actualHours": 1458.4,
+        "plannedCost": 209175.27272727265,
+        "actualCost": 216052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 979.2000000000003,
+        "actualHours": 1047.4,
+        "plannedCost": 147063.27272727265,
+        "actualCost": 155862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 654.4000000000001,
+        "actualHours": null,
+        "plannedCost": 100092.50172612193,
+        "actualCost": null
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 240.80000000000018,
+        "actualHours": null,
+        "plannedCost": 39585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-08-07T17:00:00.000Z",
+    "capturedAt": "2026-08-07T17:00:00.000Z",
+    "bucket": "2026-W32",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 815.4000000000001,
+    "remainingCost": 123696.85106033197,
+    "pctComplete": 52,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.9215686274509803,
+    "cpi": 0.7757909215955984,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-07-31"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2578.8,
+        "actualHours": 2584.4,
+        "plannedCost": 366255.27272727265,
+        "actualCost": 367027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2257.6000000000004,
+        "actualHours": 2268.4,
+        "plannedCost": 321991.27272727265,
+        "actualCost": 323472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1949.2000000000003,
+        "actualHours": 1967.4,
+        "plannedCost": 279103.27272727265,
+        "actualCost": 281617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1406.8000000000002,
+        "actualHours": 1458.4,
+        "plannedCost": 209175.27272727265,
+        "actualCost": 216052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 979.2000000000003,
+        "actualHours": 1047.4,
+        "plannedCost": 147063.27272727265,
+        "actualCost": 155862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 654.4000000000001,
+        "actualHours": 815.4000000000001,
+        "plannedCost": 100092.50172612193,
+        "actualCost": 123696.85106033197
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 240.80000000000018,
+        "actualHours": null,
+        "plannedCost": 39585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-08-14T17:00:00.000Z",
+    "capturedAt": "2026-08-14T17:00:00.000Z",
+    "bucket": "2026-W33",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 791.4000000000001,
+    "remainingCost": 119751.42939339136,
+    "pctComplete": 56,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.9869281045751634,
+    "cpi": 0.8308115543328748,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-08-12"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2578.8,
+        "actualHours": 2584.4,
+        "plannedCost": 366255.27272727265,
+        "actualCost": 367027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2257.6000000000004,
+        "actualHours": 2268.4,
+        "plannedCost": 321991.27272727265,
+        "actualCost": 323472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 1949.2000000000003,
+        "actualHours": 1967.4,
+        "plannedCost": 279103.27272727265,
+        "actualCost": 281617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1406.8000000000002,
+        "actualHours": 1458.4,
+        "plannedCost": 209175.27272727265,
+        "actualCost": 216052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 979.2000000000003,
+        "actualHours": 1047.4,
+        "plannedCost": 147063.27272727265,
+        "actualCost": 155862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 654.4000000000001,
+        "actualHours": 791.4000000000001,
+        "plannedCost": 100092.50172612193,
+        "actualCost": 119751.42939339136
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 240.80000000000018,
+        "actualHours": null,
+        "plannedCost": 39585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-08-21T17:00:00.000Z",
+    "capturedAt": "2026-08-21T17:00:00.000Z",
+    "bucket": "2026-W34",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 955.4000000000001,
+    "remainingCost": 153477.22258753894,
+    "pctComplete": 59,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.9532710280373832,
+    "cpi": 0.8418156808803301,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-08-21"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 3,
+        "pctComplete": 15
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2768.8,
+        "actualHours": 2774.4,
+        "plannedCost": 404255.27272727265,
+        "actualCost": 405027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2447.6000000000004,
+        "actualHours": 2458.4,
+        "plannedCost": 359991.27272727265,
+        "actualCost": 361472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 2139.2000000000003,
+        "actualHours": 2157.4,
+        "plannedCost": 317103.27272727265,
+        "actualCost": 319617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1596.8000000000002,
+        "actualHours": 1648.4,
+        "plannedCost": 247175.27272727265,
+        "actualCost": 254052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 1169.2000000000003,
+        "actualHours": 1237.4,
+        "plannedCost": 185063.27272727265,
+        "actualCost": 193862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 844.4000000000001,
+        "actualHours": 955.4000000000001,
+        "plannedCost": 138092.50172612193,
+        "actualCost": 153477.22258753894
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 390.8000000000002,
+        "actualHours": null,
+        "plannedCost": 69585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 100,
+        "actualHours": null,
+        "plannedCost": 20000,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-08-28T17:00:00.000Z",
+    "capturedAt": "2026-08-28T17:00:00.000Z",
+    "bucket": "2026-W35",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 930.4000000000001,
+    "remainingCost": 149367.40835114248,
+    "pctComplete": 63,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.9544072948328267,
+    "cpi": 0.8521031207598372,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-08-21"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 3,
+        "pctComplete": 15
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2768.8,
+        "actualHours": 2774.4,
+        "plannedCost": 404255.27272727265,
+        "actualCost": 405027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2447.6000000000004,
+        "actualHours": 2458.4,
+        "plannedCost": 359991.27272727265,
+        "actualCost": 361472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 2139.2000000000003,
+        "actualHours": 2157.4,
+        "plannedCost": 317103.27272727265,
+        "actualCost": 319617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1596.8000000000002,
+        "actualHours": 1648.4,
+        "plannedCost": 247175.27272727265,
+        "actualCost": 254052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 1169.2000000000003,
+        "actualHours": 1237.4,
+        "plannedCost": 185063.27272727265,
+        "actualCost": 193862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 844.4000000000001,
+        "actualHours": 930.4000000000001,
+        "plannedCost": 138092.50172612193,
+        "actualCost": 149367.40835114248
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 390.8000000000002,
+        "actualHours": null,
+        "plannedCost": 69585.73072497122,
+        "actualCost": null
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 100,
+        "actualHours": null,
+        "plannedCost": 20000,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-09-04T17:00:00.000Z",
+    "capturedAt": "2026-09-04T17:00:00.000Z",
+    "bucket": "2026-W36",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 839.4000000000001,
+    "remainingCost": 135581.9866842018,
+    "pctComplete": 63,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.9544072948328267,
+    "cpi": 0.8521031207598372,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "A",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-08-21"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 3,
+        "pctComplete": 15
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 2768.8,
+        "actualHours": 2774.4,
+        "plannedCost": 404255.27272727265,
+        "actualCost": 405027.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2447.6000000000004,
+        "actualHours": 2458.4,
+        "plannedCost": 359991.27272727265,
+        "actualCost": 361472.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 2139.2000000000003,
+        "actualHours": 2157.4,
+        "plannedCost": 317103.27272727265,
+        "actualCost": 319617.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1596.8000000000002,
+        "actualHours": 1648.4,
+        "plannedCost": 247175.27272727265,
+        "actualCost": 254052.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 1169.2000000000003,
+        "actualHours": 1237.4,
+        "plannedCost": 185063.27272727265,
+        "actualCost": 193862.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 844.4000000000001,
+        "actualHours": 924.4000000000001,
+        "plannedCost": 138092.50172612193,
+        "actualCost": 148381.05293440731
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 390.8000000000002,
+        "actualHours": 839.4000000000001,
+        "plannedCost": 69585.73072497122,
+        "actualCost": 135581.9866842018
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 100,
+        "actualHours": null,
+        "plannedCost": 20000,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  },
+  {
+    "id": "2026-09-11T17:00:00.000Z",
+    "capturedAt": "2026-09-11T17:00:00.000Z",
+    "bucket": "2026-W37",
+    "cadence": "weekly",
+    "trigger": "auto",
+    "isBaseline": false,
+    "remainingHours": 1054.4,
+    "remainingCost": 172406.5650172612,
+    "pctComplete": 63,
+    "forecastEndDate": "2027-02-26",
+    "planEndDate": "2027-02-26",
+    "spi": 0.8845070422535212,
+    "cpi": 0.8521031207598372,
+    "overallRag": "R",
+    "scheduleRag": "R",
+    "budgetRag": "R",
+    "scopeRag": "A",
+    "milestones": [
+      {
+        "id": 1,
+        "name": "Design Sign-off",
+        "target": "2026-05-29",
+        "forecast": "2026-05-29"
+      },
+      {
+        "id": 2,
+        "name": "Pilot Go-Live",
+        "target": "2026-10-23",
+        "forecast": "2026-10-23"
+      },
+      {
+        "id": 3,
+        "name": "Rollout",
+        "target": "2026-12-11",
+        "forecast": "2026-12-11"
+      },
+      {
+        "id": 4,
+        "name": "Kickoff",
+        "target": "2026-03-06",
+        "forecast": "2026-03-06"
+      },
+      {
+        "id": 5,
+        "name": "MVP target",
+        "target": "2026-07-17",
+        "forecast": "2026-08-21"
+      },
+      {
+        "id": 6,
+        "name": "Closure",
+        "target": "2027-02-26",
+        "forecast": "2027-02-26"
+      }
+    ],
+    "bucketProgress": [
+      {
+        "bucketId": 1,
+        "pctComplete": 66.66666666666666
+      },
+      {
+        "bucketId": 2,
+        "pctComplete": 0
+      },
+      {
+        "bucketId": 3,
+        "pctComplete": 15
+      },
+      {
+        "bucketId": 4,
+        "pctComplete": 30
+      },
+      {
+        "bucketId": 5,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 7,
+        "pctComplete": 100
+      },
+      {
+        "bucketId": 9,
+        "pctComplete": 100
+      }
+    ],
+    "series": [
+      {
+        "period": "2026-03",
+        "plannedHours": 3092.8,
+        "actualHours": 3098.4,
+        "plannedCost": 457535.27272727265,
+        "actualCost": 458307.27272727265
+      },
+      {
+        "period": "2026-04",
+        "plannedHours": 2771.6000000000004,
+        "actualHours": 2782.4,
+        "plannedCost": 413271.27272727265,
+        "actualCost": 414752.27272727265
+      },
+      {
+        "period": "2026-05",
+        "plannedHours": 2463.2000000000003,
+        "actualHours": 2481.4,
+        "plannedCost": 370383.27272727265,
+        "actualCost": 372897.27272727265
+      },
+      {
+        "period": "2026-06",
+        "plannedHours": 1920.8000000000002,
+        "actualHours": 1972.4,
+        "plannedCost": 300455.27272727265,
+        "actualCost": 307332.27272727265
+      },
+      {
+        "period": "2026-07",
+        "plannedHours": 1493.2000000000003,
+        "actualHours": 1561.4,
+        "plannedCost": 238343.27272727265,
+        "actualCost": 247142.27272727265
+      },
+      {
+        "period": "2026-08",
+        "plannedHours": 1168.4,
+        "actualHours": 1248.4,
+        "plannedCost": 191372.50172612193,
+        "actualCost": 201661.05293440731
+      },
+      {
+        "period": "2026-09",
+        "plannedHours": 714.8000000000002,
+        "actualHours": 1054.4,
+        "plannedCost": 122865.73072497122,
+        "actualCost": 172406.5650172612
+      },
+      {
+        "period": "2026-10",
+        "plannedHours": 336,
+        "actualHours": null,
+        "plannedCost": 58320,
+        "actualCost": null
+      },
+      {
+        "period": "2026-11",
+        "plannedHours": 132,
+        "actualHours": null,
+        "plannedCost": 21240,
+        "actualCost": null
+      },
+      {
+        "period": "2026-12",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-01",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      },
+      {
+        "period": "2027-02",
+        "plannedHours": 0,
+        "actualHours": null,
+        "plannedCost": 0,
+        "actualCost": null
+      }
+    ]
+  }
+]
