@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.15.0 "Cornwell" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.16.0 "Rankin" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
 
 # Architecture
 
