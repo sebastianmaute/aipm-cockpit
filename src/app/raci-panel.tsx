@@ -243,9 +243,11 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
           {visibleStakeholders
             .filter((s) => filtered.has(s.id))
             .map((s) => (
+              // Same 30px box as the Clear filter Button beside it: the 20px ✕
+              // IconButton (p-1 + 12px icon) + py-1 + border, not xs's py-1.5.
               <span
                 key={s.id}
-                className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground"
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-xs text-foreground"
               >
                 <span>{s.name}</span>
                 <IconButton

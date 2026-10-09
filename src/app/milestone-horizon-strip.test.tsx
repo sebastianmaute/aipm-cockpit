@@ -117,3 +117,15 @@ describe("MilestoneHorizonStrip buttons on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23): read-only and composite chips take the same 30px box as the xs Buttons they sit beside or stand in for.
+describe("MilestoneHorizonStrip read-only chips at the xs size", () => {
+  test("draws a read-only chip and +N more in the same box as their buttons", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ milestone: m(i + 1, `2026-09-0${(i % 9) + 1}`), status: "on-track" as const }));
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: many })} />);
+    expect(screen.getByText(/M1 · 2026-09-01/).className).toBe(
+      "inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground",
+    );
+    expect(screen.getByText(/\+3 more/).className).toBe("rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground");
+  });
+});

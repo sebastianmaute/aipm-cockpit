@@ -371,3 +371,14 @@ describe("RaciPanel Clear filter on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23): read-only and composite chips take the same 30px box as the xs Buttons they sit beside or stand in for.
+describe("RaciPanel person-filter chip at the xs height", () => {
+  it("draws a filter chip in the same box as Clear filter", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    fireEvent.change(screen.getByRole("combobox", { name: /filter people/i }), { target: { value: "Sam" } });
+    expect(screen.getByRole("button", { name: /remove sam from filter/i }).parentElement?.className).toBe(
+      "inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-xs text-foreground",
+    );
+  });
+});

@@ -70,7 +70,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                       {label}
                     </Button>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground">
                       {alert && (
                         <span aria-hidden="true">
                           <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />
@@ -94,7 +94,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
                   </Button>
                 ) : (
-                  <span className="px-2.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground">
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
                   </span>
                 )}

@@ -59,7 +59,8 @@ longer carries its own changelog comment.
   filter, the RAID editor's caused-by chips (without the purple tint), Add email, the rollup toggle, TimeLog's Load
   my projects and Clear link, Accept on a weight suggestion, Show more on a scheduled job, a task row's ⋮, Restore
   this in version history, Add in the notes and blocker logs, Clear log in the activity log and Delete selected in
-  Trends. The workload's hours buttons and absence chips grow to the same height.
+  Trends. The workload's hours buttons and absence chips, RACI's person-filter chips and the read-only chips on
+  the stakeholder map and the milestone strip grow to the same height.
 
 - **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
   re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,

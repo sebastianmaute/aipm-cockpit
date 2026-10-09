@@ -310,3 +310,13 @@ describe("StakeholderMapPanel chips on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23): read-only and composite chips take the same 30px box as the xs Buttons they sit beside or stand in for.
+describe("StakeholderMapPanel read-only chip at the xs size", () => {
+  it("draws a read-only chip in the same box as the clickable one", () => {
+    render(<StakeholderMapPanel lang="en-US" stakeholders={items} />);
+    expect(screen.getByText("Sam").className).toBe(
+      "inline-block rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground",
+    );
+  });
+});

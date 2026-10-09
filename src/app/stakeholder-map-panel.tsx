@@ -216,7 +216,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                       ) : (
                         <span
                           key={s.id}
-                          className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground"
+                          className="inline-block rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground"
                         >
                           {s.name}
                         </span>
