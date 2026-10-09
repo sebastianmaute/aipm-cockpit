@@ -261,6 +261,32 @@ describe("workspaceAsOf prorates time spent over each task's window", () => {
   });
 });
 
+describe("workspaceAsOf prorates a bucket's hand-entered percentComplete over its window", () => {
+  const pctAt = (over: Partial<BudgetBucket>): BudgetBucket =>
+    workspaceAsOf({ ...emptyWorkspace(), budgets: [bucket({ percentComplete: 30, ...over })] }, AS_OF).budgets![0];
+
+  it("scales it by the elapsed share, rounded to a whole percent", () => {
+    expect(pctAt({ startDate: "2026-07-01", endDate: "2026-07-19" }).percentComplete).toBe(15);
+    expect(pctAt({ startDate: "2026-07-01", endDate: "2026-07-14", percentComplete: 10 }).percentComplete).toBe(7); // 9/13
+  });
+
+  it("keeps it whole once the window has ended", () => {
+    expect(pctAt({ startDate: "2026-06-01", endDate: "2026-06-30" }).percentComplete).toBe(30);
+  });
+
+  it("clears it, rather than zeroing it, for a bucket not yet started", () => {
+    expect("percentComplete" in pctAt({ startDate: "2026-07-11", endDate: "2026-09-30" })).toBe(false);
+  });
+
+  it("treats a zero-length window started on asOf's side as ended", () => {
+    expect(pctAt({ startDate: "2026-07-10", endDate: "2026-07-10" }).percentComplete).toBe(30);
+  });
+
+  it("leaves a bucket without a hand-entered percent without one", () => {
+    expect(pctAt({ percentComplete: undefined }).percentComplete).toBeUndefined();
+  });
+});
+
 describe("demoSnapshotFridays", () => {
   const fridays = demoSnapshotFridays("2026-03-02", "2026-09-18");
   const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`).getTime();
@@ -311,6 +337,14 @@ describe("buildDemoSnapshots over the sample master", () => {
     const july = records.filter((r) => r.capturedAt.startsWith("2026-07"));
     expect(july.length).toBeGreaterThan(0);
     expect(july.some((r) => r.spi !== null && r.spi < 1)).toBe(true);
+  });
+
+  it("prorates bucket 4's hand-entered percent: half of today's half-way through its window", () => {
+    const pctOf4 = (asOf: string) => workspaceAsOf(master, asOf).budgets!.find((b) => b.id === 4)!.percentComplete;
+    expect(pctOf4(DEMO_AS_OF)).toBeDefined();
+    expect(master.budgets!.find((b) => b.id === 4)!.percentComplete).toBe(30);
+    // Window 2026-08-01 → 2026-10-31 is 91 days; day 45 of it is 2026-09-15.
+    expect(pctOf4("2026-09-15")).toBe(15);
   });
 
   it("matches the committed sample-demo-snapshots.json", () => {

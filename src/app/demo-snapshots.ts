@@ -11,8 +11,9 @@
 //
 // ★ ACCEPTED LIMITATION: the master records only today's state plus the dates on
 // which facts happened, so `workspaceAsOf` is an approximation. It removes rows
-// created after the date and reverts dated state changes, but undated values
-// (task effort, a bucket's hand-entered `percentComplete`) keep today's figure.
+// created after the date and reverts dated state changes; the undated values the
+// engines read (task time spent, a bucket's hand-entered `percentComplete`) are
+// prorated linearly over their own window, which is a guess, not a record.
 
 import { withBlockerLog } from "./blocker-log";
 import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
@@ -71,12 +72,15 @@ const WORK_FIELDS = ["healthOverride", "timeSpentMinutes", "remainingEstimateMin
 function spentMinutesAsOf(t: Task, asOf: string, now: string): number | undefined {
   const spent = t.timeSpentMinutes;
   if (spent === undefined) return undefined;
-  const end = t.completedDate || now;
-  const start = t.startDate;
+  return Math.round(spent * elapsedShare(t.startDate, t.completedDate || now, asOf));
+}
+
+/** Share (0–1) of the window `start` → `end` elapsed at `asOf`. Without a start, or
+ *  for a window of zero (or negative) length: 1 once `end` ≤ `asOf`, else 0. */
+function elapsedShare(start: string | undefined, end: string, asOf: string): number {
   const span = start ? calendarDaysBetween(start, end) : 0;
-  if (!start || span <= 0) return end <= asOf ? spent : 0;
-  const share = Math.min(1, Math.max(0, calendarDaysBetween(start, asOf) / span));
-  return Math.round(spent * share);
+  if (!start || span <= 0) return end <= asOf ? 1 : 0;
+  return Math.min(1, Math.max(0, calendarDaysBetween(start, asOf) / span));
 }
 
 function taskAsOf(t: Task, asOf: string, now: string): Task {
@@ -147,6 +151,14 @@ function bucketAsOf(b: BudgetBucket, asOf: string): BudgetBucket {
   };
   if (after(b.closedDate, asOf)) {
     out = { ...without(out, "closedDate"), status: "open" };
+  }
+  // A hand-entered percentComplete is undated: it is prorated over the bucket's
+  // window (startDate → endDate), and a bucket not yet started has none, so
+  // `bucketPercentComplete` falls back as for a bucket never given one.
+  if (b.percentComplete !== undefined) {
+    out = after(b.startDate, asOf)
+      ? without(out, "percentComplete")
+      : { ...out, percentComplete: Math.round(b.percentComplete * elapsedShare(b.startDate, b.endDate, asOf)) };
   }
   return out;
 }

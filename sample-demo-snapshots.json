@@ -2184,10 +2184,6 @@
         "pctComplete": 33.33333333333333
       },
       {
-        "bucketId": 4,
-        "pctComplete": 30
-      },
-      {
         "bucketId": 5,
         "pctComplete": 100
       },
@@ -2343,10 +2339,6 @@
       {
         "bucketId": 1,
         "pctComplete": 33.33333333333333
-      },
-      {
-        "bucketId": 4,
-        "pctComplete": 30
       },
       {
         "bucketId": 5,
@@ -2511,7 +2503,7 @@
       },
       {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 2
       },
       {
         "bucketId": 5,
@@ -2676,7 +2668,7 @@
       },
       {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 4
       },
       {
         "bucketId": 5,
@@ -2840,12 +2832,8 @@
         "pctComplete": 66.66666666666666
       },
       {
-        "bucketId": 3,
-        "pctComplete": 15
-      },
-      {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 7
       },
       {
         "bucketId": 5,
@@ -3009,12 +2997,8 @@
         "pctComplete": 66.66666666666666
       },
       {
-        "bucketId": 3,
-        "pctComplete": 15
-      },
-      {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 9
       },
       {
         "bucketId": 5,
@@ -3179,11 +3163,11 @@
       },
       {
         "bucketId": 3,
-        "pctComplete": 15
+        "pctComplete": 1
       },
       {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 11
       },
       {
         "bucketId": 5,
@@ -3347,16 +3331,12 @@
         "pctComplete": 66.66666666666666
       },
       {
-        "bucketId": 2,
-        "pctComplete": 0
-      },
-      {
         "bucketId": 3,
-        "pctComplete": 15
+        "pctComplete": 2
       },
       {
         "bucketId": 4,
-        "pctComplete": 30
+        "pctComplete": 14
       },
       {
         "bucketId": 5,
