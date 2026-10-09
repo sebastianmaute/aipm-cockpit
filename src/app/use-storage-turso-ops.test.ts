@@ -237,6 +237,35 @@ describe("useTursoProjectOps — §103 truncation", () => {
     expect(returned).toBe(createdId);
   });
 
+  it("createTursoProject runs seedSnapshots with the new id after its save and BEFORE the project becomes current", async () => {
+    const events: string[] = [];
+    saveMock.mockImplementationOnce(async () => { events.push("save"); });
+    const applyWorkspace = vi.fn(() => { events.push("apply"); });
+    const setTursoProjectId = vi.fn(() => { events.push("switch"); });
+    const seedSnapshots = vi.fn<(id: string) => Promise<void>>(async () => { events.push("seed"); });
+    const { result } = renderWithRealGuard(async () => {}, { applyWorkspace, setTursoProjectId });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-7", name: "New", code: "N" } as never, { seedSnapshots }); });
+    const createdId = vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2];
+    expect(seedSnapshots).toHaveBeenCalledTimes(1);
+    expect(seedSnapshots).toHaveBeenCalledWith(createdId);
+    expect(returned).toBe(createdId);
+    expect(events).toEqual(["save", "seed", "apply", "switch"]);
+  });
+
+  it("createTursoProject still creates and switches when seedSnapshots throws", async () => {
+    const applyWorkspace = vi.fn();
+    const reportProjectError = vi.fn();
+    const seedSnapshots = vi.fn(async () => { throw new Error("seed boom"); });
+    const { result } = renderWithRealGuard(async () => {}, { applyWorkspace, reportProjectError });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-8", name: "New", code: "N" } as never, { seedSnapshots }); });
+    expect(returned).toBe(vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2]);
+    expect(applyWorkspace).toHaveBeenCalledTimes(1);
+    expect(reportProjectError).not.toHaveBeenCalled();
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.createSeedFailed", { message: "seed boom" });
+  });
+
   it("createTursoProject resolves null when portfolioCreate throws, reporting the error once", async () => {
     const reportProjectError = vi.fn();
     const { result } = renderWithRealGuard(async () => {}, { reportProjectError });

@@ -14,6 +14,8 @@ import { appendSnapshots } from "./snapshot-store";
 import { buildDemoWorkspace } from "./demo-workspace";
 import type { SnapshotRecord } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
+import type { NewProjectOpts } from "./new-project-workspace";
+import type { ProjectMeta } from "./types";
 import { t } from "./i18n";
 
 const TODAY = "2026-10-02"; // DEMO_AS_OF is 2026-09-18 → a one-month shift
@@ -44,11 +46,22 @@ const RECORDS: SnapshotRecord[] = [
   rec("2026-09-11T17:00:00.000Z"),
 ];
 
+/** A create that behaves like the real one: it runs the seed with the new id, then the project
+ *  becomes current ("applied"), then it resolves. `events` records that order. */
+function fakeCreate(id: string | null, events: string[] = []) {
+  return vi.fn(async (_meta: ProjectMeta, opts?: NewProjectOpts) => {
+    if (id === null) return null;
+    await opts?.seedSnapshots?.(id);
+    events.push("applied");
+    return id;
+  });
+}
+
 function deps(over: Partial<CreateDemoDeps> = {}): CreateDemoDeps {
   return {
     ws: WS, records: RECORDS, today: TODAY, tursoUsable: true, cadence: "weekly", tursoConfig: CONFIG,
     projectName: "Customer Identity Platform (demo)",
-    createTursoProject: vi.fn(async () => "id-1"),
+    createTursoProject: fakeCreate("id-1"),
     createLocal: vi.fn(async () => {}),
     appendSnapshots: vi.fn(async () => {}),
     ...over,
@@ -94,7 +107,7 @@ describe("createDemo", () => {
       "2026-09-21T17:00:00.000Z",
     ]);
     expect(out.map((r) => r.bucket)).toEqual(["2026-W18", "2026-W19", "2026-W39"]);
-    expect(out.map((r) => r.id)).toEqual(out.map((r) => r.capturedAt));
+    expect(out.map((r) => r.id)).toEqual(out.map((r) => `id-1:${r.capturedAt}`));
   });
 
   it("marks exactly the first written record as baseline when the shift dropped the authored one", async () => {
@@ -114,7 +127,7 @@ describe("createDemo", () => {
   });
 
   it("falls back to the local demo, without seeding, when the Turso create returns no id", async () => {
-    const d = deps({ createTursoProject: vi.fn(async () => null) });
+    const d = deps({ createTursoProject: fakeCreate(null) });
     await expect(createDemo(d)).resolves.toBe("local-after-turso-failure");
     expect(d.createLocal).toHaveBeenCalledTimes(1);
     expect(d.createLocal).toHaveBeenCalledWith(WS);
@@ -125,6 +138,33 @@ describe("createDemo", () => {
     const d = deps({ appendSnapshots: vi.fn(async () => { throw new Error("boom"); }) });
     await expect(createDemo(d)).resolves.toBe("turso-without-history");
     expect(d.createLocal).not.toHaveBeenCalled();
+  });
+
+  it("writes the history through the create's seed, before the project becomes current", async () => {
+    const events: string[] = [];
+    const d = deps({ createTursoProject: fakeCreate("id-1", events), appendSnapshots: vi.fn(async () => { events.push("seeded"); }) });
+    await expect(createDemo(d)).resolves.toBe("turso");
+    expect(events).toEqual(["seeded", "applied"]);
+  });
+
+  it("reports the history as missing when the create never ran the seed", async () => {
+    const d = deps({ createTursoProject: vi.fn(async () => "id-1") });
+    await expect(createDemo(d)).resolves.toBe("turso-without-history");
+    expect(d.appendSnapshots).not.toHaveBeenCalled();
+  });
+
+  it("namespaces the seeded ids by project, so two demos in one database never collide", async () => {
+    const a = deps({ createTursoProject: fakeCreate("p-a") });
+    const b = deps({ createTursoProject: fakeCreate("p-b") });
+    await createDemo(a);
+    await createDemo(b);
+    const idsA = written(a).map((r) => r.id);
+    const idsB = written(b).map((r) => r.id);
+    expect(idsA.length).toBeGreaterThan(0);
+    expect(idsA.every((x) => x.startsWith("p-a:"))).toBe(true);
+    expect(idsB.every((x) => x.startsWith("p-b:"))).toBe(true);
+    expect(idsA.filter((x) => idsB.includes(x))).toEqual([]);
+    expect(written(a).map((r) => r.capturedAt)).toEqual(written(b).map((r) => r.capturedAt));
   });
 });
 
@@ -138,7 +178,7 @@ describe("useLoadDemo", () => {
     return {
       lang: "en-US", showToast: vi.fn(), startTour: vi.fn(),
       createDemoProject: vi.fn(async () => {}),
-      createTursoProject: vi.fn(async () => "id-1"),
+      createTursoProject: fakeCreate("id-1"),
       refreshTursoProjects: vi.fn(async () => null),
       portfolioMode: "turso", tursoConfig: CONFIG, snapshots: undefined,
       ...over,
@@ -176,6 +216,7 @@ describe("useLoadDemo", () => {
     expect(recs.length).toBeGreaterThan(0);
     expect(d.refreshTursoProjects).toHaveBeenCalledTimes(1);
     expect(d.startTour).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(d.refreshTursoProjects).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(d.startTour).mock.invocationCallOrder[0]);
     expect(d.showToast).not.toHaveBeenCalled();
   });
 
@@ -187,7 +228,7 @@ describe("useLoadDemo", () => {
   });
 
   it("toasts that the demo was created locally when the Turso create fails", async () => {
-    const d = hookDeps({ createTursoProject: vi.fn(async () => null) });
+    const d = hookDeps({ createTursoProject: fakeCreate(null) });
     await run(d);
     expect(d.createDemoProject).toHaveBeenCalledTimes(1);
     expect(d.showToast).toHaveBeenCalledWith("info", t("en-US", "demoCreatedLocallyToast"));

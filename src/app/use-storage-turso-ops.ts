@@ -140,6 +140,14 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       const created = new TursoBackend(cfg, id);
       created.forceNextSave(); // §4 — a blind write by intent: a brand-new project, never loaded
       await created.save(ws);
+      if (opts.seedSnapshots) {
+        // Before the project becomes current, so its snapshot load cannot race the seed.
+        try {
+          await opts.seedSnapshots(id);
+        } catch (err) {
+          logDiag("warn", "storage.createSeedFailed", { message: err instanceof Error ? err.message : String(err) });
+        }
+      }
       deps.applyWorkspace(ws);
       deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;

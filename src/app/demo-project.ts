@@ -59,17 +59,31 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
     await deps.createLocal(ws);
     return "local";
   }
-  const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws });
+  // The seed runs INSIDE the held create, before the project becomes current, so the new
+  // project's first snapshot load sees the history (and its baseline) instead of racing it.
+  // It catches its own failure so the create still completes; the outcome reports it.
+  let seeded = false;
+  const seedSnapshots = async (projectId: string): Promise<void> => {
+    try {
+      await deps.appendSnapshots(deps.tursoConfig, demoRecordsFor(deps, projectId), projectId);
+      seeded = true;
+    } catch {
+      // reported as "turso-without-history" below
+    }
+  };
+  const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
   if (id === null) {
     await deps.createLocal(ws);
     return "local-after-turso-failure";
   }
-  try {
-    await deps.appendSnapshots(deps.tursoConfig, demoHistoryFor(deps.records, ws, deps.today, deps.cadence), id);
-    return "turso";
-  } catch {
-    return "turso-without-history";
-  }
+  return seeded ? "turso" : "turso-without-history";
+}
+
+/** `snapshot.id` is a global primary key, so each project's seeded ids carry its own id: a second
+ *  demo in the same database would otherwise collide with the first one's rows. */
+function demoRecordsFor(deps: CreateDemoDeps, projectId: string): SnapshotRecord[] {
+  return demoHistoryFor(deps.records, deps.ws, deps.today, deps.cadence)
+    .map((r) => ({ ...r, id: `${projectId}:${r.capturedAt}` }));
 }
 
 export interface UseLoadDemoDeps {
