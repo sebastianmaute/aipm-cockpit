@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { bucketKey, type SnapshotRecord } from "./snapshot";
 import { shiftDemoSnapshots, thinForCadence } from "./demo-snapshot-shift";
 import { appendSnapshots, loadSnapshots } from "./snapshot-store";
@@ -74,10 +76,27 @@ describe("thinForCadence", () => {
     const out = thinForCadence(weekly, "monthly");
     expect(out.map((r) => r.capturedAt)).toEqual(["2026-03-27T17:00:00.000Z", "2026-04-24T17:00:00.000Z"]);
     expect(out.map((r) => r.isBaseline)).toEqual([true, false]);
+    expect(out.map((r) => r.cadence)).toEqual(["monthly", "monthly"]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-03", "2026-04"]);
   });
 
   it("returns [] for no records", () => {
     expect(thinForCadence([], "monthly")).toEqual([]);
+  });
+});
+
+describe("the committed demo history", () => {
+  const seeded = JSON.parse(readFileSync(join(process.cwd(), "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
+
+  it("shifts by one month into unique buckets, id === capturedAt, one baseline", () => {
+    const out = thinForCadence(shiftDemoSnapshots(seeded, 1, "month"), "weekly");
+    expect(new Set(out.map((r) => r.bucket)).size).toBe(out.length);
+    expect(out.every((r) => r.id === r.capturedAt)).toBe(true);
+    expect(out.filter((r) => r.isBaseline)).toHaveLength(1);
+  });
+
+  it("returns the input unchanged for n = 0", () => {
+    expect(shiftDemoSnapshots(seeded, 0, "month")).toEqual(seeded);
   });
 });
 

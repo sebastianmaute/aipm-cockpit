@@ -31,13 +31,20 @@ export function shiftDemoSnapshots(
   return [...byBucket.values()].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 }
 
-/** Weekly and daily keep every record; monthly keeps the last record of each calendar
- *  month (by `capturedAt`) and makes the first kept one the baseline. */
+/** Weekly and daily keep every record unchanged (no daily data exists to replay, so daily
+ *  shows gap markers). Monthly keeps the last record of each calendar month (by `capturedAt`),
+ *  relabels it `cadence: "monthly"` with its monthly `bucket` so gap detection sees no gaps,
+ *  and makes the first kept one the baseline. */
 export function thinForCadence(recs: readonly SnapshotRecord[], cadence: SnapshotCadence): SnapshotRecord[] {
   if (cadence !== "monthly") return [...recs];
   const lastOfMonth = new Map<string, SnapshotRecord>();
   for (const r of [...recs].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))) {
     lastOfMonth.set(r.capturedAt.slice(0, 7), r);
   }
-  return [...lastOfMonth.values()].map((r, i) => ({ ...r, isBaseline: i === 0 }));
+  return [...lastOfMonth.values()].map((r, i) => ({
+    ...r,
+    cadence: "monthly",
+    bucket: bucketKey(new Date(r.capturedAt), "monthly"),
+    isBaseline: i === 0,
+  }));
 }
