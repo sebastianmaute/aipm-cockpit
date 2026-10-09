@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Button } from "./button";
+import { BUILTIN_SCHEMES } from "./builtin-schemes";
+import { resolveSchemeColors } from "./scheme-tokens";
+import { contrastRatio } from "./scheme-contrast";
 
 describe("Button", () => {
   it("renders a <button> with its children", () => {
@@ -90,5 +93,30 @@ describe("Button", () => {
     render(<Button onClick={onClick}>Click</Button>);
     fireEvent.click(screen.getByRole("button", { name: "Click" }));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+// §691 — the green call-to-action variant.
+describe("Button accent variant", () => {
+  it("fills green with dark-blue text and a same-colour border", () => {
+    render(<Button variant="accent">Save</Button>);
+    const cls = screen.getByRole("button", { name: "Save" }).className.split(/\s+/);
+    expect(cls).toEqual(expect.arrayContaining(["bg-ui-green", "text-ui-dark-blue", "border", "border-ui-green"]));
+  });
+
+  // text-foreground on --ui-green measured 1.55–2.51:1 in the dark schemes and
+  // beacon-light, which is why the variant draws dark-blue text.
+  it("keeps its text at AA (4.5:1) on its fill in every built-in scheme", () => {
+    const ratios: string[] = [];
+    for (const s of BUILTIN_SCHEMES) {
+      for (const [mode, m] of [["light", s.light], ["dark", s.dark]] as const) {
+        if (!m) continue;
+        const c = resolveSchemeColors(m);
+        const r = contrastRatio(c["--ui-dark-blue"]!, c["--ui-green"]!);
+        if (r < 4.5) ratios.push(`${s.id}-${mode} ${r.toFixed(2)}`);
+      }
+    }
+    expect(BUILTIN_SCHEMES.length).toBeGreaterThan(0);
+    expect(ratios).toEqual([]);
   });
 });

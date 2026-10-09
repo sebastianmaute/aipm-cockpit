@@ -12,7 +12,7 @@
 import type { ButtonHTMLAttributes, Ref } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive" | "accent";
 export type ButtonSize = "xs" | "sm" | "md";
 
 // Variant color/border classes ONLY (no size, no motion — those are shared).
@@ -23,6 +23,12 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   ghost: "bg-transparent text-foreground hover:bg-surface-muted",
   destructive:
     "border border-ui-pink/40 bg-surface text-ui-pink-strong hover:bg-ui-pink/10 dark:border-ui-pink/50",
+  // The green call to action (§691). Dark-blue text, not `text-foreground`: the
+  // foreground token on --ui-green measured 1.55–2.51:1 in the dark schemes and
+  // beacon-light, while --ui-dark-blue clears 4.5:1 in every built-in scheme
+  // (pinned in button.test.tsx). The same-colour border keeps it the height of
+  // the bordered `secondary` buttons it usually sits beside.
+  accent: "border border-ui-green bg-ui-green text-ui-dark-blue hover:opacity-90",
 };
 
 // The common CTA paddings in the codebase. md = the large wizard/empty-state

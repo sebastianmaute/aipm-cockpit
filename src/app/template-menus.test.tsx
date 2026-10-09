@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SaveTemplateMenu, ApplyTemplateMenu } from "./template-menus";
 import { t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
+import { buttonClassFor } from "../test/button-variant";
 
 const tpls: ProjectTemplate[] = [
   { id: "a", name: "Alpha", features: [], fieldVisibility: {}, seed: { tasks: [] } },
@@ -63,5 +64,16 @@ describe("ApplyTemplateMenu", () => {
     expect(
       screen.getByRole("button", { name: t("en-US", "templateApplyAction") }),
     ).toBeDisabled();
+  });
+});
+
+// §691 — Save as template and Apply template are the accent Button.
+describe("template menus' actions", () => {
+  it("draw the accent Button at sm", () => {
+    render(<SaveTemplateMenu lang="en-US" onSave={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveTitle") }));
+    expect(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }).className).toBe(
+      buttonClassFor({ variant: "accent", size: "sm" }),
+    );
   });
 });

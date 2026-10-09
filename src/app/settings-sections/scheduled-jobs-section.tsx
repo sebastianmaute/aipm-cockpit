@@ -15,7 +15,6 @@ import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
-import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select, Checkbox } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
@@ -271,14 +270,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                 ))}
               </ul>
 
-              <button
-                type="button"
-                onClick={addJob}
-                disabled={busy}
-                className={`self-start rounded-md border border-line bg-ui-green px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-              >
+              <Button variant="accent" size="xs" onClick={addJob} disabled={busy} className="self-start">
                 {t(lang, "scheduledJobsAdd")}
-              </button>
+              </Button>
 
               <FieldHint>{t(lang, "scheduledJobsBgNote")}</FieldHint>
             </>
