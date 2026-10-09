@@ -930,7 +930,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§692](#692-six-popover-menus-hand-roll-their-item-buttons-at-five-different-paddings-and-no-menu-item-primitive-exists--open) | Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists | — | — | open |
 | [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--closed-2026-10-09) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | **CLOSED** 2026-10-09 |
 | [§694](#694-the-inline-ai-edit-popover-hand-rolls-a-modal-shell-instead-of-using-modal--open) | The inline AI edit popover hand-rolls a modal shell instead of using `Modal` | — | — | open |
-| [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--open) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | open |
+| [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--closed-2026-10-09) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | **CLOSED** 2026-10-09 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44536,11 +44536,11 @@ What has not been checked: whether pressing Escape while the popover sits above 
 
 **Close when** the popover renders through `Modal`, or is recorded as deliberately bespoke with a test showing that Escape closes only the popover when it sits above a `Modal`.
 
-## 695. Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw — OPEN
+## 695. Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw — CLOSED 2026-10-09
 
-**Status:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'rounded-full border border-line px-2 py-0.5 text-xs' src/app | grep -v '\.test\.' | wc -l` → 2, the two Timelog tables.
+**Status:** CLOSED 2026-10-09 — the five pills render the shared primitives now: the Timelog match chips (`timelog-people-table.tsx`, `timelog-projects-table.tsx`), the Dashboard's hidden-tile chips (`arrangement-shelf.tsx`) and the label chips (`labels-input.tsx`) are `Badge` with `pill`, keeping their own border, fill and text colour as caller classes, and the undo stack count (`undo/undo-control.tsx`) is `CountBadge` `grey`. What a user can see change: the Timelog chips become `inline-flex`; the hidden-tile chip moves inside its list item as a `Badge` rather than styling the `<li>` itself; the undo count takes the app's single count shape (16px tall, `text-[10px]`, `font-semibold`), so it is smaller than the old `text-xs` pill. Each site is pinned by a test that compares its class with the primitive's own render, and each was red against the old markup: `npx vitest run src/app/timelog-people-table.test.tsx src/app/timelog-projects-table.test.tsx src/app/arrangement-shelf.test.tsx src/app/labels-input.test.tsx src/app/undo/undo-control.test.tsx` (5 files).
 
-**Work item:** #639
+**Status before this update:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'rounded-full border border-line px-2 py-0.5 text-xs' src/app | grep -v '\.test\.' | wc -l` → 2, the two Timelog tables.
 
 - `timelog-people-table.tsx` and `timelog-projects-table.tsx`: `rounded-full border border-line px-2 py-0.5 text-xs`, which is `Badge` at `md` with `pill`, plus a border.
 - `arrangement-shelf.tsx`: the same pill with layout classes.

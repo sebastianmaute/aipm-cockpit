@@ -1,9 +1,11 @@
 import { beforeAll, describe, expect, test } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { LabelsInput } from "./labels-input";
 import { loadI18n, t } from "./i18n";
 import { sanitizeLabels } from "./sanitize";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { primitiveClassFor } from "../test/primitive-class";
+import { Badge } from "./badge";
 
 describe("LabelsInput — every chip's remove button has its own name (§672)", () => {
   beforeAll(() => loadI18n("de"));
@@ -25,5 +27,17 @@ describe("LabelsInput — every chip's remove button has its own name (§672)", 
     render(<LabelsInput lang={lang} value={LABELS} suggestions={["Backend", "QA"]} onChange={() => {}} />);
     // One ✕ per chip plus the dropdown's chevron.
     expectRowUniqueNames({ minControls: LABELS.length + 1 });
+  });
+});
+
+// §695 — each label chip is the shared Badge pill.
+describe("LabelsInput chips", () => {
+  test("render the shared Badge", () => {
+    render(<LabelsInput lang="en-US" value={["Frontend"]} suggestions={[]} onChange={() => {}} />);
+    expect(screen.getByText("Frontend").className).toBe(
+      primitiveClassFor(
+        <Badge pill className="gap-1 bg-surface-muted font-medium text-ui-dark-blue dark:text-ui-light-grey">x</Badge>,
+      ),
+    );
   });
 });

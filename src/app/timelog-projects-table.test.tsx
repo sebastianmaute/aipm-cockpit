@@ -7,6 +7,8 @@ import { TimelogProjectsTable } from "./timelog-projects-table";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buttonClassFor } from "../test/button-variant";
+import { primitiveClassFor } from "../test/primitive-class";
+import { Badge } from "./badge";
 
 function renderTable(refs: { name: string; no: string }[]) {
   render(
@@ -51,5 +53,15 @@ describe("TimelogProjectsTable buttons on the shared Button", () => {
     const secondary = buttonClassFor({ variant: "secondary", size: "xs" });
     expect(screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }).className).toBe(secondary);
     expect(screen.getByRole("button", { name: /^Clear link – / }).className).toBe(secondary);
+  });
+});
+
+// §695 — the match chip is the shared Badge pill.
+describe("TimelogProjectsTable match chip", () => {
+  it("renders the shared Badge", () => {
+    renderTable([{ name: "Alpha", no: "P-1" }]);
+    expect(screen.getByText(t("en-US", "timelogMatchManual")).className).toBe(
+      primitiveClassFor(<Badge pill className="border border-line text-muted-foreground">x</Badge>),
+    );
   });
 });

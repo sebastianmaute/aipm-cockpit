@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "../icons";
 import { t, type Lang, type TranslationKey, type PluralBaseKey, tPlural } from "../i18n";
+import { CountBadge } from "../count-badge";
 import { FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
 import { FOCUSABLE_SELECTOR } from "../focusables";
@@ -275,7 +276,7 @@ function UndoRedoControl({
       >
         {icon}
         <span>{t(lang, labelKey)}</span>
-        <span className="rounded-full bg-ui-medium-grey px-1.5 text-xs text-white">{depth}</span>
+        <CountBadge variant="grey">{depth}</CountBadge>
       </button>
       <button
         ref={caretRef}
