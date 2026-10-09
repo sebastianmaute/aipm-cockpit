@@ -37472,17 +37472,17 @@ display layer.
 ## 476. The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN
 
 **Status:** OPEN — re-checked 2026-10-09 against `origin/main`; still unbuilt. The rate lookup still
-short-circuits on the literal — in `resolveRateInfo`, which `resolveRate` delegates to
-(`grep -n 'bucket.currency === "EUR"' src/app/fx.ts` → 1 hit) — no control writes `plan.currency`
-(the only currency picker, in `budget-bucket-modal.tsx`, writes a BUCKET's), `sanitizeFxRates` still
-rejects a non-EUR base (`grep -c 'input.base !== "EUR"' src/app/sanitize-entities.ts` → 1), and money
-is still formatted as EUR
-(`grep -rnE 'formatCurrency\([^)]*"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l`
-→ 8). ★★ TWO WITNESSES BELOW HAVE DRIFTED, neither because this was built: the `"EUR"` count is now
-**29**, not 19 — mostly the forecast and rate-mix work's new `formatCurrency(…, "EUR")` money
-formatters; §477's INR edited the existing `SUPPORTED_CURRENCIES` line in place and added no hit — and
-the rate-stamp grep now returns **15**, not 0 — every hit is `bookedRate`, the forecast rate-mix's
-booked €/h against planned (`budget-rate-mix.ts`), NOT an FX rate recorded at booking. Use the narrower
+short-circuits on the literal `"EUR"` in `resolveRateInfo`, which `resolveRate` delegates to
+(`grep -n 'bucket.currency === "EUR"' src/app/fx.ts` → 1 hit); no control writes `plan.currency`
+(the only currency picker, in `budget-bucket-modal.tsx`, writes a BUCKET's); `sanitizeFxRates` still
+rejects a non-EUR base, in `fxRatesWithDateReader`, which it delegates to
+(`grep -c 'input.base !== "EUR"' src/app/sanitize-entities.ts` → 1); and money is still formatted as
+EUR (`grep -rnE 'formatCurrency\([^)]*"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l`
+→ 8). ★★ TWO WITNESSES BELOW HAVE DRIFTED, neither because this was built. The `"EUR"` count is now
+**29**, not 19, mostly from the forecast and rate-mix work's new EUR money formatters; §477's INR
+edited the existing `SUPPORTED_CURRENCIES` line in place and added no hit. The rate-stamp grep now
+returns **15**, not 0, and every hit is `bookedRate`, the forecast rate-mix's booked €/h against
+planned (`budget-rate-mix.ts`), NOT an FX rate recorded at booking. Use the narrower
 `grep -rn "asOfRate\|rateStamp" src/app --include=*.ts --include=*.tsx | wc -l` → **0**. ★★ The
 neighbours have moved: §473 was closed 2026-10-02 by an owner decision that role rates and per-bucket
 overrides are in the PLAN currency, converted to EUR by `planCurrencyPerEur`, not narrowed to EUR. That
