@@ -35,7 +35,7 @@ import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDepende
 
 import { useTaskLookup, useTaskRowContext } from "./task-row-context";
 import { Button } from "./button";
-import { CELL_BUTTON } from "./control-classes";
+import { CELL_BUTTON, menuItemClass } from "./control-classes";
 
 // ★★ Re-exported so existing importers and test mocks keep resolving these
 // from "./task-row". See the header of `task-row-context.tsx` for why removing
@@ -653,7 +653,7 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
             type="button"
             role="menuitem"
             onClick={(e) => { stop(e); setMenuOpen(false); onEdit(task); }}
-            className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
+            className={menuItemClass()}
           >
             {t(lang, "edit")}
           </button>
@@ -663,7 +663,7 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
               role="menuitem"
               disabled={isPushing}
               onClick={(e) => { stop(e); setMenuOpen(false); onPushToJira(task.id); }}
-              className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className={menuItemClass()}
             >
               {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
             </button>
@@ -672,7 +672,7 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
             type="button"
             role="menuitem"
             onClick={(e) => { stop(e); setMenuOpen(false); onDelete(task.id); }}
-            className="px-3 py-1 text-left text-xs text-ui-pink-strong hover:bg-ui-pink/5"
+            className={menuItemClass("danger")}
           >
             {t(lang, "delete")}
           </button>

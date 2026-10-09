@@ -927,7 +927,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§689](#689-close-more-and-move-controls-draw-text-glyphs-instead-of-icons-from-iconsts--open) | Close, more and move controls draw text glyphs instead of icons from `icons.ts` | — | — | open |
 | [§690](#690-eleven-text-buttons-still-hand-roll-a-look-that-a-button-variant-draws-at-sizes-next-to-buttons--closed-2026-10-09) | Eleven text buttons still hand-roll a look that a `Button` variant draws, at sizes next to `Button`'s | — | — | **CLOSED** 2026-10-09 |
 | [§691](#691-six-green-call-to-action-buttons-hand-roll-four-different-recipes-because-button-has-no-green-variant--closed-2026-10-09) | Six green call-to-action buttons hand-roll four different recipes because `Button` has no green variant | — | — | **CLOSED** 2026-10-09 |
-| [§692](#692-six-popover-menus-hand-roll-their-item-buttons-at-five-different-paddings-and-no-menu-item-primitive-exists--open) | Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists | — | — | open |
+| [§692](#692-six-popover-menus-hand-roll-their-item-buttons-at-five-different-paddings-and-no-menu-item-primitive-exists--closed-2026-10-09) | Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists | — | — | **CLOSED** 2026-10-09 |
 | [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--closed-2026-10-09) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | **CLOSED** 2026-10-09 |
 | [§694](#694-the-inline-ai-edit-popover-hand-rolls-a-modal-shell-instead-of-using-modal--open) | The inline AI edit popover hand-rolls a modal shell instead of using `Modal` | — | — | open |
 | [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--closed-2026-10-09) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | **CLOSED** 2026-10-09 |
@@ -44486,11 +44486,11 @@ This needs the owner's decision: add a green `Button` variant, or move these but
 
 **Close when** the decision is recorded here and the six buttons follow it, each pinned by a test on its classes.
 
-## 692. Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists — OPEN
+## 692. Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists — CLOSED 2026-10-09
 
-**Status:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'role="menuitem"' src/app | grep -v '\.test\.'` lists `task-row.tsx` as the only one of the six that marks its items as menu items.
+**Status:** CLOSED 2026-10-09 — every item in the six menus takes its class from `menuItemClass(tone)` in `control-classes.ts` (owner decision 2026-10-09: a shared constant, not a component). It has one size (`px-3 py-1.5 text-sm`), full width, left-aligned, `rounded-md`, with the shared focus ring, press feedback and disabled look, and three tones: `default`, `danger` (the row menu's Delete) and `current` (the rich-text block style in use). Callers add only alignment and gap, which is how the two-line export items and the icon rows keep their layout. What a user can see change: the task row menu, the Next actions overflow menu and the reminder snooze menu grow from 12px to 14px text and from `py-1` to `py-1.5` rows; the rich-text block menu and the export menu move to `px-3`; every item gains the focus ring and press feedback (the row menu had none). The ARIA roles are unchanged: only the task row menu marks its items `role="menuitem"`, and adding a role pattern elsewhere is left out of this entry. A sweep test, `npx vitest run src/app/control-classes.menu.test.tsx`, reads the six files with the TypeScript parser and fails when an item stops using `menuItemClass` or a hand-written left-aligned item class with the muted hover returns; it was red in all six files before the conversion. The menus' own test files pass (8 files).
 
-**Work item:** #636
+**Status before this update:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'role="menuitem"' src/app | grep -v '\.test\.'` lists `task-row.tsx` as the only one of the six that marks its items as menu items.
 
 The menus, with their item padding:
 - `task-row.tsx`'s row menu (3 items): `px-3 py-1 text-xs`, `role="menuitem"`.
