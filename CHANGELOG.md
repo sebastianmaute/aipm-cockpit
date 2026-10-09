@@ -10,6 +10,14 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, help, export, version and
+  template buttons in the header, and the workspace collapse toggle, use the standard icon button and are 32px
+  instead of 36px. Close, remove, more-actions and move buttons, the Jira and snooze disclosure arrows and the
+  ✓ and ⚠ status marks now draw icons instead of text characters. The Ask Claude edit window opens like every
+  other dialog; Escape still closes only it when it sits over another dialog.
+
 ## [1.16.0] - 2026-10-09 "Rankin"
 
 A feature release. Long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay
