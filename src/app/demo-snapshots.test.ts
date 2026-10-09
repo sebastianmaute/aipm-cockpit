@@ -92,7 +92,7 @@ function fixture(): Workspace {
         }],
         disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 1, "2026-09": 2 } }],
       }),
-      bucket({ id: 2, createdDate: "2026-07-20" }),
+      bucket({ id: 2, createdDate: "2026-07-20", startDate: "2026-07-01", endDate: "2026-07-19", percentComplete: 30 }),
       bucket({ id: 3, status: "closed", closedDate: "2026-07-31" }),
       bucket({ id: 4, status: "closed", closedDate: "2026-06-30" }),
     ],
@@ -155,8 +155,16 @@ describe("workspaceAsOf", () => {
     expect(b.disciplineAllocations![0].actualHours).toEqual({ "2026-06": 1 });
   });
 
-  it("removes a bucket created after asOf and reopens one closed after it", () => {
-    expect(byId(out.budgets, 2)).toBeUndefined();
+  // Planned budget, like a task's planned scope: dropping a bucket until its createdDate left
+  // each replayed week a partial BAC against a whole-plan pace forecast, which read Budget RED in
+  // every seeded week. Its hand-entered percentComplete is still prorated (9 of 18 days here).
+  it("keeps a bucket created after asOf as planned budget, prorating its percentComplete", () => {
+    const kept = byId(out.budgets, 2)!;
+    expect(kept).toBeDefined();
+    expect(kept.percentComplete).toBe(15);
+  });
+
+  it("reopens a bucket closed after asOf", () => {
     const reopened = byId(out.budgets, 3)!;
     expect(reopened.status).toBe("open");
     expect(reopened.closedDate).toBeUndefined();
@@ -342,6 +350,14 @@ describe("buildDemoSnapshots over the sample master", () => {
     expect(pct.every((p) => p !== null)).toBe(true);
     for (let i = 1; i < pct.length; i++) expect(pct[i]!).toBeGreaterThanOrEqual(pct[i - 1]!);
     expect(pct[9]!).toBeGreaterThan(pct[0]!);
+  });
+
+  // I1: buckets are planned budget from the first week, so the remaining work only falls. Dropping
+  // them by createdDate had it jump 635 → 319 → 18 → 1465 hours over the spring.
+  it("never adds remaining work from one week to the next", () => {
+    const left = records.map((r) => r.remainingHours);
+    expect(left.every((h) => h !== null)).toBe(true);
+    for (let i = 1; i < left.length; i++) expect(left[i]!).toBeLessThanOrEqual(left[i - 1]!);
   });
 
   it("shows the July slip as an SPI below 1", () => {

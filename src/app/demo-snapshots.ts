@@ -175,9 +175,11 @@ function statusAsOf(s: ProjectStatus | undefined, asOf: string): ProjectStatus {
 /**
  * The workspace as it stood at the end of `asOf` (YYYY-MM-DD), reconstructed from
  * its dated facts. Rows created after the date are removed (RAID and changes by
- * `raisedDate`, buckets by `createdDate`, activity and budget history by their
- * dates) — except tasks, which are planned scope and are kept as not-yet-started
- * (see `taskAsOf`); later state changes on earlier rows are reverted (task
+ * `raisedDate`, activity and budget history by their dates) — except tasks, which
+ * are planned scope and are kept as not-yet-started (see `taskAsOf`), and budget
+ * buckets, which are planned budget and are kept whatever their `createdDate`:
+ * dropping them left each week a partial BAC against a whole-plan pace forecast,
+ * so every replayed week read Budget RED; later state changes on earlier rows are reverted (task
  * completion, blockers, RAID closure, change decision, milestone achievement, bucket
  * closure, PM status), and actuals booked in later periods are dropped. Task time
  * spent and a bucket's hand-entered percentComplete are prorated over their own
@@ -194,7 +196,7 @@ export function workspaceAsOf(ws: Workspace, asOf: string, now: string = DEMO_AS
     raid: ws.raid.filter((r) => !after(r.raisedDate, asOf)).map((r) => raidAsOf(r, asOf)),
     changes: (ws.changes ?? []).filter((c) => !after(c.raisedDate, asOf)).map((c) => changeAsOf(c, asOf)),
     milestones: (ws.milestones ?? []).map((m) => milestoneAsOf(m, asOf)),
-    budgets: (ws.budgets ?? []).filter((b) => !after(b.createdDate, asOf)).map((b) => bucketAsOf(b, asOf, now)),
+    budgets: (ws.budgets ?? []).map((b) => bucketAsOf(b, asOf, now)),
     activityLog: (ws.activityLog ?? []).filter((a) => !after(a.timestamp, asOf)),
     budgetHistory: (ws.budgetHistory ?? []).filter((h) => !after(h.date, asOf)),
     status: statusAsOf(ws.status, asOf),

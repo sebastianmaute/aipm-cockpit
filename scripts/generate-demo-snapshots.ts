@@ -43,7 +43,8 @@ console.log(`\n=== generate-demo-snapshots: ${records.length} weekly records as 
 for (const r of records) {
   console.log(
     `  ${r.capturedAt.slice(0, 10)}  pct=${r.pctComplete ?? "-"}  spi=${r.spi?.toFixed(2) ?? "-"}  ` +
-      `cpi=${r.cpi?.toFixed(2) ?? "-"}  overall=${r.overallRag || "-"}${r.isBaseline ? "  (baseline)" : ""}`,
+      `cpi=${r.cpi?.toFixed(2) ?? "-"}  remainingH=${r.remainingHours ?? "-"}  budget=${r.budgetRag || "-"}  ` +
+      `overall=${r.overallRag || "-"}${r.isBaseline ? "  (baseline)" : ""}`,
   );
 }
 console.log(`\n  -> ${outPath}`);
