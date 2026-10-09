@@ -623,6 +623,22 @@ describe("task-manager → load-pause banner mount", () => {
     await waitFor(() => expect(loadPauseBanner()).not.toBeNull());
   }, 45000);
 
+  it("a NEW pause reason re-shows a dismissed banner; the same reason leaves it hidden", async () => {
+    // The render-time reconcile (use-storage-banner-reshow.ts), through the real
+    // component: a dismissal belongs to the pause it dismissed.
+    const { rerender } = await mountApp();
+    fireEvent.click(within(loadPauseBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(loadPauseBanner()).toBeNull());
+
+    rerender(<TaskManager />);
+    expect(loadPauseBanner()).toBeNull();
+
+    override.value = { ...override.value, loadPause: "empty-refused" };
+    rerender(<TaskManager />);
+    await waitFor(() => expect(loadPauseBanner()).not.toBeNull());
+    expect(within(loadPauseBanner() as HTMLElement).getByText(t("en-US", "storageSavePausedEmptyLoad"))).toBeInTheDocument();
+  }, 45000);
+
   it("stops reporting storage as healthy while the load pause holds", async () => {
     await mountApp();
     await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
