@@ -37486,7 +37486,28 @@ display layer.
 
 ## 476. The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN
 
-**Status:** OPEN 2026-09-12 — **never machine-verified, and there is nothing to verify: this is a
+**Status:** OPEN — re-checked 2026-10-09 against `origin/main`; still unbuilt. The rate lookup still
+short-circuits on the literal `"EUR"` in `resolveRateInfo`, which `resolveRate` delegates to
+(`grep -n 'bucket.currency === "EUR"' src/app/fx.ts` → 1 hit); no control writes `plan.currency`
+(the only currency picker, in `budget-bucket-modal.tsx`, writes a BUCKET's); `sanitizeFxRates` still
+rejects a non-EUR base, in `fxRatesWithDateReader`, which it delegates to
+(`grep -c 'input.base !== "EUR"' src/app/sanitize-entities.ts` → 1); and money is still formatted as
+EUR (`grep -rnE 'formatCurrency\([^)]*"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l`
+→ 8). ★★ TWO WITNESSES BELOW HAVE DRIFTED, neither because this was built. The `"EUR"` count is now
+**29**, not 19, mostly from the forecast and rate-mix work's new EUR money formatters; §477's INR
+edited the existing `SUPPORTED_CURRENCIES` line in place and added no hit. The rate-stamp grep now
+returns **15**, not 0, and every hit is `bookedRate`, the forecast rate-mix's booked €/h against
+planned (`budget-rate-mix.ts`), NOT an FX rate recorded at booking. Use the narrower
+`grep -rn "asOfRate\|rateStamp" src/app --include=*.ts --include=*.tsx | wc -l` → **0**. ★★ The
+neighbours have moved: §473 was closed 2026-10-02 by an owner decision that role rates and per-bucket
+overrides are in the PLAN currency, converted to EUR by `planCurrencyPerEur`, not narrowed to EUR. That
+settles what `plan.currency` MEANS (the role-rate currency), which favours reusing it as the baseline
+in the "reuses that field or replaces it" decision below — but reuse still changes its meaning, from a
+currency the engine converts out of to the unit the engine computes in. §474 was closed 2026-09-13 and
+§477 (INR) 2026-10-03, so the notes below that §474 "should be decided before or with this" and that
+§477 "ships on its own" are history.
+
+**Earlier:** OPEN 2026-09-12 — **never machine-verified, and there is nothing to verify: this is a
 requested capability, not an observed defect.** The presence witnesses below establish only what is
 hardcoded today, and each was run 2026-09-12:
 `grep -rn '"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "^src/app/i18n" | wc -l`
