@@ -126,7 +126,8 @@ export interface ChatDispatcherArgs {
    *  turns all fourteen of them into `undefined?.captureComposite(...)` — the
    *  assistant's writes silently stop being recoverable and NOTHING says so.
    *  Measured while the field was optional: deleting `undo: undoApi` from
-   *  `task-manager.tsx` (its ONLY production call site) was green on eslint, on
+   *  `task-manager.tsx` (its only production call site at the time; it is now
+   *  reached through `use-chat-dispatcher-wiring.ts`) was green on eslint, on
    *  `npx tsc --noEmit` and on the whole unit suite. Requiring it is what makes
    *  that deletion a compile error, so do NOT reintroduce the `?` — an
    *  always-optional dependency is how a write path silently stops capturing.

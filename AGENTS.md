@@ -773,8 +773,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-chat-dispatcher-wiring.ts` (§491), holds the assistant's tool dispatcher: the `useChatDispatcher` call and the
   two derived read-tool getters, which read their slices from `useWorkspace()`. It is coverage-GATED, pinned by its own
   `renderHook` test, and memoizes nothing — the getters are rebuilt every render on purpose, because the dispatcher
-  reads each through a ref. ★ It forwards the dispatcher's args field by field, so a NEW optional `ChatDispatcherArgs`
-  field is dropped there until added (its header says why). ★ Apply APPENDS a template's
+  reads each through a ref. ★ It forwards the dispatcher's args field by field, checked `satisfies ForwardedArgs`, so a NEW
+  `ChatDispatcherArgs` field, optional or not, is a tsc error there until forwarded (its header says why). ★ Apply APPENDS a template's
   seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
   features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.

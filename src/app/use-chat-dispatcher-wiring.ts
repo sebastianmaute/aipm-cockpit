@@ -15,9 +15,11 @@
 //
 // ★★ The dispatcher's args are forwarded FIELD BY FIELD, not by a spread, so
 // `use-chat-dispatcher.test.tsx`'s call-site scan can follow `allowDestructiveSave`
-// through both hops. The cost: a NEW optional `ChatDispatcherArgs` field is
-// accepted by these deps (they are typed from it) and silently dropped here
-// until it is added to both lists below. A required one is a tsc error.
+// through both hops. A field list can silently drop a NEW optional
+// `ChatDispatcherArgs` field, so the list is checked `satisfies ForwardedArgs`:
+// that type makes EVERY deps key but `dashboardModel` required (optional ones
+// included, with their `undefined`), so a new field is a tsc error here until it
+// is destructured and forwarded.
 "use client";
 import { computeBudgetReport, type ProjectReport } from "./budget-report";
 import { makeAllocationsSnapshotGetter } from "./alloc-plan/alloc-plan";
@@ -34,6 +36,13 @@ export type ChatDispatcherWiringDeps = Omit<
   /** task-manager's render-scope dashboard model (`useTrendSnapshots`), handed
    *  to the dispatcher through a getter. */
   dashboardModel: DashboardModel;
+};
+
+/** Every deps field the dispatcher receives unchanged, each one REQUIRED. The key
+ *  set is filtered through `Exclude`, which makes the mapping non-homomorphic, so
+ *  an optional field loses its `?` and keeps `undefined` in its value type. */
+type ForwardedArgs = {
+  [K in Exclude<keyof ChatDispatcherWiringDeps, "dashboardModel">]: ChatDispatcherWiringDeps[K];
 };
 
 export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDispatcher {
@@ -75,15 +84,17 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
   });
 
   return useChatDispatcher({
-    settings,
-    clock,
-    onSettingsLoggedByAi,
-    setSelectedIds,
-    setSettings,
-    isReadOnly,
-    currentView, settingsProjectId, holidaySet, logActivityAs,
-    allowDestructiveSave,
-    undo,
+    ...({
+      settings,
+      clock,
+      onSettingsLoggedByAi,
+      setSelectedIds,
+      setSettings,
+      isReadOnly,
+      currentView, settingsProjectId, holidaySet, logActivityAs,
+      allowDestructiveSave,
+      undo,
+    } satisfies ForwardedArgs),
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
