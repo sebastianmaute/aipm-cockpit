@@ -1561,6 +1561,7 @@ function TaskManagerInner() {
     onExportCurrentProject: handleExportCurrentProject,
     onLoadProjectFromFile: () => { void loadProjectFromFile(); },
     onMigrateProjectToTurso: () => { void migrateCurrentProjectToTurso(); },
+    onLoadDemo: () => { void loadDemo(); },
     onArchiveProject: handleArchiveTursoProject,
     onRestoreProject: handleRestoreTursoProject,
     onHardDeleteProject: handleHardDeleteTursoProject,

@@ -111,6 +111,9 @@ export interface ProjectsPanelProps {
    *  row found here is measured from it instead of from the per-device
    *  key-facts cache. Absent (file mode) → non-current rows read the cache. */
   liveMetaById?: ReadonlyMap<string, ProjectMeta>;
+  /** Loads the demo project. The entry renders only when this is passed, so a
+   *  caller that must not offer it (a popout) simply omits it. */
+  onLoadDemo?: () => void;
 }
 
 type ModalState =
@@ -157,6 +160,7 @@ export function ProjectsPanel({
   onRestore,
   onHardDelete,
   liveMetaById,
+  onLoadDemo,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
 
@@ -408,6 +412,11 @@ export function ProjectsPanel({
           <Button variant="primary" onClick={openCreate}>
             + {t(lang, "projectsNew")}
           </Button>
+          {onLoadDemo && (
+            <Button variant="secondary" onClick={onLoadDemo}>
+              {t(lang, "tourLoadDemo")}
+            </Button>
+          )}
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>
       </header>

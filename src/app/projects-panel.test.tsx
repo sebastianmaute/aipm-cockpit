@@ -34,6 +34,7 @@ import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectButtonOrder } from "../test/toolbar-order";
 import { clearKeyFactsCache, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
@@ -725,5 +726,20 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(r.queryByText(/of 11/)).toBeNull();
     expect(rowEl.querySelector("[data-key-facts]")).toBeNull();
     expect(r.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("ProjectsPanel — explore a demo entry", () => {
+  it("renders after the New project button and calls onLoadDemo once", () => {
+    const onLoadDemo = vi.fn();
+    setup({ onLoadDemo });
+    expectButtonOrder(["projectsNew", "tourLoadDemo"], { contiguous: true });
+    fireEvent.click(screen.getByRole("button", { name: "Explore a demo project" }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("is absent without the prop", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Explore a demo project" })).toBeNull();
   });
 });
