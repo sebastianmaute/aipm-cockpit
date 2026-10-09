@@ -19,12 +19,13 @@ import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { isDayKey } from "./actual-hours";
 import { defaultSettings } from "./settings-types";
 import { buildSnapshot, type SnapshotRecord } from "./snapshot";
-import { addCalendarDays, periodBounds } from "./working-days";
+import { addCalendarDays, calendarDaysBetween, periodBounds } from "./working-days";
 import {
   ASSUMPTION_STATUSES, DEPENDENCY_STATUSES, ISSUE_STATUSES, RISK_STATUSES,
   type BudgetBucket, type ChangeItem, type Milestone, type ProjectStatus, type RaidCategory,
   type RaidItem, type RaidStatus, type Task,
 } from "./types";
+import { DEMO_AS_OF } from "./demo-workspace";
 import type { Workspace } from "./workspace";
 
 /** Hour of the replayed capture, matching an end-of-day Friday auto-capture. */
@@ -58,7 +59,27 @@ const after = (iso: string | undefined, asOf: string): boolean => !!iso && iso.s
  *  predate the task, so a task not yet created by `asOf` sheds them. */
 const WORK_FIELDS = ["healthOverride", "timeSpentMinutes", "remainingEstimateMinutes"] as const;
 
-function taskAsOf(t: Task, asOf: string): Task {
+/**
+ * `timeSpentMinutes` (the only spent-effort field `computeEvm` reads) is undated,
+ * so it is prorated by the share of the task's own window elapsed at `asOf`. The
+ * window runs from `startDate` to the task's `completedDate`, or to `now` for a
+ * task still open. Without a start, or with a window of zero (or negative) length,
+ * the task carries all of its effort once the window has ended and none before.
+ * ★ Unprorated, a reopened task kept its FINAL time spent while earning no value,
+ * and the replay's baseline CPI read 0.25 with a red Budget RAG.
+ */
+function spentMinutesAsOf(t: Task, asOf: string, now: string): number | undefined {
+  const spent = t.timeSpentMinutes;
+  if (spent === undefined) return undefined;
+  const end = t.completedDate || now;
+  const start = t.startDate;
+  const span = start ? calendarDaysBetween(start, end) : 0;
+  if (!start || span <= 0) return end <= asOf ? spent : 0;
+  const share = Math.min(1, Math.max(0, calendarDaysBetween(start, asOf) / span));
+  return Math.round(spent * share);
+}
+
+function taskAsOf(t: Task, asOf: string, now: string): Task {
   let out = t;
   const notYetCreated = after(t.createdDate, asOf);
   if (notYetCreated) {
@@ -67,6 +88,8 @@ function taskAsOf(t: Task, asOf: string): Task {
     // pctComplete (the replay read 50% → 33% → 50% in March when it did).
     out = without(out, ...WORK_FIELDS);
   }
+  const spent = spentMinutesAsOf(out, asOf, now);
+  if (spent !== undefined && spent !== out.timeSpentMinutes) out = { ...out, timeSpentMinutes: spent };
   if (after(t.completedDate, asOf)) {
     // Reopen: status and completedDate move together (docs/AGENTS/task-status.md).
     // The status before completion is not recorded: a task whose planned start is
@@ -142,15 +165,17 @@ function statusAsOf(s: ProjectStatus | undefined, asOf: string): ProjectStatus {
  * dates) — except tasks, which are planned scope and are kept as not-yet-started
  * (see `taskAsOf`); later state changes on earlier rows are reverted (task
  * completion, blockers, RAID closure, change decision, milestone achievement, bucket
- * closure, PM status), and actuals booked in later periods are dropped. Ids that
+ * closure, PM status), and actuals booked in later periods are dropped. Task time
+ * spent is prorated over each task's window (see `spentMinutesAsOf`), whose open
+ * end is `now`, the date the master describes (`DEMO_AS_OF`). Ids that
  * other rows reference may dangle afterwards, as after a live delete, which every
  * engine tolerates. The slices the dashboard does not read are returned unchanged.
  * The input is not mutated.
  */
-export function workspaceAsOf(ws: Workspace, asOf: string): Workspace {
+export function workspaceAsOf(ws: Workspace, asOf: string, now: string = DEMO_AS_OF): Workspace {
   return {
     ...ws,
-    tasks: ws.tasks.map((t) => taskAsOf(t, asOf)),
+    tasks: ws.tasks.map((t) => taskAsOf(t, asOf, now)),
     raid: ws.raid.filter((r) => !after(r.raisedDate, asOf)).map((r) => raidAsOf(r, asOf)),
     changes: (ws.changes ?? []).filter((c) => !after(c.raisedDate, asOf)).map((c) => changeAsOf(c, asOf)),
     milestones: (ws.milestones ?? []).map((m) => milestoneAsOf(m, asOf)),
@@ -177,7 +202,7 @@ export function demoSnapshotFridays(startDate: string, asOf: string): string[] {
  *  is the baseline. Mirrors `useTrendSnapshots`' `buildContext` call for call. */
 export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[] {
   return demoSnapshotFridays(ws.plan.startDate, asOf).map((friday, i) => {
-    const w = workspaceAsOf(ws, friday);
+    const w = workspaceAsOf(ws, friday, asOf);
     const tasks = w.tasks as Task[];
     const milestones = w.milestones ?? [];
     const budgets = w.budgets ?? [];

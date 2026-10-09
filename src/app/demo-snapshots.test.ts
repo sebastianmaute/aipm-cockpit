@@ -219,6 +219,48 @@ describe("workspaceAsOf", () => {
   });
 });
 
+describe("workspaceAsOf prorates time spent over each task's window", () => {
+  const spentAt = (over: Partial<Task>, now?: string): number | undefined =>
+    workspaceAsOf({ ...emptyWorkspace(), tasks: [task({ timeSpentMinutes: 100, ...over })] }, AS_OF, now).tasks[0].timeSpentMinutes;
+  const done = (start: string | undefined, end: string): Partial<Task> =>
+    ({ status: "Done", startDate: start, completedDate: end });
+
+  it("carries half the minutes half-way through a completed task's window", () => {
+    expect(spentAt(done("2026-07-01", "2026-07-19"))).toBe(50);
+  });
+
+  it("ends an open task's window at now, which defaults to DEMO_AS_OF", () => {
+    expect(spentAt({ startDate: "2026-07-01" }, "2026-07-19")).toBe(50);
+    expect(spentAt({ startDate: "2026-05-01" })).toBe(50); // 70 of 140 days to 2026-09-18
+  });
+
+  it("rounds to whole minutes", () => {
+    expect(spentAt({ startDate: "2026-07-01", timeSpentMinutes: 101 }, "2026-07-19")).toBe(51);
+  });
+
+  it("carries nothing before the task starts", () => {
+    expect(spentAt(done("2026-07-20", "2026-08-01"))).toBe(0);
+  });
+
+  it("carries everything once the task completed before asOf", () => {
+    expect(spentAt(done("2026-06-01", "2026-07-01"))).toBe(100);
+  });
+
+  it("treats a zero-length window as all-or-nothing on either side of asOf", () => {
+    expect(spentAt(done("2026-07-05", "2026-07-05"))).toBe(100);
+    expect(spentAt(done("2026-07-15", "2026-07-15"))).toBe(0);
+  });
+
+  it("treats a task without a start as all-or-nothing at its window end", () => {
+    expect(spentAt(done(undefined, "2026-07-05"))).toBe(100);
+    expect(spentAt({})).toBe(0);
+  });
+
+  it("leaves a task without time spent without it", () => {
+    expect(spentAt({ timeSpentMinutes: undefined, startDate: "2026-07-01" })).toBeUndefined();
+  });
+});
+
 describe("demoSnapshotFridays", () => {
   const fridays = demoSnapshotFridays("2026-03-02", "2026-09-18");
   const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`).getTime();
