@@ -919,6 +919,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§681](#681-the-pink-count-badge-fails-aa-contrast--closed-2026-10-08) | The pink count badge fails AA contrast | — | — | **CLOSED** 2026-10-08 |
 | [§682](#682-the-timelog-connection-test-shows-the-scope-as-the-raw-words-selforg-untranslated--closed-2026-10-08) | The Timelog connection test shows the scope as the raw words self/org, untranslated | — | — | **CLOSED** 2026-10-08 |
 | [§683](#683-the-rag-letter-chips-white-letter-fails-aa-contrast--closed-2026-10-08) | The RAG letter chip's white letter fails AA contrast | — | — | **CLOSED** 2026-10-08 |
+| [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--open) | The demo's Trends history has never been checked against a live Turso database | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1113,7 +1114,7 @@ reason to preserve the memoization form. It does not hold:
 - **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx`,
   the `memo(ResourceDirectoryInner)` export) and `ResourcesPanel` (`resources-panel.tsx`, the
   `memo(ResourcesPanelInner)` export) — but they arrive `guardEdit()`-wrapped
-  (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
+  (the `guardEdit(...)` calls in the pane props of `task-manager.tsx`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
   render (`task-manager.tsx`, `const guardEdit = makeEditGuard(isPopout, …)`), so their identities
   are unstable whatever this hook does. ★ §1 and §2 cited that one call as `:2047` and `:2041`, so at
   least one was wrong the day it was written; the real line is `:2044`. Cite the symbol, not the number.
@@ -44336,3 +44337,15 @@ for (const s of BUILTIN_SCHEMES) for (const [mode, m] of [["light", s.light], ["
 ```
 
 **Close when** the letter on every `RagBadge` colour (R, A, G) reaches 4.5:1 on every built-in scheme, light and dark, pinned by a unit test that computes the ratios from the scheme maps, and an axe scan with `ignoreLength`, scoped to a rendered chip, lists it under passes.
+
+## 696. The demo's Trends history has never been checked against a live Turso database — open
+
+**Status:** open 2026-10-10, found while shipping the demo's Trends history on `feat/demo-trends-main`. Never machine-verified against a live Turso database: `createDemo` (`demo-project.ts`), the `seedSnapshots` hook inside `createTursoProject` and `appendSnapshots` (`snapshot-store.ts`) run only against stubbed clients and `node:sqlite`.
+
+With a usable Turso config the demo is created as a Turso project and its weekly history (`sample-demo-snapshots.json`, shifted by `shiftDemoSnapshots`, thinned by `thinForCadence`) is written in one transaction before the project becomes current; ids are `${projectId}:${capturedAt}`. Nothing has run that write, the project's first snapshot load, or the baseline pick against a real server.
+
+★ **Owner-facing caveat, a choice and not a defect.** The seeded spring Budget RAG is RED (CPI about 0.57 rising to 0.86 over the first ten weeks) because the master's completed spring tasks spent 10–30% over their estimates, and the earned-value rule gives in-progress tasks no value. It is the live engine's own behaviour. If calmer numbers are wanted, re-tune the master's effort figures in `sample-workspace-small.json`, then regenerate the history with `npx vite-node scripts/generate-demo-snapshots.ts` and the `__fixtures__/golden-*` files.
+
+**Close when** the demo has been created against a real Turso database, Trends shows the seeded weeks with exactly one baseline, the project can be opened again after a reload, and the demo project has been deleted.
+
+**Source:** the demo-trends-history plan, 2026-10-09.
