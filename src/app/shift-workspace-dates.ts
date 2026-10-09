@@ -105,6 +105,17 @@ function walk(v: unknown, n: number, unit: PlanGranularity): unknown {
   return out;
 }
 
+/** The generic value walker, exported for callers that shift a data structure that is not a
+ *  whole Workspace (the demo's seeded Trends records). Same rules as `shiftWorkspaceDates`. */
+export function shiftDatesIn<T>(value: T, n: number, unit: PlanGranularity): T {
+  return walk(value, n, unit) as T;
+}
+
+/** Shifts a bare date or period key ("2026-03", "2026-W12", "2026-03-31"); anything else is returned unchanged. */
+export function shiftPeriodKey(key: string, n: number, unit: PlanGranularity): string {
+  return shiftKey(key, n, unit);
+}
+
 export function shiftWorkspaceDates(ws: Workspace, n: number): Workspace {
   if (n === 0) return structuredClone(ws);
   return walk(ws, n, ws.plan.granularity) as Workspace;
