@@ -37471,7 +37471,23 @@ display layer.
 
 ## 476. The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN
 
-**Status:** OPEN 2026-09-12 — **never machine-verified, and there is nothing to verify: this is a
+**Status:** OPEN — re-checked 2026-10-09 against `origin/main`; still unbuilt. `resolveRate` still
+short-circuits on the literal (`grep -n 'bucket.currency === "EUR"' src/app/fx.ts` → 1 hit), no
+control writes `plan.currency` (the only currency picker, in `budget-bucket-modal.tsx`, writes a
+BUCKET's), `sanitizeFxRates` still rejects a non-EUR base (→ 1), and money is still formatted as EUR
+(`grep -rnE 'formatCurrency\([^)]*"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l`
+→ 8). ★★ TWO WITNESSES BELOW HAVE DRIFTED, neither because this was built: the `"EUR"` count is now
+**29**, not 19 (part of the rise is §477's INR), and the rate-stamp grep now returns **15**, not 0 —
+every hit is `bookedRate`, the forecast rate-mix's booked €/h against planned (`budget-rate-mix.ts`),
+NOT an FX rate recorded at booking. Use the narrower
+`grep -rn "asOfRate\|rateStamp" src/app --include=*.ts --include=*.tsx | wc -l` → **0**. ★★ The
+neighbours have moved: §473 was closed 2026-10-02 the way this entry needs — the product owner decided
+role rates and per-bucket overrides are in the PLAN currency, converted to EUR by `planCurrencyPerEur`,
+not narrowed to EUR — which largely settles the "reuse `plan.currency` or replace it" question below
+in favour of reuse. §474 was closed 2026-09-13 and §477 (INR) 2026-10-03, so the "decide §474
+first" and "§477 ships on its own" notes below are history.
+
+**Earlier:** OPEN 2026-09-12 — **never machine-verified, and there is nothing to verify: this is a
 requested capability, not an observed defect.** The presence witnesses below establish only what is
 hardcoded today, and each was run 2026-09-12:
 `grep -rn '"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "^src/app/i18n" | wc -l`
