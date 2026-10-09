@@ -186,12 +186,13 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
         </div>
         <div className="flex shrink-0 items-center gap-2 print:hidden">
           {expertMode && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={onOpenLearningSettings}
               aria-label={t(lang, "actionLearningGoToSettings")}
               title={t(lang, "actionLearningTooltip")}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted"
+              className="inline-flex shrink-0 items-center gap-1.5"
             >
               <span>{t(lang, "actionLearningPrefix")}</span>
               <Badge
@@ -202,7 +203,7 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
               >
                 {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
               </Badge>
-            </button>
+            </Button>
           )}
           <PrintButton lang={lang} />
           <ResetSizeButton onClick={reset} lang={lang} />

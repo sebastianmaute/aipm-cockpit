@@ -14,6 +14,8 @@ import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens } from "./row-tokens";
 import { loadI18n } from "./i18n";
+import { buttonClassFor } from "../test/button-variant";
+import { IconButton } from "./icon-button";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -1941,5 +1943,56 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
       roles: ["combobox"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("TaskActions ⋮ on the shared Button", () => {
+  test("draws More actions as secondary xs", () => {
+    const task = makeTask({ id: 99 });
+    const { getByRole } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={makeContext()}>
+                <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(getByRole("button", { name: "More actions – Sample task" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+});
+
+// §102 (batch 23, review round): kept level with the xs Buttons around it.
+describe("TaskActions Send inquiry beside the xs ⋮", () => {
+  test("draws the envelope as a bordered md IconButton (30px, like the ⋮)", () => {
+    const task = makeTask({ id: 98 });
+    const { getByRole } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={makeContext()}>
+                <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+    // The whole class string, built by rendering the primitive with the same
+    // props, so a variant, size or margin drift all fail here.
+    const expected = render(
+      <IconButton label="probe" variant="bordered" size="md" className="mr-1">
+        <span />
+      </IconButton>,
+    ).getByRole("button", { name: "probe" }).className;
+    expect(getByRole("button", { name: /^Send inquiry – / }).className).toBe(expected);
   });
 });

@@ -18,7 +18,6 @@
 // second mount site supply its own container.
 
 import { useCallback, useRef, useState } from "react";
-import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor-lazy";
 import { canEditNote } from "./note-log";
@@ -34,6 +33,7 @@ import { useSettings } from "./use-settings";
 import { isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
+import { Button, PRIMARY_MATCHING_BORDER } from "./button";
 
 /** Resolve an entry's display author: an explicit `authorName`, else the live
  *  directory name for `authorResourceId`, else an em-dash. */
@@ -128,13 +128,12 @@ function NoteEntryRow(props: NoteEntryRowProps) {
           </div>
           <div className="flex justify-end gap-2">
             {editMic}
-            <button
-              type="button"
+            <Button
               onClick={props.onCancelEdit}
-              className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+              variant="secondary" size="xs"
             >
               {t(lang, "cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -142,22 +141,22 @@ function NoteEntryRow(props: NoteEntryRowProps) {
           <RichTextView html={entry.html} />
           {canEdit && (
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="xs"
                 onClick={() => props.onStartEdit(entry)}
                 aria-label={`${t(lang, "edit")} – #${entry.id}${suffix}`}
-                className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
               >
                 {t(lang, "edit")}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="destructive"
+                size="xs"
                 onClick={() => props.onDelete(entry.id)}
                 aria-label={`${t(lang, "delete")} – #${entry.id}${suffix}`}
-                className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "delete")}
-              </button>
+              </Button>
             </div>
           )}
         </>
@@ -283,14 +282,14 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
         </div>
         <div className="mt-2 flex justify-end gap-2">
           {composerMic}
-          <button
-            type="button"
+          <Button
             onClick={handleAdd}
             aria-label={labelSuffix ? `${t(lang, "noteLogAdd")} – ${labelSuffix}` : undefined}
-            className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white ${INTERACTIVE}`}
+            // Matches the dictation mic (a bordered ToggleButton) beside it.
+            variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER}
           >
             {t(lang, "noteLogAdd")}
-          </button>
+          </Button>
         </div>
       </div>
 

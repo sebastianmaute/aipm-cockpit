@@ -6,6 +6,7 @@ import { ConfirmProvider } from "./confirm-dialog";
 import { addBlocker, deleteBlocker, editBlocker, reopenBlocker, resolveBlocker } from "./blocker-log";
 import { t } from "./i18n";
 import type { BlockerEntry, Resource, Task } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 const EN = "en-US" as const;
 
@@ -201,6 +202,41 @@ describe("BlockerLogPanel", () => {
         `${t(EN, "blockerLogReopen")} – #3`,
         `${t(EN, "delete")} – #3`,
       ]),
+    );
+  });
+});
+
+// §102 (batch 23): the blocker log's buttons are the shared Button at xs, matching
+// the notes log: Edit, Resolve, Reopen, Cancel and Save secondary, Delete destructive.
+describe("BlockerLogPanel buttons on the shared Button", () => {
+  const secondary = () => buttonClassFor({ variant: "secondary", size: "xs" });
+  const destructive = () => buttonClassFor({ variant: "destructive", size: "xs" });
+
+  it("draws an open entry's and a resolved entry's buttons at xs", () => {
+    render(<Harness initial={[OPEN_A, RESOLVED_C]} />);
+    expect(screen.getByRole("button", { name: "Edit – #1" }).className).toBe(secondary());
+    expect(screen.getByRole("button", { name: `${t(EN, "blockerLogResolve")} – #1` }).className).toBe(secondary());
+    expect(screen.getByRole("button", { name: "Delete – #1" }).className).toBe(destructive());
+    // Resolved is collapsed by default.
+    fireEvent.click(screen.getByRole("button", { name: t(EN, "blockerLogResolvedHeading", 1) }));
+    expect(screen.getByRole("button", { name: `${t(EN, "blockerLogReopen")} – #3` }).className).toBe(secondary());
+    expect(screen.getByRole("button", { name: "Delete – #3" }).className).toBe(destructive());
+  });
+
+  it("draws the edit form's Cancel and Save at xs", () => {
+    render(<Harness initial={[OPEN_A]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit – #1" }));
+    expect(screen.getByRole("button", { name: "Cancel – #1" }).className).toBe(secondary());
+    expect(screen.getByRole("button", { name: `${t(EN, "blockerLogSave")} – #1` }).className).toBe(secondary());
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("BlockerLogPanel Add on the shared Button", () => {
+  it("draws Add blocker as primary xs, with no matching border (no bordered neighbour)", () => {
+    render(<Harness initial={[]} />);
+    expect(screen.getByRole("button", { name: t(EN, "blockerLogAdd") }).className).toBe(
+      buttonClassFor({ variant: "primary", size: "xs" }),
     );
   });
 });

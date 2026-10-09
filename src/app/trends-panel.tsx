@@ -217,28 +217,23 @@ export function TrendsPanel(props: TrendsPanelProps) {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <h3 className="text-xs uppercase tracking-wide text-muted-foreground">{t(lang, "trendsSnapshotsHeading")}</h3>
-              <button
-                type="button"
+              <Button
                 disabled={selected.size === 0 || busy}
                 onClick={async () => {
                   if (!(await confirm({ message: tPlural(lang, "snapshotDeleteSelectedConfirm", selected.size, selected.size) }))) return;
                   void deleteSnapshots([...selected]);
                   setSelected(new Set());
                 }}
-                // hover:opacity-80 faded a -strong token to ~4.0-4.3:1 (the same
-                // trap as a tint deepening on hover, applied to the whole
-                // element). Tint the BACKGROUND instead — the text stays opaque.
-                // This is the shared Button `destructive` variant's own hover
-                // (`hover:bg-ui-pink/10`), so the subtlety is a system-wide
-                // choice rather than one button drifting; migrating this bespoke
-                // button onto that primitive is the real follow-up.
-                // ★ disabled:hover:bg-transparent — otherwise a disabled button
-                // still lights up under the cursor, advertising an action it
-                // will not perform.
-                className={`rounded border border-ui-pink-strong px-2 py-0.5 text-xs text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${INTERACTIVE}`}
+                // The shared `destructive` variant tints the BACKGROUND on hover
+                // (`hover:bg-ui-pink/10`) and keeps the text opaque; an earlier
+                // hand-rolled hover:opacity-80 faded the -strong token below AA.
+                // ★ disabled:hover:bg-surface — the variant's own resting fill,
+                // so a disabled button does not light up under the cursor,
+                // advertising an action it will not perform.
+                variant="destructive" size="xs" className="disabled:hover:bg-surface"
               >
                 {t(lang, "snapshotDeleteSelected", selected.size)}
-              </button>
+              </Button>
             </div>
             <div className={INNER_TABLE_CLASS}>
             <DataTable className="w-full text-left text-sm" head={<>

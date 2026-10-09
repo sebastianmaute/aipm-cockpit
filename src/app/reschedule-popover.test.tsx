@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ReschedulePopover } from "./reschedule-popover";
+import { buttonClassFor } from "../test/button-variant";
 
 const action = {
   id: "task-due:1:overdue", source: "task-due",
@@ -61,5 +62,14 @@ describe("ReschedulePopover", () => {
     expect(screen.queryByRole("dialog")).not.toBeNull();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// §102 (batch 23): the popover's confirm is the shared Button, secondary at xs.
+describe("ReschedulePopover confirm button", () => {
+  it("is the secondary Button at xs", () => {
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+    expect(screen.getByRole("button", { name: /update/i }).className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
   });
 });

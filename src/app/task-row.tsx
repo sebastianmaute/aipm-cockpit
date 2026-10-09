@@ -22,7 +22,7 @@ import { TaskStatusGlyph } from "./task-status-glyph";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { Input, Select } from "./form-controls";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
@@ -34,6 +34,7 @@ import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
 import { useTaskLookup, useTaskRowContext } from "./task-row-context";
+import { Button } from "./button";
 
 // ★★ Re-exported so existing importers and test mocks keep resolving these
 // from "./task-row". See the header of `task-row-context.tsx` for why removing
@@ -620,24 +621,27 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
           label={`${t(lang, "sendInquiry")} – ${rowToken}`}
           title={t(lang, "sendInquiry")}
           onClick={(e) => { stop(e); onSendInquiry(task); }}
+          // `bordered` at `md` (p-1.5 + 16px icon + border) is 30px, the
+          // height of the xs ⋮ Button beside it.
+          variant="bordered"
+          size="md"
           className="mr-1"
         >
           <EnvelopeIcon aria-hidden className="h-4 w-4" />
         </IconButton>
       )}
       <span className="relative">
-        <button
+        <Button
           ref={menuBtnRef}
-          type="button"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           aria-label={`${t(lang, "actionMoreActions")} – ${rowToken}`}
           title={t(lang, "actionMoreActions")}
           onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
-          className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}
+          variant="secondary" size="xs"
         >
           ⋮
-        </button>
+        </Button>
         <PopoverPanel
           open={menuOpen}
           anchorRef={menuBtnRef}

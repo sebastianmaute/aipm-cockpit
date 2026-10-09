@@ -1,9 +1,9 @@
 "use client";
 
 import { t, type Lang } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import type { CoachingCta, SettingsSectionId } from "./dashboard-coaching";
 import type { AppView } from "./nav-config";
+import { Button } from "./button";
 
 interface DashboardCoachingCardProps {
   lang: Lang;
@@ -19,14 +19,13 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
       <p className="mt-0.5 text-xs text-muted-foreground">{t(lang, "coachingSubtitle")}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ctas.map((cta) => (
-          <button
+          <Button
             key={cta.key}
-            type="button"
             onClick={() => onNavigate(cta.view, cta.section)}
-            className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
+            variant="secondary" size="xs"
           >
             {t(lang, cta.labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

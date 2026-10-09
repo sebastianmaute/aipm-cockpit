@@ -1,8 +1,8 @@
 "use client";
 
 import { t, type Lang } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
+import { Button } from "./button";
 
 interface BulkEditBarProps {
   lang: Lang;
@@ -23,13 +23,9 @@ export function BulkEditBar({ lang, count, open, onToggleOpen, onClear }: BulkEd
       <ToggleButton lang={lang} pressed={open} onToggle={onToggleOpen}>
         {t(lang, "bulkEdit")}
       </ToggleButton>
-      <button
-        type="button"
-        onClick={onClear}
-        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
-      >
+      <Button variant="secondary" size="xs" onClick={onClear}>
         {t(lang, "clearSelection")}
-      </button>
+      </Button>
     </div>
   );
 }

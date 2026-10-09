@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
+import { PRIMARY_MATCHING_BORDER } from "./button";
 
 const acquire = vi.fn(async () => "tok");
 
@@ -311,5 +313,36 @@ describe("SharePointPickerModal row names", () => {
     expect(await screen.findByRole("button", { name: `${open} – Specs (2)` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "spPickerSelectFile")} – Plan.docx (2)` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
+  });
+});
+
+// §102 (batch 23): a result row's buttons are the shared Button at xs. Open is
+// secondary; Use this folder and Select are primary with the border that keeps them
+// as tall as the bordered Open beside them.
+describe("SharePointPickerModal result-row buttons on the shared Button", () => {
+  it("draws Open as secondary xs and Use this folder / Select as primary xs with the matching border", async () => {
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          { id: "fo1", name: "Sub", webUrl: "https://c.sharepoint.com/y", folder: {}, parentReference: { driveId: "d1" } },
+          { id: "fi1", name: "Spec.docx", webUrl: "https://c.sharepoint.com/x", file: {}, parentReference: { driveId: "d1" } },
+        ],
+      },
+    );
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() => expect(screen.getByText("Proj")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Proj"));
+    await waitFor(() => expect(screen.getByText("Documents")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Documents"));
+    await waitFor(() => expect(screen.getByText("Spec.docx")).toBeInTheDocument());
+
+    const filled = buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER });
+    expect(screen.getByRole("button", { name: /^Open – Sub/ }).className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
+    expect(screen.getByText(/use this folder/i).className).toBe(filled);
+    expect(screen.getByText("Select").className).toBe(filled);
   });
 });

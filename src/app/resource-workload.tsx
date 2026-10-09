@@ -15,6 +15,7 @@ import { ColumnResizeHandle } from "./task-manager-ui";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { DataTable } from "./data-table";
 import { useConfirm } from "./confirm-dialog";
+import { Button } from "./button";
 
 function absenceTypeLabel(type: AbsenceType, lang: Lang): string {
   switch (type) {
@@ -333,8 +334,12 @@ export function ResourceWorkload({
                   // ★ The hours LEAD, so the visible text is contained in the
                   // accessible name and WCAG 2.5.3 holds with front-position
                   // for free; the `title` keeps carrying the verb.
+                  // ★ Hand-rolled at the shared Button `xs` box (px-2.5 py-1.5 +
+                  // border = 30px), not a Button: the muted-italic "no shift"
+                  // text, and the absence chips' type colour below, would
+                  // conflict with a variant's own text and fill classes.
                   aria-label={rowLabel(String(row.weeklyHours), rowToken)}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+                  className={`rounded-md border border-transparent px-2.5 py-1.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
                     row.shift
                       ? "text-foreground"
                       : "text-muted-foreground italic"
@@ -379,7 +384,7 @@ export function ResourceWorkload({
                             absenceTokens.get(`m:${row.resource.id}:${a.id}`) ??
                             absenceChipName(a, lang, rowToken)
                           }
-                          className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
+                          className={`inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                         >
                           <span>{shortDateRange(a, lang)}</span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -417,8 +422,7 @@ export function ResourceWorkload({
                 >
                   <td className="px-3 py-2 font-medium text-foreground">
                     <span>{row.display}</span>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() =>
                         onAddResource({
                           firstName: row.firstName,
@@ -442,10 +446,10 @@ export function ResourceWorkload({
                       // ★ Behaviour-neutral for names that differ today: a name
                       // unique within its map gets a BARE token.
                       aria-label={rowLabel(t(lang, "resourcesAddAsResource"), rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display)}
-                      className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      variant="secondary" size="xs" className="ml-2"
                     >
                       {t(lang, "resourcesAddAsResource")}
-                    </button>
+                    </Button>
                     {onClearUnlinked && (
                       <IconButton
                         variant="danger"
@@ -515,7 +519,7 @@ export function ResourceWorkload({
                         String(row.weeklyHours),
                         rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display,
                       )}
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
+                      className={`rounded-md border border-transparent px-2.5 py-1.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
                         row.shift
                           ? "text-foreground"
                           : "text-muted-foreground italic"
@@ -548,7 +552,7 @@ export function ResourceWorkload({
                                 absenceTokens.get(`u:${row.display.toLowerCase()}:${a.id}`) ??
                                 absenceChipName(a, lang, rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display)
                               }
-                              className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
+                              className={`inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                             >
                               <span>{shortDateRange(a, lang)}</span>
                               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">

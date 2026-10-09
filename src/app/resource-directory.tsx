@@ -366,13 +366,9 @@ function ResourceDirectoryInner({
             onClear={() => { sel.clear(); setBulkOpen(false); }}
           />
           {onBulkDeleteResources && (
-            <button
-              type="button"
-              onClick={handleBulkDelete}
-              className={`mb-2 rounded-md border border-ui-pink/40 bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
-            >
+            <Button variant="destructive" size="xs" onClick={handleBulkDelete} className="mb-2">
               {t(lang, "resourceBulkDelete")}
-            </button>
+            </Button>
           )}
         </div>
       )}

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AiActionRow } from "./ai-action-row";
 import type { AiAction } from "./action-ai";
+import { buttonClassFor } from "../test/button-variant";
 
 const grounded: AiAction = { title: "Unblock M2", why: "Tasks block it.", severity: "now", entity: { view: "milestones", id: "2" } };
 const ungrounded: AiAction = { title: "Review risks", why: "Stale 30d.", severity: "soon" };
@@ -26,5 +27,16 @@ describe("AiActionRow", () => {
     expect(
       screen.getByRole("button", { name: /^Discuss in chat – AI suggestions – Review risks$/ }),
     ).toBeInTheDocument();
+  });
+});
+
+// §102 (batch 23): the AI suggestion's Open/Discuss is a row CTA like the other
+// Next actions rows, so it is the shared Button, secondary at xs.
+describe("AiActionRow CTA on the shared Button", () => {
+  it("draws the CTA as secondary xs, keeping shrink-0", () => {
+    render(<AiActionRow lang="en-US" action={grounded} rowToken="Unblock M2" onAct={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /^Open – AI suggestions – Unblock M2$/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "shrink-0" }),
+    );
   });
 });

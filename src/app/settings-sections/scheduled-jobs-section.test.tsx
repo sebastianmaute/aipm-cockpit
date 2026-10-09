@@ -5,6 +5,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
+import { buttonClassFor } from "../../test/button-variant";
 
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
@@ -176,5 +177,36 @@ describe("ScheduledJobsSection", () => {
     setup(withKey({ scheduledJobs: true }));
     expect(screen.getByText(t("en-US", key), { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "scheduledJobFailed", token), { exact: false })).toBeNull();
+  });
+});
+
+// §102 (batch 23): a job's Delete is the shared destructive Button at xs.
+describe("ScheduledJobsSection delete on the shared Button", () => {
+  it("draws Delete as destructive xs", () => {
+    mockJobs = [job({ id: 7, name: "Alpha" })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Alpha` }).className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs" }),
+    );
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ScheduledJobsSection Show more on the shared Button", () => {
+  it("draws a job's Show more as secondary xs", () => {
+    mockJobs = [
+      job({
+        id: 7,
+        name: "Alpha",
+        history: [
+          { ranAt: "2026-06-18T09:00:00Z", summary: "ok", actionCount: 3, ok: true },
+          { ranAt: "2026-06-17T09:00:00Z", summary: "ok", actionCount: 1, ok: true },
+        ],
+      }),
+    ];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Alpha` }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

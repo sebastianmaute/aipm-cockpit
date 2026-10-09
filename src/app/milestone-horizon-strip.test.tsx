@@ -4,6 +4,7 @@ import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
 import type { Milestone } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const m = (id: number, date: string): Milestone => ({ id, name: `M${id}`, date, linkedTaskIds: [] } as Milestone);
 function buckets(over: Partial<MilestoneHorizonBuckets> = {}): MilestoneHorizonBuckets {
@@ -100,5 +101,31 @@ describe("MilestoneHorizonStrip more buttons", () => {
     render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ next2Weeks: seven(100), later: seven(200) })} onOpenMilestone={vi.fn()} />);
     expect(screen.getByRole("button", { name: "+2 more – Later" })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 12 });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("MilestoneHorizonStrip buttons on the shared Button", () => {
+  test("draws a chip and '+N more' as secondary xs", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ milestone: m(i + 1, `2026-09-0${(i % 9) + 1}`), status: "on-track" as const }));
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: many })} onOpenMilestone={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /M1 · 2026-09-01/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "inline-flex items-center gap-1" }),
+    );
+    expect(screen.getByRole("button", { name: /^\+3 more/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+});
+
+// §102 (batch 23): read-only and composite chips take the same 30px box as the xs Buttons they sit beside or stand in for.
+describe("MilestoneHorizonStrip read-only chips at the xs size", () => {
+  test("draws a read-only chip and +N more in the same box as their buttons", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ milestone: m(i + 1, `2026-09-0${(i % 9) + 1}`), status: "on-track" as const }));
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: many })} />);
+    expect(screen.getByText(/M1 · 2026-09-01/).className).toBe(
+      "inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground",
+    );
+    expect(screen.getByText(/\+3 more/).className).toBe("rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground");
   });
 });

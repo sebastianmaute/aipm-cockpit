@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "./button";
+import { Button, PRIMARY_MATCHING_BORDER } from "./button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
@@ -48,34 +48,19 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder, token }: R
       <span className="flex-1 truncate text-sm text-foreground">{item.name}</span>
       <div className="flex shrink-0 gap-2">
         {isFolder && (
-          <button
-            type="button"
-            onClick={() => openFolder(item)}
-            aria-label={rowLabel(t(lang, "spPickerOpenFolder"), token)}
-            className="rounded px-2 py-1 text-xs font-medium text-ui-dark-blue ring-1 ring-line hover:bg-surface-muted focus:outline-none focus:ring-ui-green dark:text-ui-light-grey"
-          >
+          <Button variant="secondary" size="xs" onClick={() => openFolder(item)} aria-label={rowLabel(t(lang, "spPickerOpenFolder"), token)}>
             {t(lang, "spPickerOpenFolder")}
-          </button>
+          </Button>
         )}
         {isFolder && mode === "link" && (
-          <button
-            type="button"
-            onClick={handleSelect}
-            aria-label={rowLabel(t(lang, "spPickerUse"), token)}
-            className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
-          >
+          <Button variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER} onClick={handleSelect} aria-label={rowLabel(t(lang, "spPickerUse"), token)}>
             {t(lang, "spPickerUse")}
-          </button>
+          </Button>
         )}
         {!isFolder && (
-          <button
-            type="button"
-            onClick={handleSelect}
-            aria-label={rowLabel(t(lang, "spPickerSelectFile"), token)}
-            className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
-          >
+          <Button variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER} onClick={handleSelect} aria-label={rowLabel(t(lang, "spPickerSelectFile"), token)}>
             {t(lang, "spPickerSelectFile")}
-          </button>
+          </Button>
         )}
       </div>
     </div>

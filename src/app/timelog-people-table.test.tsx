@@ -4,6 +4,7 @@ import { TimelogPeopleTable } from "./timelog-people-table";
 import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser } from "./timelog-types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const USERS: readonly TimelogUser[] = [
   { userId: 1, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@x.com", isActive: true },
@@ -142,5 +143,29 @@ describe("TimelogPeopleTable", () => {
       roles: ["button", "checkbox", "combobox"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("TimelogPeopleTable Clear link on the shared Button", () => {
+  it("draws a linked row's Clear link as secondary xs", () => {
+    render(
+      <TimelogPeopleTable
+        lang="en-US"
+        isPopout={false}
+        colWidths={{ select: 40, people: 200, resource: 200, actions: 80 }}
+        startColResize={() => {}}
+        sel={SEL}
+        visibleFilteredIds={USERS.map((u) => u.userId)}
+        filteredUsers={USERS}
+        effectiveUserLinks={[{ timelogUserId: 1, resourceId: 5, manual: true }]}
+        matchableResources={[]}
+        manualLinkUser={() => {}}
+        removeUsers={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Clear link/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

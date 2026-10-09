@@ -25,9 +25,10 @@ import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, join
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
+import { Button } from "./button";
 
 interface Props {
   lang: Lang;
@@ -370,13 +371,12 @@ export function ResourceEditModal({
                   </IconButton>
                 </div>
               ))}
-              <button
-                type="button"
+              <Button
                 onClick={() => update("emails", [...(draft.emails ?? []), ""])}
-                className={`self-start rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                variant="secondary" size="xs" className="self-start"
               >
                 + {t(lang, "resourceEmailAdd")}
-              </button>
+              </Button>
             </div>
           )}
 

@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { RaidCausedByField } from "./raid-edit-fields";
+import { RaidCausedByField, RaidLinkedTasksField } from "./raid-edit-fields";
 import type { RaidItem } from "./types";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 // The shared EntityLinkPicker is well covered in isolation, but that proves
 // nothing about THIS wiring: RaidCausedByField threads five handlers and maps
@@ -130,5 +131,28 @@ describe("RaidCausedByField — every link button has its own name (§672)", () 
     renderField({ lang, parentItems: PARENTS, causedChildren: CHILDREN });
     // Two chips and their two remove buttons, plus the two child links.
     expectRowUniqueNames({ minControls: PARENTS.length * 2 + CHILDREN.length });
+  });
+});
+
+// §102 (batch 23): Create mitigation task is the shared Button, secondary at xs.
+describe("RaidLinkedTasksField mitigation button on the shared Button", () => {
+  it("draws Create mitigation task as secondary xs", () => {
+    render(
+      <RaidLinkedTasksField lang="en-US" linkedTaskIds={[]} tasks={[]} isNew={false}
+        onCreateMitigationTask={vi.fn()} addLinked={vi.fn()} removeLinked={vi.fn()} />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "raidCreateMitigationTask") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("RaidCausedByField caused-this chips on the shared Button", () => {
+  it("draws an item-caused-by-this chip as secondary xs", () => {
+    renderField({ causedChildren: [raid(3, { title: "Downstream slip" })] });
+    expect(screen.getByRole("button", { name: "R#3 Downstream slip" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "inline-flex items-center gap-1" }),
+    );
   });
 });

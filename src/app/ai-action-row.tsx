@@ -4,11 +4,9 @@ import type { AiAction, AiActionSeverity } from "./action-ai";
 import { type Health } from "./health";
 import { RagDot } from "./rag-dot";
 import { rowLabel } from "./row-tokens";
+import { Button } from "./button";
 
 const SEV_RAG: Record<AiActionSeverity, Health> = { now: "R", soon: "A", monitor: "G" };
-
-const BTN_CLASS =
-  "cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 dark:text-ui-light-grey";
 
 interface AiActionRowProps {
   lang: Lang;
@@ -37,8 +35,9 @@ export function AiActionRow({ lang, action, rowToken, onAct }: AiActionRowProps)
           <p className="text-xs text-muted-foreground">{action.why}</p>
         </div>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="xs"
         onClick={() => onAct(action)}
         // WCAG 2.4.6 (§324) — verb, then the SECTION, then the token, in that
         // order. The section segment keeps this list from colliding with the
@@ -54,10 +53,10 @@ export function AiActionRow({ lang, action, rowToken, onAct }: AiActionRowProps)
         // ★ The visible text is still `t(lang, ctaKey)` and the name CONTAINS
         //   it, so WCAG 2.5.3 holds — containment, not prefix.
         aria-label={rowLabel(rowLabel(t(lang, ctaKey), t(lang, "actionAiSectionTitle")), rowToken)}
-        className={`${BTN_CLASS} shrink-0`}
+        className="shrink-0"
       >
         {t(lang, ctaKey)}
-      </button>
+      </Button>
     </div>
   );
 }

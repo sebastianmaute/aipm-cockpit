@@ -19,6 +19,7 @@ import { isRestorableChange } from "./version-diff";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { Button } from "./button";
 
 const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyModified"> = {
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
@@ -135,16 +136,15 @@ export function VersionDiffView({
                         </span>
                       )}
                       {onRestoreRecord && revertible && (
-                        <button
-                          type="button"
+                        <Button
                           onClick={() => onRestoreRecord(k)}
                           title={t(lang, "historyRestoreRecordHint")}
                           aria-label={rowLabel(t(lang, "historyRestoreRecord"), tokens.get(k) ?? c.recordLabel)}
                           disabled={restoreBusy}
-                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60 dark:text-ui-light-grey"
+                          variant="secondary" size="xs" className="shrink-0"
                         >
                           {t(lang, "historyRestoreRecord")}
-                        </button>
+                        </Button>
                       )}
                     </span>
                   </div>
@@ -279,16 +279,15 @@ export function VersionDiffView({
                       </span>
                     )}
                     {onRestoreRecord && revertible && (
-                      <button
-                        type="button"
+                      <Button
                         onClick={() => onRestoreRecord(k)}
                         title={t(lang, "historyRestoreRecordHint")}
                         aria-label={rowLabel(t(lang, "historyRestoreRecord"), tokens.get(k) ?? c.recordLabel)}
                         disabled={restoreBusy}
-                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60 dark:text-ui-light-grey"
+                        variant="secondary" size="xs" className="ml-2 shrink-0"
                       >
                         {t(lang, "historyRestoreRecord")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {/* Rendered only while open — see the `aria-controls` note on

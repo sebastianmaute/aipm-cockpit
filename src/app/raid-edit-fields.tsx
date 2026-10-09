@@ -7,7 +7,7 @@
 import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { TaskLinkPicker } from "./task-link-picker";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
 
@@ -45,15 +45,15 @@ export function RaidLinkedTasksField({
           {t(lang, "raidLinkedTasks")}
           <InfoTooltip text={t(lang, "raidFieldLinkedTasksHint")} />
         </span>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={onCreateMitigationTask}
           disabled={isNew}
           title={t(lang, "raidCreateMitigationTaskHint")}
-          className={`rounded-md border border-ui-dark-blue bg-surface px-2 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-blue dark:text-ui-blue ${INTERACTIVE}`}
         >
           {t(lang, "raidCreateMitigationTask")}
-        </button>
+        </Button>
       </div>
       <TaskLinkPicker
         lang={lang}
@@ -127,20 +127,19 @@ export function RaidCausedByField({
           </span>
           <div className="flex flex-wrap gap-1.5">
             {causedChildren.map((c) => (
-              <button
+              <Button
                 key={c.id}
-                type="button"
                 onClick={() => onJumpToRaid(c.id)}
                 title={c.title}
                 // Same label-bleed fix as the picker chips above: adjacent
                 // inline spans concatenate with no separator, so
                 // name-from-content computes "R#3Downstream slip".
                 aria-label={`${c.category}#${c.id} ${c.title}`}
-                className={`inline-flex items-center gap-1 rounded bg-ui-purple/10 px-2 py-0.5 text-xs text-ui-purple-strong hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25 ${INTERACTIVE}`}
+                variant="secondary" size="xs" className="inline-flex items-center gap-1"
               >
                 <span className="font-mono">{c.category}#{c.id}</span>
                 <span className="max-w-[220px] truncate">{c.title}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

@@ -3,6 +3,7 @@ import { render, fireEvent } from "@testing-library/react";
 import { ActionChips, chipsActionableOnView, chipsForView } from "./action-chips";
 import type { SuggestedAction } from "./next-actions/types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 function mk(id: string, tier: SuggestedAction["tier"]): SuggestedAction {
   return {
@@ -99,5 +100,17 @@ describe("ActionChips", () => {
     const same = (id: string): SuggestedAction => ({ ...mk(id, "now"), title: { key: "actionRaidTitle", params: [1, "Vendor"] } });
     render(<ActionChips lang="en-US" actions={[same("a"), same("b")]} onOpen={() => {}} onShowMore={() => {}} />);
     expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+});
+
+// §102 (batch 23): the chips and their "+N more" are the shared Button, secondary at xs.
+describe("ActionChips on the shared Button", () => {
+  it("draws each chip and the +N more as secondary xs", () => {
+    const actions = [mk("1","now"),mk("2","now"),mk("3","soon"),mk("4","soon")];
+    const { getAllByRole, getByText } = render(<ActionChips lang="en-US" actions={actions} onOpen={() => {}} onShowMore={() => {}} />);
+    expect(getAllByRole("button")[0].className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "inline-flex items-center gap-1.5" }),
+    );
+    expect(getByText("+1 more").className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
   });
 });

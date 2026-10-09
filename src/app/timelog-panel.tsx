@@ -27,7 +27,7 @@ import { TimelogPeopleTable } from "./timelog-people-table";
 import { sanitizeTimelogLinks, effectiveTimelogConfig } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Spinner } from "./spinner";
 import { Card } from "./card";
 import { useConfirm } from "./confirm-dialog";
@@ -756,20 +756,12 @@ export function TimelogPanel({
                 <span className="text-xs font-medium text-foreground">
                   {t(lang, "selectionCount", String(sel.count))}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => removeUsers([...sel.selectedIds])}
-                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
-                >
+                <Button variant="destructive" size="xs" onClick={() => removeUsers([...sel.selectedIds])}>
                   {t(lang, "remove")}
-                </button>
-                <button
-                  type="button"
-                  onClick={sel.clear}
-                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
-                >
+                </Button>
+                <Button variant="secondary" size="xs" onClick={sel.clear}>
                   {t(lang, "clearSelection")}
-                </button>
+                </Button>
               </div>
             )}
             {/* The outer body scroller handles vertical overflow; this wrapper

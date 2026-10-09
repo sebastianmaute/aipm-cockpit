@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { Input } from "./form-controls";
@@ -25,6 +24,7 @@ import { useSettings } from "./use-settings";
 import { useRaciSuggest } from "./use-raci-suggest";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { ViewCallout } from "./view-callout";
+import { Button } from "./button";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -243,9 +243,11 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
           {visibleStakeholders
             .filter((s) => filtered.has(s.id))
             .map((s) => (
+              // Same 30px box as the Clear filter Button beside it: the 20px ✕
+              // IconButton (p-1 + 12px icon) + py-1 + border, not xs's py-1.5.
               <span
                 key={s.id}
-                className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground"
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-xs text-foreground"
               >
                 <span>{s.name}</span>
                 <IconButton
@@ -258,13 +260,12 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
               </span>
             ))}
           {filtered.size > 0 && (
-            <button
-              type="button"
+            <Button
               onClick={() => setFiltered(new Set())}
-              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${FOCUS_RING} ${TRANSITION}`}
+              variant="secondary" size="xs"
             >
               {t(lang, "raciFilterClear")}
-            </button>
+            </Button>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">

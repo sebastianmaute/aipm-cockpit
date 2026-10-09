@@ -9,7 +9,6 @@ import { t, type Lang } from "./i18n";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { ColumnResizeHandle } from "./task-manager-ui";
-import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
@@ -17,6 +16,7 @@ import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser, TimelogUserLink } from "./timelog-types";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { ROW_RULE_CLASS } from "./table-styles";
+import { Button } from "./button";
 
 // Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
 // defeat the memo and trip react-hooks/exhaustive-deps (fatal here).
@@ -152,15 +152,14 @@ export function TimelogPeopleTable({
                 </td>
                 <td className="py-2 pr-2">
                   {link && (
-                    <button
-                      type="button"
+                    <Button
                       aria-label={clearLabel}
                       disabled={isPopout}
                       onClick={() => manualLinkUser(u.userId, null)}
-                      className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                      variant="secondary" size="xs"
                     >
                       {t(lang, "timelogMatchClear")}
-                    </button>
+                    </Button>
                   )}
                 </td>
                 <td className="py-2">

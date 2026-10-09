@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ArrangementShelf } from "./arrangement-shelf";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const TRAY = "test-shelf-tray";
 
@@ -131,5 +132,13 @@ describe("ArrangementShelf — restore", () => {
     fireEvent.click(toggle());
     expect(screen.getByRole("button", { name: "Restore – Alpha board" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Alpha board \(1\)/ })).toBeNull();
+  });
+});
+
+// §102 (batch 23): the hidden-tiles toggle is the shared Button, secondary at xs.
+describe("ArrangementShelf toggle on the shared Button", () => {
+  it("draws the toggle as secondary xs", () => {
+    shelf();
+    expect(toggle().className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
   });
 });

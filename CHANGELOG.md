@@ -45,6 +45,25 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
+- **The action buttons and small chips use the app's standard button (§102).** On Next actions and the
+  Dashboard, the top action's buttons are larger, and each row's buttons and chips are a little taller (30
+  instead of 26 pixels), with the standard border and fill instead of blue text; the AI suggestions' Open and
+  Discuss match them. The same applies to the buttons inside the Reschedule, Escalate and Re-baseline pop-ups,
+  Clear selection in the bulk-edit bar and in TimeLog, Clear in the Documents filter, the hidden-tiles toggle
+  on the Dashboard, the learning pill, Edit, Resolve, Reopen, Cancel and Save in the blocker log, the
+  SharePoint picker's Open, Use this folder and Select, and Create mitigation task in the RAID editor. Delete
+  in the notes log, the blocker log and scheduled jobs, and Remove in TimeLog now use the pink delete style;
+  Delete selected in Resources keeps it and grows to match the buttons beside it. Most of the app's other
+  small buttons follow: the empty-state and coaching actions, the chat prompt chips (now square-cornered,
+  without the blue tint), the Knowledge source button, the stakeholder map chips, the Dashboard's tip, delta
+  and milestone chips, Edit and Cancel in the notes log, Add as resource in the workload, RACI's Clear filter,
+  the RAID editor's "caused by this" chips (without the purple tint), Add email, the rollup toggle, TimeLog's
+  Load my projects and Clear link, Accept on a weight suggestion, Show more on a scheduled job, a task row's ⋮
+  and its Send inquiry envelope (the Open Points actions column is a little wider to fit them), Restore this
+  in version history, Add in the notes and blocker logs, Clear log in the activity log and Delete selected in
+  Trends. The workload's hours buttons and absence chips, RACI's person-filter chips and the read-only chips
+  on the stakeholder map and the milestone strip grow to the same height.
+
 - **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
   re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,
   the Change log and the RAID log; the Resources calendar's Outlook import; both Reset learned data buttons,

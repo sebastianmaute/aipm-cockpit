@@ -18,6 +18,7 @@ import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
 import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
+import { Button } from "../button";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -114,15 +115,15 @@ function JobRow({
           <span>{t(lang, "scheduledJobEnabled")}</span>
         </label>
 
-        <button
-          type="button"
+        <Button
+          variant="destructive"
+          size="xs"
           onClick={() => onDelete(job.id)}
           disabled={busy}
           aria-label={`${t(lang, "delete")} – ${token}`}
-          className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "delete")}
-        </button>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -184,14 +185,13 @@ function JobRow({
 
       {job.history.length > 1 && (
         <div>
-          <button
-            type="button"
+          <Button
             onClick={() => setExpanded((v) => !v)}
             aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${token}`}
-            className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+            variant="secondary" size="xs"
           >
             {t(lang, expanded ? "showLess" : "showMore")}
-          </button>
+          </Button>
           {expanded && (
             <ul className="mt-2 flex flex-col gap-1">
               {job.history.slice(1).map((run, idx) => (

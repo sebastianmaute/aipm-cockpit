@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent } from "@testing-library/react";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import type { SuggestedAction } from "./next-actions/types";
 import type { RaidItem } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 function action(id: number): SuggestedAction {
   return {
@@ -100,5 +101,17 @@ describe("EscalatePopover", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Escalate now" }));
     expect(onEscalate).toHaveBeenCalledWith(action(1), expect.objectContaining({ email: "boss@example.com" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// §102 (batch 23): the popover's confirm is the shared Button, secondary at xs.
+describe("EscalatePopover confirm button", () => {
+  it("is the secondary Button at xs", () => {
+    render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue()])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Escalate now" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

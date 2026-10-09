@@ -9,7 +9,7 @@
 // click-guard depends on) lives here.
 
 import { type ReactNode, type RefObject } from "react";
-import { popoverTriggerClass } from "./action-cta-styles";
+import { Button } from "./button";
 import { PopoverPanel } from "./popover-panel";
 import { rowLabel } from "./row-tokens";
 
@@ -53,17 +53,19 @@ export function ActionPopoverTrigger({
 }) {
   return (
     <span className="relative">
-      <button
+      {/* §102: the hero's trigger is the filled `primary` at `md`, a row's the
+          bordered `secondary` at `xs` (owner decision 2026-10-09). */}
+      <Button
         ref={btnRef}
-        type="button"
+        variant={prominent ? "primary" : "secondary"}
+        size={prominent ? "md" : "xs"}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={rowLabel(label, rowToken)}
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
-        className={popoverTriggerClass(prominent)}
       >
         {label}
-      </button>
+      </Button>
       <PopoverPanel
         open={panelOpen ?? open}
         anchorRef={btnRef}

@@ -4,10 +4,10 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { TIPS, tipIndexForDay } from "./tips";
 import type { DensityClasses } from "./dashboard-density";
-import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { useSettings } from "./use-settings";
+import { Button } from "./button";
 
 // Per-device tip state (NOT workspace data): which tip + whether dismissed today.
 const KEY = "aipm-cockpit:tip-state";
@@ -75,29 +75,28 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
         </span>
         <p className="flex-1 text-sm text-foreground">{TIPS[index]}</p>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
+          <Button
             onClick={next}
-            className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+            variant="secondary" size="xs"
           >
             {t(lang, "dashboardTipNext")}
-          </button>
+          </Button>
           {/* ★ The dismiss sits beside the text "Next tip" button and MUST keep
               reading as its pair — at f6e85d55 the two carried byte-identical
-              classNames. `bordered` at the default `sm` is p-1 (8px) + a 16px
-              icon + 2px border = 26px, against Next's py-0.5 + text-xs + border
-              = 22px, so the batch split a matched pair by 4px. A 12px icon
-              restores exact parity: 8 + 12 + 2 = 22. `size="md"` moves it the
-              WRONG way (30px) — this is the opposite case from
-              saved-views-menu, where `md` was the fix. jsdom has no layout, so
-              nothing here can test it; the class recipe is the only guard. */}
+              classNames. Next is now the shared `xs` Button: py-1.5 (12px) + a
+              16px line + 2px border = 30px. `bordered` at `md` is p-1.5 (12px)
+              + a 16px icon + 2px border = 30px, so the pair matches again; at
+              the default `sm` (p-1) it would be 26px, and with a 12px icon 22px.
+              jsdom has no layout, so nothing here can test the height; the
+              class recipe is the only guard. */}
           <IconButton
             variant="bordered"
+            size="md"
             onClick={dismiss}
             label={t(lang, "dashboardTipDismiss")}
             title={t(lang, "dashboardTipDismiss")}
           >
-            <XMarkIcon aria-hidden="true" className="h-3 w-3" />
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>
       </div>

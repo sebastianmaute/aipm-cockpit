@@ -1078,3 +1078,16 @@ describe("ResourcesPanel planning grid: row-unique accessible names", () => {
     expect(screen.getByLabelText("Utilization for John Smith in 2026-02")).toBeInTheDocument();
   });
 });
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ResourcesPanel rollup toggle on the shared Button", () => {
+  test("draws Show rollup as secondary xs, keeping print:hidden", () => {
+    const resources = [{ id: 1, firstName: "Sofia", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    expect(screen.getByRole("button", { name: "Show rollup" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "print:hidden" }),
+    );
+  });
+});

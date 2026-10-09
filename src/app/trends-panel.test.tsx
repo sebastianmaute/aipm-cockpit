@@ -12,6 +12,7 @@ import type { SnapshotRecord, VarianceRow } from "./snapshot";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
 import { t } from "./i18n";
+import { buttonClassFor } from "../test/button-variant";
 
 // The panel reads useDisplayTimezone(); wrap every render in the provider. A
 // non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
@@ -238,5 +239,15 @@ describe("TrendsPanel currency labelling", () => {
     expect(money).toHaveLength(3);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("TrendsPanel Delete selected on the shared Button", () => {
+  it("draws Delete selected as destructive xs, keeping the disabled hover at the resting fill", () => {
+    renderPanel(<TrendsPanel {...base} />);
+    expect(screen.getByRole("button", { name: /delete selected/i }).className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs", className: "disabled:hover:bg-surface" }),
+    );
   });
 });

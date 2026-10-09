@@ -4,6 +4,7 @@ import { DashboardTipCard } from "./dashboard-tip-card";
 import { densityClasses } from "./dashboard-density";
 import { t } from "./i18n";
 import { SETTINGS_KEY } from "./use-settings";
+import { buttonClassFor } from "../test/button-variant";
 
 const dc = densityClasses("comfortable");
 
@@ -45,5 +46,19 @@ describe("DashboardTipCard tips-umbrella gating", () => {
     await waitFor(() =>
       expect(screen.queryByText(t("en-US", "dashboardTipLabel"))).toBeNull(),
     );
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("DashboardTipCard buttons at the shared xs height", () => {
+  beforeEach(() => localStorage.clear());
+  it("draws Next tip as secondary xs and the dismiss at md with a 16px icon (both 30px)", () => {
+    render(<DashboardTipCard lang="en-US" dc={dc} />);
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTipNext") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+    const dismiss = screen.getByRole("button", { name: t("en-US", "dashboardTipDismiss") });
+    expect(dismiss.className).toMatch(/(^|\s)p-1\.5(\s|$)/);
+    expect(dismiss.querySelector("svg")?.getAttribute("class")).toMatch(/(^|\s)h-4 w-4(\s|$)/);
   });
 });

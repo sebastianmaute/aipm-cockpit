@@ -3,6 +3,7 @@ import { beforeAll, describe, it, expect, vi } from "vitest";
 import { ChatPromptChips, PROMPT_CHIPS } from "./chat-prompt-chips";
 import { loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -36,5 +37,15 @@ describe("ChatPromptChips", () => {
   it.each(["en-US", "de"] as const)("names every chip distinctly in %s (§672)", (lang) => {
     render(<ChatPromptChips lang={lang} onPick={vi.fn()} />);
     expectRowUniqueNames({ minControls: PROMPT_CHIPS.length });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ChatPromptChips on the shared Button", () => {
+  it("draws every prompt chip as secondary xs", () => {
+    render(<ChatPromptChips lang="en-US" onPick={vi.fn()} />);
+    const chips = screen.getAllByRole("button");
+    expect(chips.length).toBe(PROMPT_CHIPS.length);
+    for (const chip of chips) expect(chip.className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
   });
 });

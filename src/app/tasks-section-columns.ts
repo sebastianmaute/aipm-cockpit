@@ -43,17 +43,18 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   depRelations: 80, // an em-dash, or read-only chips (the edit pencil is gone)
   estimate: 80,
   spent: 80,
-  // Two icon buttons — Send inquiry (an `IconButton`, `p-1` + `h-4 w-4` = 24px)
-  // and the ⋮ overflow trigger (`border` + `px-2` + a ~4px glyph ≈ 22px, budgeted
-  // at 24) — plus the `mr-1` between them: 24 + 4 + 24 = 52px of content, plus
-  // the `<Td>`'s default `px-4` = 32px of padding = 84, rounded up to 88 for the
-  // ⋮ glyph's font-metric variance and the focus ring.
+  // Two buttons — Send inquiry (an `IconButton`, `bordered` at `md`: `p-1.5` +
+  // `h-4 w-4` + border = 30px) and the ⋮ overflow trigger (the shared `Button`
+  // at `xs`: `px-2.5` + border + the glyph, measured at 26px in Chromium on
+  // 2026-10-09) — plus the `mr-1` between them: 30 + 4 + 26 = 60px of content,
+  // plus the `<Td>`'s default `px-4` = 32px of padding = 92, rounded up to 96 for
+  // the ⋮ glyph's font-metric variance. At the old 88 the ⋮ overflowed by 4px.
   // ★ This width is a HARD limit, not a minimum: the column is `table-layout:
   //   fixed` and its `<Th>` has NO `onResize`, so content overflows and a user
   //   can never widen it. Under-declaring it here (it was 32, i.e. the padding
   //   alone, so the content box was exactly ZERO) makes the cell unusable with
   //   every gate green. Pinned by open-points-table-geometry.test.ts.
-  actions: 88,
+  actions: 96,
 };
 
 /** Per-column drag floors for the Open Points table (`useColumnResize`'s

@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
+import { buttonClassFor } from "../test/button-variant";
+import { PRIMARY_MATCHING_BORDER } from "./button";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors task-form-fields.dictation.test.tsx — jsdom has no
@@ -381,5 +383,37 @@ describe("NoteLogPanel — the assistant's read access", () => {
     aiState.apiKey = "sk-test";
     setup({ aiReadable: true });
     expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
+  });
+});
+
+// §102 (batch 23): an entry's Edit is the shared secondary Button at xs and its
+// Delete the destructive one, replacing hand-rolled blue and pink text.
+describe("NoteLogPanel entry buttons on the shared Button", () => {
+  it("draws Edit as secondary xs and Delete as destructive xs", () => {
+    setup();
+    expect(screen.getAllByRole("button", { name: /^Edit – #/ })[0].className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+    expect(screen.getAllByRole("button", { name: /^Delete – #/ })[0].className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs" }),
+    );
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("NoteLogPanel Add and Cancel on the shared Button", () => {
+  it("draws Add note as primary xs with the matching border (the dictation mic beside it is bordered)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t(EN, "noteLogAdd") }).className).toBe(
+      buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER }),
+    );
+  });
+  it("draws the edit form's Cancel as secondary xs", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1` }));
+    await screen.findByRole("textbox", { name: t(EN, "edit") });
+    expect(screen.getByRole("button", { name: t(EN, "cancel") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

@@ -4,6 +4,7 @@ import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { loadI18n } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 beforeAll(async () => { await loadI18n("de"); });
 
@@ -102,5 +103,23 @@ describe("RebaselinePopover deleted-source safety", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("button", { name: /Re-baseline now/ })).toBeNull();
     expect(screen.queryByLabelText("New target date")).toBeNull();
+  });
+});
+
+// §102 (batch 23): both confirm buttons are the shared Button, secondary at xs.
+describe("RebaselinePopover confirm buttons", () => {
+  it("draws the milestone confirm as the secondary Button at xs", () => {
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={milestoneAction()} bundle={bundle()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
+    expect(screen.getByRole("button", { name: /Re-baseline now/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+  it("draws the snapshot confirm as the secondary Button at xs", () => {
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={scheduleAction()} bundle={bundle()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
+    expect(screen.getByRole("button", { name: /Re-baseline now/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

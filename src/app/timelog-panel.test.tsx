@@ -1568,6 +1568,26 @@ describe("TimelogPanel", () => {
       expect(removeUsers).toHaveBeenCalledWith([42]);
     });
 
+    // §102 (batch 23): the selection bar's Remove is the shared destructive Button at
+    // xs and its Clear selection the secondary one.
+    it("bulk: Remove is destructive xs and Clear selection secondary xs", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectAllVisibleRows") }));
+      expect(screen.getByRole("button", { name: t("en-US", "remove") }).className).toBe(
+        buttonClassFor({ variant: "destructive", size: "xs" }),
+      );
+      expect(screen.getByRole("button", { name: t("en-US", "clearSelection") }).className).toBe(
+        buttonClassFor({ variant: "secondary", size: "xs" }),
+      );
+    });
+
     it("Load my projects calls sync.loadManagedProjects", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const loadManagedProjects = vi.fn().mockResolvedValue(undefined);

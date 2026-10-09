@@ -19,7 +19,6 @@ import { InfoTooltip } from "../info-tooltip";
 import { useConfirm } from "../confirm-dialog";
 import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
-import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select } from "../form-controls";
 import { Button } from "../button";
 
@@ -219,14 +218,13 @@ export function NextActionsSection({
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground tabular-nums">{s.suggested}</span>
                   {s.rationale && <InfoTooltip text={s.rationale} />}
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => acceptSuggestion(s)}
                     aria-label={`${t(lang, "weightSuggestAccept")} - ${fieldLabel}`}
-                    className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+                    variant="secondary" size="xs"
                   >
                     {t(lang, "weightSuggestAccept")}
-                  </button>
+                  </Button>
                 </span>
               )}
               <Input

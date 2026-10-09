@@ -21,6 +21,7 @@ import { rowLabel } from "./row-tokens";
 import { TEXTAREA_MAX } from "./sanitize";
 import { normalizeBlockerText } from "./blocker-log";
 import type { BlockerEntry, Resource } from "./types";
+import { Button } from "./button";
 
 export interface BlockerLogPanelProps {
   entries: readonly BlockerEntry[];
@@ -33,9 +34,6 @@ export interface BlockerLogPanelProps {
   lang: Lang;
 }
 
-const BUTTON = `rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium hover:bg-surface-muted ${INTERACTIVE}`;
-const BUTTON_NEUTRAL = `${BUTTON} text-ui-dark-blue dark:text-ui-light-grey`;
-const BUTTON_DANGER = `${BUTTON} text-ui-pink-strong`;
 const TEXTAREA = `w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${INTERACTIVE}`;
 
 /** An entry's author: its stored name, else the live directory name, else none. */
@@ -91,33 +89,33 @@ function OpenRow(props: OpenRowProps) {
             className={TEXTAREA}
           />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={props.onCancelEdit} aria-label={rowLabel(t(lang, "cancel"), token)} className={BUTTON_NEUTRAL}>
+            <Button variant="secondary" size="xs" onClick={props.onCancelEdit} aria-label={rowLabel(t(lang, "cancel"), token)}>
               {t(lang, "cancel")}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={() => props.onCommitEdit(entry.id)}
               disabled={isBlank(editText)}
               aria-label={rowLabel(t(lang, "blockerLogSave"), token)}
-              className={`${BUTTON_NEUTRAL} disabled:opacity-50`}
             >
               {t(lang, "blockerLogSave")}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <>
           <p className="whitespace-pre-wrap text-sm text-foreground">{entry.text}</p>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => props.onStartEdit(entry)} aria-label={rowLabel(t(lang, "edit"), token)} className={BUTTON_NEUTRAL}>
+            <Button variant="secondary" size="xs" onClick={() => props.onStartEdit(entry)} aria-label={rowLabel(t(lang, "edit"), token)}>
               {t(lang, "edit")}
-            </button>
-            <button type="button" onClick={() => props.onResolve(entry.id)} aria-label={rowLabel(t(lang, "blockerLogResolve"), token)} className={BUTTON_NEUTRAL}>
+            </Button>
+            <Button variant="secondary" size="xs" onClick={() => props.onResolve(entry.id)} aria-label={rowLabel(t(lang, "blockerLogResolve"), token)}>
               {t(lang, "blockerLogResolve")}
-            </button>
-            <button type="button" onClick={() => props.onDelete(entry.id)} aria-label={rowLabel(t(lang, "delete"), token)} className={BUTTON_DANGER}>
+            </Button>
+            <Button variant="destructive" size="xs" onClick={() => props.onDelete(entry.id)} aria-label={rowLabel(t(lang, "delete"), token)}>
               {t(lang, "delete")}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -143,12 +141,12 @@ function ResolvedRow({ entry, tz, lang, onReopen, onDelete }: ResolvedRowProps) 
       </div>
       <p className="whitespace-pre-wrap text-sm text-muted-foreground">{entry.text}</p>
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => onReopen(entry.id)} aria-label={rowLabel(t(lang, "blockerLogReopen"), token)} className={BUTTON_NEUTRAL}>
+        <Button variant="secondary" size="xs" onClick={() => onReopen(entry.id)} aria-label={rowLabel(t(lang, "blockerLogReopen"), token)}>
           {t(lang, "blockerLogReopen")}
-        </button>
-        <button type="button" onClick={() => onDelete(entry.id)} aria-label={rowLabel(t(lang, "delete"), token)} className={BUTTON_DANGER}>
+        </Button>
+        <Button variant="destructive" size="xs" onClick={() => onDelete(entry.id)} aria-label={rowLabel(t(lang, "delete"), token)}>
           {t(lang, "delete")}
-        </button>
+        </Button>
       </div>
     </li>
   );
@@ -207,14 +205,13 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
           className={TEXTAREA}
         />
         <div className="mt-2 flex justify-end">
-          <button
-            type="button"
+          <Button
             onClick={handleAdd}
             disabled={isBlank(draft)}
-            className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white disabled:opacity-50 ${INTERACTIVE}`}
+            variant="primary" size="xs"
           >
             {t(lang, "blockerLogAdd")}
-          </button>
+          </Button>
         </div>
       </div>
 
