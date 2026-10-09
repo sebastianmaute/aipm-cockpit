@@ -76,19 +76,31 @@ not usable → `createLocal` (the path above, outcome `"local"`); usable → `cr
 `seedSnapshots` callback, so the history is written INSIDE the held create, before the project becomes current — the new
 project's first snapshot load sees it instead of racing it. Outcomes are the `DemoOutcome` union: `"turso"`,
 `"turso-without-history"` (the seed failed and the project exists; a toast says so), `"local-after-turso-failure"` (the create
-returned no id, so `createLocal` ran and, in Turso mode, reloaded) and `"local"`. `useLoadDemo` owns the callback, so
+returned no id, so `createLocal` ran and, in Turso mode, reloaded), `"local"`, and two refusals that write nothing and toast:
+`"local-blocked"` (the registry already holds a `browser` project; browser storage is ONE IndexedDB store and the local demo
+writes it blind, so it would replace that project — `browserProjectIn`, checked by `createDemo` on the local path AND before the
+Turso fallback, by `createDemoProject` at the write site, and by the Projects panel, which disables its button with the reason)
+and `"turso-failed"` (the create returned no id while Turso projects exist, i.e. from the Projects panel: `tourDemoError`, no
+fallback, no portfolio switch; the fallback is the empty state's alone). `useLoadDemo` owns the callback, so
 task-manager (size ratchet, zero headroom) only calls it. Turso stays unmutated on the local paths.
 
 ★ **The history is a committed file, not computed at runtime.** `scripts/generate-demo-snapshots.ts` (run with `npx vite-node`)
 replays the master through `buildDemoSnapshots` (`demo-snapshots.ts`): one record per Friday from `demoSnapshotFridays`, each
 built from `workspaceAsOf(ws, asOf)`, and writes `sample-demo-snapshots.json` (`DEMO_SNAPSHOT_WEEKS` records; the card quotes
-that count, never a literal). The master spans 2026-03-02..2027-02-26 and `DEMO_AS_OF` stays 2026-09-18, so re-authoring the master
-means regenerating this file in the same commit. ★★ **ACCEPTED APPROXIMATION: effort is not dated per task.** A task created after
-the snapshot date stays in as not-yet-started scope (removing it made `pctComplete` non-monotonic); time spent is prorated linearly
-over each task's own window (start → completed, or → now for open tasks); a hand-entered bucket percent-complete is prorated over
-start → min(end, now). The early weeks therefore read as an estimate of what the history would have been, and the seeded
-spring Budget RAG is RED (CPI about 0.57 → 0.86 over the first ten weeks) because the master's completed spring tasks spent
-10–30% over estimate — the engine's own behaviour, not a replay fault (§696).
+that count, never a literal). The master spans 2026-03-02..2027-02-26 (reproduce:
+`node -e "const w=require('./sample-workspace-small.json');console.log(w.plan.startDate,w.plan.endDate)"`) and `DEMO_AS_OF`
+stays 2026-09-18, so re-authoring the master means regenerating this file in the same commit. ★★ **ACCEPTED APPROXIMATION:
+effort is not dated per task.** A task created after the snapshot date stays in as not-yet-started scope (removing it made
+`pctComplete` non-monotonic), and every budget bucket stays in as planned budget whatever its `createdDate` (dropping buckets
+gave each week a partial BAC against a whole-plan pace forecast: Budget RED in all 27 weeks and remaining hours jumping
+635 → 319 → 18 → 1465); time spent is prorated linearly over each task's own window (start → completed, or → now for open
+tasks); a hand-entered bucket percent-complete is prorated over start → min(end, now). The early weeks therefore read as an
+estimate of what the history would have been. ★ **The seeded Budget RAG is RED in 17 of the 27 weeks, and CPI is why.** Red
+weeks: 2026-03-13 … 05-01, 06-05, and 06-19 … 08-07; the other ten are amber. Every red week has a CPI below 0.8, the red line
+in `evmIndexHealth` (first ten weeks 0.57, 0.31, 0.62, 0.69, 0.57, 0.76, 0.67, 0.77, 0.84, 0.86; 0.86 at the end), because the
+master's 17 completed tasks spent 727 h against 628 h estimated and in-progress tasks earn no value. That is the engine's own
+behaviour, not a replay fault (§696). Reproduce: `npx vite-node scripts/generate-demo-snapshots.ts` prints each week's CPI,
+remaining hours and budget RAG; the effort totals come from the `Done` tasks' `originalEstimateMinutes` / `timeSpentMinutes`.
 
 ★ **Shifting.** `shiftDemoSnapshots` (`demo-snapshot-shift.ts`) moves the records by the workspace's own shift;
 `thinForCadence` keeps one record per month for a monthly cadence and RELABELS the kept ones cadence `"monthly"` with the monthly
