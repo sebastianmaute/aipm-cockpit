@@ -9,7 +9,7 @@ import type { StorageKind } from "./storage";
 import { Card } from "./card";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { TextButton } from "./text-button";
 import { Button } from "./button";
 import { AppearanceSection } from "./settings-sections/appearance-section";
@@ -39,6 +39,7 @@ import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { TursoConfig } from "./turso-config";
 import type { FeatureModuleId } from "./feature-modules";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { Checkbox } from "./form-controls";
 
 interface SettingsViewProps {
   lang: Lang;
@@ -316,12 +317,10 @@ export function SettingsView(props: SettingsViewProps) {
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
       >
         <label className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={expert}
             aria-label={t(lang, "settingsExpertMode")}
             onChange={(e) => toggleExpert(e.target.checked)}
-            className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
           />
           <span className="inline-flex items-center gap-1">
             {t(lang, "settingsExpertMode")}

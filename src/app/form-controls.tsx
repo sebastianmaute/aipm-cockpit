@@ -143,6 +143,12 @@ export function Textarea({
 const CHECKBOX_BASE = `rounded border-line accent-ui-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
 const CHECKBOX_SIZE: Record<"sm" | "md", string> = { sm: "h-3.5 w-3.5", md: "h-4 w-4" };
 
+/** The one radio-button style (§684): the checkbox's size, accent, focus ring and
+ *  disabled look, as a class rather than a component. A radio keeps its native
+ *  `<input type="radio">`, so `name`/`checked` grouping stays the browser's.
+ *  Append layout classes after it. */
+export const RADIO_CLASS = `${CHECKBOX_SIZE.md} accent-ui-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
+
 // Omit the native numeric `size` attribute — we repurpose `size` as the variant.
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
   size?: "sm" | "md";

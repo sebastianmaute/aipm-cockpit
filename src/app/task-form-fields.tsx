@@ -18,7 +18,7 @@ import { RichTextEditor } from "./rich-text-editor-lazy";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input, Select } from "./form-controls";
+import { Input, Select, Checkbox } from "./form-controls";
 import { openBlockerCount } from "./blocker-log";
 import {
   computeTaskHealth,
@@ -604,13 +604,11 @@ export function TaskFormFields({
           jiraEnabled &&
           jiraProjectKey && (
             <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.pushToJira}
                 onChange={(e) =>
                   setForm({ ...form, pushToJira: e.target.checked })
                 }
-                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               <span>
                 {t(

@@ -21,6 +21,7 @@ import { formatDisplayTimestamp } from "./tz-display";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { useConfirm } from "./confirm-dialog";
+import { Checkbox } from "./form-controls";
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -261,8 +262,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   return (
                   <tr key={s.id}>
                     <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selected.has(s.id)}
                         onChange={(e) => {
                           setSelected((prev) => {

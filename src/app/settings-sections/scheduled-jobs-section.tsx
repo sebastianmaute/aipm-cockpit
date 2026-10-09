@@ -16,7 +16,7 @@ import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
 import { INTERACTIVE } from "../interaction-styles";
-import { Input, Select } from "../form-controls";
+import { Input, Select, Checkbox } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
 
@@ -106,8 +106,7 @@ function JobRow({
         />
 
         <label className="flex items-center gap-1 text-xs text-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={`${t(lang, "scheduledJobEnabled")} – ${token}`}
             checked={job.enabled}
             onChange={() => onUpdate(job.id, { enabled: !job.enabled })}
@@ -247,8 +246,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       ) : (
         <>
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label={t(lang, "scheduledJobsToggle")}
               checked={enabled}
               onChange={toggleEnabled}

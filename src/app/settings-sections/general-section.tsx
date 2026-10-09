@@ -9,8 +9,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
-import { Input, Select } from "../form-controls";
+import { INTERACTIVE } from "../interaction-styles";
+import { Input, Select, Checkbox } from "../form-controls";
 
 interface GeneralSectionProps {
   lang: Lang;
@@ -29,8 +29,7 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
       <div className="mb-4">
         <div className="flex items-center gap-1">
           <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={settings.popout.reuseWindow}
               onChange={(e) =>
                 onChange({
@@ -38,7 +37,6 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
                   popout: { ...settings.popout, reuseWindow: e.target.checked },
                 })
               }
-              className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             <span className="text-sm text-foreground">
               {t(lang, "popoutReuseWindow")}

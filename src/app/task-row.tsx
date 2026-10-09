@@ -23,7 +23,7 @@ import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input, Select } from "./form-controls";
+import { Input, Select, Checkbox } from "./form-controls";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 import { effectiveAssignee } from "./resource-foundation";
@@ -308,12 +308,10 @@ function TaskRowImpl({
         )}
       </Td>
       <Td padding="tight">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={isSelected}
           onChange={() => onToggleSelect(task.id)}
           aria-label={t(lang, "selectRow", task.id)}
-          className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line"
         />
       </Td>
       {!hiddenCols.has("status") && (

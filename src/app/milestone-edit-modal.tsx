@@ -8,7 +8,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { Input } from "./form-controls";
+import { Input, Checkbox } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
@@ -17,7 +17,6 @@ import { appendDictationToHtml } from "./rich-text-projection";
 import { useDraggable } from "./use-draggable";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { useModalVisibility } from "./use-modal-visibility";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -303,11 +302,9 @@ export function MilestoneEditModal({
               ) : (
                 visibleTasks.map((tk) => (
                   <label key={tk.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={draft.linkedTaskIds.includes(tk.id)}
                       onChange={() => toggleLinked(tk.id)}
-                      className={`${FOCUS_RING} ${TRANSITION}`}
                     />
                     <span>
                       #{tk.id} {tk.taskName}

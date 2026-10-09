@@ -7,6 +7,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { useToastContext } from "../toast-context";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { Checkbox } from "../form-controls";
 
 interface NotificationsSectionProps {
   lang: Lang;
@@ -57,11 +58,9 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Global lead-time toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.useGlobalLeadDays}
             onChange={(e) => patchNotif({ useGlobalLeadDays: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifUseGlobalLeadDays")}
         </label>
@@ -162,13 +161,11 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Jira token error banner toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.jiraTokenError.enabled}
             onChange={(e) =>
               patchNotif({ jiraTokenError: { ...notifications.jiraTokenError, enabled: e.target.checked } })
             }
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifJiraTokenError")}
         </label>
@@ -177,11 +174,9 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Desktop notifications for urgent Action Center signals */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.desktopUrgent.enabled}
             onChange={(e) => handleDesktopToggle(e.target.checked)}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "settingsDesktopNotify")}
         </label>
@@ -279,11 +274,9 @@ function NotificationRow({
     <div className="mt-2 flex items-center justify-between gap-2 text-sm">
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={config.enabled}
             onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           <span className="text-foreground">{label}</span>
         </label>
