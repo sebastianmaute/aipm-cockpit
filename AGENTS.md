@@ -725,7 +725,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `dashboardModel`; coverage-GATED, pinned by its own `renderHook` test, memos kept on purpose — its header says why),
   `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
   `use-chat-dispatcher-wiring.ts` (the `useChatDispatcher` call and its `getBudgetRollup` / `getAllocationsSnapshot` /
-  `getDashboardModel` read-tool getters),
+  `getDashboardModel` read-tool getters), `use-storage-banner-reshow.ts` (the render-time reconciles that re-show a dismissed
+  saving-paused banner on a NEW cause),
   `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
@@ -779,7 +780,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   two derived read-tool getters, which read their slices from `useWorkspace()`. It is coverage-GATED, pinned by its own
   `renderHook` test, and memoizes nothing — the getters are rebuilt every render on purpose, because the dispatcher
   reads each through a ref. ★ It forwards the dispatcher's args field by field, checked `satisfies ForwardedArgs`, so a NEW
-  `ChatDispatcherArgs` field, optional or not, is a tsc error there until forwarded (its header says why). ★ Apply APPENDS a template's
+  `ChatDispatcherArgs` field, optional or not, is a tsc error there until forwarded (its header says why). A nineteenth,
+  `use-storage-banner-reshow.ts` (§491), holds the three render-time reconciles that clear a saving-paused banner's
+  dismissal when a NEW cause arrives (the incomplete load, keyed on the truncation object and the decode and malformed
+  nonces; the refused destructive save; the §586/§587 load pause), with their null/0 seeds. It is coverage-GATED, pinned by
+  its own `renderHook` test plus `task-manager.truncation-banner.test.tsx`, and has nothing memoized. ★ The three
+  `*BannerDismissed` flags stay in task-manager: `onRevealSavingPaused`, handed INTO `useStorageBackend`, sets two of
+  them, and this hook's inputs are that hook's outputs, so it cannot own them. ★ Apply APPENDS a template's
   seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
   features were not applied. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
