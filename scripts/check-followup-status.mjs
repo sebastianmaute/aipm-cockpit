@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
+import { parseEntries, isClosed, MIN_OPEN_ENTRIES } from "./followup-claims-lib.mjs";
 import {
   entryViolations,
   isGatedClosed,
@@ -31,17 +31,16 @@ const open = all.filter((e) => !isClosed(e.title));
  *  below still counts OPEN entries only, so adding closures cannot mask a parser regression. */
 const recentlyClosed = all.filter((e) => isGatedClosed(e.title));
 const scanned = [...open, ...recentlyClosed];
-/** ★★★ THE FLOOR IS 50, NOT 0, AND THE DIFFERENCE IS THE WHOLE GUARD. A
+/** ★★★ THE FLOOR IS NOT 0, AND THE DIFFERENCE IS THE WHOLE GUARD. A
  *  zero-only test catches a scan that reads NOTHING and misses one that reads
  *  ALMOST nothing, which is the reachable failure: the parser recognises one
  *  heading shape and silently drops the rest, and the gate then reports
  *  "1 open entries scanned — all conforming" over a register with 174
  *  unexamined entries, at exit 0, in a BLOCKING job. MEASURED against a fixture
  *  whose other headings read `## 2) …`, not reasoned: exit 0, green, with
- *  full-coverage wording. `check-followup-claims.mjs` — same file, same
- *  imported parser — has always refused below 50; this matches its floor rather
- *  than inventing a second number. Found by a cold review of this branch. */
-const MIN_OPEN_ENTRIES = 50;
+ *  full-coverage wording. Found by a cold review of this branch. The number is
+ *  the shared `MIN_OPEN_ENTRIES` (followup-claims-lib.mjs), imported by every
+ *  sibling gate so they cannot drift apart. */
 if (open.length < MIN_OPEN_ENTRIES) {
   console.error(
     `CANNOT SCAN: parsed only ${open.length} open entries from ${REGISTER}` +

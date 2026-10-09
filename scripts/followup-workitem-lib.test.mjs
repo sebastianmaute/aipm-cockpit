@@ -18,7 +18,7 @@ import {
   VIOLATION_HELP,
   workItemViolations,
 } from "./followup-workitem-lib.mjs";
-import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
+import { parseEntries, isClosed, MIN_OPEN_ENTRIES } from "./followup-claims-lib.mjs";
 
 const entry = (n, title, ...body) => ({ n, title, startLine: 1, body });
 const open = (n, ...body) => entry(n, `entry ${n} — open`, ...body);
@@ -155,14 +155,14 @@ describe("workItemViolations", () => {
     // of them (201 → 198). The question the floor answered is "did the parser
     // actually read the issue lines?", and a raw line count answers it without
     // drifting: every `**Work item:** #N` line in the file belongs to an open
-    // entry (the ON_CLOSED rule above), so the two counts must agree. The 50
-    // floor is the one the sibling followup gates use for a scan that read
-    // nothing (`check-followup-index.mjs`, `check-followup-claims.mjs`). Those
-    // gates fail BELOW 50 and pass at it, so this must too: a strict `> 50`
-    // broke CI the day the register reached exactly 50 linked entries.
+    // entry (the ON_CLOSED rule above), so the two counts must agree. The floor
+    // is the shared `MIN_OPEN_ENTRIES` the sibling gates import, for a scan that
+    // read nothing. Those gates fail BELOW it and pass at it, so this must too:
+    // a strict `> 50` broke CI the day the register reached exactly 50 linked
+    // entries, and a `>= 50` would have broken it on the next closure.
     const rawIssueLines = register().match(/^\*\*Work item:\*\* #\d+/gm) ?? [];
     expect(withIssue.length).toBe(rawIssueLines.length);
-    expect(withIssue.length).toBeGreaterThanOrEqual(50);
+    expect(withIssue.length).toBeGreaterThanOrEqual(MIN_OPEN_ENTRIES);
   });
 });
 
@@ -323,7 +323,14 @@ describe("check-followup-workitems.mjs exit codes", () => {
 body
 `);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/floor is 50/);
+    expect(r.stderr).toContain(`(floor is ${MIN_OPEN_ENTRIES})`);
+  });
+
+  it("exits 2 one below the shared floor and 0 at it — the floor is MIN_OPEN_ENTRIES, not a copy", () => {
+    const below = runAgainst(manyConforming(MIN_OPEN_ENTRIES - 1));
+    expect(below.status).toBe(2);
+    expect(below.stderr).toContain(`(floor is ${MIN_OPEN_ENTRIES})`);
+    expect(runAgainst(manyConforming(MIN_OPEN_ENTRIES)).status).toBe(0);
   });
 
   it("exits 1 on drift once enough entries parse", () => {

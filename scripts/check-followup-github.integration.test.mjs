@@ -31,7 +31,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { isClosed, parseEntries } from "./followup-claims-lib.mjs";
+import { isClosed, MIN_OPEN_ENTRIES, parseEntries } from "./followup-claims-lib.mjs";
 import { parseWorkItem, workItemLines } from "./followup-workitem-lib.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
@@ -122,6 +122,26 @@ async function resetOnConnectUrl() {
   return `http://127.0.0.1:${s.address().port}`;
 }
 
+/** A temp copy of the gate and every lib it imports, with `MIN_OPEN_ENTRIES` renamed in
+ *  the claims lib — the shape a refactor that renames the export leaves behind. Returns
+ *  the copied CLI's path; removed in afterEach. */
+function renamedFloorCli() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "followup-github-cli-"));
+  tempDirs.push(dir);
+  const here = path.dirname(CLI);
+  const libs = ["followup-claims-lib.mjs", "doc-claims-lib.mjs", "agents-symbols-lib.mjs", "followup-workitem-lib.mjs", "github-issues-lib.mjs"];
+  for (const name of [path.basename(CLI), ...libs]) {
+    let text = readFileSync(path.join(here, name), "utf8");
+    if (name === "followup-claims-lib.mjs") {
+      const renamed = text.replace("export const MIN_OPEN_ENTRIES =", "export const MIN_OPEN_ENTRIES_RENAMED =");
+      if (renamed === text) throw new Error("the claims lib no longer declares MIN_OPEN_ENTRIES — update this fixture");
+      text = renamed;
+    }
+    writeFileSync(path.join(dir, name), text, "utf8");
+  }
+  return path.join(dir, path.basename(CLI));
+}
+
 /** A temp cwd whose register holds only `count` open entries; removed in afterEach. */
 function smallRegisterDir(count) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "followup-github-"));
@@ -134,7 +154,7 @@ function smallRegisterDir(count) {
 }
 
 /** ★ An `overrides` value of `undefined` DELETES that variable from the child's env. */
-function runCli(apiUrl, overrides = {}, { args = [], cwd = REPO } = {}) {
+function runCli(apiUrl, overrides = {}, { args = [], cwd = REPO, cli = CLI } = {}) {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
       ([k]) => !k.startsWith("GITHUB_") && k !== "REGISTER_TRACKER" && k !== "REGISTER_SYNC_TIMEOUT_MS",
@@ -151,7 +171,7 @@ function runCli(apiUrl, overrides = {}, { args = [], cwd = REPO } = {}) {
     else env[k] = v;
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI, ...args], { cwd, env });
+    const child = spawn(process.execPath, [cli, ...args], { cwd, env });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -242,11 +262,14 @@ const ROWS = [
     outHas: ["CANNOT COMPARE: missing GITHUB_REPOSITORY"],
   },
   {
-    name: "fewer than 50 register issues exits 2 — a blind fetch, not drift",
-    respond: paged(REAL.slice(0, 10)),
+    name: "fewer than MIN_OPEN_ENTRIES register issues exits 2 — a blind fetch, not drift",
+    respond: paged(REAL.slice(0, MIN_OPEN_ENTRIES - 1)),
     code: 2,
     requests: [pageReq(1)],
-    outHas: ["fetched only 10 register issues among 10 open issues (floor is 50 register issues)"],
+    outHas: [
+      `fetched only ${MIN_OPEN_ENTRIES - 1} register issues among ${MIN_OPEN_ENTRIES - 1} open issues ` +
+        `(floor is ${MIN_OPEN_ENTRIES} register issues)`,
+    ],
   },
   {
     // ★★ The floor counts REGISTER issues: counted over all open issues, these 60
@@ -352,12 +375,40 @@ const ROWS = [
     outHas: ["unknown argument(s) --fix"],
   },
   {
-    name: "fewer than 50 open entries exits 2 and sends nothing",
-    cwd: () => smallRegisterDir(10),
+    name: "fewer than MIN_OPEN_ENTRIES open entries exits 2 and sends nothing",
+    cwd: () => smallRegisterDir(MIN_OPEN_ENTRIES - 1),
     respond: paged(REAL),
     code: 2,
     requests: [],
-    outHas: ["parsed only 10 open entries from docs/open-followups.md (floor is 50)"],
+    outHas: [
+      `parsed only ${MIN_OPEN_ENTRIES - 1} open entries from docs/open-followups.md (floor is ${MIN_OPEN_ENTRIES})`,
+    ],
+  },
+  {
+    // ★★ Destructured from a renamed export the floor is undefined, `n < undefined` is
+    // false, and both floors would pass in silence. The guard makes it exit 2.
+    name: "a renamed MIN_OPEN_ENTRIES export exits 2 before any fetch",
+    cli: renamedFloorCli,
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["no longer exports a usable MIN_OPEN_ENTRIES"],
+  },
+  {
+    // At the floor the gate compares: these entries match no real issue, so it is drift.
+    name: "exactly MIN_OPEN_ENTRIES open entries passes the floor and compares",
+    cwd: () => smallRegisterDir(MIN_OPEN_ENTRIES),
+    respond: paged(REAL),
+    code: 1,
+    outHas: [`${MIN_OPEN_ENTRIES} open entries`],
+    outLacks: ["parsed only"],
+  },
+  {
+    name: "exactly MIN_OPEN_ENTRIES register issues passes the floor and compares",
+    respond: paged(REAL.slice(0, MIN_OPEN_ENTRIES)),
+    code: 1,
+    outHas: [`(${MIN_OPEN_ENTRIES} register issues)`],
+    outLacks: ["fetched only"],
   },
   {
     // ★★ The canary starts 10 chars before the 2000-char excerpt cut. Redacted
@@ -372,10 +423,10 @@ const ROWS = [
 ];
 
 describe("check-followup-github.mjs against a fake Issues API", () => {
-  it.each(ROWS)("$name", async ({ respond, env = {}, args, cwd, apiUrl, code, requests, outHas, outLacks = [] }) => {
+  it.each(ROWS)("$name", async ({ respond, env = {}, args, cwd, cli, apiUrl, code, requests, outHas, outLacks = [] }) => {
     api = await startApi(respond);
     const url = apiUrl ? await apiUrl() : api.url;
-    const r = await runCli(url, env, { args, cwd: cwd ? cwd() : REPO });
+    const r = await runCli(url, env, { args, cwd: cwd ? cwd() : REPO, cli: cli ? cli() : CLI });
     if (requests) expect(api.requests).toEqual(requests);
     expect(r.code, r.out).toBe(code);
     for (const text of outHas) expect(r.out).toContain(text);

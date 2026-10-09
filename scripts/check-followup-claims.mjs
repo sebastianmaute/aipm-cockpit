@@ -22,6 +22,7 @@ import {
   SWEEP_DIRS,
   classify,
   isClosed,
+  MIN_OPEN_ENTRIES,
   parseEntries,
   reproCoverageIn,
   toArgv,
@@ -106,13 +107,13 @@ const rootFiles = readdirSync(".", { withFileTypes: true })
   .filter((e) => e.isFile() && ROOT_CODE_RE.test(e.name))
   .map((e) => e.name);
 collectIdentifiersFromFiles(rootFiles, knownSymbols, SWEEP_SELF_FILES);
-// A scan that finds nothing passes everything — the same floor both sibling
-// gates carry, for the same reason.
+// A scan that finds nothing passes everything. The entry floor is the shared
+// `MIN_OPEN_ENTRIES` (followup-claims-lib.mjs), which says why it is not 0.
 if (knownSymbols.size < 1000) {
   console.error(`only ${knownSymbols.size} identifiers found — the scan is broken, not the doc.`);
   process.exit(2);
 }
-if (entries.length < 50) {
+if (entries.length < MIN_OPEN_ENTRIES) {
   console.error(`only ${entries.length} open entries parsed — refusing to report a pass.`);
   process.exit(2);
 }
