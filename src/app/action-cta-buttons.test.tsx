@@ -31,7 +31,9 @@ const escalate = {
 
 const primaryMd = () => buttonClassFor({ variant: "primary", size: "md" });
 // A row's filled verb keeps a same-colour border so it is as tall as the bordered
-// secondary chips beside it (the primary variant draws none).
+// secondary chips beside it (the primary variant draws none). The class is written
+// out rather than imported as PRIMARY_MATCHING_BORDER on purpose: this is the only
+// literal pin on that constant's value (the SharePoint test builds from the import).
 const primaryXs = () => buttonClassFor({ variant: "primary", size: "xs", className: "border border-ui-dark-blue" });
 const secondaryXs = () => buttonClassFor({ variant: "secondary", size: "xs" });
 
