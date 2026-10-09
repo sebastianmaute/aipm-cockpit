@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { CORE_TOKENS, ADVANCED_TOKENS, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 import { readActiveSchemeColors, type SchemeColorMap } from "./scheme-apply";
@@ -15,7 +15,7 @@ import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-
 import { importSchemeText } from "./scheme-import";
 import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
-import { Button } from "./button";
+import { Button, PRIMARY_MATCHING_BORDER } from "./button";
 import { FilePickerButton } from "./file-picker-button";
 import { Input } from "./form-controls";
 import type { BrandingConfig } from "./settings-types";
@@ -299,15 +299,14 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Button variant="primary" size="xs"
           onClick={apply}
           disabled={isBuiltin}
           title={isBuiltin ? t(lang, "schemeBuiltinReadonly") : undefined}
-          className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-ui-white disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          className={PRIMARY_MATCHING_BORDER}
         >
           {t(lang, "schemeApply")}
-        </button>
+        </Button>
       </div>
     </div>
   );

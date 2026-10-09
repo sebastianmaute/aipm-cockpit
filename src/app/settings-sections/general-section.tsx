@@ -9,8 +9,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
-import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select, Checkbox } from "../form-controls";
+import { Button } from "../button";
 
 interface GeneralSectionProps {
   lang: Lang;
@@ -108,13 +108,12 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
           {t(lang, "settingsResetHeading")}
         </h3>
         <FieldHint className="mt-1">{t(lang, "settingsResetDesc")}</FieldHint>
-        <button
-          type="button"
+        <Button variant="destructive" size="md"
           onClick={() => setResetOpen(true)}
-          className={`mt-3 rounded-md border border-ui-pink/50 bg-surface px-4 py-2 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
+          className="mt-3"
         >
           {t(lang, "settingsResetButton")}
-        </button>
+        </Button>
       </div>
 
       {resetOpen && (

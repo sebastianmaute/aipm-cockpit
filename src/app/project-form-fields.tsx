@@ -781,13 +781,12 @@ function ContactPersonsControl({
           />
           <FieldError id={emailErrorId}>{emailError}</FieldError>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary" size="md"
           onClick={addDraft}
-          className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+          className="shrink-0"
         >
           {t(lang, "add")}
-        </button>
+        </Button>
       </div>
     </div>
   );
