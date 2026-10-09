@@ -30,7 +30,9 @@ const escalate = {
 } as never;
 
 const primaryMd = () => buttonClassFor({ variant: "primary", size: "md" });
-const primaryXs = () => buttonClassFor({ variant: "primary", size: "xs" });
+// A row's filled verb keeps a same-colour border so it is as tall as the bordered
+// secondary chips beside it (the primary variant draws none).
+const primaryXs = () => buttonClassFor({ variant: "primary", size: "xs", className: "border border-ui-dark-blue" });
 const secondaryXs = () => buttonClassFor({ variant: "secondary", size: "xs" });
 
 describe("hero card CTAs", () => {
@@ -63,6 +65,24 @@ describe("row CTAs", () => {
     render(<ActionRow rowToken="Row" lang="en-US" action={openAction} onOpen={() => {}} escalate={escalate} />);
     expect(screen.getByRole("button", { name: "Escalate – Row" }).className).toBe(secondaryXs());
     expect(screen.getByRole("button", { name: "Open – Row" }).className).toBe(secondaryXs());
+  });
+
+  // Mark done and Clear blocker only offer on an Open Points task signal.
+  const taskSignal = (whyKey: string): SuggestedAction => ({
+    id: "task-attention:5:x", source: "task-attention",
+    title: { key: "actionTaskTitle", params: ["T"] },
+    why: { key: whyKey, params: [] },
+    score: 30, tier: "soon", cta: { kind: "open", view: "open-points", id: 5 },
+  } as unknown as SuggestedAction);
+
+  it("draws a row's Mark done as primary xs, as tall as the bordered chips", () => {
+    render(<ActionRow rowToken="Row" lang="en-US" action={taskSignal("actionTaskWhyStale")} onOpen={() => {}} onMarkDone={() => {}} />);
+    expect(screen.getByRole("button", { name: "Mark done – Row" }).className).toBe(primaryXs());
+  });
+
+  it("draws a row's Clear blocker as primary xs", () => {
+    render(<ActionRow rowToken="Row" lang="en-US" action={taskSignal("actionTaskWhyBlocked")} onOpen={() => {}} onClearBlocker={() => {}} />);
+    expect(screen.getByRole("button", { name: "Clear blocker – Row" }).className).toBe(primaryXs());
   });
 
   it("draws a row's Assign owner as secondary xs", () => {

@@ -13,6 +13,7 @@ import { useResourceDirectory } from "./use-resource-directory";
 import type { Resource, ResourcePlan } from "./types";
 import { t, loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 // ResourceDirectory now consumes the workspace-tab context (deep-link open —
 // see the "ResourceDirectory deep-link open" describe below), so every render
@@ -855,5 +856,21 @@ describe("§540 mutation guard: editingResource identity survives a same-id repe
     act(() => { result.current.handleEditResource(replacement); });
 
     expect(result.current.editingResource).toBe(opened);
+  });
+});
+
+// §102 (batch 23): the bulk Delete beside the bulk-edit bar's Clear selection is the
+// shared destructive Button at xs, so the two neighbours are the same height.
+describe("ResourceDirectory bulk delete on the shared Button", () => {
+  it("draws Delete selected as destructive xs, keeping mb-2", () => {
+    render(
+      <ConfirmProvider lang="en-US">
+        <ResourceDirectory {...common} resources={twoResources} onBulkEditResources={vi.fn()} onBulkDeleteResources={vi.fn()} />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
+    expect(screen.getByRole("button", { name: /delete selected/i }).className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs", className: "mb-2" }),
+    );
   });
 });

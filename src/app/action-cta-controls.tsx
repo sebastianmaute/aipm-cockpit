@@ -69,6 +69,9 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
 // verb reads bolder than the same verb in a row; every bordered chip is `secondary`
 // at `xs`.
 const ROW_SIZE: ButtonSize = "xs";
+// `primary` draws no border, while `secondary` does; a row's filled verb therefore
+// takes a same-colour border so it is exactly as tall as the chips beside it.
+const ROW_FILLED_BORDER = "border border-ui-dark-blue";
 
 interface CtaProps {
   lang: Lang;
@@ -101,6 +104,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
 
   const kind = pickPrimaryCta(action, caps);
   const directSize: ButtonSize = prominent ? "md" : ROW_SIZE;
+  const directBorder = prominent ? undefined : ROW_FILLED_BORDER;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   // ★ Rendered for EVERY action — as the primary when `kind === "open"`, and as
@@ -112,6 +116,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   const onOpenHandler = handlers.onOpen;
   const open = onOpenHandler ? (
     <Button variant={kind === "open" ? "primary" : "secondary"} size={kind === "open" ? directSize : ROW_SIZE}
+      className={kind === "open" ? directBorder : undefined}
       onClick={(e) => { stop(e); onOpenHandler(action); }}
       aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}>
       {t(lang, "actionOpen")}
@@ -148,7 +153,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
     //   buttons above: it is the accessibility-relevant attribute and is hardest
     //   to spot wedged mid-line between `type` and `onClick`.
     primary = (
-      <Button variant="primary" size={directSize}
+      <Button variant="primary" size={directSize} className={directBorder}
         aria-label={rowLabel(t(lang, "actionClearBlocker"), rowToken)}
         onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }}>
         {t(lang, "actionClearBlocker")}
@@ -156,7 +161,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
     );
   } else if (kind === "markDone" && handlers.onMarkDone) {
     primary = (
-      <Button variant="primary" size={directSize}
+      <Button variant="primary" size={directSize} className={directBorder}
         aria-label={rowLabel(t(lang, "actionMarkDone"), rowToken)}
         onClick={(e) => { stop(e); handlers.onMarkDone!(action); }}>
         {t(lang, "actionMarkDone")}
@@ -164,7 +169,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
     );
   } else if (kind === "draft" && handlers.onDraftMessage) {
     primary = (
-      <Button variant="primary" size={directSize}
+      <Button variant="primary" size={directSize} className={directBorder}
         aria-label={rowLabel(t(lang, "actionDraftMessage"), rowToken)}
         onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }}>
         {t(lang, "actionDraftMessage")}
