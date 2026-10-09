@@ -25,8 +25,9 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * `use-budget-buckets.ts` is the one today; `isParameterHandOff` says what it
  * does not see).
  *
- * ★★★ ITS BOUND. A removal written another way passes unseen: a list computed in
- * another function and handed STRAIGHT to a setter by a local alias, a
+ * ★★★ ITS BOUND. A removal written another way passes unseen: a committer that
+ * copies its parameter into a local before handing it on, a committer whose
+ * parameter is destructured, a setter handed a parameter of an OUTER function, a
  * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
  * row, a conditional clear (`setX(cond ? [] : p)`), a local declared in an OUTER
  * function (the lookup reads the nearest function only, and takes the first
@@ -161,7 +162,10 @@ function isRemovalArgument(arg: ts.Expression): boolean {
  *  through here, so the committer is judged as a removal route itself. Its
  *  callers are not followed: the committer is the one place every one of them
  *  passes through. ★ Only a plain identifier parameter of the NEAREST function
- *  counts; a destructured one, or a local alias of a parameter, is not seen. */
+ *  counts; a destructured one, or a local alias of a parameter, is not seen.
+ *  ★ It fails CLOSED on an inline callback's parameter: `onChange={(next) =>
+ *  setTasks(next)}` counts as a committer, and since it resolves to its component
+ *  it is refused with no exemption path. Give it a named handler. None today. */
 function isParameterHandOff(arg: ts.Expression): boolean {
   const e = unwrap(arg);
   if (!ts.isIdentifier(e)) return false;

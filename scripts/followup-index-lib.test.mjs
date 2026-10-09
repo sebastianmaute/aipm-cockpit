@@ -477,7 +477,7 @@ describe("rebuildIndex", () => {
 
 // ── rebuildDrift, the CLI's --check, and the gate (review M1, M6) ───────────
 
-/** A clean 60-entry register: over both CLIs' 50-entry floors, and already
+/** A clean 60-entry register: over the index gate's 50-entry floor, and already
  *  exactly what a rebuild writes. `mutate` takes the clean text. */
 function bigRegister(mutate = (s) => s) {
   const heads = Array.from({ length: 60 }, (_, i) => `## ${i + 1}. Entry ${i + 1}`);

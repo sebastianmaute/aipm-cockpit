@@ -13,11 +13,12 @@
 //   2  COULD NOT COMPARE: GITHUB_TOKEN unset once enabled, a token containing
 //      whitespace or a control character, an unknown argument, missing
 //      GITHUB_REPOSITORY, an invalid REGISTER_SYNC_TIMEOUT_MS (not an integer
-//      from 1 to 2^31-1), an unreadable register, fewer than 50 open entries, a
+//      from 1 to 2^31-1), an unreadable register, fewer than MIN_OPEN_ENTRIES
+//      open entries (the shared floor in followup-claims-lib.mjs), a
 //      network failure, the timeout, a non-2xx, a redirect, a body that is not a
 //      JSON array of issues, more than 50 pages, an issue served twice while
-//      paging, fewer than 50 REGISTER issues, or any structural failure (a
-//      renamed lib export)
+//      paging, fewer than MIN_OPEN_ENTRIES REGISTER issues, or any structural
+//      failure (a renamed lib export, the floor constant included)
 //
 // ENVIRONMENT:
 //   REGISTER_TRACKER           must be exactly "github", else a clean skip
@@ -34,7 +35,8 @@
 //   an issue with no entry. Every decision is made by the pure compareWithTracker
 //   in followup-workitem-lib.mjs; this file fetches, redacts, prints, and maps a
 //   verdict to an exit code.
-// ★★★ 50 REGISTER ISSUES, NOT 50 open issues and NOT 0 — the floor counts open
+// ★★★ REGISTER ISSUES, NOT open issues and NOT 0 — the floor (the shared
+//   MIN_OPEN_ENTRIES, the same number as the open-entry floor) counts open
 //   issues carrying a `§NNN:` title or the source::register label. A fetch that
 //   returns no or few register issues (a token that cannot see them, or register
 //   issues that lost both their title prefix and their label) would make every
@@ -186,6 +188,12 @@ async function main() {
 
   // One floor for both axes: the shared vacuity floor (followup-claims-lib.mjs).
   const { parseEntries, isClosed, MIN_OPEN_ENTRIES } = await import("./followup-claims-lib.mjs");
+  // ★★ A renamed export destructures to undefined, and `n < undefined` is false, so
+  // both floors would switch off in silence. A function fails loudly when called;
+  // a constant has to be checked.
+  if (!Number.isInteger(MIN_OPEN_ENTRIES) || MIN_OPEN_ENTRIES < 1) {
+    throw new CannotCompare("followup-claims-lib.mjs no longer exports a usable MIN_OPEN_ENTRIES");
+  }
   const MIN_REGISTER_ISSUES = MIN_OPEN_ENTRIES;
   const { compareWithTracker, TRACKER_PROBLEM_HELP } = await import("./followup-workitem-lib.mjs");
   const { parseNextLink, toTrackerIssue } = await import("./github-issues-lib.mjs");

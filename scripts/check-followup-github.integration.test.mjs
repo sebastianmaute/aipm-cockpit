@@ -365,6 +365,22 @@ const ROWS = [
     ],
   },
   {
+    // At the floor the gate compares: these entries match no real issue, so it is drift.
+    name: "exactly MIN_OPEN_ENTRIES open entries passes the floor and compares",
+    cwd: () => smallRegisterDir(MIN_OPEN_ENTRIES),
+    respond: paged(REAL),
+    code: 1,
+    outHas: [`${MIN_OPEN_ENTRIES} open entries`],
+    outLacks: ["parsed only"],
+  },
+  {
+    name: "exactly MIN_OPEN_ENTRIES register issues passes the floor and compares",
+    respond: paged(REAL.slice(0, MIN_OPEN_ENTRIES)),
+    code: 1,
+    outHas: [`(${MIN_OPEN_ENTRIES} register issues)`],
+    outLacks: ["fetched only"],
+  },
+  {
     // ★★ The canary starts 10 chars before the 2000-char excerpt cut. Redacted
     // AFTER truncation, its first 10 chars would survive and not match the token.
     name: "a long 401 body with the token straddling the excerpt cut leaks no prefix of it",

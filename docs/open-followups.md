@@ -66,7 +66,8 @@ be. Absence claims are the ones where a `grep` exiting 1 IS the whole witness.
 
 ★★ Exit codes split the way `version-sync-check`'s do, because the two demand opposite responses:
 **1 is DRIFT** (write the Status line), **2 is the gate unable to scan at all** — an unreadable
-register, or fewer than 50 entries parsed. The floor is 50 rather than zero because the reachable
+register, or fewer open entries parsed than the shared `MIN_OPEN_ENTRIES` (`scripts/followup-claims-lib.mjs`,
+10 since 2026-10-08, 50 before). The floor is not zero because the reachable
 failure is a parser that recognises one heading shape and drops the rest: at a zero-only guard that
 reported "1 open entries scanned — all conforming", green, in a blocking job.
 

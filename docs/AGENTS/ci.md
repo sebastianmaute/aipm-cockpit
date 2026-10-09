@@ -200,7 +200,7 @@ on it and none of its jobs is a required check: a red run is the signal.
   It exits 0 with a skip line unless the repository variable `REGISTER_TRACKER` is set to `github`,
   which the flip set (checklist step 7). Exit 1 means drift (fix the Work item line or the issue) and
   exit 2 means it could not compare (a missing/malformed `GITHUB_TOKEN`, a fetch failure, or fewer
-  than 50 register issues seen). It replaced `followups-gitlab-sync`, which was deleted at the flip
+  register issues seen than the shared `MIN_OPEN_ENTRIES` in `scripts/followup-claims-lib.mjs`). It replaced `followups-gitlab-sync`, which was deleted at the flip
   together with its script and test
   (`docs/superpowers/specs/2026-09-23-issues-migration-design.md`).
 
