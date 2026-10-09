@@ -33,7 +33,7 @@ import { useSettings } from "./use-settings";
 import { isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
-import { Button, PRIMARY_MATCHING_BORDER } from "./button";
+import { Button } from "./button";
 
 /** Resolve an entry's display author: an explicit `authorName`, else the live
  *  directory name for `authorResourceId`, else an em-dash. */
@@ -285,7 +285,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
           <Button
             onClick={handleAdd}
             aria-label={labelSuffix ? `${t(lang, "noteLogAdd")} – ${labelSuffix}` : undefined}
-            variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER}
+            variant="primary" size="xs"
           >
             {t(lang, "noteLogAdd")}
           </Button>

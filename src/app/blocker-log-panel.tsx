@@ -21,7 +21,7 @@ import { rowLabel } from "./row-tokens";
 import { TEXTAREA_MAX } from "./sanitize";
 import { normalizeBlockerText } from "./blocker-log";
 import type { BlockerEntry, Resource } from "./types";
-import { Button, PRIMARY_MATCHING_BORDER } from "./button";
+import { Button } from "./button";
 
 export interface BlockerLogPanelProps {
   entries: readonly BlockerEntry[];
@@ -208,7 +208,7 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
           <Button
             onClick={handleAdd}
             disabled={isBlank(draft)}
-            variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER}
+            variant="primary" size="xs"
           >
             {t(lang, "blockerLogAdd")}
           </Button>

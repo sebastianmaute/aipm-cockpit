@@ -7,7 +7,6 @@ import { addBlocker, deleteBlocker, editBlocker, reopenBlocker, resolveBlocker }
 import { t } from "./i18n";
 import type { BlockerEntry, Resource, Task } from "./types";
 import { buttonClassFor } from "../test/button-variant";
-import { PRIMARY_MATCHING_BORDER } from "./button";
 
 const EN = "en-US" as const;
 
@@ -234,10 +233,10 @@ describe("BlockerLogPanel buttons on the shared Button", () => {
 
 // §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
 describe("BlockerLogPanel Add on the shared Button", () => {
-  it("draws Add blocker as primary xs with the matching border", () => {
+  it("draws Add blocker as primary xs, with no matching border (no bordered neighbour)", () => {
     render(<Harness initial={[]} />);
     expect(screen.getByRole("button", { name: t(EN, "blockerLogAdd") }).className).toBe(
-      buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER }),
+      buttonClassFor({ variant: "primary", size: "xs" }),
     );
   });
 });
