@@ -890,7 +890,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   hero. Hero = `pickHeroGroup(groups)` (`groups[0]`, only when `tier!=="monitor"` — the Dashboard's row 2 calls the same helper), DE-DUPED from its tier list (`g.key!==heroKey`).
   `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
   `prominent?` prop: every CTA is the shared `Button` — the hero's filled verbs and triggers are `primary` at `md`, a row's
-  filled verbs `primary` at `xs` with a same-colour border (`ROW_FILLED_BORDER`, because `primary` draws none and would be 2px
+  filled verbs `primary` at `xs` with `PRIMARY_MATCHING_BORDER` (`button.tsx`; `primary` draws no border and would be 2px
   shorter than the chips), every bordered chip `secondary` at `xs` (§102, owner decision 2026-10-09). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
   ★★ `--rag-amber-text` (=ui-purple / a brown) is AA ONLY on LIGHT Petrol — as SMALL text on `bg-surface` it FAILS AA on
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the

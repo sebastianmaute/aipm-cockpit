@@ -85,6 +85,17 @@ describe("row CTAs", () => {
     expect(screen.getByRole("button", { name: "Clear blocker – Row" }).className).toBe(primaryXs());
   });
 
+  it("draws a row's Draft as primary xs, as tall as the bordered chips", () => {
+    const due = {
+      id: "task-due:6:overdue", source: "task-due",
+      title: { key: "actionTaskTitle", params: ["T"] },
+      why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 30, tier: "soon", cta: { kind: "open", view: "open-points", id: 6 },
+    } as unknown as SuggestedAction;
+    render(<ActionRow rowToken="Row" lang="en-US" action={due} onOpen={() => {}} onDraftMessage={() => {}} />);
+    expect(screen.getByRole("button", { name: "Draft message – Row" }).className).toBe(primaryXs());
+  });
+
   it("draws a row's Assign owner as secondary xs", () => {
     render(<ActionRow rowToken="Row" lang="en-US" action={noOwner} onOpen={() => {}}
       assignOwner={{ resources: [], onCreateResource: () => 1, onAssign: () => {} }} />);

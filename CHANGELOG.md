@@ -50,8 +50,10 @@ longer carries its own changelog comment.
   instead of 26 pixels), with the standard border and fill instead of blue text; the AI suggestions' Open and
   Discuss match them. The same applies to the buttons inside the Reschedule, Escalate and Re-baseline pop-ups,
   Clear selection in the bulk-edit bar and in TimeLog, Clear in the Documents filter, the hidden-tiles toggle on
-  the Dashboard, the learning pill, and Edit, Resolve and Reopen in the blocker log. Delete in the notes log, the
-  blocker log and scheduled jobs, Remove in TimeLog and Delete selected in Resources now use the pink delete style.
+  the Dashboard, the learning pill, Edit, Resolve, Reopen, Cancel and Save in the blocker log, the SharePoint
+  picker's Open, Use this folder and Select, and Create mitigation task in the RAID editor. Delete in the notes
+  log, the blocker log and scheduled jobs, and Remove in TimeLog now use the pink delete style; Delete selected
+  in Resources keeps it and grows to match the buttons beside it.
 
 - **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
   re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,

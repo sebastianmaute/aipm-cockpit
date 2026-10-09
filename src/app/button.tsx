@@ -34,6 +34,11 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
   md: "px-4 py-2 text-sm",
 };
 
+/** A caller class for a `primary` Button that sits beside `secondary` ones: `primary` draws
+ *  no border and `secondary` draws a 1px one, so without this the filled button is 2px
+ *  shorter than its neighbours. Same colour as the fill, so it adds height, not an edge. */
+export const PRIMARY_MATCHING_BORDER = "border border-ui-dark-blue";
+
 const BASE_CLASS =
   "cursor-pointer rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50";
 

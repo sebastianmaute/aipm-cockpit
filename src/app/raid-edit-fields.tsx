@@ -8,6 +8,7 @@ import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
 import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { TaskLinkPicker } from "./task-link-picker";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
 
@@ -45,15 +46,15 @@ export function RaidLinkedTasksField({
           {t(lang, "raidLinkedTasks")}
           <InfoTooltip text={t(lang, "raidFieldLinkedTasksHint")} />
         </span>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={onCreateMitigationTask}
           disabled={isNew}
           title={t(lang, "raidCreateMitigationTaskHint")}
-          className={`rounded-md border border-ui-dark-blue bg-surface px-2 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-blue dark:text-ui-blue ${INTERACTIVE}`}
         >
           {t(lang, "raidCreateMitigationTask")}
-        </button>
+        </Button>
       </div>
       <TaskLinkPicker
         lang={lang}

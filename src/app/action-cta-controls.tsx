@@ -11,7 +11,7 @@ import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { PopoverPanel } from "./popover-panel";
 import { FOCUS_RING } from "./interaction-styles";
-import { Button, type ButtonSize } from "./button";
+import { Button, PRIMARY_MATCHING_BORDER, type ButtonSize } from "./button";
 import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
 
@@ -69,9 +69,6 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
 // verb reads bolder than the same verb in a row; every bordered chip is `secondary`
 // at `xs`.
 const ROW_SIZE: ButtonSize = "xs";
-// `primary` draws no border, while `secondary` does; a row's filled verb therefore
-// takes a same-colour border so it is exactly as tall as the chips beside it.
-const ROW_FILLED_BORDER = "border border-ui-dark-blue";
 
 interface CtaProps {
   lang: Lang;
@@ -96,7 +93,7 @@ interface CtaProps {
 }
 
 /** Renders the single primary control (popover verbs reuse their existing popover;
- *  direct verbs render a button) PLUS a ghost Open when the primary isn't Open. */
+ *  direct verbs render a button) PLUS a bordered (secondary) Open when the primary isn't Open. */
 export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, prominent }: CtaProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const assignBtnRef = useRef<HTMLButtonElement>(null);
@@ -104,11 +101,12 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
 
   const kind = pickPrimaryCta(action, caps);
   const directSize: ButtonSize = prominent ? "md" : ROW_SIZE;
-  const directBorder = prominent ? undefined : ROW_FILLED_BORDER;
+  // A row's filled verb sits beside secondary chips, so it takes PRIMARY_MATCHING_BORDER.
+  const directBorder = prominent ? undefined : PRIMARY_MATCHING_BORDER;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   // ★ Rendered for EVERY action — as the primary when `kind === "open"`, and as
-  //   the ghost alongside every other primary — so this one element is two
+  //   the secondary Open alongside every other primary — so this one element is two
   //   identically-named buttons the moment a list holds two rows.
   // §582 — `onOpen` is optional (a popout/read-only caller legitimately omits
   // it); a button that calls nothing on click is worse than no button, so hide
@@ -180,7 +178,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   return (
     <>
       {primary}
-      {kind !== "open" && open /* ghost Open alongside a non-open primary */}
+      {kind !== "open" && open /* secondary Open alongside a non-open primary */}
     </>
   );
 }
