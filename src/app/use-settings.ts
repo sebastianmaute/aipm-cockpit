@@ -169,6 +169,34 @@ export function coerceLayout(value: unknown): "modern" | "classic" {
 type SettingsListener = (next: Settings) => void;
 const settingsListeners = new Set<SettingsListener>();
 
+/** `next` with every top-level slice whose VALUE equals `prev`'s replaced by
+ *  `prev`'s own object; `prev` itself when nothing changed.
+ *
+ *  ★★ Each instance hydrates from localStorage on its own, so two instances hold
+ *  EQUAL nested objects that are not the SAME objects. A broadcast hands the
+ *  receiver the sender's whole object, and consumers key on slice identity —
+ *  `useStorageBackend` memoises the backend on `storageConfig`. Without this, the
+ *  first change made through a freshly mounted instance (saving a template in
+ *  Settings → Templates) gave TaskManager a new `storageConfig` object of the same
+ *  value: a new backend, a full workspace reload, the load hold, and Settings
+ *  remounting on General. Settings are JSON (they persist through `writeSettings`),
+ *  so a JSON comparison is a value comparison. */
+export function shareUnchangedSlices(prev: Settings, next: Settings): Settings {
+  const prevRec = prev as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  let changed = Object.keys(prevRec).length !== Object.keys(next).length;
+  for (const [key, value] of Object.entries(next)) {
+    const old = prevRec[key];
+    if (old === value || (key in prevRec && JSON.stringify(old) === JSON.stringify(value))) {
+      out[key] = old;
+    } else {
+      out[key] = value;
+      changed = true;
+    }
+  }
+  return changed ? (out as unknown as Settings) : prev;
+}
+
 export function useSettings(): {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
@@ -185,14 +213,22 @@ export function useSettings(): {
   // refs are only touched in effects (never during render).
   const listenerRef = useRef<SettingsListener | null>(null);
   const lastSyncedRef = useRef<Settings | null>(null);
+  // This instance's last committed settings, read by the listener (which runs in
+  // ANOTHER instance's effect, never during this one's render).
+  const committedRef = useRef<Settings>(settings);
+  useEffect(() => {
+    committedRef.current = settings;
+  }, [settings]);
 
-  // Subscribe to cross-instance broadcasts. The listener records the incoming
-  // value before applying it, so this instance's broadcast effect recognises it
-  // as already-synced and does not echo it back.
+  // Subscribe to cross-instance broadcasts. The listener records the value it
+  // applies before applying it, so this instance's broadcast effect recognises
+  // it as already-synced and does not echo it back. It applies the incoming
+  // value with this instance's unchanged slices kept (`shareUnchangedSlices`).
   useEffect(() => {
     const listener: SettingsListener = (next) => {
-      lastSyncedRef.current = next;
-      setSettings(next);
+      const applied = shareUnchangedSlices(committedRef.current, next);
+      lastSyncedRef.current = applied;
+      setSettings(applied);
     };
     listenerRef.current = listener;
     settingsListeners.add(listener);

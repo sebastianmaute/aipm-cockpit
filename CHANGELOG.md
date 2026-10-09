@@ -156,6 +156,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Saving or deleting a template no longer reloads the app and drops you back on Settings → General.**
+  Some settings panels keep their own copy of your settings, and their first change made the app treat the
+  unchanged storage setting as a new one, reload the whole project and reopen Settings at General. Any
+  such panel could trigger it, not only Templates. Only the settings that actually changed are now passed on.
+
 - **Document images no longer go missing after switching projects on single-database Turso storage
   (§207).** With Turso storage and no Turso project selected, switching to another project in the
   project list showed every embedded image as missing until you switched back. Images are now stored
