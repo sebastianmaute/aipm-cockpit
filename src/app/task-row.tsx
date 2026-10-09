@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { EnvelopeIcon, SparklesIcon } from "./icons";
+import { EnvelopeIcon } from "./icons";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { descriptionText } from "./rich-text-projection";
@@ -296,15 +297,7 @@ function TaskRowImpl({
           only mounts when the row is AI-editable (not popout / not Jira-synced). */}
       <Td className="w-7" padding="tight">
         {aiEditEnabled(task) && (
-          <button
-            type="button"
-            onClick={() => onAiEdit(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${rowToken}`}
-            title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:text-ui-light-grey ${INTERACTIVE}`}
-          >
-            <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <InlineAiEditButton lang={lang} label={rowToken} onClick={() => onAiEdit(task)} />
         )}
       </Td>
       <Td padding="tight">

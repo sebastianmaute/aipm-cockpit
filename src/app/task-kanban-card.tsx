@@ -4,7 +4,7 @@
 // Jira/RAID/change badges) but laid out for a narrow column. The status
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge /
 // ChangesBadge.
-import { SparklesIcon } from "./icons";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
@@ -22,7 +22,6 @@ import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
 import { Select } from "./form-controls";
-import { rowLabel } from "./row-tokens";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
@@ -152,15 +151,7 @@ export function TaskKanbanCard({
       <div className="flex items-center justify-between gap-1.5">
         <TaskStatusSelect lang={lang} task={task} rowToken={rowToken} onStatusChange={onStatusChange} />
         {aiEditEnabled?.(task) && (
-          <button
-            type="button"
-            onClick={() => onAiEdit?.(task)}
-            aria-label={rowLabel(t(lang, "inlineAiEdit"), rowToken)}
-            title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:text-ui-light-grey ${INTERACTIVE}`}
-          >
-            <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <InlineAiEditButton lang={lang} label={rowToken} onClick={() => onAiEdit?.(task)} />
         )}
       </div>
 

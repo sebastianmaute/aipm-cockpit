@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Cog6ToothIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import { t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
@@ -56,17 +57,16 @@ export function SettingsMenu({
 
   return (
     <div className="relative">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="md"
         onClick={() => setOpen(!open)}
-        aria-label={t(lang, "settings")}
+        label={t(lang, "settings")}
         title={t(lang, "settings")}
         aria-expanded={open}
-        className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
       >
         <Cog6ToothIcon aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
 
       <PopoverPanel
         open={open}

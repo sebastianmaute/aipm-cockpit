@@ -12,6 +12,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import { setActive } from "./color-schemes";
 import { t } from "./i18n";
+import { iconButtonClassFor } from "../test/button-variant";
 
 // SettingsMenu embeds TemplatesSection, which reads the live workspace
 // (useCurrentWorkspace), so every render needs the workspace providers.
@@ -79,6 +80,11 @@ describe("SettingsMenu trigger", () => {
     render(<SettingsMenu {...makeProps()} />);
     const label = t("en-US", "settings");
     expect(screen.getByRole("button", { name: label })).toHaveAttribute("title", label);
+  });
+
+  it("is the shared IconButton at md (§688; it was a hand-rolled p-2 box)", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "settings") }).className).toBe(iconButtonClassFor({ size: "md" }));
   });
 });
 

@@ -16,6 +16,7 @@ import { buildRowTokens } from "./row-tokens";
 import { loadI18n } from "./i18n";
 import { buttonClassFor } from "../test/button-variant";
 import { IconButton } from "./icon-button";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -1165,10 +1166,13 @@ describe("TaskRow Ask-Claude leading cell", () => {
     const cells = within(row).getAllByRole("cell");
     // The trigger lives in the FIRST (leading) cell of the row.
     expect(cell).toBe(cells[0]);
-    // Hidden by default, revealed on row hover / keyboard focus.
+    // Hidden by default, revealed on row hover / focus. §688: it IS the shared
+    // InlineAiEditButton, so its whole class equals a rendered probe of it.
     expect(trigger.className).toMatch(/opacity-0/);
     expect(trigger.className).toMatch(/group-hover:opacity-100/);
-    expect(trigger.className).toMatch(/focus-visible:opacity-100/);
+    const probe = render(<InlineAiEditButton lang="en-US" label="probe" onClick={() => {}} />);
+    expect(trigger.className).toBe(probe.container.querySelector("button")?.className);
+    probe.unmount();
 
     fireEvent.click(trigger);
     expect(onAiEdit).toHaveBeenCalledTimes(1);
