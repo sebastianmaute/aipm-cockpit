@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { LearningInsights } from "./learning-insights";
 import { loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -26,6 +27,14 @@ describe("LearningInsights", () => {
     render(<LearningInsights {...p} now={0} />);
     fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "suppress" } });
     expect(p.onSetOverride).toHaveBeenCalledWith("raid:actionRaidWhySeverity", "suppress");
+  });
+  // §102: Reset learned data is the shared secondary Button. The hand-rolled one
+  // had no focus ring at all.
+  it("renders Reset learned data as the secondary Button", () => {
+    render(<LearningInsights {...baseProps()} now={0} />);
+    expect(screen.getByRole("button", { name: "Reset learned data" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "sm" }),
+    );
   });
   it("shows the empty state with no data", () => {
     render(<LearningInsights {...baseProps()} state={{}} now={0} />);

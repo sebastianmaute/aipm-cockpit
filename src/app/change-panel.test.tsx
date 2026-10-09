@@ -14,6 +14,7 @@ import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import type { ChangeItem, ChangeStatus, NoteLogEntry } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
   return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
@@ -285,6 +286,18 @@ describe("ChangePanel — task filter from the task-row badge", () => {
     );
     fireEvent.click(getByRole("button", { name: t("en-US", "ganttResetFilters") }));
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  // §102: Reset filters is the shared secondary Button at the toolbar size, the same
+  // control as the Gantt's and the RAID log's.
+  it("renders Reset filters as the secondary Button", () => {
+    const { getByRole } = render(
+      <ChangePanel {...linked} filterTaskId={7} onClearTaskFilter={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(getByRole("button", { name: t("en-US", "ganttResetFilters") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });
 

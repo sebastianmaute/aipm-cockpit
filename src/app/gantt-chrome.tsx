@@ -8,7 +8,7 @@ import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetColWidthsIcon, ResetSizeButton } from "./task-manager-ui";
 import { IconButton } from "./icon-button";
@@ -184,14 +184,9 @@ export function GanttToolbar({
         </Select>
       </label>
       {filtersActive && (
-        <button
-          type="button"
-          onClick={resetFilters}
-          title={t(lang, "resetFiltersHint")}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-        >
+        <Button variant="secondary" size="xs" onClick={resetFilters} title={t(lang, "resetFiltersHint")}>
           {t(lang, "ganttResetFilters")}
-        </button>
+        </Button>
       )}
       {/* Every display toggle lives in one popover — eight chips inline would
         * have swamped this row. It is a LEADING control, so the convention only

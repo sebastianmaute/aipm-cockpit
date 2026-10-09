@@ -105,6 +105,7 @@ import { makeEditGuard } from "./read-only-guard";
 import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
+import { Button } from "./button";
 import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -1718,13 +1719,9 @@ function TaskManagerInner() {
 
   const learningInsightsEl = (
     <div className="flex flex-col gap-4">
-      <button
-        type="button"
-        onClick={() => setActiveTab("settings")}
-        className="self-start rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
-      >
+      <Button variant="secondary" size="sm" onClick={() => setActiveTab("settings")} className="self-start">
         {t(lang, "wizardBack")}
-      </button>
+      </Button>
       <LearningInsights
         lang={lang}
         state={learning.state}

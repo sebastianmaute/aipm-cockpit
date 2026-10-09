@@ -18,7 +18,7 @@
 // position in the window.
 import type React from "react";
 import { Fragment, useImperativeHandle, useMemo, useRef } from "react";
-import { PlusIcon } from "./icons";
+import { TableAddRowButton } from "./table-add-row-button";
 import { type Lang, t } from "./i18n";
 import type { ChangeItem, RaidItem, Task } from "./types";
 import type { ProjectDocument } from "./document-model";
@@ -27,7 +27,6 @@ import { TaskRow } from "./task-row";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { Th } from "./task-manager-ui";
 import { SortResizeTh, type useSortHeaderProps } from "./report-table";
-import { INTERACTIVE } from "./interaction-styles";
 import { TOUR_ANCHORS } from "./app-tour";
 import { GUTTER_WIDTH_PX, colWidthStyle, type TaskColId } from "./open-points-table-geometry";
 import { TASK_ROW_ESTIMATE_PX, useTaskRowWindow, type TaskRowWindowHandle } from "./use-task-row-window";
@@ -192,8 +191,7 @@ export function TasksTable({
         {windowed && <SpacerRow height={rowWindow.padBottom} colSpan={visibleColumnCount + 1} />}
         <tr aria-rowindex={windowed ? addRowIndex : undefined}>
           <td colSpan={visibleColumnCount + 1}>
-            <button
-              type="button"
+            <TableAddRowButton
               onClick={onAdd}
               // `addTaskButton`, NOT `addTask`. The two keys carry the
               // same STRING in EN and DE but not the same MEANING:
@@ -211,12 +209,8 @@ export function TasksTable({
               // repo's rule says a repeated name is a QUESTION, not an
               // automatic fix — the answer here is that they are the same
               // action rendered twice. Do not disambiguate them.
-              aria-label={t(lang, "addTaskButton")}
-              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey dark:hover:bg-white/5 ${INTERACTIVE}`}
-            >
-              <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-              {t(lang, "addTaskButton")}
-            </button>
+              label={t(lang, "addTaskButton")}
+            />
           </td>
         </tr>
       </tbody>

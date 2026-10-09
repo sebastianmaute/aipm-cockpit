@@ -168,6 +168,67 @@ export function coerceLayout(value: unknown): "modern" | "classic" {
 // across renders or test cases.
 type SettingsListener = (next: Settings) => void;
 const settingsListeners = new Set<SettingsListener>();
+// Test seam: how many broadcast deliveries have run. An echo is otherwise
+// invisible — the sender's listener finds every slice equal and returns its own
+// object, so `setSettings` bails out and nothing re-renders.
+let broadcastDeliveries = 0;
+export function __settingsBroadcastDeliveriesForTests(): number {
+  return broadcastDeliveries;
+}
+
+/** `next` with every top-level slice whose VALUE equals `prev`'s replaced by
+ *  `prev`'s own object; `prev` itself when nothing changed.
+ *
+ *  ★★ Each instance hydrates from localStorage on its own, so two instances hold
+ *  EQUAL nested objects that are not the SAME objects. A broadcast hands the
+ *  receiver the sender's whole object, and consumers key on slice identity —
+ *  `useStorageBackend` memoises the backend on `storageConfig`. Without this, the
+ *  first change made through a freshly mounted instance (saving a template in
+ *  Settings → Templates) gave TaskManager a new `storageConfig` object of the same
+ *  value: a new backend, a full workspace reload, the load hold, and Settings
+ *  remounting on General.
+ *
+ *  ★ The comparison is `sameValue`, a structural walk, NOT `JSON.stringify`: a
+ *  slice can be large (`branding` holds up to three 700,000-character data-URL
+ *  images: the logo, the favicon and the start logo) and a broadcast reaches every live instance, so stringifying both sides
+ *  on every settings keystroke would cost megabytes of string work per receiver.
+ *  The walk compares a long string with one `===` and stops at the first
+ *  difference. It also never merges two different values: `NaN` and `null` are
+ *  not equal here, and a key holding `undefined` differs from an absent key (both
+ *  only cost a lost sharing, never a lost update). Settings hold no Date, Map or
+ *  class instance; such a field would compare by its own keys and needs a rethink. */
+export function shareUnchangedSlices(prev: Settings, next: Settings): Settings {
+  const prevRec = prev as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  let changed = Object.keys(prevRec).length !== Object.keys(next).length;
+  for (const [key, value] of Object.entries(next)) {
+    const old = prevRec[key];
+    if (key in prevRec && sameValue(old, value)) {
+      out[key] = old;
+    } else {
+      out[key] = value;
+      changed = true;
+    }
+  }
+  return changed ? (out as unknown as Settings) : prev;
+}
+
+/** Structural equality over the plain data settings hold: primitives by
+ *  `Object.is`, arrays by length and element, plain objects by key set and value. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bArr = b as unknown[];
+    return a.length === bArr.length && a.every((v, i) => sameValue(v, bArr[i]));
+  }
+  const aRec = a as Record<string, unknown>;
+  const bRec = b as Record<string, unknown>;
+  const aKeys = Object.keys(aRec);
+  if (aKeys.length !== Object.keys(bRec).length) return false;
+  return aKeys.every((k) => Object.prototype.hasOwnProperty.call(bRec, k) && sameValue(aRec[k], bRec[k]));
+}
 
 export function useSettings(): {
   settings: Settings;
@@ -185,14 +246,22 @@ export function useSettings(): {
   // refs are only touched in effects (never during render).
   const listenerRef = useRef<SettingsListener | null>(null);
   const lastSyncedRef = useRef<Settings | null>(null);
+  // This instance's last committed settings, read by the listener (which runs in
+  // ANOTHER instance's effect, never during this one's render).
+  const committedRef = useRef<Settings>(settings);
+  useEffect(() => {
+    committedRef.current = settings;
+  }, [settings]);
 
-  // Subscribe to cross-instance broadcasts. The listener records the incoming
-  // value before applying it, so this instance's broadcast effect recognises it
-  // as already-synced and does not echo it back.
+  // Subscribe to cross-instance broadcasts. The listener records the value it
+  // applies before applying it, so this instance's broadcast effect recognises
+  // it as already-synced and does not echo it back. It applies the incoming
+  // value with this instance's unchanged slices kept (`shareUnchangedSlices`).
   useEffect(() => {
     const listener: SettingsListener = (next) => {
-      lastSyncedRef.current = next;
-      setSettings(next);
+      const applied = shareUnchangedSlices(committedRef.current, next);
+      lastSyncedRef.current = applied;
+      setSettings(applied);
     };
     listenerRef.current = listener;
     settingsListeners.add(listener);
@@ -209,7 +278,9 @@ export function useSettings(): {
     if (lastSyncedRef.current === settings) return;
     lastSyncedRef.current = settings;
     for (const l of settingsListeners) {
-      if (l !== listenerRef.current) l(settings);
+      if (l === listenerRef.current) continue;
+      broadcastDeliveries += 1;
+      l(settings);
     }
   }, [settings, hydrated]);
 

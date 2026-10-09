@@ -2,9 +2,18 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetSafeModeCache } from "./safe-mode";
 import { ALL_MODULE_IDS } from "./feature-modules";
-import { defaultSettings } from "./settings-types";
+import { defaultSettings, type Settings } from "./settings-types";
 import { defaultNotificationsConfig } from "./settings-types";
-import { coerceLayout, migrateNextActionsLearning, migrateNotifications, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
+import {
+  __settingsBroadcastDeliveriesForTests,
+  coerceLayout,
+  migrateNextActionsLearning,
+  migrateNotifications,
+  SETTINGS_KEY,
+  shareUnchangedSlices,
+  useSettings,
+  writeSettings,
+} from "./use-settings";
 
 beforeEach(() => {
   localStorage.clear();
@@ -834,5 +843,89 @@ describe("migrateNextActionsLearning", () => {
   it("coerces store to the union, else local", () => {
     expect(migrateNextActionsLearning({ enabled: true, store: "turso" })).toEqual({ enabled: true, store: "turso" });
     expect(migrateNextActionsLearning({ enabled: "yes", store: "cloud" })).toEqual({ enabled: false, store: "local" });
+  });
+});
+
+// Two live instances (task-manager's and, say, the Templates section's) each hydrate
+// from localStorage on their own, so their nested objects are equal but not the same.
+// A broadcast used to replace the receiver's WHOLE object, handing it the sender's
+// separately parsed `storageConfig`; `useStorageBackend` memoises the backend on that
+// identity, so a template save rebuilt the backend, reloaded the workspace, and the
+// load hold remounted Settings on General. The receiver now keeps every top-level
+// slice whose value did not change.
+describe("useSettings cross-instance sync", () => {
+  async function twoHydrated() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ storageConfig: { kind: "browser" } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const b = renderHook(() => useSettings());
+    await waitFor(() => expect(b.result.current.hydrated).toBe(true));
+    return { a, b };
+  }
+
+  it("keeps the receiver's unchanged slices by reference and takes the changed one", async () => {
+    const { a, b } = await twoHydrated();
+    const before = a.result.current.settings;
+    act(() => b.result.current.setSettings((p) => ({ ...p, templates: [] })));
+    await waitFor(() => expect(a.result.current.settings.templates).toEqual([]));
+    expect(a.result.current.settings.storageConfig).toBe(before.storageConfig);
+    expect(a.result.current.settings.ai).toBe(before.ai);
+    expect(a.result.current.settings.notifications).toBe(before.notifications);
+  });
+
+  it("still takes a changed nested slice by value", async () => {
+    const { a, b } = await twoHydrated();
+    act(() => b.result.current.setSettings((p) => ({ ...p, storageConfig: { kind: "local-json" } })));
+    await waitFor(() => expect(a.result.current.settings.storageConfig).toEqual({ kind: "local-json" }));
+  });
+
+  // An echo is invisible in state (the sender finds every slice equal and keeps its
+  // own object), so this counts deliveries: one change, one receiver, one delivery.
+  it("delivers one change once and does not echo it back to the sender", async () => {
+    const { a, b } = await twoHydrated();
+    const before = __settingsBroadcastDeliveriesForTests();
+    act(() => b.result.current.setSettings((p) => ({ ...p, templates: [] })));
+    await waitFor(() => expect(a.result.current.settings.templates).toEqual([]));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(__settingsBroadcastDeliveriesForTests() - before).toBe(1);
+  });
+});
+
+describe("shareUnchangedSlices", () => {
+  const base = { ...defaultSettings, templates: [{ id: "t", name: "T" }] } as unknown as Settings;
+
+  it("returns prev itself when every slice is equal by value", () => {
+    const next = JSON.parse(JSON.stringify(base)) as Settings;
+    expect(shareUnchangedSlices(base, next)).toBe(base);
+  });
+
+  it("keeps equal slices by reference and takes the changed one", () => {
+    const next = { ...JSON.parse(JSON.stringify(base)), language: "de" } as Settings;
+    const out = shareUnchangedSlices(base, next);
+    expect(out.language).toBe("de");
+    expect(out.storageConfig).toBe(base.storageConfig);
+    expect(out.templates).toBe(base.templates);
+  });
+
+  it("takes a nested change inside an otherwise equal slice", () => {
+    const next = { ...base, templates: [{ id: "t", name: "Renamed" }] } as unknown as Settings;
+    expect(shareUnchangedSlices(base, next).templates).toBe(next.templates);
+  });
+
+  it("never treats two different values as equal", () => {
+    // JSON would print both of these pairs the same way.
+    const nan = { ...base, ai: { ...base.ai, maxTokens: Number.NaN } } as unknown as Settings;
+    const nul = { ...base, ai: { ...base.ai, maxTokens: null } } as unknown as Settings;
+    expect(shareUnchangedSlices(nan, nul).ai).toBe(nul.ai);
+    const withUndef = { ...base, ai: { ...base.ai, extra: undefined } } as unknown as Settings;
+    expect(shareUnchangedSlices(base, withUndef).ai).toBe(withUndef.ai);
+  });
+
+  it("drops a slice that next no longer carries", () => {
+    const { templates: _dropped, ...rest } = base;
+    void _dropped;
+    const out = shareUnchangedSlices(base, rest as Settings);
+    expect(out).not.toBe(base);
+    expect("templates" in out).toBe(false);
   });
 });

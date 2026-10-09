@@ -7,6 +7,7 @@ import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { useFsaSupported } from "./use-fsa-supported";
 import { buildRowTokens } from "./row-tokens";
+import { Button } from "./button";
 
 export interface ProjectSwitcherProps {
   /** Name of the active project, or null when none is selected. */
@@ -175,19 +176,20 @@ export function ProjectSwitcher({
     // alone leaves the button overflowing them (max-w-[16rem] still caps it).
     <div className="flex min-w-0 items-center gap-1">
     <div ref={ref} data-tour-id={dataTourId} className="relative min-w-0">
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
         title={t(lang, "projectCurrentLabel")}
-        className="flex w-full min-w-0 max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
+        className="flex w-full min-w-0 max-w-[16rem] items-center gap-2"
       >
         <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>
         <ChevronDownIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
-      </button>
+      </Button>
 
       {open && (
         <div

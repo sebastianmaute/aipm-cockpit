@@ -32,6 +32,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
 
 export interface ConfirmOptions {
@@ -139,14 +140,9 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
                 {pending.message}
               </p>
               <div className="flex justify-end gap-2">
-                <button
-                  ref={cancelRef}
-                  type="button"
-                  onClick={() => settle(false)}
-                  className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-                >
+                <Button ref={cancelRef} variant="secondary" size="sm" onClick={() => settle(false)}>
                   {pending.cancelLabel ?? t(lang, "cancel")}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => settle(true)}

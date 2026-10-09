@@ -30,7 +30,6 @@ import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
 import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
-import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { Input, Textarea } from "./form-controls";
 import { Spinner } from "./spinner";
@@ -480,13 +479,9 @@ export function Step0ImportPanel({
               {t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}
             </span>
             {/* Cancel aborts the AI call; during the (fast, local) read phase abortRef is null so this is a no-op. */}
-            <button
-              type="button"
-              onClick={() => abortRef.current?.abort()}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
-            >
+            <Button variant="secondary" size="sm" onClick={() => abortRef.current?.abort()}>
               {t(lang, "cancel")}
-            </button>
+            </Button>
           </Card>
         </Modal>
       )}

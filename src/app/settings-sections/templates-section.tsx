@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from "react";
 import { type Lang, t } from "../i18n";
-import { INTERACTIVE } from "../interaction-styles";
 import { Checkbox, Input } from "../form-controls";
 import { EmptyState } from "../empty-state";
 import { deriveMode } from "../feature-modules";
@@ -199,14 +198,15 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                     EVERY row regardless of template name (see
                     use-row-tokens.ts's note on this landmine). Set
                     unconditionally, not only under a collision. */}
-                <button
-                  type="button"
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => removeTemplate(tpl.id)}
                   aria-label={rowLabel(t(lang, "templatesDelete"), token)}
-                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-ui-purple dark:text-ui-purple-strong hover:bg-surface-muted ${INTERACTIVE}`}
+                  className="shrink-0"
                 >
                   {t(lang, "templatesDelete")}
-                </button>
+                </Button>
               </li>
               );
             })}

@@ -16,6 +16,7 @@ import {
   sanitizeVersionRetention,
 } from "../version-history";
 import { INTERACTIVE } from "../interaction-styles";
+import { Button } from "../button";
 import { Checkbox, Input } from "../form-controls";
 import { FieldHint } from "../field-hint";
 
@@ -75,22 +76,22 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           aria-label={t(lang, "modeApplySimplePreset")}
           onClick={() => setDraft([])}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "modePresetSimple")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           aria-label={t(lang, "modeApplyAdvancedPreset")}
           onClick={() => setDraft([...ALL_MODULE_IDS])}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "modePresetAdvanced")}
-        </button>
+        </Button>
       </div>
 
       <fieldset className="flex flex-col gap-2">

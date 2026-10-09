@@ -819,14 +819,15 @@ export function TimelogPanel({
         unmatchedHours={applyPlan.unmatchedHours}
       />
       {!confirming ? (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={!canApplyToBudget(applyState)}
           onClick={openConfirm}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 print:hidden ${INTERACTIVE}`}
+          className="print:hidden"
         >
           {t(lang, "timelogApply")}
-        </button>
+        </Button>
       ) : (
         <TimelogApplyConfirm
           lang={lang}

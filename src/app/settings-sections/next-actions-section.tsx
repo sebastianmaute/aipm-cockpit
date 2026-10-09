@@ -185,13 +185,14 @@ export function NextActionsSection({
         <p className="mb-3 text-xs text-muted-foreground">{t(lang, "weightSuggestNone")}</p>
       )}
       {suggest.result?.recommendEnableLearning && learningEnabled && learningConfig && onChangeLearningConfig && !learningConfig.enabled && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => onChangeLearningConfig({ ...learningConfig, enabled: true })}
-          className={`mb-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+          className="mb-3"
         >
           {t(lang, "weightSuggestEnableLearning")}
-        </button>
+        </Button>
       )}
 
       {FIELDS.map((f) => {
@@ -306,15 +307,15 @@ export function NextActionsSection({
           </label>
 
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={async () => {
                 if (await confirm({ message: t(lang, "settingsLearningResetConfirm") })) onResetLearning();
               }}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "settingsLearningReset")}
-            </button>
+            </Button>
             <Button
               variant="secondary"
               size="sm"

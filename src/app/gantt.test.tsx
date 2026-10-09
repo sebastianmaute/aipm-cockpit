@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { buttonClassFor } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
 import { DEFAULT_PREFS, ROW_HEIGHT_PX, type GanttPrefs, savePrefs } from "./gantt-engine";
@@ -976,6 +977,16 @@ describe("GanttToolbar control order", () => {
     render(<GanttPanel {...BASE_PROPS} />);
     // A leading control only has to PRECEDE the group, so no `contiguous` here.
     expectButtonOrder(["ganttViewMenu", "printHint"]);
+  });
+
+  // §102: Reset filters is the shared secondary Button at the toolbar size. It
+  // renders only while a filter is active, so the test seeds one.
+  it("renders Reset filters as the secondary Button", () => {
+    savePrefs({ ...DEFAULT_PREFS, priorities: ["High"] });
+    render(<GanttPanel {...BASE_PROPS} />);
+    expect(screen.getByRole("button", { name: t("en-US", "ganttResetFilters") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });
 

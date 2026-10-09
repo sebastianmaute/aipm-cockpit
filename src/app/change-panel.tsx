@@ -61,6 +61,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton 
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { Checkbox, Select } from "./form-controls";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
@@ -478,17 +479,17 @@ function ChangePanelBody({
       />
       <PrintButton lang={lang} />
       {filtersActive && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={() => {
             pf.resetFilters();
             if (filterTaskId !== null) onClearTaskFilter?.();
           }}
           title={t(lang, "resetFiltersHint")}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "ganttResetFilters")}
-        </button>
+        </Button>
       )}
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetPaneSize} lang={lang} />

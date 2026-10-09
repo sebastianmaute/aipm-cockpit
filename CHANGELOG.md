@@ -45,6 +45,16 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
+- **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
+  re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,
+  the Change log and the RAID log; the Resources calendar's Outlook import; both Reset learned data buttons,
+  the turn-on-learning suggestion and the Learning insights Back button; Cancel in confirmation dialogs and in
+  the import wizard's loading window; the Simple and Advanced mode presets; the project switcher, which now
+  looks like the app's other secondary buttons; and Delete on a saved template, which now uses the pink
+  delete style. The
+  "+ Add" row under the task list and the RAID log is now one shared control. The Learning insights view's
+  Back and Reset learned data now show a focus outline when reached by keyboard.
+
 - **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
   The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
   notes window beside the editor. As before, a note added there is saved at once and kept if you cancel
@@ -146,6 +156,13 @@ longer carries its own changelog comment.
   Center's AI analysis.
 
 ### Fixed
+
+- **Saving or deleting a template no longer reloads the app and drops you back on Settings → General.**
+  The Templates section keeps its own copy of your settings. Its change made the app treat the unchanged
+  storage setting as a new one, reload the whole project and reopen Settings at General. Only the settings
+  that actually changed are now passed on. Other views that keep their own copy and save settings (Tasks,
+  Resources, Timelog, the budget forecast, the burndown chart, Help, and the AI Assistant and Reports
+  settings: AI consent, the chat model and extra reports) could reload the project the same way; only the Templates case was reproduced.
 
 - **Document images no longer go missing after switching projects on single-database Turso storage
   (§207).** With Turso storage and no Turso project selected, switching to another project in the
