@@ -158,9 +158,10 @@ a Markdown fence the decoder's regex misses reads as absent (§630's "Known limi
 ### The destructive-refusal banner's dismissal (`use-storage-banner-reshow.ts`)
 
 Moved here from the comment above `destructiveRefusalSeen`, then in `task-manager.tsx`, to give that
-file headroom under its size baseline (verbatim then; the seed note below has since been repointed); the reconcile itself now lives in `use-storage-banner-reshow.ts`
-(§491). "The SAME render-time reconcile" below refers to the one just above it in that file, for the
-truncation banner (`truncationBannerDismissed`).
+file headroom under its size baseline (verbatim then; the seed note below has since been repointed);
+the reconcile itself now lives in `use-storage-banner-reshow.ts` (§491). "The SAME render-time
+reconcile" below refers to the one just above it in that file, for the truncation banner
+(`truncationBannerDismissed`).
 
 ★★ The SAME render-time reconcile for the OTHER saving-paused cause (an
 effect is impossible — `set-state-in-effect` is banned and fatal). Without
