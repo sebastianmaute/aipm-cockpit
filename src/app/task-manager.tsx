@@ -1338,7 +1338,7 @@ function TaskManagerInner() {
   // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
   const showTursoListLoading =
     hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
-  const demoBoot = useDemoIntentOnBoot({ lang, weeks: DEMO_SNAPSHOT_WEEKS, showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending && !showTursoListLoading, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
+  const demoBoot = useDemoIntentOnBoot({ lang, weeks: DEMO_SNAPSHOT_WEEKS, showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending, listLoaded: portfolioMode !== "turso" || tursoListLoaded, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no

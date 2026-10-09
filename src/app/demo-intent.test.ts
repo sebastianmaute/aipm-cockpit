@@ -65,7 +65,7 @@ describe("useDemoIntentOnBoot", () => {
 
   function deps(over: Partial<DemoBootDeps> = {}): DemoBootDeps {
     return {
-      lang: "en-US", weeks: 27, showEmptyState: false, settled: false, tursoUsable: true,
+      lang: "en-US", weeks: 27, showEmptyState: false, settled: false, listLoaded: true, tursoUsable: true,
       showToast: vi.fn(), showToastAction: vi.fn(), loadDemo: vi.fn(async () => {}),
       ...over,
     };
@@ -121,6 +121,62 @@ describe("useDemoIntentOnBoot", () => {
     expect(readDemoIntent()).toBeNull();
   });
 
+  // A failed Turso list fetch (a mistyped token) never flips `tursoListLoaded`; the boot must not
+  // read that as "projects present" and spend the intent beside the storage-error banner.
+  it("Turso list fetch failed: no toast, no note, and the intent is kept", () => {
+    setDemoIntent();
+    const d = deps({ settled: true, listLoaded: false });
+    const { result, rerender } = renderHook(() => useDemoIntentOnBoot(d));
+    rerender();
+    expect(d.showToastAction).not.toHaveBeenCalled();
+    expect(result.current.connectedNote).toBe(false);
+    expect(readDemoIntent()).toBe("turso-setup");
+  });
+
+  // A passphrase-locked boot never fetches the list either: the same gate holds.
+  it("passphrase-locked boot: no toast, no note, and the intent is kept", () => {
+    setDemoIntent();
+    const d = deps({ settled: true, listLoaded: false, showEmptyState: false });
+    const { result } = renderHook(() => useDemoIntentOnBoot(d), { reactStrictMode: true });
+    expect(d.showToastAction).not.toHaveBeenCalled();
+    expect(result.current.connectedNote).toBe(false);
+    expect(readDemoIntent()).toBe("turso-setup");
+  });
+
+  it("after a later successful load, acts once and then clears", () => {
+    setDemoIntent();
+    let d = deps({ settled: true, listLoaded: false });
+    const { result, rerender } = renderHook(() => useDemoIntentOnBoot(d));
+    expect(readDemoIntent()).toBe("turso-setup");
+    d = { ...d, listLoaded: true };
+    rerender();
+    rerender();
+    expect(d.showToastAction).toHaveBeenCalledTimes(1);
+    expect(readDemoIntent()).toBeNull();
+    // ...or, on an empty portfolio, the note:
+    window.localStorage.clear();
+    setDemoIntent();
+    let e = deps({ settled: true, listLoaded: false });
+    const second = renderHook(() => useDemoIntentOnBoot(e));
+    expect(second.result.current.connectedNote).toBe(false);
+    e = { ...e, listLoaded: true, showEmptyState: true };
+    second.rerender();
+    expect(second.result.current.connectedNote).toBe(true);
+    expect(e.showToastAction).not.toHaveBeenCalled();
+    expect(readDemoIntent()).toBeNull();
+    expect(result.current.connectedNote).toBe(false);
+  });
+
+  it("holds the created-locally notice until the list is known too", () => {
+    setDemoCreatedLocally();
+    let d = deps({ settled: true, listLoaded: false });
+    const { rerender } = renderHook(() => useDemoIntentOnBoot(d));
+    expect(d.showToast).not.toHaveBeenCalled();
+    d = { ...d, listLoaded: true };
+    rerender();
+    expect(d.showToast).toHaveBeenCalledTimes(1);
+  });
+
   it("offers no toast when Turso is not usable", () => {
     setDemoIntent();
     const d = deps({ settled: true, tursoUsable: false });
@@ -129,8 +185,10 @@ describe("useDemoIntentOnBoot", () => {
     expect(readDemoIntent()).toBeNull();
   });
 
-  // Review Focus 3: StrictMode double-invokes the initializer and the effect. A read-and-clear in
-  // the initializer would hand the second call an empty slot and the note would never show.
+  // Review Focus 3. StrictMode double-invokes the initializer and the effect; the note must survive
+  // that (React 19 keeps the first initializer result, so this alone does NOT catch a read-and-clear
+  // in the initializer). What makes a read-and-clear wrong is timing: it spends the intent before
+  // the boot knows the answer, which "waits until the boot settles" and the list-failure tests pin.
   it("under StrictMode still shows the note", () => {
     setDemoIntent();
     const { result } = renderHook(() => useDemoIntentOnBoot(deps({ showEmptyState: true })), { reactStrictMode: true });

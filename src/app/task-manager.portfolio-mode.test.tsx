@@ -147,6 +147,26 @@ describe("TaskManager portfolio mode (Turso)", () => {
     expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBeNull();
   }, 45000);
 
+  // A failed list fetch (a mistyped token) is not "projects present": no "Turso connected" offer
+  // beside the storage-error banner, and the intent waits for a successful load.
+  it("keeps the guided-setup intent, and offers nothing, while the Turso list fetch fails", async () => {
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
+    window.localStorage.setItem(DEMO_INTENT_KEY, "turso-setup");
+    seedTursoSettings();
+    wiring.muteSnapshotErrors = true;
+    listProjects.mockImplementation(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    render(<TaskManager />);
+
+    await waitFor(() => expect(listProjects).toHaveBeenCalled(), { timeout: 40000 });
+    await waitFor(() => expect(wiring.backendSucceeded).toBe(true), { timeout: 40000 });
+    expect(await screen.findByRole("region", { name: "Storage connection problem" })).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "demoTursoConnectedNote", DEMO_SNAPSHOT_WEEKS))).toBeNull();
+    expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBe("turso-setup");
+  }, 45000);
+
   // ★ Pins the `reportStorageOutcome` wiring at the `useTursoProjectList` call
   // site (§491): the hook's own test passes a mock, so only a mounted TaskManager
   // can show that a failed list fetch reports to the storage-status bridge.

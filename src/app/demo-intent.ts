@@ -9,9 +9,11 @@
 //     portfolio to file mode and reloads, so a toast shown before the reload is never seen. The
 //     next boot shows it instead.
 //
-// ★★ Both are READ in a `useState` initializer and CLEARED in an effect. StrictMode double-invokes
-// the initializer, so a read-and-clear there hands the second call an empty slot and the note
-// never shows. The effects run their one-shot work behind a ref, because StrictMode re-runs them.
+// ★★ Both are READ in a `useState` initializer and CLEARED in an effect, once the boot knows the
+// answer (has the project list loaded? is the empty state showing?). A read-and-clear in the
+// initializer would spend the intent before that answer exists — a boot whose list fetch fails, or
+// that waits on a passphrase, would lose it. The effects run their one-shot work behind a ref,
+// because StrictMode re-runs them.
 
 import { useEffect, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
@@ -57,9 +59,12 @@ export interface DemoBootDeps {
   weeks: number;
   /** The empty state is up. Once it shows, the intent has its answer. */
   showEmptyState: boolean;
-  /** The main tree is up (hydrated, no load hold, no Turso list fetch in flight), so a toast
-   *  shown now is seen, and a Turso portfolio with projects has been told apart from an empty one. */
+  /** The main tree is up (hydrated, no load hold), so a toast shown now is seen. */
   settled: boolean;
+  /** The project list is KNOWN: always in file mode; in Turso mode only once a fetch SUCCEEDED
+   *  (`tursoListLoaded`). A failed fetch (a mistyped token) or a passphrase-locked boot never
+   *  flips it, so neither is mistaken for "projects present", and the intent waits for a good load. */
+  listLoaded: boolean;
   /** `isTursoUsable(portfolioMode, tursoConfig)` — the note is only true with a usable config. */
   tursoUsable: boolean;
   showToast: (kind: "info", text: string) => void;
@@ -71,7 +76,8 @@ export interface DemoBootDeps {
  *  the empty state's connected note, or (projects present) a toast offering the demo; the
  *  created-locally notice becomes a toast. */
 export function useDemoIntentOnBoot(deps: DemoBootDeps): { connectedNote: boolean } {
-  const { lang, weeks, showEmptyState, settled, tursoUsable, showToast, showToastAction, loadDemo } = deps;
+  const { lang, weeks, showEmptyState, tursoUsable, showToast, showToastAction, loadDemo } = deps;
+  const settled = deps.settled && deps.listLoaded;
   const [intent] = useState(readDemoIntent);
   const [createdLocally] = useState(readDemoCreatedLocally);
   const intentHandled = useRef(false);
