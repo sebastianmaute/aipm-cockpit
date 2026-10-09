@@ -8151,7 +8151,7 @@ as a live observation about the code, not as history.
 
 ## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
 
-**Status:** **Update 2026-10-09 (batch 22):** every hand-rolled `<button>` in `src/app` that drew one of `Button`'s sizes exactly (`sm` = `px-3 py-1.5 text-sm`, `xs` = `px-2.5 py-1.5 text-xs`) is gone. There were 18, plus two dashed add-rows that moved onto a new shared primitive. Every converted site is pinned by a test, e.g. `npx vitest run src/app/confirm-dialog.test.tsx -t "secondary Button"`; the full commands are below.
+**Status:** **Update 2026-10-09 (batch 22):** every hand-rolled `<button>` in `src/app` that drew the plain bordered look of `Button`'s `secondary` variant (a `border-line` border and no colour of its own) at one of `Button`'s exact sizes (`sm` = `px-3 py-1.5 text-sm`, `xs` = `px-2.5 py-1.5 text-xs`) is gone. Buttons at those sizes with a look or role of their own remain, listed at the end of this update. There were 18, plus two dashed add-rows that moved onto a new shared primitive. Every converted site is pinned by a test, e.g. `npx vitest run src/app/confirm-dialog.test.tsx -t "secondary Button"`; the full commands are below.
 
 Onto `Button variant="secondary"`; none changes size:
 - TimeLog: Fetch, Refresh and Refresh & re-apply (`timelog-panel-toolbar.tsx`) and Apply to budget (`timelog-panel.tsx`), all `sm`, the size of the `destructive` Clear all beside them.
@@ -8167,14 +8167,14 @@ Onto `Button variant="destructive"`: a user template's Delete (`settings-section
 
 Onto a new `TableAddRowButton` (`table-add-row-button.tsx`): the dashed full-width "+ Add …" row that trails Open Points (`tasks-section-rows.tsx`) and RAID (`raid-panel-rows.tsx`). It is deliberately not a `Button` variant: `Button`'s bordered chip would make the row a box, and a caller `className` cannot strip the variant's border, because Tailwind resolves a conflict by stylesheet order.
 
-What a user can see change, beyond the primitive's `cursor-pointer` and disabled styling, which every converted button gains:
+What a user can see change, beyond the primitive's `cursor-pointer` and disabled styling, which every converted button gains, and the shared transition, focus ring and press feedback (`INTERACTIVE`), which those that lacked it gain:
 - The TimeLog four gain the `bg-surface` fill and `hover:bg-surface-muted` they lacked. Apply's disabled opacity goes from 40% to 50%.
 - Outlook import loses its `hover:border-ui-dark-blue` and its dark-mode `text-ui-light-grey`.
-- The Learning insights view's Reset learned data changes in five ways: it goes from `rounded` to `rounded-md`, from normal weight to `font-medium`, gains the `bg-surface` fill, its hover goes from `bg-surface-muted/40` to `bg-surface-muted`, and it gains the focus ring it had none of. Back gains a focus ring too.
-- ★ The project switcher's trigger changes most. It loses its `bg-surface-muted` fill, `font-semibold`, `text-ui-dark-blue`, dark-mode `text-ui-light-grey` and `dark:hover:bg-surface`, and now reads as an ordinary secondary button in both headers. This was the owner's call (2026-10-09, "include the 7 remaining exact-size candidates"); eye-check it.
+- The Learning insights view's Reset learned data changes in five ways: it goes from `rounded` to `rounded-md`, from normal weight to `font-medium`, gains the `bg-surface` fill, its hover goes from `bg-surface-muted/40` to `bg-surface-muted`, and it gains the focus ring it had none of. Back gains the focus ring, transition and press feedback it had none of.
+- ★ The project switcher's trigger changes most. It loses its `bg-surface-muted` fill, `font-semibold`, `text-ui-dark-blue`, dark-mode `text-ui-light-grey` and `dark:hover:bg-surface`, goes from `font-semibold` to `font-medium`, gains the press feedback, and now reads as an ordinary bordered secondary button in both headers, where the other top-bar controls are borderless icon buttons. This was the owner's call (2026-10-09, "include the 7 remaining exact-size candidates"); eye-check it.
 - The mode presets gain the fill and `font-medium`.
-- The step-0 Cancel's text goes from muted to `text-foreground`.
-- The template Delete goes from purple text on a neutral border to the destructive pink border and text.
+- The step-0 Cancel's text goes from muted to `text-foreground`, and its hover from darkening the text to the `bg-surface-muted` fill.
+- The template Delete goes from purple text on a neutral border to the destructive pink border and text, and gains the `bg-surface` fill.
 - RAID's add-row gains `dark:hover:bg-white/5`, the one class it lacked against Open Points'.
 - The other six already drew the secondary look and gain only what every one gains.
 
@@ -8196,12 +8196,16 @@ Mutants, each a one-line edit to a converted site, all killed:
 
 Reproduce, one command per group:
 ```bash
-npx vitest run src/app/timelog-panel.test.tsx src/app/gantt.test.tsx src/app/resources-panel.test.tsx src/app/learning-insights.test.tsx src/app/change-panel.test.tsx src/app/raid-panel.test.tsx src/app/confirm-dialog.test.tsx src/app/settings-sections/next-actions-section.test.tsx src/app/task-manager.learning-back.test.tsx src/app/project-switcher.test.tsx src/app/settings-sections/mode-section.test.tsx src/app/settings-sections/templates-section.test.tsx src/app/step0-import-panel.test.tsx -t "secondary Button|destructive Button"  # 15 tests
+npx vitest run src/app/timelog-panel.test.tsx src/app/gantt.test.tsx src/app/resources-panel.test.tsx src/app/learning-insights.test.tsx src/app/change-panel.test.tsx src/app/raid-panel.test.tsx src/app/confirm-dialog.test.tsx src/app/settings-sections/next-actions-section.test.tsx src/app/task-manager.learning-back.test.tsx src/app/project-switcher.test.tsx src/app/settings-sections/mode-section.test.tsx src/app/settings-sections/templates-section.test.tsx src/app/step0-import-panel.test.tsx -t "secondary Button|destructive Button"  # 14 tests
 npx vitest run src/app/table-add-row-button.test.tsx src/app/tasks-section-rows.test.tsx -t "TableAddRowButton|trailing add row"  # 3 tests
 ```
 plus the RAID row's own assertion in the "inline add row is present" test.
 
-★ The first round's inventory scan matched `<button[^>]*>` and stopped at the `>` of any `=>` arrow in an `onClick`. Every button whose handler came before its `className` was invisible to it, which is how the three Reset filters looked like one site. A scan that reads the class from a window after `<button` now finds no hand-rolled button at an exact `Button` size.
+★ The first round's inventory scan matched `<button[^>]*>` and stopped at the `>` of any `=>` arrow in an `onClick`. Every button whose handler came before its `className` was invisible to it, which is how the three Reset filters looked like one site. A scan that reads each opening tag whole finds these still hand-rolled at an exact `Button` size, each with a look or role no `Button` variant draws, so they are out of scope here:
+- confirm buttons: the confirm dialog's own (`confirm-dialog.tsx`, coloured by the dialog's tone) and the type-to-confirm dialog's filled pink one (`type-to-confirm-dialog.tsx`);
+- coloured toolbar buttons: Open Points' dark-blue outlined Jira sync and green Send inquiry (`tasks-section-toolbar.tsx`);
+- the Change log's blue and the RAID log's purple task-filter chips (`change-panel.tsx`, `raid-panel-toolbar.tsx`);
+- other roles: the multiselect trigger (`filter-multiselect.tsx`), a menu item in the change editor (`change-edit-modal.tsx`), the Help view's tabs (`help-view.tsx`), a `SegmentedControl` option (`segmented-control.tsx`) and a sidebar entry (`sidebar-nav.tsx`).
 
 Most other secondary-looking chips use `px-2 py-1 text-xs`, a size `Button` does not have. Converting them to `xs` would grow each by 4px, so they wait for a decision on adding that size. Still a ratchet.
 

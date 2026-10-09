@@ -55,10 +55,10 @@ describe("TaskManager — saving a template", () => {
     };
     const settle = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
-    // The Templates section's own settings instance hydrates asynchronously. Without the
-    // fix, the app was measured falling into the load hold within this pause, before any
-    // save (the skeleton replaced Settings); in the browser it showed on the save. Either
-    // way Settings came back on General.
+    // Let the Templates section's own settings instance hydrate before typing. Measured on
+    // the unfixed code (twice): nothing is broadcast during this pause, and the save then
+    // broadcasts once, changing only `templates` — which was enough to bring Settings back
+    // on General.
     await settle(1000);
     expect(currentSection()).toBe("Templates");
 

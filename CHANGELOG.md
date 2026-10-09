@@ -45,12 +45,13 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
-- **Seventeen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
+- **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
   re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,
   the Change log and the RAID log; the Resources calendar's Outlook import; both Reset learned data buttons,
   the turn-on-learning suggestion and the Learning insights Back button; Cancel in confirmation dialogs and in
-  the import wizard's loading window; the Simple and Advanced mode presets; and the project switcher, which
-  now looks like the other header buttons. Deleting a saved template now uses the pink delete style. The
+  the import wizard's loading window; the Simple and Advanced mode presets; the project switcher, which now
+  looks like the app's other secondary buttons; and Delete on a saved template, which now uses the pink
+  delete style. The
   "+ Add" row under the task list and the RAID log is now one shared control. The Learning insights view's
   Back and Reset learned data now show a focus outline when reached by keyboard.
 
@@ -157,9 +158,11 @@ longer carries its own changelog comment.
 ### Fixed
 
 - **Saving or deleting a template no longer reloads the app and drops you back on Settings → General.**
-  Some settings panels keep their own copy of your settings, and their first change made the app treat the
-  unchanged storage setting as a new one, reload the whole project and reopen Settings at General. Any
-  such panel could trigger it, not only Templates. Only the settings that actually changed are now passed on.
+  The Templates section keeps its own copy of your settings. Its change made the app treat the unchanged
+  storage setting as a new one, reload the whole project and reopen Settings at General. Only the settings
+  that actually changed are now passed on. Other views that keep their own copy and save settings (Tasks,
+  Resources, Timelog, the budget forecast, the burndown chart and Help) could reload the project the same
+  way; only the Templates case was reproduced.
 
 - **Document images no longer go missing after switching projects on single-database Turso storage
   (§207).** With Turso storage and no Turso project selected, switching to another project in the
