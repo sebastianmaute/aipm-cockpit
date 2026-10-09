@@ -5,7 +5,8 @@ import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Resource, Task } from "./types";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { CELL_BUTTON } from "./control-classes";
 
 interface Props {
   lang: Lang;
@@ -50,7 +51,7 @@ export function WorkloadOverdueTriage({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`${t(lang, "workloadTriageOverdue")} – ${rowDisplay}`}
-        className={`rounded-md border border-transparent px-2 py-0.5 font-medium tabular-nums text-ui-pink-strong hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+        className={`${CELL_BUTTON} px-2 py-0.5 font-medium tabular-nums text-ui-pink-strong`}
       >
         {count}
       </button>

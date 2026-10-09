@@ -8,7 +8,7 @@
 // identical "Notes log" labels would fail WCAG 2.4.6.
 import { DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { CELL_BUTTON } from "./control-classes";
 
 export interface NotesBadgeButtonProps {
   /** Number of note-log entries (rendered as the count). */
@@ -27,7 +27,7 @@ export function NotesBadgeButton({ count, entityName, lang, onClick }: NotesBadg
       onClick={onClick}
       aria-label={`${t(lang, "noteLogTitle")} – ${entityName}`}
       title={t(lang, "noteLogTitle")}
-      className={`inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+      className={`${CELL_BUTTON} inline-flex items-center gap-1 px-2 py-0.5 text-muted-foreground`}
     >
       <DocumentTextIcon aria-hidden="true" className="h-4 w-4" />
       <span className="text-xs font-medium">{count}</span>

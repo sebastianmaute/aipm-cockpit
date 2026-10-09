@@ -47,7 +47,6 @@ import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
-import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -59,6 +58,7 @@ import { diffFields, type ActivityKind, type FieldChange } from "./activity-log"
 import type { Milestone } from "./types";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { MILESTONE_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
+import { CELL_BUTTON } from "./control-classes";
 
 const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
 type MilestoneCol = keyof typeof MILESTONE_COL_WIDTHS;
@@ -559,7 +559,7 @@ function MilestonesPanelBody({
                           // containment, not prefix.
                           aria-label={token}
                           title={m.name}
-                          className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green ${INTERACTIVE}`}
+                          className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground`}
                           onClick={() => {
                             setIsNew(false);
                             setEditing(m);

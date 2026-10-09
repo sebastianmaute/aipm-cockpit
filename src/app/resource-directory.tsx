@@ -23,7 +23,7 @@ import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manag
 import { DataTable } from "./data-table";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { EmptyState } from "./empty-state";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Checkbox, Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
@@ -32,6 +32,7 @@ import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
+import { CELL_BUTTON } from "./control-classes";
 
 const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
@@ -430,7 +431,7 @@ function ResourceDirectoryInner({
                       // unconditionally and why 2.5.3 holds by containment,
                       // not prefix.
                       aria-label={token}
-                      className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      className={`${CELL_BUTTON} px-2 py-0.5 font-medium text-foreground`}
                     >
                       {resourceDisplayName(r)}
                     </button>

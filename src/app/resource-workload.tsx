@@ -16,6 +16,7 @@ import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { DataTable } from "./data-table";
 import { useConfirm } from "./confirm-dialog";
 import { Button } from "./button";
+import { CELL_BUTTON } from "./control-classes";
 
 function absenceTypeLabel(type: AbsenceType, lang: Lang): string {
   switch (type) {
@@ -276,7 +277,7 @@ export function ResourceWorkload({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onEditResource(row.resource); }}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+                  className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground`}
                   title={row.display}
                   // WCAG 2.5.3 holds by CONTAINMENT: the token is the visible
                   // `row.display` with at most a trailing occurrence index.
@@ -339,7 +340,7 @@ export function ResourceWorkload({
                   // text, and the absence chips' type colour below, would
                   // conflict with a variant's own text and fill classes.
                   aria-label={rowLabel(String(row.weeklyHours), rowToken)}
-                  className={`rounded-md border border-transparent px-2.5 py-1.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+                  className={`${CELL_BUTTON} px-2.5 py-1.5 text-xs ${
                     row.shift
                       ? "text-foreground"
                       : "text-muted-foreground italic"
@@ -519,7 +520,7 @@ export function ResourceWorkload({
                         String(row.weeklyHours),
                         rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display,
                       )}
-                      className={`rounded-md border border-transparent px-2.5 py-1.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
+                      className={`${CELL_BUTTON} px-2.5 py-1.5 text-xs ${
                         row.shift
                           ? "text-foreground"
                           : "text-muted-foreground italic"

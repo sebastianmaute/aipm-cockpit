@@ -26,6 +26,7 @@ import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowTokens } from "./use-row-tokens";
 import type { PlanningCol, PlanSortKey, RollupCol } from "./resources-panel-columns";
 import { Button } from "./button";
+import { CELL_BUTTON } from "./control-classes";
 
 /** One planning-grid row — a resource with its derived capacity + cost. */
 export type PlanRow = {
@@ -165,7 +166,7 @@ export function PlanningTable({
                       // the visible content. WCAG 2.5.3 holds by CONTAINMENT —
                       // the visible "John Smith" sits inside "John Smith (2)".
                       aria-label={token}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green dark:text-ui-light-grey"
+                      className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground dark:text-ui-light-grey`}
                     >
                       {resourceDisplayName(r)}
                     </button>

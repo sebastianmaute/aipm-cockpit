@@ -40,6 +40,7 @@ import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, type BulkField } from "./bulk-edit-panel";
 import { STAKEHOLDER_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
+import { CELL_BUTTON } from "./control-classes";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
@@ -486,7 +487,7 @@ function StakeholdersPanelBody({
                         // not prefix.
                         aria-label={token}
                         title={item.name}
-                        className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+                        className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground`}
                       >
                         {item.name}
                       </button>

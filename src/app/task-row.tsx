@@ -35,6 +35,7 @@ import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDepende
 
 import { useTaskLookup, useTaskRowContext } from "./task-row-context";
 import { Button } from "./button";
+import { CELL_BUTTON } from "./control-classes";
 
 // ★★ Re-exported so existing importers and test mocks keep resolving these
 // from "./task-row". See the header of `task-row-context.tsx` for why removing
@@ -247,7 +248,7 @@ function TaskRowImpl({
         type="button"
         onClick={() => inline.begin(field, current)}
         aria-label={label}
-        className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${displayClass ?? ""} ${INTERACTIVE}`}
+        className={`${CELL_BUTTON} w-full px-2 py-0.5 text-left ${displayClass ?? ""}`}
       >
         {display}
       </button>
@@ -325,7 +326,7 @@ function TaskRowImpl({
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
           aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
-          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+          className={`${CELL_BUTTON} px-2 py-0.5 font-mono text-muted-foreground`}
         >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
@@ -388,7 +389,7 @@ function TaskRowImpl({
             // prefix.
             aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-            className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium`}
           >{task.taskName}</button>
         )}
         {(task.group || (task.labels?.length ?? 0) > 0) && (
@@ -430,7 +431,7 @@ function TaskRowImpl({
                 type="button"
                 onClick={beginAssigneeEdit}
                 aria-label={`${t(lang, "assignee")} – ${rowToken}`}
-                className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                className={`${CELL_BUTTON} w-full px-2 py-0.5 text-left`}
               >
                 {displayName || "—"}
               </button>
@@ -481,7 +482,7 @@ function TaskRowImpl({
               type="button"
               onClick={() => inline.begin("priority", task.priority)}
               aria-label={`${t(lang, "priority")} – ${rowToken}`}
-              className={`rounded-md border border-transparent p-0.5 hover:border-ui-dark-blue ${INTERACTIVE}`}
+              className={`${CELL_BUTTON} p-0.5`}
             >
               <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
                 {priorityLabel(lang, task.priority)}
