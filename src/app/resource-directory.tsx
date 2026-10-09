@@ -24,7 +24,7 @@ import { DataTable } from "./data-table";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { Checkbox, Input } from "./form-controls";
+import { Checkbox, Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
@@ -91,7 +91,7 @@ function DirectoryRoleSelect({
   );
   return (
     <td className="px-3 py-2">
-      <select
+      <Select
         aria-label={t(lang, "resourceRoleForRow", rowToken)}
         value={resource.roleId == null ? "" : String(resource.roleId)}
         // Stop the click bubbling to the row's onClick (opens the edit modal).
@@ -100,13 +100,13 @@ function DirectoryRoleSelect({
           const v = e.target.value === "" ? null : Number(e.target.value);
           onAssignRoleById(resource.id, v);
         }}
-        className={`w-full rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
+        size="xs" className="w-full"
       >
         <option value="">—</option>
         {sortedRoles.map((r) => (
           <option key={r.id} value={r.id}>{roleLabel(r, disciplines, grades)}</option>
         ))}
-      </select>
+      </Select>
     </td>
   );
 }

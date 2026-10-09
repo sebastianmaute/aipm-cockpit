@@ -563,10 +563,14 @@
 - **Design-system primitives (USE these; do NOT hand-roll — see the no-handroll rule):** the
   DS-sprawl program (0.190.2–0.190.35) built a full primitive layer. Reach for the primitive
   (or adapt it); ASK before introducing a new control. Controls: `Button` (`button.tsx`;
-  primary/secondary/ghost/destructive × xs/sm/md, `ref`-forwarding, `cursor-pointer` base, folds
+  primary/secondary/ghost/destructive/accent × xs/sm/md, `ref`-forwarding, `cursor-pointer` base, folds
   `AddButton`), `IconButton`/`TextButton` (icon-only / inline action-link, both ref-forwarding),
-  `Input`/`Select`/`Textarea`/`Checkbox` (`form-controls.tsx`; `size` md/xs, `invalid` prop,
-  `<Textarea autoGrow>`), `SegmentedControl`, `ToggleButton`. Surfaces: `Modal`/`ModalHeader`/
+  `Input`/`Select`/`Textarea`/`Checkbox` (`form-controls.tsx`; `size` md/xs — `xs` is 30px, the height
+  of an `xs` Button — a `state` prop (`muted`/`warning`/`accent`) that owns the colours, `invalid` prop,
+  `RADIO_CLASS` for a native radio,
+  `<Textarea autoGrow>`), `SegmentedControl`, `ToggleButton`. Looks with no component of their own are
+  shared class strings in `control-classes.ts`: `CELL_BUTTON` (the click-through table cell) and
+  `menuItemClass(tone)` (a popover menu item). Surfaces: `Modal`/`ModalHeader`/
   `EditModalShell` (`modal.tsx` — owns backdrop + focus-trap/restore + Escape + topmost-only
   stack; default tint `MODAL_BACKDROP_CLASS` = `bg-ui-dark-blue/40`; initial focus seeds the FIRST
   focusable child, not the un-ringed root), `PopoverPanel` (portal dropdown), `Card` (polymorphic

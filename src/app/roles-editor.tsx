@@ -20,6 +20,7 @@ import { DragHandle } from "./drag-handle";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { useRowTokens } from "./use-row-tokens";
+import { Input, Select } from "./form-controls";
 
 /** Shared chrome for the two reorder grips, both now the `DragHandle` primitive.
  *  ★ It was a native `<button>` rendering `≡` until the primitive learned to
@@ -174,8 +175,6 @@ export function RolesEditor({
   // "hour") is editable; the sibling unit is read-only + auto-derived. Editing a
   // cell materializes BOTH units (and the hourly cost source) via
   // materializeRoleRates; clearing the editable cell flips which unit is entered.
-  const editInputClass = "w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted";
-  const readInputClass = "w-24 rounded-md border border-transparent px-2 py-1 text-right text-sm tabular-nums bg-transparent text-muted-foreground";
   // Flip which unit the row is entered in. Switching to "day" pins the currently
   // displayed (derived) day rates as the new authoritative values so no figure
   // jumps; switching to "hour" keeps the already-authoritative hourly rates.
@@ -228,10 +227,10 @@ export function RolesEditor({
       <td className="px-3 py-2 text-right">
         <span className="inline-flex items-center justify-end gap-1">
           <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
-          <input type="number" min={0} step={1} value={value} readOnly={!editable}
+          <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
-            className={editable ? editInputClass : readInputClass} />
+            size="xs" state={editable ? "default" : "muted"} className="w-24 text-right tabular-nums" />
         </span>
       </td>
     );
@@ -379,16 +378,14 @@ export function RolesEditor({
           </>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
-          <select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}
-            className="rounded-md border border-line px-2 py-1 text-sm bg-surface-muted">
+          <Select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}>
             <option value="">{t(lang, "rolesDiscipline")}</option>
             {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          <select value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}
-            className="rounded-md border border-line px-2 py-1 text-sm bg-surface-muted">
+          </Select>
+          <Select value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}>
             <option value="">{t(lang, "rolesGrade")}</option>
             {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
+          </Select>
           <Button variant="primary" size="sm"
             disabled={comboDiscipline === "" || comboGrade === ""}
             onClick={() => { if (comboDiscipline !== "" && comboGrade !== "") onResolveOrCreateRole(Number(comboDiscipline), Number(comboGrade)); }}>
@@ -473,7 +470,7 @@ function RefList({
             />
             {/* The rename field had no name at all (an unlabelled control); it is
                 named by the same row token as the grip and Delete beside it. */}
-            <input defaultValue={it.name}
+            <Input defaultValue={it.name}
               aria-label={rowLabel(t(lang, "rename"), itemName(it))}
               onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
               onBlur={(e) => {
@@ -481,7 +478,7 @@ function RefList({
                 // Committed (or rejected): pagehide must not replay it over a newer name.
                 renameDrafts.current.delete(it.id);
               }}
-              className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
+              className="flex-1" />
             <IconButton
               variant="danger"
               label={rowLabel(t(lang, "delete"), itemName(it))}
@@ -496,9 +493,9 @@ function RefList({
         ))}
       </ul>
       <div className="mt-2 flex items-center gap-2 print:hidden">
-        <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
+        <Input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
-          className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
+          className="flex-1" />
         <Button variant="secondary" size="sm" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>+</Button>
       </div>
     </div>

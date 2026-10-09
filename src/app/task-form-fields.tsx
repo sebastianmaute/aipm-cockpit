@@ -187,11 +187,11 @@ export function TaskFormFields({
       {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
       <TaskFormSection index={1} title={t(lang, "taskFormSectionDetails")}>
         <Field label={t(lang, "id")}>
-          <input
+          <Input
             type="text"
             value={`#${isEditing ? editingId : nextId}`}
             readOnly
-            className="w-full cursor-not-allowed rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground dark:border-line dark:bg-surface-muted dark:text-muted-foreground"
+            state="muted" className="w-full"
           />
         </Field>
 

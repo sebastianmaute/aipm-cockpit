@@ -22,11 +22,11 @@ import { DataTable } from "./data-table";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { SortResizeTh, useSortHeaderProps, type SortDir } from "./report-table";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowTokens } from "./use-row-tokens";
 import type { PlanningCol, PlanSortKey, RollupCol } from "./resources-panel-columns";
 import { Button } from "./button";
 import { CELL_BUTTON } from "./control-classes";
+import { Input } from "./form-controls";
 
 /** One planning-grid row — a resource with its derived capacity + cost. */
 export type PlanRow = {
@@ -189,19 +189,19 @@ export function PlanningTable({
                           one. Stacking lines up their LEFT edges; the group stays right-flush. */}
                       <span className="inline-flex flex-col items-start">
                       <span className="inline-flex items-center gap-0.5">
-                        <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
+                        <Input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                           aria-label={t(lang, "resourceUtilizationForPeriod", token, p.key)}
                           title={t(lang, "resourcesUtilizationHint")}
                           value={cellValue}
                           readOnly={derived}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
-                          className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                          size="xs" state={derived ? "muted" : "default"} className="w-16 text-right tabular-nums" />
                         <span aria-hidden="true" className="text-xs text-muted-foreground">
                           {r.utilizationMode === "percent" ? "%" : "h"}
                         </span>
                       </span>
-                      <input type="number" min={0} step={1}
+                      <Input type="number" min={0} step={1}
                         aria-label={t(lang, "resourceAbsenceOverrideForPeriod", token, p.key)}
                         title={t(lang, "resourcesAbsenceOverrideHint")}
                         value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
@@ -209,7 +209,7 @@ export function PlanningTable({
                         readOnly={derived}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                        className={`mt-0.5 w-16 rounded border border-ui-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple-strong ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                        size="xs" state={derived ? "muted" : "accent"} className="mt-0.5 w-16 text-right tabular-nums" />
                       </span>
                     </td>
                     );

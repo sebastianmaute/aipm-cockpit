@@ -248,7 +248,7 @@ export function ShiftEditModal({
                   <span className="text-center text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t(lang, labelKey)}
                   </span>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={MAX_HOURS_PER_DAY}
@@ -270,7 +270,7 @@ export function ShiftEditModal({
                           : "",
                       }));
                     }}
-                    className="w-full rounded-md border border-line bg-surface px-1 py-1 text-center text-sm tabular-nums"
+                    size="xs" className="w-full text-center tabular-nums"
                   />
                   <FieldNotice id={rowNoticeId}>{hourNotice[idx]}</FieldNotice>
                 </label>

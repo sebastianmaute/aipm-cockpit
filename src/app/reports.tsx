@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { PopoverPanel } from "./popover-panel";
+import { Button, PRIMARY_MATCHING_BORDER } from "./button";
+import { menuItemClass } from "./control-classes";
 import { ArrangementShelf } from "./arrangement-shelf";
 import { ArrangementBlockMenu } from "./arrangement-block-menu";
 import type { BlockDragProps } from "./arrangement-tile";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ReportCard } from "./report-table";
@@ -235,6 +236,11 @@ export function ReportsPanel({
   const [groupFilter, setGroupFilter] = useState("");
   const [labelSort, setLabelSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
   const [labelFilter, setLabelFilter] = useState("");
+  // "+ Add report" (owner pick 2B): the pane's primary Add button, opening a menu
+  // of the hidden reports rather than a native select drawn as a button.
+  const addReportRef = useRef<HTMLButtonElement>(null);
+  const [addReportOpen, setAddReportOpen] = useState(false);
+  const closeAddReport = useCallback(() => setAddReportOpen(false), []);
   // The card list scrolls in ReportCard's inner div, so THAT is what has to move
   // under the cursor during a drag — see `use-drag-autoscroll.ts` for why the
   // browser will not do it for us here. The hook drives the autoscroll itself.
@@ -399,23 +405,44 @@ export function ReportsPanel({
     (r) => hiddenIds.has(r.id) && enabledReportIds.has(r.id),
   );
   const addReportControl = (
-    <select
-      aria-label={t(lang, "reportsAddReport")}
-      value=""
-      disabled={remainingReports.length === 0}
-      onChange={(e) => {
-        const id = e.target.value as AddableReportId;
-        if (id) arrangement.restore(id);
-      }}
-      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
-    >
-      {/* Options carry explicit readable colors: the select's white text would
-          otherwise render white-on-white in Chrome's open dropdown popup. */}
-      <option value="" className="bg-surface text-foreground">{remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}</option>
-      {remainingReports.map((r) => (
-        <option key={r.id} value={r.id} className="bg-surface text-foreground">{t(lang, r.titleKey)}</option>
-      ))}
-    </select>
+    <span className="relative">
+      <Button
+        ref={addReportRef}
+        variant="primary"
+        size="xs"
+        className={PRIMARY_MATCHING_BORDER}
+        aria-haspopup="menu"
+        aria-expanded={addReportOpen}
+        disabled={remainingReports.length === 0}
+        title={remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : undefined}
+        onClick={() => setAddReportOpen((o) => !o)}
+      >
+        + {t(lang, "reportsAddReport")}
+      </Button>
+      <PopoverPanel
+        open={addReportOpen}
+        anchorRef={addReportRef}
+        onClose={closeAddReport}
+        role="menu"
+        ariaLabel={t(lang, "reportsAddReport")}
+        className="flex w-max min-w-[12rem] flex-col p-1"
+      >
+        {remainingReports.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            role="menuitem"
+            className={menuItemClass()}
+            onClick={() => {
+              setAddReportOpen(false);
+              arrangement.restore(r.id);
+            }}
+          >
+            {t(lang, r.titleKey)}
+          </button>
+        ))}
+      </PopoverPanel>
+    </span>
   );
 
   const REPORT_SOURCE_VIEW: Partial<Record<AddableReportId, AppView>> = {
