@@ -5,6 +5,7 @@ import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
 import { buttonClassFor } from "../test/button-variant";
+import { PRIMARY_MATCHING_BORDER } from "./button";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors task-form-fields.dictation.test.tsx — jsdom has no
@@ -401,10 +402,10 @@ describe("NoteLogPanel entry buttons on the shared Button", () => {
 
 // §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
 describe("NoteLogPanel Add and Cancel on the shared Button", () => {
-  it("draws Add note as primary xs, with no matching border (no bordered neighbour)", () => {
+  it("draws Add note as primary xs with the matching border (the dictation mic beside it is bordered)", () => {
     setup();
     expect(screen.getByRole("button", { name: t(EN, "noteLogAdd") }).className).toBe(
-      buttonClassFor({ variant: "primary", size: "xs" }),
+      buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER }),
     );
   });
   it("draws the edit form's Cancel as secondary xs", async () => {
