@@ -28,9 +28,9 @@ describe("update policy", () => {
     });
   });
 
-  it("prompts for an available version, with plain-text notes", () => {
+  it("prompts for an available version, with plain-text notes for the native box and safe HTML for the window", () => {
     expect(decideOnAvailable("startup", { version: "1.14.1", releaseNotes: "<p>Fixes <b>x</b></p>" }, null)).toEqual({
-      kind: "prompt", version: "1.14.1", notes: "Fixes x",
+      kind: "prompt", version: "1.14.1", notes: "Fixes x", notesHtml: "<p>Fixes <strong>x</strong></p>",
     });
   });
 

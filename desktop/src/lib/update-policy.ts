@@ -1,10 +1,13 @@
 // What the updater does, decided without Electron so it is unit-testable (the wiring is
 // desktop/src/updater.ts). Spec: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md §2.
+import { notesSource, notesToSafeHtml, type SafeNotesHtml } from "./release-notes-html";
+
 export const STARTUP_CHECK_DELAY_MS = 10_000;
 // The notes now render in a SCROLLING window (lib/update-window.ts), so this is a flood guard
 // against a pathological release body, not a fit-the-dialog limit. It was 1500 while the notes sat
-// in a native message box that cannot scroll, which cut every real changelog short.
-export const NOTES_MAX = 20_000;
+// in a native message box that cannot scroll, which cut every real changelog short. It was 20,000
+// until 1.16.0, whose release notes run to about 34,000 characters of text and were cut short again.
+export const NOTES_MAX = 100_000;
 const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";
@@ -16,7 +19,9 @@ export type UpdateTrigger = "startup" | "manual";
 export type UpdatePhase = "checking" | "downloading";
 export type UpdateDecision =
   | { kind: "silent" }
-  | { kind: "prompt"; version: string; notes: string }
+  // `notesHtml` is what the update window shows; `notes` is the plain-text form for the native
+  // message box it falls back to.
+  | { kind: "prompt"; version: string; notes: string; notesHtml: SafeNotesHtml }
   | { kind: "up-to-date" }
   | { kind: "error"; phase: UpdatePhase; message: string };
 
@@ -49,7 +54,10 @@ export function decideOnAvailable(
   skipped: string | null,
 ): UpdateDecision {
   if (trigger === "startup" && skipped === available.version) return { kind: "silent" };
-  return { kind: "prompt", version: available.version, notes: notesToPlainText(available.releaseNotes) };
+  return {
+    kind: "prompt", version: available.version,
+    notes: notesToPlainText(available.releaseNotes), notesHtml: notesToSafeHtml(available.releaseNotes, NOTES_MAX),
+  };
 }
 
 export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
@@ -106,11 +114,7 @@ function decodeNumericEntities(s: string): string {
 }
 
 export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
-  const raw = Array.isArray(notes)
-    ? notes.map((n) => (n && typeof n === "object" && "note" in n ? String((n as { note: unknown }).note ?? "") : "")).join("\n")
-    : typeof notes === "string"
-      ? notes
-      : "";
+  const raw = notesSource(notes);
   const text = decodeNumericEntities(
     raw
       // Drop <script>/<style> blocks WITH their contents -- the generic tag-strip below only removes

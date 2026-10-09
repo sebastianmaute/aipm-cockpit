@@ -10,6 +10,15 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **The desktop app's update window shows formatted release notes.** Headings, bullet lists, bold text and
+  code now appear as they do on the releases page, instead of one run of plain text. Notes are no longer cut
+  short: the limit rose from 20,000 to 100,000 characters, and the 1.16.0 notes alone ran to about 34,000.
+- **Installing and updating the desktop app now say that they take a while.** The installer opens with a
+  welcome page saying that installing takes a few minutes and the window may seem frozen, and the update
+  window says the same before you choose to download, alongside the existing note in "Update ready".
+
 ## [1.16.0] - 2026-10-09 "Rankin"
 
 A feature release. Long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay
