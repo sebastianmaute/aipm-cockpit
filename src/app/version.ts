@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.15.0";
-export const APP_BUILD_DATE = "2026-10-03"; // 1.15.0: a feature release — Indian rupee (INR) is a supported budget and plan currency, a task's blockers become a dated log with a counting badge, the guided tour grows to a full catalogue of tours, the AI assistant can read a scoped slice of the allocation plan, Jira responses are validated before use, and a large batch of defect fixes covers saving between windows, undo, exports, plurals and documents; projects that use INR, the end-to-end contract type or the blocker log should only be opened in this release or later, because older builds misread or drop them (Cornwell)
+export const APP_VERSION = "1.16.0";
+export const APP_BUILD_DATE = "2026-10-09"; // 1.16.0: a feature release — long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay responsive on large projects; exports and documents gain the budget forecast, and Word files get the project branding, real lists and readable tables; the AI assistant can read RACI assignments and the budget forecast, its proposed tasks carry an owner, priority and group, and voice commands it does not know go to it; screen readers tell same-named rows apart in 32 more places; most small buttons now use the app's one standard button; Next.js 16.3.8 closes six advisories; and a large batch of defect fixes covers templates, Turso images, notes, Jira sync, Word export and the activity-log download (Rankin)
+// 1.15.0: a feature release — Indian rupee (INR) is a supported budget and plan currency, a task's blockers become a dated log with a counting badge, the guided tour grows to a full catalogue of tours, the AI assistant can read a scoped slice of the allocation plan, Jira responses are validated before use, and a large batch of defect fixes covers saving between windows, undo, exports, plurals and documents; projects that use INR, the end-to-end contract type or the blocker log should only be opened in this release or later, because older builds misread or drop them (Cornwell)
 // 1.14.3: a maintenance release — a tab saving over a newer version of the project now pauses with Reload, Overwrite and Download instead of overwriting it, and a window on a local file keeps saving to that file (tested in the browser with browser storage; SharePoint and Turso not yet verified live), tabs on different projects no longer overwrite each other, a rejected or unreadable AI key is named, Turso saves are all or nothing, SharePoint names with # or % work, chat attachments are limited per batch, plus Next.js 16.3.6 for a critical advisory, moment, Electron 44.4.5 and React 19.3.0 (Deaver)
 // 1.14.2: a maintenance release — typed-but-unsaved text is kept when the window closes or reloads, with a local copy restored on the next open (verified in the browser with browser storage; desktop and file, SharePoint and Turso projects not yet), data this version cannot read pauses saving instead of being overwritten, undo and staged AI chat plans no longer reach into a project you have left, German exports translate repeat patterns and insight labels, plus fixes to layout, dialog sizes, bulk edit, Trends, exports and documents (Deaver)
 // 1.14.1: a maintenance release bundling three merged PRs — the update dialog explains the install wait and release notes flow as paragraphs; defect fixes across the AI Assistant, storage, Outlook calendar sync (a per-item opt-out), the dashboard, Trends, TimeLog and exports (a styled, page-fitting desktop PDF); code-scanning hardening (markdown links stay on the app's origin); Vitest 5, jest-dom 7 and Playwright 1.63 (Deaver)
@@ -63,7 +64,17 @@ export const APP_BUILD_DATE = "2026-10-03"; // 1.15.0: a feature release — Ind
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.15.x line is "Cornwell" (Patricia Cornwell, American crime novelist, author
+ *  1.16.x line is "Rankin" (Ian Rankin, Scottish crime novelist, author of
+ *  "Knots and Crosses", 1987, the first Inspector Rebus novel), taken by the
+ *  SELECTION procedure below as the first name in the candidate list. Swept
+ *  BEFORE the 1.16.0 header was written, in one run with its controls, all
+ *  word-bounded because a bare `rankin` also matches "ranking" (6 such hits in
+ *  CHANGELOG.md and 6 in commit subjects): `grep -ciw rankin CHANGELOG.md` 0,
+ *  `grep -ci '"rankin"' CHANGELOG.md` 0, `git log --all --format=%s | grep
+ *  -ciw rankin` 0 and 0 files in `src`; positive control `cornwell` 1 in
+ *  CHANGELOG.md and 2 in commit subjects, negative control `zzznotaname` 0 in
+ *  CHANGELOG.md and commit subjects.
+ *  The 1.15.x line was "Cornwell" (Patricia Cornwell, American crime novelist, author
  *  of "Postmortem", 1990), taken by the SELECTION procedure below as the first
  *  name in the candidate list. Swept BEFORE the 1.15.0 header was written, in one
  *  run with its controls: `grep -ci cornwell CHANGELOG.md` 0, `grep -ci
@@ -441,7 +452,7 @@ export const APP_BUILD_DATE = "2026-10-03"; // 1.15.0: a feature release — Ind
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Cornwell";
+export const APP_MILESTONE = "Rankin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */

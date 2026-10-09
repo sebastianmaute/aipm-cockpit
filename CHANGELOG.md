@@ -10,6 +10,16 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-09 "Rankin"
+
+A feature release. Long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay
+responsive on large projects. Exports and documents gain the budget forecast, and Word files get the
+project branding, real lists and readable tables. The AI assistant can read RACI assignments and the
+budget forecast, and its proposed tasks carry an owner, priority and group. Screen readers tell
+same-named rows apart in 32 more places, most small buttons now use the app's standard button, and
+Next.js 16.3.8 closes six advisories. A large batch of defect fixes covers templates, Turso images,
+notes, Jira sync, Word export and the activity-log download.
+
 ### Added
 
 - **Long task lists stay responsive (§5).** Above 200 visible rows, the Open Points table draws only the
