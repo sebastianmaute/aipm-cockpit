@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfirmProvider, useConfirm } from "./confirm-dialog";
+import { buttonClassFor } from "../test/button-variant";
 
 // Synchronous rAF shim so the Modal focus-management effect runs immediately.
 beforeEach(() => {
@@ -39,6 +40,18 @@ describe("ConfirmProvider / useConfirm", () => {
   test("does not render a dialog until confirm() is called", () => {
     renderHarness(() => {});
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // §102: Cancel is the shared secondary Button, and it still takes focus when the
+  // dialog opens (the ref now goes through the primitive). The confirm button stays
+  // hand-rolled: its colour comes from the dialog's tone.
+  test("renders Cancel as the secondary Button and focuses it on open", async () => {
+    const user = userEvent.setup();
+    renderHarness(() => {});
+    await user.click(screen.getByRole("button", { name: "trigger" }));
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.className).toBe(buttonClassFor({ variant: "secondary", size: "sm" }));
+    await waitFor(() => expect(cancel).toHaveFocus());
   });
 
   test("opens a dialog with the supplied message and default title", async () => {

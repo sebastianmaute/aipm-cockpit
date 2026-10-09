@@ -8,6 +8,7 @@ import { categoryLabel, severityLabel } from "./raid-labels";
 import { RAID_CATEGORIES, RAID_SEVERITIES } from "./types";
 import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { Select } from "./form-controls";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { PanelViewsControl } from "./panel-views-control";
@@ -157,17 +158,17 @@ export function RaidToolbar({
         </button>
       )}
       {filtersActive && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={() => {
             onResetFilters();
             onClearTaskFilter();
           }}
           title={t(lang, "resetFiltersHint")}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "ganttResetFilters")}
-        </button>
+        </Button>
       )}
       <ColumnConfigPopover lang={lang} cols={RAID_CONFIG_COLS} hidden={hiddenSet} onToggle={onToggleColumn} />
       <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />

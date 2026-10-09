@@ -6,6 +6,7 @@ import { RowContextProvider, type RowContextValue } from "./task-row";
 import { VIRTUALIZE_MIN_ROWS, type TaskRowWindowHandle } from "./use-task-row-window";
 import { visibleTaskCols } from "./open-points-table-geometry";
 import type { Task } from "./types";
+import { tableAddRowClass } from "../test/button-variant";
 
 // jsdom has no layout, so the real virtualizer computes nothing useful. The
 // mock returns a FIXED window — rows 11..30 on a 40px grid — so these tests pin
@@ -134,6 +135,15 @@ function Harness({ tasks, handle }: { tasks: Task[]; handle?: Ref<TaskRowWindowH
 
 const taskRows = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLTableRowElement>("tbody tr[data-deeplink-row]"));
 const spacerRows = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLTableRowElement>("tbody tr[data-row-spacer]"));
+
+// §102: the trailing "+ Add task" row is the shared TableAddRowButton, the same row
+// the RAID table trails with.
+describe("TasksTable — trailing add row", () => {
+  test("renders the shared TableAddRowButton", () => {
+    const { getByRole } = render(<Harness tasks={makeTasks(2)} />);
+    expect(getByRole("button", { name: "Add task" }).className).toBe(tableAddRowClass());
+  });
+});
 
 describe("TasksTable — virtualized row window (§5)", () => {
   test(`renders every row at ${VIRTUALIZE_MIN_ROWS} rows and no spacer rows`, () => {

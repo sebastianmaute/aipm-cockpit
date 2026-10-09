@@ -40,6 +40,7 @@
 import { createElement } from "react";
 import { render } from "@testing-library/react";
 import { Button, type ButtonProps } from "../app/button";
+import { TableAddRowButton } from "../app/table-add-row-button";
 
 const SECONDARY_TOKENS = ["border-line", "bg-surface", "cursor-pointer"] as const;
 
@@ -117,7 +118,20 @@ function assertVariant(
  */
 export function buttonClassFor(props: Omit<ButtonProps, "children">): string {
   const { container, unmount } = render(createElement(Button, props, "x"));
-  const cls = container.querySelector("button")!.className;
+  const el = container.querySelector("button");
+  if (!el) throw new Error("buttonClassFor: the Button primitive rendered no <button>");
+  const cls = el.className;
+  unmount();
+  return cls;
+}
+
+/** The exact `className` `TableAddRowButton` renders — the trailing dashed
+ *  "+ Add …" row's counterpart of `buttonClassFor`. */
+export function tableAddRowClass(): string {
+  const { container, unmount } = render(createElement(TableAddRowButton, { label: "x", onClick: () => {} }));
+  const el = container.querySelector("button");
+  if (!el) throw new Error("tableAddRowClass: TableAddRowButton rendered no <button>");
+  const cls = el.className;
   unmount();
   return cls;
 }

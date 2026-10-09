@@ -5,6 +5,7 @@ import { ProjectSwitcher } from "./project-switcher";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const projects: ProjectRegistryEntry[] = [
   {
@@ -41,6 +42,14 @@ function renderSwitcher(overrides: Partial<React.ComponentProps<typeof ProjectSw
 }
 
 describe("ProjectSwitcher", () => {
+  // §102: the trigger is the shared secondary Button, keeping its menu-trigger layout.
+  it("renders the trigger as the secondary Button", () => {
+    renderSwitcher();
+    expect(screen.getByRole("button", { name: /Apollo/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "sm", className: "flex w-full min-w-0 max-w-[16rem] items-center gap-2" }),
+    );
+  });
+
   it("renders the current project name on the trigger", () => {
     renderSwitcher();
     expect(

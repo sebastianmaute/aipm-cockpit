@@ -6,7 +6,7 @@
 // destructured to the same local names the inline JSX used, so the markup is
 // reproduced verbatim.
 import type React from "react";
-import { PlusIcon } from "./icons";
+import { TableAddRowButton } from "./table-add-row-button";
 import { Checkbox } from "./form-controls";
 import { type Lang, t, tPlural } from "./i18n";
 import { Badge } from "./badge";
@@ -383,8 +383,7 @@ export function RaidTable({
         })}
         <tr>
           <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length}>
-            <button
-              type="button"
+            <TableAddRowButton
               onClick={() => openNew(effectiveCategory)}
               // ★ WCAG 2.4.6: the toolbar's own Add button renders this SAME
               // i18n string as its text content, so a bare aria-label here
@@ -395,12 +394,9 @@ export function RaidTable({
               // in whatever category is currently filtered
               // (`openNew(effectiveCategory)`) — so the names must differ,
               // and the category is what actually differs between them.
-              aria-label={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
-              className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-            >
-              <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-              {t(lang, "raidAddItem")}
-            </button>
+              ariaLabel={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
+              label={t(lang, "raidAddItem")}
+            />
           </td>
         </tr>
     </DataTable>

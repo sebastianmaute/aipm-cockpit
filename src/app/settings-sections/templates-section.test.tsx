@@ -8,6 +8,7 @@ import { t } from "../i18n";
 import { SETTINGS_KEY } from "../use-settings";
 import { useTemplates } from "../use-templates";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
+import { buttonClassFor } from "../../test/button-variant";
 
 afterEach(() => window.localStorage.clear());
 
@@ -40,6 +41,18 @@ describe("TemplatesSection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }));
     expect(screen.getByDisplayValue("My saved project")).toBeInTheDocument();
+  });
+
+  // §102: a user template's Delete is the shared destructive Button (it was a
+  // hand-rolled bordered button with purple text).
+  it("renders a user template's Delete as the destructive Button", () => {
+    render(<TemplatesSection lang="en-US" />, { wrapper });
+    fireEvent.change(screen.getByLabelText(t("en-US", "templateSaveName")), {
+      target: { value: "My saved project" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }));
+    const del = screen.getByRole("button", { name: new RegExp(`^${t("en-US", "templatesDelete")}`) });
+    expect(del.className).toBe(buttonClassFor({ variant: "destructive", size: "sm", className: "shrink-0" }));
   });
 
   // §247/§248: the rename input's aria-label was the constant translated

@@ -17,6 +17,7 @@ import { useResourcePlanner } from "./use-resource-planner";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { ActivityKind } from "./activity-log";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor, tableAddRowClass } from "../test/button-variant";
 
 vi.mock("./use-settings", () => ({
   useSettings: () => ({
@@ -273,6 +274,8 @@ describe("RaidPanel inline add row", () => {
       name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}`,
     });
     expect(inline).toBeInTheDocument();
+    // §102: it is the shared TableAddRowButton, the same row Open Points trails with.
+    expect(inline.className).toBe(tableAddRowClass());
   });
 
   it("clicking the empty-state add when category filter is 'All' opens modal with category R", () => {
@@ -468,6 +471,15 @@ describe("RaidPanel — task backlink chip", () => {
     expect(chip).not.toHaveAttribute("title");
     fireEvent.click(chip);
     expect(onClearTaskFilter).toHaveBeenCalledTimes(1);
+  });
+
+  // §102: Reset filters is the shared secondary Button at the toolbar size, the same
+  // control as the Gantt's and the Change log's. The task filter makes it render.
+  it("renders Reset filters as the secondary Button", () => {
+    renderPanel(makeProps({ filterTaskId: 7 }));
+    expect(screen.getByRole("button", { name: t("en-US", "ganttResetFilters") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });
 

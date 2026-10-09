@@ -4,6 +4,7 @@ import { ModeSection } from "./mode-section";
 import { defaultSettings } from "../settings-types";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "../feature-modules";
 import { loadI18n, type Lang } from "../i18n";
+import { buttonClassFor } from "../../test/button-variant";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -28,6 +29,14 @@ function setup(
 }
 
 describe("ModeSection", () => {
+  // §102: the Simple and Advanced preset buttons are the shared secondary Button.
+  it("renders both preset buttons as the secondary Button", () => {
+    setup();
+    const expected = buttonClassFor({ variant: "secondary", size: "sm" });
+    expect(screen.getByRole("button", { name: "Apply Simple preset" }).className).toBe(expected);
+    expect(screen.getByRole("button", { name: "Apply Advanced preset" }).className).toBe(expected);
+  });
+
   it("shows Advanced when all modules are on", () => {
     setup([...ALL_MODULE_IDS]);
     // The badge span carries data-testid="mode-badge"; the "Advanced" preset button also

@@ -5,12 +5,15 @@ import { defaultSettings, defaultNextActionsConfig } from "../settings-types";
 import { loadI18n, t } from "../i18n";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectNoLabelBoundToButton } from "../../test/label-binding";
+import { buttonClassFor } from "../../test/button-variant";
 
 // Mock the AI hook so the AI-suggested column renders without any network call.
 const suggestState = vi.hoisted(() => ({
   error: null as string | null,
   // Overrides the one default suggestion below when a test needs every field suggested at once.
   suggestions: null as { field: string; current: number; suggested: number; rationale: string }[] | null,
+  // Set by the test that needs the "enable learning" recommendation rendered.
+  recommendEnableLearning: false,
 }));
 vi.mock("../use-weight-suggestions", () => ({
   useWeightSuggestions: () => ({
@@ -21,7 +24,7 @@ vi.mock("../use-weight-suggestions", () => ({
     result: {
       suggestions: suggestState.suggestions ?? [{ field: "clarityBonus", current: 15, suggested: 20, rationale: "act on clear" }],
       overallRationale: "",
-      recommendEnableLearning: false,
+      recommendEnableLearning: suggestState.recommendEnableLearning,
     },
   }),
 }));
@@ -116,6 +119,50 @@ describe("NextActionsSection learning controls", () => {
     const select = screen.getByLabelText(t("en-US", "settingsLearningStore"));
     fireEvent.change(select, { target: { value: "turso" } });
     expect(onChangeLearningConfig).toHaveBeenCalledWith({ enabled: true, store: "turso" });
+  });
+
+  // §102: Reset learned data here is the twin of the one in the Learning insights
+  // view; both are the shared secondary Button.
+  it("renders Reset learned data as the secondary Button", () => {
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={vi.fn()}
+        learningConfig={learningConfig}
+        onChangeLearningConfig={vi.fn()}
+        onResetLearning={vi.fn()}
+        onOpenInsights={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "settingsLearningReset") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "sm" }),
+    );
+  });
+
+  // §102: the AI's "turn on learning" recommendation is the secondary Button, keeping
+  // its bottom margin. It renders only when the suggestion recommends it and learning
+  // is off.
+  it("renders the enable-learning recommendation as the secondary Button", () => {
+    suggestState.recommendEnableLearning = true;
+    try {
+      render(
+        <NextActionsSection
+          lang="en-US"
+          settings={defaultSettings}
+          onChange={vi.fn()}
+          learningConfig={learningConfig}
+          onChangeLearningConfig={vi.fn()}
+          onResetLearning={vi.fn()}
+          onOpenInsights={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("button", { name: t("en-US", "weightSuggestEnableLearning") }).className).toBe(
+        buttonClassFor({ variant: "secondary", size: "sm", className: "mb-3" }),
+      );
+    } finally {
+      suggestState.recommendEnableLearning = false;
+    }
   });
 
   it("clicking View learning insights calls onOpenInsights", () => {

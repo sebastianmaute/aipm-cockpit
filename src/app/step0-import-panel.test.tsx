@@ -8,6 +8,7 @@ import { t } from "./i18n";
 import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
+import { buttonClassFor } from "../test/button-variant";
 
 const sampleText = readFileSync(
   join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
@@ -59,6 +60,17 @@ function fileInput() {
     t("en-US", "wizardImportFileLabel"),
   ) as HTMLInputElement;
 }
+
+// §102: the loading modal's Cancel is the shared secondary Button. The modal shows
+// while the wizard's proposal call is busy.
+describe("Step0ImportPanel loading modal", () => {
+  it("renders Cancel as the secondary Button", () => {
+    render(<Step0ImportPanel {...baseProps} aiBusy onIngest={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "cancel") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "sm" }),
+    );
+  });
+});
 
 describe("Step0ImportPanel multi-file", () => {
   it("reads multiple valid files into one ingest call", async () => {

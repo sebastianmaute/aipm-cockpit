@@ -45,9 +45,14 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
-- **Seven more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
-  re-apply and Apply to budget, the Gantt chart's Reset filters, the Resources calendar's Outlook import,
-  and Reset learned data in Settings. Reset learned data now shows a focus outline when reached by keyboard.
+- **Seventeen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
+  re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,
+  the Change log and the RAID log; the Resources calendar's Outlook import; both Reset learned data buttons,
+  the turn-on-learning suggestion and the Learning insights Back button; Cancel in confirmation dialogs and in
+  the import wizard's loading window; the Simple and Advanced mode presets; and the project switcher, which
+  now looks like the other header buttons. Deleting a saved template now uses the pink delete style. The
+  "+ Add" row under the task list and the RAID log is now one shared control. The Learning insights view's
+  Back and Reset learned data now show a focus outline when reached by keyboard.
 
 - **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
   The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
