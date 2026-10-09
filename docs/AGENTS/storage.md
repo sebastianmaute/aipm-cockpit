@@ -204,8 +204,8 @@ when a refusal resolves — clearing the flag as the episode ENDS is precisely
 what leaves the NEXT one visible.
 
 ★ Seeded `null`, the guard's OWN starting value rather than the live one —
-it mounts in this same render (task-manager calls the hook that owns it), so
-null is what it really is here, and seeding from the live value is the
+it mounts in this same render (task-manager calls `useStorageBackend`, which owns
+the guard, earlier in the same render), so null is what it really is here, and seeding from the live value is the
 remount-swallow shape that drops a pending report.
 
 ### The op hold (`holdDuring`, §548)

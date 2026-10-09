@@ -45,9 +45,9 @@ export function useStorageBannerReshow(deps: StorageBannerReshowDeps): void {
   const [truncationSeen, setTruncationSeen] = useState<typeof truncation>(null);
   // ★ Seeded with the guard's OWN starting value, not with the live one. The
   // guard mounts in this same render (task-manager calls `useStorageBackend`,
-  // which owns it, just before this hook), so 0 is what it really is here — and seeding from the live value is the
-  // remount-swallow shape, where a fresh mount sees `value === seed` and drops a
-  // pending report.
+  // which owns it, earlier in the same render), so 0 is what it really is
+  // here — and seeding from the live value is the remount-swallow shape, where
+  // a fresh mount sees `value === seed` and drops a pending report.
   const [decodeNonceSeen, setDecodeNonceSeen] = useState(0);
   // ★★★ AND ON THE MALFORMED NONCE, for the THIRD cause and by the identical
   // argument: on the import path `truncation` is null and `decodeFailureNonce`

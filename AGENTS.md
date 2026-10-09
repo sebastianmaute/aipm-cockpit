@@ -773,7 +773,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the template list and the Save-as-template and Apply-template actions; it reads the workspace setters and the
   template snapshot builder from context, takes `features` as a dep rather than reading `useSettings` (a second
   instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
-  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. A seventeenth, `use-trend-snapshots.ts`
+  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. ★ Apply APPENDS a template's
+  seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
+  features were not applied. A seventeenth, `use-trend-snapshots.ts`
   (§491), holds the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
   `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. An eighteenth,
   `use-chat-dispatcher-wiring.ts` (§491), holds the assistant's tool dispatcher: the `useChatDispatcher` call and the
@@ -786,9 +788,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   nonces; the refused destructive save; the §586/§587 load pause), with their null/0 seeds. It is coverage-GATED, pinned by
   its own `renderHook` test plus `task-manager.truncation-banner.test.tsx`, and has nothing memoized. ★ The three
   `*BannerDismissed` flags stay in task-manager: `onRevealSavingPaused`, handed INTO `useStorageBackend`, sets two of
-  them, and this hook's inputs are that hook's outputs, so it cannot own them. ★ Apply APPENDS a template's
-  seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
-  features were not applied. The
+  them, and this hook's inputs are that hook's outputs, so it cannot own them. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
