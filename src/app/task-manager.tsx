@@ -774,7 +774,7 @@ function TaskManagerInner() {
   useDictationHotkey(settings.dictation?.hotkey, isPopout);
 
   // The demo: a Turso project with its Trends history when Turso is usable, else local (demo-project.ts).
-  const loadDemo = useLoadDemo({ lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects, portfolioMode, tursoConfig, snapshots: settings.snapshots });
+  const loadDemo = useLoadDemo({ lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects, portfolioMode, tursoConfig, snapshots: settings.snapshots, hasTursoProjects: tursoProjects.length > 0 });
 
   // Version history: the capture payload, the restore fan-out (the SECOND load funnel), the error
   // bridge and the `useVersionHistory` call — see use-version-history-wiring.ts (§491).

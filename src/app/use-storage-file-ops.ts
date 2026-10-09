@@ -46,7 +46,7 @@ import {
 //   Read the hits rather than counting them: a file that merely MENTIONS the call in prose is a
 //   false positive that no pattern can exclude.
 import { workspaceRecordCount } from "./workspace";
-import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrentProjectInRegistry } from "./projects-registry";
+import { addProject, browserProjectIn, loadRegistry, saveRegistry, setCurrentProject as setCurrentProjectInRegistry } from "./projects-registry";
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
@@ -353,6 +353,14 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
    */
   async function createDemoProject(ws: Workspace): Promise<void> {
     if (deps.isPopout) return;
+    // The demo writes the ONE browser store blind (below), so a browser-backed project already in
+    // the registry would be overwritten. `createDemo` refuses before calling this; this is the
+    // write site's own guard, for any caller that does not.
+    const occupant = browserProjectIn(loadRegistry().projects);
+    if (occupant) {
+      deps.showToast("error", t(deps.langRef.current, "demoLocalBlocked", occupant.name));
+      return;
+    }
     // Flush the outgoing project first (best-effort) — mirrors createProject.
     // suppressNextSaveRef below cancels the pending debounced save.
     try {

@@ -17,11 +17,14 @@ import { defaultSnapshotSettings, type SnapshotSettings } from "./settings-types
 import { t, type Lang } from "./i18n";
 import type { NewProjectOpts } from "./new-project-workspace";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
+import { browserProjectIn, loadRegistry, type ProjectRegistryEntry } from "./projects-registry";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectMeta } from "./types";
 import type { Workspace } from "./workspace";
 
-export type DemoOutcome = "turso" | "local" | "local-after-turso-failure" | "turso-without-history";
+export type DemoOutcome =
+  | "turso" | "local" | "local-after-turso-failure" | "turso-without-history"
+  | "local-blocked" | "turso-failed";
 
 /** The seeded history's length, which the start card quotes as its week count. Imported
  *  statically so the card can say it before any click: the file is ~79 KB raw, ~3 KB gzipped. */
@@ -57,6 +60,13 @@ export interface CreateDemoDeps {
   createTursoProject: (meta: ProjectMeta, opts: NewProjectOpts) => Promise<string | null>;
   createLocal: (ws: Workspace) => Promise<void>;
   appendSnapshots: typeof appendSnapshots;
+  /** The browser-backed project the local demo would overwrite (`browserProjectIn`), or null.
+   *  Set, the local create never runs: neither the local path nor the Turso fallback. */
+  browserProject: ProjectRegistryEntry | null;
+  /** Turso projects already exist, so the user has a working Turso portfolio (the Projects
+   *  panel). A failed Turso create then reports and stays in Turso; the local fallback, which
+   *  switches the portfolio to file mode and reloads, is for the empty state alone. */
+  tursoProjectsExist: boolean;
   /** Runs before the local FALLBACK's create, which in Turso mode reloads the app: nothing after
    *  that create is guaranteed to run, so a notice for the next boot is stored here. */
   onLocalFallback?: () => void;
@@ -84,6 +94,7 @@ export function demoHistoryFor(
 export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   const { ws } = deps;
   if (!deps.tursoUsable || !ws.project) {
+    if (deps.browserProject) return "local-blocked";
     await deps.createLocal(ws);
     return "local";
   }
@@ -101,6 +112,8 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   };
   const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
   if (id === null) {
+    if (deps.tursoProjectsExist) return "turso-failed";
+    if (deps.browserProject) return "local-blocked";
     deps.onLocalFallback?.();
     await deps.createLocal(ws);
     return "local-after-turso-failure";
@@ -126,21 +139,27 @@ export interface UseLoadDemoDeps {
   portfolioMode: PortfolioMode;
   tursoConfig: TursoConfig | null;
   snapshots: SnapshotSettings | undefined;
+  /** The Turso project list is non-empty (`tursoProjects.length > 0`): the demo came from the
+   *  Projects panel of a working Turso portfolio, so a failed create must not fall back. */
+  hasTursoProjects: boolean;
 }
 
-/** Loads the curated sample as a REAL, deletable demo project and kicks off the tour. The CTA is
- *  empty-state-only (no real project to clobber); registering the project is what flips the
- *  empty-state gate off so the views and the tour overlay mount. Errors toast, never crash. */
+/** Loads the curated sample as a REAL, deletable demo project and kicks off the tour. Registering
+ *  the project is what flips the empty-state gate off so the views and the tour overlay mount.
+ *  The entry is reachable while projects exist (the Projects panel), so the local create, which
+ *  rewrites the one shared browser store, is refused while the registry holds a browser-backed
+ *  project (`browserProjectIn`, read at click time). Errors toast, never crash. */
 export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
   const {
     lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects,
-    portfolioMode, tursoConfig, snapshots,
+    portfolioMode, tursoConfig, snapshots, hasTursoProjects,
   } = deps;
   return useCallback(async () => {
     try {
       const mod = await import("../../sample-workspace-small.json");
       const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
       const ws = buildDemoWorkspace((mod as { default?: unknown }).default ?? mod, today);
+      const browserProject = browserProjectIn(loadRegistry().projects);
       const outcome = await createDemo({
         ws,
         records: DEMO_RECORDS,
@@ -152,8 +171,18 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         createTursoProject,
         createLocal: createDemoProject,
         appendSnapshots,
+        browserProject,
+        tursoProjectsExist: hasTursoProjects,
         onLocalFallback: setDemoCreatedLocally,
       });
+      if (outcome === "local-blocked") {
+        showToast("error", t(lang, "demoLocalBlocked", browserProject?.name ?? ""));
+        return;
+      }
+      if (outcome === "turso-failed") {
+        showToast("error", t(lang, "tourDemoError"));
+        return;
+      }
       if (outcome === "turso" || outcome === "turso-without-history") await refreshTursoProjects();
       // The fallback that worked moved the portfolio to file mode and is reloading; the next boot
       // shows the stored notice. Still on Turso means it did not (it failed and said so, or it
@@ -164,5 +193,5 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
     } catch {
       showToast("error", t(lang, "tourDemoError"));
     }
-  }, [lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects, portfolioMode, tursoConfig, snapshots]);
+  }, [lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects, portfolioMode, tursoConfig, snapshots, hasTursoProjects]);
 }

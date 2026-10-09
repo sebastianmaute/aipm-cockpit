@@ -3385,6 +3385,7 @@ export const de: Record<TranslationKey, string> = {
   demoTursoConnectedNote: "Turso ist verbunden. Erkunden Sie die Demo, um {0} Wochen Trends-Verlauf einzuschließen.",
   demoCreatedLocallyToast: "Turso war nicht erreichbar, daher wurde die Demo als lokales Projekt ohne Trends-Verlauf angelegt.",
   demoTrendsSeedFailedToast: "Das Demo-Projekt wurde angelegt, aber sein Trends-Verlauf konnte nicht hinzugefügt werden.",
+  demoLocalBlocked: "Die lokale Demo würde „{0}“ ersetzen, das bereits den Speicher dieses Browsers nutzt. Löschen Sie dieses Projekt oder richten Sie Turso ein, um die Demo zu erkunden.",
   tourSkip: "Überspringen",
   tourNext: "Weiter",
   tourBack: "Zurück",

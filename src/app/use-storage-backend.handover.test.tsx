@@ -37,7 +37,7 @@ vi.mock("./diagnostics", async (importOriginal) => ({ ...(await importOriginal<t
 
 import { useRevisionSync } from "./broadcast-sync";
 import { BrowserBackend } from "./browser-backend";
-import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
+import { addProject, emptyRegistry, loadRegistry, saveRegistry } from "./projects-registry";
 import type { FsHandle, StorageConfig, Workspace } from "./storage";
 import { emptyWorkspace, workspaceToJson } from "./storage";
 import { SaveConflictError } from "./storage-error";
@@ -250,6 +250,22 @@ describe("useStorageBackend — a switched or created project saves under the re
     const before = app.conflicts();
     await editAndSave(app, async () => (await browserTasks()).includes(EDIT));
     expect(app.conflicts()).toBe(before);
+  });
+  // C1: browser storage is ONE store, so the demo's blind write would replace a registered
+  // browser project's data. The write site refuses on its own, whatever the caller checked.
+  it("createDemoProject: writes nothing while the registry holds a browser-backed project", async () => {
+    const existing = new BrowserBackend();
+    existing.forceNextSave();
+    await existing.save({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Real task" } as unknown as Task] });
+    registerProject("b", { kind: "browser" });
+    const demo: Workspace = { ...emptyWorkspace(), project: { name: "Demo", code: "DEMO" } as never, tasks: [{ id: 1, taskName: "Demo task" } as unknown as Task] };
+    const app = renderApp({ kind: "local-json" });
+    await settle();
+    await act(async () => { await app.ops().createDemoProject(demo); });
+    await settle();
+    expect(await browserTasks()).toEqual(["Real task"]);
+    expect(loadRegistry().projects).toHaveLength(1);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "demoLocalBlocked", "Project b"));
   });
 
   it("onRequestStorageSwitch: converts into a never-loaded file, then saves the next edit into it", async () => {

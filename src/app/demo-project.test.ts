@@ -15,6 +15,7 @@ import {
 } from "./demo-project";
 import { readDemoCreatedLocally } from "./demo-intent";
 import { MODE_KEY } from "./portfolio-mode";
+import { addProject, emptyRegistry, saveRegistry, type ProjectRegistryEntry } from "./projects-registry";
 import { appendSnapshots } from "./snapshot-store";
 import { buildDemoWorkspace } from "./demo-workspace";
 import type { SnapshotRecord } from "./snapshot";
@@ -69,9 +70,12 @@ function deps(over: Partial<CreateDemoDeps> = {}): CreateDemoDeps {
     createTursoProject: fakeCreate("id-1"),
     createLocal: vi.fn(async () => {}),
     appendSnapshots: vi.fn(async () => {}),
+    browserProject: null, tursoProjectsExist: false,
     ...over,
   };
 }
+
+const BROWSER_PROJECT: ProjectRegistryEntry = { id: "b-1", name: "Mercury", code: "MER", storageConfig: { kind: "browser" } };
 
 function written(d: CreateDemoDeps): SnapshotRecord[] {
   return vi.mocked(d.appendSnapshots).mock.calls[0][1] as SnapshotRecord[];
@@ -191,6 +195,39 @@ describe("createDemo", () => {
     expect(idsA.filter((x) => idsB.includes(x))).toEqual([]);
     expect(written(a).map((r) => r.capturedAt)).toEqual(written(b).map((r) => r.capturedAt));
   });
+
+  // C1: the local create rewrites the ONE browser store blind, so with a browser-backed project
+  // registered it never runs, on the local path or as the Turso fallback.
+  it("refuses the local path, writing nothing, while a browser-backed project is registered", async () => {
+    const d = deps({ tursoUsable: false, browserProject: BROWSER_PROJECT });
+    await expect(createDemo(d)).resolves.toBe("local-blocked");
+    expect(d.createLocal).not.toHaveBeenCalled();
+    expect(d.createTursoProject).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to the local demo after a failed Turso create while a browser-backed project is registered", async () => {
+    const onLocalFallback = vi.fn();
+    const d = deps({ createTursoProject: fakeCreate(null), browserProject: BROWSER_PROJECT, onLocalFallback });
+    await expect(createDemo(d)).resolves.toBe("local-blocked");
+    expect(d.createLocal).not.toHaveBeenCalled();
+    expect(onLocalFallback).not.toHaveBeenCalled();
+  });
+
+  it("still creates the Turso demo while a browser-backed project is registered", async () => {
+    const d = deps({ browserProject: BROWSER_PROJECT });
+    await expect(createDemo(d)).resolves.toBe("turso");
+    expect(d.createLocal).not.toHaveBeenCalled();
+  });
+
+  // I4: with Turso projects present (the Projects panel) a failed create reports and stays in
+  // Turso; the fallback, which moves the portfolio to file mode and reloads, is the empty state's.
+  it("stays in Turso, without the local fallback, when the create fails while Turso projects exist", async () => {
+    const onLocalFallback = vi.fn();
+    const d = deps({ createTursoProject: fakeCreate(null), tursoProjectsExist: true, onLocalFallback });
+    await expect(createDemo(d)).resolves.toBe("turso-failed");
+    expect(d.createLocal).not.toHaveBeenCalled();
+    expect(onLocalFallback).not.toHaveBeenCalled();
+  });
 });
 
 describe("the demo's start-card facts", () => {
@@ -232,7 +269,7 @@ describe("useLoadDemo", () => {
       createDemoProject: vi.fn(async () => {}),
       createTursoProject: fakeCreate("id-1"),
       refreshTursoProjects: vi.fn(async () => null),
-      portfolioMode: "turso", tursoConfig: CONFIG, snapshots: undefined,
+      portfolioMode: "turso", tursoConfig: CONFIG, snapshots: undefined, hasTursoProjects: false,
       ...over,
     };
   }
@@ -319,6 +356,42 @@ describe("useLoadDemo", () => {
     expect(d.showToast).toHaveBeenCalledWith("info", t("en-US", "demoTrendsSeedFailedToast"));
     expect(d.refreshTursoProjects).toHaveBeenCalledTimes(1);
     expect(d.startTour).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses the local demo, naming the project it would replace, while the registry holds a browser-backed one", async () => {
+    saveRegistry(addProject(emptyRegistry(), BROWSER_PROJECT, true));
+    const d = hookDeps({ portfolioMode: "file" });
+    await run(d);
+    expect(d.createDemoProject).not.toHaveBeenCalled();
+    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "demoLocalBlocked", "Mercury"));
+    expect(d.startTour).not.toHaveBeenCalled();
+  });
+
+  it("blocks the Turso fallback too while the registry holds a browser-backed project", async () => {
+    saveRegistry(addProject(emptyRegistry(), BROWSER_PROJECT, true));
+    const d = hookDeps({ createTursoProject: fakeCreate(null) });
+    await run(d);
+    expect(d.createDemoProject).not.toHaveBeenCalled();
+    expect(readDemoCreatedLocally()).toBe(false);
+    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "demoLocalBlocked", "Mercury"));
+  });
+
+  it("from the Projects panel of a Turso portfolio, a failed create toasts and stays in Turso", async () => {
+    const d = hookDeps({ createTursoProject: fakeCreate(null), hasTursoProjects: true });
+    await run(d);
+    expect(d.createDemoProject).not.toHaveBeenCalled();
+    expect(readDemoCreatedLocally()).toBe(false);
+    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "tourDemoError"));
+    expect(d.refreshTursoProjects).not.toHaveBeenCalled();
+    expect(d.startTour).not.toHaveBeenCalled();
+  });
+
+  it("from the Projects panel of a Turso portfolio, a created demo still seeds and refreshes", async () => {
+    const d = hookDeps({ hasTursoProjects: true });
+    await run(d);
+    expect(d.createTursoProject).toHaveBeenCalledTimes(1);
+    expect(d.refreshTursoProjects).toHaveBeenCalledTimes(1);
+    expect(d.showToast).not.toHaveBeenCalled();
   });
 
   it("toasts the demo error and starts no tour when the demo cannot be created", async () => {

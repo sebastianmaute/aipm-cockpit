@@ -33,7 +33,7 @@ import { type ExportFormat } from "./export";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
 import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
-import { type ProjectRegistryEntry } from "./projects-registry";
+import { browserProjectIn, type ProjectRegistryEntry } from "./projects-registry";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
@@ -240,6 +240,12 @@ export function ProjectsPanel({
   // contract as the two Turso buttons above.
   const fsaSupported = useFsaSupported();
   const fsaHintId = useId();
+  // The local demo rewrites the ONE browser store, so it is disabled while a listed project
+  // already uses it (the create refuses then too). Turso-mode rows are Turso projects, which the
+  // demo never touches there. Same wrapper contract as the two Turso buttons above.
+  const demoBlocker = browserProjectIn(projects);
+  const demoHint = demoBlocker ? t(lang, "demoLocalBlocked", demoBlocker.name) : undefined;
+  const demoHintId = useId();
   // Archived-row control names (Restore / Delete permanently) collide
   // unconditionally otherwise — every archived row emits the identical bare
   // verb (§276). ProjectRegistryEntry.id is a string, so `useRowTokens`
@@ -413,9 +419,22 @@ export function ProjectsPanel({
             + {t(lang, "projectsNew")}
           </Button>
           {onLoadDemo && (
-            <Button variant="secondary" onClick={onLoadDemo}>
-              {t(lang, "tourLoadDemo")}
-            </Button>
+            <span className={`inline-flex${demoBlocker ? " cursor-not-allowed" : ""}`} title={demoHint}>
+              <Button
+                variant="secondary"
+                disabled={!!demoBlocker}
+                onClick={onLoadDemo}
+                aria-describedby={demoBlocker ? demoHintId : undefined}
+                className="disabled:pointer-events-none"
+              >
+                {t(lang, "tourLoadDemo")}
+              </Button>
+              {demoBlocker && (
+                <span id={demoHintId} className="sr-only">
+                  {demoHint}
+                </span>
+              )}
+            </span>
           )}
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>

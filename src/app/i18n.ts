@@ -3606,6 +3606,7 @@ const enUS = {
   demoTursoConnectedNote: "Turso connected. Explore the demo to include {0} weeks of Trends history.",
   demoCreatedLocallyToast: "Turso could not be reached, so the demo was created as a local project without Trends history.",
   demoTrendsSeedFailedToast: "The demo project was created, but its Trends history could not be added.",
+  demoLocalBlocked: "The local demo would replace \"{0}\", which already uses this browser's storage. Delete that project or set up Turso to explore the demo.",
   tourSkip: "Skip",
   tourNext: "Next",
   tourBack: "Back",
