@@ -11,7 +11,7 @@ import {
 // Times the Open Points table at about 500, 1000 and 2000 tasks: opening the view, one
 // inline status change, one keystroke in the search box, one search that filters, and
 // one scroll of SCROLL_ROWS rows. Phase 0 used it to decide whether to virtualize the
-// table; Phase 1 re-runs it for the after-numbers and, at 1008 tasks, checks what a
+// table; Phase 1 re-runs it for the after-numbers and, at about 1000 tasks, checks what a
 // row window could break that only a real browser shows.
 //
 // ★ OFF unless PERF=1, so CI skips it. Run it alone, on a fresh server:
@@ -37,7 +37,7 @@ const ROWS = "tbody tr[data-deeplink-row]";
 const SPACERS = "tbody tr[data-row-spacer]";
 // `searchMs` types "a", which changes no row; it is kept because Phase 0's numbers used it.
 // `filterMs` types FILTER, which changes the list (both in perf-helpers.ts).
-// One seed task, "Quarterly OKR review": 72 rows at 1008 tasks, under the threshold.
+// One seed task, "Quarterly OKR review": 37 rows at 999 tasks, under the threshold.
 const SMALL_FILTER = "Quarterly";
 const SCROLL_ROWS = 400;
 const ROW_PX = 45; // TASK_ROW_ESTIMATE_PX

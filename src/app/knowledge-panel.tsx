@@ -79,9 +79,9 @@ const NO_EXCLUDED_TARGETS: ReadonlySet<number> = new Set();
 
 /** Cap on the target rows `filterPickerOptions` returns, replacing its default
  *  of 20. `targets` spans every task, RAID item, change, milestone and
- *  stakeholder plus the project, which the sample workspaces measure at 40
- *  (`sample-workspace-small.json`, the curated master), 118 (`-big`, 3x) and
- *  391 (`-huge`, 10x) — so the default hid over half of even the SMALL sample,
+ *  stakeholder plus the project, which the sample workspaces measure at 57
+ *  (`sample-workspace-small.json`, the curated master), 169 (`-big`, 3x) and
+ *  561 (`-huge`, 10x) — so the default hid over half of even the SMALL sample,
  *  and the placeholder's `* for all` promise returned 20 rows.
  *  200 covers the small and big fixtures whole, which is the realistic span for
  *  one project; the 10x fixture is a synthetic stress case, not a plan anyone
