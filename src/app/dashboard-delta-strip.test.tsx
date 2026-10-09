@@ -5,6 +5,7 @@ import type { DeltaResult } from "./dashboard-delta";
 import type { Task } from "./types";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 function emptyCounts() {
   const z = () => ({ created: 0, updated: 0, completed: 0, statusChanged: 0 });
@@ -86,5 +87,23 @@ describe("DashboardDeltaStrip — every chip has its own name (§672)", () => {
     render(<DashboardDeltaStrip lang={lang} delta={allChips()} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} onOpenTask={vi.fn()} onOpenRaid={vi.fn()} onOpenMilestone={vi.fn()} onOpenChange={vi.fn()} />);
     expect(screen.getAllByRole("button")).toHaveLength(7);
     expectRowUniqueNames({ minControls: 7 });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("DashboardDeltaStrip chips at the shared xs size", () => {
+  const counts = () => { const c = emptyCounts(); c.tasks.updated = 4; return c; };
+  const greeting = { greetingKey: "dashboardGreetingMorning" as const, summary: { needsYou: 0, milestonesSoon: 0 } };
+  test("draws a clickable chip as secondary xs", () => {
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ counts: counts(), total: 4 })} greeting={greeting} onOpenTask={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /4 tasks updated/i }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+  test("draws a text chip in the same box, so a mixed row lines up", () => {
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ counts: counts(), total: 4 })} greeting={greeting} />);
+    expect(screen.getByText(/4 tasks updated/i).className).toBe(
+      "rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground",
+    );
   });
 });

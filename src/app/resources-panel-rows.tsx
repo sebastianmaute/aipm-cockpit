@@ -22,9 +22,10 @@ import { DataTable } from "./data-table";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { SortResizeTh, useSortHeaderProps, type SortDir } from "./report-table";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowTokens } from "./use-row-tokens";
 import type { PlanningCol, PlanSortKey, RollupCol } from "./resources-panel-columns";
+import { Button } from "./button";
 
 /** One planning-grid row — a resource with its derived capacity + cost. */
 export type PlanRow = {
@@ -254,11 +255,11 @@ export function PlanningTable({
         const rollupPeriods = generatePeriods(plan.startDate, plan.endDate, other);
         return (
           <div className="mt-3">
-            <button type="button" onClick={onToggleRollup}
+            <Button onClick={onToggleRollup}
               title={t(lang, "resourcesRollupHint")}
-              className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey print:hidden ${INTERACTIVE}`}>
+              variant="secondary" size="xs" className="print:hidden">
               {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
-            </button>
+            </Button>
             {showRollup && (
               <div className="mt-2 overflow-auto rounded-md border border-line pr-2">
                 <DataTable className="w-full text-left text-sm" head={<>

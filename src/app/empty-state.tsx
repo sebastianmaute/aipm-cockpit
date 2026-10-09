@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 export interface EmptyStateAction {
   label: string;
@@ -33,14 +33,13 @@ export function EmptyState({ title, description, icon, actions, compact = false 
       {actions && actions.length > 0 && (
         <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
           {actions.map((a, i) => (
-            <button
+            <Button
               key={`${i}-${a.label}`}
-              type="button"
               onClick={a.onClick}
-              className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+              variant="secondary" size="xs"
             >
               {a.label}
-            </button>
+            </Button>
           ))}
         </div>
       )}

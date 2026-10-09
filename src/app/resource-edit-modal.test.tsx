@@ -12,6 +12,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { selectFieldTier } from "../test/field-tier";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import type { Resource } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
@@ -431,5 +432,15 @@ describe("ResourceEditModal — every additional email row has its own name (§6
     // stops rendering fails here rather than quietly shrinking the scan.
     expectRowUniqueNames({ minControls: 12, roles: ["textbox"] });
     expectRowUniqueNames({ minControls: 23 });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ResourceEditModal Add email on the shared Button", () => {
+  it("draws Add email as secondary xs, keeping self-start", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /Add email/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "self-start" }),
+    );
   });
 });

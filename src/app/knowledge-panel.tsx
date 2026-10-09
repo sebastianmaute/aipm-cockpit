@@ -12,7 +12,6 @@ import { useResizable } from "./use-resizable";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
-import { INTERACTIVE } from "./interaction-styles";
 import { TaskLinkPicker } from "./task-link-picker";
 import { SingleEntityPicker, type SingleEntityOption } from "./single-entity-picker";
 import { filterPickerOptions } from "./picker-filter";
@@ -687,16 +686,15 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                         <span className="font-medium text-foreground">{r.link.name}</span>
                       )}
                     </div>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => requestOpen(r.source.view, r.source.id)}
                       // §316 — two different source items can share a name, so the
                       // button also names the document this card holds.
                       aria-label={`${t(lang, SOURCE_LABEL[r.source.kind])}: ${r.source.name} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
-                      className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ui-dark-blue hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
+                      variant="secondary" size="xs" className="self-start"
                     >
                       {t(lang, SOURCE_LABEL[r.source.kind])}: {r.source.name}
-                    </button>
+                    </Button>
                     <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       <span>{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</span>
                       {host && (

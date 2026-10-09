@@ -3,9 +3,9 @@
 import { t, tPlural, type Lang } from "./i18n";
 import { Card } from "./card";
 import { RagBadge } from "./rag-badge";
-import { INTERACTIVE } from "./interaction-styles";
 import { healthColorName } from "./health";
 import type { DeltaResult, GreetingTimeKey, RagScope } from "./dashboard-delta";
+import { Button } from "./button";
 
 interface GreetingResult {
   greetingKey: GreetingTimeKey;
@@ -80,20 +80,19 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
             <span className="text-xs font-semibold uppercase text-muted-foreground">{t(lang, "dashboardDeltaSinceTitle")}</span>
             {chips.map((chip) =>
               chip.onClick ? (
-                <button
+                <Button
                   key={chip.key}
-                  type="button"
                   onClick={chip.onClick}
-                  className={`rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
+                  variant="secondary" size="xs"
                 >
                   {chip.label}
-                </button>
+                </Button>
               ) : (
-                <span key={chip.key} className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted-foreground">{chip.label}</span>
+                <span key={chip.key} className="rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground">{chip.label}</span>
               ),
             )}
             {delta.ragFlips.map((flip) => (
-              <span key={`flip-${flip.scope}`} className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-muted-foreground">
+              <span key={`flip-${flip.scope}`} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground">
                 <RagBadge value={flip.to} lang={lang} />
                 {t(lang, "dashboardDeltaFlip", t(lang, SCOPE_LABEL_KEY[flip.scope]), flip.from ? healthColorName(flip.from, lang) : "—", flip.to ? healthColorName(flip.to, lang) : "—")}
               </span>

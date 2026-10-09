@@ -12,11 +12,11 @@ import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
-import { TRANSITION, PRESS } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { ViewCallout } from "./view-callout";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { Button } from "./button";
 
 // --- Props ------------------------------------------------------------------
 
@@ -199,9 +199,8 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                   <div className="flex flex-wrap gap-1">
                     {byQuadrant[q.id].map((s) =>
                       onOpenStakeholder ? (
-                        <button
+                        <Button
                           key={s.id}
-                          type="button"
                           draggable={editable || undefined}
                           onDragStart={editable ? (e) => {
                             e.dataTransfer.setData("text/plain", String(s.id));
@@ -210,10 +209,10 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                           onDragEnd={editable ? () => setDragOverQ(null) : undefined}
                           onClick={() => onOpenStakeholder(s.id)}
                           aria-label={rowLabel(t(lang, "edit"), chipTokens.get(s.id) ?? s.name)}
-                          className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-ui-green/15 focus:outline-none focus:ring-2 focus:ring-ui-green ${TRANSITION} ${PRESS}`}
+                          variant="secondary" size="xs"
                         >
                           {s.name}
-                        </button>
+                        </Button>
                       ) : (
                         <span
                           key={s.id}

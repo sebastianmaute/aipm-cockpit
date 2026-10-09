@@ -5,6 +5,7 @@ import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 const r: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 const colResize = {
@@ -478,5 +479,33 @@ describe("ResourceWorkload", () => {
       .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
     expect(hoursNames).toHaveLength(2);
     expect(new Set(hoursNames).size).toBe(2);
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`. The hours
+// buttons and absence chips stay hand-rolled (their text and fill carry meaning a
+// variant would override), at the xs box: px-2.5 py-1.5.
+describe("ResourceWorkload buttons at the shared xs size", () => {
+  const tok = (c: string) => new RegExp(`(^|\\s)${c.replace(".", "\\.")}(\\s|$)`);
+  it("draws Add as resource as secondary xs and the hours and absence chips at the xs box", () => {
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0 }];
+    const absence = (id: number, resourceId: number | undefined, assignee: string) =>
+      ({ id, resourceId, assignee, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" }) as unknown as
+        React.ComponentProps<typeof ResourceWorkload>["absences"][number];
+    render(
+      <ResourceWorkload {...baseProps} tasks={tasks}
+        absences={[absence(11, 1, "Sofia Ramirez"), absence(12, undefined, "Bob Lee")]} />,
+    );
+    expect(screen.getByRole("button", { name: /^Add as resource/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "ml-2" }),
+    );
+    const hours = screen.getAllByTitle(t("en-US", "resourcesDefaultShift"));
+    const chips = screen.getAllByRole("button").filter((b) => b.textContent?.includes("vacation"));
+    expect(hours.length).toBe(2);
+    expect(chips.length).toBe(2);
+    for (const b of [...hours, ...chips]) {
+      expect(b.className).toMatch(tok("px-2.5"));
+      expect(b.className).toMatch(tok("py-1.5"));
+    }
   });
 });

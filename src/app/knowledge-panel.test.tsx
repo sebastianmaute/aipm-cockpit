@@ -14,6 +14,7 @@ import type { KnowledgeItem, KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 afterEach(() => {
   window.localStorage.clear();
@@ -547,5 +548,16 @@ describe("KnowledgePanel", () => {
       const print = screen.getByRole("button", { name: t("en-US", "printHint") });
       expect(print.closest(".overflow-auto")).toBeNull();
     });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("KnowledgePanel source button on the shared Button", () => {
+  it("draws a card's source button as secondary xs, keeping self-start", () => {
+    renderWithTasks([seededTask([LINK])]);
+    const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec – Spec.docx`;
+    expect(screen.getByRole("button", { name: sourceLabel }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "self-start" }),
+    );
   });
 });

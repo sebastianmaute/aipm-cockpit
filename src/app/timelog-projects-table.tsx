@@ -7,12 +7,12 @@
 import { t, type Lang } from "./i18n";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
-import { INTERACTIVE } from "./interaction-styles";
 import { canLoadManagedProjects } from "./timelog-guards";
 import { timelogProjectLabel, type TimelogProjectRef } from "./timelog-match";
 import type { BudgetBucket } from "./types";
 import { ROW_RULE_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
+import { Button } from "./button";
 
 /** Effective project→budget link (auto or manual, manual wins). */
 type ProjectLinkView = { timelogProjectId: number; bucketId: number | null; manual: boolean };
@@ -72,14 +72,13 @@ export function TimelogProjectsTable({
             />
             {t(lang, "timelogIncludeClosed")}
           </label>
-          <button
-            type="button"
+          <Button
             disabled={!canLoadManagedProjects({ isPopout, syncBusy, confirming, isMisconfigured })}
             onClick={onLoadManagedProjects}
-            className={`rounded-md border border-line px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+            variant="secondary" size="xs"
           >
             {t(lang, "timelogLoadManagedProjects")}
-          </button>
+          </Button>
         </div>
       </div>
       {knownProjectRefs.length === 0 ? (
@@ -132,15 +131,14 @@ export function TimelogProjectsTable({
                       )}
                     </td>
                     <td className="py-2">
-                      <button
-                        type="button"
+                      <Button
                         aria-label={clearLabel}
                         disabled={isPopout}
                         onClick={() => onManualLinkProject(p.id, null)}
-                        className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                        variant="secondary" size="xs"
                       >
                         {t(lang, "timelogMatchClear")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 );

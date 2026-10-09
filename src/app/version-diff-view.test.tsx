@@ -5,6 +5,7 @@ import { diffWorkspaces, type VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ws, roleRec, disciplineRec, gradeRec } from "../test/workspace-records";
+import { buttonClassFor } from "../test/button-variant";
 
 const changes: VersionChange[] = [
   { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "Design sign-off",
@@ -460,5 +461,20 @@ describe("VersionDiffView disclosure semantics", () => {
   it("disables the per-record restore button while a restore is running", () => {
     render(<VersionDiffView lang="en-US" changes={[expandable]} onRestoreRecord={() => {}} restoreBusy />);
     expect(screen.getByRole("button", { name: /Restore this/i })).toBeDisabled();
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("VersionDiffView Restore this on the shared Button", () => {
+  it("draws Restore this as secondary xs in both layouts", () => {
+    const { unmount } = render(<VersionDiffView lang="en-US" changes={changes} layout="sideBySide" onRestoreRecord={() => {}} />);
+    expect(screen.getByRole("button", { name: /^Restore this – Design sign-off/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "shrink-0" }),
+    );
+    unmount();
+    render(<VersionDiffView lang="en-US" changes={changes} onRestoreRecord={() => {}} />);
+    expect(screen.getByRole("button", { name: /^Restore this – Design sign-off/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "ml-2 shrink-0" }),
+    );
   });
 });

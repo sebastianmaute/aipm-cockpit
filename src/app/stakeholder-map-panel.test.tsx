@@ -4,6 +4,7 @@ import { StakeholderMapPanel } from "./stakeholder-map-panel";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const items: Stakeholder[] = [
   { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
@@ -297,5 +298,15 @@ describe("StakeholderMapPanel drop highlight", () => {
     dragLeaveTo(from, to);
     expect(to).toHaveClass("ring-2");
     expect(from).not.toHaveClass("ring-2");
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("StakeholderMapPanel chips on the shared Button", () => {
+  it("draws a clickable stakeholder chip as secondary xs", () => {
+    render(<StakeholderMapPanel lang="en-US" stakeholders={items} onOpenStakeholder={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Sam/ }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

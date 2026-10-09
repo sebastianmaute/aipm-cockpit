@@ -21,7 +21,7 @@ import { rowLabel } from "./row-tokens";
 import { TEXTAREA_MAX } from "./sanitize";
 import { normalizeBlockerText } from "./blocker-log";
 import type { BlockerEntry, Resource } from "./types";
-import { Button } from "./button";
+import { Button, PRIMARY_MATCHING_BORDER } from "./button";
 
 export interface BlockerLogPanelProps {
   entries: readonly BlockerEntry[];
@@ -205,14 +205,13 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
           className={TEXTAREA}
         />
         <div className="mt-2 flex justify-end">
-          <button
-            type="button"
+          <Button
             onClick={handleAdd}
             disabled={isBlank(draft)}
-            className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white disabled:opacity-50 ${INTERACTIVE}`}
+            variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER}
           >
             {t(lang, "blockerLogAdd")}
-          </button>
+          </Button>
         </div>
       </div>
 

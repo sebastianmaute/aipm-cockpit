@@ -6,6 +6,7 @@ import { render, screen } from "@testing-library/react";
 import { TimelogProjectsTable } from "./timelog-projects-table";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 function renderTable(refs: { name: string; no: string }[]) {
   render(
@@ -40,5 +41,15 @@ describe("TimelogProjectsTable row names (§316)", () => {
     expect(screen.getByRole("combobox", { name: `${select()} – Support (2)` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, roles: ["combobox"], requireCollisionSeed: true });
     expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("TimelogProjectsTable buttons on the shared Button", () => {
+  it("draws Load my projects and a row's Clear link as secondary xs", () => {
+    renderTable([{ name: "Alpha", no: "P1" }]);
+    const secondary = buttonClassFor({ variant: "secondary", size: "xs" });
+    expect(screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }).className).toBe(secondary);
+    expect(screen.getByRole("button", { name: /^Clear link – / }).className).toBe(secondary);
   });
 });

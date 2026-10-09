@@ -7,6 +7,7 @@ import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { activityMessageKey, type ActivityEntry } from "./activity-log";
+import { buttonClassFor } from "../test/button-variant";
 
 // Synchronous rAF so the confirm dialog's Modal focus-management effect runs
 // immediately (the branded confirm is built on the shared Modal).
@@ -977,5 +978,15 @@ describe("ActivityLogPanel — count agreement on map-routed keys", () => {
     );
     expect(screen.getByText("KI hat 1 Planungszelle geplant")).toBeInTheDocument();
     expect(screen.queryByText("KI hat 1 Planungszellen geplant")).toBeNull();
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ActivityLogPanel Clear log on the shared Button", () => {
+  it("draws Clear log as destructive xs", () => {
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    expect(screen.getByRole("button", { name: t("en-US", "activityClear") }).className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs" }),
+    );
   });
 });

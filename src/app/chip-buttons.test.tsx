@@ -5,6 +5,7 @@ import { render, screen } from "@testing-library/react";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buttonClassFor } from "../test/button-variant";
+import { EmptyState } from "./empty-state";
 
 describe("chip buttons on the shared Button", () => {
   it("draws the bulk-edit bar's Clear selection as secondary xs", () => {
@@ -18,5 +19,14 @@ describe("chip buttons on the shared Button", () => {
     render(<DocumentEntityFilterBanner lang="en-US" title="Task 7" isEmpty={false} onClear={() => {}} />);
     const btn = screen.getByRole("button");
     expect(btn.className).toBe(buttonClassFor({ variant: "secondary", size: "xs", className: "ml-auto" }));
+  });
+});
+
+describe("EmptyState actions on the shared Button", () => {
+  it("draws an action as secondary xs", () => {
+    render(<EmptyState title="Nothing yet" actions={[{ label: "Add one", onClick: () => {} }]} />);
+    expect(screen.getByRole("button", { name: "Add one" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

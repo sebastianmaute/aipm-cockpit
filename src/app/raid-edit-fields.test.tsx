@@ -146,3 +146,13 @@ describe("RaidLinkedTasksField mitigation button on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("RaidCausedByField caused-this chips on the shared Button", () => {
+  it("draws an item-caused-by-this chip as secondary xs", () => {
+    renderField({ causedChildren: [raid(3, { title: "Downstream slip" })] });
+    expect(screen.getByRole("button", { name: "R#3 Downstream slip" }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "inline-flex items-center gap-1" }),
+    );
+  });
+});

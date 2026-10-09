@@ -2,9 +2,9 @@
 
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
-import { INTERACTIVE } from "./interaction-styles";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./milestones";
+import { Button } from "./button";
 
 interface MilestoneHorizonStripProps {
   lang: Lang;
@@ -57,11 +57,10 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
               return (
                 <li key={e.milestone.id}>
                   {onOpenMilestone ? (
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => onOpenMilestone(e.milestone.id)}
                       aria-label={tokens.get(e.milestone.id) ?? label}
-                      className={`inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
+                      variant="secondary" size="xs" className="inline-flex items-center gap-1"
                     >
                       {alert && (
                         <span aria-hidden="true">
@@ -69,7 +68,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                         </span>
                       )}
                       {label}
-                    </button>
+                    </Button>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-muted-foreground">
                       {alert && (
@@ -86,15 +85,14 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
             {buckets[k].length > MAX_PER_BUCKET && (
               <li>
                 {onOpenMilestone ? (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => onOpenMilestone(-1)}
                     // Two buckets with the same overflow read alike, so the bucket is in the name.
                     aria-label={rowLabel(t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET)), t(lang, LABEL_KEY[k]))}
-                    className={`rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
+                    variant="secondary" size="xs"
                   >
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
-                  </button>
+                  </Button>
                 ) : (
                   <span className="px-2.5 py-0.5 text-xs text-muted-foreground">
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}

@@ -277,3 +277,16 @@ describe("NextActionsSection — every weight field and Accept button has its ow
     expectRowUniqueNames({ minControls: WEIGHT_FIELDS });
   });
 });
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("NextActionsSection Accept on the shared Button", () => {
+  it("draws a suggestion's Accept as secondary xs", () => {
+    const aiSettings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true } };
+    render(
+      <NextActionsSection lang="en-US" settings={aiSettings} onChange={vi.fn()} buildWeightSuggestionContext={() => "ctx"} />,
+    );
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "weightSuggestAccept")} - ${t("en-US", "naClarityBonus")}` }).className,
+    ).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
+  });
+});

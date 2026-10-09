@@ -185,14 +185,13 @@ function JobRow({
 
       {job.history.length > 1 && (
         <div>
-          <button
-            type="button"
+          <Button
             onClick={() => setExpanded((v) => !v)}
             aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${token}`}
-            className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+            variant="secondary" size="xs"
           >
             {t(lang, expanded ? "showLess" : "showMore")}
-          </button>
+          </Button>
           {expanded && (
             <ul className="mt-2 flex flex-col gap-1">
               {job.history.slice(1).map((run, idx) => (

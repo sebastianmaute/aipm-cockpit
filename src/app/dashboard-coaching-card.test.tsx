@@ -4,6 +4,7 @@ import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { computeCoaching, type CoachingCta } from "./dashboard-coaching";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const CTAS: CoachingCta[] = [
   { key: "task", labelKey: "coachingAddTask", view: "open-points" },
@@ -61,5 +62,15 @@ describe("DashboardCoachingCard — every CTA has its own name (§672)", () => {
     expect(ALL).toHaveLength(4);
     render(<DashboardCoachingCard lang={lang} ctas={ALL} onNavigate={() => {}} />);
     expectRowUniqueNames({ minControls: ALL.length });
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("DashboardCoachingCard CTAs on the shared Button", () => {
+  test("draws each CTA as secondary xs", () => {
+    render(<DashboardCoachingCard lang="en-US" ctas={CTAS} onNavigate={() => {}} />);
+    expect(screen.getByRole("button", { name: t("en-US", "coachingAddTask") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

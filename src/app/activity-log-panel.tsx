@@ -36,7 +36,6 @@ import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manag
 import { DataTable } from "./data-table";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useConfirm } from "./confirm-dialog";
@@ -375,8 +374,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           {/* Clear leads; Print · reset-columns · reset-size stay the trailing
             * group, so the resets sit together as they do in every other pane. */}
           {entries.length > 0 && (
-            <button
-              type="button"
+            <Button
               onClick={async () => {
                 if (
                   await confirm({
@@ -386,10 +384,10 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   onClear();
               }}
               title={t(lang, "activityClearHint")}
-              className={`rounded-md border border-ui-pink/50 bg-surface px-2.5 py-1 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
+              variant="destructive" size="xs"
             >
               {t(lang, "activityClear")}
-            </button>
+            </Button>
           )}
           <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />

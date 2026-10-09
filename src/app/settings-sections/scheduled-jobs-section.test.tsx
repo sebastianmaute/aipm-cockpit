@@ -190,3 +190,23 @@ describe("ScheduledJobsSection delete on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("ScheduledJobsSection Show more on the shared Button", () => {
+  it("draws a job's Show more as secondary xs", () => {
+    mockJobs = [
+      job({
+        id: 7,
+        name: "Alpha",
+        history: [
+          { ranAt: "2026-06-18T09:00:00Z", summary: "ok", actionCount: 3, ok: true },
+          { ranAt: "2026-06-17T09:00:00Z", summary: "ok", actionCount: 1, ok: true },
+        ],
+      }),
+    ];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Alpha` }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+});

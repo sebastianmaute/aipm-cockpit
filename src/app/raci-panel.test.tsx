@@ -16,6 +16,7 @@ vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 
 import { useSettings } from "./use-settings";
 import { defaultSettings, type Settings } from "./settings-types";
+import { buttonClassFor } from "../test/button-variant";
 const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
 
 function stubSettings(settings: Settings) {
@@ -357,5 +358,16 @@ describe("RaciPanel", () => {
     const group = filter.closest("div.flex-1");
     expect(group).not.toBeNull();
     expect(group?.firstElementChild).toContainElement(filter);
+  });
+});
+
+// §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
+describe("RaciPanel Clear filter on the shared Button", () => {
+  it("draws Clear filter as secondary xs", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    fireEvent.change(screen.getByRole("combobox", { name: /filter people/i }), { target: { value: "Sam" } });
+    expect(screen.getByRole("button", { name: t("en-US", "raciFilterClear") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });
