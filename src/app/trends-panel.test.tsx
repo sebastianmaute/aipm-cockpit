@@ -244,10 +244,10 @@ describe("TrendsPanel currency labelling", () => {
 
 // §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
 describe("TrendsPanel Delete selected on the shared Button", () => {
-  it("draws Delete selected as destructive xs, keeping the disabled hover reset", () => {
+  it("draws Delete selected as destructive xs, keeping the disabled hover at the resting fill", () => {
     renderPanel(<TrendsPanel {...base} />);
     expect(screen.getByRole("button", { name: /delete selected/i }).className).toBe(
-      buttonClassFor({ variant: "destructive", size: "xs", className: "disabled:hover:bg-transparent" }),
+      buttonClassFor({ variant: "destructive", size: "xs", className: "disabled:hover:bg-surface" }),
     );
   });
 });

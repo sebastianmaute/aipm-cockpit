@@ -621,6 +621,10 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
           label={`${t(lang, "sendInquiry")} – ${rowToken}`}
           title={t(lang, "sendInquiry")}
           onClick={(e) => { stop(e); onSendInquiry(task); }}
+          // `bordered` at `md` (p-1.5 + 16px icon + border) is 30px, the
+          // height of the xs ⋮ Button beside it.
+          variant="bordered"
+          size="md"
           className="mr-1"
         >
           <EnvelopeIcon aria-hidden className="h-4 w-4" />

@@ -107,3 +107,12 @@ describe("DashboardDeltaStrip chips at the shared xs size", () => {
     );
   });
 });
+
+// §102 (batch 23, review round): kept level with the xs Buttons around it.
+describe("DashboardDeltaStrip RAG flip chip at the xs size", () => {
+  test("draws a RAG flip in the same box as the other chips", () => {
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ ragFlips: [{ scope: "schedule", from: "G", to: "A", worsened: true }], total: 1 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
+    const flip = Array.from(document.querySelectorAll("span")).find((el) => el.className.startsWith("inline-flex items-center gap-1 rounded-md"));
+    expect(flip?.className).toBe("inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground");
+  });
+});

@@ -1967,3 +1967,26 @@ describe("TaskActions ⋮ on the shared Button", () => {
     );
   });
 });
+
+// §102 (batch 23, review round): kept level with the xs Buttons around it.
+describe("TaskActions Send inquiry beside the xs ⋮", () => {
+  test("draws the envelope as a bordered md IconButton (30px, like the ⋮)", () => {
+    const task = makeTask({ id: 98 });
+    const { getByRole } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={makeContext()}>
+                <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const cls = getByRole("button", { name: /^Send inquiry – / }).className;
+    expect(cls).toMatch(/(^|\s)p-1\.5(\s|$)/);
+    expect(cls).toMatch(/(^|\s)border-line(\s|$)/);
+  });
+});

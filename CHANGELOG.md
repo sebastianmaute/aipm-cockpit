@@ -56,8 +56,8 @@ longer carries its own changelog comment.
   in Resources keeps it and grows to match the buttons beside it. Most of the app's other small buttons follow:
   the empty-state and coaching actions, the chat prompt chips (now square-cornered, without the blue tint), the
   Knowledge source button, the stakeholder map chips, the Dashboard's tip, delta and milestone chips, RACI's Clear
-  filter, the RAID editor's caused-by chips (without the purple tint), Add email, the rollup toggle, TimeLog's Load
-  my projects and Clear link, Accept on a weight suggestion, Show more on a scheduled job, a task row's ⋮, Restore
+  filter, the RAID editor's "caused by this" chips (without the purple tint), Add email, the rollup toggle, TimeLog's Load
+  my projects and Clear link, Accept on a weight suggestion, Show more on a scheduled job, a task row's ⋮ and its Send inquiry envelope, a Dashboard tile's ⋮, Restore
   this in version history, Add in the notes and blocker logs, Clear log in the activity log and Delete selected in
   Trends. The workload's hours buttons and absence chips, RACI's person-filter chips and the read-only chips on
   the stakeholder map and the milestone strip grow to the same height.

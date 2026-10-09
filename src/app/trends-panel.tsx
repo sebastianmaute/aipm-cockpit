@@ -227,10 +227,10 @@ export function TrendsPanel(props: TrendsPanelProps) {
                 // The shared `destructive` variant tints the BACKGROUND on hover
                 // (`hover:bg-ui-pink/10`) and keeps the text opaque; an earlier
                 // hand-rolled hover:opacity-80 faded the -strong token below AA.
-                // ★ disabled:hover:bg-transparent — otherwise a disabled button
-                // still lights up under the cursor, advertising an action it
-                // will not perform.
-                variant="destructive" size="xs" className="disabled:hover:bg-transparent"
+                // ★ disabled:hover:bg-surface — the variant's own resting fill,
+                // so a disabled button does not light up under the cursor,
+                // advertising an action it will not perform.
+                variant="destructive" size="xs" className="disabled:hover:bg-surface"
               >
                 {t(lang, "snapshotDeleteSelected", selected.size)}
               </Button>

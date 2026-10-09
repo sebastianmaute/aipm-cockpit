@@ -1,7 +1,7 @@
 "use client";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { W_CLASS, H_CLASS } from "./arrangement-grid";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 import { DragHandle } from "./drag-handle";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
@@ -162,17 +162,18 @@ export function ArrangementTile({
           ) : null}
         </div>
         {!readOnly && (
-          <button
+          <Button
             ref={menuButtonRef}
-            type="button"
             aria-haspopup="menu"
             aria-label={menuLabel}
             title={t(lang, "actionMoreActions")}
             onClick={(e) => onOpenMenu(e.currentTarget)}
-            className={`rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+            variant="secondary"
+            size="xs"
+            className="print:hidden"
           >
             ⋮
-          </button>
+          </Button>
         )}
       </div>
       <div data-arrangement-body="" className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
