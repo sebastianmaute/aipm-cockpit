@@ -7,6 +7,7 @@ import {
   visibleTaskCols,
 } from "./open-points-table-geometry";
 import { ALL_TASK_COLS, DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
+import { buttonClassFor } from "../test/button-variant";
 
 describe("visibleTaskCols", () => {
   // ★ Assert the WHOLE list, not a sampled pair. `indexOf("id") < indexOf("taskName")`
@@ -147,6 +148,15 @@ describe("the actions column fits its content", () => {
   const MORE_ACTIONS_PX = 26;
   /** The `mr-1` between them. */
   const BUTTON_GAP_PX = 4;
+
+  // ★ MORE_ACTIONS_PX is a measurement, so it cannot follow a change to the
+  //   Button it measured. This pins the inputs it was measured at: if the xs
+  //   size or the secondary border changes, this fails and the width must be
+  //   re-measured (and DEFAULT_COL_WIDTHS.actions re-budgeted).
+  it("measured the ⋮ at the Button's current xs padding and secondary border", () => {
+    const cls = buttonClassFor({ variant: "secondary", size: "xs" }).split(/\s+/);
+    expect(cls).toEqual(expect.arrayContaining(["px-2.5", "border", "text-xs"]));
+  });
 
   it("leaves a content box wide enough for both row buttons", () => {
     const contentBox = DEFAULT_COL_WIDTHS.actions - CELL_PADDING_PX;

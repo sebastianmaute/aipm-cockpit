@@ -163,9 +163,11 @@ export function ArrangementTile({
         </div>
         {!readOnly && (
           // ★ Deliberately NOT the shared `Button` at `xs` (§102, owner decision
-          // 2026-10-09): this glyph sets the header's height, and every pixel
-          // the header gains comes out of every tile's body. At 30px it cost
-          // each tile 10px, and a KPI tile sized to its 2-row minimum scrolled
+          // 2026-10-09): the header is as tall as its tallest control, and
+          // every pixel it gains comes out of every tile's body. This glyph
+          // (~20px) ties with the title; a 30px Button would be the tallest,
+          // costing each tile 10px, and a KPI tile sized to its 2-row minimum
+          // scrolled
           // (e2e/dashboard-grid.spec.ts, "a user-sized 2-row KPI tile").
           <button
             ref={menuButtonRef}
