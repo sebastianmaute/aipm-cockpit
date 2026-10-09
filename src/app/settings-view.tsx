@@ -10,6 +10,7 @@ import { Card } from "./card";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { TextButton } from "./text-button";
 import { Button } from "./button";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
@@ -499,14 +500,9 @@ export function SettingsView(props: SettingsViewProps) {
     </div>
 
     <footer className="mx-auto mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">
-      <button
-        type="button"
-        onClick={() => onOpenVersion?.()}
-        title={t(lang, "versionHistory")}
-        className="font-medium text-ui-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-blue"
-      >
+      <TextButton onClick={() => onOpenVersion?.()} title={t(lang, "versionHistory")}>
         {t(lang, "versionVersion")} {APP_VERSION_LABEL}
-      </button>
+      </TextButton>
       <span aria-hidden>·</span>
       <a
         href={APP_LICENSE_URL}

@@ -18,6 +18,8 @@ vi.mock("./turso-config", () => ({
 
 import { PortfolioHealthPanel } from "./portfolio-health-panel";
 import { defaultSettings } from "./settings-types";
+import { TextButton } from "./text-button";
+import { primitiveClassFor } from "../test/primitive-class";
 
 const baseProps = {
   lang: "en-US" as const,
@@ -143,5 +145,16 @@ describe("PortfolioHealthPanel row names", () => {
     render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} onSwitchProject={vi.fn()} />);
     expect(screen.getByRole("button", { name: /Alpha \(2\)$/ })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, roles: ["button"], scope: screen.getByRole("table"), requireCollisionSeed: true });
+  });
+});
+
+// §693 — the project name is the shared TextButton.
+describe("PortfolioHealthPanel project link", () => {
+  it("renders the shared TextButton", () => {
+    const row: PortfolioRow = { id: "p1", name: "Alpha", overall: "G", schedule: "G", budget: "G", completionPercent: 10, openRaidCount: 0, milestoneHealth: "on_track" };
+    mockTursoConfig.mockReturnValue({ httpUrl: "https://demo.turso.io", authToken: "tok" });
+    mockHook.mockReturnValue({ rows: [row], aggregate: { projectCount: 1, overallR: 0, overallA: 0, overallG: 1, totalOpenRaid: 0, avgCompletionPercent: 10 }, loading: false, error: null });
+    render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} onSwitchProject={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Alpha/ }).className).toBe(primitiveClassFor(<TextButton>x</TextButton>));
   });
 });

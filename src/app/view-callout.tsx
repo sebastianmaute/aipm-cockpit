@@ -7,7 +7,7 @@ import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { VIEW_CALLOUTS } from "./view-callouts";
 import { loadDismissed, dismissView } from "./view-hints-store";
-import { INTERACTIVE } from "./interaction-styles";
+import { TextButton } from "./text-button";
 
 interface ViewCalloutProps {
   view: AppView;
@@ -37,14 +37,10 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
     <div className="mb-2 flex shrink-0 items-start gap-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs print:hidden">
       <InformationCircleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ui-dark-blue dark:text-ui-light-grey" />
       <p className="flex-1 text-foreground">{t(lang, callout.textKey)}</p>
-      <button
-        type="button"
-        onClick={() => onLearnMore(callout.conceptId)}
-        className={`shrink-0 font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
-      >
+      <TextButton onClick={() => onLearnMore(callout.conceptId)} className="shrink-0">
         {t(lang, "viewHintLearnMore")}
         <span aria-hidden="true"> →</span>
-      </button>
+      </TextButton>
       <IconButton
         size="xs"
         onClick={() => setDismissed(dismissView(view, isPopout))}

@@ -13,6 +13,8 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
 import { t } from "./i18n";
 import { buttonClassFor } from "../test/button-variant";
+import { TextButton } from "./text-button";
+import { primitiveClassFor } from "../test/primitive-class";
 
 // The panel reads useDisplayTimezone(); wrap every render in the provider. A
 // non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
@@ -248,6 +250,16 @@ describe("TrendsPanel Delete selected on the shared Button", () => {
     renderPanel(<TrendsPanel {...base} />);
     expect(screen.getByRole("button", { name: /delete selected/i }).className).toBe(
       buttonClassFor({ variant: "destructive", size: "xs", className: "disabled:hover:bg-surface" }),
+    );
+  });
+});
+
+// §693 — Set baseline is the shared TextButton in its default (dark-blue) tone.
+describe("TrendsPanel Set baseline link", () => {
+  it("renders the shared TextButton", () => {
+    renderPanel(<TrendsPanel {...base} />);
+    expect(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "trendsSetBaseline")) }).className).toBe(
+      primitiveClassFor(<TextButton className="text-xs">x</TextButton>),
     );
   });
 });

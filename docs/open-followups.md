@@ -928,7 +928,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§690](#690-eleven-text-buttons-still-hand-roll-a-look-that-a-button-variant-draws-at-sizes-next-to-buttons--open) | Eleven text buttons still hand-roll a look that a `Button` variant draws, at sizes next to `Button`'s | — | — | open |
 | [§691](#691-six-green-call-to-action-buttons-hand-roll-four-different-recipes-because-button-has-no-green-variant--open) | Six green call-to-action buttons hand-roll four different recipes because `Button` has no green variant | — | — | open |
 | [§692](#692-six-popover-menus-hand-roll-their-item-buttons-at-five-different-paddings-and-no-menu-item-primitive-exists--open) | Six popover menus hand-roll their item buttons at five different paddings, and no menu-item primitive exists | — | — | open |
-| [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--open) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | open |
+| [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--closed-2026-10-09) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | **CLOSED** 2026-10-09 |
 | [§694](#694-the-inline-ai-edit-popover-hand-rolls-a-modal-shell-instead-of-using-modal--open) | The inline AI edit popover hand-rolls a modal shell instead of using `Modal` | — | — | open |
 | [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--open) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | open |
 <!-- INDEX:END -->
@@ -44508,11 +44508,11 @@ This needs the owner's decision, because a menu-item primitive is a new control 
 
 **Close when** the decision is recorded here and the six menus follow it, with a test that pins the item classes and role in each.
 
-## 693. Five inline link buttons hand-roll the look that `TextButton` draws — OPEN
+## 693. Five inline link buttons hand-roll the look that `TextButton` draws — CLOSED 2026-10-09
 
-**Status:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'text-ui-dark-blue underline-offset-2 hover:underline' src/app | grep -v '\.test\.' | wc -l` → 9 lines: the five buttons below and four `<a>` links (in `help-menu.tsx`, `jira-settings.tsx`, `settings-view.tsx` and `version-info.tsx`), which navigate and stay links.
+**Status:** CLOSED 2026-10-09 — the five dark-blue link buttons and the green Set as baseline link are all `TextButton` in its default tone now: the help pane's related-topic and related-view links (`help-content-pane.tsx`), the view hint's Learn more (`view-callout.tsx`), the portfolio's project name (`portfolio-health-panel.tsx`), Settings' footer version link (`settings-view.tsx`) and Trends' Set as baseline (`trends-panel.tsx`). The owner chose to standardize the green link rather than add a green tone (2026-10-09), so it is dark blue now. What else changes: each link gains `TextButton`'s `font-medium`, `cursor-pointer` and disabled look, and loses `INTERACTIVE`'s press nudge; the version link's dark-mode colour goes from `ui-blue` to `ui-light-grey`. Each site is pinned by a test that compares its class with the primitive's own render (`primitiveClassFor`, new in `src/test/primitive-class.ts`), and each was red against the old markup: `npx vitest run src/app/help-content-pane.test.tsx src/app/view-callout.test.tsx src/app/portfolio-health-panel.test.tsx src/app/settings-view.test.tsx src/app/trends-panel.test.tsx` (5 files, 86 tests).
 
-**Work item:** #637
+**Status before this update:** OPEN 2026-10-09 — found by the same TypeScript-AST scan as §684, on `origin/main` 5b9f48ff6. `grep -rn --include=*.tsx 'text-ui-dark-blue underline-offset-2 hover:underline' src/app | grep -v '\.test\.' | wc -l` → 9 lines: the five buttons below and four `<a>` links (in `help-menu.tsx`, `jira-settings.tsx`, `settings-view.tsx` and `version-info.tsx`), which navigate and stay links.
 
 `TextButton` (`text-button.tsx`) draws an inline action link: dark-blue text, underline on hover, `FOCUS_RING`, no padding. The hand-rolled copies:
 - `help-content-pane.tsx` (2), one of them italic;
