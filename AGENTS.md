@@ -889,8 +889,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `ActionHandlers`/`AssignOwnerBundle`, re-exported by `action-row`) render identical CTAs for the compact row AND the
   hero. Hero = `pickHeroGroup(groups)` (`groups[0]`, only when `tier!=="monitor"` — the Dashboard's row 2 calls the same helper), DE-DUPED from its tier list (`g.key!==heroKey`).
   `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
-  `prominent?` prop (hero = filled+larger via `action-cta-styles.ts` `popoverTriggerClass`; rows pass nothing → unchanged
-  ghost). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
+  `prominent?` prop: every CTA is the shared `Button` — the hero's filled verbs and triggers are `primary` at `md`, a row's
+  filled verbs `primary` at `xs`, every bordered chip `secondary` at `xs` (§102, owner decision 2026-10-09). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
   ★★ `--rag-amber-text` (=ui-purple / a brown) is AA ONLY on LIGHT Petrol — as SMALL text on `bg-surface` it FAILS AA on
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in

@@ -34,6 +34,7 @@ import { useSettings } from "./use-settings";
 import { isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
+import { Button } from "./button";
 
 /** Resolve an entry's display author: an explicit `authorName`, else the live
  *  directory name for `authorResourceId`, else an em-dash. */
@@ -142,22 +143,22 @@ function NoteEntryRow(props: NoteEntryRowProps) {
           <RichTextView html={entry.html} />
           {canEdit && (
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="xs"
                 onClick={() => props.onStartEdit(entry)}
                 aria-label={`${t(lang, "edit")} – #${entry.id}${suffix}`}
-                className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
               >
                 {t(lang, "edit")}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="destructive"
+                size="xs"
                 onClick={() => props.onDelete(entry.id)}
                 aria-label={`${t(lang, "delete")} – #${entry.id}${suffix}`}
-                className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "delete")}
-              </button>
+              </Button>
             </div>
           )}
         </>

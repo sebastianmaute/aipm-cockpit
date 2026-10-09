@@ -11,7 +11,7 @@
 // Props only — no context, no state. The pane owns both.
 
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 interface DocumentEntityFilterBannerProps {
   lang: Lang;
@@ -37,14 +37,15 @@ export function DocumentEntityFilterBanner({ lang, title, isEmpty, onClear }: Do
       {isEmpty && <span className="text-muted-foreground">{t(lang, "documentsFilterEmpty")}</span>}
       {/* ★ A real <button>, never a clickable <span> — this is the only exit
           from the filter, so it has to be keyboard-operable and named. */}
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="xs"
         onClick={onClear}
         aria-label={t(lang, "documentsFilterClear")}
-        className={`ml-auto rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+        className="ml-auto"
       >
         {t(lang, "documentsFilterClear")}
-      </button>
+      </Button>
     </div>
   );
 }

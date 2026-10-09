@@ -10,7 +10,8 @@ import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { PopoverPanel } from "./popover-panel";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING } from "./interaction-styles";
+import { Button, type ButtonSize } from "./button";
 import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
 
@@ -63,12 +64,11 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
   };
 }
 
-const GHOST =
-  `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-ui-dark-blue hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 dark:text-ui-light-grey ${INTERACTIVE}`;
-// Size is applied per-context (prominent hero vs compact row) so the hero's primary
-// verb reads bolder than the same verb in a row.
-const FILLED_BASE =
-  `cursor-pointer rounded-md border border-ui-dark-blue bg-ui-dark-blue font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
+// Every CTA here is the shared Button (§102, owner decision 2026-10-09): a filled
+// verb is `primary`, at `md` in the hero and `xs` on a row, so the hero's primary
+// verb reads bolder than the same verb in a row; every bordered chip is `secondary`
+// at `xs`.
+const ROW_SIZE: ButtonSize = "xs";
 
 interface CtaProps {
   lang: Lang;
@@ -100,7 +100,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   const closeAssign = useCallback(() => setAssignOpen(false), []);
 
   const kind = pickPrimaryCta(action, caps);
-  const directBtn = `${FILLED_BASE} ${prominent ? "px-4 py-1.5 text-sm" : "px-3 py-1 text-xs"}`;
+  const directSize: ButtonSize = prominent ? "md" : ROW_SIZE;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   // ★ Rendered for EVERY action — as the primary when `kind === "open"`, and as
@@ -111,22 +111,23 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   // it entirely rather than fall back to a no-op handler.
   const onOpenHandler = handlers.onOpen;
   const open = onOpenHandler ? (
-    <button type="button" onClick={(e) => { stop(e); onOpenHandler(action); }}
-      aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}
-      className={kind === "open" ? directBtn : `${GHOST} px-3`}>
+    <Button variant={kind === "open" ? "primary" : "secondary"} size={kind === "open" ? directSize : ROW_SIZE}
+      onClick={(e) => { stop(e); onOpenHandler(action); }}
+      aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}>
       {t(lang, "actionOpen")}
-    </button>
+    </Button>
   ) : null;
 
   let primary: React.ReactNode = open;
   if (kind === "assign" && handlers.assignOwner) {
     primary = (
       <span className="relative">
-        <button ref={assignBtnRef} type="button" aria-haspopup="dialog" aria-expanded={assignOpen}
+        <Button ref={assignBtnRef} variant={prominent ? "primary" : "secondary"} size={directSize}
+          aria-haspopup="dialog" aria-expanded={assignOpen}
           aria-label={rowLabel(t(lang, "actionAssignOwner"), rowToken)}
-          onClick={(e) => { stop(e); setAssignOpen((o) => !o); }} className={prominent ? directBtn : GHOST}>
+          onClick={(e) => { stop(e); setAssignOpen((o) => !o); }}>
           {t(lang, "actionAssignOwner")}
-        </button>
+        </Button>
         <PopoverPanel open={assignOpen} anchorRef={assignBtnRef} onClose={closeAssign}
           role="dialog" ariaLabel={t(lang, "actionAssignOwner")} className="w-64 p-2">
           <ResourcePicker lang={lang} value={{ name: "", email: "", resourceId: null }}
@@ -147,27 +148,27 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
     //   buttons above: it is the accessibility-relevant attribute and is hardest
     //   to spot wedged mid-line between `type` and `onClick`.
     primary = (
-      <button type="button"
+      <Button variant="primary" size={directSize}
         aria-label={rowLabel(t(lang, "actionClearBlocker"), rowToken)}
-        onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>
+        onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }}>
         {t(lang, "actionClearBlocker")}
-      </button>
+      </Button>
     );
   } else if (kind === "markDone" && handlers.onMarkDone) {
     primary = (
-      <button type="button"
+      <Button variant="primary" size={directSize}
         aria-label={rowLabel(t(lang, "actionMarkDone"), rowToken)}
-        onClick={(e) => { stop(e); handlers.onMarkDone!(action); }} className={directBtn}>
+        onClick={(e) => { stop(e); handlers.onMarkDone!(action); }}>
         {t(lang, "actionMarkDone")}
-      </button>
+      </Button>
     );
   } else if (kind === "draft" && handlers.onDraftMessage) {
     primary = (
-      <button type="button"
+      <Button variant="primary" size={directSize}
         aria-label={rowLabel(t(lang, "actionDraftMessage"), rowToken)}
-        onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }} className={directBtn}>
+        onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }}>
         {t(lang, "actionDraftMessage")}
-      </button>
+      </Button>
     );
   }
 
@@ -211,13 +212,12 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, ext
   );
   return (
     <span className="relative">
-      <button ref={btnRef} type="button" aria-expanded={menuOpen}
+      <Button ref={btnRef} variant="secondary" size={ROW_SIZE} aria-expanded={menuOpen}
         aria-label={rowLabel(t(lang, "actionMoreActions"), rowToken)}
         title={t(lang, "actionMoreActionsHint")}
-        onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
-        className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING}`}>
+        onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}>
         ⋮
-      </button>
+      </Button>
       <PopoverPanel open={menuOpen} anchorRef={btnRef} onClose={close} className="flex w-max flex-col py-1">
           {items.map((k) => {
             if (k === "markDone" && handlers.onMarkDone) return item(t(lang, "actionMarkDone"), () => handlers.onMarkDone!(action));

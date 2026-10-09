@@ -3,10 +3,10 @@
 import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
-import { FOCUS_RING } from "./interaction-styles";
 import { TIER_RAG } from "./next-actions/action-cta";
 import { Dot } from "./dot";
 import { buildRowTokens } from "./row-tokens";
+import { Button } from "./button";
 
 const MAX_CHIPS = 3;
 
@@ -63,28 +63,25 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
       className={`flex flex-wrap items-center gap-1.5 p-0.5 ${className ?? ""}`}
     >
       {shown.map((action) => (
-        <button
+        <Button
           key={action.id}
-          type="button"
+          variant="secondary"
+          size="xs"
           onClick={() => onOpen(action)}
           aria-label={tokens.get(action.id) ?? titleOf(action)}
           title={t(lang, action.why.key, ...(action.why.params ?? []))}
-          className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
+          className="inline-flex items-center gap-1.5"
         >
           <Dot color={TIER_RAG[action.tier as "now" | "soon"].dot} size="xs" />
           <span className="max-w-[16rem] truncate">
             {titleOf(action)}
           </span>
-        </button>
+        </Button>
       ))}
       {extra > 0 && (
-        <button
-          type="button"
-          onClick={onShowMore}
-          className={`inline-flex items-center rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${FOCUS_RING}`}
-        >
+        <Button variant="secondary" size="xs" onClick={onShowMore}>
           {t(lang, "actionChipsMore", extra)}
-        </button>
+        </Button>
       )}
     </div>
   );

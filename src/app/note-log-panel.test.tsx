@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
+import { buttonClassFor } from "../test/button-variant";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors task-form-fields.dictation.test.tsx — jsdom has no
@@ -381,5 +382,19 @@ describe("NoteLogPanel — the assistant's read access", () => {
     aiState.apiKey = "sk-test";
     setup({ aiReadable: true });
     expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
+  });
+});
+
+// §102 (batch 23): an entry's Edit is the shared secondary Button at xs and its
+// Delete the destructive one, replacing hand-rolled blue and pink text.
+describe("NoteLogPanel entry buttons on the shared Button", () => {
+  it("draws Edit as secondary xs and Delete as destructive xs", () => {
+    setup();
+    expect(screen.getAllByRole("button", { name: /^Edit – #/ })[0].className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+    expect(screen.getAllByRole("button", { name: /^Delete – #/ })[0].className).toBe(
+      buttonClassFor({ variant: "destructive", size: "xs" }),
+    );
   });
 });

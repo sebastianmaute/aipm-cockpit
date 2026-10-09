@@ -4,7 +4,7 @@ import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
-import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { Button } from "./button";
 import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
@@ -95,28 +95,28 @@ export function RebaselinePopover({ lang, action, bundle, rowToken, prominent }:
                 />
               </label>
               <div className="mt-2 flex justify-end">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   disabled={!isValidIsoDate(date)}
                   onClick={(e) => { e.stopPropagation(); confirmMilestone(); }}
-                  className={POPOVER_CONFIRM_BTN}
                 >
                   {t(lang, "actionRebaselineConfirm")}
-                </button>
+                </Button>
               </div>
             </>
           ) : (
             <>
               <p className="mb-2 text-xs text-foreground">{t(lang, "actionRebaselineSnapshotDesc")}</p>
               <div className="mt-2 flex justify-end">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   disabled={bundle.busy}
                   onClick={(e) => { e.stopPropagation(); confirmSnapshot(); }}
-                  className={POPOVER_CONFIRM_BTN}
                 >
                   {t(lang, "actionRebaselineConfirm")}
-                </button>
+                </Button>
               </div>
             </>
           )}

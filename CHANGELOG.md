@@ -45,6 +45,13 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
+- **The action buttons and small chips use the app's standard button (§102).** On Next actions and the
+  Dashboard, the top action's buttons are larger, and each row's buttons and chips are a little taller (30
+  instead of 26 pixels), with the standard border and fill instead of blue text. The same applies to the
+  buttons inside the Reschedule, Escalate and Re-baseline pop-ups, Clear selection in the bulk-edit bar and in
+  TimeLog, Clear in the Documents filter, the hidden-tiles toggle on the Dashboard and the learning pill. Delete
+  in the notes log and in scheduled jobs, and Remove in TimeLog, now use the pink delete style.
+
 - **Eighteen more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
   re-apply and Apply to budget, which also gain a background and hover; Reset filters in the Gantt chart,
   the Change log and the RAID log; the Resources calendar's Outlook import; both Reset learned data buttons,

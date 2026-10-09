@@ -6,7 +6,7 @@ import type { RaidItem, Resource } from "./types";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { isEscalationWriteEmail } from "./raid-escalation";
 import { planEscalation } from "./action-escalate";
-import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { Button } from "./button";
 import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
@@ -124,14 +124,14 @@ export function EscalatePopover({ lang, action, bundle, rowToken, prominent }: E
             className="mt-1 w-full"
           />
           <div className="mt-2 flex justify-end">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="xs"
               disabled={!canConfirm}
               onClick={(e) => { e.stopPropagation(); confirm(); }}
-              className={POPOVER_CONFIRM_BTN}
             >
               {t(lang, "actionEscalateConfirm")}
-            </button>
+            </Button>
           </div>
           </>
         )}

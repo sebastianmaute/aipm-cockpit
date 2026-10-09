@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { isValidIsoDate } from "./action-rebaseline";
-import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { Button } from "./button";
 import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
@@ -63,14 +63,14 @@ export function ReschedulePopover({ lang, action, bundle, rowToken, prominent }:
         className="w-full"
       />
       <div className="mt-2 flex justify-end">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           disabled={!canConfirm}
           onClick={(e) => { e.stopPropagation(); confirm(); }}
-          className={POPOVER_CONFIRM_BTN}
         >
           {t(lang, "actionRescheduleConfirm")}
-        </button>
+        </Button>
       </div>
     </ActionPopoverTrigger>
   );

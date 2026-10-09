@@ -1,7 +1,6 @@
 "use client";
 import { useMemo, useState, type RefObject } from "react";
 import { Button } from "./button";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { t, type Lang } from "./i18n";
 import type { BlockDragProps } from "./arrangement-tile";
@@ -73,18 +72,18 @@ export function ArrangementShelf({
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-2 flex flex-col items-end print:hidden">
-      <button
+      <Button
         ref={toggleRef}
-        type="button"
+        variant="secondary"
+        size="xs"
         aria-expanded={open}
         aria-controls={trayId}
         onClick={() => setOpen((o) => !o)}
         onDragEnter={() => { if (isDragging) setOpen(true); }}
         {...dropProps}
-        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "arrangementShelfCount", hidden.length)}
-      </button>
+      </Button>
       <ArrangementShelfTray lang={lang} hidden={hidden} onRestore={onRestore} dropProps={dropProps} open={open} trayId={trayId} />
     </div>
   );

@@ -20,6 +20,7 @@ function ActionsPanel({ actions, ...rest }: Omit<ComponentProps<typeof GroupedAc
 }
 import type { ActionAnalysis } from "./action-ai";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const mk = (id: string, tier: SuggestedAction["tier"]): SuggestedAction => ({
   id, source: "raid", moduleId: "raid",
@@ -445,5 +446,15 @@ describe("§650 Analyze with AI — a refused key shows the key message", () => 
     render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={{ enabled: true, busy: false, error: token, result: null, onAnalyze: vi.fn(), onCancel: vi.fn(), onClear: vi.fn(), onActAi: vi.fn() }} />);
     expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "actionAiErrorStatus", token))).toBeNull();
+  });
+});
+
+// §102 (batch 23): the expert-only learning pill is the shared Button, secondary at xs.
+describe("ActionsPanel learning pill on the shared Button", () => {
+  it("draws the learning pill as secondary xs, keeping its layout", () => {
+    render(<ActionsPanel lang="en-US" actions={[]} onOpen={() => {}} expertMode learningEnabled />);
+    expect(screen.getByRole("button", { name: /open next-actions settings/i }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs", className: "inline-flex shrink-0 items-center gap-1.5" }),
+    );
   });
 });
