@@ -3,6 +3,9 @@ import "fake-indexeddb/auto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import TaskManager from "./task-manager";
+import { t } from "./i18n";
+import { DEMO_INTENT_KEY } from "./demo-intent";
+import { DEMO_SAMPLE_NAME, DEMO_SNAPSHOT_WEEKS } from "./demo-project";
 
 // Pass-through captures of the two hooks' args, for the wiring test below (§491).
 const wiring = vi.hoisted(() => ({
@@ -127,6 +130,21 @@ describe("TaskManager portfolio mode (Turso)", () => {
     // The Settings token reaches the DB call (§491: the `useTursoProjectList` call site
     // passes the URL and the token as two separate deps fields).
     expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ authToken: "tok" }));
+  }, 45000);
+
+  // The call site of the demo's boot hook: the guided setup's intent survives the reload into an
+  // empty Turso portfolio and becomes the demo card's one-boot note, on the Turso variant.
+  it("after the guided Turso setup, the empty state's demo card shows the connected note and the intent is spent", async () => {
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
+    window.localStorage.setItem(DEMO_INTENT_KEY, "turso-setup");
+    seedTursoSettings();
+
+    render(<TaskManager />);
+
+    const note = t("en-US", "demoTursoConnectedNote", DEMO_SNAPSHOT_WEEKS);
+    expect(await screen.findByText(note, undefined, { timeout: 40000 })).toBeTruthy();
+    expect(screen.getByText(t("en-US", "demoCardTrendsIncluded", DEMO_SNAPSHOT_WEEKS, t("en-US", "demoProjectName", DEMO_SAMPLE_NAME)))).toBeTruthy();
+    expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBeNull();
   }, 45000);
 
   // ★ Pins the `reportStorageOutcome` wiring at the `useTursoProjectList` call

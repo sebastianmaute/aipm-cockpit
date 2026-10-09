@@ -90,7 +90,8 @@ import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useTrendSnapshots } from "./use-trend-snapshots";
-import { useLoadDemo } from "./demo-project";
+import { DEMO_SNAPSHOT_WEEKS, demoVariantFor, isTursoUsable, useLoadDemo } from "./demo-project";
+import { useDemoIntentOnBoot } from "./demo-intent";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { useInsightLifecycle } from "./use-insight-lifecycle";
@@ -1303,6 +1304,41 @@ function TaskManagerInner() {
     setAbsences,
   });
 
+  // Empty-state gate: on a fresh install (no registered projects) the user must
+  // create or load a project before anything else. Rendered as the ONLY surface
+  // — there is no interactive app chrome behind it — and covers both modern and
+  // classic layouts. Popouts return below (they mirror the main window and
+  // never see this). Gated on `hydrated` so SSR / pre-hydration (where
+  // loadRegistry() is empty) doesn't flash the modal.
+  // FILE mode: the localStorage registry is synchronous, so gate on hydration +
+  // zero projects. TURSO mode: gate additionally on `tursoListLoaded` so the
+  // empty-state never flashes before the first fetch and never shows when the DB
+  // is unreachable (the fetch only flips the flag on success).
+  const showEmptyState =
+    portfolioMode === "turso"
+      ? hydrated && tursoListLoaded && tursoProjects.length === 0
+      : hydrated && registry.projects.length === 0;
+
+  // Turso boot unlock gate: when the auth token is sealed under a passphrase and
+  // not yet held in memory, nothing can load — prompt for the passphrase first.
+  // Takes priority over the empty-state and the main app. (synchronous localStorage
+  // read in render is pure — fine, do not move into an effect.)
+  const showTursoUnlock =
+    hydrated &&
+    portfolioMode === "turso" &&
+    isPassphraseLocked("tursoAuthToken") &&
+    !(settings.integrations?.turso?.authToken ?? "").trim();
+
+  // Turso-mode load gate: the project list is fetched async after hydrate, and
+  // `showEmptyState` can only decide once it lands. Cover that window with a
+  // loading placeholder — otherwise the main app renders over an empty in-memory
+  // workspace and then bounces to the empty-state when an empty list resolves
+  // (the "full app flash before the new-project screen" bug on portfolio switch).
+  // ★ Gate on `!shownStorageError`: a FAILED list fetch never flips `tursoListLoaded`, so without it the
+  // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
+  const showTursoListLoading =
+    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
+  const demoBoot = useDemoIntentOnBoot({ lang, weeks: DEMO_SNAPSHOT_WEEKS, showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending && !showTursoListLoading, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -2135,40 +2171,6 @@ function TaskManagerInner() {
       </ActivityLogProvider>
     );
   }
-  // Empty-state gate: on a fresh install (no registered projects) the user must
-  // create or load a project before anything else. Rendered as the ONLY surface
-  // — there is no interactive app chrome behind it — and covers both modern and
-  // classic layouts. Popouts are handled above (they mirror the main window and
-  // never see this). Gated on `hydrated` so SSR / pre-hydration (where
-  // loadRegistry() is empty) doesn't flash the modal.
-  // FILE mode: the localStorage registry is synchronous, so gate on hydration +
-  // zero projects. TURSO mode: gate additionally on `tursoListLoaded` so the
-  // empty-state never flashes before the first fetch and never shows when the DB
-  // is unreachable (the fetch only flips the flag on success).
-  const showEmptyState =
-    portfolioMode === "turso"
-      ? hydrated && tursoListLoaded && tursoProjects.length === 0
-      : hydrated && registry.projects.length === 0;
-
-  // Turso boot unlock gate: when the auth token is sealed under a passphrase and
-  // not yet held in memory, nothing can load — prompt for the passphrase first.
-  // Takes priority over the empty-state and the main app. (synchronous localStorage
-  // read in render is pure — fine, do not move into an effect.)
-  const showTursoUnlock =
-    hydrated &&
-    portfolioMode === "turso" &&
-    isPassphraseLocked("tursoAuthToken") &&
-    !(settings.integrations?.turso?.authToken ?? "").trim();
-
-  // Turso-mode load gate: the project list is fetched async after hydrate, and
-  // `showEmptyState` can only decide once it lands. Cover that window with a
-  // loading placeholder — otherwise the main app renders over an empty in-memory
-  // workspace and then bounces to the empty-state when an empty list resolves
-  // (the "full app flash before the new-project screen" bug on portfolio switch).
-  // ★ Gate on `!shownStorageError`: a FAILED list fetch never flips `tursoListLoaded`, so without it the
-  // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
-  const showTursoListLoading =
-    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
   // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
   //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
   //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit
@@ -2216,6 +2218,7 @@ function TaskManagerInner() {
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={handleLoadFromFileEmptyState}
                 onLoadDemo={() => { void loadDemo(); }}
+                demoVariant={demoVariantFor(lang, portfolioMode, tursoConfig)} demoWeeks={DEMO_SNAPSHOT_WEEKS} demoConnectedNote={demoBoot.connectedNote}
                 archivedProjects={tursoArchived.map((e) => ({ id: e.id, name: e.meta.name }))}
                 onRestore={handleRestoreFromEmptyState}
                 onDeleteArchived={handleHardDeleteTursoProject}

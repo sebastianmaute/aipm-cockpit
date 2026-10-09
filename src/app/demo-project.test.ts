@@ -5,11 +5,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./snapshot-store", () => ({ appendSnapshots: vi.fn() }));
 
-import { createDemo, useLoadDemo, type CreateDemoDeps, type UseLoadDemoDeps } from "./demo-project";
+import {
+  createDemo, DEMO_SAMPLE_NAME, DEMO_SNAPSHOT_WEEKS, demoVariantFor, isTursoUsable, useLoadDemo,
+  type CreateDemoDeps, type UseLoadDemoDeps,
+} from "./demo-project";
+import { readDemoCreatedLocally } from "./demo-intent";
+import { MODE_KEY } from "./portfolio-mode";
 import { appendSnapshots } from "./snapshot-store";
 import { buildDemoWorkspace } from "./demo-workspace";
 import type { SnapshotRecord } from "./snapshot";
@@ -134,6 +139,26 @@ describe("createDemo", () => {
     expect(d.appendSnapshots).not.toHaveBeenCalled();
   });
 
+  // The local fallback switches the portfolio to file mode and RELOADS, so the notice has to be
+  // stored before the create runs: nothing after it is guaranteed to execute.
+  it("announces the local fallback before the local create runs", async () => {
+    const order: string[] = [];
+    const d = deps({
+      createTursoProject: fakeCreate(null),
+      onLocalFallback: () => { order.push("notice"); },
+      createLocal: vi.fn(async () => { order.push("createLocal"); }),
+    });
+    await createDemo(d);
+    expect(order).toEqual(["notice", "createLocal"]);
+  });
+
+  it("announces no fallback on the plain local path or a Turso success", async () => {
+    const onLocalFallback = vi.fn();
+    await createDemo(deps({ tursoUsable: false, onLocalFallback }));
+    await createDemo(deps({ onLocalFallback }));
+    expect(onLocalFallback).not.toHaveBeenCalled();
+  });
+
   it("keeps the Turso project when only the history write fails", async () => {
     const d = deps({ appendSnapshots: vi.fn(async () => { throw new Error("boom"); }) });
     await expect(createDemo(d)).resolves.toBe("turso-without-history");
@@ -168,7 +193,34 @@ describe("createDemo", () => {
   });
 });
 
+describe("the demo's start-card facts", () => {
+  it("counts the weeks from the committed snapshot file", () => {
+    const committed: unknown[] = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8"));
+    expect(committed.length).toBeGreaterThan(0);
+    expect(DEMO_SNAPSHOT_WEEKS).toBe(committed.length);
+  });
+
+  it("names the sample exactly as the master does", () => {
+    expect(DEMO_SAMPLE_NAME).toBe((MASTER as { project: { name: string } }).project.name);
+  });
+
+  it("calls Turso usable only in Turso mode with a config", () => {
+    expect(isTursoUsable("turso", CONFIG)).toBe(true);
+    expect(isTursoUsable("turso", null)).toBe(false);
+    expect(isTursoUsable("file", CONFIG)).toBe(false);
+  });
+
+  it("picks the card variant from the same predicate, naming the project as the create does", () => {
+    expect(demoVariantFor("en-US", "file", CONFIG)).toEqual({ kind: "local" });
+    expect(demoVariantFor("en-US", "turso", null)).toEqual({ kind: "local" });
+    expect(demoVariantFor("en-US", "turso", CONFIG)).toEqual({
+      kind: "turso", projectName: t("en-US", "demoProjectName", "Customer Identity Platform"),
+    });
+  });
+});
+
 describe("useLoadDemo", () => {
+  afterEach(() => window.localStorage.clear());
   beforeEach(() => {
     vi.mocked(appendSnapshots).mockReset();
     vi.mocked(appendSnapshots).mockResolvedValue(undefined);
@@ -227,13 +279,37 @@ describe("useLoadDemo", () => {
     expect(recs.every((r) => r.cadence === "monthly")).toBe(true);
   });
 
-  it("toasts that the demo was created locally when the Turso create fails", async () => {
+  // The local fallback reloads the app, so a toast here is never seen: the notice is stored for
+  // the next boot instead (`useDemoIntentOnBoot` shows it).
+  it("stores the created-locally notice for the next boot when the Turso create fails", async () => {
+    let storedBeforeCreate = false;
+    const d = hookDeps({
+      createTursoProject: fakeCreate(null),
+      createDemoProject: vi.fn(async () => {
+        storedBeforeCreate = readDemoCreatedLocally();
+        window.localStorage.setItem(MODE_KEY, "file"); // what the real fallback does before it reloads
+      }),
+    });
+    await run(d);
+    expect(d.createDemoProject).toHaveBeenCalledTimes(1);
+    expect(storedBeforeCreate).toBe(true);
+    expect(readDemoCreatedLocally()).toBe(true);
+    expect(d.showToast).not.toHaveBeenCalled();
+    expect(d.refreshTursoProjects).not.toHaveBeenCalled();
+    expect(d.startTour).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the notice when the fallback left the portfolio on Turso (no reload is coming)", async () => {
+    window.localStorage.setItem(MODE_KEY, "turso");
     const d = hookDeps({ createTursoProject: fakeCreate(null) });
     await run(d);
     expect(d.createDemoProject).toHaveBeenCalledTimes(1);
-    expect(d.showToast).toHaveBeenCalledWith("info", t("en-US", "demoCreatedLocallyToast"));
-    expect(d.refreshTursoProjects).not.toHaveBeenCalled();
-    expect(d.startTour).toHaveBeenCalledTimes(1);
+    expect(readDemoCreatedLocally()).toBe(false);
+  });
+
+  it("stores no notice on the plain local path", async () => {
+    await run(hookDeps({ portfolioMode: "file" }));
+    expect(readDemoCreatedLocally()).toBe(false);
   });
 
   it("toasts that the Trends history could not be added when only the seed fails", async () => {

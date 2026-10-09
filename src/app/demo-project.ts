@@ -6,6 +6,8 @@
 // shell (deps-object hook, AGENTS.md "Extraction conventions").
 
 import { useCallback } from "react";
+import demoSnapshots from "../../sample-demo-snapshots.json";
+import { clearDemoCreatedLocally, setDemoCreatedLocally } from "./demo-intent";
 import { buildDemoWorkspace, DEMO_AS_OF } from "./demo-workspace";
 import { shiftDemoSnapshots, thinForCadence } from "./demo-snapshot-shift";
 import { demoShiftFor } from "./shift-workspace-dates";
@@ -14,12 +16,35 @@ import { appendSnapshots } from "./snapshot-store";
 import { defaultSnapshotSettings, type SnapshotSettings } from "./settings-types";
 import { t, type Lang } from "./i18n";
 import type { NewProjectOpts } from "./new-project-workspace";
-import type { PortfolioMode } from "./portfolio-mode";
+import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectMeta } from "./types";
 import type { Workspace } from "./workspace";
 
 export type DemoOutcome = "turso" | "local" | "local-after-turso-failure" | "turso-without-history";
+
+/** The seeded history's length, which the start card quotes as its week count. Imported
+ *  statically so the card can say it before any click: the file is ~79 KB raw, ~3 KB gzipped. */
+const DEMO_RECORDS = demoSnapshots as unknown as readonly SnapshotRecord[];
+export const DEMO_SNAPSHOT_WEEKS = DEMO_RECORDS.length;
+
+/** The sample master's `project.name`, which the Turso card quotes before the 89 KB master is
+ *  loaded. `demo-project.test.ts` pins it to the master. The copy (`demoCardBody`) names it too. */
+export const DEMO_SAMPLE_NAME = "Customer Identity Platform";
+
+/** The one predicate for "the demo goes to Turso" (AGENTS.md "Turso-gated features"): the card's
+ *  variant, the boot note and the create all read it. */
+export function isTursoUsable(portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): boolean {
+  return portfolioMode === "turso" && tursoConfig !== null;
+}
+
+export type DemoVariant = { kind: "local" } | { kind: "turso"; projectName: string };
+
+export function demoVariantFor(lang: Lang, portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): DemoVariant {
+  return isTursoUsable(portfolioMode, tursoConfig)
+    ? { kind: "turso", projectName: t(lang, "demoProjectName", DEMO_SAMPLE_NAME) }
+    : { kind: "local" };
+}
 
 export interface CreateDemoDeps {
   ws: Workspace;
@@ -32,6 +57,9 @@ export interface CreateDemoDeps {
   createTursoProject: (meta: ProjectMeta, opts: NewProjectOpts) => Promise<string | null>;
   createLocal: (ws: Workspace) => Promise<void>;
   appendSnapshots: typeof appendSnapshots;
+  /** Runs before the local FALLBACK's create, which in Turso mode reloads the app: nothing after
+   *  that create is guaranteed to run, so a notice for the next boot is stored here. */
+  onLocalFallback?: () => void;
 }
 
 /** The seeded history as the new project should hold it: shifted by the workspace's own shift,
@@ -73,6 +101,7 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   };
   const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
   if (id === null) {
+    deps.onLocalFallback?.();
     await deps.createLocal(ws);
     return "local-after-turso-failure";
   }
@@ -109,26 +138,27 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
   } = deps;
   return useCallback(async () => {
     try {
-      const [mod, recs] = await Promise.all([
-        import("../../sample-workspace-small.json"),
-        import("../../sample-demo-snapshots.json"),
-      ]);
+      const mod = await import("../../sample-workspace-small.json");
       const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
       const ws = buildDemoWorkspace((mod as { default?: unknown }).default ?? mod, today);
       const outcome = await createDemo({
         ws,
-        records: ((recs as { default?: unknown }).default ?? recs) as SnapshotRecord[],
+        records: DEMO_RECORDS,
         today,
-        tursoUsable: portfolioMode === "turso" && tursoConfig !== null,
+        tursoUsable: isTursoUsable(portfolioMode, tursoConfig),
         cadence: (snapshots ?? defaultSnapshotSettings).cadence,
         tursoConfig,
         projectName: t(lang, "demoProjectName", ws.project?.name ?? ""),
         createTursoProject,
         createLocal: createDemoProject,
         appendSnapshots,
+        onLocalFallback: setDemoCreatedLocally,
       });
       if (outcome === "turso" || outcome === "turso-without-history") await refreshTursoProjects();
-      if (outcome === "local-after-turso-failure") showToast("info", t(lang, "demoCreatedLocallyToast"));
+      // The fallback that worked moved the portfolio to file mode and is reloading; the next boot
+      // shows the stored notice. Still on Turso means it did not (it failed and said so, or it
+      // returned early), so there is no local demo to announce.
+      if (outcome === "local-after-turso-failure" && loadPortfolioMode() === "turso") clearDemoCreatedLocally();
       if (outcome === "turso-without-history") showToast("info", t(lang, "demoTrendsSeedFailedToast"));
       startTour();
     } catch {
