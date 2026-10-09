@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { buttonClassFor } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
 
@@ -551,6 +552,20 @@ describe("ResourcesPanel", () => {
     // Calendar's trailing group is just Print · reset-size (no reset-columns).
     expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
     expect(screen.queryByRole("button", { name: t("en-US", "colResetWidthsHint") })).toBeNull();
+  });
+
+  // §102: the calendar's Outlook-import button is the shared secondary Button at
+  // the toolbar size, like the Outlook push control beside it.
+  test("renders the calendar's Outlook import as the secondary Button", () => {
+    render(
+      <ResourcesPanel {...baseProps} view="calendar" lang="en-US" plan={PLAN} {...calendarProps}
+        onImportOutlookCalendar={() => {}}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "outlookCalImportButton") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 
   // ★ THIS CANNOT BE A DOM-ORDER TEST. `{hideExternalToggle}` was already the

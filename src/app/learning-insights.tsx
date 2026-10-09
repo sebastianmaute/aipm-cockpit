@@ -13,6 +13,7 @@ import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { ActionSource } from "./next-actions/types";
 import { ROW_RULE_CLASS, TABLE_HEAD_CLASS } from "./table-styles";
 import { useConfirm } from "./confirm-dialog";
+import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
 
 interface LearningInsightsProps {
@@ -143,15 +144,15 @@ export function LearningInsights({
           </div>
 
           <div>
-            <button
-              type="button"
-              className="rounded border border-line px-3 py-1.5 text-sm text-foreground hover:bg-surface-muted/40"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={async () => {
                 if (await confirm({ message: t(lang, "settingsLearningResetConfirm") })) onReset();
               }}
             >
               {t(lang, "settingsLearningReset")}
-            </button>
+            </Button>
           </div>
         </>
       )}

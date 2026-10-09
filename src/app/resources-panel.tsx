@@ -60,7 +60,7 @@ import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manag
 import { EmptyState } from "./empty-state";
 import { useResizable } from "./use-resizable";
 import { useSortableFilter, type SortDir } from "./report-table";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { EyeSlashIcon } from "./icons";
 import { ToggleButton } from "./toggle-button";
 import { CalendarSyncControls } from "./calendar-sync-controls";
@@ -501,13 +501,9 @@ function ResourcesPanelInner({
   const headerActions = (
     <div className="flex items-center gap-2 print:hidden">
       {view === "calendar" && onImportOutlookCalendar && (
-        <button
-          type="button"
-          onClick={onImportOutlookCalendar}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
-        >
+        <Button variant="secondary" size="xs" onClick={onImportOutlookCalendar}>
           {t(lang, "outlookCalImportButton")}
-        </button>
+        </Button>
       )}
       <CalendarSyncControls
         lang={lang}

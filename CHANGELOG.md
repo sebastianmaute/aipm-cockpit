@@ -45,6 +45,10 @@ longer carries its own changelog comment.
 - **Five more buttons use the app's standard button (§102):** the task editor's Delete, the Cancel in
   type-to-confirm dialogs, and the buttons in the Outlook calendar import summary.
 
+- **Seven more buttons use the app's standard button (§102):** TimeLog's Fetch, Refresh, Refresh &
+  re-apply and Apply to budget, the Gantt chart's Reset filters, the Resources calendar's Outlook import,
+  and Reset learned data in Settings. Reset learned data now shows a focus outline when reached by keyboard.
+
 - **The task editor's notes log opens in the floating window, as in the Change and RAID editors.**
   The task editor showed the log inline; it now has a "Notes log (n)" button that opens the floating
   notes window beside the editor. As before, a note added there is saved at once and kept if you cancel

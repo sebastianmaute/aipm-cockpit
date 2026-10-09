@@ -8,7 +8,6 @@
 import { ArrowPathIcon, ArrowPathRoundedSquareIcon } from "./icons";
 import { t, type Lang } from "./i18n";
 import { TimelogCustomerScope } from "./timelog-customer-scope";
-import { INTERACTIVE } from "./interaction-styles";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { canClearAllFetched, canFetchBookings, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
 import { Button } from "./button";
@@ -82,32 +81,33 @@ export function TimelogToolbar({
         >
           {t(lang, "clearAll")}
         </Button>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={!canFetchBookings({ isPopout, syncBusy, confirming, isMisconfigured, projectCustomerId, selectedCount })}
           onClick={onFetch}
           title={projectCustomerId === "" || selectedCount === 0 ? t(lang, "timelogFetchNeedsSelection") : undefined}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
         >
           {syncBusy
             ? t(lang, "loadingTimelog")
             : `${t(lang, "timelogSync")}${selectedCount > 0 ? ` (${selectedCount})` : ""}`}
-        </button>
+        </Button>
         {/* Refresh — appears once bookings have been read; re-fetches the
             LAST-FETCHED (persisted) customer + project scope so the user can
             pull the latest bookings without re-picking, even if the picker was
             since changed. Distinct from Fetch (current selection). */}
         {fetchedAt && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={!canRefreshBookings({ isPopout, syncBusy, confirming, isMisconfigured, canRefresh })}
             onClick={onRefresh}
             title={t(lang, "timelogRefreshHint")}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+            className="inline-flex items-center gap-1.5"
           >
             <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {t(lang, "timelogRefresh")}
-          </button>
+          </Button>
         )}
         {/* Refresh & re-apply — the same re-fetch, then the SAME apply confirm
             dialog, seeded with the fresh diff. It exists because attribution is
@@ -118,16 +118,17 @@ export function TimelogToolbar({
             of. Gated on `fetchedAt` for the same reason Refresh is — with
             nothing fetched there is no persisted scope to re-pull. */}
         {fetchedAt && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={!canRefreshAndReapply({ isPopout, syncBusy, confirming, isMisconfigured, canRefresh })}
             onClick={onRefreshAndReapply}
             title={t(lang, "timelogRefreshReapplyHint")}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+            className="inline-flex items-center gap-1.5"
           >
             <ArrowPathRoundedSquareIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {t(lang, "timelogRefreshReapply")}
-          </button>
+          </Button>
         )}
       </div>
       <div className="flex items-center gap-2">

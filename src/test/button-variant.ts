@@ -37,6 +37,10 @@
 // so this one token would survive an unbounded check too — it is bounded for the
 // same reason as the others, so a future `hover:cursor-pointer`-shaped utility
 // cannot silently satisfy it.)
+import { createElement } from "react";
+import { render } from "@testing-library/react";
+import { Button, type ButtonProps } from "../app/button";
+
 const SECONDARY_TOKENS = ["border-line", "bg-surface", "cursor-pointer"] as const;
 
 // ★★ `destructive` is `border border-ui-pink/40 bg-surface text-ui-pink-strong
@@ -100,4 +104,20 @@ function assertVariant(
       );
     }
   }
+}
+
+/**
+ * The exact `className` the `Button` primitive renders for these props.
+ *
+ * Use it to pin a migrated call site with `toBe`: a whole-string match also
+ * pins the SIZE and the caller's extra classes, which the token checks above do
+ * not. It renders the primitive rather than spelling its classes, so a later
+ * change to `button.tsx` cannot leave the assertion pinning a stale copy. Pass
+ * the call site's own `className` (layout extras such as `print:hidden`).
+ */
+export function buttonClassFor(props: Omit<ButtonProps, "children">): string {
+  const { container, unmount } = render(createElement(Button, props, "x"));
+  const cls = container.querySelector("button")!.className;
+  unmount();
+  return cls;
 }

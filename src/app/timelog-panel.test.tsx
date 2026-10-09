@@ -10,6 +10,7 @@ import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { loadI18n, t, tPlural } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { buttonClassFor } from "../test/button-variant";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 import { GUARDRAIL_INSIGHT_TYPES, type Insight } from "./insights/insight";
@@ -2098,6 +2099,31 @@ describe("TimelogPanel", () => {
       // FIXED_AGGREGATE.byBucket has bucket 10 with period "2026-06" → diff row
       const applyBtn = screen.getByRole("button", { name: t("en-US", "timelogApply") });
       expect(applyBtn).not.toBeDisabled();
+    });
+
+    // §102: Fetch, Refresh, Refresh & re-apply and Apply are the shared secondary
+    // Button at the size of the destructive Clear all beside them. Each was a
+    // hand-rolled copy of that size with no background and no hover.
+    it("renders the four fetch and apply actions as the secondary Button", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      const withIcon = buttonClassFor({ variant: "secondary", size: "sm", className: "inline-flex items-center gap-1.5" });
+      // The Fetch label gains a "(n)" selection count, hence the RegExp.
+      expect(
+        screen.getByRole("button", { name: new RegExp(`^${t("en-US", "timelogSync")}( \\(\\d+\\))?$`) }).className,
+      ).toBe(buttonClassFor({ variant: "secondary", size: "sm" }));
+      expect(screen.getByRole("button", { name: t("en-US", "timelogRefresh") }).className).toBe(withIcon);
+      expect(screen.getByRole("button", { name: t("en-US", "timelogRefreshReapply") }).className).toBe(withIcon);
+      expect(screen.getByRole("button", { name: t("en-US", "timelogApply") }).className).toBe(
+        buttonClassFor({ variant: "secondary", size: "sm", className: "print:hidden" }),
+      );
     });
 
     // ★★★ §172. The aggregate here is the DEFAULT one — well-formed, non-empty,
