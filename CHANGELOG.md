@@ -161,8 +161,8 @@ longer carries its own changelog comment.
   The Templates section keeps its own copy of your settings. Its change made the app treat the unchanged
   storage setting as a new one, reload the whole project and reopen Settings at General. Only the settings
   that actually changed are now passed on. Other views that keep their own copy and save settings (Tasks,
-  Resources, Timelog, the budget forecast, the burndown chart and Help) could reload the project the same
-  way; only the Templates case was reproduced.
+  Resources, Timelog, the budget forecast, the burndown chart, Help, and the AI Assistant and Reports
+  settings: AI consent, the chat model and extra reports) could reload the project the same way; only the Templates case was reproduced.
 
 - **Document images no longer go missing after switching projects on single-database Turso storage
   (§207).** With Turso storage and no Turso project selected, switching to another project in the

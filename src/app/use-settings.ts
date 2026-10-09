@@ -189,8 +189,8 @@ export function __settingsBroadcastDeliveriesForTests(): number {
  *  remounting on General.
  *
  *  ★ The comparison is `sameValue`, a structural walk, NOT `JSON.stringify`: a
- *  slice can be large (`branding` holds up to two 700,000-character data-URL
- *  logos) and a broadcast reaches every live instance, so stringifying both sides
+ *  slice can be large (`branding` holds up to three 700,000-character data-URL
+ *  images: the logo, the favicon and the start logo) and a broadcast reaches every live instance, so stringifying both sides
  *  on every settings keystroke would cost megabytes of string work per receiver.
  *  The walk compares a long string with one `===` and stops at the first
  *  difference. It also never merges two different values: `NaN` and `null` are
