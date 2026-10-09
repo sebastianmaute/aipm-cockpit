@@ -90,7 +90,7 @@ import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useTrendSnapshots } from "./use-trend-snapshots";
-import { buildDemoWorkspace } from "./demo-workspace";
+import { useLoadDemo } from "./demo-project";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { useInsightLifecycle } from "./use-insight-lifecycle";
@@ -772,21 +772,8 @@ function TaskManagerInner() {
   // Global push-to-talk hotkey: held combo drives the focused field's mic (dictation-target); disabled in popouts.
   useDictationHotkey(settings.dictation?.hotkey, isPopout);
 
-  // Load the curated sample workspace as a REAL, deletable demo project and kick
-  // off the tour. The CTA is empty-state-only (no real project to clobber), so
-  // registering it is safe; registering is also what flips the empty-state gate
-  // off so the views + tour overlay actually mount. Errors toast, never crash.
-  const loadDemo = useCallback(async () => {
-    try {
-      const mod = await import("../../sample-workspace-small.json");
-      const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
-      const ws = buildDemoWorkspace((mod as { default?: unknown }).default ?? mod, today);
-      await createDemoProject(ws);
-      startTour();
-    } catch {
-      showToast("error", t(lang, "tourDemoError"));
-    }
-  }, [createDemoProject, startTour, showToast, lang]);
+  // The demo: a Turso project with its Trends history when Turso is usable, else local (demo-project.ts).
+  const loadDemo = useLoadDemo({ lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects, portfolioMode, tursoConfig, snapshots: settings.snapshots });
 
   // Version history: the capture payload, the restore fan-out (the SECOND load funnel), the error
   // bridge and the `useVersionHistory` call — see use-version-history-wiring.ts (§491).
