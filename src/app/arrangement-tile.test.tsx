@@ -3,7 +3,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ArrangementTile } from "./arrangement-tile";
 import { W_CLASS, H_CLASS } from "./arrangement-grid";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import { buttonClassFor } from "../test/button-variant";
 
 function twoTiles(readOnly = false, prefix = "block") {
   return render(
@@ -226,15 +225,5 @@ describe("ArrangementTile — readOnly", () => {
     );
     fireEvent.dragOver(screen.getByTestId("block-alpha"));
     expect(onDragOver).toHaveBeenCalled();
-  });
-});
-
-// §102 (batch 23, review round): kept level with the xs Buttons around it.
-describe("ArrangementTile ⋮ on the shared Button", () => {
-  it("draws the tile menu trigger as secondary xs, keeping print:hidden", () => {
-    twoTiles();
-    expect(screen.getByRole("button", { name: "More actions – Alpha board" }).className).toBe(
-      buttonClassFor({ variant: "secondary", size: "xs", className: "print:hidden" }),
-    );
   });
 });

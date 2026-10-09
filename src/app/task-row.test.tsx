@@ -15,6 +15,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens } from "./row-tokens";
 import { loadI18n } from "./i18n";
 import { buttonClassFor } from "../test/button-variant";
+import { IconButton } from "./icon-button";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -1985,8 +1986,13 @@ describe("TaskActions Send inquiry beside the xs ⋮", () => {
         </tbody>
       </table>,
     );
-    const cls = getByRole("button", { name: /^Send inquiry – / }).className;
-    expect(cls).toMatch(/(^|\s)p-1\.5(\s|$)/);
-    expect(cls).toMatch(/(^|\s)border-line(\s|$)/);
+    // The whole class string, built by rendering the primitive with the same
+    // props, so a variant, size or margin drift all fail here.
+    const expected = render(
+      <IconButton label="probe" variant="bordered" size="md" className="mr-1">
+        <span />
+      </IconButton>,
+    ).getByRole("button", { name: "probe" }).className;
+    expect(getByRole("button", { name: /^Send inquiry – / }).className).toBe(expected);
   });
 });

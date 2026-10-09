@@ -1,7 +1,7 @@
 "use client";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { W_CLASS, H_CLASS } from "./arrangement-grid";
-import { Button } from "./button";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { DragHandle } from "./drag-handle";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
@@ -162,18 +162,22 @@ export function ArrangementTile({
           ) : null}
         </div>
         {!readOnly && (
-          <Button
+          // ★ Deliberately NOT the shared `Button` at `xs` (§102, owner decision
+          // 2026-10-09): this glyph sets the header's height, and every pixel
+          // the header gains comes out of every tile's body. At 30px it cost
+          // each tile 10px, and a KPI tile sized to its 2-row minimum scrolled
+          // (e2e/dashboard-grid.spec.ts, "a user-sized 2-row KPI tile").
+          <button
             ref={menuButtonRef}
+            type="button"
             aria-haspopup="menu"
             aria-label={menuLabel}
             title={t(lang, "actionMoreActions")}
             onClick={(e) => onOpenMenu(e.currentTarget)}
-            variant="secondary"
-            size="xs"
-            className="print:hidden"
+            className={`rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
           >
             ⋮
-          </Button>
+          </button>
         )}
       </div>
       <div data-arrangement-body="" className="min-h-0 flex-1 overflow-auto p-2">{children}</div>

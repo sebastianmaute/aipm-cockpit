@@ -138,14 +138,18 @@ describe("the actions column fits its content", () => {
 
   /** `<Td>`'s default `px-4` — 1rem each side at the 16px root. */
   const CELL_PADDING_PX = 32;
-  /** `IconButton` at size "sm": `p-1` (4px) each side around an `h-4 w-4`
-   *  (16px) glyph. Two of them — Send inquiry and the ⋮ overflow trigger. */
-  const ICON_BUTTON_PX = 24;
+  /** Send inquiry: `IconButton` `bordered` at `md` — `p-1.5` (6px) each side
+   *  around an `h-4 w-4` (16px) glyph, plus a 1px border each side. */
+  const SEND_INQUIRY_PX = 30;
+  /** The ⋮ trigger: the shared `Button` at `xs`. Its width depends on the glyph,
+   *  so this is MEASURED, not derived: 26px in Chromium on 2026-10-09 (a
+   *  throwaway Playwright probe of the seeded Open Points table). */
+  const MORE_ACTIONS_PX = 26;
   /** The `mr-1` between them. */
   const BUTTON_GAP_PX = 4;
 
   it("leaves a content box wide enough for both row buttons", () => {
     const contentBox = DEFAULT_COL_WIDTHS.actions - CELL_PADDING_PX;
-    expect(contentBox).toBeGreaterThanOrEqual(ICON_BUTTON_PX * 2 + BUTTON_GAP_PX);
+    expect(contentBox).toBeGreaterThanOrEqual(SEND_INQUIRY_PX + BUTTON_GAP_PX + MORE_ACTIONS_PX);
   });
 });
