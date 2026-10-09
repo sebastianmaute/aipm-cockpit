@@ -6,6 +6,7 @@ import { buildDemoSnapshots, demoSnapshotFridays, workspaceAsOf } from "./demo-s
 import { DEMO_AS_OF } from "./demo-workspace";
 import { decodeSampleMaster } from "./sample-workspace-variants";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { addCalendarDays, calendarDaysBetween } from "./working-days";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, ChangeItem, Milestone, RaidItem, Task } from "./types";
@@ -262,8 +263,18 @@ describe("workspaceAsOf prorates time spent over each task's window", () => {
 });
 
 describe("workspaceAsOf prorates a bucket's hand-entered percentComplete over its window", () => {
-  const pctAt = (over: Partial<BudgetBucket>): BudgetBucket =>
-    workspaceAsOf({ ...emptyWorkspace(), budgets: [bucket({ percentComplete: 30, ...over })] }, AS_OF).budgets![0];
+  const pctAt = (over: Partial<BudgetBucket>, now?: string): BudgetBucket =>
+    workspaceAsOf({ ...emptyWorkspace(), budgets: [bucket({ percentComplete: 30, ...over })] }, AS_OF, now).budgets![0];
+
+  it("ends the window at now when the bucket's endDate is later", () => {
+    // 2026-07-01 → now 2026-07-19 (not endDate 2026-12-31): 9 of 18 days.
+    expect(pctAt({ startDate: "2026-07-01", endDate: "2026-12-31" }, "2026-07-19").percentComplete).toBe(15);
+  });
+
+  it("still ends the window at endDate when that comes before now", () => {
+    // endDate 2026-07-19 is before the default now (DEMO_AS_OF 2026-09-18): 9 of 18 days.
+    expect(pctAt({ startDate: "2026-07-01", endDate: "2026-07-19" }).percentComplete).toBe(15);
+  });
 
   it("scales it by the elapsed share, rounded to a whole percent", () => {
     expect(pctAt({ startDate: "2026-07-01", endDate: "2026-07-19" }).percentComplete).toBe(15);
@@ -341,10 +352,14 @@ describe("buildDemoSnapshots over the sample master", () => {
 
   it("prorates bucket 4's hand-entered percent: half of today's half-way through its window", () => {
     const pctOf4 = (asOf: string) => workspaceAsOf(master, asOf).budgets!.find((b) => b.id === 4)!.percentComplete;
-    expect(pctOf4(DEMO_AS_OF)).toBeDefined();
-    expect(master.budgets!.find((b) => b.id === 4)!.percentComplete).toBe(30);
-    // Window 2026-08-01 → 2026-10-31 is 91 days; day 45 of it is 2026-09-15.
-    expect(pctOf4("2026-09-15")).toBe(15);
+    const b4 = master.budgets!.find((b) => b.id === 4)!;
+    const today = b4.percentComplete!;
+    const end = b4.endDate < DEMO_AS_OF ? b4.endDate : DEMO_AS_OF;
+    const span = calendarDaysBetween(b4.startDate, end);
+    // Exactness needs a whole mid-day and an even value (master: 2026-08-01 → 2026-09-18, 48 days; 30%).
+    expect([span % 2, today % 2, span > 0]).toEqual([0, 0, true]);
+    expect(pctOf4(addCalendarDays(b4.startDate, span / 2))).toBe(today / 2);
+    expect(pctOf4(DEMO_AS_OF)).toBe(today);
   });
 
   it("matches the committed sample-demo-snapshots.json", () => {

@@ -143,7 +143,7 @@ function actualsAsOf<A extends { actualHours: Record<string, number> }>(a: A, as
   return { ...a, actualHours };
 }
 
-function bucketAsOf(b: BudgetBucket, asOf: string): BudgetBucket {
+function bucketAsOf(b: BudgetBucket, asOf: string, now: string): BudgetBucket {
   let out: BudgetBucket = {
     ...b,
     allocations: b.allocations.map((a) => actualsAsOf(a, asOf)),
@@ -153,12 +153,14 @@ function bucketAsOf(b: BudgetBucket, asOf: string): BudgetBucket {
     out = { ...without(out, "closedDate"), status: "open" };
   }
   // A hand-entered percentComplete is undated: it is prorated over the bucket's
-  // window (startDate → endDate), and a bucket not yet started has none, so
-  // `bucketPercentComplete` falls back as for a bucket never given one.
+  // window, and a bucket not yet started has none, so `bucketPercentComplete`
+  // falls back as for a bucket never given one. The stored value is TODAY's, like
+  // an open task's time spent, so the window ends at min(endDate, now): ending it
+  // at a later endDate left the last seeded week short of it (14 → 30 for bucket 4).
   if (b.percentComplete !== undefined) {
     out = after(b.startDate, asOf)
       ? without(out, "percentComplete")
-      : { ...out, percentComplete: Math.round(b.percentComplete * elapsedShare(b.startDate, b.endDate, asOf)) };
+      : { ...out, percentComplete: Math.round(b.percentComplete * elapsedShare(b.startDate, b.endDate < now ? b.endDate : now, asOf)) };
   }
   return out;
 }
@@ -178,8 +180,9 @@ function statusAsOf(s: ProjectStatus | undefined, asOf: string): ProjectStatus {
  * (see `taskAsOf`); later state changes on earlier rows are reverted (task
  * completion, blockers, RAID closure, change decision, milestone achievement, bucket
  * closure, PM status), and actuals booked in later periods are dropped. Task time
- * spent is prorated over each task's window (see `spentMinutesAsOf`), whose open
- * end is `now`, the date the master describes (`DEMO_AS_OF`). Ids that
+ * spent and a bucket's hand-entered percentComplete are prorated over their own
+ * window (see `spentMinutesAsOf` and `bucketAsOf`), which ends no later than `now`,
+ * the date the master describes (`DEMO_AS_OF`). Ids that
  * other rows reference may dangle afterwards, as after a live delete, which every
  * engine tolerates. The slices the dashboard does not read are returned unchanged.
  * The input is not mutated.
@@ -191,7 +194,7 @@ export function workspaceAsOf(ws: Workspace, asOf: string, now: string = DEMO_AS
     raid: ws.raid.filter((r) => !after(r.raisedDate, asOf)).map((r) => raidAsOf(r, asOf)),
     changes: (ws.changes ?? []).filter((c) => !after(c.raisedDate, asOf)).map((c) => changeAsOf(c, asOf)),
     milestones: (ws.milestones ?? []).map((m) => milestoneAsOf(m, asOf)),
-    budgets: (ws.budgets ?? []).filter((b) => !after(b.createdDate, asOf)).map((b) => bucketAsOf(b, asOf)),
+    budgets: (ws.budgets ?? []).filter((b) => !after(b.createdDate, asOf)).map((b) => bucketAsOf(b, asOf, now)),
     activityLog: (ws.activityLog ?? []).filter((a) => !after(a.timestamp, asOf)),
     budgetHistory: (ws.budgetHistory ?? []).filter((h) => !after(h.date, asOf)),
     status: statusAsOf(ws.status, asOf),
