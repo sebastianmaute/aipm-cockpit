@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { EnvelopeIcon } from "./icons";
+import { EllipsisVerticalIcon, EnvelopeIcon } from "./icons";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
@@ -633,7 +633,7 @@ function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
           onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
           variant="secondary" size="xs"
         >
-          ⋮
+          <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
         </Button>
         <PopoverPanel
           open={menuOpen}

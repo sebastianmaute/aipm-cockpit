@@ -1,6 +1,7 @@
 // src/app/action-cta-controls.tsx
 "use client";
 import { useState, useRef, useCallback } from "react";
+import { EllipsisVerticalIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Resource } from "./types";
@@ -219,7 +220,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, ext
         aria-label={rowLabel(t(lang, "actionMoreActions"), rowToken)}
         title={t(lang, "actionMoreActionsHint")}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}>
-        ⋮
+        <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
       </Button>
       <PopoverPanel open={menuOpen} anchorRef={btnRef} onClose={close} className="flex w-max flex-col py-1">
           {items.map((k) => {

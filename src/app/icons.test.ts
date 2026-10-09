@@ -10,6 +10,7 @@ import * as icons from "./icons";
 const EXPECTED: Record<string, string> = {
   AcademicCapIcon: "GraduationCap",
   AdjustmentsHorizontalIcon: "SlidersHorizontal",
+  ArrowDownIcon: "ArrowDown",
   ArrowDownTrayIcon: "Download",
   ArrowLongRightIcon: "MoveRight",
   ArrowPathIcon: "RefreshCw",
@@ -17,6 +18,7 @@ const EXPECTED: Record<string, string> = {
   ArrowRightIcon: "ArrowRight",
   ArrowTopRightOnSquareIcon: "ExternalLink",
   ArrowTrendingUpIcon: "TrendingUp",
+  ArrowUpIcon: "ArrowUp",
   ArrowUpTrayIcon: "Upload",
   ArrowUturnLeftIcon: "Undo2",
   ArrowUturnRightIcon: "Redo2",
@@ -97,8 +99,8 @@ describe("icons barrel", () => {
   //   to both the barrel and EXPECTED passes that test and fails only this one,
   //   so growing the icon set is always a conscious edit rather than a
   //   side-effect. Bump the literal only when you mean to.
-  it("exports 72 icons", () => {
-    expect(Object.keys(icons)).toHaveLength(72);
+  it("exports 74 icons", () => {
+    expect(Object.keys(icons)).toHaveLength(74);
   });
 
   it.each(Object.entries(EXPECTED))(
