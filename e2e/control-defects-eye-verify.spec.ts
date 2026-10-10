@@ -220,8 +220,8 @@ test.describe("control-defects eye-verify (§414)", () => {
     //     `new Set(tops).size` is a one-element Set on every iteration and the
     //     wrap assertion above CANNOT go red under this fixture.
     //     An earlier revision of this comment called `sawAnyBadge` a
-    //     "non-vacuity guard", which is a false-coverage claim: seven
-    //     single-badge rows satisfy it. It is kept because it still catches a
+    //     "non-vacuity guard", which is a false-coverage claim: the seed's
+    //     single-badge rows alone satisfy it. It is kept because it still catches a
     //     seed that stops rendering badges at all.
     //     The two-badge fixture this needed is "item 3b" (2026-10-08), which
     //     sets `settings.jira.siteUrl` so the seed's Jira tasks show a second

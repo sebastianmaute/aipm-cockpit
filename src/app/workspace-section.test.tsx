@@ -655,6 +655,42 @@ describe("WorkspaceSection — budget forecast link wiring", () => {
   });
 });
 
+describe("WorkspaceSection — demo entry on the Projects panel", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-projects" onClick={() => setActiveTab("projects")} />;
+  }
+  const renderAtProjects = async (onLoadDemo?: () => void) => {
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-projects"));
+    await screen.findByRole("button", { name: "+ New project" });
+  };
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("threads onLoadDemo to the Projects panel", async () => {
+    const onLoadDemo = vi.fn();
+    await renderAtProjects(onLoadDemo);
+    fireEvent.click(screen.getByRole("button", { name: "Explore a demo project" }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  // Mutation: dropping the `isPopout ? undefined :` guard turns this red.
+  it("omits the entry in a popout", async () => {
+    window.history.replaceState(null, "", "/?popout=budget");
+    await renderAtProjects(vi.fn());
+    expect(screen.queryByRole("button", { name: "Explore a demo project" })).toBeNull();
+  });
+});
+
 describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
   // Full `Settings`-shaped fixture (same minimal shape the module-disabled
   // test above builds) with Turso credentials configured under

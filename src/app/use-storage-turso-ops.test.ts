@@ -228,6 +228,69 @@ describe("useTursoProjectOps — §103 truncation", () => {
     expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
   });
 
+  it("createTursoProject resolves to the id it handed to portfolioCreate", async () => {
+    const { result } = renderWithRealGuard(async () => {});
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-5", name: "New", code: "N" } as never); });
+    const createdId = vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2];
+    expect(typeof createdId).toBe("string");
+    expect(returned).toBe(createdId);
+  });
+
+  it("createTursoProject runs seedSnapshots with the new id after its save and BEFORE the project becomes current", async () => {
+    const events: string[] = [];
+    saveMock.mockImplementationOnce(async () => { events.push("save"); });
+    const applyWorkspace = vi.fn(() => { events.push("apply"); });
+    const setTursoProjectId = vi.fn(() => { events.push("switch"); });
+    const seedSnapshots = vi.fn<(id: string) => Promise<void>>(async () => { events.push("seed"); });
+    const { result } = renderWithRealGuard(async () => {}, { applyWorkspace, setTursoProjectId });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-7", name: "New", code: "N" } as never, { seedSnapshots }); });
+    const createdId = vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2];
+    expect(seedSnapshots).toHaveBeenCalledTimes(1);
+    expect(seedSnapshots).toHaveBeenCalledWith(createdId);
+    expect(returned).toBe(createdId);
+    expect(events).toEqual(["save", "seed", "apply", "switch"]);
+  });
+
+  it("createTursoProject still creates and switches when seedSnapshots throws", async () => {
+    const applyWorkspace = vi.fn();
+    const reportProjectError = vi.fn();
+    const seedSnapshots = vi.fn(async () => { throw new Error("seed boom"); });
+    const { result } = renderWithRealGuard(async () => {}, { applyWorkspace, reportProjectError });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-8", name: "New", code: "N" } as never, { seedSnapshots }); });
+    expect(returned).toBe(vi.mocked(portfolioCreate).mock.calls.at(-1)?.[2]);
+    expect(applyWorkspace).toHaveBeenCalledTimes(1);
+    expect(reportProjectError).not.toHaveBeenCalled();
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.createSeedFailed", { message: "seed boom" });
+  });
+
+  it("createTursoProject resolves null when portfolioCreate throws, reporting the error once", async () => {
+    const reportProjectError = vi.fn();
+    const { result } = renderWithRealGuard(async () => {}, { reportProjectError });
+    vi.mocked(portfolioCreate).mockRejectedValueOnce(new Error("boom"));
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-6", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
+    expect(reportProjectError).toHaveBeenCalledTimes(1);
+  });
+
+  // The demo reads `null` as "the Turso create failed" and picks its fallback from it, so the two
+  // early returns before the try block must resolve `null` as well, having written nothing.
+  it("createTursoProject resolves null, writing nothing, when there is no usable Turso config", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(async () => {}, { tursoConfigNow: () => null, setTursoProjectId });
+    vi.mocked(portfolioCreate).mockClear();
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-10", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
+    expect(portfolioCreate).not.toHaveBeenCalled();
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+    expect(result.current.showToast).toHaveBeenCalledWith("error", t("en-US", "projectsTursoUnreachable"));
+  });
+
   it("createTursoProject with no seed shows no notice (positive control above)", async () => {
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => {
@@ -396,7 +459,9 @@ describe("a flush whose edits could not be kept stops the op (§4)", () => {
   it("createTursoProject writes nothing and does not switch", async () => {
     const setTursoProjectId = vi.fn();
     const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
-    await act(async () => { await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    let returned: string | null | undefined;
+    await act(async () => { returned = await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    expect(returned).toBeNull();
     expect(saveMock).not.toHaveBeenCalled();
     expect(setTursoProjectId).not.toHaveBeenCalled();
   });

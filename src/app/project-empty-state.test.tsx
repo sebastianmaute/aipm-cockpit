@@ -1,6 +1,8 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { BACKEND_SETUP_STEPS } from "./backend-setup-steps";
+import { readDemoIntent } from "./demo-intent";
 import { t } from "./i18n";
 import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
@@ -39,6 +41,9 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       onLoadFromFile={onLoadFromFile}
       onRestore={onRestore}
       onDeleteArchived={onDeleteArchived}
+      demoVariant={{ kind: "local" }}
+      demoWeeks={27}
+      demoConnectedNote={false}
       {...overrides}
     />,
   );
@@ -354,19 +359,22 @@ describe("ProjectEmptyState", () => {
     expect(format).toBe("csv");
   });
 
-  it("shows 'Explore a demo project' and calls onLoadDemo when provided", () => {
+  it("shows 'Explore the demo' and calls onLoadDemo when provided", () => {
     const onLoadDemo = vi.fn();
     setup({ onLoadDemo });
     fireEvent.click(
-      screen.getByRole("button", { name: t("en-US", "tourLoadDemo") }),
+      screen.getByRole("button", { name: t("en-US", "demoCardTitle") }),
     );
     expect(onLoadDemo).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the demo CTA when onLoadDemo is not provided", () => {
+  it("hides the demo card when onLoadDemo is not provided", () => {
     setup();
     expect(
-      screen.queryByRole("button", { name: t("en-US", "tourLoadDemo") }),
+      screen.queryByRole("button", { name: t("en-US", "demoCardTitle") }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: t("en-US", "demoCardTitle") }),
     ).toBeNull();
   });
 
@@ -551,5 +559,46 @@ describe("ProjectEmptyState — Load from Turso", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Load from Turso" }));
     expect(screen.getByRole("dialog", { name: "Load a Turso project" })).toBeInTheDocument();
+  });
+});
+
+describe("ProjectEmptyState — the three start cards and the guided path", () => {
+  afterEach(() => window.localStorage.clear());
+
+  it("renders three cards, each a section named by its heading", () => {
+    setup({ onLoadDemo: vi.fn() });
+    for (const key of ["emptyStartNewTitle", "emptyStartOpenTitle", "demoCardTitle"] as const) {
+      expect(screen.getByRole("heading", { level: 3, name: t("en-US", key) })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: t("en-US", key) })).toBeInTheDocument();
+    }
+  });
+
+  it("passes the variant, week count and note through to the demo card", () => {
+    const projectName = "Customer Identity Platform (demo)";
+    setup({ onLoadDemo: vi.fn(), demoVariant: { kind: "turso", projectName }, demoWeeks: 9, demoConnectedNote: true });
+    expect(screen.getByText(t("en-US", "demoCardTrendsIncluded", 9, projectName))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "demoTursoConnectedNote", 9))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("en-US", "demoCardSetUpTurso") })).toBeNull();
+  });
+
+  it("'Set up Turso first' stores the intent and opens the wizard on the Storage step", () => {
+    setup({ onLoadDemo: vi.fn() });
+    expect(readDemoIntent()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "demoCardSetUpTurso") }));
+    expect(readDemoIntent()).toBe("turso-setup");
+    const wizard = screen.getByRole("dialog", { name: t("en-US", "setupWizardTitle") });
+    const current = within(wizard).getByRole("list", { name: t("en-US", "wizardStepsLabel") })
+      .querySelector('[aria-current="step"]');
+    const storageIndex = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "storage");
+    expect(current?.textContent).toContain(t("en-US", BACKEND_SETUP_STEPS[storageIndex].titleKey));
+  });
+
+  it("closing the wizard clears the intent", () => {
+    setup({ onLoadDemo: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "demoCardSetUpTurso") }));
+    const wizard = screen.getByRole("dialog", { name: t("en-US", "setupWizardTitle") });
+    fireEvent.click(within(wizard).getByRole("button", { name: t("en-US", "alertModalClose") }));
+    expect(screen.queryByRole("dialog", { name: t("en-US", "setupWizardTitle") })).toBeNull();
+    expect(readDemoIntent()).toBeNull();
   });
 });

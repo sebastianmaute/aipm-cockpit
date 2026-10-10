@@ -43,12 +43,13 @@ registry.projects.length===0` (file mode) — an apply-only path (`applyRestored
 the registry empty so `showEmptyState`
 stays TRUE → `modernTree` (which holds BOTH the views AND `TourOverlay`) never mounts → demo invisible + tour
 never renders. Applying workspace data != showing it. `createDemoProject` uses the `browser`/IndexedDB backend
-kind (NO file picker) + derives meta from `ws.project`. ★ Turso portfolio mode: a local demo can't flip the
+kind (NO file picker) + derives meta from `ws.project`. ★ Turso portfolio mode WITHOUT a usable config
+(`isTursoUsable` in `demo-project.ts` = Turso portfolio mode AND a non-null `tursoConfig`): a local demo can't flip the
 turso-branch empty-state gate (it reads the Turso project LIST), so it persists
 registry+settings+`savePortfolioMode("file")` and `window.location.reload()`s (mirrors `loadProjectFromFile`'s
 switchPortfolioToFileOnSuccess) — ALL durable writes BEFORE the reload, SKIP the in-place
 `applyWorkspace`/`setStorageConfig` (the reload discards them; avoids a mount-then-teardown flash); after
-reload `tourSeen` is unset so auto-launch re-fires the tour. Demo CTA is empty-state-only; the demo is a normal
+reload `tourSeen` is unset so auto-launch re-fires the tour. The demo is a normal
 deletable project (non-destructive to any Turso DB). Tour view NOT in axe `A11Y_VIEWS` (eye-verified);
 spotlight positioning eye-verified (jsdom rect=0).
 ★ **The demo is "live", not a frozen snapshot:** `loadDemo` builds the project via `buildDemoWorkspace`
@@ -69,6 +70,58 @@ the `tourDemoError` toast. ★ Accepted imprecision: a month-granular shift move
 "today" moves by days, so early in a month the demo can place dated actuals, completed dates and
 activity timestamps up to ~4 weeks AFTER today. The golden fixtures (`__fixtures__/golden-*`) pin the
 UNSHIFTED master, never the demo's shifted output.
+
+★★ **The demo CAN be a Turso project with a Trends history.** `createDemo` (`demo-project.ts`) branches on `isTursoUsable`:
+not usable → `createLocal` (the path above, outcome `"local"`); usable → `createTursoProject` with `importedWorkspace` and a
+`seedSnapshots` callback, so the history is written INSIDE the held create, before the project becomes current — the new
+project's first snapshot load sees it instead of racing it. Outcomes are the `DemoOutcome` union: `"turso"`,
+`"turso-without-history"` (the seed failed and the project exists; a toast says so), `"local-after-turso-failure"` (the create
+returned no id, so `createLocal` ran and, in Turso mode, reloaded), `"local"`, and two refusals that write nothing and toast:
+`"local-blocked"` (the registry already holds a `browser` project; browser storage is ONE IndexedDB store and the local demo
+writes it blind, so it would replace that project — `browserProjectIn`, checked by `createDemo` on the local path AND before the
+Turso fallback, by `createDemoProject` at the write site, and by the Projects panel, which disables its button with the reason)
+and `"turso-failed"` (the create returned no id while Turso projects exist, i.e. from the Projects panel: `tourDemoError`, no
+fallback, no portfolio switch; the fallback is the empty state's alone). `useLoadDemo` owns the callback, so
+task-manager (size ratchet, zero headroom) only calls it. Turso stays unmutated on the local paths.
+
+★ **The history is a committed file, not computed at runtime.** `scripts/generate-demo-snapshots.ts` (run with `npx vite-node`)
+replays the master through `buildDemoSnapshots` (`demo-snapshots.ts`): one record per Friday from `demoSnapshotFridays`, each
+built from `workspaceAsOf(ws, asOf)`, and writes `sample-demo-snapshots.json` (`DEMO_SNAPSHOT_WEEKS` records; the card quotes
+that count, never a literal). The master spans 2026-03-02..2027-02-26 (reproduce:
+`node -e "const w=require('./sample-workspace-small.json');console.log(w.plan.startDate,w.plan.endDate)"`) and `DEMO_AS_OF`
+stays 2026-09-18, so re-authoring the master means regenerating this file in the same commit. ★★ **ACCEPTED APPROXIMATION:
+effort is not dated per task.** A task created after the snapshot date stays in as not-yet-started scope (removing it made
+`pctComplete` non-monotonic), and every budget bucket stays in as planned budget whatever its `createdDate` (dropping buckets
+gave each week a partial BAC against a whole-plan pace forecast: Budget RED in all 27 weeks and remaining hours jumping
+635 → 319 → 18 → 1465); time spent is prorated linearly over each task's own window (start → completed, or → now for open
+tasks); a hand-entered bucket percent-complete is prorated over start → min(end, now). The early weeks therefore read as an
+estimate of what the history would have been. ★ **The seeded Budget RAG is RED in 17 of the 27 weeks, and CPI is why.** Red
+weeks: 2026-03-13 … 05-01, 06-05, and 06-19 … 08-07; the other ten are amber. Every red week has a CPI below 0.8, the red line
+in `evmIndexHealth` (first ten weeks 0.57, 0.31, 0.62, 0.69, 0.57, 0.76, 0.67, 0.77, 0.84, 0.86; 0.86 at the end), because the
+master's 17 completed tasks spent 727 h against 628 h estimated and in-progress tasks earn no value. That is the engine's own
+behaviour, not a replay fault (§696). Reproduce: `npx vite-node scripts/generate-demo-snapshots.ts` prints each week's CPI,
+remaining hours and budget RAG; the effort totals come from the `Done` tasks' `originalEstimateMinutes` / `timeSpentMinutes`.
+
+★ **Shifting.** `shiftDemoSnapshots` (`demo-snapshot-shift.ts`) moves the records by the workspace's own shift;
+`thinForCadence` keeps one record per month for a monthly cadence and RELABELS the kept ones cadence `"monthly"` with the monthly
+bucket key (a weekly label in a monthly setting would read as a gap in Trends). `demoHistoryFor` then drops every record at or
+after the CURRENT bucket (compared in each record's own cadence — a `YYYY-MM` string never orders against `YYYY-Www`; the live
+capture owns that bucket) and makes the first remaining record the baseline (a shift collision can drop the authored one).
+`appendSnapshots` (`snapshot-store.ts`) writes the whole list in ONE transaction; ids are `${projectId}:${capturedAt}` because
+`snapshot.id` is a global primary key and a second demo in the same database would collide.
+
+★ **Start cards and the guided path.** The empty state (`project-empty-state.tsx`) renders `DemoStartCard` (`demo-start-card.tsx`)
+beside its other start cards, only when a demo handler is wired; its copy follows `demoVariantFor`: Turso usable → "created in your
+Turso database with N weeks of Trends"; otherwise local, saying Trends needs Turso, with a "Set up Turso first" button that stores
+the intent and opens `BackendSetupWizard` at its Storage step (the wizard's `initialStep`). The Projects panel also offers
+"Explore a demo project" (not in popouts). ★★ Two one-shot notices live in `demo-intent.ts`, in localStorage under
+`aipm-cockpit:*` (so `clearAppConfig` wipes them): `DEMO_INTENT_KEY` (set before the wizard's portfolio switch reloads the app; the
+next boot shows the card's "connected" note, or a toast offering the demo when projects exist) and the "created locally" notice
+(`setDemoCreatedLocally`, stored by `onLocalFallback` before the fallback's reload; the next boot toasts it). ★★ Both are READ in a
+`useState` initializer and CLEARED later in an effect, once the boot knows its answer: a read-and-clear in the initializer would
+spend the intent before the boot knows whether the project list loaded (`useDemoIntentOnBoot` waits for `tursoListLoaded` in Turso
+mode, so a failed fetch or a passphrase-locked boot keeps the intent for the next one). The effects run behind refs (StrictMode).
+★★★ NEVER CHECKED LIVE: no one has created the demo against a real Turso database (§696).
 
 ### Timezones
 
