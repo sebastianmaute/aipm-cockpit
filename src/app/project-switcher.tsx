@@ -8,6 +8,7 @@ import { type ProjectRegistryEntry } from "./projects-registry";
 import { useFsaSupported } from "./use-fsa-supported";
 import { buildRowTokens } from "./row-tokens";
 import { Button } from "./button";
+import { IconButton } from "./icon-button";
 
 export interface ProjectSwitcherProps {
   /** Name of the active project, or null when none is selected. */
@@ -286,15 +287,17 @@ export function ProjectSwitcher({
       )}
     </div>
     {onReload && (
-      <button
-        type="button"
+      // §102: a 20px icon makes the md box 34px, level with the sm trigger beside it.
+      <IconButton
+        variant="bordered"
+        size="md"
+        className="shrink-0"
         onClick={onReload}
-        aria-label={t(lang, "reloadProject")}
+        label={t(lang, "reloadProject")}
         title={t(lang, "reloadProjectHint")}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-ui-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey"
       >
-        <ArrowPathIcon aria-hidden="true" className="h-4 w-4" />
-      </button>
+        <ArrowPathIcon aria-hidden="true" className="h-5 w-5" />
+      </IconButton>
     )}
     </div>
   );

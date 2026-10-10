@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DictationSection } from "./dictation-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
+import { buttonClassFor } from "../../test/button-variant";
 import * as secrets from "../secrets";
 import * as diagnostics from "../diagnostics";
 import { type SealedSecret, sealDevice } from "../secrets";
@@ -192,5 +193,16 @@ describe("DictationSection — STT key sealed on every change (§626)", () => {
       window.removeEventListener("unhandledrejection", unhandled);
       process.off("unhandledRejection", unhandled);
     }
+  });
+});
+
+// §102 re-scan: the hotkey field and its reset drew the secondary look by hand
+// at `px-3 py-2`; the owner's rule puts that padding on `Button` `md`.
+describe("DictationSection — hotkey buttons are Button secondary md (§102)", () => {
+  it("draws the hotkey capture and its reset with the shared primitive", () => {
+    setup();
+    const expected = buttonClassFor({ variant: "secondary", size: "md" });
+    expect(screen.getByRole("button", { name: t("en-US", "dictationHotkey") }).className).toBe(expected);
+    expect(screen.getByRole("button", { name: t("en-US", "dictationHotkeyReset") }).className).toBe(expected);
   });
 });

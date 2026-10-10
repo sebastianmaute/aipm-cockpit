@@ -7,8 +7,8 @@
 import { useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { usePopoverDismiss } from "./use-popover-dismiss";
-import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { menuItemClass } from "./control-classes";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { promptsForView, type PromptDef } from "./ask-claude-prompts";
@@ -35,7 +35,7 @@ function PromptSection({
             <button
               type="button"
               onClick={() => onPick(def)}
-              className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
+              className={menuItemClass()}
             >
               {t(lang, def.labelKey)}
             </button>

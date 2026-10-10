@@ -4,6 +4,7 @@ import { AskClaudeMenu } from "./ask-claude-menu";
 import { ASK_CLAUDE_PROMPTS, promptsForView } from "./ask-claude-prompts";
 import type { AppView } from "./nav-config";
 import { loadI18n, t } from "./i18n";
+import { menuItemClass } from "./control-classes";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 afterEach(cleanup);
@@ -96,5 +97,19 @@ describe("AskClaudeMenu — every prompt button has its own name (§672)", () =>
       expectRowUniqueNames({ minControls: onPage.length + general.length, scope: screen.getByRole("dialog") });
       unmount();
     }
+  });
+});
+
+// §102 re-scan: the prompt rows hand-rolled a menu row at their own padding
+// and colour; they take the shared menu-item class (§692).
+describe("AskClaudeMenu — prompt rows are shared menu items (§102)", () => {
+  it("draws every prompt row with menuItemClass()", () => {
+    render(<AskClaudeMenu lang="en-US" currentView="raid" onAsk={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiAskClaude") }));
+    const rows = [
+      screen.getByRole("button", { name: t("en-US", "aiPromptRaidTopLabel") }),
+      screen.getByRole("button", { name: t("en-US", "aiPromptWhatsNextLabel") }),
+    ];
+    for (const row of rows) expect(row.className).toBe(menuItemClass());
   });
 });
