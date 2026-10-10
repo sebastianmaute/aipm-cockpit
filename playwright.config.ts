@@ -36,7 +36,8 @@ const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec
 // once per run rather than leaving a missing trace to look like a bug.
 const APP_HAS_TURSO_TOKEN = appHasTursoToken();
 if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
-  console.log("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)");
+  // stderr, not stdout: `--reporter=json` writes its report to stdout, and a line there corrupts it.
+  process.stderr.write("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)\n");
 }
 
 export default defineConfig({
