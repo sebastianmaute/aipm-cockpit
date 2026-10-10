@@ -12,6 +12,15 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 // webServer below and read back by e2e/a11y.spec.ts's guard from data-boot-nonce.
 const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) : undefined;
 
+// ★★★ Live-Turso specs that DROP tables (`e2e/live-turso-env.ts` names the database
+// they may touch). Every live spec shares ONE throwaway database, and the default
+// run is fullyParallel, so a spec dropping `document_assets` or every workspace
+// table beside the partition-scoped UI specs would pull tables out from under
+// them. They live in their own project, which runs its files one at a time and
+// which `chromium` ignores; run it on its own (`npm run e2e:live-destructive`),
+// never in the same invocation as `chromium`.
+const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -35,7 +44,7 @@ export default defineConfig({
       // below: it drives a PACKAGED Electron app that no CI runner builds, so
       // left in this project it would fail (or skip) in the blocking e2e job.
       name: "chromium",
-      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/],
+      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -81,6 +90,15 @@ export default defineConfig({
       timeout: 240_000,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // Table-dropping live-Turso specs (see LIVE_TURSO_DESTRUCTIVE above):
+      // opt-in (`npm run e2e:live-destructive`), one file at a time. They drive
+      // no browser, so no app server is needed (PLAYWRIGHT_NO_WEBSERVER=1).
+      name: "live-turso-destructive",
+      testMatch: LIVE_TURSO_DESTRUCTIVE,
+      workers: 1,
+      fullyParallel: false,
     },
     // Add firefox / webkit later if cross-browser coverage is needed:
     // { name: "firefox", use: { ...devices["Desktop Firefox"] } },

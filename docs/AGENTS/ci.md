@@ -150,8 +150,15 @@ re-resolved by hand.
   ★★★ The live-Turso specs read only `TURSO_THROWAWAY_DATABASE_URL` / `TURSO_THROWAWAY_AUTH_TOKEN`
   (`e2e/live-turso-env.ts`), never the app's `NEXT_PUBLIC_TURSO_*`, because they write to and drop
   tables in that database and a plain `npm run e2e` runs them. A spec that drives the UI also needs
-  the app's `NEXT_PUBLIC_TURSO_DATABASE_URL` to equal the throwaway URL. Without the pair they skip,
-  which is what this job does today; §215 owns giving it the two secrets, mapped into both pairs.
+  the app's `NEXT_PUBLIC_TURSO_DATABASE_URL` to equal the throwaway URL, as Next itself resolves it
+  (`appUsesDatabase`), and aborts any app request to another Turso host (`guardAppDatabase`); those
+  specs turn tracing off, because a trace records the app's `Authorization` header. Without the pair
+  they skip, which is what this job does today; §215 owns giving it the two secrets, mapped into both
+  pairs. ★★ The specs that DROP tables are not in this job at all: `playwright.config.ts`'s
+  `live-turso-destructive` project holds them (`LIVE_TURSO_DESTRUCTIVE`), runs its files one at a
+  time, and `chromium` ignores them, because every live spec shares one throwaway database and this
+  job runs files in parallel. They run only by hand, `PLAYWRIGHT_NO_WEBSERVER=1 npm run
+  e2e:live-destructive`, never in the same invocation as `chromium`.
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is

@@ -106,7 +106,7 @@ import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 
 import {
-  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY,
+  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
@@ -574,11 +574,30 @@ function preFixWouldHaveSkipped(payload: string): boolean {
 
 // ── Suite ───────────────────────────────────────────────────────────────────
 
+// ★★★ NO TRACE, NO VIDEO. The app under test carries the database token in its
+// client bundle and sends `Authorization: Bearer …` on every request, and the
+// config's `trace: "retain-on-failure"` captures both, so a failing run would
+// write the token into `test-results/**/trace.zip`, which CI uploads on failure.
+// File-level, because `trace` and `video` are worker-scoped (a describe-level
+// `test.use` is a startup error). Screenshots capture pixels, not headers.
+test.use({ trace: "off", video: "off" });
+
 test.describe("version history — a documents-only project, live Turso", () => {
   // The ONLY skips: no throwaway pair, or an app database that is not the
   // throwaway one. Everything past this point asserts.
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
   test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
+
+  // Every app request to a Turso pipeline must reach the throwaway host:
+  // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
+  // the count is asserted, so no host name reaches a log.
+  let blockedHosts: string[] = [];
+  test.beforeEach(async ({ page }) => {
+    blockedHosts = await guardAppDatabase(page);
+  });
+  test.afterEach(() => {
+    expect(blockedHosts.length, "the app called a Turso database other than the throwaway one").toBe(0);
+  });
 
   test.beforeAll(async () => {
     // ★ Guarded independently of the describe-level skip: a `beforeAll` still

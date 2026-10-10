@@ -82,7 +82,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
 import {
-  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY,
+  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
@@ -369,6 +369,17 @@ test.use({ trace: "off", video: "off" });
 test.describe("§284 — a malformed meta blob is caught before the next save destroys it", () => {
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
   test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
+
+  // Every app request to a Turso pipeline must reach the throwaway host:
+  // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
+  // the count is asserted, so no host name reaches a log.
+  let blockedHosts: string[] = [];
+  test.beforeEach(async ({ page }) => {
+    blockedHosts = await guardAppDatabase(page);
+  });
+  test.afterEach(() => {
+    expect(blockedHosts.length, "the app called a Turso database other than the throwaway one").toBe(0);
+  });
 
 
   test.afterAll(async () => {
