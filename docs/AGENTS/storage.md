@@ -550,8 +550,9 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   like any edit.
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
-`e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a
-live SharePoint tenant (§652) or a live Turso database (§654); those entries list the owed checks.
+`e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). The Turso guard ran
+against a live database on 2026-10-10 (`e2e/turso-revision-live.spec.ts`, §654); CI collects it but runs it only as a skip until §215 sets the throwaway secrets. It drops every workspace table, so it
+reads only `TURSO_THROWAWAY_DATABASE_URL`/`TURSO_THROWAWAY_AUTH_TOKEN`, never the app's own pair, and skips without them. Nothing has run on a live SharePoint tenant; §652 lists the owed checks.
 
 ## The six write paths
 
@@ -592,7 +593,7 @@ Kept short: `AGENTS.md` owns each rule.
 - **Batch commit**: a statement list that starts with `BEGIN` and ends with `COMMIT` goes out
   as ONE Hrana `batch` request. Each step runs only if the step before it succeeded, and a
   trailing `ROLLBACK` step runs whenever `COMMIT` did not, so a failed save writes nothing
-  (§637; per the Hrana protocol, live-database check owed). Anything before `BEGIN`, or a `BEGIN`
+  (§637; checked against a live database on 2026-10-10 by `e2e/turso-ddl-probe-live.spec.ts`). Anything before `BEGIN`, or a `BEGIN`
   without a trailing `COMMIT`, is refused before sending. `runTursoPipeline` maps the step results back to one result per statement and throws
   the first statement error. Any other list is sent as separate `execute` requests, which do not
   stop at a failing statement.
