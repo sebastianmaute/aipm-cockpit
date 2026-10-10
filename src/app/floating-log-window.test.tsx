@@ -4,6 +4,7 @@ import { FLOATING_LAYER_ATTR } from "./modal";
 import { DEFAULT_LOG_WINDOW_POS, FloatingLogWindow, NOTES_WINDOW_Z } from "./floating-log-window";
 import { MODAL_HELP } from "./help-content";
 import { t } from "./i18n";
+import { iconButtonClassFor } from "../test/button-variant";
 
 const EN = "en-US" as const;
 const PREFIX = "test-prefix:log-window";
@@ -56,6 +57,11 @@ describe("FloatingLogWindow", () => {
     screen.getByRole("button", { name: t(EN, "close") }).focus();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws its close at md, the size of the help and reset buttons beside it (§688)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t(EN, "close") }).className).toBe(iconButtonClassFor({ size: "md" }));
   });
 
   it("uses the given storage keys", () => {
