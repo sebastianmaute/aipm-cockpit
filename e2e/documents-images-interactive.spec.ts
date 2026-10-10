@@ -800,16 +800,14 @@ test.describe("document images — live Turso", () => {
     await expect(page.locator('input[type="file"][accept*="image/png"]')).toHaveCount(0);
   });
 
-  // ★★★ CHARACTERIZATION OF A KNOWN DEFECT — docs/open-followups.md §210.
-  // Asserts the image is BROKEN in a standalone HTML export, which is what the
-  // code does today: `renderDocumentHtml`'s `assets` argument has no production
-  // caller, so `inlineDocumentImages` never runs. Meant to go RED when §210 is
-  // fixed, at which point invert it to assert a `data:` URI. Same shape as
-  // `e2e/seed-content.spec.ts`'s §126 count. A green run here is NOT "export
-  // works".
-  // ★ A live database changes nothing about this — the export path never reads
-  // the byte store at all, which is the defect.
-  test("standalone HTML export emits the image with no source at all (§210, characterization)", async ({ page }) => {
+  // ★★★ §210, INVERTED. This was a characterization of the defect (the export
+  // carried the image with no source), meant to go RED once §210 was fixed. §210
+  // closed in 0.256.0, but this file only runs against a live database, so it did
+  // not go red until its first live run on 2026-10-10. It now pins the fix: the
+  // standalone HTML export loads the bytes from the live store and inlines them
+  // as a `data:` URI, byte for byte the asset `beforeAll` wrote, with no
+  // missing-image marker.
+  test("standalone HTML export inlines the image from the live store as a data: URI (§210)", async ({ page }) => {
     await suppressTour(page);
     await gotoApp(page);
     await openView(page, "Documents");
@@ -824,8 +822,10 @@ test.describe("document images — live Turso", () => {
 
     const imgTag = html.match(/<img\b[^>]*data-asset-id="e2e-asset-1"[^>]*>/);
     expect(imgTag, "the exported HTML carries no image element at all").toBeTruthy();
-    expect(imgTag![0], "§210 appears FIXED — invert this test to assert a data: URI").not.toContain("src=");
-    expect(html, "§210 appears FIXED — the missing-image marker is now stamped").not.toContain(
+    expect(imgTag![0], "the export did not inline the stored bytes (§210 is back)").toContain(
+      `src="data:${E2E_DOCUMENT_ASSET.mime};base64,${E2E_DOCUMENT_ASSET.base64}"`,
+    );
+    expect(html, "the export stamped the missing-image marker on an image whose bytes exist").not.toContain(
       'data-asset-missing="true"',
     );
   });

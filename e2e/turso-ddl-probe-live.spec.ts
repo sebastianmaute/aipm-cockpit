@@ -31,9 +31,11 @@ const ENV = THROWAWAY;
 // ── §211: the idKind landmine, against a real SQLite engine ─────────────────
 //
 // ★★★ DELIBERATELY BREAKS A TABLE. It drops and recreates `document_assets` on
-// the throwaway database, and leaves it with the CORRECT DDL when it finishes.
-// `afterAll` restores it after a failing test too; only a killed run leaves it
-// dropped, and the next run's `afterAll` repairs it.
+// the throwaway database, and `afterAll` DROPS it again (after a failing test
+// too). It does not re-create it: the single-project shape it would build has no
+// `project_id`, and the tenant-layout specs sharing this database would then fail
+// on it, since the app's `CREATE TABLE IF NOT EXISTS` cannot reshape a table that
+// exists. Whatever loads next creates it in its own layout.
 //
 // ★★★ WHY NO UNIT TEST CAN REACH THIS, WHICH IS THE WHOLE POINT.
 // `colDdl` renders any column named `id` as `id INTEGER PRIMARY KEY` unless the
@@ -103,12 +105,13 @@ test.describe("§211 — a text id against the pre-idKind DDL", () => {
 
   test.afterAll(async () => {
     if (!LIVE) return;
-    // Leave the database with the CORRECT schema and no probe leftovers.
+    // No probe leftovers, and no `document_assets` in either layout's shape (header).
     await pipeline([
       { sql: "DROP TABLE IF EXISTS e2e_probe_marker" },
       { sql: "DROP TABLE IF EXISTS document_assets" },
-      { sql: `CREATE TABLE IF NOT EXISTS document_assets (${colDdl(assetSpec.columns, assetSpec.idKind)})` },
-    ]).catch(() => {});
+    ]).catch((err: unknown) => {
+      console.warn(`§211 cleanup failed (${err instanceof Error ? err.name : typeof err})`);
+    });
   });
 
   test("the spec declares a text id, and the bytes table stays out of TABLE_NAMES", async () => {

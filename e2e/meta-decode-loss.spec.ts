@@ -82,7 +82,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
 import {
-  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase, ensureTenantSchema,
 } from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
@@ -228,6 +228,9 @@ const PARTITION_TABLES = [
 ] as const;
 
 async function cleanup(): Promise<void> {
+  // The tables may not exist yet: the table-dropping live specs share this
+  // database and leave none behind. CREATE TABLE IF NOT EXISTS only, never a DROP.
+  await ensureTenantSchema();
   const results = await pipeline([
     ...PARTITION_TABLES.map((t) => ({
       sql: `DELETE FROM ${t} WHERE project_id = ?`,
@@ -301,15 +304,17 @@ async function seedProject(): Promise<void> {
  *  takes truncation, corruption or a foreign write — but the CONSEQUENCE, once
  *  malformed, was not narrow at all. */
 async function corruptDocumentsBlob(): Promise<void> {
+  // ★ DELETE then INSERT, in one transaction. Not UPDATE: it silently matches zero
+  // rows if the app deleted the row a moment earlier (its save is DELETE-then-
+  // re-insert). Not INSERT OR REPLACE either: the TENANT `meta` table has no key
+  // (`tenantSchemaDdl`), so OR REPLACE never replaces — it appends a second
+  // `documents` row and the read-back still finds the first. Measured live on
+  // 2026-10-10: the corruption never landed. The app is unmounted before this runs.
   await pipeline([
-    {
-      // ★ INSERT OR REPLACE, not UPDATE. An UPDATE silently matches zero rows if
-      // the app deleted the row a moment earlier (its save is DELETE-then-
-      // re-insert), and the verification then fails with no clue why. This lands
-      // either way, so a failure downstream means something real.
-      sql: "INSERT OR REPLACE INTO meta (key, value, project_id) VALUES (?, ?, ?)",
-      args: [txt("documents"), txt("{not json"), txt(E2E_PROJECT_ID)],
-    },
+    { sql: "BEGIN" },
+    { sql: "DELETE FROM meta WHERE key = ? AND project_id = ?", args: [txt("documents"), txt(E2E_PROJECT_ID)] },
+    { sql: "INSERT INTO meta (key, value, project_id) VALUES (?, ?, ?)", args: [txt("documents"), txt("{not json"), txt(E2E_PROJECT_ID)] },
+    { sql: "COMMIT" },
   ]);
 }
 
