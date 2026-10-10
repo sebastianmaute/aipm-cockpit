@@ -237,6 +237,8 @@ async function cleanup(): Promise<void> {
       sql: `DELETE FROM ${t} WHERE project_id = ?`,
       args: [txt(E2E_PROJECT_ID)],
     })),
+    // The app's own live Trends capture writes here too; snapshot is outside TABLE_NAMES.
+    { sql: "DELETE FROM snapshot WHERE project_id = ?", args: [txt(E2E_PROJECT_ID)] },
     { sql: "DELETE FROM projects WHERE id = ?", args: [txt(E2E_PROJECT_ID)] },
   ]);
   // ★ Teardown gets the SAME check as every other statement in this file. A
