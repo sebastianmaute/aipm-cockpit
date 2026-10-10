@@ -1,7 +1,9 @@
 # Throwaway image used ONLY by the `dast-zap` CI job to run the app so ZAP can
 # scan it. NOT a production deployment artifact — no multi-stage slimming,
 # standalone output, or non-root hardening (the DAST target is ephemeral).
-FROM node:20-bookworm-slim
+# Node 24 matches package.json's engines; pinned by digest (OpenSSF Scorecard
+# Pinned-Dependencies). Refresh the digest when bumping the tag.
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 WORKDIR /app
 
 COPY package.json package-lock.json ./
