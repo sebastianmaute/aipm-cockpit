@@ -65,8 +65,8 @@
 //
 // ★★ PARTITION-SCOPED, NOTHING DROPPED. Every write is under E2E_PROJECT_ID and
 // removed in `afterAll`. This file never runs DROP or TRUNCATE and never touches
-// a row outside its partition — unlike `documents-images-interactive.spec.ts`,
-// whose §211 probe drops a shared table. It is still a destructive test BY
+// a row outside its partition — unlike `turso-ddl-probe-live.spec.ts`, whose
+// §211 probe drops a shared table. It is still a destructive test BY
 // DESIGN (it corrupts a blob and then proves the app can be made to overwrite
 // it), so point it at a scratch database, never one you care about.
 //
@@ -82,8 +82,9 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
 import {
-  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase, ensureTenantSchema,
+  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
+import { ensureTenantSchema } from "./live-turso-schema";
 // ── Live-database configuration ─────────────────────────────────────────────
 
 /** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
@@ -304,18 +305,22 @@ async function seedProject(): Promise<void> {
  *  takes truncation, corruption or a foreign write — but the CONSEQUENCE, once
  *  malformed, was not narrow at all. */
 async function corruptDocumentsBlob(): Promise<void> {
-  // ★ DELETE then INSERT, in one transaction. Not UPDATE: it silently matches zero
+  // ★ DELETE then INSERT, between BEGIN and COMMIT. Not UPDATE: it silently matches zero
   // rows if the app deleted the row a moment earlier (its save is DELETE-then-
   // re-insert). Not INSERT OR REPLACE either: the TENANT `meta` table has no key
   // (`tenantSchemaDdl`), so OR REPLACE never replaces — it appends a second
   // `documents` row and the read-back still finds the first. Measured live on
   // 2026-10-10: the corruption never landed. The app is unmounted before this runs.
-  await pipeline([
+  // ★ Separate execute requests do NOT make this all-or-nothing (that is the
+  // §637 behaviour): a failing INSERT would still let COMMIT keep the DELETE. So
+  // every statement is asserted, and the read-back checks what landed.
+  const results = await pipeline([
     { sql: "BEGIN" },
     { sql: "DELETE FROM meta WHERE key = ? AND project_id = ?", args: [txt("documents"), txt(E2E_PROJECT_ID)] },
     { sql: "INSERT INTO meta (key, value, project_id) VALUES (?, ?, ?)", args: [txt("documents"), txt("{not json"), txt(E2E_PROJECT_ID)] },
     { sql: "COMMIT" },
   ]);
+  assertNoStatementErrors(results, "corruptDocumentsBlob");
 }
 
 /** The localStorage writes that put the app in TENANT Turso mode on its first

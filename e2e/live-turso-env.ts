@@ -38,7 +38,6 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { Page } from "@playwright/test";
-import { tenantSchemaDdl } from "../src/app/turso-tenant-schema";
 
 export interface TursoPair {
   url: string;
@@ -162,18 +161,6 @@ export const SKIP_NO_THROWAWAY =
 
 export const SKIP_APP_NOT_THROWAWAY =
   "drives the app, whose database (NEXT_PUBLIC_TURSO_DATABASE_URL) is not the throwaway one (TURSO_THROWAWAY_DATABASE_URL); point both at a database you can lose";
-
-/** Create the multi-project (tenant) schema on the throwaway database, as the
- *  app's own tenant load does (`CREATE TABLE IF NOT EXISTS`, so a no-op where the
- *  tables exist). For a tenant-layout spec that seeds or cleans rows before the app
- *  has loaded: the specs that DROP tables leave none behind. ★ It cannot repair a
- *  table that exists in the SINGLE-project shape; the destructive specs drop
- *  theirs rather than leave one. Throws with the failed statement count only. */
-export async function ensureTenantSchema(): Promise<void> {
-  const results = await rawPipeline(tenantSchemaDdl().map((sql) => ({ sql })));
-  const failed = results.filter((r) => r.type === "error").length;
-  if (failed) throw new Error(`ensureTenantSchema: ${failed} statement(s) failed`);
-}
 
 /** A text argument for a pipeline statement. */
 export const txt = (value: string) => ({ type: "text" as const, value });
