@@ -556,3 +556,17 @@ describe("HistoryPanel — empty vs unavailable", () => {
     expect(screen.queryByText(t("en-US", "historyEmpty"))).toBeNull();
   });
 });
+
+// Found by the live version-compare run (e2e/version-compare-live.spec.ts): the
+// version-name field had only a placeholder, and a placeholder is not an
+// accessible name (AGENTS.md hard constraint). Chromium falls back to it, so a
+// role query alone could pass on the placeholder; the attribute is pinned too.
+it("gives the version-name field an accessible name, not just a placeholder", () => {
+  renderPanel(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByRole("button", { name: "Save version now" }));
+  const name = t("en-US", "historyManualLabelPrompt");
+  const input = screen.getByRole("textbox", { name });
+  expect(input).toHaveAttribute("aria-label", name);
+  // Label-in-name (WCAG 2.5.3): the visible placeholder text is the name itself.
+  expect(input).toHaveAttribute("placeholder", name);
+});
