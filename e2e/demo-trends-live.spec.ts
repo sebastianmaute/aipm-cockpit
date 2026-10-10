@@ -176,9 +176,11 @@ async function createAndVerify(
   test.info().annotations.push({ type: "demo history", description: `${counts.seeded} seeded weeks + ${counts.live} live capture` });
   await expectTrendsHistory(page, shotName, counts.seeded + counts.live);
 
-  // The project opens again after a reload.
+  // The project opens again after a reload: the project switcher's trigger (the one menu button that
+  // names the current project) shows it. No `.first()` — a second match is a strict-mode failure.
+  const switcher = page.getByRole("button", { name: DEMO_NAME }).and(page.locator('[aria-haspopup="menu"]'));
   await page.reload();
-  await expect(page.getByRole("button", { name: DEMO_NAME }).first(), "the demo did not reopen after a reload").toBeVisible({ timeout: 60_000 });
+  await expect(switcher, "the demo did not reopen after a reload").toBeVisible({ timeout: 60_000 });
   // The same history: the reload neither lost a week nor captured a second one.
   expect(await snapshotCounts(id), "the reload changed the stored history").toEqual(counts);
   await expectTrendsHistory(page, `${shotName}-after-reload`, counts.seeded + counts.live);

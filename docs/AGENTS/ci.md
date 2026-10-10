@@ -213,6 +213,9 @@ on it and none of its jobs is a required check: a red run is the signal.
   and uploads `zap-out/` — `zap-report.html` and `zap-report.json` — as `zap-report` (7 days, always).
   `curlimages/curl` and `ghcr.io/zaproxy/zaproxy:stable` are pinned by `@sha256:` digest (§611);
   Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
+  `Dockerfile.dast`'s base, `node:24-bookworm-slim`, is pinned by its index digest too (OpenSSF
+  Scorecard Pinned-Dependencies), and `dependabot.yml` has no `docker` entry, so it joins that
+  quarterly hand re-resolve: the tag no longer floats onto Node 24 patch releases by itself.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
 - **`register-sync`** (10 min, `continue-on-error: true`). The workflow step runs `node

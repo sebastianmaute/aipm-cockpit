@@ -17,8 +17,8 @@ with the guided tour; with Turso connected, the demo comes with a weekly Trends 
 gaps, and Trends now labels only as many points as fit along the axis. The desktop app's update window
 shows formatted release notes, and installing and updating say up front that they take a while. Icon
 buttons, fields, menus and badges across the app follow the app standard, and the version-name field in
-History has an accessible name. The demo's Trends history is checked against a live Turso database; the
-new live-Turso CI workflow has not yet completed a run on `main`.
+History has an accessible name. A live Turso check of the demo's Trends history ran against the earlier,
+month-shifted history; the week-aligned history this release ships has not yet been re-run live.
 
 ### Added
 
