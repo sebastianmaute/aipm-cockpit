@@ -11,17 +11,25 @@
 // dev server:
 //   PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test e2e/turso-revision-live.spec.ts --project=chromium --workers=1
 //
-// ★★ PLAYWRIGHT DOES NOT LOAD `.env.local`, so `readEnvLocal` parses it (the
+// ★★★ IT DELETES EVERY PROJECT'S DATA IN THE DATABASE IT RUNS AGAINST. Each
+// layout starts from a fresh database, so every workspace table (`TABLE_NAMES`)
+// is DROPPED, for every project, and `afterAll` drops them again. The
+// `projects` table is not among them, so a portfolio database keeps its project
+// list with nothing behind it.
+//
+// ★★★ SO IT NEVER READS THE APP'S DATABASE VARIABLES. `NEXT_PUBLIC_TURSO_*` in a
+// normal `.env.local` is the app's own live database, and `npm run e2e` runs
+// this file. It reads only its own pair, `TURSO_THROWAWAY_DATABASE_URL` and
+// `TURSO_THROWAWAY_AUTH_TOKEN` (exported, or in `.env.local`), and skips, saying
+// why, unless BOTH are set. Setting them is the statement "this database can be
+// lost"; never give them the app's values. CI sets this pair alone (§215).
+//
+// ★★ PLAYWRIGHT DOES NOT LOAD `.env.local`, so `readThrowawayEnv` parses it (the
 // same rule as `documents-images-interactive.spec.ts`). The only skip is "no
-// credentials anywhere"; past that, every check asserts.
+// throwaway pair"; past it, every check asserts.
 //
 // ★★★ CREDENTIALS ARE NEVER PRINTED. Assertions compare revisions, dates and
 // booleans; the one recorded server message carries only the stored revision.
-//
-// ★★★ THROWAWAY DATABASE ONLY. Each layout starts from a FRESH database — every
-// workspace table (`TABLE_NAMES`) is DROPPED, which destroys whatever the app had
-// saved there — and `afterAll` drops them again. The app re-creates them on its
-// next save (`CREATE TABLE IF NOT EXISTS`).
 
 import { readFileSync, existsSync } from "node:fs";
 import { test, expect } from "@playwright/test";
@@ -38,22 +46,23 @@ import { SaveConflictError } from "../src/app/storage-error";
 import type { Workspace } from "../src/app/workspace";
 import type { TursoConfig } from "../src/app/turso-config";
 
-/** `.env.local` first-hand; `process.env` wins when the pair is exported (CI). Values are never logged. */
-function readEnvLocal(): { url: string; token: string } {
+/** The throwaway pair: exported variables win (CI), else `.env.local`. Values are never logged. */
+function readThrowawayEnv(): { url: string; token: string } {
   const fromProcess = {
-    url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
-    token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
+    url: process.env.TURSO_THROWAWAY_DATABASE_URL ?? "",
+    token: process.env.TURSO_THROWAWAY_AUTH_TOKEN ?? "",
   };
-  if (fromProcess.url) return fromProcess;
+  if (fromProcess.url || fromProcess.token) return fromProcess;
   if (!existsSync(".env.local")) return { url: "", token: "" };
   const txt = readFileSync(".env.local", "utf8");
   const read = (key: string) =>
     (txt.match(new RegExp(`^${key}=(.*)$`, "m"))?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  return { url: read("NEXT_PUBLIC_TURSO_DATABASE_URL"), token: read("NEXT_PUBLIC_TURSO_AUTH_TOKEN") };
+  return { url: read("TURSO_THROWAWAY_DATABASE_URL"), token: read("TURSO_THROWAWAY_AUTH_TOKEN") };
 }
 
-const ENV = readEnvLocal();
-const LIVE = ENV.url !== "";
+const ENV = readThrowawayEnv();
+/** Both values, or nothing runs: a URL alone would fail on auth rather than skip. */
+const LIVE = ENV.url !== "" && ENV.token !== "";
 /** Normalised the way `turso-config.ts` normalises it. */
 const CONFIG: TursoConfig = {
   httpUrl: ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, ""),
@@ -93,11 +102,19 @@ async function storedPlanStart(projectId?: string): Promise<string | null> {
 const withStart = (ws: Workspace, startDate: string): Workspace => ({ ...ws, plan: { ...ws.plan, startDate } });
 
 test.describe("§654 — the revision guard on a live Turso database", () => {
-  test.skip(!LIVE, "needs a live Turso database (.env.local NEXT_PUBLIC_TURSO_*)");
+  test.skip(
+    !LIVE,
+    "drops every workspace table: set TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN to a database you can lose",
+  );
   test.describe.configure({ mode: "serial" });
 
   test.afterAll(async () => {
-    if (LIVE) await dropWorkspaceTables().catch(() => {});
+    if (!LIVE) return;
+    // The next run drops again, so a failed cleanup is reported, not fatal. Only the error NAME is
+    // logged: a message could carry a server detail, and nothing here may echo the configuration.
+    await dropWorkspaceTables().catch((err: unknown) => {
+      console.warn(`§654 cleanup: dropping the workspace tables failed (${err instanceof Error ? err.name : typeof err})`);
+    });
   });
 
   test.describe("single-tenant layout", () => {
