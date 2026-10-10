@@ -160,7 +160,7 @@ type Row = {
   op: string;
   arm: (g: Gate, b: Backends) => void;
   value: unknown;
-  call: (h: Hook) => Promise<void>;
+  call: (h: Hook) => Promise<unknown>;
   /** §596 — the op's `holdDuring(..., scope)` argument, asserted by the third test
    *  below. ★★★ THE FLAGS WERE UNPINNED AND `onPickStorageFile` WAS NOT EVEN IN
    *  THIS TABLE — the op whose misclassification caused B1 in the first place. A
@@ -193,7 +193,9 @@ const ROWS: Row[] = [
     call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json"), scope: "same-scope" },
   { op: "loadProjectFromFile", arm: (g) => { vi.mocked(storageMod.pickOpenFileAny).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
     call: (h) => h.loadProjectFromFile(), scope: "same-scope" },
-  { op: "createDemoProject", arm: (g, b) => { b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
+  // ★ An EMPTY registry: the beforeEach's browser-backed "target" would make the demo's occupant guard
+  //   refuse before the save this row parks on, and the op would never be in flight.
+  { op: "createDemoProject", arm: (g, b) => { saveRegistry(emptyRegistry()); b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
     call: (h) => h.createDemoProject(STORED as never), scope: "changes-scope" },
   // ★★★ §596 — THE ROW THAT WAS MISSING, and it is the op whose §590 wrapping
   //   composed with the §596 cancel into B1: a plain Save-As killing a live AI
@@ -237,7 +239,7 @@ async function startHeld(row: Row) {
   await waitFor(() => expect(hook.result.current.loadPending).toBe(false)); // the first load has settled
   const g = makeGate();
   row.arm(g, b);
-  let op: Promise<void> = Promise.resolve();
+  let op: Promise<unknown> = Promise.resolve();
   act(() => { op = row.call(hook.result.current); });
   const settled = op.then(() => "fulfilled" as const, () => "rejected" as const);
   await waitFor(() => expect(g.touched()).toBe(true)); // control: the op is parked on its first await

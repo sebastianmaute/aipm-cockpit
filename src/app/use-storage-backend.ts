@@ -1466,10 +1466,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // ★★ §548 — the op hold: `holdDuring` keeps `loadPending` up for the WHOLE of an op that awaits and then
   //   replaces the workspace. Its full rationale is in docs/AGENTS/storage.md, "The op hold (`holdDuring`, §548)".
-  function holdDuring<A extends unknown[]>(
-    op: (...opArgs: A) => Promise<void>,
+  function holdDuring<A extends unknown[], R = void>(
+    op: (...opArgs: A) => Promise<R>,
     scope: "changes-scope" | "same-scope",
-  ): (...opArgs: A) => Promise<void> {
+  ): (...opArgs: A) => Promise<R> {
     return async (...opArgs: A) => {
       // §596 — for a `"changes-scope"` op the ref moves in the SAME synchronous statement pair as
       // the state, so a cleanup running inside the commit this triggers already sees it.
@@ -1482,7 +1482,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       if (scope === "changes-scope") swapsInFlightRef.current += 1;
       setSwapsInFlight((n) => n + 1);
       try {
-        await op(...opArgs);
+        return await op(...opArgs);
       } finally {
         if (scope === "changes-scope") swapsInFlightRef.current -= 1;
         if (mountedRef.current) setSwapsInFlight((n) => n - 1);

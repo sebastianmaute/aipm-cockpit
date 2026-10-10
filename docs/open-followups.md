@@ -931,6 +931,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--closed-2026-10-09) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | **CLOSED** 2026-10-09 |
 | [§694](#694-the-inline-ai-edit-popover-hand-rolls-a-modal-shell-instead-of-using-modal--closed-2026-10-09) | The inline AI edit popover hand-rolls a modal shell instead of using `Modal` | — | — | **CLOSED** 2026-10-09 |
 | [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--closed-2026-10-09) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | **CLOSED** 2026-10-09 |
+| [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--open) | The demo's Trends history has never been checked against a live Turso database | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1125,7 +1126,7 @@ reason to preserve the memoization form. It does not hold:
 - **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx`,
   the `memo(ResourceDirectoryInner)` export) and `ResourcesPanel` (`resources-panel.tsx`, the
   `memo(ResourcesPanelInner)` export) — but they arrive `guardEdit()`-wrapped
-  (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
+  (the `guardEdit(...)` calls in the pane props of `task-manager.tsx`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
   render (`task-manager.tsx`, `const guardEdit = makeEditGuard(isPopout, …)`), so their identities
   are unstable whatever this hook does. ★ §1 and §2 cited that one call as `:2047` and `:2041`, so at
   least one was wrong the day it was written; the real line is `:2044`. Cite the symbol, not the number.
@@ -44553,3 +44554,17 @@ What has not been checked: whether pressing Escape while the popover sits above 
 - `undo/undo-control.tsx`: the stack count, `rounded-full bg-ui-medium-grey px-1.5 text-xs text-white`. `CountBadge`'s `grey` variant draws the same colours in the app's single count shape (16px tall, `text-[10px]`), so moving it makes the count smaller.
 
 **Close when** each pill is a `Badge` or `CountBadge`, or is recorded as bespoke with its reason, with a test that pins the classes.
+
+## 696. The demo's Trends history has never been checked against a live Turso database — open
+
+**Status:** open 2026-10-10, found while shipping the demo's Trends history. Never machine-verified against a live Turso database: `createDemo` (`demo-project.ts`), the `seedSnapshots` hook inside `createTursoProject` and `appendSnapshots` (`snapshot-store.ts`) run only against stubbed clients and `node:sqlite`.
+
+**Work item:** #640
+
+With a usable Turso config the demo is created as a Turso project and its weekly history (`sample-demo-snapshots.json`, shifted by `shiftDemoSnapshots`, thinned by `thinForCadence`) is written in one transaction before the project becomes current; ids are `${projectId}:${capturedAt}`. Nothing has run that write, the project's first snapshot load, or the baseline pick against a real server.
+
+★ **Owner-facing caveat, a choice and not a defect. Owner decision 2026-10-10: keep it as it is.** The seeded Budget RAG is RED in 17 of the 27 weeks (2026-03-13 … 05-01, 06-05 and 06-19 … 08-07) and amber in the other ten. Every red week has a CPI below 0.8, the red line in `evmIndexHealth`: the first ten weeks read 0.57, 0.31, 0.62, 0.69, 0.57, 0.76, 0.67, 0.77, 0.84, 0.86, and the last 0.86. The cause is effort: the master's 17 completed tasks spent 727 h against 628 h estimated, and the earned-value rule gives in-progress tasks no value. It is the live engine's own behaviour. Reproduce with `npx vite-node scripts/generate-demo-snapshots.ts`, which prints each week's CPI, remaining hours and budget RAG. If calmer numbers are wanted, trim the completed tasks' `timeSpentMinutes` in `sample-workspace-small.json`, then regenerate the history with the same command and the `__fixtures__/golden-*` files.
+
+**Close when** the demo has been created against a real Turso database, Trends shows the seeded weeks with exactly one baseline, the project can be opened again after a reload, and the demo project has been deleted.
+
+**Source:** the demo-trends-history plan, 2026-10-09.

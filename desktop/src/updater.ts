@@ -10,7 +10,10 @@ import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
   serializeSkipped, summarizeError, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
 } from "./lib/update-policy";
-import { buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice } from "./lib/update-window";
+import type { SafeNotesHtml } from "./lib/release-notes-html";
+import {
+  UPDATE_DURATION_HINT, buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice,
+} from "./lib/update-window";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
@@ -123,10 +126,10 @@ function wireUpdater(
   // back). Closing the window, or any failure to show it, means "later" -- never a download the user
   // did not click. A window that cannot be created or loaded falls back to the native box, so the
   // user still gets the choice.
-  const promptAvailable = (version: string, notes: string): Promise<UpdateChoice> => {
+  const promptAvailable = (version: string, notes: string, notesHtml: SafeNotesHtml): Promise<UpdateChoice> => {
     const fallback = async (): Promise<UpdateChoice> => {
       const r = await box({
-        type: "info", title: "Update available", message: `AI PM Cockpit ${version} is available.`, detail: notes,
+        type: "info", title: "Update available", message: `AI PM Cockpit ${version} is available.`, detail: `${UPDATE_DURATION_HINT}\n\n${notes}`,
         buttons: ["Download and install", "Later", "Skip this version"], defaultId: 0, cancelId: 1,
       });
       return r === 0 ? "download" : r === 2 ? "skip" : "later";
@@ -171,7 +174,7 @@ function wireUpdater(
       });
       win.on("closed", () => finish("later"));
       win.once("ready-to-show", () => win.show());
-      win.loadURL(updatePromptUrl(buildUpdatePromptHtml({ version, notes }))).catch((e: unknown) => {
+      win.loadURL(updatePromptUrl(buildUpdatePromptHtml({ version, notesHtml }))).catch((e: unknown) => {
         fallBack(String(e));
         if (!win.isDestroyed()) win.destroy();
       });
@@ -192,7 +195,7 @@ function wireUpdater(
       if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
       return;
     }
-    const choice = await promptAvailable(d.version, d.notes);
+    const choice = await promptAvailable(d.version, d.notes, d.notesHtml);
     if (choice === "skip") {
       try { writeFileSync(skipFile(), serializeSkipped(d.version)); } catch (e: unknown) { deps.log(`updater skip write: ${String(e)}`); }
       return;

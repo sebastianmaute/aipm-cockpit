@@ -37,6 +37,23 @@ export async function appendSnapshot(config: TursoConfig | null, rec: SnapshotRe
   await runTursoPipeline(config, appendStatements(rec, projectId, ensure));
 }
 
+/** Writes many records in ONE all-or-nothing transaction (the demo's seeded history).
+ *  `appendStatements` wraps each record in its own BEGIN…COMMIT and a pipeline only batches
+ *  when its first statement is BEGIN and its last COMMIT, so the per-record INSERTs are
+ *  stripped of their wrappers and re-wrapped once, with the column ALTERs a single time at
+ *  the front (same ordering rule as `appendSnapshot`). Each record keeps its own `isBaseline`. */
+export async function appendSnapshots(
+  config: TursoConfig | null,
+  recs: readonly SnapshotRecord[],
+  projectId: string,
+): Promise<void> {
+  if (recs.length === 0) return;
+  const head = await runTursoPipeline(config, [...ddl(), { sql: 'PRAGMA table_info("snapshot")' }]);
+  const ensure = snapshotColumnEnsureStatements(head[SNAPSHOT_DDL.length]);
+  const inserts = recs.flatMap((r) => appendStatements(r, projectId).slice(1, -1));
+  await runTursoPipeline(config, [{ sql: "BEGIN" }, ...ensure, ...inserts, { sql: "COMMIT" }]);
+}
+
 export async function setBaseline(config: TursoConfig | null, id: string, projectId: string): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...setBaselineStatements(id, projectId)]);
 }

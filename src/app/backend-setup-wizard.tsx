@@ -108,6 +108,9 @@ export interface BackendSetupWizardProps {
   /** Forwarded to IntegrationsSection: use the "Switch portfolio" label. Set
    *  on pre-project surfaces (empty state, create-project flow). */
   noCurrentProject?: boolean;
+  /** The step index the wizard opens at (default 0). Read it from `BACKEND_SETUP_STEPS` by key,
+   *  never as a literal. Seeds state at mount only: the hosts mount the wizard per open. */
+  initialStep?: number;
 }
 
 export function BackendSetupWizard({
@@ -119,8 +122,9 @@ export function BackendSetupWizard({
   onMigrateToTurso,
   hidePortfolioSwitch,
   noCurrentProject,
+  initialStep = 0,
 }: BackendSetupWizardProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => clampStep(initialStep, TOTAL));
   // Primary (Next/Finish) button is always present; focus it after a Skip so
   // focus isn't dropped to <body> when the conditional Skip button unmounts.
   const nextButtonRef = useRef<HTMLButtonElement>(null);
@@ -130,7 +134,7 @@ export function BackendSetupWizard({
   const isLast = step === TOTAL - 1;
 
   function handleClose() {
-    setStep(0);
+    setStep(clampStep(initialStep, TOTAL));
     onClose();
   }
 

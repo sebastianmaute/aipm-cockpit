@@ -10,8 +10,26 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Explore a demo project from the start screen, the guided way.** The start screen now has an
+  "Explore the demo" card that opens a sample project with the guided tour. Without Turso it says
+  that Trends needs Turso and offers a guided setup first, then offers the demo again once Turso is
+  connected. The Projects panel has an "Explore a demo project" button as well; it never replaces
+  a project kept in browser storage, and is disabled while one exists.
+- **The demo project comes with a Trends history.** When Turso is connected, the demo is created in
+  your Turso database with weekly snapshots from March to September already in place, so the Trends
+  view has something to show on the first visit. The history is an estimate: effort is not dated per
+  task, so the early weeks are reconstructed, not recorded.
+
 ### Changed
 
+- **The desktop app's update window shows formatted release notes.** Headings, bullet lists, bold text and
+  code now appear as they do on the releases page, instead of one run of plain text. The window now shows
+  notes up to 100,000 characters instead of 20,000; the 1.16.0 notes alone ran to about 34,000.
+- **Installing and updating the desktop app now say that they take a while.** The installer opens with a
+  welcome page saying that installing takes a few minutes and the window may seem frozen, and the update
+  window says the same before you choose to download, alongside the existing note in "Update ready".
 - **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, export, version and template
   buttons in the header, and the workspace collapse toggle, use the standard icon button: 32px instead of 36px,
   and the export, version and template icons are a shade lighter, like settings. In every dialog header the

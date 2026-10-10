@@ -11,15 +11,15 @@ const json = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspac
 const ws = jsonToWorkspace(json);
 
 describe("sample-workspace budgets", () => {
-  test("parses eight buckets", () => {
-    expect(ws.budgets?.map((b) => b.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  test("parses ten buckets", () => {
+    expect(ws.budgets?.map((b) => b.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
   test("bucket 1 is detailed with three role allocations and real hours", () => {
     const b = ws.budgets!.find((x) => x.id === 1)!;
     expect(b.planningMode ?? "detailed").toBe("detailed");
     expect(b.allocations).toHaveLength(3);
     const r1 = b.allocations.find((a) => a.roleId === 1)!;
-    // The buckets are a staggered chain (5 -> 1 -> 4 -> 3 -> 2, and 7 -> 3), so
+    // The buckets are a staggered chain (9 -> 5 -> 1 -> 4 -> 3 -> 2, and 7 -> 3), so
     // each one carries hours only in the periods its own window covers. Bucket 1
     // runs 2026-07-01..2026-09-30 (June is the Discovery bucket 5's) and is the
     // CURRENT bucket on DEMO_AS_OF (2026-09-18): July-August are hand-entered

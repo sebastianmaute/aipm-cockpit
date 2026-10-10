@@ -353,6 +353,8 @@ export interface WorkspaceSectionProps {
   onExportCurrentProject: (format: string) => void;
   onLoadProjectFromFile: () => void;
   onMigrateProjectToTurso: () => void;
+  /** Loads the demo project; offered from the Projects panel, omitted in a popout there. */
+  onLoadDemo?: () => void;
   onArchiveProject?: (id: string) => void;
   onRestoreProject?: (id: string) => void;
   onHardDeleteProject?: (id: string) => void;

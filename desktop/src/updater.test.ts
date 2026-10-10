@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createUpdater } from "./updater";
+import { UPDATE_DURATION_HINT } from "./lib/update-window";
 
 // ★★★ Regression test for fix round 2's Critical 1, item (d): nothing before this file exercised
 // `createUpdater` itself, so `pickAutoUpdater` reverting to a direct `mod.autoUpdater` read (the
@@ -216,9 +217,11 @@ describe("the Update available window", () => {
     const log = vi.fn();
     await announce(log);
     await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
-    const opts = (showMessageBox.mock.calls[0] as unknown[]).at(-1) as { message: string; buttons: string[] };
+    const opts = (showMessageBox.mock.calls[0] as unknown[]).at(-1) as { message: string; detail: string; buttons: string[] };
     expect(opts.message).toBe("AI PM Cockpit 9.9.9 is available.");
     expect(opts.buttons).toEqual(["Download and install", "Later", "Skip this version"]);
+    // The box cannot scroll, so the install hint comes first and is never pushed off-screen.
+    expect(opts.detail.startsWith(UPDATE_DURATION_HINT)).toBe(true);
     await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
     expect(log.mock.calls.some((c) => String(c[0]).includes("using the native dialog"))).toBe(true);
   });

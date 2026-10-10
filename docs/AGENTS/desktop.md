@@ -171,10 +171,17 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   `page-title-updated` (`aipm-update:<choice>`), NOT a link: `main.ts`'s `will-navigate` guard sits
   on this WebContents too, and an unknown-scheme link is not guaranteed to reach `will-navigate`.
   Closing the window means Later; a window that fails to load falls back to the native box. The
-  notes cap (`NOTES_MAX`) is a flood guard now, not a fit-the-box limit. ★ Seen only in a packaged
+  notes cap (`NOTES_MAX`) is a flood guard now, not a fit-the-box limit.
+  ★★ The notes render as HTML built by `notesToSafeHtml` (`lib/release-notes-html.ts`): it writes only
+  its own attribute-free tags and re-escapes every text run, so nothing in the release body is
+  copied through as markup. `buildUpdatePromptHtml` takes the branded `SafeNotesHtml` type so a raw
+  string cannot reach the page. The native-box fallback keeps the plain-text form (`notesToPlainText`). ★ Seen only in a packaged
   build with an update on the feed — CI checks the wiring against a fake `BrowserWindow`, not the
   rendered window.
 - "Restart now" is `quitAndInstall(true, true)`, which starts the installer BEFORE `before-quit` runs.
+- Installing looks frozen, and three places say so: the installer's welcome page (`desktop/installer.nsh`,
+  first install and manual reinstall only, since an update runs the installer with `/S`), the
+  "Update available" window (`UPDATE_DURATION_HINT`) and the "Update ready" box (`INSTALL_HINT`).
 - The feed is the public GitHub Releases `latest.yml`; the installer is unsigned. What stands in for
   signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563.
 
