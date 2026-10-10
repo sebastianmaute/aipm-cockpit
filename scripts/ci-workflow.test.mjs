@@ -86,7 +86,8 @@ const pkg = JSON.parse(read("package.json"));
 const PLAYWRIGHT = lock.packages["node_modules/@playwright/test"].version;
 const NODE_MAJOR = /^>=(\d+)/.exec(pkg.engines.node)[1];
 
-function workflowRules(name, text) {
+// `node: false` for a workflow that installs nothing (the security workflows): it has no node-version to check.
+function workflowRules(name, text, { node = true } = {}) {
   it(`${name}: every uses: is pinned`, () => expect(unpinnedUses(text)).toEqual([]));
   it(`${name}: top-level permissions are contents: read only`, () =>
     expect(topLevelBlock(text, "permissions")).toEqual(["contents: read"]));
@@ -99,7 +100,7 @@ function workflowRules(name, text) {
     expect(text.match(/persist-credentials: false/g)?.length ?? 0).toBe(checkouts);
   });
   it(`${name}: every piped run: declares shell: bash`, () => expect(pipedRunsWithoutBash(text)).toEqual([]));
-  it(`${name}: node version equals the engines floor`, () => {
+  if (node) it(`${name}: node version equals the engines floor`, () => {
     const versions = [...text.matchAll(/node-version: "(\d+)"/g)].map((m) => m[1]);
     expect(versions.length).toBeGreaterThan(0);
     expect(new Set(versions)).toEqual(new Set([NODE_MAJOR]));
@@ -279,6 +280,35 @@ describe("scheduled.yml", () => {
 });
 
 // §149: its own workflow, so a manual run costs only this suite.
+describe("scorecard.yml", () => {
+  const SCORE = read(".github/workflows/scorecard.yml");
+  workflowRules("scorecard.yml", SCORE, { node: false });
+
+  // scorecard-action refuses to publish from a workflow that does more than this.
+  it("has the one scorecard job, writing only security events and the OIDC token", () => {
+    expect(jobIds(SCORE)).toEqual(["scorecard"]);
+    const b = jobBlock(SCORE, "scorecard");
+    expect(b).toMatch(/security-events: write/);
+    expect(b).toMatch(/id-token: write/);
+    expect(b.match(/: write/g)).toHaveLength(2);
+    expect(b).not.toMatch(/^ {4}(env|container|services):/m);
+    expect(REQUIRED).not.toContain("scorecard");
+  });
+});
+
+describe("security.yml", () => {
+  const SEC = read(".github/workflows/security.yml");
+  workflowRules("security.yml", SEC, { node: false });
+
+  it("runs dependency-review on pull requests only and zizmor at a pinned version; neither is required", () => {
+    expect(jobIds(SEC)).toEqual(["dependency-review", "zizmor"]);
+    expect(jobBlock(SEC, "dependency-review")).toMatch(/^ {4}if: github\.event_name == 'pull_request'$/m);
+    expect(jobBlock(SEC, "dependency-review")).not.toMatch(/: write/);
+    expect(jobBlock(SEC, "zizmor")).toMatch(/version: \d+\.\d+\.\d+/);
+    for (const id of jobIds(SEC)) expect(REQUIRED).not.toContain(id);
+  });
+});
+
 describe("future-clock.yml", () => {
   const FUTURE = read(".github/workflows/future-clock.yml");
   workflowRules("future-clock.yml", FUTURE);
