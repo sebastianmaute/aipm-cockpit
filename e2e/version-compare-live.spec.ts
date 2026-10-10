@@ -56,6 +56,8 @@ async function cleanPartition(): Promise<void> {
   await ensureTenantSchema();
   await pipeline([
     { sql: "DELETE FROM project_versions WHERE project_id = ?", args: [txt(PID)] },
+    // The app's own live Trends capture writes here too; snapshot is outside TABLE_NAMES.
+    { sql: "DELETE FROM snapshot WHERE project_id = ?", args: [txt(PID)] },
     ...TABLE_NAMES.map((t) => ({ sql: `DELETE FROM ${t} WHERE project_id = ?`, args: [txt(PID)] })),
     { sql: "DELETE FROM projects WHERE id = ?", args: [txt(PID)] },
   ]);
