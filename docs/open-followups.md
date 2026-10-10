@@ -931,7 +931,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§693](#693-five-inline-link-buttons-hand-roll-the-look-that-textbutton-draws--closed-2026-10-09) | Five inline link buttons hand-roll the look that `TextButton` draws | — | — | **CLOSED** 2026-10-09 |
 | [§694](#694-the-inline-ai-edit-popover-hand-rolls-a-modal-shell-instead-of-using-modal--closed-2026-10-09) | The inline AI edit popover hand-rolls a modal shell instead of using `Modal` | — | — | **CLOSED** 2026-10-09 |
 | [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--closed-2026-10-09) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | **CLOSED** 2026-10-09 |
-| [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--open) | The demo's Trends history has never been checked against a live Turso database | — | — | open |
+| [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--closed-2026-10-10) | The demo's Trends history has never been checked against a live Turso database | — | — | **CLOSED** 2026-10-10 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44551,11 +44551,22 @@ What has not been checked: whether pressing Escape while the popover sits above 
 
 **Close when** each pill is a `Badge` or `CountBadge`, or is recorded as bespoke with its reason, with a test that pins the classes.
 
-## 696. The demo's Trends history has never been checked against a live Turso database — open
+## 696. The demo's Trends history has never been checked against a live Turso database — CLOSED 2026-10-10
 
-**Status:** open 2026-10-10, found while shipping the demo's Trends history. Never machine-verified against a live Turso database: `createDemo` (`demo-project.ts`), the `seedSnapshots` hook inside `createTursoProject` and `appendSnapshots` (`snapshot-store.ts`) run only against stubbed clients and `node:sqlite`.
+**Status:** CLOSED 2026-10-10 on `verify/696-demo-trends` (GitHub #640): every condition in "Close when" holds against a live (throwaway) Turso database, run 2026-10-10 with `npx playwright test e2e/demo-trends-live.spec.ts --project=chromium --workers=1` (with `PORT=3100` and the throwaway pair, `e2e/live-turso-env.ts`) → 2 passed, 0 skipped. Both entry points were driven, the start screen's "Explore the demo" card and the Projects panel's "Explore a demo project" (from inside an open project, which the panel needs). In each run:
+- the demo opened with the guided tour, as a Turso project;
+- it stored **23** seeded weeks with exactly **one** baseline, plus the current week's own live capture (24 rows), and Trends listed all 24 with one ★ (baseline 2026-W16). 23 is what `demoHistoryFor` gives for 2026-10-10 and the spec computes it the same way; it is not a fixed 27, see below;
+- after a reload the demo opened again, with the same Trends history;
+- the demo was then deleted with the app's own `hardDeleteProject` (`turso-portfolio.ts`), run from the test process: the Projects panel offers no Archive on the open project, and in the start-card run the demo is the only project, so there is no UI path to delete it. Afterwards no project row and no snapshot of it were left, so the §204 side-table sweep reaches `snapshot`.
 
-**Work item:** #640
+Found on the way, and not part of this entry's conditions; each is reported for a decision:
+- **The card promises "27 weeks", and today the demo stores 23.** `DEMO_SNAPSHOT_WEEKS` is the raw length of `sample-demo-snapshots.json`, but `demoHistoryFor` shifts the history by whole plan months to today and stops before the current week, so how many survive depends on the date.
+- **Every Trends chart shows "2 gaps"** in the seeded history: two missing weeks, most likely the month shift landing two source Fridays in one week bucket (`shiftDemoSnapshots`, which keeps the later).
+- **The Trends charts' x-axis labels overlap** into an unreadable band at 1280px wide.
+
+Screenshots of Trends (both entry points, before and after the reload) were taken for the owner's eye-check.
+
+**Original status:** open 2026-10-10, found while shipping the demo's Trends history. Never machine-verified against a live Turso database: `createDemo` (`demo-project.ts`), the `seedSnapshots` hook inside `createTursoProject` and `appendSnapshots` (`snapshot-store.ts`) run only against stubbed clients and `node:sqlite`.
 
 With a usable Turso config the demo is created as a Turso project and its weekly history (`sample-demo-snapshots.json`, shifted by `shiftDemoSnapshots`, thinned by `thinForCadence`) is written in one transaction before the project becomes current; ids are `${projectId}:${capturedAt}`. Nothing has run that write, the project's first snapshot load, or the baseline pick against a real server.
 
