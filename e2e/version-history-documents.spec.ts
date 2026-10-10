@@ -104,6 +104,7 @@ import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
+import { SNAPSHOT_TABLE_NAMES } from "../src/app/snapshot-schema";
 
 import {
   THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
@@ -201,6 +202,9 @@ const SEED_DOCUMENTS = [
 function partitionCleanupStatements() {
   return [
     { sql: "DELETE FROM project_versions WHERE project_id = ?", args: [txt(E2E_PROJECT_ID)] },
+    // The app's own live Trends capture writes here too (snapshot and snapshot_series), and both
+    // tables are outside TABLE_NAMES.
+    ...SNAPSHOT_TABLE_NAMES.map((t) => ({ sql: `DELETE FROM ${t} WHERE project_id = ?`, args: [txt(E2E_PROJECT_ID)] })),
     ...TABLE_NAMES.map((t) => ({
       sql: `DELETE FROM ${t} WHERE project_id = ?`,
       args: [txt(E2E_PROJECT_ID)],
