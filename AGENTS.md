@@ -729,7 +729,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-chat-dispatcher-wiring.ts` (the `useChatDispatcher` call and its `getBudgetRollup` / `getAllocationsSnapshot` /
   `getDashboardModel` read-tool getters), `use-storage-banner-reshow.ts` (the render-time reconciles that re-show a dismissed
   saving-paused banner on a NEW cause),
-  `shell-chrome.tsx`
+  `workload-triage-handlers.ts` (`buildWorkloadTriageHandlers` — a plain builder, coverage-GATED and tested: the Resources
+  workload reassign/reschedule and clear-unlinked handlers, the last with its destructive-save arming), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
@@ -1150,7 +1151,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   builds its `managed` id-map and `nameToId` map from the `resources` ARGUMENT ALONE, and `resolve()` falls
   through to `ensureUnlinked` on a miss. So filtering that argument does NOT hide anyone — the withheld
   person's tasks/absences/shifts/RAID miss both lookups and REAPPEAR under "Unlinked", whose "Clear unlinked"
-  control (`task-manager.tsx` `onClearUnlinked`) blanks task assignees + RAID owner and **`filter`s matching
+  control (`onClearUnlinked`, built in `workload-triage-handlers.ts`) blanks task assignees + RAID owner and **`filter`s matching
   absences and shifts out of the workspace entirely**. A display filter would therefore become a path to real
   data deletion. `ResourceWorkload` takes a `hideExternal` FLAG and filters the BUILT `managed` rows instead
   (`unlinked` untouched). The full list is also the reassign-picker's target set (`WorkloadOverdueTriage`),

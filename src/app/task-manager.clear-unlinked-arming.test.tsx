@@ -6,10 +6,10 @@
 // free-text assignee matches the unlinked workload row. `absences` and `shifts`
 // are both COUNTED slices, so this handler can trip the save-time
 // mass-deletion guard (`isMassDeletion`) by itself and have the user's own
-// deliberate cleanup refused. Its arming lives in `task-manager.tsx` rather
-// than in an entity hook, so no leaf harness can see it: the assertion has to
-// sit above the wiring, which is why this file mounts the real TaskManager and
-// drives the real prop it threads.
+// deliberate cleanup refused. Its arming lives in `workload-triage-handlers.ts`
+// (moved out of `task-manager.tsx` by §491 step 16), whose own test pins the
+// rule; it is fed `allowDestructiveSave` only by task-manager's wiring, so this
+// file still mounts the real TaskManager and drives the real prop it threads.
 //
 // ★★ AND WHY THE LEAK CASE IS SPLIT INTO ITS OWN `it`. The bypass is ONE-SHOT.
 // Arming it on a no-op call does not fail anything here and now — it leaves the
