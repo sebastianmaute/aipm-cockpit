@@ -453,7 +453,9 @@ describe("live-turso.yml", () => {
 
   // Loose on purpose: ${{secrets.X}} without a space, or toJSON(secrets), must not slip past.
   // The line's shape alone is not enough: the same line inside a run: | body or under with: would
-  // match it, so the nearest less-indented line above each one must be an env: key.
+  // match it, so the nearest less-indented line above each one must be a STEP's env: key (8 spaces,
+  // or 6 plus "- "). A job-level env: (4) would hand the token to checkout, setup-node and npm ci.
+  // ★ Fails closed on a trailing comment after env: or a secret line: keep comments on their own line.
   it("never puts a secret on a run: line, and reads only the two throwaway secrets", () => {
     const lines = code(LIVE).split("\n");
     const indent = (l) => l.match(/^\s*/)[0].length;
@@ -461,17 +463,22 @@ describe("live-turso.yml", () => {
     lines.forEach((line, i) => {
       if (!/(?<!steps\.)\bsecrets\b/.test(line)) return;
       seen++;
-      expect(line, line).toMatch(/^\s+[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
+      expect(line, line).toMatch(/^ {10}[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
       const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
-      expect(parent, line).toMatch(/^\s+(- )?env:$/);
+      expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
     });
     // check: 2, drop-tables step: 2, drive-app step: 4.
     expect(seen).toBe(8);
   });
 
-  // ${{ env.X }} on a run: line pastes the secret's value into the script text.
-  it("never interpolates the throwaway values through env.", () => {
-    expect(code(LIVE)).not.toMatch(/env\.(TURSO_THROWAWAY|NEXT_PUBLIC_TURSO)/);
+  // code() drops every line starting with #, which cannot tell a YAML comment from a "# ..." line
+  // in a run: | body, where GitHub still evaluates ${{ }}. So count on the RAW text: exactly the 8
+  // env lines above may hold an expression naming secrets or env. That also catches a run: line
+  // using the check job's aliases (${{ env.TOKEN }}) or bracket indexing (env['...']).
+  it("has no other expression that reads a secret or an env value", () => {
+    const raw = LIVE.split(/\r?\n/).filter((l) => /\$\{\{/.test(l) && /\b(secrets|env)\b/.test(l));
+    expect(raw, raw.join("\n")).toHaveLength(8);
+    expect(LIVE).not.toMatch(/\$\{\{[^}]*\benv\s*[.[]/);
   });
 
   // A fork's pull request, Dependabot and an unconfigured repository have no secrets: the check says
@@ -494,17 +501,25 @@ describe("live-turso.yml", () => {
     expect(appStep).toMatch(/--project=chromium --workers=1/);
     // One failure must not hide the other suite, but a failed setup must not add a second failure.
     expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
+    // The install step it waits on must come after npm ci, or a failed npm ci would not stop it.
+    const npmCi = job.indexOf("run: npm ci");
     const install = job.indexOf("id: install");
-    expect(install).toBeGreaterThan(-1);
+    expect(npmCi).toBeGreaterThan(-1);
+    expect(install).toBeGreaterThan(npmCi);
     expect(install).toBeLessThan(drop);
     const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
+    // Each test step has its own timeout, below the job's: a hung step fails instead of the job
+    // being cancelled, so the other step and the upload still run.
+    expect(dropStep).toMatch(/^ {8}timeout-minutes: \d+$/m);
+    expect(appStep).toMatch(/^ {8}timeout-minutes: \d+$/m);
     expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
     // Separate report folders, so the second step does not overwrite the first's report.
     expect(dropStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drop-tables/);
     expect(appStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drive-app/);
   });
 
-  // Cancelled covers a run that hit timeout-minutes: the hung run's report is the one wanted.
+  // Cancelled covers a job that hit timeout-minutes (best-effort: a killed Playwright run may have
+  // written no report).
   it("uploads the reports on failure or cancellation only, for 7 days", () => {
     const up = job.slice(job.indexOf("uses: actions/upload-artifact@"));
     expect(up).toMatch(/if: \$\{\{ failure\(\) \|\| cancelled\(\) \}\}/);
@@ -513,13 +528,15 @@ describe("live-turso.yml", () => {
   });
 
   // Every other workflow, today's and any added later: there the live specs skip, and the app runs
-  // on browser storage. toJSON(secrets) and secrets: inherit hand over every secret without naming one.
+  // on browser storage. toJSON(secrets) and secrets: inherit hand over every secret without naming one;
+  // GitHub function names are case-insensitive (toJson is the common spelling). RAW text, not code():
+  // a "# ..." line in a run: | body is still evaluated.
   it("is the only workflow that reads the throwaway secrets", () => {
     expect(ALL_WORKFLOWS).toContain("live-turso.yml");
     for (const f of ALL_WORKFLOWS.filter((n) => n !== "live-turso.yml")) {
-      const text = code(read(`.github/workflows/${f}`));
+      const text = read(`.github/workflows/${f}`);
       expect(text, f).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
-      expect(text, f).not.toMatch(/toJSON\(\s*secrets\s*\)|secrets:\s*inherit/);
+      expect(text, f).not.toMatch(/tojson\(\s*secrets\s*\)|secrets:\s*inherit/i);
     }
   });
 });

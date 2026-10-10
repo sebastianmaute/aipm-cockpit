@@ -89,7 +89,12 @@ jobs:
         run: npx playwright install chromium
       # First and alone: the specs that DROP tables (the live-turso-destructive project, one file at
       # a time). The npm script sets E2E_LIVE_DESTRUCTIVE and PLAYWRIGHT_NO_WEBSERVER itself.
+      # ★★ Secrets go on a STEP's env: only, never the job's: a job-level env: would hand the token to
+      # checkout, setup-node and npm ci, which runs every dependency's install scripts.
+      # Each test step has its own timeout, below the job's, so a hung step FAILS rather than the job
+      # being cancelled: the next step and the upload then run as after any failure.
       - name: Live specs that drop tables
+        timeout-minutes: 12
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
@@ -102,6 +107,7 @@ jobs:
       # UI spec, including ones a later branch adds; a name that matches no file is simply not run.
       - name: Live specs that drive the app
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 20
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
@@ -111,8 +117,10 @@ jobs:
         # The quoted filter is a regex with | in it; bash keeps it one argument.
         shell: bash
         run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1
-      # On failure, and on cancellation too: a run that hits timeout-minutes ends cancelled, and the
-      # hung run is the one whose report is wanted. Trace and video are off, so no token is in it.
+      # On failure, and on cancellation too. A step that hits its own timeout fails, so the other
+      # step's finished report is kept. A JOB that hits timeout-minutes ends cancelled; its upload is
+      # best-effort, because Playwright writes its HTML report only when its run ends, so a step
+      # killed mid-run may leave none. Trace and video are off, so no report holds a token.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() || cancelled() }}
         with:

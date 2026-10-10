@@ -203,14 +203,18 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   Then, even when that step failed (but not when setup failed), the specs that drive the app,
   `--workers=1`, on a dev server started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`,
   so the app's database is the throwaway one. The step's file filter names every live UI spec,
-  including ones a later branch adds. Each step writes its own report folder under
-  `playwright-report/`, uploaded as `live-turso-report` on failure or cancellation (a run that hits
-  `timeout-minutes` ends cancelled), for 7 days.
+  including ones a later branch adds. Each test step has its own `timeout-minutes` (12 and 20,
+  under the job's 40), so a hung step fails rather than the whole job being cancelled, and the other
+  step and the upload still run. Each step writes its own report folder under `playwright-report/`,
+  uploaded as `live-turso-report` on failure or cancellation, for 7 days. A job that hits its own
+  timeout ends cancelled, and its upload is best-effort: Playwright writes its HTML report only when
+  its run ends, so a step killed mid-run may leave none.
 - **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
   database kept for this workflow alone: the specs drop its tables. ★★★ The token must be scoped
   to that ONE database (`turso db tokens create <db>`), never a group or organisation token: what a
-  leak can reach is exactly what the token reaches. The secrets enter through `env:` only, never a
-  `run:` line, and `playwright.config.ts` turns trace and video off whenever either pair carries a
+  leak can reach is exactly what the token reaches. The secrets enter through a STEP's `env:` only,
+  never a `run:` line and never a job-level `env:` (that would hand the token to checkout,
+  setup-node and `npm ci`, which runs every dependency's install scripts), and `playwright.config.ts` turns trace and video off whenever either pair carries a
   token, so a report holds no `Authorization` header. This repository is public, so its logs and
   artifacts are too. GitHub masks the exact secret values; a derived form of the URL (the
   normalised `https://` base, the bare host) is not masked, and no current path prints one.
@@ -227,17 +231,24 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   job, after `check`, so a run that skips (a fork's pull request) is EXPECTED never to take the slot
   or replace a real run's pending one. ★★ Expected, not yet observed: it rests on GitHub evaluating
   the job's `if:` before the job joins its group, and the tests below pin only where the YAML sits.
-  To observe it once the secrets exist: while a real run is pending, start a run that skips (a
-  fork's pull request, or a `workflow_dispatch` with the secrets briefly unset) and check that the
-  pending run still starts. Record the result here. `timeout-minutes: 40` bounds how long a hung
-  run holds the slot.
+  To observe it once the secrets exist: while a real run is pending, open a pull request from a
+  fork (it has no secrets, so it skips) and check that the pending run still starts. Record the
+  result here. Prefer the fork over a `workflow_dispatch` with the secrets briefly unset: a pending
+  run reads the secrets when its job STARTS, so if they are still unset then, that run skips too
+  and the observation proves nothing. `timeout-minutes: 40` bounds how long a hung run holds the
+  slot.
 - **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules;
   neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
-  job-level fixed concurrency group and an ungrouped `check`; every secret on a line directly under
-  an `env:` key, and no `env.` interpolation of the values; the order of the two steps, the second
-  running after a failure but not after a failed setup; the 7-day upload on failure or
-  cancellation; and no other workflow file naming the throwaway secrets or handing over every
-  secret (`toJSON(secrets)`, `secrets: inherit`).
+  job-level fixed concurrency group and an ungrouped `check`; each of the 8 secret lines directly
+  under a STEP's `env:` key; on the raw text (shell `#` lines in a `run: |` body included), no
+  `${{ }}` naming `secrets` or `env` beyond those 8 lines, so no `env.` / `env[...]` expression
+  anywhere; `npm ci` before the install step the app step waits on; the order of the two steps, the
+  second running after a failure but not after a failed setup; a step-level timeout on each; the
+  7-day upload on failure or cancellation; and no other workflow file naming the throwaway secrets
+  or handing over every secret (`toJSON(secrets)` in any case, `secrets: inherit`). ★ Those checks
+  read text, not parsed YAML: a deliberately obscured expression (a YAML anchor, `format()` to
+  build a secret name) is out of their reach. A trailing comment after `env:` or a secret line
+  fails them (closed); keep comments on their own line.
 
 ## Weekly
 
