@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { labelledIndices, TrendChart } from "./trend-chart";
+import { labelledIndices, TrendChart, X_LABEL_CHAR_W, xLabelCapacity } from "./trend-chart";
 
 const points = [
   { label: "W22", value: 100, gapBefore: false },
@@ -55,12 +55,27 @@ describe("TrendChart", () => {
     expect(labels.at(-1)).toBe("2026-W33");
   });
 
-  // The last two labels overlapped at 24, 25 and 28 points when only half a step separated them.
-  it.each(Array.from({ length: 55 }, (_, i) => i + 6))("keeps every labelled neighbour a quarter of the axis apart on %i points", (n) => {
-    const idx = [...labelledIndices(n)].sort((a, b) => a - b);
-    expect(idx[0]).toBe(0);
-    expect(idx.at(-1)).toBe(n - 1);
-    for (let i = 1; i < idx.length; i += 1) expect(idx[i] - idx[i - 1], `${idx}`).toBeGreaterThanOrEqual((n - 1) / 4);
+  // The last two labels overlapped at 24, 25 and 28 points when only half a step separated them, and
+  // daily labels ("2026-09-18") are wider than weekly ones. 256 is the plot width the chart draws in.
+  it.each([["monthly", 7], ["weekly", 8], ["daily", 10]] as const)("keeps %s labels clear of each other on 2 to 60 points", (_, chars) => {
+    const width = chars * X_LABEL_CHAR_W;
+    for (let n = 2; n <= 60; n += 1) {
+      const idx = [...labelledIndices(n, xLabelCapacity(chars))].sort((a, b) => a - b);
+      expect(idx[0]).toBe(0);
+      expect(idx.at(-1)).toBe(n - 1);
+      expect(idx.length).toBeGreaterThanOrEqual(Math.min(n, 3));
+      for (let i = 1; i < idx.length; i += 1) {
+        expect((idx[i] - idx[i - 1]) * 256 / (n - 1), `n=${n} ${idx}`).toBeGreaterThanOrEqual(1.5 * width);
+      }
+    }
+  });
+
+  it("labels fewer points when the labels are daily dates", () => {
+    const daily = Array.from({ length: 24 }, (_, i) => ({ label: `2026-09-${String(i + 1).padStart(2, "0")}`, value: i, gapBefore: false }));
+    const { container } = render(<TrendChart caption="Remaining hours" points={daily} />);
+    const labels = [...container.querySelectorAll("text")].map((el) => el.textContent ?? "").filter((s) => s.startsWith("2026-09-"));
+    // Four fit; spaced 8 points apart, the third (Sep 17) sits too close to the end-anchored last.
+    expect(labels).toEqual(["2026-09-01", "2026-09-09", "2026-09-24"]);
   });
 
   it("labels every point on a short axis", () => {

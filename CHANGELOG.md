@@ -54,8 +54,9 @@ longer carries its own changelog comment.
   were left empty and drawn as gaps, and others held two snapshots, one of which was dropped. They now
   move by whole weeks and end in the week before the demo is created, so the live snapshot follows on
   without a gap. The card now quotes the number of weeks the demo stores.
-- **Trends charts label at most five points along the bottom axis.** With more snapshots than that, every
-  label was drawn and they overlapped into an unreadable band. The first and last points are always
+- **Trends charts label only as many points along the bottom axis as fit without overlapping.** With
+  more snapshots than that, every label was drawn and they overlapped into an unreadable band. That is
+  five weekly labels, four daily ones and six monthly ones; the first and last points are always
   labelled.
 
 ## [1.16.0] - 2026-10-09 "Rankin"

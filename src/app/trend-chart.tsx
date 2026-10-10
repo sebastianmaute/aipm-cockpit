@@ -20,17 +20,23 @@ function yAt(v: number, min: number, max: number): number {
   return PAD_T + (1 - (v - min) / (max - min)) * PLOT_H;
 }
 
-/** A "2026-W16" label at 8px is about 35 units wide. Five labels keep every neighbour at least a
- *  quarter of the plot (64 units) apart, which clears the start-anchored first label and the
- *  end-anchored last one too; six overlapped at 6 and 11 points. */
-const MAX_X_LABELS = 5;
+/** One character of an 8px tabular label is about 4.4 units wide ("2026-W16" ≈ 35). */
+export const X_LABEL_CHAR_W = 4.4;
 
-/** The indices that get an x label: every point when they fit, otherwise evenly spaced ones,
+/** How many x labels fit when the longest is `chars` wide. The tightest pair is the start-anchored
+ *  first label beside a centred one (or a centred one beside the end-anchored last), which needs
+ *  1.5 label widths between anchors: 5 weekly labels ("2026-W16"), 4 daily ("2026-09-18"), 6
+ *  monthly ("2026-09"). */
+export function xLabelCapacity(chars: number): number {
+  return Math.max(2, Math.floor(PLOT_W / (1.5 * chars * X_LABEL_CHAR_W)) + 1);
+}
+
+/** The indices that get an x label: every point when `max` fit, otherwise evenly spaced ones,
  *  always the first and the last. A step-aligned label less than a full step before the last
  *  one is dropped, since the end-anchored last label reaches back a whole label width. */
-export function labelledIndices(n: number): Set<number> {
-  if (n <= MAX_X_LABELS) return new Set(Array.from({ length: n }, (_, i) => i));
-  const step = Math.ceil((n - 1) / (MAX_X_LABELS - 1));
+export function labelledIndices(n: number, max: number): Set<number> {
+  if (n <= max) return new Set(Array.from({ length: n }, (_, i) => i));
+  const step = Math.ceil((n - 1) / (max - 1));
   const kept = [];
   for (let i = 0; i < n - 1; i += step) kept.push(i);
   if (n - 1 - kept[kept.length - 1] < step) kept.pop();
@@ -61,7 +67,7 @@ export function TrendChart({
   const max = Math.max(...values, 0);
   const baseY = PAD_T + PLOT_H;
   const yTicks = max > min ? [min, (min + max) / 2, max] : [min];
-  const labelled = labelledIndices(n);
+  const labelled = labelledIndices(n, xLabelCapacity(Math.max(...points.map((p) => p.label.length))));
 
   const segments = points.slice(1).map((p, i) => {
     const x1 = xAt(i, n), y1 = yAt(points[i].value, min, max);

@@ -103,7 +103,7 @@ describe("the committed demo history", () => {
 
   // The Trends charts mark a gap for every missing weekly bucket. A month shift moved each Friday to
   // a different weekday, which emptied some weeks and doubled up others ("2 gaps" on a live demo).
-  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])("keeps every record in its own consecutive week after a %i-month shift", (n) => {
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])("keeps every record in its own consecutive week when the contents move %i months", (n) => {
     const out = shiftDemoSnapshots(seeded, n, "month", new Date(Date.UTC(2026, 8 + n, 15)).toISOString().slice(0, 10));
     expect(out).toHaveLength(seeded.length);
     const weeks = out.map((r) => Date.parse(r.capturedAt) / (7 * 86_400_000));
