@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskKanbanCard } from "./task-kanban-card";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { t, tPlural } from "./i18n";
@@ -304,6 +305,33 @@ describe("TaskKanbanCard linked-documents badge", () => {
       roles: ["button", "combobox"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+describe("TaskKanbanCard Ask-Claude trigger", () => {
+  it("is the shared InlineAiEditButton (§688), named for the card", () => {
+    const onAiEdit = vi.fn();
+    const task = taskFix();
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={task}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+        onAiEdit={onAiEdit}
+        aiEditEnabled={() => true}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: rowLabel(t("en-US", "inlineAiEdit"), "Alpha") });
+    const probe = render(<InlineAiEditButton lang="en-US" label="probe" onClick={() => {}} />);
+    expect(trigger.className).toBe(probe.container.querySelector("button")?.className);
+    probe.unmount();
+    fireEvent.click(trigger);
+    expect(onAiEdit).toHaveBeenCalledWith(task);
   });
 });
 

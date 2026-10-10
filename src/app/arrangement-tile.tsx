@@ -1,7 +1,8 @@
 "use client";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { W_CLASS, H_CLASS } from "./arrangement-grid";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { EllipsisVerticalIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
@@ -164,22 +165,22 @@ export function ArrangementTile({
         {!readOnly && (
           // ★ Deliberately NOT the shared `Button` at `xs` (§102, owner decision
           // 2026-10-09): the header is as tall as its tallest control, and
-          // every pixel it gains comes out of every tile's body. This glyph
-          // (~20px) ties with the title; a 30px Button would be the tallest,
-          // costing each tile 10px, and a KPI tile sized to its 2-row minimum
-          // scrolled
-          // (e2e/dashboard-grid.spec.ts, "a user-sized 2-row KPI tile").
-          <button
+          // every pixel it gains comes out of every tile's body. `IconButton`
+          // at `xs` is 20px (`h-5`), the height the old glyph button had, so it
+          // ties with the title; a 30px Button would be the tallest, costing
+          // each tile 10px, and a KPI tile sized to its 2-row minimum scrolled
+          // (e2e/dashboard-grid.spec.ts, "a user-sized 2-row KPI tile"). §688/§689.
+          <IconButton
             ref={menuButtonRef}
-            type="button"
+            size="xs"
             aria-haspopup="menu"
-            aria-label={menuLabel}
+            label={menuLabel}
             title={t(lang, "actionMoreActions")}
             onClick={(e) => onOpenMenu(e.currentTarget)}
-            className={`rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+            className="print:hidden"
           >
-            ⋮
-          </button>
+            <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
         )}
       </div>
       <div data-arrangement-body="" className="min-h-0 flex-1 overflow-auto p-2">{children}</div>

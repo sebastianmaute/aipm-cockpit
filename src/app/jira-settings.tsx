@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { CheckIcon, ChevronRightIcon, ExclamationTriangleIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { HintedLabel, fieldClass, Checkbox, RADIO_CLASS } from "./form-controls";
@@ -245,12 +246,10 @@ export function JiraSettingsSection({
             {config.enabled
               ? t(lang, "jiraStatusOn")
               : t(lang, "jiraStatusOff")}
-            <span
-              aria-hidden
-              className={`transition-transform ${open ? "rotate-90" : ""}`}
-            >
-              ▸
-            </span>
+            <ChevronRightIcon
+              aria-hidden="true"
+              className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+            />
           </span>
         </button>
       )}
@@ -403,8 +402,8 @@ export function JiraSettingsSection({
                       : "text-xs text-muted-foreground"
                 }
               >
-                {status.kind === "ok" && <>✓ {status.message}</>}
-                {status.kind === "err" && <>⚠ {status.message}</>}
+                {status.kind === "ok" && <><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{status.message}</>}
+                {status.kind === "err" && <><ExclamationTriangleIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{status.message}</>}
               </p>
             </div>
 
@@ -644,7 +643,7 @@ export function JiraSettingsSection({
                   </ClearableSearchInput>
                   {config.assigneeDisplayName && (
                     <p className="text-xs text-foreground">
-                      ✓{" "}
+                      <CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />
                       {t(
                         lang,
                         "jiraAssigneeSelected",

@@ -19,6 +19,7 @@
 // host's onCreate, which threads them to buildNewProjectWorkspace.
 
 import { useMemo, useRef, useState } from "react";
+import { XMarkIcon } from "./icons";
 import { type Contact } from "./contacts";
 import { CreateProjectForm } from "./create-project-form";
 import { suggestTemplate } from "./template-suggest";
@@ -404,7 +405,7 @@ export function CreateProjectWizard({
                   title={t(lang, "wizardImportWorkspaceClear", imported.fileName)}
                   onClick={() => setImported(null)}
                 >
-                  <span aria-hidden="true">✕</span>
+                  <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                 </Button>
               </p>
             )}

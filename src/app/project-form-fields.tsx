@@ -18,7 +18,7 @@ import { fieldClass, Checkbox } from "./form-controls";
 import { Field } from "./form-field";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
-import { PencilIcon } from "./icons";
+import { PencilIcon, XMarkIcon } from "./icons";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { KnowledgeLink } from "./document-link";
@@ -738,7 +738,7 @@ function ContactPersonsControl({
                   title={rowLabel(t(lang, "remove"), contactTokens.get(cp.id) ?? cp.name)}
                   variant="danger"
                 >
-                  ×
+                  <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                 </IconButton>
               </span>
             </li>

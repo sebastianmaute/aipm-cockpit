@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { TextButton } from "../text-button";
@@ -365,7 +366,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       </FieldHint>
       {settings.ai.consentAccepted ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>✓ {t(lang, "aiConsentGranted")}</span>
+          <span><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{t(lang, "aiConsentGranted")}</span>
           <TextButton
             tone="danger"
             onClick={() =>

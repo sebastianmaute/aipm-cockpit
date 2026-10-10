@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { PaperClipIcon } from "./icons";
+import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
 import { resolveAiPolicy, type AiPolicy } from "./ai-policy";
@@ -1581,9 +1581,9 @@ function ChatPanelInner({
             onClick={() => setError(null)}
             label={t(lang, "dismiss")}
             title={t(lang, "dismiss")}
-            className="shrink-0 font-semibold"
+            className="shrink-0"
           >
-            ×
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </Banner>
       )}
@@ -1607,9 +1607,9 @@ function ChatPanelInner({
                 onClick={() => removeAttachment(a.id)}
                 label={t(lang, "chatAttachmentRemove", attachmentTokens.get(a.id) ?? a.name)}
                 title={t(lang, "chatAttachmentRemove", attachmentTokens.get(a.id) ?? a.name)}
-                className="shrink-0 font-semibold"
+                className="shrink-0"
               >
-                ×
+                <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
             </li>
           ))}
