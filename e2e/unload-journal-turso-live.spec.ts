@@ -9,8 +9,9 @@
 // (`journalProjectKey`).
 //
 // Two cases, each on an unblurred task-name draft (`useInlineCellEdit`):
-//  - reload: after the reload the draft is in the database, and the load consumed
-//    the journal with no conflict notice;
+//  - reload: the new document starts with the journal holding the draft (read by an
+//    init script before any app code runs), then the draft is in the database, and
+//    the load consumed the journal with no conflict notice;
 //  - tab close (`page.close({ runBeforeUnload: true })`): a new page in the same
 //    context reads the journal the closing page wrote, then loads the app; the
 //    draft must be in the database, and the journal consumed with no notice.
@@ -121,6 +122,11 @@ async function installPortfolioTursoMode(context: BrowserContext): Promise<void>
     localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
     localStorage.setItem("aipm-cockpit:turso-current-project", projectId);
   }, PID);
+  // The journal as this document starts, before any app code can consume it: the only way to
+  // see, after a reload, that the unloading page wrote one at all.
+  await context.addInitScript((key) => {
+    (window as unknown as { __e2eJournalAtBoot: string | null }).__e2eJournalAtBoot = localStorage.getItem(key);
+  }, JOURNAL_KEY);
 }
 
 async function waitForShell(page: Page): Promise<void> {
@@ -131,6 +137,8 @@ async function waitForShell(page: Page): Promise<void> {
 /** Loads the app on the probe project and leaves `marker` typed, unblurred, at the end
  *  of the task's name: a draft that exists only in the page. */
 async function typeTaskNameDraft(page: Page, marker: string): Promise<void> {
+  // The seed round-trips, so a broken query cannot pass the premise below by reading "".
+  expect(await storedTaskName(), "the seeded task name must read back from the database").toBe(TASK_NAME);
   await page.goto("/");
   await waitForShell(page);
   await openView(page, "Open Points");
@@ -144,6 +152,11 @@ async function typeTaskNameDraft(page: Page, marker: string): Promise<void> {
   await expect(input).toHaveValue(new RegExp(`${marker}$`));
   await expect(input, "the draft must still be unblurred at the unload").toBeFocused();
   expect(await storedTaskName(), "premise: the unsaved draft must not be in the database before the unload").not.toContain(marker);
+}
+
+/** The journal as the current document started (see `installPortfolioTursoMode`). */
+async function journalAtBoot(page: Page): Promise<string | null> {
+  return page.evaluate(() => (window as unknown as { __e2eJournalAtBoot?: string | null }).__e2eJournalAtBoot ?? null);
 }
 
 async function readJournal(page: Page): Promise<string | null> {
@@ -166,6 +179,8 @@ test.describe("§629 — a draft unloaded on a live Turso project reaches the da
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
   test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
   test.describe.configure({ mode: "serial" });
+  // Two app loads, a seed and two 30 s database polls per test; the config's 60 s is too tight.
+  test.setTimeout(180_000);
 
   let blockedHosts: string[] = [];
   test.beforeEach(async ({ page, context }) => {
@@ -188,6 +203,7 @@ test.describe("§629 — a draft unloaded on a live Turso project reaches the da
     const marker = "zq629reload";
     await typeTaskNameDraft(page, marker);
     await page.reload();
+    expect(await journalAtBoot(page), "the reloading page's pagehide must have written the journal").toContain(marker);
     await waitForShell(page);
     await expectStored(marker);
     await expectJournalConsumed(page);
