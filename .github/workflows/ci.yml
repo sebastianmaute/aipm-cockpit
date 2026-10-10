@@ -234,7 +234,9 @@ jobs:
           path: semgrep.sarif
           retention-days: 7
       # Code scanning refuses SARIF on a private repository without Advanced Security; this switches
-      # itself on at the visibility flip.
+      # itself on at the visibility flip. A fork's pull request gets a token that cannot write security
+      # events, so the upload skips there rather than failing this required check; the gate step above
+      # still runs.
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         if: ${{ always() && !github.event.repository.private && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         with:
