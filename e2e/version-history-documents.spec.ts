@@ -100,7 +100,7 @@
 // and `openView` are a constant and a plain function, so they are safe to
 // borrow; `gotoApp` deliberately is NOT (see `waitForShell`).
 import { test, expect } from "@playwright/test";
-import type { Page, Request } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 import { SNAPSHOT_TABLE_NAMES } from "../src/app/snapshot-schema";
@@ -448,34 +448,45 @@ const SAVE_DEBOUNCE_MS = 500;
  *  the clock has moved 15s.
  *  So every advance is cut into steps shorter than the shortest timeout, and each
  *  step waits (in real time) for the app's pipeline requests to finish first: no
- *  request ever sees more than one step of fake time. */
+ *  request ever sees more than one step of fake time.
+ *  ★★ THE COUNT IS TAKEN IN THE PAGE, around `fetch`, not from Playwright's request
+ *  events. Counting `request` against `requestfinished` + `requestfailed` never
+ *  returned to zero on CI (it stood at 12, then 4 on the retry), so every advance
+ *  waited out its 30s and failed. Why the events did not balance was not measured.
+ *  The in-page count starts at zero on every navigation, and a request counts as
+ *  finished only once its body has arrived or it failed, which is when
+ *  `fetchTextWithTimeout` clears its timer. */
 const CLOCK_STEP_MS = 5_000;
 
-const inFlightPipelines = new WeakMap<Page, { count: number }>();
-
-/** Count this page's requests to a Turso pipeline that have not finished yet. */
-function trackPipelineRequests(page: Page): void {
-  const state = { count: 0 };
-  inFlightPipelines.set(page, state);
-  const isPipeline = (request: Request) => request.url().endsWith("/v2/pipeline");
-  const settled = (request: Request) => {
-    if (isPipeline(request)) state.count--;
-  };
-  page.on("request", (request) => {
-    if (isPipeline(request)) state.count++;
+/** Count, inside the page, the app's `fetch` calls to a Turso pipeline that have not
+ *  settled yet. Call before the first navigation. */
+async function trackPipelineRequests(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __e2ePipelinesInFlight: number };
+    w.__e2ePipelinesInFlight = 0;
+    const realFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!url.endsWith("/v2/pipeline")) return realFetch(input, init);
+      w.__e2ePipelinesInFlight++;
+      const pending = realFetch(input, init);
+      pending
+        .then((res) => res.clone().arrayBuffer())
+        .catch(() => undefined)
+        .finally(() => { w.__e2ePipelinesInFlight--; });
+      return pending;
+    };
   });
-  page.on("requestfinished", settled);
-  page.on("requestfailed", settled);
 }
 
 /** Advance the fake clock by `ms`, one `CLOCK_STEP_MS` at a time, never while a
  *  pipeline request is in flight. */
 async function advanceClock(page: Page, ms: number): Promise<void> {
-  const state = inFlightPipelines.get(page);
-  if (!state) throw new Error("advanceClock needs trackPipelineRequests(page) first");
+  const inFlight = () =>
+    page.evaluate(() => (window as unknown as { __e2ePipelinesInFlight?: number }).__e2ePipelinesInFlight);
   for (let left = ms; left > 0; left -= CLOCK_STEP_MS) {
     await expect
-      .poll(() => state.count, { message: "an app request to Turso never finished", timeout: 30_000 })
+      .poll(inFlight, { message: "an app request to Turso never finished", timeout: 30_000 })
       .toBe(0);
     await page.clock.runFor(Math.min(CLOCK_STEP_MS, left));
   }
@@ -677,7 +688,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
     // `runFor` helpers below depend on. Installed by hand because this file
     // navigates twice; `clock.install` cannot run twice.
     await page.clock.install({ time: FROZEN_NOW });
-    trackPipelineRequests(page);
+    await trackPipelineRequests(page);
 
     // ── Boot 1: the app's own tenant load creates the multi-tenant schema.
     // This file issues no DDL; `turso-backend.ts`'s `loadTenant` prepends
