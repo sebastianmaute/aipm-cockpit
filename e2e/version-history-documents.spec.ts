@@ -31,9 +31,8 @@
 // logged, put in an assertion message or embedded in a failure diff — every
 // check here is on a BOOLEAN or on observable app behaviour.
 //
-// ★ CI is permanently silent on this file (open-followups §215: no live Turso
-// database in CI). It exists so the claim can be RE-MEASURED by whoever has a
-// database, not looked at once.
+// ★ CI runs this file only in `.github/workflows/live-turso.yml` (open-followups
+// §215), against the throwaway database in its secrets; every other CI job skips it.
 //
 // ★★ MUTATION-PROVED, 2026-08-26, against a live database — the only evidence
 // that a green run here means anything. Deleting `"documents"` from
@@ -101,7 +100,7 @@
 // and `openView` are a constant and a plain function, so they are safe to
 // borrow; `gotoApp` deliberately is NOT (see `waitForShell`).
 import { test, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 import { SNAPSHOT_TABLE_NAMES } from "../src/app/snapshot-schema";
@@ -435,6 +434,53 @@ const VERSION_IDLE_MS = 180_000;
  *  Re-read it with: grep -n "debounced 500ms" src/app/use-storage-backend.ts */
 const SAVE_DEBOUNCE_MS = 500;
 
+/** ★★★ THE FAKE CLOCK ALSO DRIVES THE APP'S TURSO TIMEOUTS, so it must never jump
+ *  past a request that is still in flight. `fetchTextWithTimeout` arms its abort
+ *  with an in-page `setTimeout` (15s for a pipeline, `DEFAULT_PIPELINE_TIMEOUT_MS`;
+ *  10s for a load, `LOAD_TIMEOUT_MS`), and `page.clock` fakes that timer too. A jump
+ *  taken while a save is on the wire aborts it in the BROWSER while the database
+ *  still commits it, so the app keeps its old revision and its next save is refused
+ *  as a conflict with "another tab or device" (§4). Seen on the first CI run
+ *  (2026-10-10), twice: after the delete, the page showed both the "can't reach your
+ *  Turso database" banner and the conflict banner, and the stored document count
+ *  stayed at 1 until the poll gave up. Which earlier save was aborted is not known.
+ *  A local run against a nearby database passes because each round trip ends before
+ *  the clock has moved 15s.
+ *  So every advance is cut into steps shorter than the shortest timeout, and each
+ *  step waits (in real time) for the app's pipeline requests to finish first: no
+ *  request ever sees more than one step of fake time. */
+const CLOCK_STEP_MS = 5_000;
+
+const inFlightPipelines = new WeakMap<Page, { count: number }>();
+
+/** Count this page's requests to a Turso pipeline that have not finished yet. */
+function trackPipelineRequests(page: Page): void {
+  const state = { count: 0 };
+  inFlightPipelines.set(page, state);
+  const isPipeline = (request: Request) => request.url().endsWith("/v2/pipeline");
+  const settled = (request: Request) => {
+    if (isPipeline(request)) state.count--;
+  };
+  page.on("request", (request) => {
+    if (isPipeline(request)) state.count++;
+  });
+  page.on("requestfinished", settled);
+  page.on("requestfailed", settled);
+}
+
+/** Advance the fake clock by `ms`, one `CLOCK_STEP_MS` at a time, never while a
+ *  pipeline request is in flight. */
+async function advanceClock(page: Page, ms: number): Promise<void> {
+  const state = inFlightPipelines.get(page);
+  if (!state) throw new Error("advanceClock needs trackPipelineRequests(page) first");
+  for (let left = ms; left > 0; left -= CLOCK_STEP_MS) {
+    await expect
+      .poll(() => state.count, { message: "an app request to Turso never finished", timeout: 30_000 })
+      .toBe(0);
+    await page.clock.runFor(Math.min(CLOCK_STEP_MS, left));
+  }
+}
+
 /** ★★★ THE CLOCK IS FAKE AND THAT IS WHY THIS TEST IS FAST RATHER THAN FOUR
  *  MINUTES LONG. The test calls `page.clock.install`, so in-page `setTimeout`
  *  does not advance in real time at all — the 3-minute idle capture would NEVER
@@ -454,7 +500,7 @@ async function pollForSavedTitle(page: Page, expected: string): Promise<void> {
   await expect
     .poll(
       async () => {
-        await page.clock.runFor(SAVE_DEBOUNCE_MS * 4);
+        await advanceClock(page, SAVE_DEBOUNCE_MS * 4);
         return storedDocumentTitle();
       },
       {
@@ -481,7 +527,7 @@ async function pollForCapturedVersion(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        await page.clock.runFor(VERSION_IDLE_MS + 30_000);
+        await advanceClock(page, VERSION_IDLE_MS + 30_000);
         return (await readVersionRows()).length;
       },
       {
@@ -544,7 +590,7 @@ async function pollForEmptyDocuments(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        await page.clock.runFor(SAVE_DEBOUNCE_MS * 4);
+        await advanceClock(page, SAVE_DEBOUNCE_MS * 4);
         return storedDocumentCount();
       },
       {
@@ -631,6 +677,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
     // `runFor` helpers below depend on. Installed by hand because this file
     // navigates twice; `clock.install` cannot run twice.
     await page.clock.install({ time: FROZEN_NOW });
+    trackPipelineRequests(page);
 
     // ── Boot 1: the app's own tenant load creates the multi-tenant schema.
     // This file issues no DDL; `turso-backend.ts`'s `loadTenant` prepends
@@ -731,7 +778,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
     await expect
       .poll(
         async () => {
-          await page.clock.runFor(VERSION_IDLE_MS + 30_000);
+          await advanceClock(page, VERSION_IDLE_MS + 30_000);
           return diagCodes(page);
         },
         {
