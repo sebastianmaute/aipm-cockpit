@@ -9,6 +9,7 @@
 // editor already do the same).
 
 import { useMemo, useState } from "react";
+import { ExclamationTriangleIcon } from "./icons";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
 import { refKey, resolveDocRef, type DocEntityRef, type DocRefKind, type DocRefLookups } from "./document-ref";
 import { type Lang, t } from "./i18n";
@@ -109,7 +110,7 @@ export function DocumentLinksField({ lang, refs, lookups, candidates, onLink, on
               title={t(lang, "documentsLinkedDangling")}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground"
             >
-              <span aria-hidden="true">⚠</span>
+              <ExclamationTriangleIcon aria-hidden="true" className="h-3.5 w-3.5" />
               {codeOf(ref.kind, ref.id)}
             </span>
           ))}

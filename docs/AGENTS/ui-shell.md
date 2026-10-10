@@ -813,8 +813,9 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   unstable `onClose`. (2) `claims()` is read at EVENT time and must be a live DOM
   read, never a captured state value. (3) NEVER CLAIM ESCAPE YOU CANNOT ACT ON —
   an always-claiming entry with no handler swallows the key and leaves every layer
-  beneath unclosable, and `inline-ai-edit-popover` passes no `onEscape`, so that
-  shape is live rather than hypothetical. ★★ THE WAY TO HONOUR THAT IS TO DECLINE,
+  beneath unclosable. `inline-ai-edit-popover` passed no `onEscape` until §694 moved it
+  onto `Modal`; today both `useFocusTrap` callers pass one (`grep -rn "useFocusTrap(" src/app | grep -v use-focus-trap.ts`),
+  so the shape is guarded rather than live, and the next caller to omit it makes it live again. ★★ THE WAY TO HONOUR THAT IS TO DECLINE,
   NOT TO STAY OUT, and `use-focus-trap` used to do the second. It now registers
   whenever `active` and passes `claims: () => hasEscape`, and `escapeOwner()` walks
   past a declining entry to the one underneath. Being absent from the stack instead

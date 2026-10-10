@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ChevronDownIcon } from "./icons";
 import type { AriaRole, ReactNode } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
@@ -48,7 +49,10 @@ function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => 
   return (
     <details className="relative">
       <summary className="cursor-pointer list-none rounded-md border border-ui-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted dark:border-line">
-        {t(lang, "reminderSnooze")} ▾
+        <span className="inline-flex items-center gap-1">
+          {t(lang, "reminderSnooze")}
+          <ChevronDownIcon aria-hidden="true" className="h-3.5 w-3.5" />
+        </span>
       </summary>
       <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-line bg-surface py-1">
         <button type="button" onClick={() => onSnooze(SNOOZE_1H)}

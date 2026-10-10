@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type KeyboardEvent } from "react";
+import { CheckIcon } from "./icons";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Banner } from "./banner";
 import {
@@ -244,7 +245,8 @@ export function StorageConfigSection({
             <>
               {description ? (
                 <p className="text-xs text-muted-foreground">
-                  ✓ {description}
+                  <CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />
+                  {description}
                   {!ready && (
                     <span className="ml-1 text-ui-purple dark:text-ui-purple-strong">
                       ({t(lang, "storagePermissionNeeded")})
@@ -391,7 +393,7 @@ export function StorageConfigSection({
         <Banner severity="error" className="mt-2">{t(lang, "storageTursoNeedsConfig")}</Banner>
       )}
       {isTurso && tursoEnabled && ready && description && (
-        <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>
+        <p className="mt-2 text-xs text-muted-foreground"><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{description}</p>
       )}
 
       {onReloadProject && (

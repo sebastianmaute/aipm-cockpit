@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { XMarkIcon } from "./icons";
 import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
@@ -597,9 +598,9 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                         label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`k:${idx}`) ?? it.name}`}
                         title={t(lang, "documentsRemove")}
                         onClick={() => removeStandalone(idx)}
-                        className="absolute right-2 top-2 text-xs"
+                        className="absolute right-2 top-2"
                       >
-                        ✕
+                        <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                       </IconButton>
                       <div className="text-2xl" aria-hidden="true">{ft.icon}</div>
                       <div className="pr-5">
@@ -664,9 +665,9 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                       label={`${t(lang, "documentsRemove")} – ${cardTokens.get(`d:${i}`) ?? r.link.name}`}
                       title={t(lang, "documentsRemove")}
                       onClick={() => remove(r)}
-                      className="absolute right-2 top-2 text-xs"
+                      className="absolute right-2 top-2"
                     >
-                      ✕
+                      <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                     </IconButton>
                     <div className="text-2xl" aria-hidden="true">
                       {ft.icon}

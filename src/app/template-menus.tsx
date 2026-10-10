@@ -15,15 +15,13 @@
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { BookmarkIcon, RectangleStackIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import { Button } from "./button";
 import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
 import type { SaveTemplateInput } from "./templates";
-
-const TRIGGER_CLASS =
-  "rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey";
 
 const POPOVER_CLASS = "w-72 overflow-y-auto p-3";
 
@@ -65,17 +63,16 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
 
   return (
     <div className="relative">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "templateSaveTitle")}
+        label={t(lang, "templateSaveTitle")}
         aria-expanded={open}
         title={t(lang, "templateSaveTitle")}
-        className={TRIGGER_CLASS}
       >
         <SaveIcon />
-      </button>
+      </IconButton>
 
       <PopoverPanel
         open={open}
@@ -198,17 +195,16 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
 
   return (
     <div className="relative">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "templateApplyTitle")}
+        label={t(lang, "templateApplyTitle")}
         aria-expanded={open}
         title={t(lang, "templateApplyTitle")}
-        className={TRIGGER_CLASS}
       >
         <ApplyIcon />
-      </button>
+      </IconButton>
 
       <PopoverPanel
         open={open}

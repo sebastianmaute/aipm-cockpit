@@ -41,6 +41,7 @@ import { createElement } from "react";
 import { render } from "@testing-library/react";
 import { Button, type ButtonProps } from "../app/button";
 import { TableAddRowButton } from "../app/table-add-row-button";
+import { IconButton, type IconButtonProps } from "../app/icon-button";
 
 const SECONDARY_TOKENS = ["border-line", "bg-surface", "cursor-pointer"] as const;
 
@@ -131,6 +132,18 @@ export function tableAddRowClass(): string {
   const { container, unmount } = render(createElement(TableAddRowButton, { label: "x", onClick: () => {} }));
   const el = container.querySelector("button");
   if (!el) throw new Error("tableAddRowClass: TableAddRowButton rendered no <button>");
+  const cls = el.className;
+  unmount();
+  return cls;
+}
+
+/** The exact `className` the `IconButton` primitive renders for these props —
+ *  the icon-only counterpart of `buttonClassFor`, for pinning a migrated call
+ *  site with `toBe` (§688). Pass the call site's own `className` extras. */
+export function iconButtonClassFor(props: Omit<IconButtonProps, "children" | "label">): string {
+  const { container, unmount } = render(createElement(IconButton, { ...props, label: "x" } as IconButtonProps, "x"));
+  const el = container.querySelector("button");
+  if (!el) throw new Error("iconButtonClassFor: the IconButton primitive rendered no <button>");
   const cls = el.className;
   unmount();
   return cls;

@@ -11,6 +11,7 @@
 // rendered outside a provider (e.g. an isolated unit test) safely does nothing.
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { ExclamationTriangleIcon } from "./icons";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { type Lang, t } from "./i18n";
@@ -57,7 +58,7 @@ function DisclaimerModal({ lang, open, onAck }: { lang: Lang; open: boolean; onA
               §424's rule — a dialog declaring nothing is the designed answer
               for progress, confirmations and gates. */}
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <span aria-hidden="true">⚠</span>
+            <ExclamationTriangleIcon aria-hidden="true" className="h-4 w-4" />
             {t(lang, "disclaimerTitle")}
           </h2>
           <p className="text-sm text-muted-foreground">{t(lang, "disclaimerIntro")}</p>

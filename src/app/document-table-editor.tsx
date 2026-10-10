@@ -19,6 +19,7 @@
 //  DISTINCT names across sibling table blocks") — NOT in this file, and there
 //  is no test file beside this one.
 import { t, localeFor } from "./i18n";
+import { XMarkIcon } from "./icons";
 import { useId } from "react";
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, type DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
@@ -152,7 +153,7 @@ export function TableBlockEditor({
                     className="ml-1"
                     onClick={() => removeColumn(c)}
                   >
-                    <span aria-hidden="true">{"✕"}</span>
+                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                   </Button>
                 </th>
               ))}
@@ -197,7 +198,7 @@ export function TableBlockEditor({
                     disabled={value.rows.length <= 1}
                     onClick={() => removeRow(r)}
                   >
-                    <span aria-hidden="true">{"✕"}</span>
+                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                   </Button>
                 </td>
               </tr>

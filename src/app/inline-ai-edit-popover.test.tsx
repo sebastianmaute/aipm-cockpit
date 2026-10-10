@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { InlineAiEditPopover } from "./inline-ai-edit-popover";
 import { describeEntityCalls } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
@@ -23,14 +23,15 @@ it("renders the entity label + item title and submits the instruction", () => {
   expect(base.onSubmit).toHaveBeenCalledWith("mark done");
 });
 
-it("focuses the input on open and restores focus to the trigger on close", () => {
+it("focuses the input on open and restores focus to the trigger on close", async () => {
   const trigger = document.createElement("button");
   document.body.appendChild(trigger);
   trigger.focus();
   expect(document.activeElement).toBe(trigger);
   const { unmount } = render(<InlineAiEditPopover {...base} />);
-  // Opens with focus in the NL input (aria-modal).
-  expect(document.activeElement).toBe(screen.getByLabelText(/ask claude to edit this task/i));
+  // Opens with focus in the NL input (aria-modal). The shared Modal moves focus
+  // one animation frame after mount, so wait for it (§694).
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/ask claude to edit this task/i)));
   // Closing restores focus to whatever was focused before (the ✨ trigger).
   unmount();
   expect(document.activeElement).toBe(trigger);

@@ -5,7 +5,7 @@ import { ArrowsPointingInIcon, XMarkIcon } from "./icons";
 import { type HelpEntryId } from "./help-content";
 import { HelpIconButton } from "./help-icon-button";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
@@ -128,29 +128,27 @@ export function ModalHeader({
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}
         {onResetLayout && (
-          <button
-            type="button"
+          // §688: the help trigger beside it is IconButton md, so these two are too —
+          // one size (28px) and one hover style across the header row.
+          <IconButton
+            size="md"
             onClick={onResetLayout}
-            aria-label={t(lang, "modalResetSize")}
+            label={t(lang, "modalResetSize")}
             title={t(lang, "modalResetSize")}
-            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
             <ArrowsPointingInIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </IconButton>
         )}
         {!hideClose && (
-          <button
-            type="button"
+          <IconButton
+            size="md"
             onClick={onClose}
             disabled={closeDisabled}
-            aria-label={closeName}
+            label={closeName}
             title={closeName}
-            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey${
-              closeDisabled ? " disabled:cursor-not-allowed disabled:opacity-50" : ""
-            }`}
           >
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </IconButton>
         )}
       </div>
     </header>

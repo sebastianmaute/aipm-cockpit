@@ -31,7 +31,9 @@ describe("DocumentLinksField", () => {
     // and the code deleted while the test's name still claimed to pin them.
     const marker = container.querySelector("[data-dangling-marker]");
     expect(marker).not.toBeNull();
-    expect(marker).toHaveTextContent("⚠");
+    // §689: the marker is ExclamationTriangleIcon from icons.ts, not a text glyph.
+    expect(marker).not.toHaveTextContent("⚠");
+    expect(marker?.querySelector("svg.lucide-triangle-alert")).not.toBeNull();
     expect(marker).toHaveTextContent("#99");
     // The state must reach a screen reader, not only a hover tooltip.
     expect(screen.getByRole("img", { name: /#99/ })).toHaveAccessibleName(/no longer exists/i);
