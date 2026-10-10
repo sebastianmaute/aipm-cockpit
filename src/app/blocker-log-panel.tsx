@@ -85,7 +85,8 @@ function OpenRow(props: OpenRowProps) {
             aria-label={rowLabel(t(lang, "edit"), token)}
             maxLength={TEXTAREA_MAX}
             rows={3}
-            autoGrow className="w-full"
+            autoGrow
+            className="w-full max-h-40 overflow-y-auto"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="xs" onClick={props.onCancelEdit} aria-label={rowLabel(t(lang, "cancel"), token)}>
@@ -201,7 +202,10 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
           placeholder={t(lang, "blockerLogPlaceholder")}
           maxLength={TEXTAREA_MAX}
           rows={3}
-          autoGrow className="w-full"
+          autoGrow
+          // ★ Capped: the floating window is a fixed 560px with overflow hidden, so
+          // an uncapped field would push the Add button and the list out of view.
+          className="w-full max-h-40 overflow-y-auto"
         />
         <div className="mt-2 flex justify-end">
           <Button

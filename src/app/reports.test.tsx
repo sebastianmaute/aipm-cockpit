@@ -12,6 +12,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 import { buttonClassFor } from "../test/button-variant";
 import { PRIMARY_MATCHING_BORDER } from "./button";
+import { menuItemClass } from "./control-classes";
 
 const TODAY = "2026-05-28";
 
@@ -262,6 +263,21 @@ describe("ReportsPanel — composed reports", () => {
     expect(screen.getByTestId("report-block-budget-report")).toBeInTheDocument();
     // Picking closes the menu.
     expect(screen.queryByRole("menu", { name: /add report/i })).toBeNull();
+  });
+
+  it("draws each Add report menu item with menuItemClass", () => {
+    renderComposed([]);
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    for (const item of within(screen.getByRole("menu", { name: /add report/i })).getAllByRole("menuitem")) {
+      expect(item.className).toBe(menuItemClass());
+    }
+  });
+
+  it("says on the button itself why it is disabled when no report is hidden", () => {
+    // No module that owns an addable report is on, so nothing can be added.
+    renderComposed([], vi.fn(), []);
+    const button = screen.getByRole("button", { name: t("en-US", "reportsAddReportNone") });
+    expect(button).toBeDisabled();
   });
 
   // §685 (owner pick 2B): "+ Add report" is the pane's primary Add button.

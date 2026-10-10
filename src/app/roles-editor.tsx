@@ -378,15 +378,15 @@ export function RolesEditor({
           </>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
-          <Select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}>
+          <Select size="xs" value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}>
             <option value="">{t(lang, "rolesDiscipline")}</option>
             {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
-          <Select value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}>
+          <Select size="xs" value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}>
             <option value="">{t(lang, "rolesGrade")}</option>
             {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </Select>
-          <Button variant="primary" size="sm"
+          <Button variant="primary" size="xs"
             disabled={comboDiscipline === "" || comboGrade === ""}
             onClick={() => { if (comboDiscipline !== "" && comboGrade !== "") onResolveOrCreateRole(Number(comboDiscipline), Number(comboGrade)); }}>
             {t(lang, "rolesAddCombo")}
@@ -478,7 +478,7 @@ function RefList({
                 // Committed (or rejected): pagehide must not replay it over a newer name.
                 renameDrafts.current.delete(it.id);
               }}
-              className="flex-1" />
+              size="xs" className="flex-1" />
             <IconButton
               variant="danger"
               label={rowLabel(t(lang, "delete"), itemName(it))}
@@ -495,8 +495,8 @@ function RefList({
       <div className="mt-2 flex items-center gap-2 print:hidden">
         <Input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
-          className="flex-1" />
-        <Button variant="secondary" size="sm" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>+</Button>
+          size="xs" className="flex-1" />
+        <Button variant="secondary" size="xs" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>+</Button>
       </div>
     </div>
   );

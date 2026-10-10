@@ -120,3 +120,14 @@ describe("Button accent variant", () => {
     expect(ratios).toEqual([]);
   });
 });
+
+// Review fix (§691): the green ring would sit flush against the green border,
+// so the accent variant offsets it by 2px over the surface colour.
+describe("Button accent focus ring", () => {
+  it("offsets the focus ring from the fill", () => {
+    render(<Button variant="accent">Go</Button>);
+    expect(screen.getByRole("button", { name: "Go" }).className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["focus:ring-offset-2", "focus:ring-offset-surface"]),
+    );
+  });
+});

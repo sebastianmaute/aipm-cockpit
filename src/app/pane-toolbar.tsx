@@ -2,8 +2,8 @@
 
 // Shared view-pane toolbar atoms (design-system Phase 3g). The register/directory
 // panels repeated the same toolbar row (a `+ Add X` button, a `flex-1` search
-// input, then filter selects). These atoms emit the exact prior class strings so
-// the migration is pixel-neutral.
+// input, then filter selects). The search is the shared `Input` at `xs`, 30px
+// tall like the `xs` buttons beside it (§685).
 
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 import { Button } from "./button";
@@ -70,7 +70,7 @@ export function PaneSearchInput({
         // reserves room for the overlaid button, so applying it unconditionally
         // would shave ~2rem off the visible placeholder in the (common) empty
         // state — worst on the `min-w-[10rem]` milestones field. Empty-state
-        // padding therefore stays exactly the pre-clear `px-2.5 py-1.5`.
+        // padding is therefore the `xs` field's own `px-2 py-1.5`.
         size="xs" className={`w-full [&::-webkit-search-cancel-button]:appearance-none${value ? " pr-8" : ""}${className ? ` ${className}` : ""}`}
         {...props}
       />

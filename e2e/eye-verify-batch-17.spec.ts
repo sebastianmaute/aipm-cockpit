@@ -69,7 +69,8 @@ test.describe("eye-verify kit, batch 17", () => {
       await open(page, { dark });
       await openView(page, "Reports");
       // The card is not in the default arrangement; add it the way a user would.
-      await page.getByRole("combobox", { name: "Add report", exact: true }).selectOption({ label: "Stakeholder Report" });
+      await page.getByRole("button", { name: "+ Add report", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Stakeholder Report", exact: true }).click();
       const quadrant = page.locator("main").getByText("Manage Closely", { exact: true }).first();
       await quadrant.evaluate((el) => el.scrollIntoView({ block: "center" }));
       await shoot(page, `02-stakeholder-quadrants-${dark ? "dark" : "light"}`);

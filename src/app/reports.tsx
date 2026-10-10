@@ -414,10 +414,10 @@ export function ReportsPanel({
         aria-haspopup="menu"
         aria-expanded={addReportOpen}
         disabled={remainingReports.length === 0}
-        title={remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : undefined}
         onClick={() => setAddReportOpen((o) => !o)}
       >
-        + {t(lang, "reportsAddReport")}
+        {/* The reason it is disabled is the label itself, not a hover-only title. */}
+        {remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}
       </Button>
       <PopoverPanel
         open={addReportOpen}

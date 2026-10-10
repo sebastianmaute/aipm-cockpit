@@ -6,6 +6,7 @@ import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
 
 const noop = () => {};
 const disciplines: Discipline[] = [{ id: 1, name: "Engineering" }];
@@ -642,5 +643,19 @@ describe("RolesEditor row names (§669)", () => {
     expect(screen.getByRole("textbox", { name: `${t("en-US", "rename")} – ${disc}: Engineering (2)` })).toHaveValue("Engineering");
     expectRowUniqueNames({ minControls: 10 });
     expectRowUniqueNames({ minControls: 4, roles: ["textbox"] });
+  });
+});
+
+// Review fix (§685): one height per row — the combo selects and their Add
+// button are all xs (30px).
+describe("RolesEditor combo row heights", () => {
+  it("draws the two selects and Add at xs", () => {
+    renderEditor();
+    const add = screen.getByRole("button", { name: t("en-US", "rolesAddCombo") });
+    expect(add.className).toBe(buttonClassFor({ variant: "primary", size: "xs" }));
+    const row = add.parentElement as HTMLElement;
+    const selects = within(row).getAllByRole("combobox");
+    expect(selects).toHaveLength(2);
+    for (const s of selects) expect(s.className.split(/\s+/)).toEqual(expect.arrayContaining(["py-1.5", "text-xs"]));
   });
 });
