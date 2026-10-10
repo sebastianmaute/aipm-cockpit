@@ -64,6 +64,13 @@ describe("notesToSafeHtml", () => {
     expect(render("<p>a</p><script>never closed")).toBe("<p>a</p>never closed");
   });
 
+  it("strips until nothing changes, so a removal cannot assemble a new script or comment", () => {
+    // One pass would leave `<script>alert(1)</script>` and `<!-- x -->` behind, reassembled from the
+    // halves around the removed inner element.
+    expect(render("<p>a</p><scr<script>x</script>ipt>alert(1)</script>")).toBe("<p>a</p>");
+    expect(render("<p>a</p><!<!-- y -->-- x --><p>b</p>")).toBe("<p>a</p><p>b</p>");
+  });
+
   it("keeps line breaks inside <pre> and turns <br> into a space elsewhere", () => {
     expect(render("<pre><code>a\n  b<br>c</code></pre><p>x<br>\ny</p>")).toBe(
       "<pre><code>a\n  b\nc</code></pre><p>x y</p>",

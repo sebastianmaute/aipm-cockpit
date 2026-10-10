@@ -88,8 +88,20 @@ const EMPTY = "<p>No release notes.</p>" as SafeNotesHtml;
  * The notes as an HTML fragment holding only tags this module writes. `max` bounds the visible
  * text (a flood guard against a pathological body, as `NOTES_MAX` is for the plain-text form).
  */
+// Comments and script-like elements, removed until nothing changes: one pass can leave a new one
+// behind, joined from the halves around a removed inner element (`<scr<script></script>ipt>`).
+function stripDropped(s: string): string {
+  let prev: string;
+  let next = s;
+  do {
+    prev = next;
+    next = prev.replace(/<!--[\s\S]*?-->/g, "").replace(DROPPED_WITH_CONTENT, "");
+  } while (next !== prev);
+  return next;
+}
+
 export function notesToSafeHtml(notes: unknown, max: number): SafeNotesHtml {
-  const source = notesSource(notes).replace(/<!--[\s\S]*?-->/g, "").replace(DROPPED_WITH_CONTENT, "");
+  const source = stripDropped(notesSource(notes));
   TAG.lastIndex = 0;
   // A body with no markup at all (a provider that sends plain text) keeps its own line breaks.
   if (!TAG.test(source)) {
