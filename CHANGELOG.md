@@ -12,9 +12,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
-- **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, help, export, version and
-  template buttons in the header, and the workspace collapse toggle, use the standard icon button and are 32px
-  instead of 36px. Close, remove, more-actions and move buttons, the Jira and snooze disclosure arrows and the
+- **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, export, version and template
+  buttons in the header, and the workspace collapse toggle, use the standard icon button: 32px instead of 36px,
+  and the export, version and template icons are a shade lighter, like settings. In every dialog header the
+  help, reset-size and close buttons share one standard size (28px). Close, remove, more-actions and move buttons, the Jira and snooze disclosure arrows and the
   ✓ and ⚠ status marks now draw icons instead of text characters. The Ask Claude edit window opens like every
   other dialog; Escape still closes only it when it sits over another dialog.
 

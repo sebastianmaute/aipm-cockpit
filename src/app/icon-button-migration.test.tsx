@@ -112,7 +112,8 @@ describe("§688 — the hover-revealed Ask-Claude button lives in one component"
   it("has its class string in inline-ai-edit-button.tsx only", () => {
     const dir = join(process.cwd(), "src", "app");
     const needle = "px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100";
-    const hits = readdirSync(dir)
+    const hits = (readdirSync(dir, { recursive: true }) as string[])
+      .map((f) => f.replace(/\\/g, "/"))
       .filter((f) => f.endsWith(".tsx") && !f.endsWith(".test.tsx"))
       .filter((f) => readFileSync(join(dir, f), "utf8").includes(needle));
     expect(hits).toEqual(["inline-ai-edit-button.tsx"]);

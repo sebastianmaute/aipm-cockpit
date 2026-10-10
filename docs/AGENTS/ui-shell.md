@@ -814,7 +814,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   read, never a captured state value. (3) NEVER CLAIM ESCAPE YOU CANNOT ACT ON —
   an always-claiming entry with no handler swallows the key and leaves every layer
   beneath unclosable. `inline-ai-edit-popover` passed no `onEscape` until §694 moved it
-  onto `Modal`; today both `useFocusTrap` callers pass one (`grep -rn "useFocusTrap(" src/app`),
+  onto `Modal`; today both `useFocusTrap` callers pass one (`grep -rn "useFocusTrap(" src/app | grep -v use-focus-trap.ts`),
   so the shape is guarded rather than live, and the next caller to omit it makes it live again. ★★ THE WAY TO HONOUR THAT IS TO DECLINE,
   NOT TO STAY OUT, and `use-focus-trap` used to do the second. It now registers
   whenever `active` and passes `claims: () => hasEscape`, and `escapeOwner()` walks

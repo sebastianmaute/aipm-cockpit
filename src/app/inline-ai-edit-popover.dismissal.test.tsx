@@ -53,7 +53,7 @@ it("closes only the popover when Escape is pressed while it sits above an open M
   expect(onCancel).toHaveBeenCalledTimes(1);
 });
 
-it("renders through the shared Modal, above the entity modals it opens from", () => {
+it("renders the dialog with Modal's root markers (tabindex -1, inline z-index 70) — a tripwire, not a proof", () => {
   render(<Host onModalClose={vi.fn()} onCancel={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
   const dialog = screen.getByRole("dialog", { name: "Ask Claude" });

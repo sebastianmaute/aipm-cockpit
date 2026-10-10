@@ -16,7 +16,7 @@ const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 // aria-hidden span, a glyph as a JSX string literal, or a status mark at the
 // start of a text run.
 const GLYPH_FORMS = [
-  /^\s*(×|✕|⋮|▸)\s*$/gm,
+  /^\s*(×|✕|⋮|▸|⚠)\s*$/gm,
   /<span aria-hidden(="true")?>\{?"?(×|✕|↑|↓|⚠)"?\}?<\/span>/g,
   /\{"(↑|↓|✕|×)"\}/g,
   /(>|\s)(✓|⚠) \{/g,
@@ -71,6 +71,7 @@ describe("§689 — glyphs are icons from icons.ts", () => {
       '{t(lang, "reminderSnooze")} ▾',
       '<span aria-hidden="true">⚠</span>',
       "              ▸\n",
+      "            ⚠\n",
     ];
     for (const o of old) {
       expect(GLYPH_FORMS.some((re) => { re.lastIndex = 0; return re.test(o); }), o).toBe(true);

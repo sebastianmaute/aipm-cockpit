@@ -9,6 +9,7 @@ import { ResetSizeIcon } from "./task-manager-ui";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { loadI18n, t } from "./i18n";
 import type { ReactNode } from "react";
+import { iconButtonClassFor } from "../test/button-variant";
 
 // VoiceCommandButton depends on browser speech APIs — mock the module to avoid
 // setup noise.
@@ -46,6 +47,16 @@ function setup(
 }
 
 describe("ModalHeader", () => {
+  // §688: help, reset-size and close are all IconButton md, one size (28px) and one hover
+  // style; the help trigger alone used to be IconButton while its two siblings were p-2 boxes.
+  it("draws its help, reset-size and close buttons as IconButton md", () => {
+    setup({ title: "Edit risk", helpConceptId: "concept-raid", onResetLayout: () => {} });
+    const md = iconButtonClassFor({ size: "md" });
+    expect(screen.getByRole("button", { name: t("en-US", "modalHelpAbout", "Edit risk") }).className).toBe(md);
+    expect(screen.getByRole("button", { name: t("en-US", "modalResetSize") }).className).toBe(md);
+    expect(screen.getByRole("button", { name: new RegExp(`^${t("en-US", "alertModalClose")}`) }).className).toBe(md);
+  });
+
   it("renders the provided title", () => {
     setup({ title: "My Dialog" });
     expect(screen.getByText("My Dialog")).toBeTruthy();
@@ -89,11 +100,13 @@ describe("ModalHeader", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("the close button is enabled, with no disabled classes, when closeDisabled is omitted", () => {
+  it("the close button is enabled when closeDisabled is omitted", () => {
+    // §688: it is IconButton now, whose base carries `disabled:` variants that only apply when
+    // the button IS disabled, so the old "no disabled: classes" check no longer says anything.
     setup();
     const btn = screen.getByRole("button", { name: t("en-US", "alertModalClose") });
     expect(btn).toBeEnabled();
-    expect(btn.className).not.toContain("disabled:");
+    expect(btn).not.toHaveAttribute("disabled");
   });
 
   it("hideClose=true removes the close button", () => {
