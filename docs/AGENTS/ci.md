@@ -29,9 +29,11 @@ and the job ids in `.github/workflows/ci.yml` differ.
 
 ## Jobs
 
-Four workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
-(tag-triggered, see below), `.github/workflows/scheduled.yml` (weekly, see below) and
-`.github/workflows/future-clock.yml` (weekly, one job, described with the weekly jobs below). `ci/gitlab-sync.yml`
+Six workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
+(tag-triggered, see below), `.github/workflows/scheduled.yml` (weekly, see below),
+`.github/workflows/future-clock.yml` (weekly, one job, described with the weekly jobs below), and the two
+security workflows `security.yml` and `scorecard.yml` (see "Security workflows" below). Count them with
+`ls .github/workflows`. `ci/gitlab-sync.yml`
 is NOT one of them — it is a GitLab-side CI config, run by GitLab's own CI configuration path, that
 pushes GitHub's history into the read-only mirror and then, in a second job (`mirror-releases`, §640),
 creates a GitLab release for every GitHub release that has none yet, with asset links to the GitHub
@@ -178,9 +180,12 @@ re-resolved by hand.
   rule file (§613) closing a gap the three registry configs leave open: none of them flags
   request-controlled `eval`/`new Function`/`exec` in this codebase's non-Express-shaped handlers.
   The SARIF is uploaded as `semgrep-sarif` (7 days, always). A last step,
-  `github/codeql-action/upload-sarif` (v4.38.1), runs only
-  `if: always() && !github.event.repository.private`: code scanning refuses SARIF from a private
-  repository without Advanced Security, so the step switches itself on at the visibility flip.
+  `github/codeql-action/upload-sarif` (v4.38.2), runs only
+  `if: always() && !github.event.repository.private`, plus a same-repository check: code scanning
+  refuses SARIF from a private repository without Advanced Security, so the step switched itself on at
+  the visibility flip, and a fork's pull request gets a token that cannot write security events, so
+  the step skips there rather than failing a required check. ★ Not yet seen on a real fork PR (none
+  has been opened); a Dependabot PR uploads fine (#610).
 - **`audit`** (10 min). `npm audit --omit=dev --audit-level=high`. It reads `package-lock.json` only,
   so it runs no `npm ci` and uses no npm cache.
 
@@ -234,6 +239,34 @@ required check.
   its own fake timers still inherits the shift (`vi.useFakeTimers()` starts from the shifted
   `Date.now()`); only a file that calls `vi.setSystemTime` itself, or restores real timers before it
   asserts, sets its own clock and is not covered.
+
+## Security workflows
+
+Two workflows beside the CodeQL default setup (configured in the repository settings, not a file),
+Semgrep and `npm audit`. Neither is a required check, so a finding never blocks a merge; read it on the
+PR or in Code Scanning. `scripts/ci-workflow.test.mjs` holds both to the shared workflow rules (pinned
+`uses:`, read-only top-level permissions, timeouts, credential-free checkouts) and pins that neither job
+is in the required list.
+
+- **`security.yml`**, on pull requests, pushes to `main` and `workflow_dispatch`:
+  - **`dependency-review`** (pull requests only, 10 min). `actions/dependency-review-action` fails the PR
+    when it ADDS a dependency with a known vulnerability of moderate severity or higher, or under a GPL or
+    AGPL license. `npm audit` reports on the whole tree; this stops the addition at the PR.
+  - **`zizmor`** (10 min). Audits the workflow files themselves: template injection, credential
+    persistence, unsafe triggers, excessive permissions. actionlint checks structure, not this. The zizmor
+    version is pinned in the step. ★ The job does NOT fail on findings: the action uploads SARIF, zizmor
+    exits 0 in SARIF mode, and the findings arrive as Code Scanning alerts. Read them there. On a
+    fork's pull request, which cannot upload, `advanced-security` is false and the job fails on a
+    finding instead.
+- **`scorecard.yml`**, weekly (cron `30 5 * * 1`), on pushes to `main` and `workflow_dispatch`: OpenSSF
+  Scorecard scores supply-chain practices and publishes the result to Code Scanning and to scorecard.dev.
+  ★ scorecard-action refuses to publish from a workflow whose job does more than checkout, scorecard
+  and upload-sarif (it also allows upload-artifact and harden-runner, which this one does not use; no
+  `env`, `defaults`, containers or extra write permissions). The workflow stays green when it refuses,
+  so add nothing to it; the test pins the exact step list.
+- **`release.yml`'s three `setup-node` steps set `package-manager-cache: false`.** setup-node v7 caches
+  by default, and zizmor rates a cache restored into a tag-triggered release build as cache poisoning
+  (High). A release build restores nothing.
 
 ## Operating it
 

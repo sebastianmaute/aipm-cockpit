@@ -1,0 +1,55 @@
+# Two security checks that are not required checks (see docs/AGENTS/ci.md):
+# - dependency-review (pull requests only) fails a PR that ADDS a dependency with a known
+#   vulnerability of moderate severity or higher, or under a strong-copyleft license. npm audit
+#   reports on the whole tree; this stops the addition at the PR.
+# - zizmor audits the workflow files themselves (template injection, credential persistence,
+#   unsafe triggers, excessive permissions), which actionlint does not. Findings go to Code
+#   Scanning as alerts; the job does not fail on them (the action uploads SARIF, and zizmor exits 0
+#   in SARIF mode).
+name: security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          # deny-licenses is deprecated for removal in the action's next major; move to
+          # allow-licenses when upgrading past v5.
+          deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          # A fork's pull request gets a token that cannot write security events, so the SARIF
+          # upload would fail there; it runs zizmor's plain output instead, which fails on findings.
+          advanced-security: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}

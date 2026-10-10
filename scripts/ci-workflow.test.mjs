@@ -86,7 +86,8 @@ const pkg = JSON.parse(read("package.json"));
 const PLAYWRIGHT = lock.packages["node_modules/@playwright/test"].version;
 const NODE_MAJOR = /^>=(\d+)/.exec(pkg.engines.node)[1];
 
-function workflowRules(name, text) {
+// `node: false` for a workflow that installs nothing (the security workflows): it has no node-version to check.
+function workflowRules(name, text, { node = true } = {}) {
   it(`${name}: every uses: is pinned`, () => expect(unpinnedUses(text)).toEqual([]));
   it(`${name}: top-level permissions are contents: read only`, () =>
     expect(topLevelBlock(text, "permissions")).toEqual(["contents: read"]));
@@ -99,7 +100,7 @@ function workflowRules(name, text) {
     expect(text.match(/persist-credentials: false/g)?.length ?? 0).toBe(checkouts);
   });
   it(`${name}: every piped run: declares shell: bash`, () => expect(pipedRunsWithoutBash(text)).toEqual([]));
-  it(`${name}: node version equals the engines floor`, () => {
+  if (node) it(`${name}: node version equals the engines floor`, () => {
     const versions = [...text.matchAll(/node-version: "(\d+)"/g)].map((m) => m[1]);
     expect(versions.length).toBeGreaterThan(0);
     expect(new Set(versions)).toEqual(new Set([NODE_MAJOR]));
@@ -212,8 +213,8 @@ describe("ci.yml", () => {
     }
   });
 
-  it("uploads SARIF to code scanning only on a public repository", () => {
-    expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private \}\}/);
+  it("uploads SARIF to code scanning only on a public repository, and never from a fork's pull request", () => {
+    expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository\) \}\}/);
   });
 
   // §613: the registry configs (p/typescript, p/react, p/owasp-top-ten) miss request-controlled
@@ -275,6 +276,51 @@ describe("scheduled.yml", () => {
     expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
     expect(b.indexOf("- run: npm --prefix desktop ci")).toBeGreaterThan(b.indexOf("- run: npm ci"));
     expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
+  });
+});
+
+describe("scorecard.yml", () => {
+  const SCORE = read(".github/workflows/scorecard.yml");
+  workflowRules("scorecard.yml", SCORE, { node: false });
+
+  // scorecard-action refuses to publish from a workflow that does more than this.
+  it("has the one scorecard job, writing only security events and the OIDC token", () => {
+    expect(jobIds(SCORE)).toEqual(["scorecard"]);
+    const b = jobBlock(SCORE, "scorecard");
+    expect(b).toMatch(/security-events: write/);
+    expect(b).toMatch(/id-token: write/);
+    expect(b.match(/: write/g)).toHaveLength(2);
+    expect(b).not.toMatch(/^ {4}(env|container|services):/m);
+    expect(REQUIRED).not.toContain("scorecard");
+  });
+
+  // An extra step (a run:, a hardening action) or a top-level env/defaults stops the publish
+  // silently: the workflow stays green and scorecard.dev stops updating.
+  it("runs only checkout, scorecard and upload-sarif, with no run: step and no top-level env or defaults", () => {
+    const uses = [...jobBlock(SCORE, "scorecard").matchAll(/uses: ([^@\s]+)@/g)].map((m) => m[1]);
+    expect(uses).toEqual(["actions/checkout", "ossf/scorecard-action", "github/codeql-action/upload-sarif"]);
+    expect(SCORE).not.toMatch(/^\s*(- )?run:/m);
+    expect(SCORE).not.toMatch(/^(env|defaults):/m);
+  });
+});
+
+describe("security.yml", () => {
+  const SEC = read(".github/workflows/security.yml");
+  workflowRules("security.yml", SEC, { node: false });
+
+  it("runs dependency-review on pull requests only and zizmor at a pinned version; neither is required", () => {
+    expect(jobIds(SEC)).toEqual(["dependency-review", "zizmor"]);
+    expect(jobBlock(SEC, "dependency-review")).toMatch(/^ {4}if: github\.event_name == 'pull_request'$/m);
+    expect(jobBlock(SEC, "dependency-review")).not.toMatch(/: write/);
+    expect(jobBlock(SEC, "zizmor")).toMatch(/version: \d+\.\d+\.\d+/);
+    expect(SEC).toMatch(/^ {2}pull_request:\r?\n {4}branches: \[main\]\r?$/m);
+    for (const id of jobIds(SEC)) expect(REQUIRED).not.toContain(id);
+  });
+
+  // A fork's pull request token cannot write security events, so a SARIF upload there fails the
+  // job (ci.yml's semgrep carries the same guard on its upload step, pinned in its own describe).
+  it("uploads zizmor's SARIF only from this repository, never from a fork's pull request", () => {
+    expect(jobBlock(SEC, "zizmor")).toMatch(/advanced-security: \$\{\{ \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository\) \}\}/);
   });
 });
 
