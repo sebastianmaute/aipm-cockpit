@@ -889,7 +889,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--closed-2026-10-01) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | **CLOSED** 2026-10-01 |
 | [§652](#652-sharepoint-storage-has-never-been-verified-on-a-live-tenant-the-csp-half-is-done--open) | SharePoint storage has never been verified on a live tenant (the CSP half is done) | — | — | open |
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
-| [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
+| [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--closed-2026-10-10) | The §4 Turso revision guard has never run against a live database | — | — | **CLOSED** 2026-10-10 |
 | [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--closed-2026-10-04) | A conflict version that was kept can be downloaded but not restored in the app | — | — | **CLOSED** 2026-10-04 |
 | [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--closed-2026-10-02) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | **CLOSED** 2026-10-02 |
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--closed-2026-10-03) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | **CLOSED** 2026-10-03 |
@@ -43907,11 +43907,20 @@ When a rename and a body edit of the same template are saved concurrently, each 
 
 **Source:** the §626 fix-round review, 2026-09-29; residual (3) of §626.
 
-## 654. The §4 Turso revision guard has never run against a live database — open
+## 654. The §4 Turso revision guard has never run against a live database — CLOSED 2026-10-10
 
-**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified against a live Turso database: the guard, the stamp and the read-back run only on `node:sqlite` (`npx vitest run src/app/turso-schema.execute.test.ts`) and against a stubbed Hrana client.
+**Status:** CLOSED 2026-10-10 on `verify/654-turso-guard`: all seven checks below pass against a live (throwaway) Turso database, run 2026-10-10 with `npx playwright test e2e/turso-revision-live.spec.ts --project=chromium --workers=1` (with `PLAYWRIGHT_NO_WEBSERVER=1` set, since it needs no app server) → 6 passed, 0 skipped. The spec sends the statements the app builds through the app's own `runTursoPipeline` and `TursoBackend`; it drives no browser, and its two devices are two `TursoBackend` instances. Each layout starts from a fresh database, because the spec drops every `TABLE_NAMES` table first. What each check found:
+- (1) a stale guard fails the batch with a `TursoStepError` whose step is the guard (`isRevisionGuard`), the plan row keeps its value and the revision does not move; the positive control commits and bumps 1 → 2.
+- (2) the step error text is `Turso error: SQLite error: bad JSON path: 'turso-revision-conflict:1'` (the marker, then the stored revision).
+- (3) after the refused save, the next guarded save commits, so the trailing `ROLLBACK` left no open transaction.
+- (4) a fresh database's first guarded save stamps 1, in both layouts.
+- (5) tenant layout: two projects keep revisions of their own (2 and 1), and a refused save on one leaves the other's revision and data alone.
+- (6) two devices: B saves, A's save over the version it loaded throws `SaveConflictError` carrying the stored revision, and A's edit is not written; in both layouts.
+- (7) the `UPDATE` stamp bumps an existing row and the seeding `INSERT` creates the first one; a blind write (`forceNextSave()`) after another writer moved the revision stamps past it (5 → 6) and reads back 6 inside the transaction.
 
-**Work item:** #496
+Mutants, each killed against the live database: the guard removed from `withRevision` (fails check 1); `TursoBackend.save` sending a blind stamp in place of its guarded one (fails check 6, once in each layout); and the blind write dropping its read-back (fails check 7). That the pause reaches the user as the conflict notice is the hook's job and is unit-tested (`use-storage-backend.conflict.test.tsx`); this entry was about the database half. The spec is not in CI: it skips when no credentials are present, and §215 owns running live-Turso specs in CI.
+
+**Was:** open 2026-09-30, split out of §4 when it closed. Never machine-verified against a live Turso database: the guard, the stamp and the read-back run only on `node:sqlite` (`npx vitest run src/app/turso-schema.execute.test.ts`) and against a stubbed Hrana client.
 
 §4 checks the Turso revision inside the §637 conditional batch: `withRevision` (`turso-schema.ts`) puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind, which emits the read-back instead), a `SELECT` that raises an SQL error when the stored `meta` row (key `REVISION_KEY`) is not the revision the save expects, so every later step is skipped and the trailing `ROLLBACK` runs. A conflict is recognised by the failing step (`isRevisionGuard`), never by the error text. §637's own live check is owed too. Manual checks, against a real Turso project: (1) a stale guard returns a step error, never NULL followed by COMMIT, and no row changes; a positive control commits and bumps the revision; (2) record the step error text; (3) the trailing `ROLLBACK` leaves no open transaction, and the next save succeeds; (4) a fresh database's first guarded save stamps 1; (5) tenant layout: each project has a revision of its own; (6) two devices: B saves, then A edits, and A pauses with nothing written; (7) the `UPDATE` plus seeding-`INSERT` stamp (`revisionStampStatements`) and the in-transaction read-back of a blind save (`isRevisionReadback`) both run on a live server. If (1) fails, the fallback the §4 spec names is a compare under `withWriteLock` before the batch, atomic only within one browser.
 
