@@ -657,14 +657,14 @@ describe("ResourcesPanel", () => {
     expect(hide).toHaveAttribute("aria-pressed", "false");
   });
 
-  test("A2: absence override input uses text-sm (not text-[10px])", () => {
+  test("A2: absence override input uses the xs field's text-xs (not text-[10px])", () => {
     const resources = [{ id: 1, firstName: "Sofia", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     const input = screen.getByLabelText("Absence override for Sofia in 2026-02");
-    expect(input.className).toContain("text-sm");
+    expect(input.className).toContain("text-xs");
     expect(input.className).not.toContain("text-[10px]");
   });
 });
