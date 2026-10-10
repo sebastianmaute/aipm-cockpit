@@ -163,9 +163,12 @@ re-resolved by hand.
   rule file (§613) closing a gap the three registry configs leave open: none of them flags
   request-controlled `eval`/`new Function`/`exec` in this codebase's non-Express-shaped handlers.
   The SARIF is uploaded as `semgrep-sarif` (7 days, always). A last step,
-  `github/codeql-action/upload-sarif` (v4.38.1), runs only
-  `if: always() && !github.event.repository.private`: code scanning refuses SARIF from a private
-  repository without Advanced Security, so the step switches itself on at the visibility flip.
+  `github/codeql-action/upload-sarif` (v4.38.2), runs only
+  `if: always() && !github.event.repository.private`, plus a same-repository check: code scanning
+  refuses SARIF from a private repository without Advanced Security, so the step switched itself on at
+  the visibility flip, and a fork's pull request gets a token that cannot write security events, so
+  the step skips there rather than failing a required check. ★ Not yet seen on a real fork PR (none
+  has been opened); a Dependabot PR uploads fine (#610).
 - **`audit`** (10 min). `npm audit --omit=dev --audit-level=high`. It reads `package-lock.json` only,
   so it runs no `npm ci` and uses no npm cache.
 
@@ -235,7 +238,9 @@ is in the required list.
   - **`zizmor`** (10 min). Audits the workflow files themselves: template injection, credential
     persistence, unsafe triggers, excessive permissions. actionlint checks structure, not this. The zizmor
     version is pinned in the step. ★ The job does NOT fail on findings: the action uploads SARIF, zizmor
-    exits 0 in SARIF mode, and the findings arrive as Code Scanning alerts. Read them there.
+    exits 0 in SARIF mode, and the findings arrive as Code Scanning alerts. Read them there. On a
+    fork's pull request, which cannot upload, `advanced-security` is false and the job fails on a
+    finding instead.
 - **`scorecard.yml`**, weekly (cron `30 5 * * 1`), on pushes to `main` and `workflow_dispatch`: OpenSSF
   Scorecard scores supply-chain practices and publishes the result to Code Scanning and to scorecard.dev.
   ★ scorecard-action refuses to publish from a workflow whose job does more than checkout, scorecard

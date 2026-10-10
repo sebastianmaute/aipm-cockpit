@@ -213,8 +213,8 @@ describe("ci.yml", () => {
     }
   });
 
-  it("uploads SARIF to code scanning only on a public repository", () => {
-    expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private \}\}/);
+  it("uploads SARIF to code scanning only on a public repository, and never from a fork's pull request", () => {
+    expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository\) \}\}/);
   });
 
   // §613: the registry configs (p/typescript, p/react, p/owasp-top-ten) miss request-controlled
@@ -315,6 +315,12 @@ describe("security.yml", () => {
     expect(jobBlock(SEC, "zizmor")).toMatch(/version: \d+\.\d+\.\d+/);
     expect(SEC).toMatch(/^ {2}pull_request:\r?\n {4}branches: \[main\]\r?$/m);
     for (const id of jobIds(SEC)) expect(REQUIRED).not.toContain(id);
+  });
+
+  // A fork's pull request token cannot write security events, so a SARIF upload there fails the
+  // job (ci.yml's semgrep carries the same guard on its upload step, pinned in its own describe).
+  it("uploads zizmor's SARIF only from this repository, never from a fork's pull request", () => {
+    expect(jobBlock(SEC, "zizmor")).toMatch(/advanced-security: \$\{\{ \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository\) \}\}/);
   });
 });
 
