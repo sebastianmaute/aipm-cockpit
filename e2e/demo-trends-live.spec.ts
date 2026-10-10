@@ -178,7 +178,7 @@ async function createAndVerify(
 
   // The project opens again after a reload.
   await page.reload();
-  await expect(page.getByRole("button", { name: new RegExp(DEMO_NAME.replace(/[()]/g, "\\$&")) }).first(), "the demo did not reopen after a reload").toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: DEMO_NAME }).first(), "the demo did not reopen after a reload").toBeVisible({ timeout: 60_000 });
   // The same history: the reload neither lost a week nor captured a second one.
   expect(await snapshotCounts(id), "the reload changed the stored history").toEqual(counts);
   await expectTrendsHistory(page, `${shotName}-after-reload`, counts.seeded + counts.live);
