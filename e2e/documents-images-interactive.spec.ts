@@ -32,8 +32,8 @@
 // ★★ PLAYWRIGHT DOES NOT LOAD `.env.local` — only Next does. `test.skip(
 // !process.env.NEXT_PUBLIC_TURSO_DATABASE_URL, …)` written the obvious way is
 // therefore ALWAYS TRUE in the test process and skips everything even when the
-// database is live and the server is correctly configured. `readEnvLocal()`
-// below parses the file itself. That is also what gives the node side the
+// database is live and the server is correctly configured. `live-turso-env.ts`
+// parses the file itself. That is also what gives the node side the
 // credentials it needs to read the table back — the only way to prove a byte
 // actually landed, rather than that a control was clicked.
 //
@@ -48,19 +48,26 @@
 // against that image's OWN dimensions, so a resolver pointing two elements at
 // one set of bytes cannot pass either.
 //
+// ★★★ IT READS ONLY ITS OWN THROWAWAY PAIR, `TURSO_THROWAWAY_DATABASE_URL` and
+// `TURSO_THROWAWAY_AUTH_TOKEN`, and skips, saying why, unless both are set.
+// `NEXT_PUBLIC_TURSO_*` in a normal `.env.local` is the developer's real
+// database and `npm run e2e` runs this file, so having app credentials is not
+// consent. The UI half also needs the app's database to BE the throwaway one
+// (the dev server reads `NEXT_PUBLIC_TURSO_*`), and skips when the two URLs
+// differ. Set both pairs to the same throwaway database to run it.
+//
 // ★★★ THROWAWAY DATABASE ONLY. Everything this file WRITES is scoped to the e2e
-// project partition and cleaned up in `afterAll` — but the §211 probe at the end
-// runs `DROP TABLE IF EXISTS document_assets`, which is NOT partition-scoped and
-// destroys EVERY project's asset metadata in that database, not just `e2e-1`'s.
-// It recreates the table and runs LAST for that reason, but a hard failure
-// mid-probe leaves it dropped. Never point this at a database you care about.
-// (An earlier revision of this header said only that writes are partition-scoped
-// and cleaned up, which reads as far safer than a DROP TABLE actually is.)
+// project partition and cleaned up in `afterAll`. The §211/§637 probe that drops
+// `document_assets` used to sit at the end of this file and now lives in
+// `turso-ddl-probe-live.spec.ts`, in the `live-turso-destructive` project, so it
+// can never run beside this file on the same database.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
-import { colDdl, ENTITY_SPECS, TABLE_NAMES } from "../src/app/turso-schema";
-import { runTursoPipeline } from "../src/app/turso-pipeline";
+import {
+  LIVE, appIsThrowaway, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+  rawPipeline as pipeline, txt,
+} from "./live-turso-env";
 import {
   test, expect, gotoApp, openView, FROZEN_NOW,
   E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY,
@@ -68,36 +75,6 @@ import {
 
 // ── Live-database configuration ─────────────────────────────────────────────
 
-/** Parse `.env.local` in the TEST process. See the header: playwright does not
- *  load it, so `process.env` is not a usable source here.
- *  ★ Values are returned, never logged. Callers treat them as opaque. */
-function readEnvLocal(): { url: string; token: string } {
-  // `process.env` still wins when someone exports the pair explicitly (CI, or a
-  // shell that sourced the file), so an env-only setup works without the file.
-  const fromProcess = {
-    url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
-    token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
-  };
-  if (fromProcess.url) return fromProcess;
-  if (!existsSync(".env.local")) return { url: "", token: "" };
-  const txt = readFileSync(".env.local", "utf8");
-  const read = (key: string) => {
-    const m = txt.match(new RegExp(`^${key}=(.*)$`, "m"));
-    // Strip surrounding quotes and the CR of a CRLF file — both are silent
-    // corruptions that would produce an unparseable URL rather than an error.
-    return (m?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  };
-  return {
-    url: read("NEXT_PUBLIC_TURSO_DATABASE_URL"),
-    token: read("NEXT_PUBLIC_TURSO_AUTH_TOKEN"),
-  };
-}
-
-const ENV = readEnvLocal();
-const LIVE = ENV.url !== "";
-
-/** The pipeline base, normalised the way `turso-config.ts` normalises it. */
-const PIPELINE_URL = LIVE ? `${ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, "")}/v2/pipeline` : "";
 
 /** ★★★ THE PARTITION KEY THE APP WILL USE, DERIVED NOT GUESSED — and asserting
  *  against it is itself a real test of the `(id, project_id)` scheme.
@@ -110,27 +87,6 @@ const PIPELINE_URL = LIVE ? `${ENV.url.replace(/^libsql:\/\//, "https://").repla
  *  the right reason. */
 const E2E_PROJECT_ID = "e2e-1";
 
-/** Raw pipeline call from the TEST process, for setup, verification and
- *  cleanup. This is the only way to prove a byte reached the table rather than
- *  that the UI looked happy.
- *  ★ Throws with the HTTP status only — never the URL, never the token. */
-async function pipeline(stmts: { sql: string; args?: { type: string; value: string }[] }[]) {
-  const res = await fetch(PIPELINE_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(ENV.token ? { Authorization: `Bearer ${ENV.token}` } : {}),
-    },
-    body: JSON.stringify({ requests: stmts.map((stmt) => ({ type: "execute", stmt })) }),
-  });
-  if (!res.ok) throw new Error(`pipeline HTTP ${res.status}`);
-  const json = (await res.json()) as {
-    results?: { type: string; error?: { message?: string }; response?: { result?: { rows?: { value: string }[][] } } }[];
-  };
-  return json.results ?? [];
-}
-
-const txt = (value: string) => ({ type: "text" as const, value });
 
 const ASSET_DDL =
   "CREATE TABLE IF NOT EXISTS document_asset_data (id TEXT, project_id TEXT, data TEXT, PRIMARY KEY (id, project_id))";
@@ -390,16 +346,37 @@ async function trackAndCollect(page: Page, before: string[]): Promise<string> {
 
 // ── Suite ───────────────────────────────────────────────────────────────────
 
+// ★★★ NO TRACE, NO VIDEO. The app under test carries the database token in its
+// client bundle and sends `Authorization: Bearer …` on every request, and the
+// config's `trace: "retain-on-failure"` captures both, so a failing run would
+// write the token into `test-results/**/trace.zip`, which CI uploads on failure.
+// File-level, because `trace` and `video` are worker-scoped (a describe-level
+// `test.use` is a startup error). Screenshots capture pixels, not headers.
+test.use({ trace: "off", video: "off" });
+
 test.describe("document images — live Turso", () => {
-  // The ONLY skip: no credentials anywhere. Everything past this point asserts.
-  test.skip(!LIVE, "needs a live Turso database (.env.local NEXT_PUBLIC_TURSO_*)");
+  // The ONLY skips: no throwaway pair, or an app database that is not the
+  // throwaway one. Everything past this point asserts.
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
+
+  // Every app request to a Turso pipeline must reach the throwaway host:
+  // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
+  // the count is asserted, so no host name reaches a log.
+  let blockedHosts: string[] = [];
+  test.beforeEach(async ({ page }) => {
+    blockedHosts = await guardAppDatabase(page);
+  });
+  test.afterEach(() => {
+    expect(blockedHosts.length, "the app called a Turso database other than the throwaway one").toBe(0);
+  });
 
   test.beforeAll(async () => {
     // ★ Guarded independently of the describe-level skip: a `beforeAll` still
     // runs in some skip configurations, and unguarded it would POST to an empty
     // URL on a machine with no database — a confusing failure in the one
     // situation this file is supposed to stay quiet in.
-    if (!LIVE) return;
+    if (!appIsThrowaway()) return;
     // The two assets `e2e/seed-workspace.ts` puts in the workspace METADATA have no bytes
     // in any real database, so without this every seeded image is dangling and
     // the render tests would measure a seeding gap rather than the product.
@@ -411,7 +388,7 @@ test.describe("document images — live Turso", () => {
   });
 
   test.afterAll(async () => {
-    if (!LIVE) return;
+    if (!appIsThrowaway()) return;
     for (const id of [E2E_DOCUMENT_ASSET.id, E2E_DOCUMENT_ASSET_IMAGE_ONLY.id, ...minted]) {
       await deleteAssetBytes(id).catch(() => {});
     }
@@ -668,7 +645,7 @@ test.describe("document images — live Turso", () => {
     // ★★★ EXACTLY ONE REQUEST IS INTERCEPTED, and only the one that carries the
     // asset byte write. Everything else — the ids-diff query, the byte read
     // back, comm-templates, operating guides, scheduled jobs, and the RETRY
-    // itself — goes to the real database via `route.continue()`. This is the
+    // itself — goes on to the real database via `route.fallback()` (through `guardAppDatabase`). This is the
     // one thing a live database cannot produce on demand: a transport failure
     // at a chosen moment. It is a simulated NETWORK fault, not a simulated
     // store; the row it fails to write is a row the real table genuinely does
@@ -681,7 +658,7 @@ test.describe("document images — live Turso", () => {
         await route.fulfill({ status: 503, contentType: "text/plain", body: "one-shot transport failure" });
         return;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await gotoApp(page);
@@ -823,16 +800,14 @@ test.describe("document images — live Turso", () => {
     await expect(page.locator('input[type="file"][accept*="image/png"]')).toHaveCount(0);
   });
 
-  // ★★★ CHARACTERIZATION OF A KNOWN DEFECT — docs/open-followups.md §210.
-  // Asserts the image is BROKEN in a standalone HTML export, which is what the
-  // code does today: `renderDocumentHtml`'s `assets` argument has no production
-  // caller, so `inlineDocumentImages` never runs. Meant to go RED when §210 is
-  // fixed, at which point invert it to assert a `data:` URI. Same shape as
-  // `e2e/seed-content.spec.ts`'s §126 count. A green run here is NOT "export
-  // works".
-  // ★ A live database changes nothing about this — the export path never reads
-  // the byte store at all, which is the defect.
-  test("standalone HTML export emits the image with no source at all (§210, characterization)", async ({ page }) => {
+  // ★★★ §210, INVERTED. This was a characterization of the defect (the export
+  // carried the image with no source), meant to go RED once §210 was fixed. §210
+  // closed in 0.256.0, but this file only runs against a live database, so it did
+  // not go red until its first live run on 2026-10-10. It now pins the fix: the
+  // standalone HTML export loads the bytes from the live store and inlines them
+  // as a `data:` URI, byte for byte the asset `beforeAll` wrote, with no
+  // missing-image marker.
+  test("standalone HTML export inlines the image from the live store as a data: URI (§210)", async ({ page }) => {
     await suppressTour(page);
     await gotoApp(page);
     await openView(page, "Documents");
@@ -847,207 +822,11 @@ test.describe("document images — live Turso", () => {
 
     const imgTag = html.match(/<img\b[^>]*data-asset-id="e2e-asset-1"[^>]*>/);
     expect(imgTag, "the exported HTML carries no image element at all").toBeTruthy();
-    expect(imgTag![0], "§210 appears FIXED — invert this test to assert a data: URI").not.toContain("src=");
-    expect(html, "§210 appears FIXED — the missing-image marker is now stamped").not.toContain(
+    expect(imgTag![0], "the export did not inline the stored bytes (§210 is back)").toContain(
+      `src="data:${E2E_DOCUMENT_ASSET.mime};base64,${E2E_DOCUMENT_ASSET.base64}"`,
+    );
+    expect(html, "the export stamped the missing-image marker on an image whose bytes exist").not.toContain(
       'data-asset-missing="true"',
     );
-  });
-});
-
-// ── §211: the idKind landmine, against a real SQLite engine ─────────────────
-//
-// ★★★ RUNS LAST AND DELIBERATELY BREAKS A TABLE. It drops and recreates
-// `document_assets` on the throwaway database, and leaves it with the CORRECT
-// DDL when it finishes. Nothing above depends on that table — the byte side
-// table is `document_asset_data`, which this never touches — so the ordering is
-// belt-and-braces rather than load-bearing.
-//
-// ★★★ WHY NO UNIT TEST CAN REACH THIS, WHICH IS THE WHOLE POINT.
-// `colDdl` renders any column named `id` as `id INTEGER PRIMARY KEY` unless the
-// spec declares `idKind: "text"` — a rowid alias, the ONE column type SQLite
-// actually enforces. `DocumentAsset` is the first entity whose id is a
-// `crypto.randomUUID()`, and `insertStmt` binds it as `{type:"text"}`. Against
-// the pre-`idKind` DDL a real engine answers `datatype mismatch`; against
-// `entity-persistence-registry.test.ts`, which MATCHES DDL STRINGS and never
-// executes a statement, nothing happens at all. Only an engine can tell those
-// two apart.
-//
-// ★★ THE HONEST SCOPE OF WHAT THIS REPRODUCES. It proves the ENGINE half: the
-// bad DDL rejects the insert, and the batch KEEPS GOING — COMMIT still runs, so
-// a co-resident write in the same batch SURVIVES. That is what the assertion
-// below measures, and an earlier revision of this very comment claimed the
-// opposite ("the transaction never commits, so a co-resident write is lost"),
-// contradicting the test 120 lines beneath it. It does NOT drive the app into
-// that state,
-// because the workspace save only emits these statements when
-// `settings.storageConfig.kind === "turso"`, and `e2e/seed.ts` seeds the
-// BROWSER backend — asset METADATA rides IndexedDB there while only the BYTES
-// go to Turso. Reproducing "every subsequent workspace save fails" through the
-// UI needs a Turso-STORAGE workspace, which is a different seed. Stated rather
-// than blurred.
-test.describe("§211 — a text id against the pre-idKind DDL", () => {
-  test.skip(!LIVE, "needs a live Turso database (.env.local NEXT_PUBLIC_TURSO_*)");
-
-  /** A co-resident write, standing in for the tasks/RAID/milestone inserts that
-   *  share the workspace save's single transaction. Its survival is the
-   *  observable separating "one row was rejected" from "the whole save was
-   *  lost". */
-  const MARKER_DDL = "CREATE TABLE IF NOT EXISTS e2e_probe_marker (id TEXT PRIMARY KEY, note TEXT)";
-
-  /** The app's OWN spec and builders, imported rather than restated, so this
-   *  probe cannot drift from the DDL production actually emits. */
-  const assetSpec = ENTITY_SPECS.find((s) => s.table === "document_assets")!;
-
-  /** Mirrors `insertStmt`'s binding rule for `idKind: "text"` — every column
-   *  bound as TEXT, id included. That binding is the thing under test. */
-  const assetInsertArgs = (id: string) =>
-    assetSpec.columns.map((c) => txt(c === "id" ? id : c === "name" ? "probe.png" : ""));
-
-  const assetInsertSql = () =>
-    `INSERT INTO document_assets (${assetSpec.columns.map((c) => `"${c}"`).join(",")}) ` +
-    `VALUES (${assetSpec.columns.map(() => "?").join(",")})`;
-
-  /** One workspace-save-shaped transaction: a co-resident row plus one asset
-   *  row, inside a single BEGIN…COMMIT. */
-  const saveShapedTransaction = (note: string) =>
-    pipeline([
-      { sql: MARKER_DDL },
-      { sql: "BEGIN" },
-      { sql: "INSERT OR REPLACE INTO e2e_probe_marker (id, note) VALUES (?, ?)", args: [txt("m1"), txt(note)] },
-      { sql: assetInsertSql(), args: assetInsertArgs("11111111-2222-3333-4444-555555555555") },
-      { sql: "COMMIT" },
-    ]);
-
-  async function markerNote(): Promise<string | null> {
-    const results = await pipeline([
-      { sql: MARKER_DDL },
-      { sql: "SELECT note FROM e2e_probe_marker WHERE id = ?", args: [txt("m1")] },
-    ]);
-    const rows = results[1]?.response?.result?.rows ?? [];
-    return rows.length ? (rows[0][0]?.value ?? null) : null;
-  }
-
-  test.afterAll(async () => {
-    if (!LIVE) return;
-    // Leave the database with the CORRECT schema and no probe leftovers.
-    await pipeline([
-      { sql: "DROP TABLE IF EXISTS e2e_probe_marker" },
-      { sql: "DROP TABLE IF EXISTS document_assets" },
-      { sql: `CREATE TABLE IF NOT EXISTS document_assets (${colDdl(assetSpec.columns, assetSpec.idKind)})` },
-    ]).catch(() => {});
-  });
-
-  test("the spec declares a text id, and the bytes table stays out of TABLE_NAMES", async () => {
-    // Two AGENTS.md claims checked against the code rather than restated: the
-    // declaration that makes the DDL correct, and the exclusion that keeps a
-    // workspace save's per-table DELETE sweep away from the image bytes.
-    expect(assetSpec.idKind, "document_assets no longer declares a text id — §211 is live again").toBe("text");
-    expect(TABLE_NAMES).toContain("document_assets");
-    expect(
-      TABLE_NAMES,
-      "document_asset_data entered TABLE_NAMES — a workspace save would now wipe every image",
-    ).not.toContain("document_asset_data");
-  });
-
-  test("the pre-idKind DDL rejects the insert — and the batch still COMMITS around it", async () => {
-    await pipeline([
-      { sql: "DROP TABLE IF EXISTS e2e_probe_marker" },
-      { sql: "DROP TABLE IF EXISTS document_assets" },
-      // The OLD shape, from the SAME builder with the default idKind — exactly
-      // what production emitted before the fix, not an approximation of it.
-      { sql: `CREATE TABLE document_assets (${colDdl(assetSpec.columns, "integer")})` },
-    ]);
-
-    const results = await saveShapedTransaction("before");
-    const errors = results.map((r) => r?.error?.message ?? "").filter((m) => m !== "");
-
-    // ── The §211 core, and it holds ─────────────────────────────────────────
-    expect(
-      errors.join(" | "),
-      "a text id against `id INTEGER PRIMARY KEY` was accepted — SQLite's rowid-alias enforcement is " +
-        "the only thing that makes idKind matter, so this probe is not reaching a real engine",
-    ).toMatch(/datatype mismatch/i);
-
-    // ── And here the measurement CONTRADICTS the documented mechanism ────────
-    //
-    // ★★★ `turso-schema.ts`'s own comment and AGENTS.md's `idKind` bullet both
-    // say "COMMIT is never reached, and ONE such row stops the WHOLE workspace
-    // from ever saving". Measured against this engine, the FIRST half is false
-    // and that changes what the second half means. A libSQL `/v2/pipeline`
-    // batch does NOT abort at a failing statement: it returns an error result
-    // for that one and KEEPS EXECUTING, so the trailing COMMIT runs, returns
-    // `ok`, and commits everything that succeeded. Reproduced standalone with
-    // a two-table minimal case (`id INTEGER PRIMARY KEY` fed a text id inside
-    // BEGIN…COMMIT): per-statement types came back
-    // `ok, ok, error(datatype mismatch), ok` and the co-resident row was
-    // readable afterwards over a fresh connection.
-    //
-    // ★★★ THE REAL FAILURE MODE WAS WORSE THAN THE DOCUMENTED ONE, not milder.
-    // Until §637, `runTursoPipeline` scanned the results, saw the error, called
-    // `rollbackBestEffort` — which ran against a transaction that had ALREADY
-    // COMMITTED, so it changed nothing — and threw. The user is shown
-    // a failed save while the workspace was in fact written, minus the one
-    // rejected row. "Every save reports failure" is right; "nothing is saved"
-    // is not, and a reader who believes the latter will not go looking for the
-    // partially-written data.
-    //
-    // ★★ This assertion therefore pins the MEASURED behaviour, deliberately not
-    // the documented one. If it ever goes red because the marker is absent, the
-    // engine (or the pipeline protocol) started aborting batches at the first
-    // error — at which point the docs became right and this comment is what
-    // needs deleting.
-    //
-    // ★★★ §637: this is the ENGINE's behaviour for separate `execute`
-    // requests, which this probe's raw `pipeline` helper still sends. The app no
-    // longer does: `runTursoPipeline` sends a BEGIN…COMMIT list as one
-    // conditional batch, which the next test pins.
-    expect(
-      await markerNote(),
-      "the co-resident write did NOT survive — this engine aborted the batch at the failing " +
-        "statement. That would make turso-schema.ts's 'COMMIT is never reached' correct and this " +
-        "test's premise stale; re-measure and rewrite both.",
-    ).toBe("before");
-  });
-
-  test("§637 — the same transaction through runTursoPipeline writes nothing, and reports the failure", async () => {
-    await pipeline([
-      { sql: "DROP TABLE IF EXISTS e2e_probe_marker" },
-      { sql: MARKER_DDL },
-      { sql: "DROP TABLE IF EXISTS document_assets" },
-      { sql: `CREATE TABLE document_assets (${colDdl(assetSpec.columns, "integer")})` },
-    ]);
-    const config = { httpUrl: PIPELINE_URL.replace(/\/v2\/pipeline$/, ""), authToken: ENV.token };
-
-    await expect(
-      runTursoPipeline(config, [
-        { sql: "BEGIN" },
-        { sql: "INSERT OR REPLACE INTO e2e_probe_marker (id, note) VALUES (?, ?)", args: [txt("m1"), txt("atomic")] },
-        { sql: assetInsertSql(), args: assetInsertArgs("11111111-2222-3333-4444-555555555555") },
-        { sql: "COMMIT" },
-      ]),
-    ).rejects.toThrow(/datatype mismatch/i);
-    expect(
-      await markerNote(),
-      "the co-resident write survived a failed runTursoPipeline save — the batch committed around " +
-        "the rejected row again (§637)",
-    ).toBeNull();
-  });
-
-  test("dropping the table is a real remedy — the same transaction then commits", async () => {
-    // The documented repair. `turso-migrate.ts` self-heals a MISSING COLUMN by
-    // PRAGMA-diff plus ALTER ADD COLUMN, but a wrong TYPE on the primary key is
-    // not something ALTER can fix, so the table has to go.
-    await pipeline([
-      { sql: "DROP TABLE IF EXISTS document_assets" },
-      { sql: `CREATE TABLE document_assets (${colDdl(assetSpec.columns, assetSpec.idKind)})` },
-    ]);
-
-    const results = await saveShapedTransaction("after");
-    const errors = results.map((r) => r?.error?.message ?? "").filter((m) => m !== "");
-    expect(errors, "the corrected DDL still rejected the insert").toEqual([]);
-    expect(
-      await markerNote(),
-      "the transaction reported no error but the co-resident write is still missing",
-    ).toBe("after");
   });
 });

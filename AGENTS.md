@@ -634,16 +634,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   reports failure.
   ★★★ **A PIPELINE OF SEPARATE `execute` REQUESTS DOES NOT STOP AT A FAILING STATEMENT.** It
   errors that ONE statement and keeps executing, so COMMIT runs and commits everything that
-  succeeded — measured against a live database and pinned by `documents-images-interactive.spec.ts`'s
+  succeeded — measured against a live database and pinned by `turso-ddl-probe-live.spec.ts`'s
   "the pre-idKind DDL rejects the insert — and the batch still COMMITS around it". Until §637 the
   save was sent that way, so the user saw a failed save **while the workspace was written, minus
   the rejected row**. Since §637 `runTursoPipeline` sends a BEGIN…COMMIT list as ONE Hrana
   `batch` whose steps each run only if the previous one succeeded, with a ROLLBACK step when
-  COMMIT did not: a failed save now writes nothing, per the Hrana protocol. The same spec's
-  "§637 — … through runTursoPipeline writes nothing" checks that, but it has NOT yet run against a
-  live database (owed, register §637). ★ Both SKIP without a live database (the spec parses
-  `.env.local` itself — playwright does not), so CI is green on them and silent about this: the
-  claim is only ever re-checked by someone running them against a real Turso project.
+  COMMIT did not: a failed save now writes nothing. The same spec's "§637 — … through
+  runTursoPipeline writes nothing" checks that, and passed against a live database on 2026-10-10;
+  a live mutant that dropped the step conditions made it fail on the surviving co-resident write
+  (register §637). ★ Both SKIP unless the throwaway pair `TURSO_THROWAWAY_*` is set
+  (`e2e/live-turso-env.ts`) and run only through `npm run e2e:live-destructive`, so CI is green on
+  them and silent about this: the claim is only ever re-checked by someone running them against a
+  real Turso project.
   `EntitySpec.idKind`
   defaults to `"integer"`, so an omission is silent at every layer that does not execute SQL — and
   a DDL-string-matching test cannot see it either (`entity-persistence-registry.test.ts` never

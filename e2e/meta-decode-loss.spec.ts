@@ -65,8 +65,8 @@
 //
 // ★★ PARTITION-SCOPED, NOTHING DROPPED. Every write is under E2E_PROJECT_ID and
 // removed in `afterAll`. This file never runs DROP or TRUNCATE and never touches
-// a row outside its partition — unlike `documents-images-interactive.spec.ts`,
-// whose §211 probe drops a shared table. It is still a destructive test BY
+// a row outside its partition — unlike `turso-ddl-probe-live.spec.ts`, whose
+// §211 probe drops a shared table. It is still a destructive test BY
 // DESIGN (it corrupts a blob and then proves the app can be made to overwrite
 // it), so point it at a scratch database, never one you care about.
 //
@@ -78,59 +78,17 @@
 // server on that port, so there is nothing to start first:
 //   PORT=3100 npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
+import {
+  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+} from "./live-turso-env";
+import { ensureTenantSchema } from "./live-turso-schema";
 // ── Live-database configuration ─────────────────────────────────────────────
 
-/** Parse `.env.local` in the TEST process: playwright does not load it, only
- *  Next does, so `process.env` is not a usable source here. A `test.skip` on
- *  `process.env.NEXT_PUBLIC_TURSO_DATABASE_URL` written the obvious way is
- *  ALWAYS true here and would skip everything against a perfectly live database.
- *  ★ Values are returned, never logged. Callers treat them as opaque. */
-function readEnvLocal(): { url: string; token: string } {
-  const fromProcess = {
-    url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
-    token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
-  };
-  // ★★ BOTH halves must be present before the shell wins. Short-circuiting on
-  // `url` alone lets a stale `NEXT_PUBLIC_TURSO_DATABASE_URL` exported in the
-  // shell redirect THE TEST PROCESS while the dev server still reads
-  // `.env.local` — two different databases, one run. That fails loudly at the
-  // liveness assertion, but only after this file has written and deleted a
-  // partition in the wrong one.
-  if (fromProcess.url && fromProcess.token) return fromProcess;
-  // ★★★ RESOLVE AGAINST THE REPO, NOT THE CWD. A bare ".env.local" is
-  // cwd-relative, so invoking playwright from any other directory finds no file,
-  // `LIVE` is false, and the describe SKIPS — against a perfectly live database.
-  // That is the silent false green this file's header spends nine lines warning
-  // about, reintroduced by its own loader.
-  // ★★ `__dirname`, NOT `import.meta.url`. Playwright transpiles specs to CJS,
-  // where `import.meta` is a runtime SyntaxError — and `npx tsc --noEmit`
-  // ACCEPTS it, so the failure appears only when the file actually runs, as
-  // "No tests found" rather than as a type error. Measured here, not reasoned.
-  const envPath = join(__dirname, "..", ".env.local");
-  if (!existsSync(envPath)) return { url: "", token: "" };
-  const txt = readFileSync(envPath, "utf8");
-  const read = (key: string) => {
-    const m = txt.match(new RegExp(`^${key}=(.*)$`, "m"));
-    // Strip surrounding quotes and the CR of a CRLF file — both are silent
-    // corruptions that yield an unparseable URL rather than an error.
-    return (m?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  };
-  return {
-    url: read("NEXT_PUBLIC_TURSO_DATABASE_URL"),
-    token: read("NEXT_PUBLIC_TURSO_AUTH_TOKEN"),
-  };
-}
-
-const ENV = readEnvLocal();
-const LIVE = ENV.url !== "";
-const PIPELINE_URL = LIVE
-  ? `${ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, "")}/v2/pipeline`
-  : "";
+/** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
+const ENV = THROWAWAY;
 
 /** This file's own partition. Nothing outside it is read or written. */
 const E2E_PROJECT_ID = "e2e-decode-loss";
@@ -271,6 +229,9 @@ const PARTITION_TABLES = [
 ] as const;
 
 async function cleanup(): Promise<void> {
+  // The tables may not exist yet: the table-dropping live specs share this
+  // database and leave none behind. CREATE TABLE IF NOT EXISTS only, never a DROP.
+  await ensureTenantSchema();
   const results = await pipeline([
     ...PARTITION_TABLES.map((t) => ({
       sql: `DELETE FROM ${t} WHERE project_id = ?`,
@@ -344,16 +305,22 @@ async function seedProject(): Promise<void> {
  *  takes truncation, corruption or a foreign write — but the CONSEQUENCE, once
  *  malformed, was not narrow at all. */
 async function corruptDocumentsBlob(): Promise<void> {
-  await pipeline([
-    {
-      // ★ INSERT OR REPLACE, not UPDATE. An UPDATE silently matches zero rows if
-      // the app deleted the row a moment earlier (its save is DELETE-then-
-      // re-insert), and the verification then fails with no clue why. This lands
-      // either way, so a failure downstream means something real.
-      sql: "INSERT OR REPLACE INTO meta (key, value, project_id) VALUES (?, ?, ?)",
-      args: [txt("documents"), txt("{not json"), txt(E2E_PROJECT_ID)],
-    },
+  // ★ DELETE then INSERT, between BEGIN and COMMIT. Not UPDATE: it silently matches zero
+  // rows if the app deleted the row a moment earlier (its save is DELETE-then-
+  // re-insert). Not INSERT OR REPLACE either: the TENANT `meta` table has no key
+  // (`tenantSchemaDdl`), so OR REPLACE never replaces — it appends a second
+  // `documents` row and the read-back still finds the first. Measured live on
+  // 2026-10-10: the corruption never landed. The app is unmounted before this runs.
+  // ★ Separate execute requests do NOT make this all-or-nothing (that is the
+  // §637 behaviour): a failing INSERT would still let COMMIT keep the DELETE. So
+  // every statement is asserted, and the read-back checks what landed.
+  const results = await pipeline([
+    { sql: "BEGIN" },
+    { sql: "DELETE FROM meta WHERE key = ? AND project_id = ?", args: [txt("documents"), txt(E2E_PROJECT_ID)] },
+    { sql: "INSERT INTO meta (key, value, project_id) VALUES (?, ?, ?)", args: [txt("documents"), txt("{not json"), txt(E2E_PROJECT_ID)] },
+    { sql: "COMMIT" },
   ]);
+  assertNoStatementErrors(results, "corruptDocumentsBlob");
 }
 
 /** The localStorage writes that put the app in TENANT Turso mode on its first
@@ -410,11 +377,23 @@ async function openDocuments(page: Page): Promise<void> {
 test.use({ trace: "off", video: "off" });
 
 test.describe("§284 — a malformed meta blob is caught before the next save destroys it", () => {
-  test.skip(!LIVE, "no .env.local Turso credentials — see the header; a skip is never evidence of a pass");
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
+
+  // Every app request to a Turso pipeline must reach the throwaway host:
+  // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
+  // the count is asserted, so no host name reaches a log.
+  let blockedHosts: string[] = [];
+  test.beforeEach(async ({ page }) => {
+    blockedHosts = await guardAppDatabase(page);
+  });
+  test.afterEach(() => {
+    expect(blockedHosts.length, "the app called a Turso database other than the throwaway one").toBe(0);
+  });
 
 
   test.afterAll(async () => {
-    if (LIVE) await cleanup();
+    if (appIsThrowaway()) await cleanup();
   });
 
   test("withholds the save that would destroy the blob, and commits it only on Save anyway", async ({ page }) => {

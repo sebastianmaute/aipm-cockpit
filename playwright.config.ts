@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
+import { appHasTursoToken } from "./e2e/live-turso-env";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -11,6 +12,32 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 // worker re-evaluates this file and keeps the inherited value), handed to the
 // webServer below and read back by e2e/a11y.spec.ts's guard from data-boot-nonce.
 const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) : undefined;
+
+// ★★★ Live-Turso specs that DROP tables (`e2e/live-turso-env.ts` names the database
+// they may touch). Every live spec shares ONE throwaway database, and the default
+// run is fullyParallel, so a spec dropping `document_assets` or every workspace
+// table beside the partition-scoped UI specs would pull tables out from under
+// them. They live in their own project, which runs its files one at a time and
+// which `chromium` ignores; run it on its own (`npm run e2e:live-destructive`),
+// never in the same invocation as `chromium`.
+const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
+
+// ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
+// `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
+// and sends `Authorization: Bearer …`: a trace records that header, and CI
+// uploads `playwright-report/` on failure, so with Turso secrets it would publish
+// it. Video goes off with it: no token is known to appear in a frame (every token
+// field is type="password", and the Turso one is hidden while an env token is
+// set), but a video is the one artifact nobody audits frame by frame. Decided
+// from the env Next itself would load (`appHasTursoToken`), not from
+// `process.env` alone. Failures then debug from screenshots and logs; screenshots
+// stay on because the app never renders a token as plain text. Locally this also
+// applies to a developer whose `.env.local` holds their own token, so it says so
+// once per run rather than leaving a missing trace to look like a bug.
+const APP_HAS_TURSO_TOKEN = appHasTursoToken();
+if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
+  console.log("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)");
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,9 +51,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["html"], ["github"]] : "html",
   use: {
     baseURL: BASE_URL,
-    trace: "retain-on-failure",
+    trace: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
   },
   projects: [
     {
@@ -35,7 +62,7 @@ export default defineConfig({
       // below: it drives a PACKAGED Electron app that no CI runner builds, so
       // left in this project it would fail (or skip) in the blocking e2e job.
       name: "chromium",
-      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/],
+      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -81,6 +108,15 @@ export default defineConfig({
       timeout: 240_000,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // Table-dropping live-Turso specs (see LIVE_TURSO_DESTRUCTIVE above):
+      // opt-in (`npm run e2e:live-destructive`), one file at a time. They drive
+      // no browser, so no app server is needed (PLAYWRIGHT_NO_WEBSERVER=1).
+      name: "live-turso-destructive",
+      testMatch: LIVE_TURSO_DESTRUCTIVE,
+      workers: 1,
+      fullyParallel: false,
     },
     // Add firefox / webkit later if cross-browser coverage is needed:
     // { name: "firefox", use: { ...devices["Desktop Firefox"] } },
