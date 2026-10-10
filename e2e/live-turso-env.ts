@@ -88,7 +88,10 @@ function nextEnvProbe(check: string, extraEnv: Record<string, string>, opts: { d
     encoding: "utf8",
   });
   if (res.status !== 0) {
-    throw new Error(`live-turso-env: the env probe failed (status ${res.status}, ${res.error?.name ?? "no spawn error"})`);
+    // The child prints no env value, so its stderr (a require or loader failure) is safe to show.
+    throw new Error(
+      `live-turso-env: the env probe failed (status ${res.status}, ${res.error?.name ?? "no spawn error"}): ${(res.stderr ?? "").trim().slice(0, 500)}`,
+    );
   }
   return res.stdout === "1";
 }
@@ -124,11 +127,13 @@ export function appIsThrowaway(): boolean {
  *  a Turso pipeline on a host other than the throwaway one, and return the hosts
  *  it blocked, for the spec to assert empty. Covers a server started with other
  *  settings, which `appIsThrowaway` cannot see.
- *  ★★ Playwright runs route handlers in REVERSE registration order, so a route a
- *  test registers AFTER this one runs FIRST: it must end in `route.fallback()`,
- *  never `route.continue()` or `fulfill()` for a request it means to let through,
- *  or that request skips this guard. Requests to the throwaway host fall back to
- *  any route registered BEFORE this one, then to the network. */
+ *  ★★ Playwright runs every PAGE route before any CONTEXT route, whatever the
+ *  registration order, and within each level the most recently registered first.
+ *  So any `page.route` a test adds runs before this guard: it must end in
+ *  `route.fallback()`, never `route.continue()` or `fulfill()`, for a request it
+ *  means to let through, or that request skips this guard. Requests to the
+ *  throwaway host fall back to context routes registered before this one, then to
+ *  the network. */
 export async function guardAppDatabase(page: Page): Promise<string[]> {
   const blocked: string[] = [];
   const allowed = LIVE ? new URL(pipelineBase(THROWAWAY.url)).host : "";

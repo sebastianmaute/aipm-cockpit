@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { appHasTursoToken } from "./e2e/live-turso-env";
+
+// ★★★ Same rule as playwright.config.ts: no trace and no video when the app
+// carries a Turso token, because a trace records the `Authorization` header.
+const APP_HAS_TURSO_TOKEN = appHasTursoToken();
 
 // ★★★ A SEPARATE CONFIG, DELIBERATELY — do NOT fold these projects into
 // `playwright.config.ts`. Adding a `firefox` project there would make CI run
@@ -45,9 +50,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["html"], ["github"]] : [["list"]],
   use: {
     baseURL: BASE_URL,
-    trace: "retain-on-failure",
+    trace: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

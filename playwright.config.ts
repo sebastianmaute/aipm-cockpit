@@ -24,13 +24,20 @@ const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec
 
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
 // `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
-// and sends `Authorization: Bearer …`: a trace records that header, and a video
-// frame of Settings can show a token field. CI uploads `playwright-report/` on
-// failure, so with Turso secrets either would publish it. Decided from the env
-// Next itself would load (`appHasTursoToken`), not from `process.env` alone.
-// Failures then debug from screenshots and logs; screenshots stay on because the
-// app never renders a token as plain text.
+// and sends `Authorization: Bearer …`: a trace records that header, and CI
+// uploads `playwright-report/` on failure, so with Turso secrets it would publish
+// it. Video goes off with it: no token is known to appear in a frame (every token
+// field is type="password", and the Turso one is hidden while an env token is
+// set), but a video is the one artifact nobody audits frame by frame. Decided
+// from the env Next itself would load (`appHasTursoToken`), not from
+// `process.env` alone. Failures then debug from screenshots and logs; screenshots
+// stay on because the app never renders a token as plain text. Locally this also
+// applies to a developer whose `.env.local` holds their own token, so it says so
+// once per run rather than leaving a missing trace to look like a bug.
 const APP_HAS_TURSO_TOKEN = appHasTursoToken();
+if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
+  console.log("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)");
+}
 
 export default defineConfig({
   testDir: "./e2e",
