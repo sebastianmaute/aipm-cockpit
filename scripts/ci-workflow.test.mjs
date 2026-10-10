@@ -424,7 +424,8 @@ describe("live-turso.yml", () => {
   const job = jobBlock(LIVE, "live-turso");
   // Comment lines name what they forbid; only the YAML itself is checked.
   const code = (text) => text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n");
-  const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => f.endsWith(".yml"));
+  // GitHub runs .yaml as well as .yml.
+  const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => /\.ya?ml$/.test(f));
 
   it("is a secret check plus the live job, and neither is a required check", () => {
     expect(jobIds(LIVE)).toEqual(["check", "live-turso"]);
@@ -440,7 +441,8 @@ describe("live-turso.yml", () => {
   });
 
   // Every run shares one database. The group sits on the JOB, after the check, so a skipped run
-  // (a fork's pull request) never takes the slot and cannot replace a real run's pending one.
+  // (a fork's pull request) is expected never to take the slot. This pins where the YAML sits, not
+  // GitHub's behaviour, which is not yet observed on a real run (docs/AGENTS/ci.md).
   it("queues the live job on one fixed group, never cancels a running job, and leaves the check ungrouped", () => {
     expect(topLevelBlock(LIVE, "concurrency")).toEqual([]);
     expect(job).toMatch(/^ {4}concurrency:\r?\n {6}group: live-turso-throwaway-database\r?\n {6}cancel-in-progress: false$/m);
@@ -450,10 +452,26 @@ describe("live-turso.yml", () => {
   });
 
   // Loose on purpose: ${{secrets.X}} without a space, or toJSON(secrets), must not slip past.
+  // The line's shape alone is not enough: the same line inside a run: | body or under with: would
+  // match it, so the nearest less-indented line above each one must be an env: key.
   it("never puts a secret on a run: line, and reads only the two throwaway secrets", () => {
-    for (const line of code(LIVE).split("\n").filter((l) => /(?<!steps\.)\bsecrets\b/.test(l))) {
+    const lines = code(LIVE).split("\n");
+    const indent = (l) => l.match(/^\s*/)[0].length;
+    let seen = 0;
+    lines.forEach((line, i) => {
+      if (!/(?<!steps\.)\bsecrets\b/.test(line)) return;
+      seen++;
       expect(line, line).toMatch(/^\s+[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
-    }
+      const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
+      expect(parent, line).toMatch(/^\s+(- )?env:$/);
+    });
+    // check: 2, drop-tables step: 2, drive-app step: 4.
+    expect(seen).toBe(8);
+  });
+
+  // ${{ env.X }} on a run: line pastes the secret's value into the script text.
+  it("never interpolates the throwaway values through env.", () => {
+    expect(code(LIVE)).not.toMatch(/env\.(TURSO_THROWAWAY|NEXT_PUBLIC_TURSO)/);
   });
 
   // A fork's pull request, Dependabot and an unconfigured repository have no secrets: the check says
@@ -474,8 +492,11 @@ describe("live-turso.yml", () => {
       expect(appStep, v).toContain(`${v}: `);
     }
     expect(appStep).toMatch(/--project=chromium --workers=1/);
-    // One failure must not hide the other suite.
-    expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) \}\}/);
+    // One failure must not hide the other suite, but a failed setup must not add a second failure.
+    expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
+    const install = job.indexOf("id: install");
+    expect(install).toBeGreaterThan(-1);
+    expect(install).toBeLessThan(drop);
     const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
     expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
     // Separate report folders, so the second step does not overwrite the first's report.
@@ -483,19 +504,22 @@ describe("live-turso.yml", () => {
     expect(appStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drive-app/);
   });
 
-  it("uploads the reports on failure only, for 7 days", () => {
+  // Cancelled covers a run that hit timeout-minutes: the hung run's report is the one wanted.
+  it("uploads the reports on failure or cancellation only, for 7 days", () => {
     const up = job.slice(job.indexOf("uses: actions/upload-artifact@"));
-    expect(up).toMatch(/if: \$\{\{ failure\(\) \}\}/);
+    expect(up).toMatch(/if: \$\{\{ failure\(\) \|\| cancelled\(\) \}\}/);
     expect(up).toMatch(/path: playwright-report\//);
     expect(up).toMatch(/retention-days: 7/);
   });
 
   // Every other workflow, today's and any added later: there the live specs skip, and the app runs
-  // on browser storage.
+  // on browser storage. toJSON(secrets) and secrets: inherit hand over every secret without naming one.
   it("is the only workflow that reads the throwaway secrets", () => {
     expect(ALL_WORKFLOWS).toContain("live-turso.yml");
     for (const f of ALL_WORKFLOWS.filter((n) => n !== "live-turso.yml")) {
-      expect(code(read(`.github/workflows/${f}`)), f).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
+      const text = code(read(`.github/workflows/${f}`));
+      expect(text, f).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
+      expect(text, f).not.toMatch(/toJSON\(\s*secrets\s*\)|secrets:\s*inherit/);
     }
   });
 });

@@ -200,11 +200,12 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   never queues.
 - **`live-turso`** (`needs: check`, only when both are set) runs the specs. First
   `npm run e2e:live-destructive` (the specs that drop tables, one file at a time, no app server).
-  Then, even when that step failed, the specs that drive the app, `--workers=1`, on a dev server
-  started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`, so the app's database is the
-  throwaway one. The step's file filter names every live UI spec, including ones a later branch
-  adds. Each step writes its own report folder under `playwright-report/`, uploaded as
-  `live-turso-report` on failure only, for 7 days.
+  Then, even when that step failed (but not when setup failed), the specs that drive the app,
+  `--workers=1`, on a dev server started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`,
+  so the app's database is the throwaway one. The step's file filter names every live UI spec,
+  including ones a later branch adds. Each step writes its own report folder under
+  `playwright-report/`, uploaded as `live-turso-report` on failure or cancellation (a run that hits
+  `timeout-minutes` ends cancelled), for 7 days.
 - **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
   database kept for this workflow alone: the specs drop its tables. ★★★ The token must be scoped
   to that ONE database (`turso db tokens create <db>`), never a group or organisation token: what a
@@ -223,13 +224,20 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   run shares one database, so a running job is never cancelled. GitHub keeps ONE pending run per
   group, so a second run waits and a third REPLACES the waiting second, which ends "cancelled" and
   is not re-queued: re-run it by hand (Re-run jobs, or `workflow_dispatch`). The group sits on the
-  job, after `check`, so a run that skips (a fork's pull request) never takes the slot and cannot
-  replace a real run's pending one. `timeout-minutes: 40` bounds how long a hung run holds it.
+  job, after `check`, so a run that skips (a fork's pull request) is EXPECTED never to take the slot
+  or replace a real run's pending one. ★★ Expected, not yet observed: it rests on GitHub evaluating
+  the job's `if:` before the job joins its group, and the tests below pin only where the YAML sits.
+  To observe it once the secrets exist: while a real run is pending, start a run that skips (a
+  fork's pull request, or a `workflow_dispatch` with the secrets briefly unset) and check that the
+  pending run still starts. Record the result here. `timeout-minutes: 40` bounds how long a hung
+  run holds the slot.
 - **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules;
-  neither job a required check; no workflow using `pull_request_target`; the job-level fixed
-  concurrency group and an ungrouped `check`; secrets on `env:` lines only; the order of the two
-  steps and the second one running after a failure; the failure-only, 7-day upload; and no other
-  workflow file reading the throwaway secrets.
+  neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
+  job-level fixed concurrency group and an ungrouped `check`; every secret on a line directly under
+  an `env:` key, and no `env.` interpolation of the values; the order of the two steps, the second
+  running after a failure but not after a failed setup; the 7-day upload on failure or
+  cancellation; and no other workflow file naming the throwaway secrets or handing over every
+  secret (`toJSON(secrets)`, `secrets: inherit`).
 
 ## Weekly
 

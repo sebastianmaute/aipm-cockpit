@@ -21,7 +21,9 @@
 # never cancelled. GitHub keeps ONE pending run per group: a second run waits, and a third
 # REPLACES the waiting second, which ends "cancelled" and is not re-queued. Re-run it by hand
 # (Re-run jobs, or workflow_dispatch). The group sits on the JOB, after the check, so a skipped run
-# (a fork) never takes the slot and cannot cancel a real one.
+# (a fork) is EXPECTED never to take the slot or replace a real run's pending one: that rests on
+# GitHub evaluating the job's if: before it joins the group. Expected, not yet observed on a real
+# run; docs/AGENTS/ci.md says how to observe it.
 #
 # ★★ The two secrets go into BOTH pairs for the UI step: the specs read TURSO_THROWAWAY_*, and the
 # dev server the app runs on reads NEXT_PUBLIC_TURSO_*, so the app's database IS the throwaway one.
@@ -82,7 +84,9 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npx playwright install chromium
+      - name: Install Chromium
+        id: install
+        run: npx playwright install chromium
       # First and alone: the specs that DROP tables (the live-turso-destructive project, one file at
       # a time). The npm script sets E2E_LIVE_DESTRUCTIVE and PLAYWRIGHT_NO_WEBSERVER itself.
       - name: Live specs that drop tables
@@ -93,10 +97,11 @@ jobs:
         run: npm run e2e:live-destructive
       # Then the specs that drive the app, one at a time, on a dev server started with the throwaway
       # database as the app's own. Runs even when the step above failed, so one failure does not
-      # hide the other suite. The filter names every live UI spec, including ones a later branch
-      # adds; a name that matches no file is simply not run.
+      # hide the other suite, but not when setup failed (install's outcome is then failure or
+      # skipped), which would only add a second, misleading failure. The filter names every live
+      # UI spec, including ones a later branch adds; a name that matches no file is simply not run.
       - name: Live specs that drive the app
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
@@ -106,8 +111,10 @@ jobs:
         # The quoted filter is a regex with | in it; bash keeps it one argument.
         shell: bash
         run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1
+      # On failure, and on cancellation too: a run that hits timeout-minutes ends cancelled, and the
+      # hung run is the one whose report is wanted. Trace and video are off, so no token is in it.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ failure() }}
+        if: ${{ failure() || cancelled() }}
         with:
           name: live-turso-report
           path: playwright-report/
