@@ -18,7 +18,7 @@ import { RichTextEditor } from "./rich-text-editor-lazy";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input, Select } from "./form-controls";
+import { Input, Select, Checkbox } from "./form-controls";
 import { openBlockerCount } from "./blocker-log";
 import {
   computeTaskHealth,
@@ -52,9 +52,8 @@ import type { TaskBudgetLink } from "./use-task-budget-link";
 import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 import { buildRowTokens } from "./row-tokens";
+import { Button } from "./button";
 
-/** The Notes and Blockers launcher buttons share one look (they sit together). */
-const LOG_LAUNCHER_CLASS = `inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`;
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -188,11 +187,11 @@ export function TaskFormFields({
       {deletedElsewhere && <DeletedElsewhereBanner lang={lang} />}
       <TaskFormSection index={1} title={t(lang, "taskFormSectionDetails")}>
         <Field label={t(lang, "id")}>
-          <input
+          <Input
             type="text"
             value={`#${isEditing ? editingId : nextId}`}
             readOnly
-            className="w-full cursor-not-allowed rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground dark:border-line dark:bg-surface-muted dark:text-muted-foreground"
+            state="muted" className="w-full"
           />
         </Field>
 
@@ -296,18 +295,17 @@ export function TaskFormFields({
               />
             </div>
             {onAddAssigneeToAddressBook && (
-              <button
-                type="button"
+              <Button variant="secondary" size="md"
                 onClick={() =>
                   onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
                 }
                 disabled={editingIsJiraLinked}
                 aria-label={t(lang, "taskAddAssigneeToAddressBook")}
                 title={t(lang, "taskAddAssigneeToAddressBook")}
-                className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
+                className="shrink-0"
               >
                 +
-              </button>
+              </Button>
             )}
           </div>
           <CharCounter value={form.assignee} max={ASSIGNEE_MAX} id="assignee-counter" lang={lang} />
@@ -548,18 +546,17 @@ export function TaskFormFields({
             whose stored row is gone (deleted by another writer while the editor
             is open), since the window would close at once. */}
         <div className="sm:col-span-2">
-          <button
-            type="button"
+          <Button variant="secondary" size="md"
             onClick={onOpenNotes}
             disabled={!onOpenNotes || !storedTask}
             aria-describedby={deletedElsewhere ? deletedHintId : undefined}
             title={t(lang, "noteLogOpenHint")}
-            className={LOG_LAUNCHER_CLASS}
+            className="inline-flex items-center gap-1.5"
           >
             {storedTask
               ? `${t(lang, "noteLogTitle")} (${storedTask.noteLog?.length ?? 0})`
               : t(lang, "noteLogTitle")}
-          </button>
+          </Button>
           {/* The deleted-elsewhere line sits in the LAST launcher's cell: here
               only when the Blockers button is hidden. */}
           {deletedElsewhere && !isVisible("blockers") && <DeletedElsewhereHint id={deletedHintId} lang={lang} />}
@@ -573,18 +570,17 @@ export function TaskFormFields({
             there, since a new draft has no id for the window to write to. */}
         {isVisible("blockers") && (
           <div className="sm:col-span-2">
-            <button
-              type="button"
+            <Button variant="secondary" size="md"
               onClick={onOpenBlockers}
               disabled={!onOpenBlockers || !storedTask}
               aria-describedby={deletedElsewhere ? deletedHintId : undefined}
               title={t(lang, "taskHintBlockers")}
-              className={LOG_LAUNCHER_CLASS}
+              className="inline-flex items-center gap-1.5"
             >
               {storedTask
                 ? t(lang, "blockerLogButton", openBlockerCount(storedTask.blockerLog))
                 : t(lang, "blockerLogTitle")}
-            </button>
+            </Button>
             {deletedElsewhere && <DeletedElsewhereHint id={deletedHintId} lang={lang} withBlockers />}
           </div>
         )}
@@ -604,13 +600,11 @@ export function TaskFormFields({
           jiraEnabled &&
           jiraProjectKey && (
             <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.pushToJira}
                 onChange={(e) =>
                   setForm({ ...form, pushToJira: e.target.checked })
                 }
-                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               <span>
                 {t(

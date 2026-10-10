@@ -5,6 +5,7 @@
 // renders the project→budget link table plus its "Load my projects" controls.
 
 import { t, type Lang } from "./i18n";
+import { Badge } from "./badge";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { canLoadManagedProjects } from "./timelog-guards";
@@ -125,9 +126,9 @@ export function TimelogProjectsTable({
                     </td>
                     <td className="py-2 pr-2">
                       {pLink && (
-                        <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
+                        <Badge pill className="border border-line text-muted-foreground">
                           {t(lang, pLink.manual ? "timelogMatchManual" : "timelogMatchAuto")}
-                        </span>
+                        </Badge>
                       )}
                     </td>
                     <td className="py-2">

@@ -28,7 +28,7 @@ import { RagBadge } from "./rag-badge";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { rowLabel } from "./row-tokens";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Input } from "./form-controls";
 
 /** The bucket's Manual % complete, editable without opening the bucket modal.
  *  The placeholder shows the task-derived percentage so the override
@@ -75,7 +75,7 @@ export function ManualPercentCell({
         text={t(lang, "budgetPercentCompleteHint")}
         label={rowLabel(t(lang, "budgetPercentCompleteHint"), rowToken)}
       />
-      <input
+      <Input
         // ★★ Bucket-UNIQUE via `rowToken`, NOT merely bucket-qualified. N
         // identical "Manual % complete" labels is a WCAG 2.4.6 failure the axe
         // gate cannot see (of axe-core 4.12.1's rules, not one carrying a tag
@@ -98,7 +98,7 @@ export function ManualPercentCell({
         onFocus={draft.onFocus}
         onBlur={draft.onBlur}
         onKeyDown={draft.onKeyDown}
-        className={`w-16 rounded border border-line bg-surface px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+        size="xs" className="w-16 text-right tabular-nums"
       />
       <span aria-hidden="true">%</span>
     </span>

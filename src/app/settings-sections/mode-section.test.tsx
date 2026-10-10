@@ -143,3 +143,12 @@ describe("ModeSection", () => {
     expect(screen.queryByRole("button", { name: "Apply Advanced preset" })).not.toBeInTheDocument();
   });
 });
+
+// §691/§690 — Save is the accent Button and Discard the secondary one, both md.
+describe("ModeSection Save and Discard", () => {
+  it("draw the shared Button", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /^save/i }).className).toBe(buttonClassFor({ variant: "accent", size: "md" }));
+    expect(screen.getByRole("button", { name: /^discard/i }).className).toBe(buttonClassFor({ variant: "secondary", size: "md" }));
+  });
+});

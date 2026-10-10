@@ -15,6 +15,7 @@ import { ROW_RULE_CLASS, TABLE_HEAD_CLASS } from "./table-styles";
 import { useConfirm } from "./confirm-dialog";
 import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
+import { Select } from "./form-controls";
 
 interface LearningInsightsProps {
   lang: Lang;
@@ -105,7 +106,7 @@ export function LearningInsights({
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatBias(learnedBias(d))}</td>
                       <td className="px-3 py-2">
-                        <select
+                        <Select
                           // §248: no token map here, deliberately — `kind` is
                           // this list's React key (`Object.keys(state)`) and
                           // cannot repeat in one render, so a per-list token
@@ -125,7 +126,7 @@ export function LearningInsights({
                           // uniqueness; it is already shown untranslated as
                           // this row's own secondary text just above.
                           aria-label={rowLabel(t(lang, "learningColOverride"), `${sourceLabel(lang, kind)} (${kind})`)}
-                          className="rounded border border-line bg-background px-2 py-1 text-foreground"
+                          size="xs"
                           value={overrides[kind] ?? "auto"}
                           onChange={(e) => onSetOverride(kind, e.target.value as LearningOverride)}
                         >
@@ -134,7 +135,7 @@ export function LearningInsights({
                               {t(lang, OVERRIDE_LABEL_KEY[opt])}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                     </tr>
                   );

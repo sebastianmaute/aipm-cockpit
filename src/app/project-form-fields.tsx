@@ -14,7 +14,7 @@
 import { useId, useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
-import { fieldClass } from "./form-controls";
+import { fieldClass, Checkbox } from "./form-controls";
 import { Field } from "./form-field";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
@@ -313,11 +313,9 @@ export function CustomerFields({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.regulatory.includes(req)}
                 onChange={() => toggleRegulatory(req)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               {req}
             </label>
@@ -383,11 +381,9 @@ export function OptionalDetailsFields({
         <div className="flex flex-wrap gap-3">
           {IDENTITY_TYPES.map((type) => (
             <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.identityTypes.includes(type)}
                 onChange={() => toggleIdentityType(type)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               {type}
             </label>
@@ -785,13 +781,12 @@ function ContactPersonsControl({
           />
           <FieldError id={emailErrorId}>{emailError}</FieldError>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary" size="md"
           onClick={addDraft}
-          className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+          className="shrink-0"
         >
           {t(lang, "add")}
-        </button>
+        </Button>
       </div>
     </div>
   );

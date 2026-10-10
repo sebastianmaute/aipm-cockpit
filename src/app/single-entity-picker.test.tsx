@@ -49,7 +49,7 @@ describe("SingleEntityPicker", () => {
     const box = screen.getByRole("combobox");
     expect(box).toHaveAttribute("aria-autocomplete", "list");
     expect(box).toHaveAttribute("type", "text");
-    // FIELD_SIZE: md is `px-3 py-2 text-sm`, xs is `px-2 py-1 text-xs`.
+    // FIELD_SIZE: md is `px-3 py-2 text-sm`, xs is `px-2 py-1.5 text-xs`.
     expect(box.className).toContain("text-sm");
     rerender(<SingleEntityPicker {...props} inputSize="xs" />);
     expect(screen.getByRole("combobox").className).toContain("text-xs");

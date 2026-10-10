@@ -16,6 +16,7 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { BookmarkIcon, RectangleStackIcon } from "./icons";
 import { PopoverPanel } from "./popover-panel";
+import { Button } from "./button";
 import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
@@ -28,9 +29,6 @@ const POPOVER_CLASS = "w-72 overflow-y-auto p-3";
 
 const HEADING_CLASS =
   "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
-
-const PRIMARY_BTN_CLASS =
-  "rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A "save as template" tray icon (a tagged bookmark). */
 function SaveIcon() {
@@ -111,14 +109,14 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
               {t(lang, "templateSaveCaptures")}
             </p>
             <div className="flex justify-end">
-              <button
-                type="button"
+              <Button
+                variant="accent"
+                size="sm"
                 onClick={submit}
                 disabled={!trimmed}
-                className={PRIMARY_BTN_CLASS}
               >
                 {t(lang, "templateSaveAction")}
-              </button>
+              </Button>
             </div>
           </div>
       </PopoverPanel>
@@ -255,14 +253,14 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
               <span>{t(lang, "templateIncludeSeed")}</span>
             </label>
             <div className="flex justify-end">
-              <button
-                type="button"
+              <Button
+                variant="accent"
+                size="sm"
                 onClick={submit}
                 disabled={!hasTemplates}
-                className={PRIMARY_BTN_CLASS}
               >
                 {t(lang, "templateApplyAction")}
-              </button>
+              </Button>
             </div>
           </div>
       </PopoverPanel>

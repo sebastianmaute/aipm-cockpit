@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { Section } from "../report-table";
 import { type Lang, t } from "../i18n";
 import type { RaidItem, Task } from "../types";
+import { CELL_BUTTON } from "../control-classes";
 
 const LINK_CLASS =
-  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-ui-dark-blue hover:bg-surface-muted";
+  `${CELL_BUTTON} px-2 py-0.5 text-left text-foreground`;
 
 // Row body: a click-through button when a handler is supplied, else a plain span.
 function LinkItem({ onOpen, children }: { onOpen?: () => void; children: ReactNode }) {

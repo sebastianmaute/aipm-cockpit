@@ -21,7 +21,7 @@ import { effectiveTimelogConfig } from "./timelog-sanitize";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
-import { Input, Select } from "./form-controls";
+import { Input, Select, Checkbox } from "./form-controls";
 import { emailWriteRefusal } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import { useEmailDraft } from "./use-email-draft";
@@ -118,9 +118,7 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
     <div className="mt-4 border-t border-line pt-3">
       <h3 className="text-sm font-medium text-foreground">{t(lang, "timelogTitle")}</h3>
       <label className="mt-2 flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="h-4 w-4"
+        <Checkbox
           checked={config.enabled}
           onChange={(e) => {
             if (e.target.checked) notifyEnable();

@@ -23,8 +23,8 @@ import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manag
 import { DataTable } from "./data-table";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { EmptyState } from "./empty-state";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
-import { Checkbox, Input } from "./form-controls";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Checkbox, Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
@@ -32,6 +32,7 @@ import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
+import { CELL_BUTTON } from "./control-classes";
 
 const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
@@ -90,7 +91,7 @@ function DirectoryRoleSelect({
   );
   return (
     <td className="px-3 py-2">
-      <select
+      <Select
         aria-label={t(lang, "resourceRoleForRow", rowToken)}
         value={resource.roleId == null ? "" : String(resource.roleId)}
         // Stop the click bubbling to the row's onClick (opens the edit modal).
@@ -99,13 +100,13 @@ function DirectoryRoleSelect({
           const v = e.target.value === "" ? null : Number(e.target.value);
           onAssignRoleById(resource.id, v);
         }}
-        className={`w-full rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
+        size="xs" className="w-full"
       >
         <option value="">—</option>
         {sortedRoles.map((r) => (
           <option key={r.id} value={r.id}>{roleLabel(r, disciplines, grades)}</option>
         ))}
-      </select>
+      </Select>
     </td>
   );
 }
@@ -430,7 +431,7 @@ function ResourceDirectoryInner({
                       // unconditionally and why 2.5.3 holds by containment,
                       // not prefix.
                       aria-label={token}
-                      className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      className={`${CELL_BUTTON} px-2 py-0.5 font-medium text-foreground`}
                     >
                       {resourceDisplayName(r)}
                     </button>

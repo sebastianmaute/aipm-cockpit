@@ -10,10 +10,10 @@ import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { PopoverPanel } from "./popover-panel";
-import { FOCUS_RING } from "./interaction-styles";
 import { Button, PRIMARY_MATCHING_BORDER, type ButtonSize } from "./button";
 import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
+import { menuItemClass } from "./control-classes";
 
 export interface AssignOwnerBundle {
   resources: readonly Resource[];
@@ -211,7 +211,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, ext
   const item = (label: string, onClick: () => void) => (
     <button key={label} type="button"
       onClick={(e) => { stop(e); setMenuOpen(false); onClick(); }}
-      className={`px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}>{label}</button>
+      className={menuItemClass()}>{label}</button>
   );
   return (
     <span className="relative">

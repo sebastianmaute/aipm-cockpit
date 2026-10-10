@@ -10,6 +10,11 @@ import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames, expectButtonOrder } from "../test/toolbar-order";
+import { buttonClassFor } from "../test/button-variant";
+import { PRIMARY_MATCHING_BORDER } from "./button";
+import { menuItemClass } from "./control-classes";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
+import type { JSXElementConstructor, ReactNode } from "react";
 
 const TODAY = "2026-05-28";
 
@@ -193,10 +198,13 @@ const brBuckets: BudgetBucket[] = [
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
 ];
 
+const ALL_ADDABLE: AddableReportId[] = ["raid-report", "budget-report", "resource-report", "stakeholder-report"];
+
 function renderComposed(
   extraReports: AddableReportId[],
   onChange = vi.fn(),
   features?: FeatureModuleId[],
+  options?: { wrapper?: JSXElementConstructor<{ children: ReactNode }> },
 ) {
   render(
     <ReportsPanel
@@ -218,6 +226,7 @@ function renderComposed(
       onChangeExtraReports={onChange}
       features={features}
     />,
+    options,
   );
   return onChange;
 }
@@ -252,21 +261,58 @@ describe("ReportsPanel — composed reports", () => {
    *     unrelated to its name is worse than none.
    * Hide/restore coverage returns with Task 13's shelf and menu.
    */
-  it("the add-report select restores a hidden report onto the board", () => {
+  it("the add-report menu restores a hidden report onto the board", () => {
     renderComposed([]);
     expect(screen.queryByTestId("report-block-budget-report")).toBeNull();
-    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /budget report/i }));
     expect(screen.getByTestId("report-block-budget-report")).toBeInTheDocument();
+    // Picking closes the menu.
+    expect(screen.queryByRole("menu", { name: /add report/i })).toBeNull();
+  });
+
+  it("draws each Add report menu item with menuItemClass", () => {
+    renderComposed([]);
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    for (const item of within(screen.getByRole("menu", { name: /add report/i })).getAllByRole("menuitem")) {
+      expect(item.className).toBe(menuItemClass());
+    }
+  });
+
+  // ★ The label must be true in BOTH empty cases — every report already added,
+  // and no module owning one switched on — so it cannot say "all added".
+  it.each([
+    ["no module that owns an addable report is on", () => renderComposed([], vi.fn(), [])],
+    [
+      "every addable report is already on the board",
+      // The resource report needs the workspace tab context to render.
+      () => renderComposed(ALL_ADDABLE, vi.fn(), undefined, { wrapper: WorkspaceTabProvider }),
+    ],
+  ])("says on the button itself why it is disabled when no report is left to add (%s)", (_case, renderCase) => {
+    renderCase();
+    const button = screen.getByTestId("add-report-button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent(/^No reports to add$/);
+    // A disabled button cannot open its menu, so it claims no expanded state.
+    expect(button).not.toHaveAttribute("aria-expanded");
+  });
+
+  // §685 (owner pick 2B): "+ Add report" is the pane's primary Add button.
+  it("draws + Add report as the primary Button at xs", () => {
+    renderComposed([]);
+    expect(screen.getByRole("button", { name: /add report/i }).className).toBe(
+      buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER }),
+    );
   });
 
   it("offers only reports that are currently hidden", () => {
     // ★ The candidate list is the HIDDEN set, not "everything minus a settings
     // array" — so a report already on the board must not be offerable twice.
     renderComposed(["budget-report"]);
-    const select = screen.getByLabelText(/add report/i) as HTMLSelectElement;
-    const values = Array.from(select.options).map((o) => o.value).filter(Boolean);
-    expect(values).not.toContain("budget-report");
-    expect(values).toContain("raid-report");
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    const menu = screen.getByRole("menu", { name: /add report/i });
+    expect(within(menu).queryByRole("menuitem", { name: /budget report/i })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: /raid report/i })).toBeInTheDocument();
   });
   it("renders the Stakeholder report when added", () => {
     renderComposed(["stakeholder-report"]);
@@ -313,14 +359,16 @@ describe("ReportsPanel — module gating", () => {
   it("add-report picker does NOT offer a disabled-module report as an option", () => {
     const featuresWithout = ALL_MODULE_IDS.filter((m) => m !== "stakeholders");
     renderComposed([], vi.fn(), featuresWithout);
-    const picker = screen.getByRole("combobox", { name: /add report/i });
-    expect(within(picker).queryByRole("option", { name: /stakeholder report/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    const menu = screen.getByRole("menu", { name: /add report/i });
+    expect(within(menu).queryByRole("menuitem", { name: /stakeholder report/i })).toBeNull();
   });
 
   it("add-report picker DOES offer the report when its module is enabled", () => {
     renderComposed([], vi.fn(), [...ALL_MODULE_IDS]);
-    const picker = screen.getByRole("combobox", { name: /add report/i });
-    expect(within(picker).getByRole("option", { name: /stakeholder report/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /add report/i }));
+    const menu = screen.getByRole("menu", { name: /add report/i });
+    expect(within(menu).getByRole("menuitem", { name: /stakeholder report/i })).toBeInTheDocument();
   });
 });
 
@@ -1107,36 +1155,31 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // …and the blocks themselves still render, or this would pass vacuously.
     expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
 
-    // ★★★ AND THE "Add report" SELECT, WHICH THE THREE QUERIES ABOVE CANNOT
-    // SEE. It is `leading` on `ReportCard` — outside the tile chrome, so no
-    // `readOnly` in `ArrangementTile` reaches it — and every query above asks
-    // for role `button`. Before its own guard at the `leading={…}` site it
-    // rendered here, was operable, and `arrangement.restore` painted the block
-    // with no ⋮ and no shelf to undo it and no persist to keep it. Its
-    // accessible name is the `aria-label`, so an OPTION reading "+ Add report"
-    // cannot satisfy this query; the role is what separates them.
-    expect(screen.queryByRole("combobox", { name: t("en-US", "reportsAddReport") })).toBeNull();
+    // ★★★ AND THE "+ Add report" BUTTON (§685; it was a select until 2026-10-09).
+    // It is `leading` on `ReportCard` — outside the tile chrome, so no
+    // `readOnly` in `ArrangementTile` reaches it. Before its own guard at the
+    // `leading={…}` site it rendered here, was operable, and
+    // `arrangement.restore` painted the block with no ⋮ and no shelf to undo it
+    // and no persist to keep it.
+    // By test id, not by label: the label changes when no report is left to add.
+    expect(screen.queryByTestId("add-report-button")).toBeNull();
 
     // POSITIVE CONTROL, mutating the FIXTURE rather than the subject: the very
-    // same query FINDS the select once `isPopout` is off. Without this a
+    // same query FINDS the button once `isPopout` is off. Without this a
     // mistyped key, a changed role or a silently-empty render would make the
     // assertion above pass against BOTH the fixed and the unfixed code. Bound
     // queries, not `screen` — this second tree is in the document too, which is
     // why it is rendered AFTER every document-scoped assertion above.
     const normal = renderReports(tasks);
-    expect(
-      normal.getByRole("combobox", { name: t("en-US", "reportsAddReport") }),
-    ).toBeInTheDocument();
+    expect(normal.getByTestId("add-report-button")).toBeInTheDocument();
     // ★★★ `within(popout.container)`, NEVER `popout.queryByRole`. RTL binds a
     // render's returned queries to `baseElement` — `document.body` — NOT to its
     // own `container`, so `popout.queryByRole` searches BOTH trees and finds
-    // the select belonging to `normal`, two lines above. That is a defect in
+    // the button belonging to `normal`, two lines above. That is a defect in
     // the assertion, not in the guard: this exact query passed as
     // `screen.queryByRole` earlier in this test, while the popout was the only
     // tree in the document. Measured — it failed with the received node being
-    // `normal`'s `<select aria-label="Add report">`.
-    expect(
-      within(popout.container).queryByRole("combobox", { name: t("en-US", "reportsAddReport") }),
-    ).toBeNull();
+    // `normal`'s Add report control (a `<select>` at the time).
+    expect(within(popout.container).queryByTestId("add-report-button")).toBeNull();
   });
 });

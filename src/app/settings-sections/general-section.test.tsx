@@ -5,6 +5,7 @@ import { defaultSettings } from "../settings-types";
 import type { Resource } from "../types";
 import { loadI18n, t } from "../i18n";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
+import { buttonClassFor } from "../../test/button-variant";
 
 const resetMock = vi.fn();
 vi.mock("../app-reset", () => ({
@@ -180,5 +181,15 @@ describe("GeneralSection 'I am' resource", () => {
       />,
     );
     expect(screen.getByLabelText(t("en-US", "selfResourceLabel"))).toHaveValue("5");
+  });
+});
+
+// §690 — Reset to clean slate is the destructive Button at md.
+describe("GeneralSection reset", () => {
+  it("draws the destructive Button", () => {
+    render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "settingsResetButton") }).className).toBe(
+      buttonClassFor({ variant: "destructive", size: "md", className: "mt-3" }),
+    );
   });
 });

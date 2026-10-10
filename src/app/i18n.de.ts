@@ -1462,7 +1462,7 @@ export const de: Record<TranslationKey, string> = {
   reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
   reportsAddReport: "Bericht hinzufügen",
   reportsRemoveReport: "Bericht entfernen",
-  reportsAddReportNone: "Alle Berichte hinzugefügt",
+  reportsAddReportNone: "Keine weiteren Berichte",
 
   help: "Hilfe",
   helpIntro:

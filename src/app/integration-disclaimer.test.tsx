@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IntegrationDisclaimerProvider, useIntegrationDisclaimer } from "./integration-disclaimer";
 import { t } from "./i18n";
+import { buttonClassFor } from "../test/button-variant";
 
 function Trigger() {
   const { notifyEnable } = useIntegrationDisclaimer();
@@ -57,5 +58,20 @@ describe("IntegrationDisclaimerProvider", () => {
     );
     fireEvent.click(screen.getByText("enable"));
     expect(screen.queryByText(title)).toBeNull();
+  });
+});
+
+// §691 — the acknowledgement is the accent Button at xs.
+describe("IntegrationDisclaimer acknowledgement", () => {
+  it("draws the accent Button", () => {
+    render(
+      <IntegrationDisclaimerProvider lang="en-US" seen={false} onAcknowledge={vi.fn()}>
+        <Trigger />
+      </IntegrationDisclaimerProvider>,
+    );
+    fireEvent.click(screen.getByText("enable"));
+    expect(screen.getByRole("button", { name: t("en-US", "disclaimerAck") }).className).toBe(
+      buttonClassFor({ variant: "accent", size: "xs" }),
+    );
   });
 });

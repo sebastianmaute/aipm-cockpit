@@ -19,7 +19,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { useConfirm } from "../confirm-dialog";
 import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
-import { Input, Select } from "../form-controls";
+import { Input, Select, Checkbox } from "../form-controls";
 import { Button } from "../button";
 
 interface NextActionsSectionProps {
@@ -163,13 +163,11 @@ export function NextActionsSection({
             </Button>
           )}
           <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={scopeAll}
               onChange={(e) =>
                 onChange({ ...settings, ai: { ...settings.ai, suggestAllNextActionThresholds: e.target.checked } })
               }
-              className="h-4 w-4 rounded border-line"
             />
             {t(lang, "weightSuggestScopeAll")}
           </label>
@@ -273,12 +271,10 @@ export function NextActionsSection({
         <>
           <hr className="my-3 border-line" />
           <label className="mb-2 flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               aria-labelledby="learning-enable-label"
               checked={learningConfig.enabled}
               onChange={(e) => onChangeLearningConfig({ ...learningConfig, enabled: e.target.checked })}
-              className="h-4 w-4 rounded border-line"
             />
             <span className="inline-flex items-center gap-1">
               <span id="learning-enable-label">{t(lang, "settingsLearningEnable")}</span>

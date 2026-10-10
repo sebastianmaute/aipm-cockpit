@@ -8,7 +8,7 @@ import { filterDiag, summarizeDiag } from "./diagnostics-filter";
 import { EmptyState } from "./empty-state";
 import { DataTable } from "./data-table";
 import { reportSilentFailure } from "./guard-feedback";
-import { Input } from "./form-controls";
+import { Input, Checkbox } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { Button } from "./button";
 import { useToastContext } from "./toast-context";
@@ -93,7 +93,7 @@ export function DiagnosticsPanel({ lang, splitPairs }: { lang: Lang; splitPairs?
           <div className="flex flex-wrap items-center gap-3">
             {(["error", "warn", "info"] as DiagLevel[]).map((lv) => (
               <label key={lv} className="flex items-center gap-1 text-xs text-muted-foreground">
-                <input type="checkbox" checked={levels.has(lv)} onChange={() => toggleLevel(lv)} aria-label={labelFor(lv)} />
+                <Checkbox checked={levels.has(lv)} onChange={() => toggleLevel(lv)} aria-label={labelFor(lv)} />
                 {labelFor(lv)}
               </label>
             ))}

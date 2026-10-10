@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { KnowledgeLinksField } from "./knowledge-links-field";
 import type { KnowledgeLink } from "./document-link";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buttonClassFor } from "../test/button-variant";
+import { t } from "./i18n";
 
 const links: KnowledgeLink[] = [
   { id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/x", kind: "file" },
@@ -81,5 +83,15 @@ describe("KnowledgeLinksField", () => {
       roles: ["link", "button"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+// §690 — Add is the secondary Button at xs.
+describe("KnowledgeLinksField Add", () => {
+  it("draws the secondary Button", () => {
+    render(<KnowledgeLinksField value={[]} onChange={vi.fn()} lang="en-US" acquireToken={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "documentsAdd") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
   });
 });

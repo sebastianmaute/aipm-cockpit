@@ -285,7 +285,9 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
           <Button
             onClick={handleAdd}
             aria-label={labelSuffix ? `${t(lang, "noteLogAdd")} – ${labelSuffix}` : undefined}
-            // Matches the dictation mic (a bordered ToggleButton) beside it.
+            // Matches the dictation mic (a bordered ToggleButton) beside it,
+            // shown when push-to-talk is supported; alone, the same-colour
+            // border only adds 2px.
             variant="primary" size="xs" className={PRIMARY_MATCHING_BORDER}
           >
             {t(lang, "noteLogAdd")}

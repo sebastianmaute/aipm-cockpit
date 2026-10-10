@@ -18,6 +18,16 @@ longer carries its own changelog comment.
 - **Installing and updating the desktop app now say that they take a while.** The installer opens with a
   welcome page saying that installing takes a few minutes and the window may seem frozen, and the update
   window says the same before you choose to download, alongside the existing note in "Update ready".
+- **Buttons, fields, menus and badges follow the app standard (§684–§687, §690–§693, §695).** Every checkbox
+  and radio button uses the standard control and shows the green focus ring. Small form fields are 30px tall,
+  the height of the small buttons beside them, so toolbar searches and buttons line up; read-only,
+  over-allocated and override cells keep their grey, pink and purple through shared field states. The green
+  buttons (Save as template, Apply template, Mode's Save, Add job, the integration acknowledgement and Send
+  inquiries) share one style with dark-blue text, which is now readable in every dark scheme. Popover menus
+  share one item size, clickable table cells share one hover outline, inline links share one look (Trends'
+  Set as baseline is dark blue, not green), and the remaining near-size buttons, pills and counts use the
+  standard sizes. Reports' "Add report" is a "+ Add report" button with a menu, like the other panes' Add
+  buttons.
 
 ## [1.16.0] - 2026-10-09 "Rankin"
 
