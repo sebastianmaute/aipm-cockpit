@@ -71,6 +71,10 @@ describe("notesToSafeHtml", () => {
     expect(render("<p>a</p><!<!-- y -->-- x --><p>b</p>")).toBe("<p>a</p><p>b</p>");
   });
 
+  it("drops an unterminated comment to the end, as a browser does", () => {
+    expect(render("<p>a</p><!-- never closed <p>b</p>")).toBe("<p>a</p>");
+  });
+
   it("keeps line breaks inside <pre> and turns <br> into a space elsewhere", () => {
     expect(render("<pre><code>a\n  b<br>c</code></pre><p>x<br>\ny</p>")).toBe(
       "<pre><code>a\n  b\nc</code></pre><p>x y</p>",

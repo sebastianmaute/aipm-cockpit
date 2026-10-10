@@ -90,12 +90,13 @@ const EMPTY = "<p>No release notes.</p>" as SafeNotesHtml;
  */
 // Comments and script-like elements, removed until nothing changes: one pass can leave a new one
 // behind, joined from the halves around a removed inner element (`<scr<script></script>ipt>`).
+// An unterminated comment runs to the end, as it does in a browser, so no `<!--` survives.
 function stripDropped(s: string): string {
   let prev: string;
   let next = s;
   do {
     prev = next;
-    next = prev.replace(/<!--[\s\S]*?-->/g, "").replace(DROPPED_WITH_CONTENT, "");
+    next = prev.replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(DROPPED_WITH_CONTENT, "");
   } while (next !== prev);
   return next;
 }
