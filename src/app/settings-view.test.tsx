@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./settings-view";
 import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
 import { t } from "./i18n";
+import { TextButton } from "./text-button";
+import { primitiveClassFor } from "../test/primitive-class";
 import { TestProviders } from "./test-providers";
 
 vi.mock("./jira-settings", () => ({ JiraSettingsSection: () => <div>jira-stub</div> }));
@@ -399,5 +401,15 @@ describe("SettingsView — activity audit download (§510)", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
     expect(screen.getByText("storage-stub")).toBeInTheDocument();
     expect(heading()).toBeNull();
+  });
+});
+
+// §693 — the footer version link is the shared TextButton.
+describe("SettingsView version link", () => {
+  it("renders the shared TextButton", () => {
+    render(<SettingsView {...makeProps()} />);
+    expect(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "versionVersion") + " ") }).className).toBe(
+      primitiveClassFor(<TextButton>x</TextButton>),
+    );
   });
 });

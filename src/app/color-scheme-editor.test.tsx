@@ -3,6 +3,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ColorSchemeEditor } from "./color-scheme-editor";
 import { addScheme, loadSchemes } from "./color-schemes";
+import { buttonClassFor } from "../test/button-variant";
+import { PRIMARY_MATCHING_BORDER } from "./button";
+import { t as tr } from "./i18n";
 
 describe("ColorSchemeEditor", () => {
   beforeEach(() => localStorage.clear());
@@ -163,5 +166,15 @@ describe("ColorSchemeEditor file import", () => {
       expect(s?.structural?.["--shadow-card"]).toBe("none");
       expect(s?.supportsDark).toBe(true);
     });
+  });
+});
+
+// §690 — Apply is the primary Button at xs.
+describe("ColorSchemeEditor Apply", () => {
+  it("draws the primary Button", () => {
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.getByRole("button", { name: tr("en-US", "schemeApply") }).className).toBe(
+      buttonClassFor({ variant: "primary", size: "xs", className: PRIMARY_MATCHING_BORDER }),
+    );
   });
 });

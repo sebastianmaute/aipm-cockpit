@@ -6,6 +6,7 @@
 // this file owns no state and makes no decisions.
 import { useMemo } from "react";
 import { t, type Lang } from "./i18n";
+import { Badge } from "./badge";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { ColumnResizeHandle } from "./task-manager-ui";
@@ -145,9 +146,9 @@ export function TimelogPeopleTable({
                 </td>
                 <td className="py-2 pr-2">
                   {link && (
-                    <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
+                    <Badge pill className="border border-line text-muted-foreground">
                       {t(lang, link.manual ? "timelogMatchManual" : "timelogMatchAuto")}
-                    </span>
+                    </Badge>
                   )}
                 </td>
                 <td className="py-2 pr-2">

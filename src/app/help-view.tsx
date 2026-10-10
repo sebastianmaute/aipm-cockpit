@@ -6,7 +6,7 @@ import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
-import { Select } from "./form-controls";
+import { Select, Input } from "./form-controls";
 import type { HelpReadingLevel } from "./help-content";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { RelationsMap } from "./relations-map";
@@ -18,7 +18,7 @@ import { useResizable } from "./use-resizable";
 import { useSettings } from "./use-settings";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useTablistRoving } from "./use-tablist-roving";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 import { smoothScrollBehavior } from "./reduced-motion";
 
 type HelpTab = "help" | "tours" | "connects" | "flows";
@@ -139,13 +139,13 @@ export function HelpView({
             clearLabel={`${t(lang, "clear")} – ${t(lang, "helpSearchPlaceholder")}`}
             className="min-w-[12rem] flex-1 print:hidden"
           >
-            <input
+            <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t(lang, "helpSearchPlaceholder")}
               aria-label={t(lang, "helpSearchPlaceholder")}
-              className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${query ? " pr-8" : ""}`}
+              className={`w-full [&::-webkit-search-cancel-button]:appearance-none${query ? " pr-8" : ""}`}
             />
           </ClearableSearchInput>
         )}

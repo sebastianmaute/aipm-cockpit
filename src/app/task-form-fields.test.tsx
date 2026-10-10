@@ -9,6 +9,7 @@ import { loadI18n, t, type Lang } from "./i18n";
 import { EMAIL_MAX } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
+import { buttonClassFor } from "../test/button-variant";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import type { BudgetBucket, Task } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -860,5 +861,18 @@ describe("TaskFormFields — every choice has its own name (§672)", () => {
   it.each(["en-US", "de"] as const)("names every health choice distinctly in %s", (lang) => {
     render(<Harness lang={lang} />, { wrapper: TestProviders });
     expectRowUniqueNames({ minControls: 4, scope: screen.getByRole("radiogroup", { name: t(lang, "health") }), roles: ["radio"] });
+  });
+});
+
+// §690 — the address-book add and the log launchers are the secondary Button at md.
+describe("task editor secondary buttons", () => {
+  it("draw the secondary Button", () => {
+    render(<Harness onOpenNotes={vi.fn()} onOpenBlockers={vi.fn()} />, { wrapper: TestProviders });
+    expect(screen.getByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "md", className: "shrink-0" }),
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "noteLogTitle") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "md", className: "inline-flex items-center gap-1.5" }),
+    );
   });
 });

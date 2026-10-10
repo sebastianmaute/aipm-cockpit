@@ -6,7 +6,7 @@ import type { StakeholderQuadrant } from "../stakeholders";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { useToastContext } from "../toast-context";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { Checkbox, Input } from "../form-controls";
 
 interface NotificationsSectionProps {
   lang: Lang;
@@ -57,11 +57,9 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Global lead-time toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.useGlobalLeadDays}
             onChange={(e) => patchNotif({ useGlobalLeadDays: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifUseGlobalLeadDays")}
         </label>
@@ -76,7 +74,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
           {t(lang, "reminderLeadDays")}
           <InfoTooltip text={t(lang, "reminderLeadDaysTooltip")} />
         </span>
-        <input
+        <Input
           type="number"
           min={0}
           max={365}
@@ -87,7 +85,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
               reminderLeadDays: Math.max(0, Math.min(365, Math.round(Number(e.target.value) || 0))),
             })
           }
-          className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          className="w-20 text-right tabular-nums"
         />
       </label>
 
@@ -120,7 +118,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
           {t(lang, "raidReviewIntervalDays")}
           <InfoTooltip text={t(lang, "raidReviewIntervalDaysTooltip")} />
         </span>
-        <input
+        <Input
           type="number"
           min={1}
           max={365}
@@ -134,7 +132,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
               ),
             })
           }
-          className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          className="w-20 text-right tabular-nums"
         />
       </label>
 
@@ -162,13 +160,11 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Jira token error banner toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.jiraTokenError.enabled}
             onChange={(e) =>
               patchNotif({ jiraTokenError: { ...notifications.jiraTokenError, enabled: e.target.checked } })
             }
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifJiraTokenError")}
         </label>
@@ -177,11 +173,9 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
       {/* Desktop notifications for urgent Action Center signals */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifications.desktopUrgent.enabled}
             onChange={(e) => handleDesktopToggle(e.target.checked)}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "settingsDesktopNotify")}
         </label>
@@ -225,14 +219,14 @@ function CommsLeadDaysBlock({ lang, leadDays, onChange }: CommsLeadDaysBlockProp
           className="flex items-center justify-between gap-2 text-sm text-foreground"
         >
           <span>{t(lang, QUADRANT_LABEL_KEYS[q])}</span>
-          <input
+          <Input
             type="number"
             min={0}
             max={365}
             aria-label={t(lang, QUADRANT_LABEL_KEYS[q])}
             value={leadDays[q]}
             onChange={(e) => handleChange(q, e.target.value)}
-            className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+            className="w-20 text-right tabular-nums"
           />
         </label>
       ))}
@@ -279,18 +273,16 @@ function NotificationRow({
     <div className="mt-2 flex items-center justify-between gap-2 text-sm">
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={config.enabled}
             onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           <span className="text-foreground">{label}</span>
         </label>
         {tooltipKey && <InfoTooltip text={t(lang, tooltipKey)} />}
       </div>
       {showLeadDays && (
-        <input
+        <Input
           type="number"
           min={0}
           max={365}
@@ -299,7 +291,7 @@ function NotificationRow({
           value={config.leadDays ?? ""}
           placeholder={useGlobalLeadDays ? "—" : ""}
           onChange={(e) => handleLeadDaysChange(e.target.value)}
-          className={`w-16 rounded-md border border-line px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING} ${TRANSITION}`}
+          className="w-16 text-right tabular-nums"
         />
       )}
     </div>

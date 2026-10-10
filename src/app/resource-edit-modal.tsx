@@ -11,7 +11,7 @@ import { useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { HintedLabel, Input, Textarea } from "./form-controls";
+import { HintedLabel, Input, Textarea, Checkbox } from "./form-controls";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
@@ -25,7 +25,6 @@ import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, join
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
 import { Button } from "./button";
@@ -385,9 +384,7 @@ export function ResourceEditModal({
               joined the checkbox's accessible name (open-followups §386). */}
           <div className="flex items-center gap-1 text-sm sm:col-span-2">
             <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                className={`${FOCUS_RING} ${TRANSITION}`}
+              <Checkbox
                 checked={draft.isExternal === true}
                 onChange={(e) => update("isExternal", e.target.checked || undefined)}
               />
@@ -410,9 +407,7 @@ export function ResourceEditModal({
                   aria-label={t(lang, "resourceBirthday")}
                 />
                 <label className="flex items-center gap-1.5 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    className={`${FOCUS_RING} ${TRANSITION}`}
+                  <Checkbox
                     checked={yearUnknown}
                     onChange={(e) => {
                       const checked = e.target.checked;

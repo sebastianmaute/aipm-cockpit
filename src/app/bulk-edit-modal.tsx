@@ -2,7 +2,7 @@
 
 import { cloneElement, isValidElement, type ReactElement } from "react";
 import { ComboInput } from "./combo-input";
-import { fieldClass } from "./form-controls";
+import { fieldClass, Checkbox } from "./form-controls";
 import { type Lang, priorityLabel, t, tPlural } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
@@ -406,12 +406,11 @@ function BulkEditFieldRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <input
+      <Checkbox
         id={id}
-        type="checkbox"
         checked={enabled}
         onChange={onToggle}
-        className="mt-2 h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
+        className="mt-2"
       />
       <div className="min-w-0 flex-1">
         <label

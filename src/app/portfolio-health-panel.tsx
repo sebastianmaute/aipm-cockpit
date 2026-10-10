@@ -27,7 +27,7 @@ import { Tile, KpiGradientBar } from "./report-table";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_FILL_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
+import { TextButton } from "./text-button";
 import { PaneHeader } from "./pane-header";
 import { ROW_RULE_CLASS } from "./table-styles";
 
@@ -185,14 +185,12 @@ export function PortfolioHealthPanel({
             <tr key={row.id} className={ROW_RULE_CLASS}>
               <td className="py-2 pr-3 font-medium text-foreground">
                 {onSwitchProject ? (
-                  <button
-                    type="button"
+                  <TextButton
                     onClick={() => onSwitchProject(row.id)}
                     aria-label={rowLabel(t(lang, "portfolioOpenProject"), rowTokens.get(row.id) ?? row.name)}
-                    className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                   >
                     {row.name}
-                  </button>
+                  </TextButton>
                 ) : (
                   row.name
                 )}

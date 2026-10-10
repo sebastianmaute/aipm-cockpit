@@ -12,10 +12,10 @@ import { useId, type ReactNode } from "react";
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
 import { ratioHealth, cellHealth } from "./budget-health";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useCommitDraft } from "./use-commit-draft";
 import { actualHoursIn } from "./actual-hours";
 import { rowLabel } from "./row-tokens";
+import { Input } from "./form-controls";
 
 /** The leading RAG-dot column, and the fixed Total column that follows the role
  *  label. Neither is in BUDGET_COL_WIDTHS: they are not resizable, so they mint
@@ -154,7 +154,7 @@ function HoursCell({
         <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellBudget")}
         </span>
-        <input
+        <Input
           aria-label={rowLabel(t(lang, "budgetCellBudget"), cellName)}
           type="number"
           value={readOnly ? displayHours(budget, readOnly) : budgetDraft.value}
@@ -163,14 +163,16 @@ function HoursCell({
           onFocus={readOnly ? undefined : budgetDraft.onFocus}
           onBlur={readOnly ? undefined : budgetDraft.onBlur}
           onKeyDown={readOnly ? undefined : budgetDraft.onKeyDown}
-          className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          // `px-1!` keeps the xs field's px-2 from moving the digits off the
+          // person rows' `pr-1` column (see HOURS_LINE_UNITS).
+          size="xs" state={readOnly ? "muted" : "default"} className="w-16 px-1! text-right tabular-nums"
         />
       </div>
       <div className="flex items-center gap-1">
         <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellActual")}
         </span>
-        <input
+        <Input
           aria-label={rowLabel(t(lang, "budgetCellActual"), cellName)}
           type="number"
           value={actualReadOnly ? displayHours(actual, true) : actualDraft.value}
@@ -181,7 +183,7 @@ function HoursCell({
           onFocus={actualReadOnly ? undefined : actualDraft.onFocus}
           onBlur={actualReadOnly ? undefined : actualDraft.onBlur}
           onKeyDown={actualReadOnly ? undefined : actualDraft.onKeyDown}
-          className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${actualReadOnly ? "text-muted-foreground" : ""} ${FOCUS_RING} ${TRANSITION}`}
+          size="xs" state={actualReadOnly ? "muted" : "default"} className="w-16 px-1! text-right tabular-nums"
         />
         {actualReadOnly && <span id={actualReasonId} className="sr-only">{actualReadOnlyReason}</span>}
         <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />

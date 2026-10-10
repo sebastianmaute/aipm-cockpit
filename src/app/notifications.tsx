@@ -16,6 +16,7 @@ import type { StorageErrorKind } from "./storage-error";
 import { isKeptProjectKey, journalKeyProject } from "./unload-journal";
 import { Banner, type BannerSeverity } from "./banner";
 import { Button } from "./button";
+import { menuItemClass } from "./control-classes";
 
 function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
   return (
@@ -51,11 +52,11 @@ function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => 
       </summary>
       <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-line bg-surface py-1">
         <button type="button" onClick={() => onSnooze(SNOOZE_1H)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted">
+          className={`${menuItemClass()} whitespace-nowrap`}>
           {t(lang, "reminderSnooze1h")}
         </button>
         <button type="button" onClick={() => onSnooze(SNOOZE_1D)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted">
+          className={`${menuItemClass()} whitespace-nowrap`}>
           {t(lang, "reminderSnooze1d")}
         </button>
       </div>

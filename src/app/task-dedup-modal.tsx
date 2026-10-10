@@ -14,6 +14,7 @@ import { Button } from "./button";
 import { type GroundedMergeGroup } from "./task-dedup/dedup";
 import { descriptionText } from "./rich-text-projection";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { Checkbox } from "./form-controls";
 
 interface TaskDedupModalProps {
   lang: Lang;
@@ -78,13 +79,12 @@ export function TaskDedupModal({
             return (
               <li key={g.keepId} className="rounded-md border border-line bg-surface-muted px-3 py-2">
                 <label className="flex cursor-pointer items-start gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={on}
                     disabled={busy}
                     onChange={() => onToggle(g.keepId)}
                     aria-label={rowLabel(t(lang, "taskDedupInclude"), keepTokens.get(g.keepId) ?? survivorTitle(g))}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-ui-dark-blue focus:ring-ui-green"
+                    className="mt-0.5 shrink-0"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-foreground">

@@ -22,6 +22,19 @@ longer carries its own changelog comment.
   view has something to show on the first visit. The history is an estimate: effort is not dated per
   task, so the early weeks are reconstructed, not recorded.
 
+### Changed
+
+- **Buttons, fields, menus and badges follow the app standard (§684–§687, §690–§693, §695).** Every checkbox
+  and radio button uses the standard control and shows the green focus ring. Small form fields are 30px tall,
+  the height of the small buttons beside them, so toolbar searches and buttons line up; read-only,
+  over-allocated and override cells keep their grey, pink and purple through shared field states. The green
+  buttons (Save as template, Apply template, Mode's Save, Add job, the integration acknowledgement and Send
+  inquiries) share one style with dark-blue text, which is now readable in every dark scheme. Popover menus
+  share one item size, clickable table cells share one hover outline, inline links share one look (Trends'
+  Set as baseline is dark blue, not green), and the remaining near-size buttons, pills and counts use the
+  standard sizes. Reports' "Add report" is a "+ Add report" button with a menu, like the other panes' Add
+  buttons.
+
 ## [1.16.0] - 2026-10-09 "Rankin"
 
 A feature release. Long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay

@@ -13,8 +13,8 @@
 // count (WCAG 2.5.3 label-in-name) — `blockerBadgeLabel` carries both.
 import { Dot } from "./dot";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { TIER_RAG } from "./next-actions/action-cta";
+import { CELL_BUTTON } from "./control-classes";
 
 export interface BlockersBadgeButtonProps {
   /** Number of OPEN blocker entries (resolved ones are not counted). */
@@ -39,7 +39,7 @@ export function BlockersBadgeButton({ openCount, entityName, lang, text, onClick
       onClick={onClick}
       aria-label={t(lang, "blockerBadgeLabel", entityName, openCount)}
       title={hoverText}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-transparent px-2 py-0.5 text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+      className={`${CELL_BUTTON} inline-flex items-center gap-1.5 px-2 py-0.5 text-muted-foreground`}
     >
       <Dot color={hasOpen ? TIER_RAG.now.dot : "bg-line"} size="sm" />
       {hasOpen && <span className="text-xs font-medium">{openCount}</span>}

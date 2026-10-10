@@ -15,7 +15,6 @@ import {
   VERSION_RETENTION_STEP,
   sanitizeVersionRetention,
 } from "../version-history";
-import { INTERACTIVE } from "../interaction-styles";
 import { Button } from "../button";
 import { Checkbox, Input } from "../form-controls";
 import { FieldHint } from "../field-hint";
@@ -152,22 +151,17 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-        <button
-          type="button"
+        <Button
+          variant="accent"
+          size="md"
           disabled={!dirty}
           onClick={() => onCommitFeatures(ALL_MODULE_IDS.filter((id) => draft.includes(id)))}
-          className={`rounded-md bg-ui-green px-4 py-2 text-sm font-medium text-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "modeSave")}
-        </button>
-        <button
-          type="button"
-          disabled={!dirty}
-          onClick={() => setDraft(saved)}
-          className={`rounded-md border border-line px-4 py-2 text-sm disabled:opacity-50 ${INTERACTIVE}`}
-        >
+        </Button>
+        <Button variant="secondary" size="md" disabled={!dirty} onClick={() => setDraft(saved)}>
           {t(lang, "modeDiscard")}
-        </button>
+        </Button>
       </div>
     </div>
   );

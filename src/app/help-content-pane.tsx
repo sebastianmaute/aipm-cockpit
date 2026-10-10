@@ -13,6 +13,7 @@ import { stripHelpMarkers } from "./help-body-markup";
 import { HelpBodyText, Highlighted } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
+import { TextButton } from "./text-button";
 import { smoothScrollBehavior } from "./reduced-motion";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
@@ -194,27 +195,22 @@ export function HelpContentPane({
                         return (
                           <span key={rid}>
                             {idx > 0 ? ", " : ""}
-                            <button
-                              type="button"
-                              onClick={() => scrollToSection(rid)}
-                              className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
-                            >
+                            <TextButton onClick={() => scrollToSection(rid)}>
                               {t(lang, target.titleKey)}
-                            </button>
+                            </TextButton>
                           </span>
                         );
                       })}
                       {e.relatedViews?.map((v) =>
                         onNavigateView ? (
-                          <button
+                          <TextButton
                             key={v}
-                            type="button"
                             onClick={() => onNavigateView(v)}
                             aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
-                            className={`ml-2 italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
+                            className="ml-2 italic"
                           >
                             {t(lang, navLabelKey(v))}
-                          </button>
+                          </TextButton>
                         ) : (
                           <span key={v} className="ml-2 italic">
                             {t(lang, navLabelKey(v))}

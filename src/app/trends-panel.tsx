@@ -19,9 +19,9 @@ import { InfoTooltip } from "./info-tooltip";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
 import { EmptyState } from "./empty-state";
-import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { useConfirm } from "./confirm-dialog";
+import { Checkbox } from "./form-controls";
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -262,8 +262,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   return (
                   <tr key={s.id}>
                     <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selected.has(s.id)}
                         onChange={(e) => {
                           setSelected((prev) => {
@@ -281,11 +280,11 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     <td className="px-3 py-2 text-right">
                       <span className="inline-flex gap-2">
                         {!s.isBaseline && (
-                          <button type="button" disabled={busy} onClick={() => { void setBaseline(s.id); }}
+                          <TextButton disabled={busy} onClick={() => { void setBaseline(s.id); }}
                             aria-label={rowLabel(t(lang, "trendsSetBaseline"), token)}
-                            className={`text-xs font-medium text-ui-green-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}>
+                            className="text-xs">
                             {t(lang, "trendsSetBaseline")}
-                          </button>
+                          </TextButton>
                         )}
                         <TextButton
                           tone="danger"

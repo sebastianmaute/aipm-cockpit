@@ -15,6 +15,7 @@ import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
 import { statusLabelKey } from "./task-status-ui";
 import type { TaskStatus } from "./types";
+import { RADIO_CLASS } from "./form-controls";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
   field: 128,
@@ -289,7 +290,7 @@ export function JiraConflictsModal({
                               checked={pick === "local"}
                               onChange={() => setPick(c.taskId, f.key, "local")}
                               disabled={lockedRemote}
-                              className="mt-0.5"
+                              className={`${RADIO_CLASS} mt-0.5`}
                             />
                             <ConflictValue lang={lang} fieldKey={f.key} value={f.localValue} status={c.localStatus} />
                           </label>
@@ -303,7 +304,7 @@ export function JiraConflictsModal({
                               onChange={() =>
                                 setPick(c.taskId, f.key, "remote")
                               }
-                              className="mt-0.5"
+                              className={`${RADIO_CLASS} mt-0.5`}
                             />
                             <ConflictValue lang={lang} fieldKey={f.key} value={f.remoteValue} status={c.remoteStatus} />
                           </label>

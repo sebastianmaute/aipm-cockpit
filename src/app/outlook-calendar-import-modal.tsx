@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Select } from "./form-controls";
 import { dedupeKey, type OutlookEvent } from "./outlook-calendar";
 import { ABSENCE_TYPES, type AbsenceType } from "./types";
 import { useImportSelection } from "./use-import-selection";
@@ -116,16 +116,16 @@ export function OutlookCalendarImportModal({
             />
             <span className="min-w-0 flex-1 truncate font-medium text-foreground" title={label}>{label}</span>
             <span className="shrink-0 text-xs text-muted-foreground">{dateRange(e)}</span>
-            <select
+            <Select
               aria-label={`${t(lang, "outlookCalImportType")} ${token}`}
               value={types[e.sourceId] ?? "vacation"}
               onChange={(ev) => setType(e.sourceId, ev.target.value as AbsenceType)}
-              className="shrink-0 rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"
+              size="xs" className="shrink-0"
             >
               {ABSENCE_TYPES.map((ty) => (
                 <option key={ty} value={ty}>{t(lang, TYPE_LABEL_KEY[ty] as Parameters<typeof t>[1])}</option>
               ))}
-            </select>
+            </Select>
             {exists && (
               <span className="shrink-0 text-xs italic text-ui-purple dark:text-ui-purple-strong">{t(lang, "outlookCalImportExisting")}</span>
             )}

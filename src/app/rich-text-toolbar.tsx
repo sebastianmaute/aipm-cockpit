@@ -70,6 +70,7 @@ import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToolbarButton } from "./rich-text-toolbar-button";
 import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
 import { moveToolbarFocus } from "./toolbar-roving";
+import { menuItemClass } from "./control-classes";
 
 /** Shared icon sizing for every control in this toolbar (14px — the same size
  *  as GanttViewMenu's menu-row icons, sized for this toolbar's compact
@@ -441,9 +442,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
                 type="button"
                 onClick={() => pickLevel(item.value)}
                 aria-current={active ? "true" : undefined}
-                className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-muted ${
-                  active ? "font-semibold text-ui-dark-blue dark:text-ui-light-grey" : "text-foreground"
-                }`}
+                className={`${menuItemClass(active ? "current" : "default")} items-center gap-2`}
               >
                 <item.icon aria-hidden="true" className={ICON_CLASS} />
                 {t(lang, item.key)}

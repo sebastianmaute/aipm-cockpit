@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, expect, test, vi } from "vitest";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
@@ -6,6 +6,8 @@ import { HELP_ENTRIES } from "./help-content";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { stripHelpMarkers } from "./help-body-markup";
+import { TextButton } from "./text-button";
+import { primitiveClassFor } from "../test/primitive-class";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
 // constructor to exist (the observer path itself is not exercised without
@@ -188,4 +190,20 @@ test.each(["en-US", "de"] as const)("names every Related link within an entry di
     const links = (e.relatedConcepts ?? []).filter((rid) => HELP_ENTRIES.some((x) => x.id === rid)).length + (e.relatedViews?.length ?? 0);
     expectRowUniqueNames({ minControls: links, scope: section as HTMLElement });
   }
+});
+
+// §693 — the related-topic and related-view links are the shared TextButton.
+test("related links render the shared TextButton", () => {
+  render(<HelpContentPane lang="en-US" query="" onNavigateView={vi.fn()} />);
+  const viewLink = screen.getAllByRole("button", { name: /go to/i })[0];
+  expect(viewLink.className).toBe(primitiveClassFor(<TextButton className="ml-2 italic">x</TextButton>));
+  const known = (rid: string) => HELP_ENTRIES.some((x) => x.id === rid);
+  const entry = HELP_ENTRIES.find((e) => (e.relatedConcepts ?? []).some(known));
+  if (!entry) throw new Error("no help entry has a related concept");
+  const target = HELP_ENTRIES.find((x) => x.id === (entry.relatedConcepts ?? []).find(known));
+  if (!target) throw new Error("related concept not found");
+  const section = document.getElementById(helpSectionId(entry.id));
+  if (!section) throw new Error("section not rendered");
+  const conceptLink = within(section).getByRole("button", { name: t("en-US", target.titleKey) });
+  expect(conceptLink.className).toBe(primitiveClassFor(<TextButton>x</TextButton>));
 });
