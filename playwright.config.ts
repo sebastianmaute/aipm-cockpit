@@ -23,6 +23,14 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // never in the same invocation as `chromium`.
 const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
 
+// The live-Turso specs that DRIVE THE APP, partition-scoped, so they share the throwaway database
+// safely with each other (one worker) but never with LIVE_TURSO_DESTRUCTIVE. `chromium` still
+// runs them, where they skip without the throwaway pair. `npm run e2e:live-app` runs exactly this
+// list, through the `live-turso-app` project, which exists only when that script sets
+// E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script, and
+// ci-workflow.test.mjs fails when an e2e spec importing ./live-turso-env is in neither list.
+const LIVE_TURSO_APP = /(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts/;
+
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
 // `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
 // and sends `Authorization: Bearer …`: a trace records that header, and CI
@@ -56,7 +64,13 @@ export default defineConfig({
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["html"], ["github"]] : "html",
+  // E2E_JSON_REPORT (set by live-turso.yml's test steps) adds a JSON report, which
+  // scripts/check-live-run.mjs reads to fail a run in which a test skipped or none ran.
+  reporter: [
+    ["html"],
+    ...(process.env.CI ? [["github"] as const] : []),
+    ...(process.env.E2E_JSON_REPORT ? [["json", { outputFile: process.env.E2E_JSON_REPORT }] as const] : []),
+  ],
   use: {
     baseURL: BASE_URL,
     trace: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
@@ -130,6 +144,10 @@ export default defineConfig({
       retries: 0,
       fullyParallel: false,
     },
+    // The app-driving live-Turso specs (LIVE_TURSO_APP above), only for `npm run e2e:live-app`.
+    ...(process.env.E2E_LIVE_APP
+      ? [{ name: "live-turso-app", testMatch: LIVE_TURSO_APP, workers: 1, fullyParallel: false, use: { ...devices["Desktop Chrome"] } }]
+      : []),
     // Add firefox / webkit later if cross-browser coverage is needed:
     // { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     // { name: "webkit",  use: { ...devices["Desktop Safari"] } },

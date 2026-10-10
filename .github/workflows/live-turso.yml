@@ -1,6 +1,6 @@
 # The live-Turso e2e specs, against a dedicated throwaway database (§215). NOT a required check:
-# docs/AGENTS/ci.md says why and how to read it. The specs are listed in e2e/live-turso-env.ts's
-# header; everything about which database they may touch lives there.
+# docs/AGENTS/ci.md says why and how to read it. Which specs run is playwright.config.ts's
+# LIVE_TURSO_DESTRUCTIVE and LIVE_TURSO_APP; which database they may touch is e2e/live-turso-env.ts.
 #
 # ★★★ THE SECRETS. Two repository secrets, TURSO_THROWAWAY_DATABASE_URL and
 # TURSO_THROWAWAY_AUTH_TOKEN, for a Turso database kept for this workflow alone (the specs drop its
@@ -12,20 +12,20 @@
 # write access. With collaborators, gate the live job on an environment with required reviewers.
 # pull_request_target is never used: it would hand the secrets to a fork's code.
 #
-# ★★★ THE SECRETS NEVER REACH A run: LINE. They enter through env: only. The `check` job reads
-# them to answer one question, are both set; with either missing (a fork's pull request,
-# Dependabot, or before the owner sets them) the `live-turso` job is skipped and never queues.
+# ★★★ THE SECRETS NEVER REACH A run: LINE, AND ONLY THE STEPS THAT NEED THEM GET THEM. They enter
+# through a step's env: only (a job-level env: would hand them to npm ci, which runs every
+# dependency's install scripts). The `check` job reads them to answer one question, are both set;
+# with either missing (a fork's pull request, Dependabot, or before the owner sets them) the
+# `live-turso` job is skipped.
 #
 # ★★★ ONE DATABASE, ONE RUN AT A TIME, AND RUNS CAN BE DROPPED. The live job's concurrency group is
 # a fixed name, so every run shares one slot; cancel-in-progress is false, so a running job is
 # never cancelled. GitHub keeps ONE pending run per group: a second run waits, and a third
 # REPLACES the waiting second, which ends "cancelled" and is not re-queued. Re-run it by hand
-# (Re-run jobs, or workflow_dispatch). The group sits on the JOB, after the check, so a skipped run
-# (a fork) is EXPECTED never to take the slot or replace a real run's pending one: that rests on
-# GitHub evaluating the job's if: before it joins the group. Expected, not yet observed on a real
-# run; docs/AGENTS/ci.md says how to observe it.
+# (Re-run jobs, or workflow_dispatch). docs/AGENTS/ci.md covers whether a skipped run can take the
+# slot (expected not, not yet observed).
 #
-# ★★ The two secrets go into BOTH pairs for the UI step: the specs read TURSO_THROWAWAY_*, and the
+# ★★ The two secrets go into BOTH pairs for the app step: the specs read TURSO_THROWAWAY_*, and the
 # dev server the app runs on reads NEXT_PUBLIC_TURSO_*, so the app's database IS the throwaway one.
 # playwright.config.ts turns trace and video off whenever either pair carries a token, so the
 # uploaded reports hold no Authorization header.
@@ -89,30 +89,32 @@ jobs:
       - name: Install Chromium
         id: install
         run: npx playwright install chromium
-      # First and alone: the specs that DROP tables (the live-turso-destructive project, one file at
-      # a time). The npm script sets E2E_LIVE_DESTRUCTIVE and PLAYWRIGHT_NO_WEBSERVER itself.
-      # ★★ Secrets go on a STEP's env: only, never the job's: a job-level env: would hand the token to
-      # checkout, setup-node and npm ci, which runs every dependency's install scripts.
-      # Each test step has its own timeout, below the job's, so a hung step FAILS rather than the job
-      # being cancelled: the next step and the upload then run as after any failure. ★★ Inside that,
-      # each Playwright run has its own wall clock, E2E_GLOBAL_TIMEOUT_MS (playwright.config.ts's
-      # globalTimeout), two minutes under the step's: Playwright then stops itself and still writes
-      # its HTML report, whatever the number of tests. --max-failures does NOT do that: it counts a
-      # failure only after its retries, and retries are queued after every test's first attempt.
+      # Each test step:
+      # - has its own timeout, below the job's, so a hung step FAILS rather than the job being
+      #   cancelled, and the next step and the upload run as after any failure;
+      # - sets E2E_GLOBAL_TIMEOUT_MS, two minutes under that (playwright.config.ts's globalTimeout),
+      #   so Playwright stops itself and still writes its HTML report, whatever the number of tests;
+      # - then runs scripts/check-live-run.mjs on the JSON report (E2E_JSON_REPORT), which fails
+      #   the step if any test SKIPPED or none ran: every live spec skips when a setting it needs is
+      #   missing, and a run that skipped everything would otherwise be green and prove nothing.
+      # First and alone: the specs that DROP tables. The npm script sets E2E_LIVE_DESTRUCTIVE and
+      # PLAYWRIGHT_NO_WEBSERVER itself.
       - name: Live specs that drop tables
+        id: drop
         timeout-minutes: 12
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drop-tables
+          E2E_JSON_REPORT: playwright-report/drop-tables.json
           E2E_GLOBAL_TIMEOUT_MS: "600000"
-        run: npm run e2e:live-destructive
-      # Then the specs that drive the app, one at a time, on a dev server started with the throwaway
-      # database as the app's own. Runs even when the step above failed, so one failure does not
-      # hide the other suite, but not when setup failed (install's outcome is then failure or
-      # skipped), which would only add a second, misleading failure. The filter names every live
-      # UI spec, including ones a later branch adds; a name that matches no file is simply not run.
+        run: npm run e2e:live-destructive && node scripts/check-live-run.mjs
+      # Then the specs that drive the app, on a dev server started with the throwaway database as
+      # the app's own. Runs even when the step above failed, so one failure does not hide the other
+      # suite, but not when setup failed (install's outcome is then failure or skipped), which would
+      # only add a second, misleading failure.
       - name: Live specs that drive the app
+        id: app
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         timeout-minutes: 20
         env:
@@ -121,10 +123,9 @@ jobs:
           NEXT_PUBLIC_TURSO_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           NEXT_PUBLIC_TURSO_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drive-app
+          E2E_JSON_REPORT: playwright-report/drive-app.json
           E2E_GLOBAL_TIMEOUT_MS: "1080000"
-        # The quoted filter is a regex with | in it; bash keeps it one argument.
-        shell: bash
-        run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1 --retries=1 --max-failures=3
+        run: npm run e2e:live-app && node scripts/check-live-run.mjs
       # On failure, and on cancellation too. A step that hits its own timeout fails, so the other
       # step's finished report is kept. A JOB that hits timeout-minutes ends cancelled; its upload is
       # best-effort, because Playwright writes its HTML report only when its run ends, so a step

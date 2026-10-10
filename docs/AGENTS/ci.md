@@ -193,51 +193,50 @@ was not done up front.
 
 NOT a required check, and deliberately so: it needs repository secrets a fork's pull request and
 Dependabot never get, and a required check that cannot run there would block them. It runs on every
-pull request and every push to `main`, beside `ci.yml`, as two jobs:
+pull request and every push to `main`, beside `ci.yml`, and on `workflow_dispatch`, as two jobs:
 
 - **`check`** reads the two secrets through `env:` and answers one question, are both set. With
-  either missing it writes a notice, and `live-turso` is skipped: it never installs, never runs and
-  never queues.
-- **`live-turso`** (`needs: check`, only when both are set) runs the specs. First
-  `npm run e2e:live-destructive` (the specs that drop tables, one file at a time, no app server).
-  Then, even when that step failed (but not when setup failed), the specs that drive the app,
-  `--workers=1`, on a dev server started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`,
-  so the app's database is the throwaway one. The step's file filter names every live UI spec,
-  including ones a later branch adds. Each test step has its own `timeout-minutes` (12 and 20; the
-  job's is 50, and the tests check that the two plus 15 minutes of setup fit under it), so a hung
-  step fails rather than the whole job being cancelled, and the other step and the upload still
-  run.
-- ★★ **Each Playwright run stops itself before its step is killed.** Playwright writes its HTML
-  report only when a run ends, so a step killed by its timeout uploads none. Each step therefore
-  sets `E2E_GLOBAL_TIMEOUT_MS` (10 and 18 minutes, at least 2 under the step's; the tests check
-  it), which `playwright.config.ts` passes to `globalTimeout`: Playwright then interrupts the run
-  and still writes the report, whatever the number of tests. `globalTimeoutFrom`
-  (`e2e/global-timeout.ts`) reads the variable: only a whole number of ms up to 2^31−1 sets a limit
-  (above that Node clamps the timer to 1 ms and the run would end at once); anything else sets
-  none, so every other run is unchanged. Measured on 2026-10-10, three ways. (1) Locally, with
-  `E2E_GLOBAL_TIMEOUT_MS=1` and the destructive project: the limit fired during SETUP, before any
-  test loaded and with no app server ("Timed out waiting 0.001s for the clear output to run"),
-  exit 1, `index.html` written; unset, `abc` or `0` set no limit (4 skipped, exit 0). (2) and (3)
-  by a reviewer, on throwaway configs outside the repository (not reproducible from here): five
-  1.5 s tests under a 4 s limit gave 2 passed, 3 not run, exit 1 and `index.html` written; a
-  web server that never came up under a 3 s limit gave "Timed out waiting 3s for the plugin setup
-  to run", exit 1 and `index.html` written, so app-server start-up counts against it. ★ `--retries=1
-  --max-failures=3` on the app step do NOT bound the time: Playwright counts a failure toward
-  `--max-failures` only after its retries, and queues every retry after all first attempts, so
-  nothing counts until the whole first pass is done. The `live-turso-destructive` project sets
-  `retries: 0` (no browser, so a failure is the database's real answer, and a retry only doubles
-  a broken run). Each step writes its own report folder under `playwright-report/`, uploaded as
-  `live-turso-report` on failure or cancellation, for 7 days. A JOB that hits its own timeout ends
-  cancelled, and its upload is best-effort for the same reason.
+  either missing it writes a notice, and `live-turso` is skipped.
+- **`live-turso`** (`needs: check`, only when both are set) runs two suites, each through its npm
+  script. Which specs each runs has one home, `playwright.config.ts`: `LIVE_TURSO_DESTRUCTIVE`
+  and `LIVE_TURSO_APP`.
+  - `npm run e2e:live-destructive`: the specs that drop tables, one file at a time, no app server.
+  - Then `npm run e2e:live-app`, even when the first failed (not when setup failed): the specs
+    that drive the app, one worker, on a dev server started with the two secrets also mapped into
+    `NEXT_PUBLIC_TURSO_*`, so the app's database is the throwaway one.
+- ★★★ **A green run must have run every test.** Every live spec SKIPS when a setting it needs is
+  missing (`e2e/live-turso-env.ts`), and a Playwright run in which everything skipped exits 0. So
+  each step writes a JSON report (`E2E_JSON_REPORT`) and then runs `scripts/check-live-run.mjs`,
+  which fails the step if any test skipped or none ran. Reproduce the failing case locally, with
+  no database touched (the destructive specs skip without `E2E_LIVE_DESTRUCTIVE`):
+  `PLAYWRIGHT_NO_WEBSERVER=1 E2E_JSON_REPORT=<dir>/run.json npx playwright test --project=live-turso-destructive`
+  exits 0 with 4 skipped, and `E2E_JSON_REPORT=<dir>/run.json node scripts/check-live-run.mjs`
+  then exits 1. On 2026-10-10 both suites, run through their npm scripts against the throwaway
+  database, passed the check: 4 and 11 tests ran, none skipped.
+- ★★ **Each Playwright run stops itself before its step is killed.** Each test step has its own
+  `timeout-minutes` (12 and 20, under the job's 50), so a hung step fails rather than the job being
+  cancelled. Inside it, `E2E_GLOBAL_TIMEOUT_MS` (10 and 18 minutes) becomes Playwright's
+  `globalTimeout` through `globalTimeoutFrom` (`e2e/global-timeout.ts`, which says which values set
+  a limit): Playwright then interrupts the run and still writes its HTML report, which it writes
+  only when a run ends. Reproduce: `E2E_GLOBAL_TIMEOUT_MS=1` on the command above exits 1 with
+  "Timed out waiting 0.001s" and an `index.html` written (that limit fires during setup, before
+  any test). ★ `--retries=1 --max-failures=3` (in `e2e:live-app`) do NOT bound the time:
+  Playwright counts a failure only after its retries, and queues every retry after all first
+  attempts. Each step's reports go under `playwright-report/`, uploaded as `live-turso-report` on
+  failure or cancellation, for 7 days. A JOB that hits its own timeout ends cancelled, and its
+  upload is best-effort for the same reason.
 - **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
   database kept for this workflow alone: the specs drop its tables. ★★★ The token must be scoped
   to that ONE database (`turso db tokens create <db>`), never a group or organisation token: what a
-  leak can reach is exactly what the token reaches. The secrets enter through a STEP's `env:` only,
-  never a `run:` line and never a job-level `env:` (that would hand the token to checkout,
-  setup-node and `npm ci`, which runs every dependency's install scripts), and `playwright.config.ts` turns trace and video off whenever either pair carries a
-  token, so a report holds no `Authorization` header. This repository is public, so its logs and
-  artifacts are too. GitHub masks the exact secret values; a derived form of the URL (the
-  normalised `https://` base, the bare host) is not masked, and no current path prints one.
+  leak can reach is exactly what the token reaches. The secrets enter through the `env:` of the
+  three steps that need them only, never a `run:` line and never a job-level `env:` (that would
+  hand the token to `npm ci`, which runs every dependency's install scripts), and
+  `playwright.config.ts` turns trace and video off whenever either pair carries a token, so a
+  report holds no `Authorization` header. This repository is public, so its logs and artifacts
+  are too. GitHub masks the exact secret values in logs. The database HOST is not masked and can
+  appear in an uploaded report (a failure screenshot or page snapshot of the app's storage
+  settings or an error toast): it is not a credential, since the token is scoped to that one
+  database.
 - ★★ **Accepted risk.** Anyone who can push a branch to this repository can change the specs,
   `playwright.config.ts` or `package.json` that this workflow runs, and so read the secrets. That is
   inherent to running secrets on `pull_request`, and acceptable while only the owner has write
@@ -250,37 +249,16 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   is not re-queued: re-run it by hand (Re-run jobs, or `workflow_dispatch`). The group sits on the
   job, after `check`, so a run that skips (a fork's pull request) is EXPECTED never to take the slot
   or replace a real run's pending one. ★★ Expected, not yet observed: it rests on GitHub evaluating
-  the job's `if:` before the job joins its group, and the tests below pin only where the YAML sits.
-  To observe it once the secrets exist: while a real run is pending, open a pull request from a
-  fork (it has no secrets, so it skips) and check that the pending run still starts. Record the
-  result here. Prefer the fork over a `workflow_dispatch` with the secrets briefly unset: a pending
-  run reads the secrets when its job STARTS, so if they are still unset then, that run skips too
-  and the observation proves nothing. `timeout-minutes: 50` bounds how long a hung run holds the
-  slot.
-- **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules;
-  neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
-  job-level fixed concurrency group and an ungrouped `check`; each of the 8 secret lines directly
-  under a STEP's `env:` key, and in exactly the three steps that need them (2 in the check's step,
-  2 in the drop-tables step, 4 in the app step, each step matched by its name AND its own `run:`
-  command, minus any quoted argument such as the spec filter), so moving them onto `npm ci` fails;
-  two separate raw-text checks (shell `#` lines in a `run: |` body included): only those 8 lines may
-  hold a
-  `${{ }}` naming `secrets` or `env`, and no `${{ }}` reads `env.` or `env[...]`; `npm ci` before
-  the install step the app step waits on; the order of the two steps, the second running after a
-  failure but not after a failed setup; a step-level timeout on each, the two plus 15 at most
-  the job's; each step's `E2E_GLOBAL_TIMEOUT_MS` a usable limit (read through `globalTimeoutFrom`
-  itself, whose accept and reject cases are unit-tested) at least 2 minutes under its step's, and
-  `playwright.config.ts` passing it to `globalTimeout`; `retries: 0` on the destructive project
-  and `--retries=1 --max-failures=3` on the app step; the app step's spec filter a plain list of
-  names (no `.*` or other pattern), each either a spec that imports `e2e/live-turso-env.ts` or a
-  name with no file yet, since the filter hands the Turso values to whatever it matches; the 7-day upload on failure or
-  cancellation; and no other
-  workflow file naming the throwaway secrets or handing over every secret (`toJSON(secrets)` in any
-  case, `secrets: inherit`). ★ Those checks read text, not parsed YAML: a deliberately obscured
-  expression (a YAML anchor, `format()` to build a secret name) is out of their reach. They fail
-  closed on a trailing comment after `env:` or a secret line, and on any comment line quoting a
-  `${{ }}` that names `secrets` or `env`: keep comments on their own line, and describe such an
-  expression rather than quoting it.
+  the job's `if:` before the job joins its group. To observe it once the secrets exist: while a
+  real run is pending, open a pull request from a fork (it has no secrets, so it skips) and check
+  that the pending run still starts; record the result here. Prefer the fork over a
+  `workflow_dispatch` with the secrets briefly unset: a pending run reads the secrets when its job
+  STARTS, so if they are still unset then, that run skips too and the observation proves nothing.
+- **Pinned by** the `live-turso.yml` block of `scripts/ci-workflow.test.mjs` (each test's name says
+  what it pins) and `scripts/live-run-lib.test.mjs`. ★ Those checks read text, not parsed YAML: a
+  deliberately obscured expression (a YAML anchor, `format()` to build a secret name) is out of
+  their reach. They fail closed on a trailing comment after `env:` or a secret line, and on any
+  comment line quoting a `${{ }}` that names `secrets` or `env`: keep comments on their own line.
 
 ## Weekly
 

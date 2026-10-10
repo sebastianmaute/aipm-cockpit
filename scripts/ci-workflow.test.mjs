@@ -423,22 +423,46 @@ describe("live-turso.yml", () => {
   workflowRules("live-turso.yml", LIVE);
   const check = jobBlock(LIVE, "check");
   const job = jobBlock(LIVE, "live-turso");
+  const config = read("playwright.config.ts");
+  const scripts = JSON.parse(read("package.json")).scripts;
   // Comment lines name what they forbid; only the YAML itself is checked.
   const code = (text) => text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n");
   // GitHub runs .yaml as well as .yml.
   const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => /\.ya?ml$/.test(f));
+  // A step, from its "- " line to the next step's, and the step a line index belongs to.
+  const stepStart = (lines, i) => lines.slice(0, i + 1).findLastIndex((l) => /^ {6}- /.test(l));
+  const stepLines = (lines, start) => {
+    const next = lines.slice(start + 1).findIndex((l) => /^ {6}- /.test(l));
+    return lines.slice(start, next === -1 ? undefined : start + 1 + next);
+  };
+  const stepId = (step) => step.map((l) => l.match(/^ {6}(?:- | {2})id: (\S+)$/)?.[1]).find(Boolean);
+  const jobLines = code(job).split("\n");
+  const stepById = (id) => {
+    const at = jobLines.findIndex((l) => new RegExp(`^ {6}(- | {2})id: ${id}$`).test(l));
+    return at === -1 ? "" : stepLines(jobLines, stepStart(jobLines, at)).join("\n");
+  };
+  const drop = stepById("drop");
+  const app = stepById("app");
+  const minutes = (text, re) => Number((text.match(re) ?? [])[1]);
 
   it("is a secret check plus the live job, and neither is a required check", () => {
     expect(jobIds(LIVE)).toEqual(["check", "live-turso"]);
     for (const id of jobIds(LIVE)) expect(REQUIRED).not.toContain(id);
   });
 
-  // pull_request_target would run a fork's code with the secrets. Banned in every workflow.
-  it("runs on pull_request, push and workflow_dispatch only, and no workflow uses pull_request_target", () => {
-    expect(LIVE).toMatch(/^ {2}pull_request:$/m);
-    expect(LIVE).toMatch(/^ {2}push:$/m);
-    expect(LIVE).toMatch(/^ {2}workflow_dispatch:$/m);
+  // Exactly these triggers: workflow_run, issue_comment and the like are known ways to hand secrets
+  // to code a fork controls. pull_request_target would run a fork's code with the secrets outright,
+  // so it is banned in every workflow.
+  it("runs on pull_request and push to main and workflow_dispatch only, and no workflow uses pull_request_target", () => {
+    expect(topLevelBlock(LIVE, "on")).toEqual(["pull_request:", "branches: [main]", "push:", "branches: [main]", "workflow_dispatch:"]);
     for (const f of ALL_WORKFLOWS) expect(code(read(`.github/workflows/${f}`)), f).not.toMatch(/pull_request_target/);
+  });
+
+  // workflowRules pins the top-level permissions; a job-level block would override them for the
+  // job that holds the secrets.
+  it("grants no job its own permissions", () => {
+    expect(check).not.toMatch(/^ {4}permissions:/m);
+    expect(job).not.toMatch(/^ {4}permissions:/m);
   });
 
   // Every run shares one database. The group sits on the JOB, after the check, so a skipped run
@@ -452,40 +476,24 @@ describe("live-turso.yml", () => {
     expect(job).toMatch(/^ {4}if: needs\.check\.outputs\.present == 'true'$/m);
   });
 
-  // Loose on purpose: ${{secrets.X}} without a space, or toJSON(secrets), must not slip past.
-  // The line's shape alone is not enough: the same line inside a run: | body or under with: would
-  // match it, so the nearest less-indented line above each one must be a STEP's env: key (8 spaces,
-  // or 6 plus "- "). A job-level env: (4) would hand the token to checkout, setup-node and npm ci.
+  // Each secret line has one shape, sits directly under a STEP's env: (a job-level env: would hand
+  // the token to npm ci, which runs every dependency's install scripts), and belongs to one of the
+  // three steps that need it, found by step id: moving them onto npm ci, or onto any other step,
+  // fails. Loose on purpose about spacing: ${{secrets.X}} and toJSON(secrets) must not slip past.
   // ★ Fails closed on a trailing comment after env: or a secret line: keep comments on their own line.
-  it("never puts a secret on a run: line, and reads only the two throwaway secrets", () => {
+  it("puts the two throwaway secrets only on the env: of the steps that need them", () => {
     const lines = code(LIVE).split("\n");
     const indent = (l) => l.match(/^\s*/)[0].length;
-    let seen = 0;
     const perStep = {};
     lines.forEach((line, i) => {
       if (!/(?<!steps\.)\bsecrets\b/.test(line)) return;
-      seen++;
       expect(line, line).toMatch(/^ {10}[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
       const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
       expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
-      // And WHICH step: the secrets moved onto npm ci's own env: would pass every check above while
-      // handing the token to every dependency's install scripts. Keyed by the step's name AND its
-      // run: command (searched within that step only; a quoted argument such as the app step's
-      // spec filter is dropped, so adding a spec does not change the key), so a second step reusing
-      // a name does not merge into the count.
-      const start = lines.slice(0, i + 1).findLastIndex((l) => /^ {6}- /.test(l));
-      const nextStep = lines.slice(start + 1).findIndex((l) => /^ {6}- /.test(l));
-      const block = lines.slice(start, nextStep === -1 ? undefined : start + 1 + nextStep);
-      const run = block.find((l) => /^ {6}(- | {2})run: /.test(l));
-      const key = `${block[0].trim()} | ${run?.trim().replace(/\s*".*$/, "")}`;
-      perStep[key] = (perStep[key] ?? 0) + 1;
+      const id = stepId(stepLines(lines, stepStart(lines, i))) ?? "(a step with no id)";
+      perStep[id] = (perStep[id] ?? 0) + 1;
     });
-    expect(seen).toBe(8);
-    expect(perStep).toEqual({
-      "- name: Are both throwaway database values set? | run: |": 2,
-      "- name: Live specs that drop tables | run: npm run e2e:live-destructive": 2,
-      "- name: Live specs that drive the app | run: npx playwright test": 4,
-    });
+    expect(perStep).toEqual({ pair: 2, drop: 2, app: 4 });
   });
 
   // Two separate checks. (1) code() drops every line starting with #, which cannot tell a YAML
@@ -507,70 +515,104 @@ describe("live-turso.yml", () => {
     expect(check).not.toMatch(/npm |npx /);
   });
 
-  it("runs the table-dropping specs first, then the app specs one at a time with the throwaway as the app's database", () => {
-    const drop = job.indexOf("npm run e2e:live-destructive");
-    const app = job.indexOf("npx playwright test");
-    expect(drop).toBeGreaterThan(-1);
-    expect(app).toBeGreaterThan(drop);
-    const appStep = job.slice(job.lastIndexOf("      - ", app), job.indexOf("\n", app));
-    for (const v of ["TURSO_THROWAWAY_DATABASE_URL", "TURSO_THROWAWAY_AUTH_TOKEN", "NEXT_PUBLIC_TURSO_DATABASE_URL", "NEXT_PUBLIC_TURSO_AUTH_TOKEN"]) {
-      expect(appStep, v).toContain(`${v}: `);
-    }
-    // At most one retry and three final failures. These do NOT bound the run's time (retries queue
-    // after every first attempt); E2E_GLOBAL_TIMEOUT_MS below does.
-    expect(appStep).toMatch(/--project=chromium --workers=1 --retries=1 --max-failures=3$/m);
-    // The spec filter hands the Turso values to whatever it matches, so it must stay a plain list of
-    // names (no .* or other pattern), each a live spec: one that reads e2e/live-turso-env.ts, or one
-    // a later branch adds (a name with no file yet matches nothing).
-    const filter = appStep.match(/npx playwright test "\(([^"]*)\)\\\.spec\\\.ts" /)?.[1];
-    expect(filter, "app step's spec filter").toMatch(/^[a-z0-9-]+(\|[a-z0-9-]+)*$/);
-    for (const name of filter.split("|")) {
-      const file = new URL(`../e2e/${name}.spec.ts`, import.meta.url);
-      if (existsSync(file)) expect(readFileSync(file, "utf8"), name).toMatch(/from "\.\/live-turso-env"/);
-    }
-    // One failure must not hide the other suite, but a failed setup must not add a second failure.
-    expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
-    // The install step it waits on must come after npm ci, or a failed npm ci would not stop it.
-    const npmCi = job.indexOf("run: npm ci");
-    const install = job.indexOf("id: install");
+  it("installs, then drops tables, then drives the app, the last even after a failure but not after a failed setup", () => {
+    const at = (re) => jobLines.findIndex((l) => re.test(l));
+    const npmCi = at(/^ {6}- run: npm ci$/);
+    const install = at(/^ {8}id: install$/);
     expect(npmCi).toBeGreaterThan(-1);
     expect(install).toBeGreaterThan(npmCi);
-    expect(install).toBeLessThan(drop);
-    const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
-    // Each test step has its own timeout, below the job's: a hung step fails instead of the job
-    // being cancelled, so the other step and the upload still run.
-    // The sum leaves at least 15 minutes of setup under the job's timeout.
-    const minutes = (text, re) => Number((text.match(re) ?? [])[1]);
-    const dropMin = minutes(dropStep, /^ {8}timeout-minutes: (\d+)$/m);
-    const appMin = minutes(appStep, /^ {8}timeout-minutes: (\d+)$/m);
+    expect(at(/^ {8}id: drop$/)).toBeGreaterThan(install);
+    expect(at(/^ {8}id: app$/)).toBeGreaterThan(at(/^ {8}id: drop$/));
+    expect(app).toMatch(/^ {8}if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}$/m);
+  });
+
+  // Each step runs its npm script and then check-live-run.mjs, which fails the step if any test
+  // skipped or none ran: every live spec skips when a setting it needs is missing, so without it a
+  // run that skipped everything would be green and prove nothing.
+  it("runs each suite through its npm script, then fails it if any test skipped or none ran", () => {
+    expect(drop).toMatch(/^ {8}run: npm run e2e:live-destructive && node scripts\/check-live-run\.mjs$/m);
+    expect(app).toMatch(/^ {8}run: npm run e2e:live-app && node scripts\/check-live-run\.mjs$/m);
+    const env = (step, key) => step.match(new RegExp(`^ {10}${key}: (\\S+)$`, "m"))?.[1];
+    for (const [name, step] of [["drop", drop], ["app", app]]) {
+      const html = env(step, "PLAYWRIGHT_HTML_OUTPUT_DIR");
+      const json = env(step, "E2E_JSON_REPORT");
+      expect(html, name).toMatch(/^playwright-report\//);
+      expect(json, name).toMatch(/^playwright-report\/.+\.json$/);
+      // The HTML reporter empties its folder first, so the JSON report must sit outside it.
+      expect(json.startsWith(`${html}/`), name).toBe(false);
+    }
+    // Separate report files and folders, so the second step does not overwrite the first's.
+    expect(env(drop, "PLAYWRIGHT_HTML_OUTPUT_DIR")).not.toBe(env(app, "PLAYWRIGHT_HTML_OUTPUT_DIR"));
+    expect(env(drop, "E2E_JSON_REPORT")).not.toBe(env(app, "E2E_JSON_REPORT"));
+    expect(config).toMatch(/process\.env\.E2E_JSON_REPORT \? \[\["json", \{ outputFile: process\.env\.E2E_JSON_REPORT \}\]/);
+    // The app step points the app at the throwaway database; the drop step needs no app at all.
+    for (const v of ["TURSO_THROWAWAY_DATABASE_URL", "TURSO_THROWAWAY_AUTH_TOKEN", "NEXT_PUBLIC_TURSO_DATABASE_URL", "NEXT_PUBLIC_TURSO_AUTH_TOKEN"]) {
+      expect(app, v).toContain(`${v}: `);
+    }
+    expect(drop).not.toContain("NEXT_PUBLIC_TURSO_");
+  });
+
+  // Which specs run has ONE home: playwright.config.ts's LIVE_TURSO_DESTRUCTIVE and LIVE_TURSO_APP.
+  // Every spec that reads e2e/live-turso-env.ts must be in one of them, or it never runs here; and
+  // every listed name must be a real spec, or a typo silently drops one. The lists hand the Turso
+  // values to whatever they match, so each stays a plain list of names.
+  it("runs exactly the live specs, each in one list, through the projects the npm scripts name", () => {
+    const list = (name) => {
+      const src = config.match(new RegExp(`^const ${name} = /\\(([^)]*)\\)\\\\\\.spec\\\\\\.ts/;`, "m"))?.[1];
+      expect(src, name).toMatch(/^[a-z0-9-]+(\|[a-z0-9-]+)*$/);
+      return src.split("|");
+    };
+    const destructive = list("LIVE_TURSO_DESTRUCTIVE");
+    const appSpecs = list("LIVE_TURSO_APP");
+    expect(destructive.filter((n) => appSpecs.includes(n))).toEqual([]);
+    // Listed before the branch that adds the file has merged; each is a no-op once it is on main.
+    // Remove an entry once its file exists there. turso-revision-live: verify/654-turso-guard;
+    // version-compare-live: verify/version-compare-live; demo-trends-live: verify/696-demo-trends.
+    const PENDING = ["turso-revision-live", "version-compare-live", "demo-trends-live"];
+    for (const name of [...destructive, ...appSpecs]) {
+      const exists = existsSync(new URL(`../e2e/${name}.spec.ts`, import.meta.url));
+      expect(exists || PENDING.includes(name), `${name}: no e2e/${name}.spec.ts`).toBe(true);
+    }
+    // live-turso-env.spec.ts tests the helper itself and needs no database.
+    const readers = readdirSync(new URL("../e2e/", import.meta.url))
+      .filter((f) => f.endsWith(".spec.ts") && f !== "live-turso-env.spec.ts")
+      .filter((f) => /from "\.\/live-turso-env"/.test(read(`e2e/${f}`)))
+      .map((f) => f.replace(/\.spec\.ts$/, ""));
+    expect(readers.length).toBeGreaterThan(0);
+    for (const name of readers) expect([...destructive, ...appSpecs], `${name} is in neither list`).toContain(name);
+    // The app list runs through a project that exists only under the npm script's E2E_LIVE_APP.
+    expect(config).toMatch(/\.\.\.\(process\.env\.E2E_LIVE_APP\s*\?\s*\[\{ name: "live-turso-app", testMatch: LIVE_TURSO_APP,/);
+    expect(scripts["e2e:live-app"]).toContain("process.env.E2E_LIVE_APP='1'");
+    // At most one retry and three final failures. These do NOT bound the run's time (retries queue
+    // after every first attempt); E2E_GLOBAL_TIMEOUT_MS does.
+    expect(scripts["e2e:live-app"]).toContain("npx playwright test --project=live-turso-app --workers=1 --retries=1 --max-failures=3'");
+    expect(scripts["e2e:live-destructive"]).toContain("npx playwright test --project=live-turso-destructive'");
+  });
+
+  // Each test step has its own timeout, below the job's, so a hung step fails rather than the job
+  // being cancelled; inside it, each Playwright run has its own wall clock, at least 2 minutes under
+  // the step's, so it stops itself and writes its report, whatever the number of tests.
+  it("bounds each step, and each Playwright run inside it, in time", () => {
+    const dropMin = minutes(drop, /^ {8}timeout-minutes: (\d+)$/m);
+    const appMin = minutes(app, /^ {8}timeout-minutes: (\d+)$/m);
     const jobMin = minutes(job, /^ {4}timeout-minutes: (\d+)$/m);
     expect(dropMin).toBeGreaterThan(0);
     expect(appMin).toBeGreaterThan(0);
     expect(dropMin + appMin + 15).toBeLessThanOrEqual(jobMin);
-    // Each Playwright run's own wall clock, at least 2 minutes under its step's timeout, so it stops
-    // itself and writes its report before the step is killed, whatever the number of tests.
-    // Read as the config reads it (globalTimeoutFrom), quoted or not, so an unusable value fails here
-    // with its own message rather than as NaN.
-    const ms = (text, name) => {
-      // Bare, single- or double-quoted, with an optional trailing comment: every form YAML reads.
-      const raw = text.match(/^ {10}E2E_GLOBAL_TIMEOUT_MS:\s*(["']?)([^"'\s#]*)\1\s*(#.*)?$/m)?.[2];
+    // Read as the config reads it (globalTimeoutFrom): bare, single- or double-quoted, with an
+    // optional trailing comment, so an unusable value fails with its own message rather than as NaN.
+    const ms = (step, name) => {
+      const raw = step.match(/^ {10}E2E_GLOBAL_TIMEOUT_MS:\s*(["']?)([^"'\s#]*)\1\s*(#.*)?$/m)?.[2];
       const value = globalTimeoutFrom(raw);
       expect(value, `${name}: E2E_GLOBAL_TIMEOUT_MS is ${raw === undefined ? "missing" : `"${raw}", which sets no limit`}`).toBeDefined();
       return value;
     };
-    expect(ms(dropStep, "drop step")).toBeLessThanOrEqual((dropMin - 2) * 60_000);
-    expect(ms(appStep, "app step")).toBeLessThanOrEqual((appMin - 2) * 60_000);
-    const config = read("playwright.config.ts");
+    expect(ms(drop, "drop step")).toBeLessThanOrEqual((dropMin - 2) * 60_000);
+    expect(ms(app, "app step")).toBeLessThanOrEqual((appMin - 2) * 60_000);
     expect(config).toMatch(/^ {2}globalTimeout: globalTimeoutFrom\(process\.env\.E2E_GLOBAL_TIMEOUT_MS\),\r?$/m);
-    // The drop-tables project's no-retries setting lives in playwright.config.ts.
+    // The drop-tables project runs without retries (a failure there is the database's answer).
     const destructive = config.slice(config.indexOf('name: "live-turso-destructive"'));
     expect(destructive.slice(0, destructive.indexOf("},"))).toMatch(/^\s+retries: 0,\r?$/m);
-    expect(dropStep).toContain("TURSO_THROWAWAY_DATABASE_URL: ");
-    expect(dropStep).toContain("TURSO_THROWAWAY_AUTH_TOKEN: ");
-    expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
-    // Separate report folders, so the second step does not overwrite the first's report.
-    expect(dropStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drop-tables/);
-    expect(appStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drive-app/);
   });
 
   // The value playwright.config.ts passes to globalTimeout. Anything but a whole number of ms in
