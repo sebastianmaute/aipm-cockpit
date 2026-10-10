@@ -163,7 +163,9 @@ function HoursCell({
           onFocus={readOnly ? undefined : budgetDraft.onFocus}
           onBlur={readOnly ? undefined : budgetDraft.onBlur}
           onKeyDown={readOnly ? undefined : budgetDraft.onKeyDown}
-          size="xs" state={readOnly ? "muted" : "default"} className="w-16 text-right tabular-nums"
+          // `px-1!` keeps the xs field's px-2 from moving the digits off the
+          // person rows' `pr-1` column (see HOURS_LINE_UNITS).
+          size="xs" state={readOnly ? "muted" : "default"} className="w-16 px-1! text-right tabular-nums"
         />
       </div>
       <div className="flex items-center gap-1">
@@ -181,7 +183,7 @@ function HoursCell({
           onFocus={actualReadOnly ? undefined : actualDraft.onFocus}
           onBlur={actualReadOnly ? undefined : actualDraft.onBlur}
           onKeyDown={actualReadOnly ? undefined : actualDraft.onKeyDown}
-          size="xs" state={actualReadOnly ? "muted" : "default"} className="w-16 text-right tabular-nums"
+          size="xs" state={actualReadOnly ? "muted" : "default"} className="w-16 px-1! text-right tabular-nums"
         />
         {actualReadOnly && <span id={actualReasonId} className="sr-only">{actualReadOnlyReason}</span>}
         <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />
