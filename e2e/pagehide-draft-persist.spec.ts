@@ -8,7 +8,8 @@
 //
 // ★★★ SCOPE: ONE BACKEND. The seed fixture's project uses `kind: "browser"`
 // (IndexedDB), which is also the app's `defaultStorageConfig`. The local file has
-// `local-file-close-save.spec.ts` (§661, opt-in) and Turso has
+// `local-file-close-save.spec.ts` (§661, opt-in; an Enter-committed edit, not a
+// pagehide draft) and Turso has
 // `unload-journal-turso-live.spec.ts`; SharePoint and the packaged desktop app are
 // not covered. See §629.
 //

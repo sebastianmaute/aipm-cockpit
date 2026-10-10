@@ -18,7 +18,16 @@
 // Either way the unload can end two ways and both must pass: the unload's own save
 // reached Turso (the journal's content is then what loads, and it is cleared
 // silently), or it did not (the journal's base matches, so it is restored and saved
-// back). This file does not pin which one ran.
+// back). This file does not pin which one ran; it records it as an annotation ("restore
+// branch"), from whether the app showed its "Restored unsaved changes" toast.
+// ★ A third outcome would fail on a correct app, and is not expected: on a tab close
+// `page.close` resolves while the closing page is still alive, so its Turso save could
+// still win its Web Lock and send. Landing after the new page loaded, it moves the
+// revision, so the restore's save-back is refused as a conflict and the journal stays
+// ("the load must consume the journal" fails with the draft stored); confirming before
+// the reader's poll, it clears the journal ("pagehide must have written the journal"
+// fails). §661 measured a closing tab gone 6-11 ms after its lock request, far less
+// than a Turso round trip. Read either failure's message before calling it a defect.
 //
 // ★★★ THE LOAD-BEARING ASSERTIONS ARE ON THE DATABASE, read from the test process,
 // never on the UI. Before the unload the marker must be ABSENT from the stored task
@@ -60,6 +69,9 @@ const JOURNAL_KEY = `${UNLOAD_JOURNAL_PREFIX}${PID}`;
 /** Unique in the repo, so seeing it rendered can only mean a load from Turso. */
 const TASK_NAME = "S629 unload journal probe task";
 const TASK_ID = "96291";
+
+/** The toast a journal restore shows: i18n.ts `unloadJournalRestored` (EN). */
+const RESTORED_TOAST = "Restored unsaved changes from your last session.";
 
 /** The conflict notice's accessible name: i18n.ts `unloadJournalConflict` (EN). */
 const CONFLICT_NOTICE =
@@ -112,7 +124,8 @@ async function storedTaskName(): Promise<string> {
   const [res] = await pipeline([
     { sql: 'SELECT "taskName" FROM tasks WHERE project_id = ? AND id = ?', args: [txt(PID), { type: "integer", value: TASK_ID }] },
   ]);
-  return res?.response?.result?.rows?.[0]?.[0]?.value ?? "";
+  if (!res || res.type === "error") throw new Error("reading the probe task's name failed");
+  return res.response?.result?.rows?.[0]?.[0]?.value ?? "";
 }
 
 /** On the CONTEXT, so the tab-close case's second page loads the same project. */
@@ -127,6 +140,18 @@ async function installPortfolioTursoMode(context: BrowserContext): Promise<void>
   await context.addInitScript((key) => {
     (window as unknown as { __e2eJournalAtBoot: string | null }).__e2eJournalAtBoot = localStorage.getItem(key);
   }, JOURNAL_KEY);
+  // Whether this document showed the restore toast: which branch of `restoreOnLoad` ran.
+  await context.addInitScript((text) => {
+    const w = window as unknown as { __e2eRestoredToast: boolean };
+    w.__e2eRestoredToast = false;
+    new MutationObserver((records, observer) => {
+      for (const r of records) {
+        for (const n of r.addedNodes) {
+          if ((n.textContent ?? "").includes(text)) { w.__e2eRestoredToast = true; observer.disconnect(); return; }
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  }, RESTORED_TOAST);
 }
 
 async function waitForShell(page: Page): Promise<void> {
@@ -173,12 +198,18 @@ async function expectStored(marker: string): Promise<void> {
 async function expectJournalConsumed(page: Page): Promise<void> {
   await expect.poll(() => readJournal(page), { message: "the load must consume the journal", timeout: 30_000 }).toBeNull();
   await expect(page.getByRole("region", { name: CONFLICT_NOTICE })).toHaveCount(0);
+  const restored = await page.evaluate(() => (window as unknown as { __e2eRestoredToast?: boolean }).__e2eRestoredToast === true);
+  test.info().annotations.push({
+    type: "restore branch",
+    description: restored ? "restored from the journal and saved back" : "no restore toast: cleared as already landed",
+  });
 }
 
 test.describe("§629 — a draft unloaded on a live Turso project reaches the database", () => {
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
   test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
-  test.describe.configure({ mode: "serial" });
+  // In order, one at a time (both use one partition), but a failure does not skip the other.
+  test.describe.configure({ mode: "default" });
   // Two app loads, a seed and two 30 s database polls per test; the config's 60 s is too tight.
   test.setTimeout(180_000);
 
