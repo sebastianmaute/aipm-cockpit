@@ -628,18 +628,9 @@ describe("live-turso.yml", () => {
     const { re: destructiveRe, names: destructive } = list("LIVE_TURSO_DESTRUCTIVE");
     const { re: appRe, names: appSpecs } = list("LIVE_TURSO_APP");
     expect(destructive.filter((n) => appSpecs.includes(n))).toEqual([]);
-    // Listed before the branch that adds the file has merged. Each entry must NOT exist yet: the
-    // tree that gains the file fails here until the entry is removed, so the full check below
-    // applies to it from then on. turso-revision-live: verify/654-turso-guard; version-compare-live:
-    // verify/version-compare-live; demo-trends-live: verify/696-demo-trends.
-    const PENDING = ["turso-revision-live", "version-compare-live", "demo-trends-live"];
-    for (const name of PENDING) {
-      expect(existsSync(specFile(name)), `e2e/${name}.spec.ts exists now: remove "${name}" from PENDING`).toBe(false);
-      expect([...destructive, ...appSpecs], `PENDING "${name}" is in neither list`).toContain(name);
-    }
     // First each listed name on its own, so a typo or a deleted spec gets its own message.
+    // Every listed name is a spec file that exists and reads the live database.
     for (const name of [...destructive, ...appSpecs]) {
-      if (PENDING.includes(name)) continue;
       expect(existsSync(specFile(name)), `${name}: no e2e/${name}.spec.ts`).toBe(true);
       expect(codeOf(read(`e2e/${name}.spec.ts`)), `${name} is not a live spec`).toMatch(LIVE_READER);
     }
@@ -649,7 +640,7 @@ describe("live-turso.yml", () => {
     // matches and which would run with the credentials.
     for (const [re, names] of [[destructiveRe, destructive], [appRe, appSpecs]]) {
       const hits = SPECS.filter((f) => re.test(`/repo/e2e/${f}`) || re.test(`C:\\repo\\e2e\\${f.replace(/\//g, "\\")}`));
-      expect(hits.map((f) => f.replace(/\.spec\.ts$/, "")).sort(), `${re} matches a spec beyond its listed top-level ones (a subfolder copy runs with the credentials)`).toEqual(names.filter((n) => !PENDING.includes(n)).sort());
+      expect(hits.map((f) => f.replace(/\.spec\.ts$/, "")).sort(), `${re} matches a spec beyond its listed top-level ones (a subfolder copy runs with the credentials)`).toEqual([...names].sort());
       for (const n of names) expect(re.test(`/repo/e2e/old-${n}.spec.ts`), `${re} matches old-${n}`).toBe(false);
     }
     // live-turso-env.spec.ts tests the helper itself and needs no database. A live spec in a
