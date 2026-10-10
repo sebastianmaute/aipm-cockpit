@@ -271,7 +271,9 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   the job's; each step's `E2E_GLOBAL_TIMEOUT_MS` a usable limit (read through `globalTimeoutFrom`
   itself, whose accept and reject cases are unit-tested) at least 2 minutes under its step's, and
   `playwright.config.ts` passing it to `globalTimeout`; `retries: 0` on the destructive project
-  and `--retries=1 --max-failures=3` on the app step; the 7-day upload on failure or
+  and `--retries=1 --max-failures=3` on the app step; the app step's spec filter a plain list of
+  names (no `.*` or other pattern), each either a spec that imports `e2e/live-turso-env.ts` or a
+  name with no file yet, since the filter hands the Turso values to whatever it matches; the 7-day upload on failure or
   cancellation; and no other
   workflow file naming the throwaway secrets or handing over every secret (`toJSON(secrets)` in any
   case, `secrets: inherit`). ★ Those checks read text, not parsed YAML: a deliberately obscured

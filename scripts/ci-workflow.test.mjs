@@ -4,7 +4,7 @@
 // not added for this: the helpers read the fixed two-space layout these files are written in, and
 // their own tests below pin what they accept and reject. actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
 import { globalTimeoutFrom, MAX_GLOBAL_TIMEOUT_MS } from "../e2e/global-timeout.ts";
@@ -519,6 +519,15 @@ describe("live-turso.yml", () => {
     // At most one retry and three final failures. These do NOT bound the run's time (retries queue
     // after every first attempt); E2E_GLOBAL_TIMEOUT_MS below does.
     expect(appStep).toMatch(/--project=chromium --workers=1 --retries=1 --max-failures=3$/m);
+    // The spec filter hands the Turso values to whatever it matches, so it must stay a plain list of
+    // names (no .* or other pattern), each a live spec: one that reads e2e/live-turso-env.ts, or one
+    // a later branch adds (a name with no file yet matches nothing).
+    const filter = appStep.match(/npx playwright test "\(([^"]*)\)\\\.spec\\\.ts" /)?.[1];
+    expect(filter, "app step's spec filter").toMatch(/^[a-z0-9-]+(\|[a-z0-9-]+)*$/);
+    for (const name of filter.split("|")) {
+      const file = new URL(`../e2e/${name}.spec.ts`, import.meta.url);
+      if (existsSync(file)) expect(readFileSync(file, "utf8"), name).toMatch(/from "\.\/live-turso-env"/);
+    }
     // One failure must not hide the other suite, but a failed setup must not add a second failure.
     expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
     // The install step it waits on must come after npm ci, or a failed npm ci would not stop it.
@@ -543,7 +552,8 @@ describe("live-turso.yml", () => {
     // Read as the config reads it (globalTimeoutFrom), quoted or not, so an unusable value fails here
     // with its own message rather than as NaN.
     const ms = (text, name) => {
-      const raw = text.match(/^ {10}E2E_GLOBAL_TIMEOUT_MS: "?([^"\s]*)"?$/m)?.[1];
+      // Bare, single- or double-quoted, with an optional trailing comment: every form YAML reads.
+      const raw = text.match(/^ {10}E2E_GLOBAL_TIMEOUT_MS:\s*(["']?)([^"'\s#]*)\1\s*(#.*)?$/m)?.[2];
       const value = globalTimeoutFrom(raw);
       expect(value, `${name}: E2E_GLOBAL_TIMEOUT_MS is ${raw === undefined ? "missing" : `"${raw}", which sets no limit`}`).toBeDefined();
       return value;
