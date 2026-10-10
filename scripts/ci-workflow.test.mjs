@@ -4,7 +4,7 @@
 // not added for this: the helpers read the fixed two-space layout these files are written in, and
 // their own tests below pin what they accept and reject. actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
 import {
@@ -420,36 +420,48 @@ describe("electron-builder.yml agrees with the release library", () => {
 describe("live-turso.yml", () => {
   const LIVE = read(".github/workflows/live-turso.yml");
   workflowRules("live-turso.yml", LIVE);
+  const check = jobBlock(LIVE, "check");
   const job = jobBlock(LIVE, "live-turso");
+  // Comment lines name what they forbid; only the YAML itself is checked.
+  const code = (text) => text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n");
+  const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => f.endsWith(".yml"));
 
-  it("is one job, and not a required check", () => {
-    expect(jobIds(LIVE)).toEqual(["live-turso"]);
-    expect(REQUIRED).not.toContain("live-turso");
+  it("is a secret check plus the live job, and neither is a required check", () => {
+    expect(jobIds(LIVE)).toEqual(["check", "live-turso"]);
+    for (const id of jobIds(LIVE)) expect(REQUIRED).not.toContain(id);
   });
 
-  // Every run shares one database, and the table-dropping specs would race another run's specs.
-  it("runs one at a time across every ref, and never cancels a run", () => {
-    expect(topLevelBlock(LIVE, "concurrency")).toEqual(["group: live-turso-throwaway-database", "cancel-in-progress: false"]);
+  // pull_request_target would run a fork's code with the secrets. Banned in every workflow.
+  it("runs on pull_request, push and workflow_dispatch only, and no workflow uses pull_request_target", () => {
+    expect(LIVE).toMatch(/^ {2}pull_request:$/m);
+    expect(LIVE).toMatch(/^ {2}push:$/m);
+    expect(LIVE).toMatch(/^ {2}workflow_dispatch:$/m);
+    for (const f of ALL_WORKFLOWS) expect(code(read(`.github/workflows/${f}`)), f).not.toMatch(/pull_request_target/);
   });
 
-  it("never puts a secret on a run: line", () => {
-    for (const line of LIVE.split(/\r?\n/).filter((l) => /\$\{\{ secrets\./.test(l))) {
+  // Every run shares one database. The group sits on the JOB, after the check, so a skipped run
+  // (a fork's pull request) never takes the slot and cannot replace a real run's pending one.
+  it("queues the live job on one fixed group, never cancels a running job, and leaves the check ungrouped", () => {
+    expect(topLevelBlock(LIVE, "concurrency")).toEqual([]);
+    expect(job).toMatch(/^ {4}concurrency:\r?\n {6}group: live-turso-throwaway-database\r?\n {6}cancel-in-progress: false$/m);
+    expect(check).not.toMatch(/concurrency:/);
+    expect(job).toMatch(/^ {4}needs: check$/m);
+    expect(job).toMatch(/^ {4}if: needs\.check\.outputs\.present == 'true'$/m);
+  });
+
+  // Loose on purpose: ${{secrets.X}} without a space, or toJSON(secrets), must not slip past.
+  it("never puts a secret on a run: line, and reads only the two throwaway secrets", () => {
+    for (const line of code(LIVE).split("\n").filter((l) => /(?<!steps\.)\bsecrets\b/.test(l))) {
       expect(line, line).toMatch(/^\s+[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
     }
   });
 
-  // A fork's pull request, Dependabot and an unconfigured repository have no secrets: a skip, not a failure.
-  it("gates every install and test step on both secrets being present", () => {
-    expect(job).toMatch(/if \[ -n "\$URL" \] && \[ -n "\$TOKEN" \]/);
-    // A step starts with `- if:` or carries `if:` under its `- name:`.
-    const gated = job.split(/\r?\n/).filter((l) => /^ {6}(- | {2})if: steps\.secrets\.outputs\.present == 'true'$/.test(l)).length;
-    expect(gated).toBe(4);
-    for (const cmd of ["npm ci", "npx playwright install chromium", "npm run e2e:live-destructive", "npx playwright test"]) {
-      const at = job.indexOf(cmd);
-      expect(at, cmd).toBeGreaterThan(-1);
-      const step = job.slice(job.lastIndexOf("      - ", at), at);
-      expect(step, cmd).toMatch(/if: steps\.secrets\.outputs\.present == 'true'/);
-    }
+  // A fork's pull request, Dependabot and an unconfigured repository have no secrets: the check says
+  // so and the live job is skipped, so nothing installs or runs.
+  it("decides on both secrets being present, in the check job", () => {
+    expect(check).toMatch(/if \[ -n "\$URL" \] && \[ -n "\$TOKEN" \]/);
+    expect(check).toMatch(/present: \$\{\{ steps\.pair\.outputs\.present \}\}/);
+    expect(check).not.toMatch(/npm |npx /);
   });
 
   it("runs the table-dropping specs first, then the app specs one at a time with the throwaway as the app's database", () => {
@@ -462,14 +474,28 @@ describe("live-turso.yml", () => {
       expect(appStep, v).toContain(`${v}: `);
     }
     expect(appStep).toMatch(/--project=chromium --workers=1/);
+    // One failure must not hide the other suite.
+    expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) \}\}/);
     const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
     expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
+    // Separate report folders, so the second step does not overwrite the first's report.
+    expect(dropStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drop-tables/);
+    expect(appStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drive-app/);
   });
 
-  // ci.yml's e2e job must not receive the secrets: there the live specs skip, and the app runs on browser storage.
+  it("uploads the reports on failure only, for 7 days", () => {
+    const up = job.slice(job.indexOf("uses: actions/upload-artifact@"));
+    expect(up).toMatch(/if: \$\{\{ failure\(\) \}\}/);
+    expect(up).toMatch(/path: playwright-report\//);
+    expect(up).toMatch(/retention-days: 7/);
+  });
+
+  // Every other workflow, today's and any added later: there the live specs skip, and the app runs
+  // on browser storage.
   it("is the only workflow that reads the throwaway secrets", () => {
-    for (const [name, text] of [["ci.yml", CI], ["release.yml", RELEASE], ["scheduled.yml", read(SCHEDULED_PATH)]]) {
-      expect(text, name).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
+    expect(ALL_WORKFLOWS).toContain("live-turso.yml");
+    for (const f of ALL_WORKFLOWS.filter((n) => n !== "live-turso.yml")) {
+      expect(code(read(`.github/workflows/${f}`)), f).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
     }
   });
 });

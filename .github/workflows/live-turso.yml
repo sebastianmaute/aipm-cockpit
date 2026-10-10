@@ -2,19 +2,31 @@
 # docs/AGENTS/ci.md says why and how to read it. The specs are listed in e2e/live-turso-env.ts's
 # header; everything about which database they may touch lives there.
 #
-# ★★★ ONE DATABASE, ONE RUN AT A TIME. Every run of this workflow shares the throwaway database,
-# and the table-dropping specs would pull tables out from under another run's specs, so the
-# concurrency group is a single fixed name and nothing is cancelled: a second run waits.
+# ★★★ THE SECRETS. Two repository secrets, TURSO_THROWAWAY_DATABASE_URL and
+# TURSO_THROWAWAY_AUTH_TOKEN, for a Turso database kept for this workflow alone (the specs drop its
+# tables). The token MUST be scoped to that one database (`turso db tokens create <db>`), never a
+# group or organisation token: what a leak, or a branch, can reach is exactly what the token
+# reaches. ★ Accepted risk, stated: anyone who can push a branch to this repository can change the
+# specs, playwright.config.ts or package.json that this workflow runs, and so read the secrets.
+# That is inherent to running secrets on pull_request; it is acceptable while only the owner has
+# write access. With collaborators, gate the live job on an environment with required reviewers.
+# pull_request_target is never used: it would hand the secrets to a fork's code.
 #
-# ★★★ THE SECRETS NEVER REACH A run: LINE. They enter through env: only, and the specs read them
-# from the environment. With either secret missing (a fork's pull request, Dependabot, or before
-# the owner sets them) the job says so and runs nothing: a skip, never a failure, never a pass
-# that pretends to have tested anything.
+# ★★★ THE SECRETS NEVER REACH A run: LINE. They enter through env: only. The `check` job reads
+# them to answer one question, are both set; with either missing (a fork's pull request,
+# Dependabot, or before the owner sets them) the `live-turso` job is skipped and never queues.
+#
+# ★★★ ONE DATABASE, ONE RUN AT A TIME, AND RUNS CAN BE DROPPED. The live job's concurrency group is
+# a fixed name, so every run shares one slot; cancel-in-progress is false, so a running job is
+# never cancelled. GitHub keeps ONE pending run per group: a second run waits, and a third
+# REPLACES the waiting second, which ends "cancelled" and is not re-queued. Re-run it by hand
+# (Re-run jobs, or workflow_dispatch). The group sits on the JOB, after the check, so a skipped run
+# (a fork) never takes the slot and cannot cancel a real one.
 #
 # ★★ The two secrets go into BOTH pairs for the UI step: the specs read TURSO_THROWAWAY_*, and the
 # dev server the app runs on reads NEXT_PUBLIC_TURSO_*, so the app's database IS the throwaway one.
-# With the app carrying a token, playwright.config.ts turns trace and video off, so the uploaded
-# report cannot hold the token.
+# playwright.config.ts turns trace and video off whenever either pair carries a token, so the
+# uploaded reports hold no Authorization header.
 name: live-turso
 
 on:
@@ -27,15 +39,35 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: live-turso-throwaway-database
-  cancel-in-progress: false
-
 env:
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.pair.outputs.present }}
+    steps:
+      - name: Are both throwaway database values set?
+        id: pair
+        env:
+          URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
+          TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+        run: |
+          if [ -n "$URL" ] && [ -n "$TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::live-turso skipped: TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN are not both set for this run (a fork, Dependabot, or not configured yet)."
+          fi
+
   live-turso:
+    needs: check
+    if: needs.check.outputs.present == 'true'
+    concurrency:
+      group: live-turso-throwaway-database
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Keep this tag equal to @playwright/test in package-lock.json (ci-workflow.test.mjs checks).
@@ -49,40 +81,28 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - name: Are the throwaway database secrets set?
-        id: secrets
-        env:
-          URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
-          TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
-        run: |
-          if [ -n "$URL" ] && [ -n "$TOKEN" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::live-turso skipped: TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN are not both set for this run (a fork, Dependabot, or not configured yet)."
-          fi
-      - if: steps.secrets.outputs.present == 'true'
-        run: npm ci
-      - if: steps.secrets.outputs.present == 'true'
-        run: npx playwright install chromium
+      - run: npm ci
+      - run: npx playwright install chromium
       # First and alone: the specs that DROP tables (the live-turso-destructive project, one file at
       # a time). The npm script sets E2E_LIVE_DESTRUCTIVE and PLAYWRIGHT_NO_WEBSERVER itself.
       - name: Live specs that drop tables
-        if: steps.secrets.outputs.present == 'true'
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drop-tables
         run: npm run e2e:live-destructive
       # Then the specs that drive the app, one at a time, on a dev server started with the throwaway
-      # database as the app's own. The filter names every live UI spec, including ones a later branch
+      # database as the app's own. Runs even when the step above failed, so one failure does not
+      # hide the other suite. The filter names every live UI spec, including ones a later branch
       # adds; a name that matches no file is simply not run.
       - name: Live specs that drive the app
-        if: steps.secrets.outputs.present == 'true'
+        if: ${{ !cancelled() }}
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
           NEXT_PUBLIC_TURSO_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           NEXT_PUBLIC_TURSO_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drive-app
         # The quoted filter is a regex with | in it; bash keeps it one argument.
         shell: bash
         run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
-import { appHasTursoToken } from "./e2e/live-turso-env";
+import { appHasTursoToken, LIVE as THROWAWAY_PAIR_SET } from "./e2e/live-turso-env";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -34,10 +34,13 @@ const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec
 // stay on because the app never renders a token as plain text. Locally this also
 // applies to a developer whose `.env.local` holds their own token, so it says so
 // once per run rather than leaving a missing trace to look like a bug.
-const APP_HAS_TURSO_TOKEN = appHasTursoToken();
+// ★ The THROWAWAY pair counts too: a spec that sends it with Playwright's own `request`
+// fixture would put it in a trace even when the app carries none (the table-dropping
+// specs use Node fetch today, which a trace does not record; this keeps it that way).
+const APP_HAS_TURSO_TOKEN = appHasTursoToken() || THROWAWAY_PAIR_SET;
 if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
   // stderr, not stdout: `--reporter=json` writes its report to stdout, and a line there corrupts it.
-  process.stderr.write("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)\n");
+  process.stderr.write("playwright: trace and video are off, because a Turso token is configured (see playwright.config.ts)\n");
 }
 
 export default defineConfig({

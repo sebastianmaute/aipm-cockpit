@@ -165,28 +165,6 @@ re-resolved by hand.
   (`appHasTursoToken`), because a trace records the `Authorization` header and a failing job uploads
   `playwright-report/`.
 
-## `live-turso.yml` — the live-Turso specs (§215)
-
-NOT a required check, and deliberately so: it needs repository secrets a fork's pull request and
-Dependabot never get, and a required check that cannot run there would block them. It runs on every
-pull request and every push to `main`, beside `ci.yml`, as one job, `live-turso`:
-
-- **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
-  database kept for this job alone: the specs drop its tables. They enter through `env:` only, never a
-  `run:` line. With either one missing the first step writes a notice and every later step is
-  skipped, so the job is green and says it tested nothing.
-- **One run at a time, everywhere.** The concurrency group is the fixed name
-  `live-turso-throwaway-database` with `cancel-in-progress: false`: every run shares the one database,
-  so a second run waits rather than racing the first.
-- **Two steps, in order.** First `npm run e2e:live-destructive` (the specs that drop tables, one file
-  at a time, no app server). Then the specs that drive the app, `--workers=1`, on a dev server started
-  with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`, so the app's database is the throwaway
-  one; the step's file filter names every live UI spec, including ones a later branch adds. Trace and
-  video are off there (the app carries the token), so the `live-turso-report` artifact uploaded on
-  failure cannot hold it.
-- **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules,
-  not a required check, the fixed concurrency group, secrets on `env:` lines only, every install and
-  test step gated on the secrets, and no other workflow reading them.
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is
@@ -210,6 +188,48 @@ pull request and every push to `main`, beside `ci.yml`, as one job, `live-turso`
 ★ The risk the design names is the 2-vCPU private runner: if `unit` runs past ~25 min, split it with
 vitest `--shard` across two jobs. That needs merged coverage reports for the floors, which is why it
 was not done up front.
+
+## `live-turso.yml` — the live-Turso specs (§215)
+
+NOT a required check, and deliberately so: it needs repository secrets a fork's pull request and
+Dependabot never get, and a required check that cannot run there would block them. It runs on every
+pull request and every push to `main`, beside `ci.yml`, as two jobs:
+
+- **`check`** reads the two secrets through `env:` and answers one question, are both set. With
+  either missing it writes a notice, and `live-turso` is skipped: it never installs, never runs and
+  never queues.
+- **`live-turso`** (`needs: check`, only when both are set) runs the specs. First
+  `npm run e2e:live-destructive` (the specs that drop tables, one file at a time, no app server).
+  Then, even when that step failed, the specs that drive the app, `--workers=1`, on a dev server
+  started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`, so the app's database is the
+  throwaway one. The step's file filter names every live UI spec, including ones a later branch
+  adds. Each step writes its own report folder under `playwright-report/`, uploaded as
+  `live-turso-report` on failure only, for 7 days.
+- **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
+  database kept for this workflow alone: the specs drop its tables. ★★★ The token must be scoped
+  to that ONE database (`turso db tokens create <db>`), never a group or organisation token: what a
+  leak can reach is exactly what the token reaches. The secrets enter through `env:` only, never a
+  `run:` line, and `playwright.config.ts` turns trace and video off whenever either pair carries a
+  token, so a report holds no `Authorization` header. This repository is public, so its logs and
+  artifacts are too. GitHub masks the exact secret values; a derived form of the URL (the
+  normalised `https://` base, the bare host) is not masked, and no current path prints one.
+- ★★ **Accepted risk.** Anyone who can push a branch to this repository can change the specs,
+  `playwright.config.ts` or `package.json` that this workflow runs, and so read the secrets. That is
+  inherent to running secrets on `pull_request`, and acceptable while only the owner has write
+  access; with collaborators, gate `live-turso` on an environment with required reviewers.
+  `pull_request_target`, which would hand the secrets to a fork's code, is never used.
+- ★★ **One run at a time, and runs can be dropped.** `live-turso` has a JOB-level concurrency
+  group, the fixed name `live-turso-throwaway-database`, with `cancel-in-progress: false`: every
+  run shares one database, so a running job is never cancelled. GitHub keeps ONE pending run per
+  group, so a second run waits and a third REPLACES the waiting second, which ends "cancelled" and
+  is not re-queued: re-run it by hand (Re-run jobs, or `workflow_dispatch`). The group sits on the
+  job, after `check`, so a run that skips (a fork's pull request) never takes the slot and cannot
+  replace a real run's pending one. `timeout-minutes: 40` bounds how long a hung run holds it.
+- **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules;
+  neither job a required check; no workflow using `pull_request_target`; the job-level fixed
+  concurrency group and an ungrouped `check`; secrets on `env:` lines only; the order of the two
+  steps and the second one running after a failure; the failure-only, 7-day upload; and no other
+  workflow file reading the throwaway secrets.
 
 ## Weekly
 
