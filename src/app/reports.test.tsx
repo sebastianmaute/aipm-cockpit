@@ -278,6 +278,9 @@ describe("ReportsPanel — composed reports", () => {
     renderComposed([], vi.fn(), []);
     const button = screen.getByRole("button", { name: t("en-US", "reportsAddReportNone") });
     expect(button).toBeDisabled();
+    // ★ The label must be true in BOTH empty cases — every report already added,
+    // and (as here) no module owning one switched on — so it cannot say "all added".
+    expect(button).toHaveTextContent(/^No reports to add$/);
   });
 
   // §685 (owner pick 2B): "+ Add report" is the pane's primary Add button.
