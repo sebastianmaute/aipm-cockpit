@@ -348,6 +348,8 @@ export function HistoryPanel({ lang, versions, busy, unavailable = false, onCapt
                 onChange={(e) => setDraftLabel(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); else if (e.key === "Escape") cancelSave(); }}
                 placeholder={t(lang, "historyManualLabelPrompt")}
+                // A placeholder is not an accessible name; the same words carry it (label-in-name).
+                aria-label={t(lang, "historyManualLabelPrompt")}
               />
               <Button
                 size="sm"
