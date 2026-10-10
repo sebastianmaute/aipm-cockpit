@@ -44221,6 +44221,8 @@ regressing either way.
 
 ★ **What it breaks today.** The dependency is dev-only (lint tooling), so the required `audit` check in `ci.yml` (`--omit=dev --audit-level=high`) stays green and no shipped code contains it. The weekly `audit-full` job in `scheduled.yml` (`--audit-level=low`, dev included) fails every week until upstream ships a fix: first seen in scheduled run 37293040675 (2026-10-05); the previous run, 36402242735 (2026-09-28), passed `audit-full` although the advisory was already published, so npm's audit data picked it up in between. A red `audit-full` therefore says nothing new until this closes; read its log for a SECOND advisory before writing it off.
 
+★ **A second accepted advisory, outside this gate.** `desktop/` resolves `sprintf-js@1.1.3` through `electron-builder` (GHSA-hp3w-g68c-fv3c, moderate): build-time only, and 1.1.3 is the newest release, so there is nothing to move to either. `audit-full` runs in the repository root only, so it does not fail on it; it was accepted on 2026-10-10 when OpenSSF Scorecard's Vulnerabilities alert was dismissed, and `cd desktop && npm audit` still lists it. It does not change this entry's close condition.
+
 **Close when** `npm audit --audit-level=low` exits 0: either `braces` ships a patched release that `micromatch@4`'s `^3.0.3` range accepts (then `npm update braces`), or `@next/eslint-plugin-next` stops pinning `fast-glob@3.3.1`.
 
 ## 672. Twenty-seven files' per-row names are judged unable to repeat by hand, and no test would catch one that starts to — CLOSED 2026-10-06
