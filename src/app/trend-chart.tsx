@@ -31,15 +31,17 @@ export function xLabelCapacity(chars: number): number {
   return Math.max(2, Math.floor(PLOT_W / (1.5 * chars * X_LABEL_CHAR_W)) + 1);
 }
 
-/** The indices that get an x label: every point when `max` fit, otherwise evenly spaced ones,
- *  always the first and the last. A step-aligned label less than a full step before the last
- *  one is dropped, since the end-anchored last label reaches back a whole label width. */
-export function labelledIndices(n: number, max: number): Set<number> {
+/** The indices that get an x label when the longest is `chars` wide: every point when they fit,
+ *  otherwise evenly spaced ones, always the first and the last. The last step-aligned label is
+ *  dropped only when it would overlap the end-anchored last one (closer than 1.5 widths). */
+export function labelledIndices(n: number, chars: number): Set<number> {
+  const max = xLabelCapacity(chars);
   if (n <= max) return new Set(Array.from({ length: n }, (_, i) => i));
   const step = Math.ceil((n - 1) / (max - 1));
   const kept = [];
   for (let i = 0; i < n - 1; i += step) kept.push(i);
-  if (n - 1 - kept[kept.length - 1] < step) kept.pop();
+  const lastGap = ((n - 1 - kept[kept.length - 1]) * PLOT_W) / (n - 1);
+  if (kept.length > 1 && lastGap < 1.5 * chars * X_LABEL_CHAR_W) kept.pop();
   return new Set([...kept, n - 1]);
 }
 
@@ -67,7 +69,7 @@ export function TrendChart({
   const max = Math.max(...values, 0);
   const baseY = PAD_T + PLOT_H;
   const yTicks = max > min ? [min, (min + max) / 2, max] : [min];
-  const labelled = labelledIndices(n, xLabelCapacity(Math.max(...points.map((p) => p.label.length))));
+  const labelled = labelledIndices(n, Math.max(...points.map((p) => p.label.length)));
 
   const segments = points.slice(1).map((p, i) => {
     const x1 = xAt(i, n), y1 = yAt(points[i].value, min, max);

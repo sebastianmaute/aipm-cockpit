@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { labelledIndices, TrendChart, X_LABEL_CHAR_W, xLabelCapacity } from "./trend-chart";
+import { labelledIndices, TrendChart, X_LABEL_CHAR_W } from "./trend-chart";
 
 const points = [
   { label: "W22", value: 100, gapBefore: false },
@@ -60,7 +60,7 @@ describe("TrendChart", () => {
   it.each([["monthly", 7], ["weekly", 8], ["daily", 10]] as const)("keeps %s labels clear of each other on 2 to 60 points", (_, chars) => {
     const width = chars * X_LABEL_CHAR_W;
     for (let n = 2; n <= 60; n += 1) {
-      const idx = [...labelledIndices(n, xLabelCapacity(chars))].sort((a, b) => a - b);
+      const idx = [...labelledIndices(n, chars)].sort((a, b) => a - b);
       expect(idx[0]).toBe(0);
       expect(idx.at(-1)).toBe(n - 1);
       expect(idx.length).toBeGreaterThanOrEqual(Math.min(n, 3));
@@ -74,8 +74,9 @@ describe("TrendChart", () => {
     const daily = Array.from({ length: 24 }, (_, i) => ({ label: `2026-09-${String(i + 1).padStart(2, "0")}`, value: i, gapBefore: false }));
     const { container } = render(<TrendChart caption="Remaining hours" points={daily} />);
     const labels = [...container.querySelectorAll("text")].map((el) => el.textContent ?? "").filter((s) => s.startsWith("2026-09-"));
-    // Four fit; spaced 8 points apart, the third (Sep 17) sits too close to the end-anchored last.
-    expect(labels).toEqual(["2026-09-01", "2026-09-09", "2026-09-24"]);
+    // Four fit, 8 points apart. Sep 17 sits 78 units before the end-anchored last, clear of the 66 it
+    // needs; a rule that dropped any label less than a full step before the last lost it.
+    expect(labels).toEqual(["2026-09-01", "2026-09-09", "2026-09-17", "2026-09-24"]);
   });
 
   it("labels every point on a short axis", () => {
