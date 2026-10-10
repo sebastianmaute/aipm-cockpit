@@ -44555,8 +44555,8 @@ What has not been checked: whether pressing Escape while the popover sits above 
 
 **Status:** CLOSED 2026-10-10 on `verify/696-demo-trends` (GitHub #640): every condition in "Close when" holds against a live (throwaway) Turso database, run 2026-10-10 with `npx playwright test e2e/demo-trends-live.spec.ts --project=chromium --workers=1` (with `PORT=3100` and the throwaway pair, `e2e/live-turso-env.ts`) → 2 passed, 0 skipped. Both entry points were driven, the start screen's "Explore the demo" card and the Projects panel's "Explore a demo project" (from inside an open project, which the panel needs). In each run:
 - the demo opened with the guided tour, as a Turso project;
-- it stored **23** seeded weeks with exactly **one** baseline, plus the current week's own live capture (24 rows), and Trends listed all 24 with one ★ (baseline 2026-W16). 23 is what `demoHistoryFor` gives for 2026-10-10 and the spec computes it the same way; it is not a fixed 27, see below;
-- after a reload the demo opened again, with the same Trends history;
+- it stored **23** seeded weeks with exactly **one** baseline, plus the current week's own live capture (24 rows), and Trends listed as many rows as were stored, with one ★ (baseline 2026-W16). 23 is what `demoHistoryFor` gives for 2026-10-10 and the spec computes it the same way; it is not a fixed 27, see below;
+- after a reload the demo opened again, the stored history unchanged (the same counts, no second capture) and Trends listing it again;
 - the demo was then deleted with the app's own `hardDeleteProject` (`turso-portfolio.ts`), run from the test process: the Projects panel offers no Archive on the open project, and in the start-card run the demo is the only project, so there is no UI path to delete it. Afterwards no project row and no snapshot of it were left, so the §204 side-table sweep reaches `snapshot`.
 
 Found on the way, and not part of this entry's conditions; each is reported for a decision:
@@ -44564,7 +44564,7 @@ Found on the way, and not part of this entry's conditions; each is reported for 
 - **Every Trends chart shows "2 gaps"** in the seeded history: two missing weeks, most likely the month shift landing two source Fridays in one week bucket (`shiftDemoSnapshots`, which keeps the later).
 - **The Trends charts' x-axis labels overlap** into an unreadable band at 1280px wide.
 
-Screenshots of Trends (both entry points, before and after the reload) were taken for the owner's eye-check.
+Screenshots of Trends (both entry points, before and after the reload) were taken for the owner's eye-check. **Superseded by `fix/demo-trends-history`** (reported by its author, not yet re-run here): with the week-aligned shift the demo stores 26 weeks on 2026-10-10 with 0 gaps, the card quotes that count, and the charts label at most six points. Once both branches land, `e2e/demo-trends-live.spec.ts` is re-run once to confirm; it computes the expected count with `demoHistoryFor`, so it follows the fix.
 
 **Original status:** open 2026-10-10, found while shipping the demo's Trends history. Never machine-verified against a live Turso database: `createDemo` (`demo-project.ts`), the `seedSnapshots` hook inside `createTursoProject` and `appendSnapshots` (`snapshot-store.ts`) run only against stubbed clients and `node:sqlite`.
 

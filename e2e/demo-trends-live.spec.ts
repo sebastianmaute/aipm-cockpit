@@ -18,6 +18,8 @@
 // throwaway one (`live-turso-env.ts`); it skips, saying why, otherwise. It
 // creates and deletes one project per test; `afterAll` removes any demo a failed
 // run left behind. Trace and video are off (the app carries the token).
+// ★ The start-card test needs a database with NO Turso project in it: the card
+// shows only then. With other projects present it fails (it cannot pass falsely).
 // Run it alone, against a fresh server:
 //   PORT=3100 npx playwright test e2e/demo-trends-live.spec.ts --project=chromium --workers=1
 // The Trends screenshot lands in each test's output directory (test-results/…).
@@ -74,6 +76,8 @@ const rowsOf = (r: { response?: { result?: { rows?: Rows } } } | undefined): Row
 /** Ids of every project row named like the demo (archived or not). */
 async function demoProjectIds(): Promise<string[]> {
   const [res] = await pipeline([{ sql: "SELECT id FROM projects WHERE name = ?", args: [txt(DEMO_NAME)] }]);
+  // A failed query must not read as "no rows": the post-delete checks rest on it.
+  expect(res?.type, "the projects query failed").toBe("ok");
   return rowsOf(res).map((r) => r[0]?.value ?? "");
 }
 
@@ -90,6 +94,7 @@ async function snapshotCounts(projectId: string): Promise<{ seeded: number; live
       args: [txt(`${projectId}:%`), txt(`${projectId}:%`), txt(projectId)],
     },
   ]);
+  expect(res?.type, "the snapshot query failed").toBe("ok");
   const row = rowsOf(res)[0] ?? [];
   const n = (i: number) => Number(row[i]?.value ?? "0");
   return { seeded: n(0), live: n(1), baselines: n(2) };
@@ -159,18 +164,24 @@ async function createAndVerify(
   await expectTourThenSkip(page);
   await expect.poll(demoProjectIds, { message: "no demo project row reached the database", timeout: 60_000 }).toHaveLength(1);
   const [id] = await demoProjectIds();
+  // Read once the current week's own capture has landed: read before it, the database says 23
+  // while Trends goes on to show 24.
+  await expect
+    .poll(async () => (await snapshotCounts(id)).live, { message: "the app never captured the current week", timeout: 60_000 })
+    .toBe(1);
   const counts = await snapshotCounts(id);
   expect(counts.seeded, "the stored history is not the seeded weeks the app computes for today").toBe(expectedWeeks());
   expect(counts.baselines, "the stored history does not have exactly one baseline").toBe(1);
-  expect(counts.live, "more than the current week's own capture sits beside the seed").toBeLessThanOrEqual(1);
+  expect(counts.live, "more than the current week's own capture sits beside the seed").toBe(1);
   test.info().annotations.push({ type: "demo history", description: `${counts.seeded} seeded weeks + ${counts.live} live capture` });
   await expectTrendsHistory(page, shotName, counts.seeded + counts.live);
 
   // The project opens again after a reload.
   await page.reload();
   await expect(page.getByRole("button", { name: new RegExp(DEMO_NAME.replace(/[()]/g, "\\$&")) }).first(), "the demo did not reopen after a reload").toBeVisible({ timeout: 60_000 });
-  const reloaded = await snapshotCounts(id);
-  await expectTrendsHistory(page, `${shotName}-after-reload`, reloaded.seeded + reloaded.live);
+  // The same history: the reload neither lost a week nor captured a second one.
+  expect(await snapshotCounts(id), "the reload changed the stored history").toEqual(counts);
+  await expectTrendsHistory(page, `${shotName}-after-reload`, counts.seeded + counts.live);
 
   // Deleted with the app's own hard delete, from this process: the Projects panel cannot
   // archive the open project, and the demo is the only one, so there is no UI path to it.
