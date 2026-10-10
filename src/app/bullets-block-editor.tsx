@@ -4,6 +4,7 @@
 // its own header comment for why `useBlockDraft` and `BlockReadOnlyNotice`
 // stay there as the shared template rather than being duplicated here.
 import { t, localeFor } from "./i18n";
+import { ArrowDownIcon, ArrowUpIcon, XMarkIcon } from "./icons";
 import { useId } from "react";
 import { MAX_BULLET_ITEMS, type DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
@@ -126,7 +127,7 @@ export function BulletsBlockEditor({
               disabled={i === 0}
               onClick={() => moveItem(i, i - 1)}
             >
-              <span aria-hidden="true">{"↑"}</span>
+              <ArrowUpIcon aria-hidden="true" className="h-4 w-4" />
             </Button>
             <Button
               variant="secondary"
@@ -136,7 +137,7 @@ export function BulletsBlockEditor({
               disabled={i === value.items.length - 1}
               onClick={() => moveItem(i, i + 1)}
             >
-              <span aria-hidden="true">{"↓"}</span>
+              <ArrowDownIcon aria-hidden="true" className="h-4 w-4" />
             </Button>
             <Button
               variant="secondary"
@@ -152,7 +153,7 @@ export function BulletsBlockEditor({
               disabled={value.items.length <= 1}
               onClick={() => removeItem(i)}
             >
-              <span aria-hidden="true">{"✕"}</span>
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
             </Button>
           </li>
         ))}

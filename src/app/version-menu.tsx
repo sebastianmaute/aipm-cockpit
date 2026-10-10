@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { InformationCircleIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import { type Lang, t } from "./i18n";
 import { VersionInfo } from "./version-info";
@@ -13,17 +14,16 @@ export function VersionMenu({ lang }: { lang: Lang }) {
 
   return (
     <div className="relative">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "version")}
+        label={t(lang, "version")}
         aria-expanded={open}
         title={t(lang, "version")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <InformationCircleIcon aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
 
       <PopoverPanel
         open={open}

@@ -1,9 +1,9 @@
 "use client";
 
-// Shared per-row "Ask Claude" (inline AI edit) affordance for entity panels
-// (RAID / change / milestone / stakeholder). The tasks table keeps its own
-// inline button in task-row.tsx (shipped SP1); this component de-dups the four
-// SP2 panels so the ✨ markup lives in one place. Presentational + props-only.
+// Shared per-row "Ask Claude" (inline AI edit) affordance: the RAID, change,
+// milestone and stakeholder panels, the tasks table row and the Kanban card all
+// render this one, so the ✨ markup lives in one place (§688). Presentational +
+// props-only.
 import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";

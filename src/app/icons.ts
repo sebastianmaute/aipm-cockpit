@@ -101,6 +101,7 @@ export type { LucideIcon as AppIcon } from "lucide-react";
 export {
   GraduationCapIcon as AcademicCapIcon,
   SlidersHorizontalIcon as AdjustmentsHorizontalIcon,
+  ArrowDownIcon,
   DownloadIcon as ArrowDownTrayIcon,
   MoveRightIcon as ArrowLongRightIcon,
   RefreshCwIcon as ArrowPathIcon,
@@ -108,6 +109,7 @@ export {
   ArrowRightIcon,
   ExternalLinkIcon as ArrowTopRightOnSquareIcon,
   TrendingUpIcon as ArrowTrendingUpIcon,
+  ArrowUpIcon,
   UploadIcon as ArrowUpTrayIcon,
   Undo2Icon as ArrowUturnLeftIcon,
   Redo2Icon as ArrowUturnRightIcon,

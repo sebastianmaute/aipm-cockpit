@@ -5,7 +5,7 @@ import { Cog6ToothIcon } from "./icons";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { PopoverPanel } from "./popover-panel";
 import { Checkbox } from "./form-controls";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 
 export interface ColumnConfigCol {
   key: string;
@@ -31,17 +31,16 @@ export function ColumnConfigPopover({ lang, cols, hidden, onToggle }: ColumnConf
 
   return (
     <div className="relative inline-block">
-      <button
+      <IconButton
         ref={buttonRef}
-        type="button"
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "colConfigTitle")}
+        label={t(lang, "colConfigTitle")}
         title={t(lang, "colConfigTitle")}
         aria-expanded={open}
-        className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
       >
         <Cog6ToothIcon aria-hidden="true" className="h-4 w-4" />
-      </button>
+      </IconButton>
       <PopoverPanel
         open={open}
         anchorRef={buttonRef}

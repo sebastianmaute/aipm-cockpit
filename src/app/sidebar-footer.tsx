@@ -6,6 +6,7 @@
 // Sidebar — it is intentionally NOT rendered here.
 
 import { type Lang, t } from "./i18n";
+import { ExclamationTriangleIcon } from "./icons";
 
 interface SidebarFooterProps {
   lang: Lang;
@@ -136,9 +137,9 @@ export function SidebarFooter({
           <span
             aria-hidden
             data-storage-marker={storageReady ? "ready" : "not-ready"}
-            className={"ml-1 text-xs leading-none" + (storageReady ? " invisible" : "")}
+            className={"ml-1 inline-flex" + (storageReady ? " invisible" : "")}
           >
-            ⚠
+            <ExclamationTriangleIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </span>
         </p>
       )}

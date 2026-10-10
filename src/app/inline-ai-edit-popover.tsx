@@ -6,9 +6,7 @@ import { type EditPlan } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
 import { type InlinePhase } from "./use-inline-ai-edit";
-import { usePopoverDismiss } from "./use-popover-dismiss";
-import { useFocusTrap } from "./use-focus-trap";
-import { MODAL_BACKDROP_CLASS } from "./modal";
+import { Modal } from "./modal";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { Button } from "./button";
@@ -40,24 +38,16 @@ export interface InlineAiEditPopoverProps {
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
   const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  usePopoverDismiss(true, ref, onCancel);
-  // Focus the NL input on open, trap Tab within the aria-modal dialog, and
-  // restore focus to the trigger (✨ button) on close — via the shared
-  // focus-trap primitive (usePopoverDismiss already owns Escape + outside-click).
-  useFocusTrap(ref, true, undefined, inputRef);
   const busy = phase === "thinking" || phase === "applying";
 
+  // The shared Modal owns the backdrop, the Tab trap, Escape (topmost layer
+  // only, so above an open entity Modal it closes this popover alone), focus
+  // into the NL input and focus back to the ✨ trigger on close (§694).
+  // zIndex 70 keeps it above the entity modals it opens from.
   return (
-    <div className={`fixed inset-0 z-[70] flex items-center justify-center ${MODAL_BACKDROP_CLASS} p-4`}>
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t(lang, "inlineAiEdit")}
-        className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4"
-      >
+    <Modal open onClose={onCancel} ariaLabel={t(lang, "inlineAiEdit")} align="center" zIndex={70} initialFocusRef={inputRef}>
+      <div className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
           <IconButton onClick={onCancel} label={t(lang, "cancel")} title={t(lang, "cancel")}>
@@ -185,6 +175,6 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

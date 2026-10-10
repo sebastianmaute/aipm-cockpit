@@ -5,6 +5,7 @@
 // "compare selected" (the two are ordered oldest→newest before diffing).
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { XMarkIcon } from "./icons";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import { logDiag } from "./diagnostics";
@@ -361,7 +362,7 @@ export function HistoryPanel({ lang, versions, busy, unavailable = false, onCapt
                 title={t(lang, "cancel")}
                 variant="danger"
               >
-                ×
+                <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
             </span>
           ) : (
@@ -518,7 +519,7 @@ export function HistoryPanel({ lang, versions, busy, unavailable = false, onCapt
                 title={t(lang, "alertModalClose")}
                 variant="danger"
               >
-                ×
+                <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
             </span>
           </div>

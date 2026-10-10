@@ -10,6 +10,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { ArrowDownTrayIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
@@ -67,17 +68,16 @@ export function ExportMenu({
 
   return (
     <div className="relative">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
+        size="md"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t(lang, "exportTitle")}
+        label={t(lang, "exportTitle")}
         aria-expanded={open}
         title={t(lang, "exportTitle")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <ArrowDownTrayIcon aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
 
       <PopoverPanel
         open={open}

@@ -10,6 +10,7 @@
 // guards exactly. The component reproduces the prior markup verbatim.
 import type React from "react";
 import { ChevronDownIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { t, type TranslationKey } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { TabButton, ResetSizeButton } from "./task-manager-ui";
@@ -165,12 +166,12 @@ export function WorkspaceTabStrip({
             className="ml-auto mb-1"
           />
         )}
-        <button
-          type="button"
+        <IconButton
+          size="md"
           onClick={() => setWorkspaceCollapsed((v) => !v)}
           aria-expanded={!workspaceCollapsed}
           aria-controls="workspace-panels"
-          aria-label={
+          label={
             workspaceCollapsed
               ? t(lang, "workspaceExpand")
               : t(lang, "workspaceCollapse")
@@ -180,17 +181,13 @@ export function WorkspaceTabStrip({
               ? t(lang, "workspaceExpand")
               : t(lang, "workspaceCollapse")
           }
-          className={
-            workspaceCollapsed
-              ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
-              : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
-          }
+          className={workspaceCollapsed ? "ml-auto mb-1" : "mb-1"}
         >
           <ChevronDownIcon
             aria-hidden="true"
             className={`h-4 w-4 transition-transform ${workspaceCollapsed ? "rotate-180" : ""}`}
           />
-        </button>
+        </IconButton>
       </div>
 
       {subTabs.length > 0 && (

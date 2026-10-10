@@ -5,7 +5,7 @@ import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
 import { HELP_ENTRIES, type HelpEntryId } from "./help-content";
 import { HelpBodyText } from "./help-body-text";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 
 /** The help affordance: a question-mark trigger and the popover it opens.
@@ -63,8 +63,7 @@ export function HelpIconButton({
   const closeName = `${t(lang, "alertModalClose")} – ${t(lang, entry.titleKey)}`;
   return (
     <>
-      <button
-        type="button"
+      <IconButton
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -73,12 +72,12 @@ export function HelpIconButton({
            that EXISTS and the panel is unmounted while closed — the same
            shape as `entity-combobox-search.tsx`. */
         aria-controls={open ? panelId : undefined}
-        aria-label={name}
+        label={name}
         title={name}
-        className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
+        size="md"
       >
         <QuestionMarkCircleIcon aria-hidden="true" className="h-4 w-4" />
-      </button>
+      </IconButton>
       {/* ★ SHARED PRIMITIVE, never a hand-rolled absolute panel. EVERY
           declaring modal's panel clips its overflow, and z-index
           CANNOT escape overflow — so the
@@ -183,15 +182,14 @@ export function HelpIconButton({
               that axe has no rule for, so a unit test is the only
               detector. Same en-dash convention `ModalHeader`'s
               `closeLabel` documents. */}
-          <button
-            type="button"
+          <IconButton
             onClick={close}
-            aria-label={closeName}
+            label={closeName}
             title={closeName}
-            className={`-mr-1 -mt-1 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
+            className="-mr-1 -mt-1 shrink-0"
           >
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </IconButton>
         </div>
         <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
           <HelpBodyText body={t(lang, entry.bodyKey)} labelClass="font-medium text-foreground" />

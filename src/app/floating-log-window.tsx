@@ -160,7 +160,8 @@ export function FloatingLogWindow({
               here should be read as a claim that the icon is contained. */}
           <HelpIconButton lang={lang} conceptId={helpConceptId} dialogTitle={title} />
           <ResetSizeButton onClick={resetSize} lang={lang} labelKey="modalResetSize" />
-          <IconButton onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>
+          {/* md like the help and reset buttons beside it, so the header row is one size (§688). */}
+          <IconButton size="md" onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>
