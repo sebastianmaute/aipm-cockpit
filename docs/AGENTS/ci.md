@@ -211,9 +211,17 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   report only when a run ends, so a step killed by its timeout uploads none. Each step therefore
   sets `E2E_GLOBAL_TIMEOUT_MS` (10 and 18 minutes, at least 2 under the step's; the tests check
   it), which `playwright.config.ts` passes to `globalTimeout`: Playwright then interrupts the run
-  and still writes the report, whatever the number of tests. Measured locally on 2026-10-10 with
-  `E2E_GLOBAL_TIMEOUT_MS=1` and the destructive project: "Timed out waiting 0.001s", exit 1, and
-  an `index.html` written; unset, `abc` or `0` set no limit (4 skipped, exit 0). ★ `--retries=1
+  and still writes the report, whatever the number of tests. `globalTimeoutFrom`
+  (`e2e/global-timeout.ts`) reads the variable: only a whole number of ms up to 2^31−1 sets a limit
+  (above that Node clamps the timer to 1 ms and the run would end at once); anything else sets
+  none, so every other run is unchanged. Measured on 2026-10-10, three ways. (1) Locally, with
+  `E2E_GLOBAL_TIMEOUT_MS=1` and the destructive project: the limit fired during SETUP, before any
+  test loaded and with no app server ("Timed out waiting 0.001s for the clear output to run"),
+  exit 1, `index.html` written; unset, `abc` or `0` set no limit (4 skipped, exit 0). (2) and (3)
+  by a reviewer, on throwaway configs outside the repository (not reproducible from here): five
+  1.5 s tests under a 4 s limit gave 2 passed, 3 not run, exit 1 and `index.html` written; a
+  web server that never came up under a 3 s limit gave "Timed out waiting 3s for the plugin setup
+  to run", exit 1 and `index.html` written, so app-server start-up counts against it. ★ `--retries=1
   --max-failures=3` on the app step do NOT bound the time: Playwright counts a failure toward
   `--max-failures` only after its retries, and queues every retry after all first attempts, so
   nothing counts until the whole first pass is done. The `live-turso-destructive` project sets
@@ -253,15 +261,18 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
   job-level fixed concurrency group and an ungrouped `check`; each of the 8 secret lines directly
   under a STEP's `env:` key, and in exactly the three steps that need them (2 in the check's step,
-  2 in the drop-tables step, 4 in the app step, each step matched by its name AND its `run:`
-  command), so moving them onto `npm ci` fails; two separate
-  raw-text checks (shell `#` lines in a `run: |` body included): only those 8 lines may hold a
+  2 in the drop-tables step, 4 in the app step, each step matched by its name AND its own `run:`
+  command, minus any quoted argument such as the spec filter), so moving them onto `npm ci` fails;
+  two separate raw-text checks (shell `#` lines in a `run: |` body included): only those 8 lines may
+  hold a
   `${{ }}` naming `secrets` or `env`, and no `${{ }}` reads `env.` or `env[...]`; `npm ci` before
   the install step the app step waits on; the order of the two steps, the second running after a
   failure but not after a failed setup; a step-level timeout on each, the two plus 15 at most
-  the job's; each step's `E2E_GLOBAL_TIMEOUT_MS` at least 2 minutes under its step's, and
-  `playwright.config.ts` passing it to `globalTimeout`; `retries: 0` on the destructive project and
-  `--retries=1 --max-failures=3` on the app step; the 7-day upload on failure or cancellation; and no other
+  the job's; each step's `E2E_GLOBAL_TIMEOUT_MS` a usable limit (read through `globalTimeoutFrom`
+  itself, whose accept and reject cases are unit-tested) at least 2 minutes under its step's, and
+  `playwright.config.ts` passing it to `globalTimeout`; `retries: 0` on the destructive project
+  and `--retries=1 --max-failures=3` on the app step; the 7-day upload on failure or
+  cancellation; and no other
   workflow file naming the throwaway secrets or handing over every secret (`toJSON(secrets)` in any
   case, `secrets: inherit`). ★ Those checks read text, not parsed YAML: a deliberately obscured
   expression (a YAML anchor, `format()` to build a secret name) is out of their reach. They fail

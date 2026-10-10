@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
 import { appHasTursoToken, LIVE as THROWAWAY_PAIR_SET } from "./e2e/live-turso-env";
+import { globalTimeoutFrom } from "./e2e/global-timeout";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -43,14 +44,11 @@ if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
   process.stderr.write("playwright: trace and video are off, because a Turso token is configured (see playwright.config.ts)\n");
 }
 
-// A whole-run wall clock, set by live-turso.yml's two test steps under each step's own timeout:
-// Playwright then stops itself and still writes its HTML report (written only when a run ends),
-// where the step's timeout would kill it with none. Unset or not a positive integer: no limit.
-const GLOBAL_TIMEOUT_MS = Number(process.env.E2E_GLOBAL_TIMEOUT_MS);
-
 export default defineConfig({
   testDir: "./e2e",
-  globalTimeout: Number.isInteger(GLOBAL_TIMEOUT_MS) && GLOBAL_TIMEOUT_MS > 0 ? GLOBAL_TIMEOUT_MS : undefined,
+  // A whole-run wall clock, set only by live-turso.yml's two test steps (e2e/global-timeout.ts
+  // says why). Unset: no limit, so every other run is unchanged.
+  globalTimeout: globalTimeoutFrom(process.env.E2E_GLOBAL_TIMEOUT_MS),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // Generous per-test timeout: the FIRST navigation against the dev webServer
@@ -128,7 +126,7 @@ export default defineConfig({
       workers: 1,
       // No retries, CI included: these are HTTP probes with no browser, so a failure is the
       // database's real answer, and a retry only doubles a broken run's time. The run's wall
-      // clock is E2E_GLOBAL_TIMEOUT_MS (see GLOBAL_TIMEOUT_MS above).
+      // clock is E2E_GLOBAL_TIMEOUT_MS (globalTimeout above).
       retries: 0,
       fullyParallel: false,
     },

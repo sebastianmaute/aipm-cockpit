@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
+import { globalTimeoutFrom, MAX_GLOBAL_TIMEOUT_MS } from "../e2e/global-timeout.ts";
 import {
   jobIds, jobBlock, unpinnedUses, topLevelBlock, requiredChecksFromDoc, pipedRunsWithoutBash,
 } from "./ci-workflow-lib.mjs";
@@ -469,17 +470,21 @@ describe("live-turso.yml", () => {
       expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
       // And WHICH step: the secrets moved onto npm ci's own env: would pass every check above while
       // handing the token to every dependency's install scripts. Keyed by the step's name AND its
-      // run: command, so a second step reusing a name does not merge into the count.
-      const step = lines.slice(0, i).reverse().find((l) => /^ {6}- /.test(l));
-      const run = lines.slice(i).find((l) => /^ {8}run: /.test(l));
-      const key = `${step?.trim()} | ${run?.trim().slice(0, 40)}`;
+      // run: command (searched within that step only; a quoted argument such as the app step's
+      // spec filter is dropped, so adding a spec does not change the key), so a second step reusing
+      // a name does not merge into the count.
+      const start = lines.slice(0, i + 1).findLastIndex((l) => /^ {6}- /.test(l));
+      const nextStep = lines.slice(start + 1).findIndex((l) => /^ {6}- /.test(l));
+      const block = lines.slice(start, nextStep === -1 ? undefined : start + 1 + nextStep);
+      const run = block.find((l) => /^ {6}(- | {2})run: /.test(l));
+      const key = `${block[0].trim()} | ${run?.trim().replace(/\s*".*$/, "")}`;
       perStep[key] = (perStep[key] ?? 0) + 1;
     });
     expect(seen).toBe(8);
     expect(perStep).toEqual({
       "- name: Are both throwaway database values set? | run: |": 2,
       "- name: Live specs that drop tables | run: npm run e2e:live-destructive": 2,
-      "- name: Live specs that drive the app | run: npx playwright test \"(documents-ima": 4,
+      "- name: Live specs that drive the app | run: npx playwright test": 4,
     });
   });
 
@@ -535,14 +540,18 @@ describe("live-turso.yml", () => {
     expect(dropMin + appMin + 15).toBeLessThanOrEqual(jobMin);
     // Each Playwright run's own wall clock, at least 2 minutes under its step's timeout, so it stops
     // itself and writes its report before the step is killed, whatever the number of tests.
-    const ms = (text) => minutes(text, /^ {10}E2E_GLOBAL_TIMEOUT_MS: "(\d+)"$/m);
-    expect(ms(dropStep)).toBeGreaterThan(0);
-    expect(ms(appStep)).toBeGreaterThan(0);
-    expect(ms(dropStep)).toBeLessThanOrEqual((dropMin - 2) * 60_000);
-    expect(ms(appStep)).toBeLessThanOrEqual((appMin - 2) * 60_000);
+    // Read as the config reads it (globalTimeoutFrom), quoted or not, so an unusable value fails here
+    // with its own message rather than as NaN.
+    const ms = (text, name) => {
+      const raw = text.match(/^ {10}E2E_GLOBAL_TIMEOUT_MS: "?([^"\s]*)"?$/m)?.[1];
+      const value = globalTimeoutFrom(raw);
+      expect(value, `${name}: E2E_GLOBAL_TIMEOUT_MS is ${raw === undefined ? "missing" : `"${raw}", which sets no limit`}`).toBeDefined();
+      return value;
+    };
+    expect(ms(dropStep, "drop step")).toBeLessThanOrEqual((dropMin - 2) * 60_000);
+    expect(ms(appStep, "app step")).toBeLessThanOrEqual((appMin - 2) * 60_000);
     const config = read("playwright.config.ts");
-    expect(config).toMatch(/const GLOBAL_TIMEOUT_MS = Number\(process\.env\.E2E_GLOBAL_TIMEOUT_MS\);/);
-    expect(config).toMatch(/^ {2}globalTimeout: Number\.isInteger\(GLOBAL_TIMEOUT_MS\) && GLOBAL_TIMEOUT_MS > 0 \? GLOBAL_TIMEOUT_MS : undefined,\r?$/m);
+    expect(config).toMatch(/^ {2}globalTimeout: globalTimeoutFrom\(process\.env\.E2E_GLOBAL_TIMEOUT_MS\),\r?$/m);
     // The drop-tables project's no-retries setting lives in playwright.config.ts.
     const destructive = config.slice(config.indexOf('name: "live-turso-destructive"'));
     expect(destructive.slice(0, destructive.indexOf("},"))).toMatch(/^\s+retries: 0,\r?$/m);
@@ -552,6 +561,18 @@ describe("live-turso.yml", () => {
     // Separate report folders, so the second step does not overwrite the first's report.
     expect(dropStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drop-tables/);
     expect(appStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drive-app/);
+  });
+
+  // The value playwright.config.ts passes to globalTimeout. Anything but a whole number of ms in
+  // range means no limit; above the range Node would clamp the timer to 1 ms and end the run at once.
+  it("reads E2E_GLOBAL_TIMEOUT_MS as a limit only when it is a usable number of ms", () => {
+    expect(globalTimeoutFrom("600000")).toBe(600_000);
+    expect(globalTimeoutFrom("1")).toBe(1);
+    expect(globalTimeoutFrom(String(MAX_GLOBAL_TIMEOUT_MS))).toBe(MAX_GLOBAL_TIMEOUT_MS);
+    expect(MAX_GLOBAL_TIMEOUT_MS).toBe(2 ** 31 - 1);
+    for (const v of [undefined, "", "0", "-5", "abc", "600000.5", "1e6", " 600000", String(MAX_GLOBAL_TIMEOUT_MS + 1)]) {
+      expect(globalTimeoutFrom(v), String(v)).toBeUndefined();
+    }
   });
 
   // Cancelled covers a job that hit timeout-minutes (best-effort: a killed Playwright run may have
