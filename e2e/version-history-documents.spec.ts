@@ -90,7 +90,6 @@
 // be removed without a DROP, so they stay behind empty. Point this at a database
 // you are willing to leave in that state.
 
-import { readFileSync, existsSync } from "node:fs";
 // ★★★ THE BASE FIXTURE, NOT `e2e/seed.ts`'s EXTENDED ONE, AND IT IS LOAD-BEARING
 // TWICE. That fixture writes the sample workspace into IndexedDB. (1) It would
 // make this test VACUOUS: with 35 seeded tasks in play, `isEmptyWorkspacePayload`
@@ -106,43 +105,13 @@ import type { Page } from "@playwright/test";
 import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 
+import {
+  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY,
+} from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
-/** Parse `.env.local` in the TEST process. Playwright does not load it — only
- *  Next does — so `process.env` is not a usable source here and the obvious
- *  `test.skip(!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL, …)` is ALWAYS true
- *  and skips everything against a perfectly live database.
- *  ★ Values are returned, never logged. Callers treat them as opaque.
- *  Copied from `documents-images-interactive.spec.ts`; keep the two in step. */
-function readEnvLocal(): { url: string; token: string } {
-  // `process.env` still wins when someone exports the pair explicitly (CI, or a
-  // shell that sourced the file), so an env-only setup works without the file.
-  const fromProcess = {
-    url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
-    token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
-  };
-  if (fromProcess.url) return fromProcess;
-  if (!existsSync(".env.local")) return { url: "", token: "" };
-  const txt = readFileSync(".env.local", "utf8");
-  const read = (key: string) => {
-    const m = txt.match(new RegExp(`^${key}=(.*)$`, "m"));
-    // Strip surrounding quotes and the CR of a CRLF file — both are silent
-    // corruptions that would produce an unparseable URL rather than an error.
-    return (m?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  };
-  return {
-    url: read("NEXT_PUBLIC_TURSO_DATABASE_URL"),
-    token: read("NEXT_PUBLIC_TURSO_AUTH_TOKEN"),
-  };
-}
-
-const ENV = readEnvLocal();
-const LIVE = ENV.url !== "";
-
-/** The pipeline base, normalised the way `turso-config.ts` normalises it. */
-const PIPELINE_URL = LIVE
-  ? `${ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, "")}/v2/pipeline`
-  : "";
+/** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
+const ENV = THROWAWAY;
 
 /** ★★★ THE PARTITION EVERY WRITE IN THIS FILE IS SCOPED TO. Deliberately NOT
  *  `e2e-1` (the id `e2e/seed.ts` uses for the file-mode registry) so a stray run
@@ -606,15 +575,17 @@ function preFixWouldHaveSkipped(payload: string): boolean {
 // ── Suite ───────────────────────────────────────────────────────────────────
 
 test.describe("version history — a documents-only project, live Turso", () => {
-  // The ONLY skip: no credentials anywhere. Everything past this point asserts.
-  test.skip(!LIVE, "needs a live Turso database (.env.local NEXT_PUBLIC_TURSO_*)");
+  // The ONLY skips: no throwaway pair, or an app database that is not the
+  // throwaway one. Everything past this point asserts.
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
 
   test.beforeAll(async () => {
     // ★ Guarded independently of the describe-level skip: a `beforeAll` still
     // runs in some skip configurations, and unguarded it would POST to an empty
     // URL on a machine with no database — a confusing failure in the one
     // situation this file is supposed to stay quiet in.
-    if (!LIVE) return;
+    if (!APP_IS_THROWAWAY) return;
     // ★★ A PRE-CLEAN, NOT JUST A TIDY-UP. A version row left by an aborted
     // earlier run would satisfy "a version exists" without the app doing
     // anything, so the test would pass with the fix reverted. The test asserts
@@ -623,7 +594,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
   });
 
   test.afterAll(async () => {
-    if (!LIVE) return;
+    if (!APP_IS_THROWAWAY) return;
     await cleanPartition().catch(() => {});
   });
 

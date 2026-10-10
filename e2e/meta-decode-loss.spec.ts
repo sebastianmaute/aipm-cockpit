@@ -78,59 +78,16 @@
 // server on that port, so there is nothing to start first:
 //   PORT=3100 npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
+import {
+  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY,
+} from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
-/** Parse `.env.local` in the TEST process: playwright does not load it, only
- *  Next does, so `process.env` is not a usable source here. A `test.skip` on
- *  `process.env.NEXT_PUBLIC_TURSO_DATABASE_URL` written the obvious way is
- *  ALWAYS true here and would skip everything against a perfectly live database.
- *  ★ Values are returned, never logged. Callers treat them as opaque. */
-function readEnvLocal(): { url: string; token: string } {
-  const fromProcess = {
-    url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
-    token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
-  };
-  // ★★ BOTH halves must be present before the shell wins. Short-circuiting on
-  // `url` alone lets a stale `NEXT_PUBLIC_TURSO_DATABASE_URL` exported in the
-  // shell redirect THE TEST PROCESS while the dev server still reads
-  // `.env.local` — two different databases, one run. That fails loudly at the
-  // liveness assertion, but only after this file has written and deleted a
-  // partition in the wrong one.
-  if (fromProcess.url && fromProcess.token) return fromProcess;
-  // ★★★ RESOLVE AGAINST THE REPO, NOT THE CWD. A bare ".env.local" is
-  // cwd-relative, so invoking playwright from any other directory finds no file,
-  // `LIVE` is false, and the describe SKIPS — against a perfectly live database.
-  // That is the silent false green this file's header spends nine lines warning
-  // about, reintroduced by its own loader.
-  // ★★ `__dirname`, NOT `import.meta.url`. Playwright transpiles specs to CJS,
-  // where `import.meta` is a runtime SyntaxError — and `npx tsc --noEmit`
-  // ACCEPTS it, so the failure appears only when the file actually runs, as
-  // "No tests found" rather than as a type error. Measured here, not reasoned.
-  const envPath = join(__dirname, "..", ".env.local");
-  if (!existsSync(envPath)) return { url: "", token: "" };
-  const txt = readFileSync(envPath, "utf8");
-  const read = (key: string) => {
-    const m = txt.match(new RegExp(`^${key}=(.*)$`, "m"));
-    // Strip surrounding quotes and the CR of a CRLF file — both are silent
-    // corruptions that yield an unparseable URL rather than an error.
-    return (m?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  };
-  return {
-    url: read("NEXT_PUBLIC_TURSO_DATABASE_URL"),
-    token: read("NEXT_PUBLIC_TURSO_AUTH_TOKEN"),
-  };
-}
-
-const ENV = readEnvLocal();
-const LIVE = ENV.url !== "";
-const PIPELINE_URL = LIVE
-  ? `${ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, "")}/v2/pipeline`
-  : "";
+/** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
+const ENV = THROWAWAY;
 
 /** This file's own partition. Nothing outside it is read or written. */
 const E2E_PROJECT_ID = "e2e-decode-loss";
@@ -410,11 +367,12 @@ async function openDocuments(page: Page): Promise<void> {
 test.use({ trace: "off", video: "off" });
 
 test.describe("§284 — a malformed meta blob is caught before the next save destroys it", () => {
-  test.skip(!LIVE, "no .env.local Turso credentials — see the header; a skip is never evidence of a pass");
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
 
 
   test.afterAll(async () => {
-    if (LIVE) await cleanup();
+    if (APP_IS_THROWAWAY) await cleanup();
   });
 
   test("withholds the save that would destroy the blob, and commits it only on Save anyway", async ({ page }) => {

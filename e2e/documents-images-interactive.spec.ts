@@ -32,8 +32,8 @@
 // ★★ PLAYWRIGHT DOES NOT LOAD `.env.local` — only Next does. `test.skip(
 // !process.env.NEXT_PUBLIC_TURSO_DATABASE_URL, …)` written the obvious way is
 // therefore ALWAYS TRUE in the test process and skips everything even when the
-// database is live and the server is correctly configured. `readVar()`
-// below parses the file itself. That is also what gives the node side the
+// database is live and the server is correctly configured. `live-turso-env.ts`
+// parses the file itself. That is also what gives the node side the
 // credentials it needs to read the table back — the only way to prove a byte
 // actually landed, rather than that a control was clicked.
 //
@@ -66,10 +66,13 @@
 // (An earlier revision of this header said only that writes are partition-scoped
 // and cleaned up, which reads as far safer than a DROP TABLE actually is.)
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import { colDdl, ENTITY_SPECS, TABLE_NAMES } from "../src/app/turso-schema";
 import { runTursoPipeline } from "../src/app/turso-pipeline";
+import {
+  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY,
+} from "./live-turso-env";
 import {
   test, expect, gotoApp, openView, FROZEN_NOW,
   E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY,
@@ -77,45 +80,8 @@ import {
 
 // ── Live-database configuration ─────────────────────────────────────────────
 
-/** Read one variable in the TEST process. See the header: playwright does not
- *  load `.env.local`, so `process.env` alone is not a usable source here.
- *  `process.env` still wins when someone exports it (CI, or a shell that
- *  sourced the file), so an env-only setup works without the file.
- *  ★ Values are returned, never logged. Callers treat them as opaque. */
-function readVar(key: string): string {
-  const fromProcess = process.env[key] ?? "";
-  if (fromProcess) return fromProcess;
-  if (!existsSync(".env.local")) return "";
-  const m = readFileSync(".env.local", "utf8").match(new RegExp(`^${key}=(.*)$`, "m"));
-  // Strip surrounding quotes and the CR of a CRLF file — both are silent
-  // corruptions that would produce an unparseable URL rather than an error.
-  return (m?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-}
-
-/** The pipeline base, normalised the way `turso-config.ts` normalises it. */
-const pipelineBase = (url: string) => url.replace(/^libsql:\/\//, "https://").replace(/\/$/, "");
-
-/** ★★★ The node side writes, deletes and (in the §211 probe) DROPS through this
- *  pair ONLY — never through `NEXT_PUBLIC_TURSO_*`, which in a normal `.env.local`
- *  is the developer's real database. Setting it says "this database can be lost". */
-const ENV = {
-  url: readVar("TURSO_THROWAWAY_DATABASE_URL"),
-  token: readVar("TURSO_THROWAWAY_AUTH_TOKEN"),
-};
-/** Both values, or nothing runs: a URL alone would fail on auth rather than skip. */
-const LIVE = ENV.url !== "" && ENV.token !== "";
-const SKIP_NO_THROWAWAY =
-  "writes to and drops tables in the database: set TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN to a database you can lose";
-
-/** ★★ The UI half drives the APP, whose dev server reads `NEXT_PUBLIC_TURSO_*`
- *  (header). Its node-side checks must read the database the app writes, so it
- *  runs only when the app's database IS the throwaway one; otherwise it would
- *  write e2e rows into the developer's real database. Compared, never printed. */
-const APP_IS_THROWAWAY = LIVE && pipelineBase(readVar("NEXT_PUBLIC_TURSO_DATABASE_URL")) === pipelineBase(ENV.url);
-const SKIP_APP_NOT_THROWAWAY =
-  "the app's database (NEXT_PUBLIC_TURSO_DATABASE_URL) is not the throwaway one (TURSO_THROWAWAY_DATABASE_URL); point both at a database you can lose";
-
-const PIPELINE_URL = LIVE ? `${pipelineBase(ENV.url)}/v2/pipeline` : "";
+/** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
+const ENV = THROWAWAY;
 
 /** ★★★ THE PARTITION KEY THE APP WILL USE, DERIVED NOT GUESSED — and asserting
  *  against it is itself a real test of the `(id, project_id)` scheme.

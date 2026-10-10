@@ -147,6 +147,11 @@ re-resolved by hand.
   `npx playwright install chromium`, then `npm run e2e`, including the axe gate. It does NOT consume
   `build`'s artifact: `playwright.config.ts` starts its own `npm run dev` server, so it meets the
   permissive DEV CSP. `playwright-report/` is uploaded on failure only (7 days).
+  ★★★ The live-Turso specs read only `TURSO_THROWAWAY_DATABASE_URL` / `TURSO_THROWAWAY_AUTH_TOKEN`
+  (`e2e/live-turso-env.ts`), never the app's `NEXT_PUBLIC_TURSO_*`, because they write to and drop
+  tables in that database and a plain `npm run e2e` runs them. A spec that drives the UI also needs
+  the app's `NEXT_PUBLIC_TURSO_DATABASE_URL` to equal the throwaway URL. Without the pair they skip,
+  which is what this job does today; §215 owns giving it the two secrets, mapped into both pairs.
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is
