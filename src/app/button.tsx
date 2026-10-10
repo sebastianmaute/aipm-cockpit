@@ -31,7 +31,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   // ring would sit flush against that green border and read as no ring at all,
   // so it is offset 2px by a dark-blue band. Not the surface colour: that band
   // shows as a light halo wherever the button sits on a `bg-surface-muted`
-  // panel, while dark blue contrasts with the green on both sides in every scheme.
+  // panel, while dark blue contrasts with the green on both sides in every
+  // built-in scheme (measured in button.test.tsx; a custom scheme is not).
   accent:
     "border border-ui-green bg-ui-green text-ui-dark-blue hover:opacity-90 focus:ring-offset-2 focus:ring-offset-ui-dark-blue",
 };

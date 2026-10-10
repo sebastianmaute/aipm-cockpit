@@ -13,6 +13,8 @@ import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 import { buttonClassFor } from "../test/button-variant";
 import { PRIMARY_MATCHING_BORDER } from "./button";
 import { menuItemClass } from "./control-classes";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
+import type { JSXElementConstructor, ReactNode } from "react";
 
 const TODAY = "2026-05-28";
 
@@ -196,10 +198,13 @@ const brBuckets: BudgetBucket[] = [
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
 ];
 
+const ALL_ADDABLE: AddableReportId[] = ["raid-report", "budget-report", "resource-report", "stakeholder-report"];
+
 function renderComposed(
   extraReports: AddableReportId[],
   onChange = vi.fn(),
   features?: FeatureModuleId[],
+  options?: { wrapper?: JSXElementConstructor<{ children: ReactNode }> },
 ) {
   render(
     <ReportsPanel
@@ -221,6 +226,7 @@ function renderComposed(
       onChangeExtraReports={onChange}
       features={features}
     />,
+    options,
   );
   return onChange;
 }
@@ -273,13 +279,19 @@ describe("ReportsPanel — composed reports", () => {
     }
   });
 
-  it("says on the button itself why it is disabled when no report is hidden", () => {
-    // No module that owns an addable report is on, so nothing can be added.
-    renderComposed([], vi.fn(), []);
-    const button = screen.getByRole("button", { name: t("en-US", "reportsAddReportNone") });
+  // ★ The label must be true in BOTH empty cases — every report already added,
+  // and no module owning one switched on — so it cannot say "all added".
+  it.each([
+    ["no module that owns an addable report is on", () => renderComposed([], vi.fn(), [])],
+    [
+      "every addable report is already on the board",
+      // The resource report needs the workspace tab context to render.
+      () => renderComposed(ALL_ADDABLE, vi.fn(), undefined, { wrapper: WorkspaceTabProvider }),
+    ],
+  ])("says on the button itself why it is disabled when no report is left to add (%s)", (_case, renderCase) => {
+    renderCase();
+    const button = screen.getByTestId("add-report-button");
     expect(button).toBeDisabled();
-    // ★ The label must be true in BOTH empty cases — every report already added,
-    // and (as here) no module owning one switched on — so it cannot say "all added".
     expect(button).toHaveTextContent(/^No reports to add$/);
     // A disabled button cannot open its menu, so it claims no expanded state.
     expect(button).not.toHaveAttribute("aria-expanded");
