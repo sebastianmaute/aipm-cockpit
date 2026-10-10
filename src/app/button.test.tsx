@@ -122,12 +122,14 @@ describe("Button accent variant", () => {
 });
 
 // Review fix (§691): the green ring would sit flush against the green border,
-// so the accent variant offsets it by 2px over the surface colour.
+// so the accent variant offsets it by 2px. The band is dark blue, not the
+// surface colour: a surface band shows as a light halo on a `bg-surface-muted`
+// panel, while dark blue contrasts with the green on either side in every scheme.
 describe("Button accent focus ring", () => {
-  it("offsets the focus ring from the fill", () => {
+  it("offsets the focus ring from the fill with a dark-blue band", () => {
     render(<Button variant="accent">Go</Button>);
-    expect(screen.getByRole("button", { name: "Go" }).className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["focus:ring-offset-2", "focus:ring-offset-surface"]),
-    );
+    const classes = screen.getByRole("button", { name: "Go" }).className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(["focus:ring-offset-2", "focus:ring-offset-ui-dark-blue"]));
+    expect(classes).not.toContain("focus:ring-offset-surface");
   });
 });

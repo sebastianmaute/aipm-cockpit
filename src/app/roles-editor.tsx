@@ -14,7 +14,7 @@ import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
-import { XMarkIcon } from "./icons";
+import { PlusIcon, XMarkIcon } from "./icons";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
@@ -496,7 +496,10 @@ function RefList({
         <Input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
           size="xs" className="flex-1" />
-        <Button variant="secondary" size="xs" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>+</Button>
+        <Button variant="secondary" size="xs" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>
+          {/* An icon, not a "+" character: at `xs` a glyph would be 12px text. */}
+          <PlusIcon aria-hidden="true" className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

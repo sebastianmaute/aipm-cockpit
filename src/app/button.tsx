@@ -29,9 +29,11 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   // (pinned in button.test.tsx). The same-colour border keeps it the height of
   // the bordered `secondary` buttons it usually sits beside. ★ The green focus
   // ring would sit flush against that green border and read as no ring at all,
-  // so it is offset 2px over the surface colour.
+  // so it is offset 2px by a dark-blue band. Not the surface colour: that band
+  // shows as a light halo wherever the button sits on a `bg-surface-muted`
+  // panel, while dark blue contrasts with the green on both sides in every scheme.
   accent:
-    "border border-ui-green bg-ui-green text-ui-dark-blue hover:opacity-90 focus:ring-offset-2 focus:ring-offset-surface",
+    "border border-ui-green bg-ui-green text-ui-dark-blue hover:opacity-90 focus:ring-offset-2 focus:ring-offset-ui-dark-blue",
 };
 
 // The common CTA paddings in the codebase. md = the large wizard/empty-state

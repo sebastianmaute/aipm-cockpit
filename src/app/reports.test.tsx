@@ -281,6 +281,8 @@ describe("ReportsPanel — composed reports", () => {
     // ★ The label must be true in BOTH empty cases — every report already added,
     // and (as here) no module owning one switched on — so it cannot say "all added".
     expect(button).toHaveTextContent(/^No reports to add$/);
+    // A disabled button cannot open its menu, so it claims no expanded state.
+    expect(button).not.toHaveAttribute("aria-expanded");
   });
 
   // §685 (owner pick 2B): "+ Add report" is the pane's primary Add button.
@@ -1147,7 +1149,8 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // `leading={…}` site it rendered here, was operable, and
     // `arrangement.restore` painted the block with no ⋮ and no shelf to undo it
     // and no persist to keep it.
-    expect(screen.queryByRole("button", { name: `+ ${t("en-US", "reportsAddReport")}` })).toBeNull();
+    // By test id, not by label: the label changes when no report is left to add.
+    expect(screen.queryByTestId("add-report-button")).toBeNull();
 
     // POSITIVE CONTROL, mutating the FIXTURE rather than the subject: the very
     // same query FINDS the button once `isPopout` is off. Without this a
@@ -1156,9 +1159,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // queries, not `screen` — this second tree is in the document too, which is
     // why it is rendered AFTER every document-scoped assertion above.
     const normal = renderReports(tasks);
-    expect(
-      normal.getByRole("button", { name: `+ ${t("en-US", "reportsAddReport")}` }),
-    ).toBeInTheDocument();
+    expect(normal.getByTestId("add-report-button")).toBeInTheDocument();
     // ★★★ `within(popout.container)`, NEVER `popout.queryByRole`. RTL binds a
     // render's returned queries to `baseElement` — `document.body` — NOT to its
     // own `container`, so `popout.queryByRole` searches BOTH trees and finds
@@ -1167,8 +1168,6 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // `screen.queryByRole` earlier in this test, while the popout was the only
     // tree in the document. Measured — it failed with the received node being
     // `normal`'s Add report control (a `<select>` at the time).
-    expect(
-      within(popout.container).queryByRole("button", { name: `+ ${t("en-US", "reportsAddReport")}` }),
-    ).toBeNull();
+    expect(within(popout.container).queryByTestId("add-report-button")).toBeNull();
   });
 });

@@ -659,3 +659,20 @@ describe("RolesEditor combo row heights", () => {
     for (const s of selects) expect(s.className.split(/\s+/)).toEqual(expect.arrayContaining(["py-1.5", "text-xs"]));
   });
 });
+
+describe("RolesEditor reference list row heights", () => {
+  it("draws the rename fields, the add field and + at xs, with + as an icon", () => {
+    renderEditor();
+    const add = screen.getByRole("button", { name: t("en-US", "rolesAddDiscipline") });
+    expect(add.className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
+    // The glyph is an icon, so its size does not follow the 12px xs text.
+    expect(add.textContent).toBe("");
+    expect(add.querySelector("svg")).not.toBeNull();
+    const fields = [
+      screen.getByRole("textbox", { name: t("en-US", "rolesAddDiscipline") }),
+      ...screen.getAllByRole("textbox", { name: new RegExp(`^${t("en-US", "rename")}`) }),
+    ];
+    expect(fields.length).toBeGreaterThan(1);
+    for (const f of fields) expect(f.className.split(/\s+/)).toEqual(expect.arrayContaining(["py-1.5", "text-xs"]));
+  });
+});

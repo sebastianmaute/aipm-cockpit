@@ -412,8 +412,10 @@ export function ReportsPanel({
         size="xs"
         className={PRIMARY_MATCHING_BORDER}
         aria-haspopup="menu"
-        aria-expanded={addReportOpen}
+        // A disabled button cannot open its menu, so it claims no expanded state.
+        aria-expanded={remainingReports.length === 0 ? undefined : addReportOpen}
         disabled={remainingReports.length === 0}
+        data-testid="add-report-button"
         onClick={() => setAddReportOpen((o) => !o)}
       >
         {/* The reason it is disabled is the label itself, not a hover-only title. */}
