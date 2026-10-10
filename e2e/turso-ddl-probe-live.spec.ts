@@ -9,8 +9,10 @@
 // ★★★ IT RUNS ONLY IN THE `live-turso-destructive` PROJECT (`playwright.config.ts`),
 // which runs its files one at a time (`workers: 1`), and which the `chromium`
 // project ignores, so `npm run e2e` never runs it beside the specs that use the
-// same throwaway database. Run it on its own, with no app server:
-//   PLAYWRIGHT_NO_WEBSERVER=1 npm run e2e:live-destructive
+// same throwaway database. It also skips unless `E2E_LIVE_DESTRUCTIVE=1`, which
+// only `npm run e2e:live-destructive` sets (with `PLAYWRIGHT_NO_WEBSERVER=1`, as it
+// needs no app server), so a bare `npx playwright test` running every project at
+// once does not run it either.
 //
 // ★★★ It reads only the throwaway pair (`live-turso-env.ts`) and skips unless both
 // values are set. Credentials are never printed.
@@ -18,7 +20,10 @@
 import { test, expect } from "@playwright/test";
 import { colDdl, ENTITY_SPECS, TABLE_NAMES } from "../src/app/turso-schema";
 import { runTursoPipeline } from "../src/app/turso-pipeline";
-import { THROWAWAY, LIVE, PIPELINE_URL, SKIP_NO_THROWAWAY, rawPipeline as pipeline, txt } from "./live-turso-env";
+import {
+  THROWAWAY, LIVE, PIPELINE_URL, SKIP_NO_THROWAWAY, DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN,
+  rawPipeline as pipeline, txt,
+} from "./live-turso-env";
 
 /** The throwaway pair: `live-turso-env.ts`. */
 const ENV = THROWAWAY;
@@ -26,8 +31,9 @@ const ENV = THROWAWAY;
 // ── §211: the idKind landmine, against a real SQLite engine ─────────────────
 //
 // ★★★ DELIBERATELY BREAKS A TABLE. It drops and recreates `document_assets` on
-// the throwaway database, and leaves it with the CORRECT DDL when it finishes. A
-// hard failure mid-probe leaves it dropped; the next run's `afterAll` repairs it.
+// the throwaway database, and leaves it with the CORRECT DDL when it finishes.
+// `afterAll` restores it after a failing test too; only a killed run leaves it
+// dropped, and the next run's `afterAll` repairs it.
 //
 // ★★★ WHY NO UNIT TEST CAN REACH THIS, WHICH IS THE WHOLE POINT.
 // `colDdl` renders any column named `id` as `id INTEGER PRIMARY KEY` unless the
@@ -54,6 +60,7 @@ const ENV = THROWAWAY;
 // than blurred.
 test.describe("§211 — a text id against the pre-idKind DDL", () => {
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(!DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN);
 
   /** A co-resident write, standing in for the tasks/RAID/milestone inserts that
    *  share the workspace save's single transaction. Its survival is the

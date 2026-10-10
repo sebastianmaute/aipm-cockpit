@@ -157,8 +157,13 @@ re-resolved by hand.
   pairs. ★★ The specs that DROP tables are not in this job at all: `playwright.config.ts`'s
   `live-turso-destructive` project holds them (`LIVE_TURSO_DESTRUCTIVE`), runs its files one at a
   time, and `chromium` ignores them, because every live spec shares one throwaway database and this
-  job runs files in parallel. They run only by hand, `PLAYWRIGHT_NO_WEBSERVER=1 npm run
-  e2e:live-destructive`, never in the same invocation as `chromium`.
+  job runs files in parallel. They run only by hand, `npm run e2e:live-destructive`, which sets
+  `E2E_LIVE_DESTRUCTIVE=1` (they skip without it, so a bare `npx playwright test` running every
+  project at once leaves them out) and `PLAYWRIGHT_NO_WEBSERVER=1` itself.
+  ★★ CI with Turso secrets runs with trace and video off; failures debug from screenshots and logs.
+  `playwright.config.ts` turns both off whenever the app would carry `NEXT_PUBLIC_TURSO_AUTH_TOKEN`
+  (`appHasTursoToken`), because a trace records the `Authorization` header and this job uploads
+  `playwright-report/` on failure.
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is

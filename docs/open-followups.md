@@ -18473,6 +18473,11 @@ and two places in this file) were corrected in that release; `CONTRIBUTING.md` h
 
 **Work item:** #192
 
+**Precondition for the CI wiring (2026-10-10):** the branch that maps the secrets must keep three things, or it publishes the token or races the database. Each is in place on `verify/637-live-pipeline` (open-followups §637):
+- The live specs read only `TURSO_THROWAWAY_DATABASE_URL` / `TURSO_THROWAWAY_AUTH_TOKEN` (`e2e/live-turso-env.ts`). The UI half also needs the app's `NEXT_PUBLIC_TURSO_*`, so the job maps the two secrets into both pairs.
+- Trace and video stay OFF in any job whose app carries a Turso token. `playwright.config.ts` decides it with `appHasTursoToken`; a trace records the `Authorization` header, and the job uploads `playwright-report/` on failure. Failures debug from screenshots and logs.
+- The specs that drop tables stay out of the `e2e` job: they live in the `live-turso-destructive` project and run only with `E2E_LIVE_DESTRUCTIVE=1`.
+
 **What is unverified in CI.** `e2e/documents-images-interactive.spec.ts` gates both its describes on
 `test.skip(!LIVE, …)`, where `LIVE` comes from `readEnvLocal()` — `process.env` first, then a parse
 of `.env.local`. CI has neither, so all twelve skip and the `e2e` job is green while proving nothing

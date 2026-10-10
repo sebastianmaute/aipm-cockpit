@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, expect } from "@playwright/test";
-import { appUsesDatabase } from "./live-turso-env";
+import { appHasTursoToken, appUsesDatabase } from "./live-turso-env";
 
 const A = "libsql://throwaway-db.example.turso.io";
 const B = "libsql://real-db.example.turso.io";
@@ -74,9 +74,41 @@ test.describe("appUsesDatabase resolves the app's database the way Next does", (
     });
   });
 
-  test("an empty throwaway URL never matches", () => {
+  test("an empty throwaway URL is refused before the loader runs", () => {
+    // Pins the guard clause: an empty app URL would otherwise equal an empty throwaway one.
     withEnvFiles({ ".env.local": `${KEY}=\n` }, (dir) => {
       expect(appUsesDatabase("", { dir, env: cleanEnv() })).toBe(false);
+    });
+  });
+
+  test("an app with no database URL is not on the throwaway one", () => {
+    withEnvFiles({ ".env.local": "OTHER=1\n" }, (dir) => {
+      expect(appUsesDatabase(A, { dir, env: cleanEnv() })).toBe(false);
+    });
+  });
+});
+
+test.describe("appHasTursoToken decides whether traces and videos are safe", () => {
+  const TOKEN = "NEXT_PUBLIC_TURSO_AUTH_TOKEN";
+
+  test("a token in .env.local counts", () => {
+    withEnvFiles({ ".env.local": `${TOKEN}=not-a-real-token\n` }, (dir) => {
+      expect(appHasTursoToken({ dir, env: cleanEnv() })).toBe(true);
+    });
+  });
+
+  test("an exported token counts even with no env file", () => {
+    withEnvFiles({}, (dir) => {
+      expect(appHasTursoToken({ dir, env: { ...cleanEnv(), [TOKEN]: "not-a-real-token" } })).toBe(true);
+    });
+  });
+
+  test("no token, or a blank one, does not", () => {
+    withEnvFiles({ ".env.local": `${TOKEN}=   \n` }, (dir) => {
+      expect(appHasTursoToken({ dir, env: cleanEnv() })).toBe(false);
+    });
+    withEnvFiles({}, (dir) => {
+      expect(appHasTursoToken({ dir, env: cleanEnv() })).toBe(false);
     });
   });
 });

@@ -65,7 +65,7 @@
 import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import {
-  LIVE, APP_IS_THROWAWAY, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+  LIVE, appIsThrowaway, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
   rawPipeline as pipeline, txt,
 } from "./live-turso-env";
 import {
@@ -358,7 +358,7 @@ test.describe("document images — live Turso", () => {
   // The ONLY skips: no throwaway pair, or an app database that is not the
   // throwaway one. Everything past this point asserts.
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
-  test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
+  test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
 
   // Every app request to a Turso pipeline must reach the throwaway host:
   // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
@@ -376,7 +376,7 @@ test.describe("document images — live Turso", () => {
     // runs in some skip configurations, and unguarded it would POST to an empty
     // URL on a machine with no database — a confusing failure in the one
     // situation this file is supposed to stay quiet in.
-    if (!APP_IS_THROWAWAY) return;
+    if (!appIsThrowaway()) return;
     // The two assets `e2e/seed-workspace.ts` puts in the workspace METADATA have no bytes
     // in any real database, so without this every seeded image is dangling and
     // the render tests would measure a seeding gap rather than the product.
@@ -388,7 +388,7 @@ test.describe("document images — live Turso", () => {
   });
 
   test.afterAll(async () => {
-    if (!APP_IS_THROWAWAY) return;
+    if (!appIsThrowaway()) return;
     for (const id of [E2E_DOCUMENT_ASSET.id, E2E_DOCUMENT_ASSET_IMAGE_ONLY.id, ...minted]) {
       await deleteAssetBytes(id).catch(() => {});
     }

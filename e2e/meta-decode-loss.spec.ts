@@ -82,7 +82,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
 import {
-  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
@@ -368,7 +368,7 @@ test.use({ trace: "off", video: "off" });
 
 test.describe("§284 — a malformed meta blob is caught before the next save destroys it", () => {
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
-  test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
+  test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
 
   // Every app request to a Turso pipeline must reach the throwaway host:
   // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
@@ -383,7 +383,7 @@ test.describe("§284 — a malformed meta blob is caught before the next save de
 
 
   test.afterAll(async () => {
-    if (APP_IS_THROWAWAY) await cleanup();
+    if (appIsThrowaway()) await cleanup();
   });
 
   test("withholds the save that would destroy the blob, and commits it only on Save anyway", async ({ page }) => {

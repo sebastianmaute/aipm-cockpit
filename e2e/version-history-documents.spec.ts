@@ -106,7 +106,7 @@ import { FROZEN_NOW, openView } from "./seed";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 
 import {
-  THROWAWAY, LIVE, APP_IS_THROWAWAY, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
+  THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
 // ── Live-database configuration ─────────────────────────────────────────────
 
@@ -586,7 +586,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
   // The ONLY skips: no throwaway pair, or an app database that is not the
   // throwaway one. Everything past this point asserts.
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
-  test.skip(!APP_IS_THROWAWAY, SKIP_APP_NOT_THROWAWAY);
+  test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
 
   // Every app request to a Turso pipeline must reach the throwaway host:
   // `guardAppDatabase` aborts any other and counts it (live-turso-env.ts). Only
@@ -604,7 +604,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
     // runs in some skip configurations, and unguarded it would POST to an empty
     // URL on a machine with no database — a confusing failure in the one
     // situation this file is supposed to stay quiet in.
-    if (!APP_IS_THROWAWAY) return;
+    if (!appIsThrowaway()) return;
     // ★★ A PRE-CLEAN, NOT JUST A TIDY-UP. A version row left by an aborted
     // earlier run would satisfy "a version exists" without the app doing
     // anything, so the test would pass with the fix reverted. The test asserts
@@ -613,7 +613,7 @@ test.describe("version history — a documents-only project, live Turso", () => 
   });
 
   test.afterAll(async () => {
-    if (!APP_IS_THROWAWAY) return;
+    if (!appIsThrowaway()) return;
     await cleanPartition().catch(() => {});
   });
 

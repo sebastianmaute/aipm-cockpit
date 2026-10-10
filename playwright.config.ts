@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
+import { appHasTursoToken } from "./e2e/live-turso-env";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -21,6 +22,16 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // never in the same invocation as `chromium`.
 const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
 
+// ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
+// `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
+// and sends `Authorization: Bearer …`: a trace records that header, and a video
+// frame of Settings can show a token field. CI uploads `playwright-report/` on
+// failure, so with Turso secrets either would publish it. Decided from the env
+// Next itself would load (`appHasTursoToken`), not from `process.env` alone.
+// Failures then debug from screenshots and logs; screenshots stay on because the
+// app never renders a token as plain text.
+const APP_HAS_TURSO_TOKEN = appHasTursoToken();
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -33,9 +44,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["html"], ["github"]] : "html",
   use: {
     baseURL: BASE_URL,
-    trace: "retain-on-failure",
+    trace: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
   },
   projects: [
     {

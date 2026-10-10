@@ -12,7 +12,7 @@
 // ★★ A SPEC THAT DRIVES THE UI ALSO NEEDS THE APP'S DATABASE TO BE THE THROWAWAY
 // ONE. The dev server reads `NEXT_PUBLIC_TURSO_*`, and a spec's node-side checks
 // must read the database the app writes. Two guards, because each misses a case:
-// - `APP_IS_THROWAWAY` asks NEXT ITSELF which URL the app gets: it runs
+// - `appIsThrowaway()` asks NEXT ITSELF which URL the app gets: it runs
 //   `@next/env`'s `loadEnvConfig` in a child process (`appUsesDatabase`), so an
 //   exported variable, `.env.development.local`, `.env.development`, `.env` and a
 //   duplicated line all resolve exactly as the dev server resolves them, and the
@@ -70,37 +70,69 @@ export const THROWAWAY: TursoPair = readPair("TURSO_THROWAWAY_DATABASE_URL", "TU
 /** Both throwaway values are set. */
 export const LIVE = THROWAWAY.url !== "" && THROWAWAY.token !== "";
 
-/** Whether a Next dev server started in `dir` with `env` would give the app `url` as
- *  `NEXT_PUBLIC_TURSO_DATABASE_URL`. Next's own loader decides, in a child process
- *  (it writes into `process.env`, which this process must not inherit), and the
- *  child prints only "1" or "0". Exported for its test (`live-turso-env.spec.ts`). */
-export function appUsesDatabase(url: string, opts: { dir?: string; env?: NodeJS.ProcessEnv } = {}): boolean {
-  if (!url) return false;
+/** Runs `check` (a JS expression over the loaded `process.env`) in a child process
+ *  after Next's own `loadEnvConfig` has loaded `dir`'s env files the way `next dev`
+ *  does. A child, because the loader writes into `process.env`, which this process
+ *  must not inherit; the child prints only "1" or "0", never a value.
+ *  ★ `@next/env` is not a direct dependency: it resolves because npm hoists it from
+ *  `next`. If that ever stops, this throws loudly rather than guessing. */
+function nextEnvProbe(check: string, extraEnv: Record<string, string>, opts: { dir?: string; env?: NodeJS.ProcessEnv }): boolean {
   const script =
     "const { loadEnvConfig } = require(process.env.AIPM_NEXT_ENV_PATH);" +
     "loadEnvConfig(process.cwd(), true, { info() {}, error() {} });" +
     "const n = (u) => (u || '').replace(/^libsql:\\/\\//, 'https://').replace(/\\/$/, '');" +
-    "process.stdout.write(n(process.env.NEXT_PUBLIC_TURSO_DATABASE_URL) === n(process.env.AIPM_CHECK_URL) ? '1' : '0');";
+    `process.stdout.write((${check}) ? '1' : '0');`;
   const res = spawnSync(process.execPath, ["-e", script], {
     cwd: opts.dir ?? join(__dirname, ".."),
-    env: { ...(opts.env ?? process.env), AIPM_NEXT_ENV_PATH: require.resolve("@next/env"), AIPM_CHECK_URL: url },
+    env: { ...(opts.env ?? process.env), ...extraEnv, AIPM_NEXT_ENV_PATH: require.resolve("@next/env") },
     encoding: "utf8",
   });
-  if (res.status !== 0) throw new Error(`appUsesDatabase: the env probe exited ${res.status}`);
+  if (res.status !== 0) {
+    throw new Error(`live-turso-env: the env probe failed (status ${res.status}, ${res.error?.name ?? "no spawn error"})`);
+  }
   return res.stdout === "1";
 }
 
-/** The app's database (what the dev server will read) is the throwaway one. */
-export const APP_IS_THROWAWAY = LIVE && appUsesDatabase(THROWAWAY.url);
+/** Whether a Next dev server started in `dir` with `env` would give the app `url` as
+ *  `NEXT_PUBLIC_TURSO_DATABASE_URL`. Exported for its test (`live-turso-env.spec.ts`). */
+export function appUsesDatabase(url: string, opts: { dir?: string; env?: NodeJS.ProcessEnv } = {}): boolean {
+  if (!url) return false;
+  return nextEnvProbe(
+    "n(process.env.NEXT_PUBLIC_TURSO_DATABASE_URL) === n(process.env.AIPM_CHECK_URL)",
+    { AIPM_CHECK_URL: url },
+    opts,
+  );
+}
 
-/** Abort any app request to a Turso pipeline on a host other than the throwaway
- *  one, and return the hosts it blocked, for the spec to assert empty. Covers a
- *  server started with other settings, which `APP_IS_THROWAWAY` cannot see.
- *  Requests to the throwaway host fall through to any later-registered route. */
+/** Whether the app would carry a Turso token (`NEXT_PUBLIC_TURSO_AUTH_TOKEN`) in
+ *  its client bundle. `playwright.config.ts` turns trace and video off when it
+ *  would, because a trace records the `Authorization` header and a video can
+ *  show a Settings token field. Exported for its test. */
+export function appHasTursoToken(opts: { dir?: string; env?: NodeJS.ProcessEnv } = {}): boolean {
+  return nextEnvProbe("!!(process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN || '').trim()", {}, opts);
+}
+
+let appIsThrowawayMemo: boolean | undefined;
+/** The app's database (what the dev server will read) is the throwaway one.
+ *  Lazy and memoized: a spec that never asks pays no child process. */
+export function appIsThrowaway(): boolean {
+  if (appIsThrowawayMemo === undefined) appIsThrowawayMemo = LIVE && appUsesDatabase(THROWAWAY.url);
+  return appIsThrowawayMemo;
+}
+
+/** Abort any app request, from any page of `page`'s context (popouts included), to
+ *  a Turso pipeline on a host other than the throwaway one, and return the hosts
+ *  it blocked, for the spec to assert empty. Covers a server started with other
+ *  settings, which `appIsThrowaway` cannot see.
+ *  ★★ Playwright runs route handlers in REVERSE registration order, so a route a
+ *  test registers AFTER this one runs FIRST: it must end in `route.fallback()`,
+ *  never `route.continue()` or `fulfill()` for a request it means to let through,
+ *  or that request skips this guard. Requests to the throwaway host fall back to
+ *  any route registered BEFORE this one, then to the network. */
 export async function guardAppDatabase(page: Page): Promise<string[]> {
   const blocked: string[] = [];
   const allowed = LIVE ? new URL(pipelineBase(THROWAWAY.url)).host : "";
-  await page.route("**/v2/pipeline", async (route) => {
+  await page.context().route("**/v2/pipeline", async (route) => {
     const host = new URL(route.request().url()).host;
     if (host === allowed) return route.fallback();
     blocked.push(host);
@@ -108,6 +140,13 @@ export async function guardAppDatabase(page: Page): Promise<string[]> {
   });
   return blocked;
 }
+
+/** The explicit opt-in to a run that DROPS tables: set only by
+ *  `npm run e2e:live-destructive`, so a bare `npx playwright test` (every project
+ *  at once, beside the chromium live specs on the same database) skips them. */
+export const DESTRUCTIVE_RUN = process.env.E2E_LIVE_DESTRUCTIVE === "1";
+export const SKIP_NOT_DESTRUCTIVE_RUN =
+  "drops tables in the shared throwaway database: run it alone, with npm run e2e:live-destructive";
 
 /** `/v2/pipeline` on the throwaway database; empty when not `LIVE`. */
 export const PIPELINE_URL = LIVE ? `${pipelineBase(THROWAWAY.url)}/v2/pipeline` : "";
