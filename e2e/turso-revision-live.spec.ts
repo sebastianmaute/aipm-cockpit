@@ -7,9 +7,11 @@
 //
 // It drives no browser: the two "devices" of check (6) are two `TursoBackend`
 // instances, which is what two tabs or two machines are to the database — two
-// writers that each remember the revision they last loaded. Run it without the
-// dev server:
-//   PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test e2e/turso-revision-live.spec.ts --project=chromium --workers=1
+// writers that each remember the revision they last loaded. It runs, with no dev
+// server, only through:
+//   npm run e2e:live-destructive
+// which sets `E2E_LIVE_DESTRUCTIVE` (`DESTRUCTIVE_RUN` below). The `chromium`
+// project ignores this file (`LIVE_TURSO_DESTRUCTIVE` in playwright.config.ts).
 //
 // ★★★ IT DELETES EVERY PROJECT'S DATA IN THE DATABASE IT RUNS AGAINST. Each
 // layout starts from a fresh database, so every workspace table (`TABLE_NAMES`)
@@ -18,22 +20,20 @@
 // list with nothing behind it.
 //
 // ★★★ SO IT NEVER READS THE APP'S DATABASE VARIABLES. `NEXT_PUBLIC_TURSO_*` in a
-// normal `.env.local` is the app's own live database, and `npm run e2e` runs
-// this file. It reads only its own pair, `TURSO_THROWAWAY_DATABASE_URL` and
-// `TURSO_THROWAWAY_AUTH_TOKEN` (exported, or in `.env.local`), and skips, saying
-// why, unless BOTH are set. Setting them is the statement "this database can be
-// lost"; never give them the app's values. CI sets this pair alone (§215).
+// normal `.env.local` is the app's own live database. It reads only the throwaway
+// pair, `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN` (exported,
+// or in `.env.local`), through `e2e/live-turso-env.ts` like every live spec, and
+// skips, saying why, unless BOTH are set. Setting them is the statement "this
+// database can be lost"; never give them the app's values (§215).
 //
-// ★★ PLAYWRIGHT DOES NOT LOAD `.env.local`, so `readThrowawayEnv` parses it (the
-// same rule as `documents-images-interactive.spec.ts`). The only skip is "no
-// throwaway pair"; past it, every check asserts.
+// The only skips are "no throwaway pair" and "not a destructive run"; past
+// them, every check asserts.
 //
 // ★★★ CREDENTIALS ARE NEVER PRINTED. Assertions compare revisions, dates and
 // booleans; the one recorded server message carries only the stored revision.
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { test, expect } from "@playwright/test";
+import { THROWAWAY, LIVE, pipelineBase, DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN } from "./live-turso-env";
 import {
   REVISION_CONFLICT_MARKER,
   REVISION_KEY,
@@ -48,31 +48,7 @@ import { SaveConflictError } from "../src/app/storage-error";
 import type { Workspace } from "../src/app/workspace";
 import type { TursoConfig } from "../src/app/turso-config";
 
-/** The throwaway pair: exported variables win (CI), else `.env.local`. Values are never logged. */
-function readThrowawayEnv(): { url: string; token: string } {
-  const fromProcess = {
-    url: process.env.TURSO_THROWAWAY_DATABASE_URL ?? "",
-    token: process.env.TURSO_THROWAWAY_AUTH_TOKEN ?? "",
-  };
-  // Both halves, or the file decides: a stale URL exported alone must not redirect the run.
-  if (fromProcess.url && fromProcess.token) return fromProcess;
-  // From the repo, not the working directory: a cwd-relative path finds no file and everything skips.
-  const envPath = join(__dirname, "..", ".env.local");
-  if (!existsSync(envPath)) return { url: "", token: "" };
-  const txt = readFileSync(envPath, "utf8");
-  const read = (key: string) =>
-    (txt.match(new RegExp(`^${key}=(.*)$`, "m"))?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-  return { url: read("TURSO_THROWAWAY_DATABASE_URL"), token: read("TURSO_THROWAWAY_AUTH_TOKEN") };
-}
-
-const ENV = readThrowawayEnv();
-/** Both values, or nothing runs: a URL alone would fail on auth rather than skip. */
-const LIVE = ENV.url !== "" && ENV.token !== "";
-/** Normalised the way `turso-config.ts` normalises it. */
-const CONFIG: TursoConfig = {
-  httpUrl: ENV.url.replace(/^libsql:\/\//, "https://").replace(/\/$/, ""),
-  authToken: ENV.token,
-};
+const CONFIG: TursoConfig = { httpUrl: pipelineBase(THROWAWAY.url), authToken: THROWAWAY.token };
 
 const text = (value: string) => ({ type: "text" as const, value });
 
@@ -111,6 +87,7 @@ test.describe("§654 — the revision guard on a live Turso database", () => {
     !LIVE,
     "drops every workspace table: set TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN to a database you can lose",
   );
+  test.skip(!DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN);
   test.describe.configure({ mode: "serial" });
 
   test.afterAll(async () => {
