@@ -279,7 +279,6 @@ describe("scheduled.yml", () => {
   });
 });
 
-// §149: its own workflow, so a manual run costs only this suite.
 describe("scorecard.yml", () => {
   const SCORE = read(".github/workflows/scorecard.yml");
   workflowRules("scorecard.yml", SCORE, { node: false });
@@ -294,6 +293,15 @@ describe("scorecard.yml", () => {
     expect(b).not.toMatch(/^ {4}(env|container|services):/m);
     expect(REQUIRED).not.toContain("scorecard");
   });
+
+  // An extra step (a run:, a hardening action) or a top-level env/defaults stops the publish
+  // silently: the workflow stays green and scorecard.dev stops updating.
+  it("runs only checkout, scorecard and upload-sarif, with no run: step and no top-level env or defaults", () => {
+    const uses = [...jobBlock(SCORE, "scorecard").matchAll(/uses: ([^@\s]+)@/g)].map((m) => m[1]);
+    expect(uses).toEqual(["actions/checkout", "ossf/scorecard-action", "github/codeql-action/upload-sarif"]);
+    expect(SCORE).not.toMatch(/^\s*(- )?run:/m);
+    expect(SCORE).not.toMatch(/^(env|defaults):/m);
+  });
 });
 
 describe("security.yml", () => {
@@ -305,10 +313,12 @@ describe("security.yml", () => {
     expect(jobBlock(SEC, "dependency-review")).toMatch(/^ {4}if: github\.event_name == 'pull_request'$/m);
     expect(jobBlock(SEC, "dependency-review")).not.toMatch(/: write/);
     expect(jobBlock(SEC, "zizmor")).toMatch(/version: \d+\.\d+\.\d+/);
+    expect(SEC).toMatch(/^ {2}pull_request:\r?\n {4}branches: \[main\]\r?$/m);
     for (const id of jobIds(SEC)) expect(REQUIRED).not.toContain(id);
   });
 });
 
+// §149: its own workflow, so a manual run costs only this suite.
 describe("future-clock.yml", () => {
   const FUTURE = read(".github/workflows/future-clock.yml");
   workflowRules("future-clock.yml", FUTURE);

@@ -234,11 +234,17 @@ is in the required list.
     AGPL license. `npm audit` reports on the whole tree; this stops the addition at the PR.
   - **`zizmor`** (10 min). Audits the workflow files themselves: template injection, credential
     persistence, unsafe triggers, excessive permissions. actionlint checks structure, not this. The zizmor
-    version is pinned in the step; findings go to Code Scanning.
+    version is pinned in the step. ★ The job does NOT fail on findings: the action uploads SARIF, zizmor
+    exits 0 in SARIF mode, and the findings arrive as Code Scanning alerts. Read them there.
 - **`scorecard.yml`**, weekly (cron `30 5 * * 1`), on pushes to `main` and `workflow_dispatch`: OpenSSF
   Scorecard scores supply-chain practices and publishes the result to Code Scanning and to scorecard.dev.
-  ★ scorecard-action refuses to publish from a workflow that does more than its one job (checkout,
-  scorecard, upload-sarif; no `env`, containers or extra write permissions), so add nothing to it.
+  ★ scorecard-action refuses to publish from a workflow whose job does more than checkout, scorecard
+  and upload-sarif (it also allows upload-artifact and harden-runner, which this one does not use; no
+  `env`, `defaults`, containers or extra write permissions). The workflow stays green when it refuses,
+  so add nothing to it; the test pins the exact step list.
+- **`release.yml`'s three `setup-node` steps set `package-manager-cache: false`.** setup-node v7 caches
+  by default, and zizmor rates a cache restored into a tag-triggered release build as cache poisoning
+  (High). A release build restores nothing.
 
 ## Operating it
 
