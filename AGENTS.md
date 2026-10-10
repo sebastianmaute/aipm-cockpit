@@ -705,7 +705,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `i18n.ts`/`i18n.de.ts` = EN/DE strings; `nav-config.ts` = `AppView` list + nav labels.
 - **task-manager decomposition map (Phase 3):** the orchestrator's cross-cutting clusters were
   extracted into **deps-object hook factories** (see "Extraction conventions") called
-  unconditionally before the single return, plus two render helpers. The wiring lives in:
+  unconditionally before the single return, plus plain builders (render helpers and one handler builder). The wiring lives in:
   `use-calendar-integrations.ts` (ALL Outlook push/pull/background-auto-sync for milestones +
   committee + task/raid/change/absence), `use-action-center-handlers.ts` (assign / mark-done /
   clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`

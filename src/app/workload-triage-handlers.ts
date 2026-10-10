@@ -9,8 +9,9 @@
 // inline arrows were. Move-only: no behaviour change.
 //
 // ★ task-manager still wraps each handler in `guardEdit` at the call site, so
-// the popout read-only guard stays where `task-manager.popout-guard.test.tsx`
-// expects it; nothing here knows about popouts.
+// the popout read-only guard did not move; nothing here knows about popouts.
+// No test pins that these three are wrapped (`task-manager.popout-guard.test.tsx`
+// covers budget edits only).
 //
 // ★ Coverage-GATED on purpose: clear-unlinked deletes records, and its arming
 // rule is real logic. `workload-triage-handlers.test.ts` pins it, and
