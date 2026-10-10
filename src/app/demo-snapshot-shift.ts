@@ -3,26 +3,28 @@
 // Moves the demo's seeded Trends records (authored in the sample's own dates) to
 // the real date and thins them to the user's capture cadence. Pure, no clock.
 
-import { shiftDatesIn, shiftPeriodKey } from "./shift-workspace-dates";
+import { mondayOf, shiftDatesIn, shiftPeriodKey } from "./shift-workspace-dates";
 import { bucketKey, type SnapshotCadence, type SnapshotRecord } from "./snapshot";
 import type { PlanGranularity } from "./types";
 
 const WEEK_MS = 7 * 86_400_000;
 
 /** Shifts every date inside every record by `n` plan periods, as the workspace's own dates move,
- *  but moves each `capturedAt` by the whole number of weeks nearest that shift (measured on the
- *  latest record), then re-derives `id` and `bucket` from it. ★ A capture moved by months lands
- *  on a different weekday per record, which empties some weekly buckets and doubles up others,
- *  and Trends draws a gap for each empty one. Whole weeks keep one capture per consecutive week. */
+ *  but moves every `capturedAt` by one whole number of weeks, chosen so the latest capture lands
+ *  in the week before `today`'s, then re-derives `id` and `bucket` from it. ★ A capture moved
+ *  by months lands on a different weekday per record, which empties some weekly buckets and
+ *  doubles up others. ★★ Weeks derived from the month shift kept the weekdays but still left the
+ *  last capture up to three weeks before today's week (a month shift is a calendar-month count),
+ *  and Trends draws a gap for each week between it and the live capture. */
 export function shiftDemoSnapshots(
   recs: readonly SnapshotRecord[],
   n: number,
   unit: PlanGranularity,
+  today: string,
 ): SnapshotRecord[] {
   const latest = recs.reduce<string | null>((m, r) => (m === null || r.capturedAt > m ? r.capturedAt : m), null);
-  const weeks = latest === null ? 0 : Math.round(
-    (Date.parse(shiftDatesIn({ at: latest }, n, unit).at) - Date.parse(latest)) / WEEK_MS,
-  );
+  const weeks = latest === null ? 0
+    : (Date.parse(mondayOf(today)) - Date.parse(mondayOf(latest.slice(0, 10)))) / WEEK_MS - 1;
   const byBucket = new Map<string, SnapshotRecord>();
   for (const r of recs) {
     const moved = shiftDatesIn(r, n, unit);

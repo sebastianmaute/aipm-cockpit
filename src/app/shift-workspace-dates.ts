@@ -49,7 +49,8 @@ function rollToWeekday(iso: string): string {
   const dow = toUtc(iso).getUTCDay(); // 0 Sun … 6 Sat
   return dow === 6 ? addDays(iso, 2) : dow === 0 ? addDays(iso, 1) : iso;
 }
-function mondayOf(iso: string): string {
+/** The Monday of `iso`'s ISO week. */
+export function mondayOf(iso: string): string {
   const dow = toUtc(iso).getUTCDay();
   return addDays(iso, dow === 0 ? -6 : 1 - dow);
 }

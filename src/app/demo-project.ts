@@ -37,8 +37,8 @@ export const DEMO_PLAN_GRANULARITY: PlanGranularity = "month";
 let weeksCache: { today: string; weeks: number } | null = null;
 
 /** How many weeks of history the demo stores when created on `today`: the card and the boot
- *  note quote it. ★ Not the file's length: the history ends before the current week, so the
- *  count moves with the date. Cached per date, so a render does not re-shift 27 records. */
+ *  note quote it. Counted through the same path the create writes, so the card cannot drift from
+ *  the store. Cached per date, so a render does not re-shift 27 records. */
 export function demoHistoryWeeks(today: string): number {
   if (weeksCache?.today !== today) {
     weeksCache = { today, weeks: historyFor(DEMO_RECORDS, DEMO_PLAN_GRANULARITY, today, "weekly").length };
@@ -109,7 +109,7 @@ function historyFor(
   const now = new Date(`${today}T00:00:00Z`);
   // Compared per record cadence: a monthly-thinned record carries a "YYYY-MM" bucket, which
   // never orders against a weekly "YYYY-Www" key.
-  return thinForCadence(shiftDemoSnapshots(records, n, granularity), cadence)
+  return thinForCadence(shiftDemoSnapshots(records, n, granularity, today), cadence)
     .filter((r) => r.bucket < bucketKey(now, r.cadence))
     .map((r, i) => ({ ...r, isBaseline: i === 0 }));
 }

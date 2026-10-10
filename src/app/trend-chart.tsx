@@ -20,17 +20,20 @@ function yAt(v: number, min: number, max: number): number {
   return PAD_T + (1 - (v - min) / (max - min)) * PLOT_H;
 }
 
-/** About six "2026-W16"-wide labels fit under the plot at 8px; more overlap into one band. */
-const MAX_X_LABELS = 6;
+/** A "2026-W16" label at 8px is about 35 units wide. Five labels keep every neighbour at least a
+ *  quarter of the plot (64 units) apart, which clears the start-anchored first label and the
+ *  end-anchored last one too; six overlapped at 6 and 11 points. */
+const MAX_X_LABELS = 5;
 
 /** The indices that get an x label: every point when they fit, otherwise evenly spaced ones,
- *  always the first and the last (a step-aligned label too close to the last one is dropped). */
-function labelledIndices(n: number): Set<number> {
+ *  always the first and the last. A step-aligned label less than a full step before the last
+ *  one is dropped, since the end-anchored last label reaches back a whole label width. */
+export function labelledIndices(n: number): Set<number> {
   if (n <= MAX_X_LABELS) return new Set(Array.from({ length: n }, (_, i) => i));
   const step = Math.ceil((n - 1) / (MAX_X_LABELS - 1));
   const kept = [];
   for (let i = 0; i < n - 1; i += step) kept.push(i);
-  if (n - 1 - kept[kept.length - 1] < step / 2) kept.pop();
+  if (n - 1 - kept[kept.length - 1] < step) kept.pop();
   return new Set([...kept, n - 1]);
 }
 

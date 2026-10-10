@@ -52,9 +52,9 @@ longer carries its own changelog comment.
 - **The demo's Trends history has no gaps, and the start card quotes the weeks it really stores.** The
   seeded weekly snapshots moved by whole months, so each one landed on a different weekday: some weeks
   were left empty and drawn as gaps, and others held two snapshots, one of which was dropped. They now
-  move by whole weeks. The card quoted the file's 27 weeks, but the history stops before the current
-  week, so it now quotes the number a demo created today stores.
-- **Trends charts label at most six points along the bottom axis.** With more snapshots than that, every
+  move by whole weeks and end in the week before the demo is created, so the live snapshot follows on
+  without a gap. The card now quotes the number of weeks the demo stores.
+- **Trends charts label at most five points along the bottom axis.** With more snapshots than that, every
   label was drawn and they overlapped into an unreadable band. The first and last points are always
   labelled.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { TrendChart } from "./trend-chart";
+import { labelledIndices, TrendChart } from "./trend-chart";
 
 const points = [
   { label: "W22", value: 100, gapBefore: false },
@@ -46,13 +46,21 @@ describe("TrendChart", () => {
   const xLabels = (container: HTMLElement) =>
     [...container.querySelectorAll("text")].map((el) => el.textContent ?? "").filter((s) => s.startsWith("2026-W"));
 
-  it("labels at most six points on a long axis, always the first and the last", () => {
+  it("labels at most five points on a long axis, always the first and the last", () => {
     const { container } = render(<TrendChart caption="Remaining hours" points={weekly(24)} />);
     const labels = xLabels(container);
-    expect(labels.length).toBeLessThanOrEqual(6);
-    expect(labels.length).toBeGreaterThanOrEqual(4);
+    expect(labels.length).toBeLessThanOrEqual(5);
+    expect(labels.length).toBeGreaterThanOrEqual(3);
     expect(labels[0]).toBe("2026-W10");
     expect(labels.at(-1)).toBe("2026-W33");
+  });
+
+  // The last two labels overlapped at 24, 25 and 28 points when only half a step separated them.
+  it.each(Array.from({ length: 55 }, (_, i) => i + 6))("keeps every labelled neighbour a quarter of the axis apart on %i points", (n) => {
+    const idx = [...labelledIndices(n)].sort((a, b) => a - b);
+    expect(idx[0]).toBe(0);
+    expect(idx.at(-1)).toBe(n - 1);
+    for (let i = 1; i < idx.length; i += 1) expect(idx[i] - idx[i - 1], `${idx}`).toBeGreaterThanOrEqual((n - 1) / 4);
   });
 
   it("labels every point on a short axis", () => {

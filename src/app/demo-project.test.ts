@@ -18,7 +18,7 @@ import { MODE_KEY } from "./portfolio-mode";
 import { addProject, emptyRegistry, saveRegistry, type ProjectRegistryEntry } from "./projects-registry";
 import { appendSnapshots } from "./snapshot-store";
 import { buildDemoWorkspace } from "./demo-workspace";
-import type { SnapshotRecord } from "./snapshot";
+import { bucketKey, detectGaps, type SnapshotRecord } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
 import type { NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
@@ -39,9 +39,7 @@ function rec(capturedAt: string, isBaseline = false): SnapshotRecord {
   };
 }
 
-// +1 month: 03-27 → 04-27 (Mon) and 04-03 → 05-03 (Sun) land in ONE ISO week (2026-W18), so the
-// later one wins and the authored baseline is gone. 08-28 → 09-28 and 09-04 → 10-04 are today's
-// week (W40), 09-11 → 10-11 is after it: all three are left to the live capture.
+// Today (2026-10-02) is in W40, so the latest capture (09-11, W37) moves two weeks, into W39.
 const RECORDS: SnapshotRecord[] = [
   rec("2026-03-27T17:00:00.000Z", true),
   rec("2026-04-03T17:00:00.000Z"),
@@ -106,37 +104,37 @@ describe("createDemo", () => {
     expect(d.createLocal).not.toHaveBeenCalled();
   });
 
-  it("moves the captures by the whole weeks nearest the month shift and stops before today's week", async () => {
+  it("moves every capture by the same whole weeks, so the latest lands in the week before today's", async () => {
     const d = deps();
     await createDemo(d);
     const out = written(d);
-    // One month (Sep 11 → Oct 11, 30 days) is 4 weeks: every Friday stays a Friday, one per week,
-    // and Oct 2 (today's week) is left to the live capture.
     expect(out.map((r) => r.capturedAt)).toEqual([
+      "2026-04-10T17:00:00.000Z",
+      "2026-04-17T17:00:00.000Z",
       "2026-04-24T17:00:00.000Z",
-      "2026-05-01T17:00:00.000Z",
-      "2026-05-08T17:00:00.000Z",
+      "2026-09-04T17:00:00.000Z",
+      "2026-09-11T17:00:00.000Z",
       "2026-09-18T17:00:00.000Z",
       "2026-09-25T17:00:00.000Z",
     ]);
-    expect(out.map((r) => r.bucket)).toEqual(["2026-W17", "2026-W18", "2026-W19", "2026-W38", "2026-W39"]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-W15", "2026-W16", "2026-W17", "2026-W36", "2026-W37", "2026-W38", "2026-W39"]);
     expect(out.map((r) => r.id)).toEqual(out.map((r) => `id-1:${r.capturedAt}`));
   });
 
   it("marks exactly the first written record as baseline", async () => {
     const d = deps();
     await createDemo(d);
-    expect(written(d).map((r) => r.isBaseline)).toEqual([true, false, false, false, false]);
+    expect(written(d).map((r) => r.isBaseline)).toEqual([true, false, false, false, false, false, false]);
   });
 
   it("thins to the monthly cadence and leaves the current month to the live capture", async () => {
     const d = deps({ cadence: "monthly" });
     await createDemo(d);
     const out = written(d);
-    expect(out.map((r) => r.capturedAt)).toEqual(["2026-04-24T17:00:00.000Z", "2026-05-08T17:00:00.000Z", "2026-09-25T17:00:00.000Z"]);
-    expect(out.map((r) => r.bucket)).toEqual(["2026-04", "2026-05", "2026-09"]);
-    expect(out.map((r) => r.cadence)).toEqual(["monthly", "monthly", "monthly"]);
-    expect(out.map((r) => r.isBaseline)).toEqual([true, false, false]);
+    expect(out.map((r) => r.capturedAt)).toEqual(["2026-04-24T17:00:00.000Z", "2026-09-25T17:00:00.000Z"]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-04", "2026-09"]);
+    expect(out.map((r) => r.cadence)).toEqual(["monthly", "monthly"]);
+    expect(out.map((r) => r.isBaseline)).toEqual([true, false]);
   });
 
   it("falls back to the local demo, without seeding, when the Turso create returns no id", async () => {
@@ -235,8 +233,7 @@ describe("createDemo", () => {
 });
 
 describe("the demo's start-card facts", () => {
-  // The card once quoted the file's length (27) while a demo created on 2026-10-10 stored 23: the
-  // history stops before the current week, so the count moves with the date.
+  // The card once quoted the file's length while the store held fewer; it now counts the store.
   it.each(["2026-10-02", "2026-10-10", "2027-01-15"])("quotes exactly the weekly records the demo stores on %s", (today) => {
     const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
     const stored = demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly").length;
@@ -244,9 +241,16 @@ describe("the demo's start-card facts", () => {
     expect(demoHistoryWeeks(today)).toBe(stored);
   });
 
-  it("is not the file's length on a date whose current week the history reaches", () => {
-    const committed: unknown[] = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8"));
-    expect(demoHistoryWeeks("2026-10-10")).toBeLessThan(committed.length);
+  // A fresh demo created late in a month showed "2 gaps": the history ended weeks before today's.
+  it("stores the whole file, ending in the week before today's, with no gap up to a live capture, on every day of a year", () => {
+    const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
+    for (let ms = Date.UTC(2026, 9, 1); ms < Date.UTC(2027, 9, 1); ms += 86_400_000) {
+      const today = new Date(ms).toISOString().slice(0, 10);
+      const stored = demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly");
+      expect(stored, today).toHaveLength(committed.length);
+      const live = { ...stored[0], capturedAt: `${today}T12:00:00.000Z`, bucket: bucketKey(new Date(ms), "weekly") };
+      expect(detectGaps([...stored, live], "weekly", new Date(ms)), today).toEqual([]);
+    }
   });
 
   it("uses the master's own plan granularity", () => {
