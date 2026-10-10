@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BOOT_NONCE_ENV, mintBootNonce, reuseDevServer, runStartsDevServer } from "./src/app/checkout-token";
-import { appHasTursoToken } from "./e2e/live-turso-env";
+import { appHasTursoToken, LIVE as THROWAWAY_PAIR_SET } from "./e2e/live-turso-env";
+import { globalTimeoutFrom } from "./e2e/global-timeout";
 
 const PORT = Number(process.env.PORT ?? 3000);
 // Use localhost, NOT 127.0.0.1: the Next dev server binds to localhost, and the
@@ -19,8 +20,18 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // table beside the partition-scoped UI specs would pull tables out from under
 // them. They live in their own project, which runs its files one at a time and
 // which `chromium` ignores; run it on its own (`npm run e2e:live-destructive`),
-// never in the same invocation as `chromium`.
-const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
+// never in the same invocation as `chromium`. Both lists match WHOLE file names (anchored on a path
+// separator and the end), so `old-meta-decode-loss.spec.ts` is not caught by `meta-decode-loss`.
+const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-live)\.spec\.ts$/;
+
+// The live-Turso specs that DRIVE THE APP, partition-scoped, so they share the throwaway database
+// safely with each other (one worker) but never with LIVE_TURSO_DESTRUCTIVE. `chromium` still
+// runs them, where they skip without the throwaway pair. `npm run e2e:live-app` runs exactly this
+// list, through the `live-turso-app` project, which exists only when that script sets
+// E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script. What
+// may be listed here, and what must be, is pinned by ci-workflow.test.mjs ("runs exactly the live
+// specs ...").
+const LIVE_TURSO_APP = /(?:^|[\\/])(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts$/;
 
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
 // `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
@@ -34,14 +45,20 @@ const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec
 // stay on because the app never renders a token as plain text. Locally this also
 // applies to a developer whose `.env.local` holds their own token, so it says so
 // once per run rather than leaving a missing trace to look like a bug.
-const APP_HAS_TURSO_TOKEN = appHasTursoToken();
+// ★ The THROWAWAY pair counts too: a spec that sends it with Playwright's own `request`
+// fixture would put it in a trace even when the app carries none (the table-dropping
+// specs use Node fetch today, which a trace does not record; this keeps it that way).
+const APP_HAS_TURSO_TOKEN = appHasTursoToken() || THROWAWAY_PAIR_SET;
 if (APP_HAS_TURSO_TOKEN && !process.env.TEST_WORKER_INDEX) {
   // stderr, not stdout: `--reporter=json` writes its report to stdout, and a line there corrupts it.
-  process.stderr.write("playwright: trace and video are off, because the app carries a Turso token (see playwright.config.ts)\n");
+  process.stderr.write("playwright: trace and video are off, because a Turso token is configured (see playwright.config.ts)\n");
 }
 
 export default defineConfig({
   testDir: "./e2e",
+  // A whole-run wall clock, set only by live-turso.yml's two test steps (e2e/global-timeout.ts
+  // says why). Unset: no limit, so every other run is unchanged.
+  globalTimeout: globalTimeoutFrom(process.env.E2E_GLOBAL_TIMEOUT_MS),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // Generous per-test timeout: the FIRST navigation against the dev webServer
@@ -49,7 +66,13 @@ export default defineConfig({
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["html"], ["github"]] : "html",
+  // E2E_JSON_REPORT (set by live-turso.yml's test steps) adds a JSON report, which
+  // scripts/check-live-run.mjs reads to fail a run in which a test skipped or none ran.
+  reporter: [
+    ["html"],
+    ...(process.env.CI ? [["github"] as const] : []),
+    ...(process.env.E2E_JSON_REPORT ? [["json", { outputFile: process.env.E2E_JSON_REPORT }] as const] : []),
+  ],
   use: {
     baseURL: BASE_URL,
     trace: APP_HAS_TURSO_TOKEN ? "off" : "retain-on-failure",
@@ -117,8 +140,16 @@ export default defineConfig({
       name: "live-turso-destructive",
       testMatch: LIVE_TURSO_DESTRUCTIVE,
       workers: 1,
+      // No retries, CI included: these are HTTP probes with no browser, so a failure is the
+      // database's real answer, and a retry only doubles a broken run's time. The run's wall
+      // clock is E2E_GLOBAL_TIMEOUT_MS (globalTimeout above).
+      retries: 0,
       fullyParallel: false,
     },
+    // The app-driving live-Turso specs (LIVE_TURSO_APP above), only for `npm run e2e:live-app`.
+    ...(process.env.E2E_LIVE_APP
+      ? [{ name: "live-turso-app", testMatch: LIVE_TURSO_APP, workers: 1, fullyParallel: false, use: { ...devices["Desktop Chrome"] } }]
+      : []),
     // Add firefox / webkit later if cross-browser coverage is needed:
     // { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     // { name: "webkit",  use: { ...devices["Desktop Safari"] } },
