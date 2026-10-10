@@ -439,41 +439,56 @@ const SAVE_DEBOUNCE_MS = 500;
  *  with an in-page `setTimeout` (15s for a pipeline, `DEFAULT_PIPELINE_TIMEOUT_MS`;
  *  10s for a load, `LOAD_TIMEOUT_MS`), and `page.clock` fakes that timer too. A jump
  *  taken while a save is on the wire aborts it in the BROWSER while the database
- *  still commits it, so the app keeps its old revision and its next save is refused
- *  as a conflict with "another tab or device" (§4). Seen on the first CI run
- *  (2026-10-10), twice: after the delete, the page showed both the "can't reach your
- *  Turso database" banner and the conflict banner, and the stored document count
- *  stayed at 1 until the poll gave up. Which earlier save was aborted is not known.
- *  A local run against a nearby database passes because each round trip ends before
- *  the clock has moved 15s.
- *  So every advance is cut into steps shorter than the shortest timeout, and each
- *  step waits (in real time) for the app's pipeline requests to finish first: no
- *  request ever sees more than one step of fake time.
+ *  can still commit it, so the app keeps its old revision and its next save is
+ *  refused as a conflict with "another tab or device" (§4). The first CI run
+ *  (2026-10-10) is consistent with that, twice: after the delete, the page showed
+ *  both the "can't reach your Turso database" banner and the conflict banner, and
+ *  the stored document count stayed at 1 until the poll gave up. Which save was
+ *  aborted is not known, and the cause is inferred until a CI run passes with this.
+ *  Locally the old single jumps passed, presumably because with a nearby database a
+ *  request was rarely still in flight when a jump was issued (not measured).
+ *  So every advance is cut into `CLOCK_STEP_MS` steps, and each step is taken only
+ *  once the page has no pipeline request in flight. ★★ THE CLOCK ALSO RUNS IN REAL
+ *  TIME: `install` without `pauseAt` lets in-page timers advance with the wall clock
+ *  (measured 2026-10-10: a 1s timer fired after 2s of real time), plus whatever
+ *  `runFor` adds. So a request sees its own real duration plus at most ONE step — a
+ *  request started after the in-flight check is counted before the next check, which
+ *  waits for it. With 4s steps that leaves a save 11s of real round trip and a load
+ *  6s before their timeouts fire.
+ *  ★ The one wait the counter cannot see is the cross-tab Web Lock (`withWriteLock`,
+ *  `AbortSignal.timeout(20s)`, also faked): a save queued behind another can collect
+ *  steps while the holder sits between fetches. Saves in one tab are serialized, so
+ *  this is not expected here; it is a known residual, not a measured one.
  *  ★★ THE COUNT IS TAKEN IN THE PAGE, around `fetch`, not from Playwright's request
  *  events. Counting `request` against `requestfinished` + `requestfailed` never
  *  returned to zero on CI (it stood at 12, then 4 on the retry), so every advance
  *  waited out its 30s and failed. Why the events did not balance was not measured.
  *  The in-page count starts at zero on every navigation, and a request counts as
  *  finished only once its body has arrived or it failed, which is when
- *  `fetchTextWithTimeout` clears its timer. */
-const CLOCK_STEP_MS = 5_000;
+ *  `fetchTextWithTimeout` clears its timer. `seen` is the positive control: a
+ *  counter that never sees the app's requests reads 0 and would let every jump
+ *  through, so `advanceClock` refuses to step until it has seen at least one. */
+const CLOCK_STEP_MS = 4_000;
 
-/** Count, inside the page, the app's `fetch` calls to a Turso pipeline that have not
- *  settled yet. Call before the first navigation. */
+interface PipelineCounter { inFlight: number; seen: number }
+
+/** Count, inside the page, the app's `fetch` calls to a Turso pipeline: those not
+ *  settled yet, and all of them. Call before the first navigation. */
 async function trackPipelineRequests(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const w = window as unknown as { __e2ePipelinesInFlight: number };
-    w.__e2ePipelinesInFlight = 0;
+    const counter = { inFlight: 0, seen: 0 };
+    (window as unknown as { __e2ePipelines: PipelineCounter }).__e2ePipelines = counter;
     const realFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (!url.endsWith("/v2/pipeline")) return realFetch(input, init);
-      w.__e2ePipelinesInFlight++;
+      counter.inFlight++;
+      counter.seen++;
       const pending = realFetch(input, init);
       pending
         .then((res) => res.clone().arrayBuffer())
         .catch(() => undefined)
-        .finally(() => { w.__e2ePipelinesInFlight--; });
+        .finally(() => { counter.inFlight--; });
       return pending;
     };
   });
@@ -482,21 +497,29 @@ async function trackPipelineRequests(page: Page): Promise<void> {
 /** Advance the fake clock by `ms`, one `CLOCK_STEP_MS` at a time, never while a
  *  pipeline request is in flight. */
 async function advanceClock(page: Page, ms: number): Promise<void> {
-  const inFlight = () =>
-    page.evaluate(() => (window as unknown as { __e2ePipelinesInFlight?: number }).__e2ePipelinesInFlight);
+  const read = () =>
+    page.evaluate(() => (window as unknown as { __e2ePipelines?: PipelineCounter }).__e2ePipelines ?? null);
+  const first = await read();
+  expect(first, "the in-page pipeline counter is missing: trackPipelineRequests did not run").not.toBeNull();
+  expect(
+    first?.seen,
+    "the in-page counter has seen no Turso request although the app has loaded from Turso, so it " +
+      "is not counting the app's requests and could not hold a jump back",
+  ).toBeGreaterThan(0);
   for (let left = ms; left > 0; left -= CLOCK_STEP_MS) {
     await expect
-      .poll(inFlight, { message: "an app request to Turso never finished", timeout: 30_000 })
+      .poll(async () => (await read())?.inFlight, { message: "an app request to Turso never finished", timeout: 30_000 })
       .toBe(0);
     await page.clock.runFor(Math.min(CLOCK_STEP_MS, left));
   }
 }
 
 /** ★★★ THE CLOCK IS FAKE AND THAT IS WHY THIS TEST IS FAST RATHER THAN FOUR
- *  MINUTES LONG. The test calls `page.clock.install`, so in-page `setTimeout`
- *  does not advance in real time at all — the 3-minute idle capture would NEVER
- *  fire on its own, and a test that merely waited would report "no version was
- *  captured" against perfectly working code.
+ *  MINUTES LONG. The test calls `page.clock.install`, so in-page `setTimeout` runs
+ *  on Playwright's clock. That clock still flows in real time (see `CLOCK_STEP_MS`),
+ *  so left alone the 3-minute idle capture would fire after 3 real minutes — past
+ *  every poll timeout here, so a test that merely waited would report "no version
+ *  was captured" against perfectly working code. `advanceClock` jumps it instead.
  *  ★★ TWO SEPARATE ADVANCES, NOT ONE, AND COLLAPSING THEM BREAKS IT. The idle
  *  timer is armed by `notifySaved`, which task-manager calls from
  *  `reportStorageOutcome(null)` — i.e. only after the save's REAL network round
@@ -528,10 +551,11 @@ async function pollForSavedTitle(page: Page, expected: string): Promise<void> {
  *  the race loses SILENTLY. `notifySaved` arms the idle timer only when the
  *  app's own save promise resolves, and the DB row this test polls on can be
  *  readable a few milliseconds before that. Advance once at exactly the wrong
- *  moment and the timer is armed AFTER the jump, i.e. at fake-time T+210s,
- *  expiring at T+390s — which never arrives, so a working build reports "no
- *  version was captured". Re-advancing on every poll iteration cannot lose that
- *  race: whenever the timer was armed, the next iteration jumps past it.
+ *  moment and the timer is armed AFTER the advance has passed it, i.e. at fake
+ *  time T+210s, expiring at T+390s — which only a 3-minute real wait would reach,
+ *  so a working build reports "no version was captured". Re-advancing on every
+ *  poll iteration cannot lose that race: whenever the timer was armed, the next
+ *  iteration's 210s of steps runs past it.
  *  ★ Extra advances are harmless — a second capture would only add a row, and
  *  the assertions read the FIRST. */
 async function pollForCapturedVersion(page: Page): Promise<void> {
@@ -684,9 +708,9 @@ test.describe("version history — a documents-only project, live Turso", () => 
     test.setTimeout(180_000);
 
     await installPortfolioTursoMode(page, E2E_PROJECT_ID);
-    // Frozen "now", exactly as `gotoApp` installs it — and the fake clock both
-    // `runFor` helpers below depend on. Installed by hand because this file
-    // navigates twice; `clock.install` cannot run twice.
+    // "Now" starts at FROZEN_NOW, exactly as `gotoApp` installs it, on the fake clock
+    // that `advanceClock` drives. Installed by hand because this file navigates
+    // twice; `clock.install` cannot run twice.
     await page.clock.install({ time: FROZEN_NOW });
     await trackPipelineRequests(page);
 
