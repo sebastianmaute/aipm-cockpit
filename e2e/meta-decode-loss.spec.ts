@@ -85,6 +85,7 @@ import {
   THROWAWAY, LIVE, appIsThrowaway, PIPELINE_URL, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
 } from "./live-turso-env";
 import { ensureTenantSchema } from "./live-turso-schema";
+import { SNAPSHOT_TABLE_NAMES } from "../src/app/snapshot-schema";
 // ── Live-database configuration ─────────────────────────────────────────────
 
 /** The throwaway pair, and the rules for when this file may touch it: `live-turso-env.ts`. */
@@ -237,8 +238,9 @@ async function cleanup(): Promise<void> {
       sql: `DELETE FROM ${t} WHERE project_id = ?`,
       args: [txt(E2E_PROJECT_ID)],
     })),
-    // The app's own live Trends capture writes here too; snapshot is outside TABLE_NAMES.
-    { sql: "DELETE FROM snapshot WHERE project_id = ?", args: [txt(E2E_PROJECT_ID)] },
+    // The app's own live Trends capture writes here too (snapshot and snapshot_series), and both
+    // tables are outside TABLE_NAMES.
+    ...SNAPSHOT_TABLE_NAMES.map((t) => ({ sql: `DELETE FROM ${t} WHERE project_id = ?`, args: [txt(E2E_PROJECT_ID)] })),
     { sql: "DELETE FROM projects WHERE id = ?", args: [txt(E2E_PROJECT_ID)] },
   ]);
   // ★ Teardown gets the SAME check as every other statement in this file. A
