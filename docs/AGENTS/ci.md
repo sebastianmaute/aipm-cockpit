@@ -152,18 +152,41 @@ re-resolved by hand.
   tables in that database and a plain `npm run e2e` runs them. A spec that drives the UI also needs
   the app's `NEXT_PUBLIC_TURSO_DATABASE_URL` to equal the throwaway URL, as Next itself resolves it
   (`appUsesDatabase`), and aborts any app request to another Turso host (`guardAppDatabase`); those
-  specs turn tracing off, because a trace records the app's `Authorization` header. Without the pair
-  they skip, which is what this job does today; §215 owns giving it the two secrets, mapped into both
-  pairs. ★★ The specs that DROP tables are not in this job at all: `playwright.config.ts`'s
+  specs turn tracing off, because a trace records the app's `Authorization` header. This job never
+  gets the pair, so here they always skip; they run against the database in `live-turso.yml` (below).
+  ★★ The specs that DROP tables are not in this job at all: `playwright.config.ts`'s
   `live-turso-destructive` project holds them (`LIVE_TURSO_DESTRUCTIVE`), runs its files one at a
   time, and `chromium` ignores them, because every live spec shares one throwaway database and this
-  job runs files in parallel. They run only by hand, `npm run e2e:live-destructive`, which sets
+  job runs files in parallel. They run only through `npm run e2e:live-destructive`, which sets
   `E2E_LIVE_DESTRUCTIVE=1` (they skip without it, so a bare `npx playwright test` running every
   project at once leaves them out) and `PLAYWRIGHT_NO_WEBSERVER=1` itself.
   ★★ CI with Turso secrets runs with trace and video off; failures debug from screenshots and logs.
   `playwright.config.ts` turns both off whenever the app would carry `NEXT_PUBLIC_TURSO_AUTH_TOKEN`
-  (`appHasTursoToken`), because a trace records the `Authorization` header and this job uploads
-  `playwright-report/` on failure.
+  (`appHasTursoToken`), because a trace records the `Authorization` header and a failing job uploads
+  `playwright-report/`.
+
+## `live-turso.yml` — the live-Turso specs (§215)
+
+NOT a required check, and deliberately so: it needs repository secrets a fork's pull request and
+Dependabot never get, and a required check that cannot run there would block them. It runs on every
+pull request and every push to `main`, beside `ci.yml`, as one job, `live-turso`:
+
+- **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
+  database kept for this job alone: the specs drop its tables. They enter through `env:` only, never a
+  `run:` line. With either one missing the first step writes a notice and every later step is
+  skipped, so the job is green and says it tested nothing.
+- **One run at a time, everywhere.** The concurrency group is the fixed name
+  `live-turso-throwaway-database` with `cancel-in-progress: false`: every run shares the one database,
+  so a second run waits rather than racing the first.
+- **Two steps, in order.** First `npm run e2e:live-destructive` (the specs that drop tables, one file
+  at a time, no app server). Then the specs that drive the app, `--workers=1`, on a dev server started
+  with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`, so the app's database is the throwaway
+  one; the step's file filter names every live UI spec, including ones a later branch adds. Trace and
+  video are off there (the app carries the token), so the `live-turso-report` artifact uploaded on
+  failure cannot hold it.
+- **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules,
+  not a required check, the fixed concurrency group, secrets on `env:` lines only, every install and
+  test step gated on the secrets, and no other workflow reading them.
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is

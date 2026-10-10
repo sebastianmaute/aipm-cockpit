@@ -1,0 +1,94 @@
+# The live-Turso e2e specs, against a dedicated throwaway database (§215). NOT a required check:
+# docs/AGENTS/ci.md says why and how to read it. The specs are listed in e2e/live-turso-env.ts's
+# header; everything about which database they may touch lives there.
+#
+# ★★★ ONE DATABASE, ONE RUN AT A TIME. Every run of this workflow shares the throwaway database,
+# and the table-dropping specs would pull tables out from under another run's specs, so the
+# concurrency group is a single fixed name and nothing is cancelled: a second run waits.
+#
+# ★★★ THE SECRETS NEVER REACH A run: LINE. They enter through env: only, and the specs read them
+# from the environment. With either secret missing (a fork's pull request, Dependabot, or before
+# the owner sets them) the job says so and runs nothing: a skip, never a failure, never a pass
+# that pretends to have tested anything.
+#
+# ★★ The two secrets go into BOTH pairs for the UI step: the specs read TURSO_THROWAWAY_*, and the
+# dev server the app runs on reads NEXT_PUBLIC_TURSO_*, so the app's database IS the throwaway one.
+# With the app carrying a token, playwright.config.ts turns trace and video off, so the uploaded
+# report cannot hold the token.
+name: live-turso
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-turso-throwaway-database
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  live-turso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Keep this tag equal to @playwright/test in package-lock.json (ci-workflow.test.mjs checks).
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-jammy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Are the throwaway database secrets set?
+        id: secrets
+        env:
+          URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
+          TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+        run: |
+          if [ -n "$URL" ] && [ -n "$TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::live-turso skipped: TURSO_THROWAWAY_DATABASE_URL and TURSO_THROWAWAY_AUTH_TOKEN are not both set for this run (a fork, Dependabot, or not configured yet)."
+          fi
+      - if: steps.secrets.outputs.present == 'true'
+        run: npm ci
+      - if: steps.secrets.outputs.present == 'true'
+        run: npx playwright install chromium
+      # First and alone: the specs that DROP tables (the live-turso-destructive project, one file at
+      # a time). The npm script sets E2E_LIVE_DESTRUCTIVE and PLAYWRIGHT_NO_WEBSERVER itself.
+      - name: Live specs that drop tables
+        if: steps.secrets.outputs.present == 'true'
+        env:
+          TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
+          TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+        run: npm run e2e:live-destructive
+      # Then the specs that drive the app, one at a time, on a dev server started with the throwaway
+      # database as the app's own. The filter names every live UI spec, including ones a later branch
+      # adds; a name that matches no file is simply not run.
+      - name: Live specs that drive the app
+        if: steps.secrets.outputs.present == 'true'
+        env:
+          TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
+          TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+          NEXT_PUBLIC_TURSO_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
+          NEXT_PUBLIC_TURSO_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
+        # The quoted filter is a regex with | in it; bash keeps it one argument.
+        shell: bash
+        run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: live-turso-report
+          path: playwright-report/
+          retention-days: 7

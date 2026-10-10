@@ -457,7 +457,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
 | [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling--closed-02710) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | **CLOSED** 0.271.0 |
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
-| [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
+| [§215](#215-ci-has-no-live-turso-database-so-the-13-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the 13 tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
 | [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice--closed-2026-10-02) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | **CLOSED** 2026-10-02 |
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
@@ -7499,7 +7499,7 @@ from the box width and an average glyph width, which is still an estimate but a 
 
 ## 95. No test in CI exercises a real Turso database — open, NARROWED 2026-08-25
 
-**Status:** **Update 2026-10-03:** residue 2 below is closed. `turso-schema.execute.test.ts` now writes a workspace with every meta row populated (`fullMetaWorkspace`; thirteen single-tenant, twelve tenant, which keeps the project in its projects row) through the real save builders, reads it back through the real SELECTs into `rowsToWorkspace` for the single-tenant and the tenant layout, and asserts every slice deep-equal with no decode report. A further case checks that the set of meta rows the builders emit equals the set the test covers, so a new slice fails it until added. Mutation-checked with `npx vitest run src/app/turso-schema.execute.test.ts --maxWorkers=1`: dropping the single-tenant `documents` row, corrupting the tenant `documents` JSON, and swapping the single-tenant `documents` / `documentVersions` keys each turn it red. No defect surfaced. Residue 1 is still owed: CI never reaches a real libSQL endpoint (§215). open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-10:** residue 1 (CI never reaches a real Turso endpoint) now has its wiring, which §215 records: `live-turso.yml` on `ci/live-turso-e2e`, pinned by `npx vitest run scripts/ci-workflow.test.mjs`. It closes with §215, once the owner has set the two secrets and a run has passed against the database. **Update 2026-10-03:** residue 2 below is closed. `turso-schema.execute.test.ts` now writes a workspace with every meta row populated (`fullMetaWorkspace`; thirteen single-tenant, twelve tenant, which keeps the project in its projects row) through the real save builders, reads it back through the real SELECTs into `rowsToWorkspace` for the single-tenant and the tenant layout, and asserts every slice deep-equal with no decode report. A further case checks that the set of meta rows the builders emit equals the set the test covers, so a new slice fails it until added. Mutation-checked with `npx vitest run src/app/turso-schema.execute.test.ts --maxWorkers=1`: dropping the single-tenant `documents` row, corrupting the tenant `documents` JSON, and swapping the single-tenant `documents` / `documentVersions` keys each turn it red. No defect surfaced. Residue 1 is still owed: CI never reaches a real libSQL endpoint (§215). open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #132
 
@@ -18467,9 +18467,11 @@ false. That branch was clean — but by `tsc` and a per-file import-name diff, n
 docs asserting otherwise (`AGENTS.md`, `docs/CODEMAPS/architecture.md`, `docs/AGENTS/dashboard.md`,
 and two places in this file) were corrected in that release; `CONTRIBUTING.md` had it right already.
 
-## 215. CI has no live Turso database, so the twelve tests that prove document images work never run there
+## 215. CI has no live Turso database, so the 13 tests that prove document images work never run there
 
-**Status:** open — the tests exist, pass locally against a real database, and SKIP in every CI pipeline. Reproduced 2026-08-28 by `grep -n "resource_group" .gitlab-ci.yml`.
+**Status:** open. **Update 2026-10-10:** the CI wiring exists, on `ci/live-turso-e2e`: a new workflow, `live-turso.yml` (not a required check), runs the live-Turso specs on every pull request and push to `main` against a throwaway database named by two repository secrets, `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, which the owner sets. Without them it skips and says so. Pinned by `npx vitest run scripts/ci-workflow.test.mjs` (80 tests, 3 workflow mutants killed). docs/AGENTS/ci.md's `live-turso.yml` section describes it. This entry closes once the secrets are set and a `live-turso` run passes them for real (a run, not a skip). Until then the tests pass locally against a real database and skip in CI. The count was "twelve" here; it is 13 today, 9 in `e2e/documents-images-interactive.spec.ts` and 4 in `e2e/turso-ddl-probe-live.spec.ts` (the §211/§637 probe, moved out of the former for §637).
+
+**Original status:** open — the tests exist, pass locally against a real database, and SKIP in every CI pipeline. Reproduced 2026-08-28 by `grep -n "resource_group" .gitlab-ci.yml`.
 
 **Work item:** #192
 
@@ -18480,7 +18482,7 @@ and two places in this file) were corrected in that release; `CONTRIBUTING.md` h
 
 **What is unverified in CI.** `e2e/documents-images-interactive.spec.ts` gates both its describes on
 `test.skip(!LIVE, …)`, where `LIVE` comes from `readEnvLocal()` — `process.env` first, then a parse
-of `.env.local`. CI has neither, so all twelve skip and the `e2e` job is green while proving nothing
+of `.env.local`. CI has neither, so all twelve (13 today, see the Status) skip and the `e2e` job is green while proving nothing
 about:
 
 - that the SQL this app emits is ACCEPTED by a real engine at all (the `idKind` seam that shipped

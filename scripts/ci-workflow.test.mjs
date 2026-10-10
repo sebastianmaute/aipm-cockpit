@@ -415,3 +415,61 @@ describe("electron-builder.yml agrees with the release library", () => {
     expect(eb).toMatch(/^publish:\n\s+provider: github\n\s+owner: sebastianmaute\n\s+repo: aipm-cockpit$/m);
   });
 });
+
+// §215: the live-Turso specs against a dedicated throwaway database. Not a required check.
+describe("live-turso.yml", () => {
+  const LIVE = read(".github/workflows/live-turso.yml");
+  workflowRules("live-turso.yml", LIVE);
+  const job = jobBlock(LIVE, "live-turso");
+
+  it("is one job, and not a required check", () => {
+    expect(jobIds(LIVE)).toEqual(["live-turso"]);
+    expect(REQUIRED).not.toContain("live-turso");
+  });
+
+  // Every run shares one database, and the table-dropping specs would race another run's specs.
+  it("runs one at a time across every ref, and never cancels a run", () => {
+    expect(topLevelBlock(LIVE, "concurrency")).toEqual(["group: live-turso-throwaway-database", "cancel-in-progress: false"]);
+  });
+
+  it("never puts a secret on a run: line", () => {
+    for (const line of LIVE.split(/\r?\n/).filter((l) => /\$\{\{ secrets\./.test(l))) {
+      expect(line, line).toMatch(/^\s+[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
+    }
+  });
+
+  // A fork's pull request, Dependabot and an unconfigured repository have no secrets: a skip, not a failure.
+  it("gates every install and test step on both secrets being present", () => {
+    expect(job).toMatch(/if \[ -n "\$URL" \] && \[ -n "\$TOKEN" \]/);
+    // A step starts with `- if:` or carries `if:` under its `- name:`.
+    const gated = job.split(/\r?\n/).filter((l) => /^ {6}(- | {2})if: steps\.secrets\.outputs\.present == 'true'$/.test(l)).length;
+    expect(gated).toBe(4);
+    for (const cmd of ["npm ci", "npx playwright install chromium", "npm run e2e:live-destructive", "npx playwright test"]) {
+      const at = job.indexOf(cmd);
+      expect(at, cmd).toBeGreaterThan(-1);
+      const step = job.slice(job.lastIndexOf("      - ", at), at);
+      expect(step, cmd).toMatch(/if: steps\.secrets\.outputs\.present == 'true'/);
+    }
+  });
+
+  it("runs the table-dropping specs first, then the app specs one at a time with the throwaway as the app's database", () => {
+    const drop = job.indexOf("npm run e2e:live-destructive");
+    const app = job.indexOf("npx playwright test");
+    expect(drop).toBeGreaterThan(-1);
+    expect(app).toBeGreaterThan(drop);
+    const appStep = job.slice(job.lastIndexOf("      - ", app), job.indexOf("\n", app));
+    for (const v of ["TURSO_THROWAWAY_DATABASE_URL", "TURSO_THROWAWAY_AUTH_TOKEN", "NEXT_PUBLIC_TURSO_DATABASE_URL", "NEXT_PUBLIC_TURSO_AUTH_TOKEN"]) {
+      expect(appStep, v).toContain(`${v}: `);
+    }
+    expect(appStep).toMatch(/--project=chromium --workers=1/);
+    const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
+    expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
+  });
+
+  // ci.yml's e2e job must not receive the secrets: there the live specs skip, and the app runs on browser storage.
+  it("is the only workflow that reads the throwaway secrets", () => {
+    for (const [name, text] of [["ci.yml", CI], ["release.yml", RELEASE], ["scheduled.yml", read(SCHEDULED_PATH)]]) {
+      expect(text, name).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
+    }
+  });
+});
