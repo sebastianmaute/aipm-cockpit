@@ -605,9 +605,10 @@ describe("live-turso.yml", () => {
   // database; a typo would also silently drop a spec. A live spec is one whose CODE (comments
   // stripped, so a mention in a comment never counts, backticked or not) imports
   // e2e/live-turso-env.ts or live-turso-schema.ts (any quoting, with or without .ts), or reads
-  // process.env.TURSO_THROWAWAY_… or a quoted "TURSO_THROWAWAY_…" (turso-revision-live does). Those
-  // are the forms the live specs use; another form (a destructured or aliased process.env) is not
-  // recognised, so such a spec would fail as "in neither list" until it uses one of them. Each list
+  // process.env.TURSO_THROWAWAY_… or a quoted "TURSO_THROWAWAY_…". Every live spec imports the helper
+  // today (grep -lE "live-turso-(env|schema)" e2e/*.spec.ts); the two direct reads still count so a
+  // spec that reads the pair itself is caught. Another form (a destructured or aliased process.env)
+  // is not recognised, so such a spec would fail as "in neither list" until it uses one. Each list
   // is a plain list of names, anchored to WHOLE file names. Every scan is RECURSIVE, as Playwright's
   // search of testDir is.
   it("runs exactly the live specs, each in one list, through the projects the npm scripts name", () => {
