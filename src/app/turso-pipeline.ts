@@ -45,8 +45,8 @@ function assertWellFormedTransaction(stmts: SqlStmt[]): void {
 // against a live database; AGENTS.md's `idKind` bullet). In the batch each
 // step runs only if the step before it succeeded, so a failure skips the rest
 // and COMMIT with it, and the trailing ROLLBACK step runs whenever COMMIT did
-// not succeed. A failed save therefore writes nothing — per the Hrana protocol;
-// the live-database check (e2e, §637) has not run yet.
+// not succeed. A failed save therefore writes nothing: checked against a live
+// database on 2026-10-10 (`e2e/turso-ddl-probe-live.spec.ts`, §637).
 type BatchCondition = { type: "ok"; step: number } | { type: "not"; cond: BatchCondition };
 
 function atomicBatch(stmts: SqlStmt[]) {

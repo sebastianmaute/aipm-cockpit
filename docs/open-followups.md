@@ -43693,8 +43693,8 @@ measurement against a live database.
 
 ## 637. A Turso save whose batch hits a failing statement still commits the rest, then reports failure — CLOSED 2026-09-29
 
-**Status:** CLOSED 2026-09-29 on `fix/persistence-backlog`, verified by unit tests and mutation only; the
-live-database check is written but owed. `runTursoPipeline` (`turso-pipeline.ts`) now sends a statement
+**Status:** CLOSED 2026-09-29 on `fix/persistence-backlog`, verified then by unit tests and mutation only. **Live check, 2026-10-10 (`verify/637-live-pipeline`):** run with `npm run e2e:live-destructive` against a throwaway Turso database, `e2e/turso-ddl-probe-live.spec.ts` passed 4 of 4. That includes "§637 — the same transaction through runTursoPipeline writes nothing, and reports the failure": a co-resident write placed BEFORE the failing insert does not survive. Two live mutants of `runTursoPipeline`. Sending separate `execute` requests failed the test, but only on its error-text assertion ("unexpected response shape"), so it does not count as a kill. Dropping the batch steps' `ok` conditions failed it on the surviving co-resident write, which is the real kill. The spec reads only the throwaway pair (`e2e/live-turso-env.ts`) and runs alone, in the `live-turso-destructive` project. Until this run the spec also lived in `documents-images-interactive.spec.ts` and read the app's own database variables. Originally:
+the live-database check was written but owed. `runTursoPipeline` (`turso-pipeline.ts`) now sends a statement
 list that starts with `BEGIN` and ends with `COMMIT` as ONE Hrana `batch` request. Each step runs only if
 the step before it succeeded (`{ type: "ok", step: i - 1 }`), and a trailing `ROLLBACK` step runs when
 `COMMIT` did not succeed (`{ type: "not", cond: { type: "ok", step: last } }`), so a failing statement skips
