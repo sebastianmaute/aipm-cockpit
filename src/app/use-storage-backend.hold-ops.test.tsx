@@ -193,7 +193,9 @@ const ROWS: Row[] = [
     call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json"), scope: "same-scope" },
   { op: "loadProjectFromFile", arm: (g) => { vi.mocked(storageMod.pickOpenFileAny).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
     call: (h) => h.loadProjectFromFile(), scope: "same-scope" },
-  { op: "createDemoProject", arm: (g, b) => { b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
+  // ★ An EMPTY registry: the beforeEach's browser-backed "target" would make the demo's occupant guard
+  //   refuse before the save this row parks on, and the op would never be in flight.
+  { op: "createDemoProject", arm: (g, b) => { saveRegistry(emptyRegistry()); b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
     call: (h) => h.createDemoProject(STORED as never), scope: "changes-scope" },
   // ★★★ §596 — THE ROW THAT WAS MISSING, and it is the op whose §590 wrapping
   //   composed with the §596 cancel into B1: a plain Save-As killing a live AI
