@@ -575,6 +575,452 @@
           "text": "Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence."
         }
       ]
+    },
+    {
+      "id": 15,
+      "taskName": "Project charter and kickoff",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-03-02",
+      "startDate": "2026-03-02",
+      "dueDate": "2026-03-06",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 1080,
+      "lastUpdateDate": "2026-03-06",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-03-06",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "governance"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-03-06T16:30:00.000Z",
+          "html": "<p>Charter signed by the sponsor; kickoff held with the customer team.</p>",
+          "text": "Charter signed by the sponsor; kickoff held with the customer team.",
+          "authorResourceId": 4,
+          "authorName": "Maya Patel"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "taskName": "Current-state identity assessment",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-03-09",
+      "startDate": "2026-03-09",
+      "dueDate": "2026-03-27",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 2700,
+      "lastUpdateDate": "2026-03-27",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-03-27",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "analysis"
+      ],
+      "dependencies": [
+        {
+          "taskId": 15,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 17,
+      "taskName": "Customer stakeholder interviews",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-03-16",
+      "startDate": "2026-03-16",
+      "dueDate": "2026-04-03",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1620,
+      "lastUpdateDate": "2026-04-02",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-04-02",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "analysis"
+      ],
+      "dependencies": [
+        {
+          "taskId": 15,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 18,
+      "taskName": "Requirements catalogue",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-04-06",
+      "startDate": "2026-04-06",
+      "dueDate": "2026-04-24",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 2880,
+      "lastUpdateDate": "2026-04-29",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-04-29",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "analysis",
+        "requirements"
+      ],
+      "dependencies": [
+        {
+          "taskId": 17,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 3,
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-04-24T15:10:00.000Z",
+          "html": "<p>Two consent requirements still open with the customer's legal team; closing next week.</p>",
+          "text": "Two consent requirements still open with the customer's legal team; closing next week.",
+          "authorResourceId": 3,
+          "authorName": "Ava Thompson"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "taskName": "Target identity architecture",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-03-23",
+      "startDate": "2026-03-23",
+      "dueDate": "2026-04-17",
+      "originalEstimateMinutes": 2880,
+      "timeSpentMinutes": 3300,
+      "lastUpdateDate": "2026-04-16",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-04-16",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "design",
+        "architecture"
+      ],
+      "dependencies": [
+        {
+          "taskId": 16,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 20,
+      "taskName": "Identity vendor selection",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-04-20",
+      "startDate": "2026-04-20",
+      "dueDate": "2026-05-08",
+      "originalEstimateMinutes": 1920,
+      "timeSpentMinutes": 2160,
+      "lastUpdateDate": "2026-05-08",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-05-08",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "vendor"
+      ],
+      "dependencies": [
+        {
+          "taskId": 19,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 1,
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-08T14:00:00.000Z",
+          "html": "<p>CloudVendor selected; SDK delivery promised for the end of June.</p>",
+          "text": "CloudVendor selected; SDK delivery promised for the end of June.",
+          "authorResourceId": 1,
+          "authorName": "Sofia Ramirez"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "taskName": "Privacy impact assessment",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-04-27",
+      "startDate": "2026-04-27",
+      "dueDate": "2026-05-15",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 1020,
+      "lastUpdateDate": "2026-05-15",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-05-15",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "compliance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 18,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 22,
+      "taskName": "Design sign-off pack",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-05-11",
+      "startDate": "2026-05-11",
+      "dueDate": "2026-05-27",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1680,
+      "lastUpdateDate": "2026-05-28",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-05-28",
+      "inquiriesSent": 0,
+      "group": "Discovery & Design",
+      "labels": [
+        "design",
+        "governance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 20,
+          "type": "FS"
+        },
+        {
+          "taskId": 21,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 23,
+      "taskName": "Integrate identity vendor SDK",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-06-01",
+      "startDate": "2026-06-15",
+      "dueDate": "2026-07-10",
+      "originalEstimateMinutes": 3600,
+      "timeSpentMinutes": 4800,
+      "lastUpdateDate": "2026-07-31",
+      "priority": "Urgent",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-07-31",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "backend",
+        "vendor"
+      ],
+      "dependencies": [
+        {
+          "taskId": 13,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 2,
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-07-01T10:00:00.000Z",
+          "html": "<p>Vendor SDK not delivered; building against the beta drop behind an adapter.</p>",
+          "text": "Vendor SDK not delivered; building against the beta drop behind an adapter.",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-07-31T16:00:00.000Z",
+          "html": "<p>Released SDK integrated and the adapter removed; three weeks late.</p>",
+          "text": "Released SDK integrated and the adapter removed; three weeks late.",
+          "authorResourceId": 2,
+          "authorName": "Noah Bennett"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "taskName": "Customer self-registration flow",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-06-01",
+      "startDate": "2026-06-29",
+      "dueDate": "2026-07-15",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 3000,
+      "lastUpdateDate": "2026-08-12",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-12",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "frontend"
+      ],
+      "dependencies": [
+        {
+          "taskId": 23,
+          "type": "SS"
+        }
+      ],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 25,
+      "taskName": "MVP demo to the customer",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-06-01",
+      "startDate": "2026-07-13",
+      "dueDate": "2026-07-17",
+      "originalEstimateMinutes": 480,
+      "timeSpentMinutes": 480,
+      "lastUpdateDate": "2026-08-21",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-21",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "governance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 24,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 4,
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-07-14T09:00:00.000Z",
+          "html": "<p>Demo moved to August with the customer's agreement while the SDK is late.</p>",
+          "text": "Demo moved to August with the customer's agreement while the SDK is late.",
+          "authorResourceId": 4,
+          "authorName": "Maya Patel"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "taskName": "Pilot cohort selection",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-07-27",
+      "startDate": "2026-08-03",
+      "dueDate": "2026-08-28",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 900,
+      "lastUpdateDate": "2026-08-27",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-27",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 27,
+      "taskName": "Pilot customer comms pack",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-08-24",
+      "startDate": "2026-08-31",
+      "dueDate": "2026-09-11",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 600,
+      "lastUpdateDate": "2026-09-15",
+      "priority": "Medium",
+      "status": "In Progress",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot",
+        "comms"
+      ],
+      "dependencies": [
+        {
+          "taskId": 26,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 4,
+      "knowledgeLinks": []
     }
   ],
   "raid": [
@@ -933,6 +1379,59 @@
           "authorName": "Maya Patel"
         }
       ]
+    },
+    {
+      "id": 14,
+      "category": "R",
+      "title": "Identity vendor SDK delivery late",
+      "description": "<p>CloudVendor's production SDK was promised for the end of June. If it slips, the self-registration flow and the MVP demo slip with it.</p>",
+      "severity": "High",
+      "probability": 3,
+      "impact": 4,
+      "status": "Closed",
+      "owner": "Sofia Ramirez",
+      "ownerEmail": "sofia.ramirez@example.com",
+      "ownerResourceId": 1,
+      "mitigation": "Weekly vendor checkpoint; build against the beta drop behind an adapter so the registration work can continue.",
+      "linkedTaskIds": [
+        23,
+        24,
+        25
+      ],
+      "raisedDate": "2026-07-01",
+      "targetDate": "2026-07-24",
+      "closedDate": "2026-08-21",
+      "causedByRaidIds": [],
+      "stakeholderIds": [
+        6
+      ],
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-07-01T10:15:00.000Z",
+          "html": "<p>Vendor confirmed the SDK will not ship this month; raised as a High risk.</p>",
+          "text": "Vendor confirmed the SDK will not ship this month; raised as a High risk.",
+          "authorResourceId": 1,
+          "authorName": "Sofia Ramirez"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-07-24T11:00:00.000Z",
+          "html": "<p>SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.</p>",
+          "text": "SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.",
+          "authorResourceId": 4,
+          "authorName": "Maya Patel"
+        },
+        {
+          "id": 3,
+          "timestamp": "2026-08-21T17:10:00.000Z",
+          "html": "<p>Released SDK in use and the MVP demo done; closing the risk.</p>",
+          "text": "Released SDK in use and the MVP demo done; closing the risk.",
+          "authorResourceId": 1,
+          "authorName": "Sofia Ramirez"
+        }
+      ]
     }
   ],
   "absences": [
@@ -995,7 +1494,7 @@
     {
       "id": 1,
       "title": "Project standup",
-      "startDate": "2026-06-01",
+      "startDate": "2026-03-09",
       "startTime": "09:00",
       "durationMinutes": 15,
       "recurrence": {
@@ -1011,7 +1510,7 @@
     {
       "id": 2,
       "title": "Steering board",
-      "startDate": "2026-06-09",
+      "startDate": "2026-03-10",
       "startTime": "14:00",
       "durationMinutes": 60,
       "recurrence": {
@@ -1108,13 +1607,18 @@
       "roleId": 1,
       "utilizationMode": "percent",
       "utilization": {
+        "2026-03": 60,
+        "2026-04": 70,
+        "2026-05": 80,
         "2026-06": 90,
         "2026-07": 90,
         "2026-08": 50,
         "2026-09": 80,
         "2026-10": 80,
         "2026-11": 60,
-        "2026-12": 50
+        "2026-12": 50,
+        "2027-01": 40,
+        "2027-02": 30
       },
       "email": "sofia.ramirez@example.com",
       "title": "Lead Architect",
@@ -1135,13 +1639,18 @@
       "roleId": 2,
       "utilizationMode": "percent",
       "utilization": {
+        "2026-03": 0,
+        "2026-04": 0,
+        "2026-05": 20,
         "2026-06": 80,
         "2026-07": 100,
         "2026-08": 60,
         "2026-09": 60,
         "2026-10": 80,
         "2026-11": 90,
-        "2026-12": 40
+        "2026-12": 40,
+        "2027-01": 0,
+        "2027-02": 0
       },
       "email": "noah.bennett@example.com",
       "title": "Senior Developer",
@@ -1159,13 +1668,18 @@
       "roleId": 3,
       "utilizationMode": "hours",
       "utilization": {
+        "2026-03": 100,
+        "2026-04": 110,
+        "2026-05": 90,
         "2026-06": 120,
         "2026-07": 110,
         "2026-08": 100,
         "2026-09": 100,
         "2026-10": 60,
         "2026-11": 40,
-        "2026-12": 24
+        "2026-12": 24,
+        "2027-01": 0,
+        "2027-02": 0
       },
       "email": "ava.thompson@example.com",
       "title": "Business Analyst",
@@ -1183,13 +1697,18 @@
       "roleId": 4,
       "utilizationMode": "percent",
       "utilization": {
+        "2026-03": 50,
+        "2026-04": 50,
+        "2026-05": 50,
         "2026-06": 50,
         "2026-07": 50,
         "2026-08": 50,
         "2026-09": 60,
         "2026-10": 60,
         "2026-11": 40,
-        "2026-12": 30
+        "2026-12": 30,
+        "2027-01": 40,
+        "2027-02": 40
       },
       "email": "maya.patel@example.com",
       "title": "Project Manager",
@@ -1207,13 +1726,18 @@
       "roleId": 5,
       "utilizationMode": "percent",
       "utilization": {
+        "2026-03": 0,
+        "2026-04": 0,
+        "2026-05": 0,
         "2026-06": 100,
         "2026-07": 0,
         "2026-08": 0,
         "2026-09": 0,
         "2026-10": 50,
         "2026-11": 50,
-        "2026-12": 50
+        "2026-12": 50,
+        "2027-01": 0,
+        "2027-02": 0
       },
       "email": "liam.foster@example.com",
       "title": "Advisor",
@@ -1335,8 +1859,8 @@
     }
   ],
   "plan": {
-    "startDate": "2026-06-01",
-    "endDate": "2026-12-18",
+    "startDate": "2026-03-02",
+    "endDate": "2027-02-26",
     "granularity": "month",
     "currency": "EUR",
     "budgetFollowsPlan": true
@@ -1441,7 +1965,7 @@
       ],
       "poNumber": "4400125303",
       "successorId": 4,
-      "order": 2,
+      "order": 3,
       "planningMode": "detailed",
       "taskIds": [
         1,
@@ -1460,7 +1984,7 @@
       "status": "open",
       "allocations": [],
       "poNumber": "4400141354",
-      "order": 5,
+      "order": 6,
       "planningMode": "blended",
       "disciplineAllocations": [
         {
@@ -1521,7 +2045,7 @@
       ],
       "poNumber": "4400087177",
       "successorId": 2,
-      "order": 4,
+      "order": 5,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
       "rateOverrideExternal": 200,
@@ -1590,7 +2114,7 @@
       "successorId": 3,
       "fixedPriceAmount": 80000,
       "fxRateOverride": 1.1,
-      "order": 3,
+      "order": 4,
       "planningMode": "detailed",
       "percentComplete": 30,
       "createdDate": "2026-07-20"
@@ -1656,7 +2180,7 @@
       "poNumber": "4400053230",
       "successorId": 1,
       "closedDate": "2026-06-30",
-      "order": 0,
+      "order": 1,
       "planningMode": "detailed",
       "createdDate": "2026-05-26"
     },
@@ -1671,7 +2195,7 @@
       "allocations": [],
       "poNumber": "4400172608",
       "fixedPriceAmount": 36000,
-      "order": 6,
+      "order": 7,
       "planningMode": "blended",
       "percentComplete": 0,
       "createdDate": "2026-09-14",
@@ -1723,7 +2247,7 @@
       ],
       "poNumber": "4400163921",
       "successorId": 3,
-      "order": 1,
+      "order": 2,
       "planningMode": "detailed",
       "createdDate": "2026-06-24",
       "rateOverrideInternal": 105,
@@ -1751,10 +2275,113 @@
       ],
       "poNumber": "4400193516",
       "fixedPriceAmount": 2900000,
-      "order": 7,
+      "order": 8,
       "planningMode": "detailed",
       "percentComplete": 0,
       "createdDate": "2026-09-15"
+    },
+    {
+      "id": 9,
+      "name": "Inception & Design (closed)",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-03-01",
+      "endDate": "2026-05-31",
+      "status": "closed",
+      "allocations": [
+        {
+          "roleId": 1,
+          "resourceIds": [
+            1
+          ],
+          "budgetHours": {
+            "2026-03": 106,
+            "2026-04": 123,
+            "2026-05": 134
+          },
+          "actualHours": {
+            "2026-03": 104,
+            "2026-04": 121,
+            "2026-05": 131
+          }
+        },
+        {
+          "roleId": 3,
+          "resourceIds": [
+            3
+          ],
+          "budgetHours": {
+            "2026-03": 100,
+            "2026-04": 110,
+            "2026-05": 90
+          },
+          "actualHours": {
+            "2026-03": 98,
+            "2026-04": 108,
+            "2026-05": 88
+          }
+        },
+        {
+          "roleId": 4,
+          "resourceIds": [
+            4
+          ],
+          "budgetHours": {
+            "2026-03": 88,
+            "2026-04": 88,
+            "2026-05": 84
+          },
+          "actualHours": {
+            "2026-03": 86,
+            "2026-04": 87,
+            "2026-05": 82
+          }
+        }
+      ],
+      "poNumber": "4400031122",
+      "successorId": 5,
+      "closedDate": "2026-05-31",
+      "order": 0,
+      "planningMode": "detailed",
+      "createdDate": "2026-03-02"
+    },
+    {
+      "id": 10,
+      "name": "Closure & Handover",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2027-01-01",
+      "endDate": "2027-02-28",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 1,
+          "resourceIds": [
+            1
+          ],
+          "budgetHours": {
+            "2027-01": 67,
+            "2027-02": 48
+          },
+          "actualHours": {}
+        },
+        {
+          "roleId": 4,
+          "resourceIds": [
+            4
+          ],
+          "budgetHours": {
+            "2027-01": 67,
+            "2027-02": 64
+          },
+          "actualHours": {}
+        }
+      ],
+      "poNumber": "4400201877",
+      "order": 9,
+      "planningMode": "detailed",
+      "percentComplete": 0,
+      "createdDate": "2026-09-16"
     }
   ],
   "fxRates": {
@@ -1780,8 +2407,10 @@
     {
       "id": 1,
       "name": "Design Sign-off",
-      "date": "2026-07-07",
-      "linkedTaskIds": [],
+      "date": "2026-05-29",
+      "linkedTaskIds": [
+        22
+      ],
       "calendarOptOut": true,
       "knowledgeLinks": [
         {
@@ -1790,19 +2419,47 @@
           "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx",
           "kind": "file"
         }
-      ]
+      ],
+      "achievedDate": "2026-06-02"
     },
     {
       "id": 2,
-      "name": "Go-Live",
-      "date": "2026-10-20",
+      "name": "Pilot Go-Live",
+      "date": "2026-10-23",
       "linkedTaskIds": [],
-      "description": "<p>Production cutover. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
+      "description": "<p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 3,
-      "name": "Hypercare Exit",
-      "date": "2026-12-16",
+      "name": "Rollout",
+      "date": "2026-12-11",
+      "linkedTaskIds": []
+    },
+    {
+      "id": 4,
+      "name": "Kickoff",
+      "date": "2026-03-06",
+      "achievedDate": "2026-03-06",
+      "linkedTaskIds": [
+        15
+      ]
+    },
+    {
+      "id": 5,
+      "name": "MVP target",
+      "date": "2026-07-17",
+      "achievedDate": "2026-08-21",
+      "linkedTaskIds": [
+        23,
+        24,
+        25
+      ],
+      "description": "<p>First customer on self-registration through the vendor SDK. Slipped from 17 July to 21 August while the vendor's SDK was late (RAID #14).</p>"
+    },
+    {
+      "id": 6,
+      "name": "Closure",
+      "date": "2027-02-26",
       "linkedTaskIds": []
     }
   ],
@@ -1853,13 +2510,14 @@
     {
       "id": 2,
       "title": "Extend go-live by two weeks",
-      "description": "Proposed two-week slip of the production cutover (two weeks past the planned go-live) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
+      "description": "Re-plan after the MVP slip: move the pilot go-live by two weeks to absorb the three-week vendor SDK delay (RAID #14) and keep a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
-      "status": "Proposed",
-      "raisedDate": "2026-09-16",
+      "status": "Approved",
+      "raisedDate": "2026-09-01",
       "linkedTaskIds": [],
       "linkedRaidIds": [
-        2
+        2,
+        14
       ],
       "stakeholderIds": [
         1,
@@ -1871,17 +2529,26 @@
       "costImpact": 6000,
       "requestedBy": "Sofia Ramirez",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-09-16T14:30:00.000Z",
+      "localModifiedAt": "2026-09-18T13:05:00.000Z",
       "noteLog": [
         {
           "id": 1,
+          "timestamp": "2026-09-04T15:30:00.000Z",
+          "html": "<p>Approved at the steering board; the plan is re-baselined to the new pilot date.</p>",
+          "text": "Approved at the steering board; the plan is re-baselined to the new pilot date.",
+          "authorResourceId": 4,
+          "authorName": "Maya Patel"
+        },
+        {
+          "id": 2,
           "timestamp": "2026-09-18T13:05:00.000Z",
-          "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
-          "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
+          "html": "<p>Customer comms circulated with the new pilot date; the maintenance-window notice is re-issued.</p>",
+          "text": "Customer comms circulated with the new pilot date; the maintenance-window notice is re-issued.",
           "authorResourceId": 1,
           "authorName": "Sofia Ramirez"
         }
-      ]
+      ],
+      "decisionDate": "2026-09-04"
     }
   ],
   "stakeholders": [
@@ -2005,8 +2672,8 @@
     ],
     "products": "SSO, MFA, Customer Directory",
     "deployment": "Cloud",
-    "startDate": "2026-06-01",
-    "endDate": "2026-12-18",
+    "startDate": "2026-03-02",
+    "endDate": "2027-02-26",
     "profitCenter": "PC-4711",
     "contactPersons": [
       {
@@ -2249,14 +2916,14 @@
       },
       "data": {
         "name": "Design Sign-off",
-        "date": "2026-07-07",
-        "daysOverdue": 2
+        "date": "2026-05-29",
+        "daysOverdue": 3
       },
       "status": "dismissed",
-      "firstSeenAt": "2026-07-08T07:00:00.000Z",
-      "lastSeenAt": "2026-07-09T07:00:00.000Z",
-      "occurrences": 2,
-      "dismissedAt": "2026-07-09T11:30:00.000Z",
+      "firstSeenAt": "2026-05-30T07:00:00.000Z",
+      "lastSeenAt": "2026-06-01T07:00:00.000Z",
+      "occurrences": 3,
+      "dismissedAt": "2026-06-01T11:30:00.000Z",
       "dismissReason": "Signed off in the steering call; the minutes were filed late."
     },
     {
@@ -2324,6 +2991,95 @@
   },
   "activityLog": [
     {
+      "id": "demo-seed-015",
+      "timestamp": "2026-03-02T09:00:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Inception & Design"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-016",
+      "timestamp": "2026-03-02T09:20:00.000Z",
+      "kind": "milestone.created",
+      "args": [
+        4,
+        "Kickoff"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-017",
+      "timestamp": "2026-03-06T16:30:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        15,
+        "Project charter and kickoff"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-018",
+      "timestamp": "2026-03-27T15:40:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        16,
+        "Current-state identity assessment"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-019",
+      "timestamp": "2026-04-02T14:10:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        17,
+        "Customer stakeholder interviews"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-020",
+      "timestamp": "2026-04-16T16:00:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        19,
+        "Target identity architecture"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-021",
+      "timestamp": "2026-04-29T11:25:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        18,
+        "Requirements catalogue"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-022",
+      "timestamp": "2026-05-08T14:05:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        20,
+        "Identity vendor selection"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-023",
+      "timestamp": "2026-05-15T15:30:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        21,
+        "Privacy impact assessment"
+      ],
+      "actor": "user"
+    },
+    {
       "id": "demo-seed-001",
       "timestamp": "2026-05-26T08:30:00.000Z",
       "kind": "budget.created",
@@ -2342,17 +3098,27 @@
       "actor": "user"
     },
     {
-      "id": "demo-seed-003",
-      "timestamp": "2026-06-30T16:40:00.000Z",
+      "id": "demo-seed-024",
+      "timestamp": "2026-05-28T17:10:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        22,
+        "Design sign-off pack"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-025",
+      "timestamp": "2026-05-29T16:00:00.000Z",
       "kind": "budget.updated",
       "args": [
-        "Discovery Phase (closed)"
+        "Inception & Design (closed)"
       ],
       "actor": "user"
     },
     {
       "id": "demo-seed-005",
-      "timestamp": "2026-07-07T17:00:00.000Z",
+      "timestamp": "2026-06-02T17:00:00.000Z",
       "kind": "milestone.updated",
       "args": [
         1
@@ -2365,6 +3131,26 @@
           "to": "Signed off by the steering committee."
         }
       ]
+    },
+    {
+      "id": "demo-seed-003",
+      "timestamp": "2026-06-30T16:40:00.000Z",
+      "kind": "budget.updated",
+      "args": [
+        "Discovery Phase (closed)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-026",
+      "timestamp": "2026-07-01T10:15:00.000Z",
+      "kind": "raid.created",
+      "args": [
+        14,
+        "R",
+        "Identity vendor SDK delivery late"
+      ],
+      "actor": "user"
     },
     {
       "id": "demo-seed-004",
@@ -2386,12 +3172,32 @@
       "actor": "user"
     },
     {
+      "id": "demo-seed-027",
+      "timestamp": "2026-07-31T16:05:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        23,
+        "Integrate identity vendor SDK"
+      ],
+      "actor": "user"
+    },
+    {
       "id": "demo-seed-007",
       "timestamp": "2026-08-03T11:45:00.000Z",
       "kind": "task.completed",
       "args": [
         2,
         "POC OIDC integration"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-028",
+      "timestamp": "2026-08-12T15:45:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        24,
+        "Customer self-registration flow"
       ],
       "actor": "user"
     },
@@ -2407,6 +3213,42 @@
       "actor": "user"
     },
     {
+      "id": "demo-seed-029",
+      "timestamp": "2026-08-21T16:40:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        25,
+        "MVP demo to the customer"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-030",
+      "timestamp": "2026-08-21T17:00:00.000Z",
+      "kind": "milestone.updated",
+      "args": [
+        5
+      ],
+      "actor": "user",
+      "changes": [
+        {
+          "field": "achievedDate",
+          "from": "",
+          "to": "2026-08-21"
+        }
+      ]
+    },
+    {
+      "id": "demo-seed-031",
+      "timestamp": "2026-08-27T13:20:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        26,
+        "Pilot cohort selection"
+      ],
+      "actor": "user"
+    },
+    {
       "id": "demo-seed-009",
       "timestamp": "2026-09-01T09:30:00.000Z",
       "kind": "raid.escalated",
@@ -2416,6 +3258,23 @@
         "High"
       ],
       "actor": "ai"
+    },
+    {
+      "id": "demo-seed-032",
+      "timestamp": "2026-09-04T15:30:00.000Z",
+      "kind": "change.updated",
+      "args": [
+        2,
+        "Extend go-live by two weeks"
+      ],
+      "actor": "user",
+      "changes": [
+        {
+          "field": "status",
+          "from": "Proposed",
+          "to": "Approved"
+        }
+      ]
     },
     {
       "id": "demo-seed-010",
@@ -2460,6 +3319,15 @@
       "kind": "budget.created",
       "args": [
         "Hypercare Support (fixed price)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-033",
+      "timestamp": "2026-09-16T10:00:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Closure & Handover"
       ],
       "actor": "user"
     },

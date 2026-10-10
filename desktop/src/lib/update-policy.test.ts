@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  NOTES_MAX, STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
+  BOX_NOTES_MAX, NOTES_MAX, STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
   notesToPlainText, parseSkipped, serializeSkipped, summarizeError,
 } from "./update-policy";
 
@@ -28,10 +28,19 @@ describe("update policy", () => {
     });
   });
 
-  it("prompts for an available version, with plain-text notes", () => {
+  it("prompts for an available version, with plain-text notes for the native box and safe HTML for the window", () => {
     expect(decideOnAvailable("startup", { version: "1.14.1", releaseNotes: "<p>Fixes <b>x</b></p>" }, null)).toEqual({
-      kind: "prompt", version: "1.14.1", notes: "Fixes x",
+      kind: "prompt", version: "1.14.1", notes: "Fixes x", notesHtml: "<p>Fixes <strong>x</strong></p>",
     });
+  });
+
+  it("caps the native box's notes small, since it cannot scroll, while the window keeps the large cap", () => {
+    const long = `<p>${"y".repeat(BOX_NOTES_MAX * 3)}</p>`;
+    const d = decideOnAvailable("manual", { version: "2.0.0", releaseNotes: long }, null);
+    if (d.kind !== "prompt") throw new Error("expected a prompt");
+    expect(d.notes.length).toBe(BOX_NOTES_MAX);
+    expect(d.notesHtml.length).toBeGreaterThan(BOX_NOTES_MAX * 3);
+    expect(BOX_NOTES_MAX).toBeLessThan(NOTES_MAX);
   });
 
   it("stays silent at startup for a skipped version, but a manual check still offers it", () => {

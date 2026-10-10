@@ -115,12 +115,12 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     }
   }
 
-  async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<void> {
+  async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<string | null> {
     const cfg = guardTurso();
-    if (!cfg) return;
+    if (!cfg) return null;
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
-    if (!(await flushOutgoing())) return;
+    if (!(await flushOutgoing())) return null;
     const id = crypto.randomUUID();
     // Fresh id space for a new project — clear the session minter so seed ids
     // start at #1, not continuing the previously open project's high-water.
@@ -140,6 +140,14 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       const created = new TursoBackend(cfg, id);
       created.forceNextSave(); // §4 — a blind write by intent: a brand-new project, never loaded
       await created.save(ws);
+      if (opts.seedSnapshots) {
+        // Before the project becomes current, so its snapshot load cannot race the seed.
+        try {
+          await opts.seedSnapshots(id);
+        } catch (err) {
+          logDiag("warn", "storage.createSeedFailed", { message: err instanceof Error ? err.message : String(err) });
+        }
+      }
       deps.applyWorkspace(ws);
       deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
@@ -151,12 +159,14 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // ★ M5: template = copy source, notice-only; AI seed = unsafe addresses left blank, notice from the seed.
       const seededEmails = opts.template || opts.importedWorkspace ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
       if (seededEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
+      return id;
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
       // the still-active old project doesn't lose its high-water marks (which
       // would re-arm freed-id reuse).
       restoreMintState(mintSnapshot);
       deps.reportProjectError(err);
+      return null;
     }
   }
 

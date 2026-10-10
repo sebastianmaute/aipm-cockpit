@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Real sample workspace (14 tasks, RAID, budgets, milestones, …) — gives the
+// Real sample workspace (27 tasks, RAID, budgets, milestones, …) — gives the
 // a11y/nav specs realistic data so colour-coded states (RAG amber/red, budget
 // over/under, completed-task greens, etc.) actually render and get scanned.
 const SAMPLE_WORKSPACE = JSON.parse(
@@ -227,7 +227,7 @@ export const SEED_WORKSPACE: Record<string, unknown> = {
     {
       id: 9101, key: "milestoneSlip:1", type: "milestoneSlip", severity: "high",
       entityRef: { view: "milestones", id: 1 },
-      data: { name: "Design Sign-off", date: "2026-07-07", daysOverdue: 5 }, status: "active",
+      data: { name: "Design Sign-off", date: "2026-05-29", daysOverdue: 5 }, status: "active",
       firstSeenAt: "2026-06-01T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 2,
     },
     {
@@ -237,7 +237,7 @@ export const SEED_WORKSPACE: Record<string, unknown> = {
       // dropped silently and the seed goes inert.
       id: 9104, key: "milestoneSlip:3", type: "milestoneSlip", severity: "medium",
       entityRef: { view: "milestones", id: 3 },
-      data: { name: "Hypercare Exit", date: "2026-12-16", daysOverdue: 2 }, status: "active",
+      data: { name: "Rollout", date: "2026-12-11", daysOverdue: 2 }, status: "active",
       firstSeenAt: "2026-06-04T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
     {
@@ -258,15 +258,15 @@ export const SEED_WORKSPACE: Record<string, unknown> = {
   // axe gate and the visual baselines said nothing about any of them. Kept out
   // of the sample master for the same golden-fixture reason as `insights`.
   // ★ Shape: one `baseline`, then a create, an increase and a delete, all dated
-  // inside the master's plan window (2026-06-01 … 2026-12-18 since the
-  // DEMO_AS_OF refresh; read `plan` in the master) and before FROZEN_NOW, one
+  // inside the master's plan window (2026-03-02 … 2027-02-26 since the
+  // 12-month re-authoring; read `plan` in the master) and before FROZEN_NOW, one
   // per month so each change gets its own chart marker (the chart groups markers
   // by plan period, and `bacFields` CLAMPS a date before the plan start into
   // the first period — so a history left on the old 2026-04…06 dates would
   // collapse all three changes into ONE marker). Each running BAC is the
   // previous one plus its delta, which is the invariant `recordBudgetChange`
   // writes. The final 1400 h / €262,000 deliberately differs from today's
-  // own-basis BAC (3038.4 h / €442,788.03 at the time of writing), so the split
+  // own-basis BAC (4208 h / €606,836.03 at the time of writing), so the split
   // rows show a non-zero "unexplained" part
   // (seed-content.spec.ts asserts that figure is not zero). The probe below
   // passes `[]` for tasks exactly as `BudgetReportPanel` does, the default 8 h

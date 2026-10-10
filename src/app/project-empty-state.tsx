@@ -2,13 +2,16 @@
 
 // Empty-state modal shown on a fresh install when the portfolio registry has
 // zero projects.  It is always open (mounted only when projects.length === 0,
-// controlled by Task 18) and offers two primary choices:
+// controlled by Task 18) and offers three start cards:
 //
-//   • Create project  — reveals the 3-step CreateProjectWizard and calls
-//                       onCreate(meta, format, opts) when the wizard finishes.
-//   • Load from file  — calls onLoadFromFile immediately.
+//   • New project      — reveals the 3-step CreateProjectWizard and calls
+//                        onCreate(meta, format, opts) when the wizard finishes.
+//   • Open existing    — Load from file (onLoadFromFile), and Load from Turso
+//                        in file mode.
+//   • Explore the demo — `DemoStartCard`; "Set up Turso first" stores the demo
+//                        intent and opens the setup wizard at its Storage step.
 //
-// Non-dismissability: the user MUST pick one of the two actions — there is no
+// Non-dismissability: the user MUST pick one of the actions — there is no
 // current project to fall back to.  The shared Modal requires an onClose prop
 // (for Escape / backdrop click); we pass a no-op so those gestures do nothing.
 // The header is rendered with `hideClose` so there is no dead ✕ control (it
@@ -23,6 +26,10 @@
 import { useId, useMemo, useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { BACKEND_SETUP_STEPS } from "./backend-setup-steps";
+import { clearDemoIntent, setDemoIntent } from "./demo-intent";
+import { type DemoVariant } from "./demo-project";
+import { DemoStartCard } from "./demo-start-card";
 import { TursoProjectPicker } from "./turso-project-picker";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
@@ -77,9 +84,20 @@ export interface ProjectEmptyStateProps {
   onRestore?: (id: string) => void;
   /** Permanently delete an archived Turso project by id (type-to-confirm gated). */
   onDeleteArchived?: (id: string) => void;
+  /** Where the demo would go: Turso (with its Trends history) or local. */
+  demoVariant: DemoVariant;
+  /** The seeded Trends history's length, quoted by the demo card. */
+  demoWeeks: number;
+  /** The one-boot "Turso connected" note after the guided setup. */
+  demoConnectedNote: boolean;
 }
 
 type View = "choices" | "create";
+
+const START_CARD = "flex flex-col gap-3 rounded-md border border-line bg-surface p-4";
+
+/** The wizard step "Set up Turso first" opens at, read by key so a reorder cannot misroute it. */
+const STORAGE_STEP = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "storage");
 
 /** No-op passed to Modal.onClose so Escape/backdrop/X do nothing. */
 const noop = () => undefined;
@@ -98,10 +116,16 @@ export function ProjectEmptyState({
   archivedProjects = [],
   onRestore,
   onDeleteArchived,
+  demoVariant,
+  demoWeeks,
+  demoConnectedNote,
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
   const [configOpen, setConfigOpen] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  // `null` = closed; otherwise the step index the wizard opens at.
+  const [wizardStep, setWizardStep] = useState<number | null>(null);
+  const newCardId = useId();
+  const openCardId = useId();
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -131,6 +155,17 @@ export function ProjectEmptyState({
   };
 
   const handleBackToChoices = () => setView("choices");
+
+  // The intent survives the reload the wizard's portfolio switch triggers; the next boot reads it
+  // (`useDemoIntentOnBoot`). Closing the wizard without switching means no reload is coming.
+  const handleSetUpTurso = () => {
+    setDemoIntent();
+    setWizardStep(STORAGE_STEP);
+  };
+  const handleCloseWizard = () => {
+    clearDemoIntent();
+    setWizardStep(null);
+  };
 
   const tursoConfigured = !!getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
@@ -220,64 +255,85 @@ export function ProjectEmptyState({
               <p className="text-sm text-muted-foreground">
                 {t(lang, "projectsEmptyTitle")}
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="primary" onClick={handleOpenCreate}>
-                  {t(lang, "projectsEmptyCreate")}
-                </Button>
-                {/* Load from file is offered in BOTH modes. In Turso mode the host
-                    handler switches the portfolio to file mode and reloads.
-                    Disabled where the browser has no File System Access open
-                    picker (§574) — Firefox/Safari — with the reason named. */}
-                <Button
-                  variant="secondary"
-                  onClick={onLoadFromFile}
-                  disabled={!fsaSupported}
-                  aria-describedby={fsaSupported ? undefined : fsaHintId}
-                >
-                  {t(lang, "projectsEmptyLoad")}
-                </Button>
-                {!fsaSupported && (
-                  <span id={fsaHintId} className="text-xs text-muted-foreground">
-                    {t(lang, "storageFsaUnsupported")}
-                  </span>
-                )}
-                {/* Load an existing project from a configured Turso database —
-                    file mode only (Turso mode already lists archived projects
-                    and has its own picker via the mode selector). */}
-                {mode === "file" && (
-                  // ★★ The hint rides this WRAPPER, not the Button, and that
-                  // is DELIBERATE, not an oversight: a `disabled` button
-                  // dispatches no mouse events, so a `title` tidied onto the
-                  // Button would silently never appear. Three things are
-                  // coupled and must stay in step — the Button's
-                  // `disabled:pointer-events-none`, this wrapper's conditional
-                  // `cursor-not-allowed`, and `aria-describedby` pointing at
-                  // the `sr-only` node below. `projects-panel.tsx` carries the
-                  // reasoning for all three above its Load-from-Turso button.
-                  <span
-                    className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
-                    title={loadFromTursoHint}
-                  >
-                    <Button
-                      variant="secondary"
-                      disabled={!tursoConfigured}
-                      onClick={() => setTursoPickerOpen(true)}
-                      aria-describedby={loadFromTursoHintId}
-                      className="disabled:pointer-events-none"
-                    >
-                      {t(lang, "projectLoadFromTurso")}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <section aria-labelledby={newCardId} className={START_CARD}>
+                  <h3 id={newCardId} className="text-sm font-semibold text-foreground">
+                    {t(lang, "emptyStartNewTitle")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{t(lang, "emptyStartNewBody")}</p>
+                  <div className="mt-auto flex flex-wrap gap-2">
+                    <Button variant="primary" onClick={handleOpenCreate}>
+                      {t(lang, "projectsEmptyCreate")}
                     </Button>
-                    <span id={loadFromTursoHintId} className="sr-only">
-                      {loadFromTursoHint}
-                    </span>
-                  </span>
-                )}
-                {/* Explore a demo project — guided-tour entry point. Rendered
-                    only when a demo-load handler is wired (empty-state only). */}
+                  </div>
+                </section>
+                <section aria-labelledby={openCardId} className={START_CARD}>
+                  <h3 id={openCardId} className="text-sm font-semibold text-foreground">
+                    {t(lang, "emptyStartOpenTitle")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{t(lang, "emptyStartOpenBody")}</p>
+                  <div className="mt-auto flex flex-wrap gap-2">
+                    {/* Load from file is offered in BOTH modes. In Turso mode the host
+                        handler switches the portfolio to file mode and reloads.
+                        Disabled where the browser has no File System Access open
+                        picker (§574) — Firefox/Safari — with the reason named. */}
+                    <Button
+                      variant="primary"
+                      onClick={onLoadFromFile}
+                      disabled={!fsaSupported}
+                      aria-describedby={fsaSupported ? undefined : fsaHintId}
+                    >
+                      {t(lang, "projectsEmptyLoad")}
+                    </Button>
+                    {!fsaSupported && (
+                      <span id={fsaHintId} className="text-xs text-muted-foreground">
+                        {t(lang, "storageFsaUnsupported")}
+                      </span>
+                    )}
+                    {/* Load an existing project from a configured Turso database —
+                        file mode only (Turso mode already lists archived projects
+                        and has its own picker via the mode selector). */}
+                    {mode === "file" && (
+                      // ★★ The hint rides this WRAPPER, not the Button, and that
+                      // is DELIBERATE, not an oversight: a `disabled` button
+                      // dispatches no mouse events, so a `title` tidied onto the
+                      // Button would silently never appear. Three things are
+                      // coupled and must stay in step — the Button's
+                      // `disabled:pointer-events-none`, this wrapper's conditional
+                      // `cursor-not-allowed`, and `aria-describedby` pointing at
+                      // the `sr-only` node below. `projects-panel.tsx` carries the
+                      // reasoning for all three above its Load-from-Turso button.
+                      <span
+                        className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
+                        title={loadFromTursoHint}
+                      >
+                        <Button
+                          variant="secondary"
+                          disabled={!tursoConfigured}
+                          onClick={() => setTursoPickerOpen(true)}
+                          aria-describedby={loadFromTursoHintId}
+                          className="disabled:pointer-events-none"
+                        >
+                          {t(lang, "projectLoadFromTurso")}
+                        </Button>
+                        <span id={loadFromTursoHintId} className="sr-only">
+                          {loadFromTursoHint}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </section>
+                {/* Explore the demo — guided-tour entry point. Rendered only when a
+                    demo-load handler is wired (empty-state only). */}
                 {onLoadDemo && (
-                  <Button variant="secondary" onClick={onLoadDemo}>
-                    {t(lang, "tourLoadDemo")}
-                  </Button>
+                  <DemoStartCard
+                    lang={lang}
+                    variant={demoVariant}
+                    weeks={demoWeeks}
+                    connectedNote={demoConnectedNote}
+                    onExplore={onLoadDemo}
+                    onSetUpTurso={handleSetUpTurso}
+                  />
                 )}
               </div>
 
@@ -340,7 +396,7 @@ export function ProjectEmptyState({
                   >
                     {t(lang, "emptyStateConfigDbM365")}
                   </Button>
-                  <Button variant="secondary" onClick={() => setWizardOpen(true)}>
+                  <Button variant="secondary" onClick={() => setWizardStep(0)}>
                     {t(lang, "setupWizardRun")}
                   </Button>
                   <Button variant="secondary" onClick={() => setAiConfigOpen(true)}>
@@ -401,14 +457,15 @@ export function ProjectEmptyState({
         </BackendConfigModal>
       )}
 
-      {wizardOpen && (
+      {wizardStep !== null && (
         <BackendSetupWizard
           lang={lang}
           open
           settings={settings}
           onChangeSettings={onChangeSettings}
-          onClose={() => setWizardOpen(false)}
+          onClose={handleCloseWizard}
           noCurrentProject
+          initialStep={wizardStep}
         />
       )}
 

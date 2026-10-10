@@ -117,6 +117,17 @@ describe("BackendSetupWizard", () => {
     expect(skipBtn()).toBeNull();
   });
 
+  it("opens at initialStep when one is given", () => {
+    setup({ initialStep: 1 });
+    expect(screen.getByTestId("ai-section")).toBeInTheDocument();
+    expect(screen.queryByTestId("integrations-section")).toBeNull();
+  });
+
+  it("clamps an out-of-range initialStep to the last step", () => {
+    setup({ initialStep: 99 });
+    expect(finishBtn()).toBeInTheDocument();
+  });
+
   it("Next advances to step 2 (AI)", () => {
     setup();
     fireEvent.click(nextBtn());

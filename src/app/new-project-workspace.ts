@@ -20,6 +20,11 @@ export interface NewProjectOpts {
    *  the new project's content: template, AI seed and features are ignored, and
    *  only the wizard's `meta` replaces the file's own project meta. */
   importedWorkspace?: Workspace;
+  /** Turso create only: writes rows that belong to the new project but are not workspace data
+   *  (the demo's Trends history). Awaited after the project's save and BEFORE it becomes current,
+   *  inside the held create, so the project's first snapshot load already sees them. It reports
+   *  its own failures; a throw does not abort the create. Ignored by buildNewProjectWorkspace. */
+  seedSnapshots?: (projectId: string) => Promise<void>;
 }
 
 /** Assemble a new project's Workspace: base + meta, optionally apply a template

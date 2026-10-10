@@ -32,8 +32,10 @@ vi.mock("./project-key-facts-cache", async (importOriginal) => {
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
+import { t } from "./i18n";
 import { type ProjectMeta } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectButtonOrder } from "../test/toolbar-order";
 import { clearKeyFactsCache, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
@@ -725,5 +727,44 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(r.queryByText(/of 11/)).toBeNull();
     expect(rowEl.querySelector("[data-key-facts]")).toBeNull();
     expect(r.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("ProjectsPanel — explore a demo entry", () => {
+  it("renders after the New project button and calls onLoadDemo once", () => {
+    const onLoadDemo = vi.fn();
+    setup({ onLoadDemo });
+    expectButtonOrder(["projectsNew", "tourLoadDemo"], { contiguous: true });
+    fireEvent.click(screen.getByRole("button", { name: "Explore a demo project" }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("is absent without the prop", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Explore a demo project" })).toBeNull();
+  });
+
+  // C1: the local demo rewrites the ONE browser store, so a listed browser-backed project would
+  // lose its data to the sample. The entry is disabled then and says why, on the wrapper (a
+  // disabled button dispatches no mouse events) and as the description.
+  it("is disabled, naming the project it would replace, while a listed project uses browser storage", () => {
+    const onLoadDemo = vi.fn();
+    const browser = { id: "p3", name: "Mercury", code: "MER-3", storageConfig: { kind: "browser" } as never };
+    setup({ onLoadDemo, projects: [...PROJECTS, browser] });
+    const btn = screen.getByRole("button", { name: "Explore a demo project" });
+    const hint = t("en-US", "demoLocalBlocked", "Mercury");
+    expect(btn).toBeDisabled();
+    expect(btn.parentElement).toHaveAttribute("title", hint);
+    expect(btn).toHaveAccessibleDescription(hint);
+    fireEvent.click(btn);
+    expect(onLoadDemo).not.toHaveBeenCalled();
+  });
+
+  it("is enabled, with no hint, while no listed project uses browser storage", () => {
+    setup({ onLoadDemo: vi.fn() });
+    const btn = screen.getByRole("button", { name: "Explore a demo project" });
+    expect(btn).toBeEnabled();
+    expect(btn.parentElement).not.toHaveAttribute("title");
+    expect(btn).not.toHaveAttribute("aria-describedby");
   });
 });

@@ -157,6 +157,13 @@ function parseEntry(v: unknown): ProjectRegistryEntry | null {
   };
 }
 
+/** The first browser-backed entry, or null. Browser storage is ONE IndexedDB store per origin
+ *  (`new BrowserBackend()` takes no project; `storageTargetKey` keys it on the kind alone), so a
+ *  blind write to it (the local demo) would overwrite this project's data. */
+export function browserProjectIn(projects: readonly ProjectRegistryEntry[]): ProjectRegistryEntry | null {
+  return projects.find((p) => p.storageConfig.kind === "browser") ?? null;
+}
+
 /**
  * Load the registry from localStorage.
  *

@@ -180,3 +180,6 @@ nsis:
   # nowhere to put them and would ignore both silently.
   installerSidebar: ../public/sidebar.bmp
   uninstallerSidebar: ../public/sidebar.bmp
+  # Adds a welcome page saying that installing takes a few minutes and may look frozen
+  # (desktop/installer.nsh says why). Resolved like `icon:` above: build/ first, then desktop/.
+  include: installer.nsh

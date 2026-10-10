@@ -16,6 +16,19 @@
 | 12 | Vendor renewal: monitoring platform | Ava Thompson | ava.thompson@example.com |  | 2026-11-05 | 2026-08-24 | 2026-08-24 | Low | To Do |  |  |  | 0 | Operations | vendor\|renewal | SF:11 |  |  |  |  |  | 3 | 240 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%).</p>","text":"Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%)."}] |  |
 | 13 | Dev environment setup | Noah Bennett | noah.bennett@example.com | 2026-05-28 | 2026-06-08 | 2026-06-09 | 2026-05-28 | Medium | Done |  |  | 2026-06-09 | 0 | Auth Migration | infra\|devops |  | LOP-100 | Task | 2026-08-19T10:30:00.000Z |  |  | 2 | 2400 | 2760 |  |  |  |  | [{"id":1,"timestamp":"2026-06-09T00:00:00.000Z","html":"<p>Docker Compose stack + seed data scripts ready. All four team members confirmed access.</p>","text":"Docker Compose stack + seed data scripts ready. All four team members confirmed access."}] |  |
 | 14 | Risk & compliance kick-off | Maya Patel | maya.patel@example.com | 2026-06-15 | 2026-06-18 | 2026-06-18 | 2026-06-15 | Medium | Done |  |  | 2026-06-18 | 0 | Auth Migration | planning\|compliance | FS:1 |  |  |  |  |  | 4 | 1440 | 1740 |  |  |  |  | [{"id":1,"timestamp":"2026-06-18T00:00:00.000Z","html":"<p>Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence.</p>","text":"Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence."}] |  |
+| 15 | Project charter and kickoff | Maya Patel | maya.patel@example.com | 2026-03-02 | 2026-03-06 | 2026-03-06 | 2026-03-02 | High | Done |  |  | 2026-03-06 | 0 | Discovery & Design | governance |  |  |  |  |  |  | 4 | 960 | 1080 |  |  |  |  | [{"id":1,"timestamp":"2026-03-06T16:30:00.000Z","html":"<p>Charter signed by the sponsor; kickoff held with the customer team.</p>","text":"Charter signed by the sponsor; kickoff held with the customer team.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 16 | Current-state identity assessment | Ava Thompson | ava.thompson@example.com | 2026-03-09 | 2026-03-27 | 2026-03-27 | 2026-03-09 | Medium | Done |  |  | 2026-03-27 | 0 | Discovery & Design | analysis | FS:15 |  |  |  |  |  | 3 | 2400 | 2700 |  |  |  |  |  |  |
+| 17 | Customer stakeholder interviews | Ava Thompson | ava.thompson@example.com | 2026-03-16 | 2026-04-03 | 2026-04-02 | 2026-03-16 | Medium | Done |  |  | 2026-04-02 | 0 | Discovery & Design | analysis | FS:15 |  |  |  |  |  | 3 | 1440 | 1620 |  |  |  |  |  |  |
+| 18 | Requirements catalogue | Ava Thompson | ava.thompson@example.com | 2026-04-06 | 2026-04-24 | 2026-04-29 | 2026-04-06 | High | Done |  |  | 2026-04-29 | 0 | Discovery & Design | analysis\|requirements | FS:17 |  |  |  |  |  | 3 | 2400 | 2880 |  |  |  |  | [{"id":1,"timestamp":"2026-04-24T15:10:00.000Z","html":"<p>Two consent requirements still open with the customer's legal team; closing next week.</p>","text":"Two consent requirements still open with the customer's legal team; closing next week.","authorResourceId":3,"authorName":"Ava Thompson"}] |  |
+| 19 | Target identity architecture | Sofia Ramirez | sofia.ramirez@example.com | 2026-03-23 | 2026-04-17 | 2026-04-16 | 2026-03-23 | High | Done |  |  | 2026-04-16 | 0 | Discovery & Design | design\|architecture | FS:16 |  |  |  |  |  | 1 | 2880 | 3300 |  |  |  |  |  |  |
+| 20 | Identity vendor selection | Sofia Ramirez | sofia.ramirez@example.com | 2026-04-20 | 2026-05-08 | 2026-05-08 | 2026-04-20 | Medium | Done |  |  | 2026-05-08 | 0 | Discovery & Design | vendor | FS:19 |  |  |  |  |  | 1 | 1920 | 2160 |  |  |  |  | [{"id":1,"timestamp":"2026-05-08T14:00:00.000Z","html":"<p>CloudVendor selected; SDK delivery promised for the end of June.</p>","text":"CloudVendor selected; SDK delivery promised for the end of June.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |  |
+| 21 | Privacy impact assessment | Maya Patel | maya.patel@example.com | 2026-04-27 | 2026-05-15 | 2026-05-15 | 2026-04-27 | Medium | Done |  |  | 2026-05-15 | 0 | Discovery & Design | compliance | FS:18 |  |  |  |  |  | 4 | 960 | 1020 |  |  |  |  |  |  |
+| 22 | Design sign-off pack | Sofia Ramirez | sofia.ramirez@example.com | 2026-05-11 | 2026-05-27 | 2026-05-28 | 2026-05-11 | High | Done |  |  | 2026-05-28 | 0 | Discovery & Design | design\|governance | FS:20\|FS:21 |  |  |  |  |  | 1 | 1440 | 1680 |  |  |  |  |  |  |
+| 23 | Integrate identity vendor SDK | Noah Bennett | noah.bennett@example.com | 2026-06-15 | 2026-07-10 | 2026-07-31 | 2026-06-01 | Urgent | Done |  |  | 2026-07-31 | 0 | MVP | backend\|vendor | FS:13 |  |  |  |  |  | 2 | 3600 | 4800 |  |  |  |  | [{"id":1,"timestamp":"2026-07-01T10:00:00.000Z","html":"<p>Vendor SDK not delivered; building against the beta drop behind an adapter.</p>","text":"Vendor SDK not delivered; building against the beta drop behind an adapter.","authorResourceId":2,"authorName":"Noah Bennett"},{"id":2,"timestamp":"2026-07-31T16:00:00.000Z","html":"<p>Released SDK integrated and the adapter removed; three weeks late.</p>","text":"Released SDK integrated and the adapter removed; three weeks late.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
+| 24 | Customer self-registration flow | Noah Bennett | noah.bennett@example.com | 2026-06-29 | 2026-07-15 | 2026-08-12 | 2026-06-01 | High | Done |  |  | 2026-08-12 | 0 | MVP | frontend | SS:23 |  |  |  |  |  | 2 | 2400 | 3000 |  |  |  |  |  |  |
+| 25 | MVP demo to the customer | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-07-17 | 2026-08-21 | 2026-06-01 | Medium | Done |  |  | 2026-08-21 | 0 | MVP | governance | FS:24 |  |  |  |  |  | 4 | 480 | 480 |  |  |  |  | [{"id":1,"timestamp":"2026-07-14T09:00:00.000Z","html":"<p>Demo moved to August with the customer's agreement while the SDK is late.</p>","text":"Demo moved to August with the customer's agreement while the SDK is late.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 26 | Pilot cohort selection | Ava Thompson | ava.thompson@example.com | 2026-08-03 | 2026-08-28 | 2026-08-27 | 2026-07-27 | Medium | Done |  |  | 2026-08-27 | 0 | MVP | pilot |  |  |  |  |  |  | 3 | 960 | 900 |  |  |  |  |  |  |
+| 27 | Pilot customer comms pack | Maya Patel | maya.patel@example.com | 2026-08-31 | 2026-09-11 | 2026-09-15 | 2026-08-24 | Medium | In Progress |  |  |  | 0 | MVP | pilot\|comms | FS:26 |  |  |  |  |  | 4 | 1440 | 600 |  |  |  |  |  |  |
 
 # RAID Log
 
@@ -34,6 +47,7 @@
 | 11 | D | Compliance team sign-off for production | <p>InfoSec must approve SOC2 evidence package before cutover.</p> | Medium |  |  | Open | Maya Patel | maya.patel@example.com | 4 |  | 7 | 2026-08-13 | 2026-09-24 |  |  |  | 1\|5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-10T16:45:00.000Z","html":"<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>","text":"Compliance pre-review complete; formal sign-off pending the final pen-test report.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
 | 12 | D | Network team firewall changes | <p>Egress rules to api.sso-provider.com on 443.</p> | Medium |  |  | Delivered | Ava Thompson | ava.thompson@example.com | 3 | <p>Confirmed by ticket NET-2342, closed on the target date.</p> | 4 | 2026-07-22 | 2026-08-13 | 2026-08-13 |  |  |  |  |  |  |  |  |  |
 | 13 | D | DBA schema approval for migration tables | <p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p> | High |  |  | Open | Maya Patel | maya.patel@example.com | 4 |  | 6 | 2026-08-21 | 2026-09-03 |  |  | 11 | 5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-16T08:50:00.000Z","html":"<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>","text":"DBA review slipped a second time; chasing the DBA lead for a slot this week.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 14 | R | Identity vendor SDK delivery late | <p>CloudVendor's production SDK was promised for the end of June. If it slips, the self-registration flow and the MVP demo slip with it.</p> | High | 3 | 4 | Closed | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Weekly vendor checkpoint; build against the beta drop behind an adapter so the registration work can continue.</p> | 23\|24\|25 | 2026-07-01 | 2026-07-24 | 2026-08-21 |  |  | 6 |  |  |  |  | [{"id":1,"timestamp":"2026-07-01T10:15:00.000Z","html":"<p>Vendor confirmed the SDK will not ship this month; raised as a High risk.</p>","text":"Vendor confirmed the SDK will not ship this month; raised as a High risk.","authorResourceId":1,"authorName":"Sofia Ramirez"},{"id":2,"timestamp":"2026-07-24T11:00:00.000Z","html":"<p>SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.</p>","text":"SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.","authorResourceId":4,"authorName":"Maya Patel"},{"id":3,"timestamp":"2026-08-21T17:10:00.000Z","html":"<p>Released SDK in use and the MVP demo done; closing the risk.</p>","text":"Released SDK in use and the MVP demo done; closing the risk.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |  |
 
 # Absences
 
@@ -49,8 +63,8 @@
 
 | ID | Title | Start | StartTime | DurationMin | Location | Notes | Recurrence | Exceptions | Attendees | SendInvitations | LocalModified | OutlookEventId |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Project standup | 2026-06-01 | 09:00 | 15 |  |  | {"freq":"weekly","interval":1,"byDay":["MO","WE","FR"]} |  |  |  |  |  |
-| 2 | Steering board | 2026-06-09 | 14:00 | 60 |  |  | {"freq":"monthly","interval":1,"byDay":{"ordinal":2,"day":"TU"}} | [{"date":"2026-08-11","kind":"skip"}] |  |  |  |  |
+| 1 | Project standup | 2026-03-09 | 09:00 | 15 |  |  | {"freq":"weekly","interval":1,"byDay":["MO","WE","FR"]} |  |  |  |  |  |
+| 2 | Steering board | 2026-03-10 | 14:00 | 60 |  |  | {"freq":"monthly","interval":1,"byDay":{"ordinal":2,"day":"TU"}} | [{"date":"2026-08-11","kind":"skip"}] |  |  |  |  |
 
 # Shifts
 
@@ -96,24 +110,26 @@
 
 | ID | First | Last | Title | Phone | Location | Department | Email | Company | Birthday | Notes | RoleId | Mode | Utilization | AbsenceOverride | Active | LocalModified | Emails | External |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Sofia | Ramirez | Lead Architect | +49 30 5550101 | Berlin | IAM | sofia.ramirez@example.com | Brightwell Partners | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-06=90\|2026-07=90\|2026-08=50\|2026-09=80\|2026-10=80\|2026-11=60\|2026-12=50 | 2026-08=88 |  |  |  |  |
-| 2 | Noah | Bennett | Senior Developer | +49 89 5550102 | Munich | Engineering | noah.bennett@example.com | Brightwell Partners | 11-02 | Backend and migration tooling. | 2 | percent | 2026-06=80\|2026-07=100\|2026-08=60\|2026-09=60\|2026-10=80\|2026-11=90\|2026-12=40 |  |  |  |  |  |
-| 3 | Ava | Thompson | Business Analyst | +44 20 5550103 | London | Advisory | ava.thompson@example.com | Brightwell Partners | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-06=120\|2026-07=110\|2026-08=100\|2026-09=100\|2026-10=60\|2026-11=40\|2026-12=24 |  |  |  |  |  |
-| 4 | Maya | Patel | Project Manager | +49 30 5550104 | Berlin | PMO | maya.patel@example.com | Brightwell Partners | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-06=50\|2026-07=50\|2026-08=50\|2026-09=60\|2026-10=60\|2026-11=40\|2026-12=30 |  |  |  |  |  |
-| 5 | Liam | Foster | Advisor | +48 22 5550105 | Warsaw | Advisory | liam.foster@example.com | Brightwell Partners | 12-30 | Rolled off after June (0% utilization); back part-time for the Q4 advisory retainer. | 5 | percent | 2026-06=100\|2026-07=0\|2026-08=0\|2026-09=0\|2026-10=50\|2026-11=50\|2026-12=50 |  |  |  |  |  |
+| 1 | Sofia | Ramirez | Lead Architect | +49 30 5550101 | Berlin | IAM | sofia.ramirez@example.com | Brightwell Partners | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-03=60\|2026-04=70\|2026-05=80\|2026-06=90\|2026-07=90\|2026-08=50\|2026-09=80\|2026-10=80\|2026-11=60\|2026-12=50\|2027-01=40\|2027-02=30 | 2026-08=88 |  |  |  |  |
+| 2 | Noah | Bennett | Senior Developer | +49 89 5550102 | Munich | Engineering | noah.bennett@example.com | Brightwell Partners | 11-02 | Backend and migration tooling. | 2 | percent | 2026-03=0\|2026-04=0\|2026-05=20\|2026-06=80\|2026-07=100\|2026-08=60\|2026-09=60\|2026-10=80\|2026-11=90\|2026-12=40\|2027-01=0\|2027-02=0 |  |  |  |  |  |
+| 3 | Ava | Thompson | Business Analyst | +44 20 5550103 | London | Advisory | ava.thompson@example.com | Brightwell Partners | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-03=100\|2026-04=110\|2026-05=90\|2026-06=120\|2026-07=110\|2026-08=100\|2026-09=100\|2026-10=60\|2026-11=40\|2026-12=24\|2027-01=0\|2027-02=0 |  |  |  |  |  |
+| 4 | Maya | Patel | Project Manager | +49 30 5550104 | Berlin | PMO | maya.patel@example.com | Brightwell Partners | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-03=50\|2026-04=50\|2026-05=50\|2026-06=50\|2026-07=50\|2026-08=50\|2026-09=60\|2026-10=60\|2026-11=40\|2026-12=30\|2027-01=40\|2027-02=40 |  |  |  |  |  |
+| 5 | Liam | Foster | Advisor | +48 22 5550105 | Warsaw | Advisory | liam.foster@example.com | Brightwell Partners | 12-30 | Rolled off after June (0% utilization); back part-time for the Q4 advisory retainer. | 5 | percent | 2026-03=0\|2026-04=0\|2026-05=0\|2026-06=100\|2026-07=0\|2026-08=0\|2026-09=0\|2026-10=50\|2026-11=50\|2026-12=50\|2027-01=0\|2027-02=0 |  |  |  |  |  |
 
 # Budgets
 
 | ID | Name | PO | Type | Currency | FixedPrice | Start | End | SuccessorId | Status | Closed | Created | FxOverride | Allocations | LocalModified | Order | PlanningMode | DisciplineAllocations | RateOverrideInternal | RateOverrideExternal | TaskIds | PercentComplete |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Identity Platform – T&M | 4400125303 | tm | EUR |  | 2026-07-01 | 2026-09-30 | 4 | open |  | 2026-05-28 |  | 1;1;2026-07=166\|2026-08=40\|2026-09=141;2026-07=156\|2026-08=38\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-04=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-11=6\|2026-09-14=6\|2026-09-15=6\|2026-09-16=6\|2026-09-17=6\|2026-09-18=6~3;3;2026-07=110\|2026-08=100\|2026-09=76;2026-07=102\|2026-08=93\|2026-09-01=5\|2026-09-02=5\|2026-09-03=5\|2026-09-04=3\|2026-09-07=5\|2026-09-08=5\|2026-09-09=5\|2026-09-10=5\|2026-09-11=3\|2026-09-14=5\|2026-09-15=5\|2026-09-16=5\|2026-09-17=5\|2026-09-18=3~4;4;2026-07=92\|2026-08=84\|2026-09=96;2026-07=85\|2026-08=77\|2026-09-01=4\|2026-09-02=4\|2026-09-03=4\|2026-09-04=4\|2026-09-07=4\|2026-09-08=4\|2026-09-09=4\|2026-09-10=4\|2026-09-11=4\|2026-09-14=4\|2026-09-15=4\|2026-09-16=4\|2026-09-17=4\|2026-09-18=4 |  | 2 | detailed |  |  |  | 1;2;4 |  |
-| 2 | Advisory Retainer (blended) | 4400141354 | tm | EUR |  | 2026-10-01 | 2026-12-18 |  | open |  | 2026-09-07 |  |  |  | 5 | blended | 3;5;2026-10=88\|2026-11=84\|2026-12=92;~1;;2026-11=20\|2026-12=40; |  |  |  | 0 |
-| 3 | Capped SOW (rate override) | 4400087177 | tm | EUR |  | 2026-09-01 | 2026-11-30 | 2 | open |  | 2026-08-17 |  | 2;;2026-09=40\|2026-10=50\|2026-11=100;2026-09-01=3\|2026-09-02=3\|2026-09-03=3\|2026-09-07=3\|2026-09-08=3\|2026-09-09=3\|2026-09-10=3\|2026-09-14=3\|2026-09-16=3\|2026-09-17=3 |  | 4 | detailed |  | 90 | 200 |  | 15 |
-| 4 | Data Migration (fixed price) | 4400098499 | fixed | USD | 80000 | 2026-08-01 | 2026-10-31 | 3 | open |  | 2026-07-20 | 1.1 | 2;2;2026-08=101\|2026-09=101\|2026-10=141;2026-08-03=6\|2026-08-04=6\|2026-08-05=6\|2026-08-06=6\|2026-08-10=6\|2026-08-11=6\|2026-08-12=6\|2026-08-13=6\|2026-08-17=7\|2026-08-18=6\|2026-08-19=6\|2026-08-20=7\|2026-08-24=6\|2026-08-25=6\|2026-08-26=7\|2026-08-27=6\|2026-08-31=6\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-14=6\|2026-09-16=6\|2026-09-17=6~1;;2026-10=100; |  | 3 | detailed |  |  |  |  | 30 |
-| 5 | Discovery Phase (closed) | 4400053230 | tm | EUR |  | 2026-06-01 | 2026-06-30 | 1 | closed | 2026-06-30 | 2026-05-26 |  | 1;1;2026-06=158;2026-06=149~3;3;2026-06=120;2026-06=112~4;4;2026-06=88;2026-06=81~5;5;2026-06=176;2026-06=167 |  | 0 | detailed |  |  |  |  |  |
-| 6 | Hypercare Support (fixed price) | 4400172608 | fixed | GBP | 36000 | 2026-11-01 | 2026-12-18 |  | open |  | 2026-09-14 |  |  |  | 6 | blended | 1;1;2026-11=101\|2026-12=92;~4;4;2026-11=67\|2026-12=55; |  |  |  | 0 |
-| 7 | Security Review (closed, rate override) | 4400163921 | tm | EUR |  | 2026-07-01 | 2026-07-31 | 3 | closed | 2026-07-31 | 2026-06-24 |  | 6;;2026-07=60;2026-07=68 |  | 1 | detailed |  | 105 | 185 |  |  |
-| 8 | India Region Rollout (end-to-end, INR) | 4400193516 | e2e | INR | 2900000 | 2026-10-01 | 2026-12-18 |  | open |  | 2026-09-15 |  | 5;;2026-10=80\|2026-11=120\|2026-12=60; |  | 7 | detailed |  |  |  |  | 0 |
+| 1 | Identity Platform – T&M | 4400125303 | tm | EUR |  | 2026-07-01 | 2026-09-30 | 4 | open |  | 2026-05-28 |  | 1;1;2026-07=166\|2026-08=40\|2026-09=141;2026-07=156\|2026-08=38\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-04=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-11=6\|2026-09-14=6\|2026-09-15=6\|2026-09-16=6\|2026-09-17=6\|2026-09-18=6~3;3;2026-07=110\|2026-08=100\|2026-09=76;2026-07=102\|2026-08=93\|2026-09-01=5\|2026-09-02=5\|2026-09-03=5\|2026-09-04=3\|2026-09-07=5\|2026-09-08=5\|2026-09-09=5\|2026-09-10=5\|2026-09-11=3\|2026-09-14=5\|2026-09-15=5\|2026-09-16=5\|2026-09-17=5\|2026-09-18=3~4;4;2026-07=92\|2026-08=84\|2026-09=96;2026-07=85\|2026-08=77\|2026-09-01=4\|2026-09-02=4\|2026-09-03=4\|2026-09-04=4\|2026-09-07=4\|2026-09-08=4\|2026-09-09=4\|2026-09-10=4\|2026-09-11=4\|2026-09-14=4\|2026-09-15=4\|2026-09-16=4\|2026-09-17=4\|2026-09-18=4 |  | 3 | detailed |  |  |  | 1;2;4 |  |
+| 2 | Advisory Retainer (blended) | 4400141354 | tm | EUR |  | 2026-10-01 | 2026-12-18 |  | open |  | 2026-09-07 |  |  |  | 6 | blended | 3;5;2026-10=88\|2026-11=84\|2026-12=92;~1;;2026-11=20\|2026-12=40; |  |  |  | 0 |
+| 3 | Capped SOW (rate override) | 4400087177 | tm | EUR |  | 2026-09-01 | 2026-11-30 | 2 | open |  | 2026-08-17 |  | 2;;2026-09=40\|2026-10=50\|2026-11=100;2026-09-01=3\|2026-09-02=3\|2026-09-03=3\|2026-09-07=3\|2026-09-08=3\|2026-09-09=3\|2026-09-10=3\|2026-09-14=3\|2026-09-16=3\|2026-09-17=3 |  | 5 | detailed |  | 90 | 200 |  | 15 |
+| 4 | Data Migration (fixed price) | 4400098499 | fixed | USD | 80000 | 2026-08-01 | 2026-10-31 | 3 | open |  | 2026-07-20 | 1.1 | 2;2;2026-08=101\|2026-09=101\|2026-10=141;2026-08-03=6\|2026-08-04=6\|2026-08-05=6\|2026-08-06=6\|2026-08-10=6\|2026-08-11=6\|2026-08-12=6\|2026-08-13=6\|2026-08-17=7\|2026-08-18=6\|2026-08-19=6\|2026-08-20=7\|2026-08-24=6\|2026-08-25=6\|2026-08-26=7\|2026-08-27=6\|2026-08-31=6\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-14=6\|2026-09-16=6\|2026-09-17=6~1;;2026-10=100; |  | 4 | detailed |  |  |  |  | 30 |
+| 5 | Discovery Phase (closed) | 4400053230 | tm | EUR |  | 2026-06-01 | 2026-06-30 | 1 | closed | 2026-06-30 | 2026-05-26 |  | 1;1;2026-06=158;2026-06=149~3;3;2026-06=120;2026-06=112~4;4;2026-06=88;2026-06=81~5;5;2026-06=176;2026-06=167 |  | 1 | detailed |  |  |  |  |  |
+| 6 | Hypercare Support (fixed price) | 4400172608 | fixed | GBP | 36000 | 2026-11-01 | 2026-12-18 |  | open |  | 2026-09-14 |  |  |  | 7 | blended | 1;1;2026-11=101\|2026-12=92;~4;4;2026-11=67\|2026-12=55; |  |  |  | 0 |
+| 7 | Security Review (closed, rate override) | 4400163921 | tm | EUR |  | 2026-07-01 | 2026-07-31 | 3 | closed | 2026-07-31 | 2026-06-24 |  | 6;;2026-07=60;2026-07=68 |  | 2 | detailed |  | 105 | 185 |  |  |
+| 8 | India Region Rollout (end-to-end, INR) | 4400193516 | e2e | INR | 2900000 | 2026-10-01 | 2026-12-18 |  | open |  | 2026-09-15 |  | 5;;2026-10=80\|2026-11=120\|2026-12=60; |  | 8 | detailed |  |  |  |  | 0 |
+| 9 | Inception & Design (closed) | 4400031122 | tm | EUR |  | 2026-03-01 | 2026-05-31 | 5 | closed | 2026-05-31 | 2026-03-02 |  | 1;1;2026-03=106\|2026-04=123\|2026-05=134;2026-03=104\|2026-04=121\|2026-05=131~3;3;2026-03=100\|2026-04=110\|2026-05=90;2026-03=98\|2026-04=108\|2026-05=88~4;4;2026-03=88\|2026-04=88\|2026-05=84;2026-03=86\|2026-04=87\|2026-05=82 |  | 0 | detailed |  |  |  |  |  |
+| 10 | Closure & Handover | 4400201877 | tm | EUR |  | 2027-01-01 | 2027-02-28 |  | open |  | 2026-09-16 |  | 1;1;2027-01=67\|2027-02=48;~4;4;2027-01=67\|2027-02=64; |  | 9 | detailed |  |  |  |  | 0 |
 
 ## FX Rates
 
@@ -132,16 +148,19 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 
 | ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | KnowledgeLinks | OutlookEventId | CalendarOptOut |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Design Sign-off | 2026-07-07 |  |  |  |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |  | true |
-| 2 | Go-Live | 2026-10-20 | <p>Production cutover. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p> |  |  |  |  |  |  |
-| 3 | Hypercare Exit | 2026-12-16 |  |  |  |  |  |  |  |
+| 1 | Design Sign-off | 2026-05-29 |  | 2026-06-02 | 22 |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |  | true |
+| 2 | Pilot Go-Live | 2026-10-23 | <p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p> |  |  |  |  |  |  |
+| 3 | Rollout | 2026-12-11 |  |  |  |  |  |  |  |
+| 4 | Kickoff | 2026-03-06 |  | 2026-03-06 | 15 |  |  |  |  |
+| 5 | MVP target | 2026-07-17 | <p>First customer on self-registration through the vendor SDK. Slipped from 17 July to 21 August while the vendor's SDK was late (RAID #14).</p> | 2026-08-21 | 23\|24\|25 |  |  |  |  |
+| 6 | Closure | 2027-02-26 |  |  |  |  |  |  |  |
 
 ## Changes
 
 | ID | Title | Description | Type | Status | Impact | ImpactDescription | ScheduleImpactDays | CostImpact | RequestedBy | RaisedDate | DecisionBy | DecisionDate | ResolutionNotes | LinkedTasks | LinkedRaid | StakeholderIds | LocalModified | KnowledgeLinks | OutlookEventId | CalendarOptOut | NoteLog |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Add MFA to SSO scope | <p>Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued this quarter.</p> | Scope | Under Review | High | <p>Adds roughly <strong>three weeks</strong> of backend and frontend work, and pulls in a second security review cycle.</p><ol><li>Backend: TOTP enrolment + verification endpoints</li><li>Frontend: enrolment flow and recovery-code screen</li><li>Re-scope the load-test scenarios to include the MFA step</li></ol> | 21 | 18000 | Maya Patel | 2026-09-03 | Elena Fischer |  |  | 2 | 4 | 1\|5 | 2026-09-03T09:00:00.000Z |  |  |  | [{"id":1,"timestamp":"2026-09-05T11:15:00.000Z","html":"<p>CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.</p>","text":"CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.","authorResourceId":4,"authorName":"Maya Patel"},{"id":2,"timestamp":"2026-09-12T09:40:00.000Z","html":"<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>","text":"Backend estimate confirmed at 13 days; the recovery-code screen is the open question.","authorResourceId":2,"authorName":"Noah Bennett"}] |
-| 2 | Extend go-live by two weeks | <p>Proposed two-week slip of the production cutover (two weeks past the planned go-live) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.</p> | Schedule | Proposed | Medium | <p>Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.</p> | 14 | 6000 | Sofia Ramirez | 2026-09-16 | Elena Fischer |  |  |  | 2 | 1\|4 | 2026-09-16T14:30:00.000Z |  |  |  | [{"id":1,"timestamp":"2026-09-18T13:05:00.000Z","html":"<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>","text":"Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |
+| 2 | Extend go-live by two weeks | <p>Re-plan after the MVP slip: move the pilot go-live by two weeks to absorb the three-week vendor SDK delay (RAID #14) and keep a full regression cycle and a second hypercare rehearsal.</p> | Schedule | Approved | Medium | <p>Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.</p> | 14 | 6000 | Sofia Ramirez | 2026-09-01 | Elena Fischer | 2026-09-04 |  |  | 2\|14 | 1\|4 | 2026-09-18T13:05:00.000Z |  |  |  | [{"id":1,"timestamp":"2026-09-04T15:30:00.000Z","html":"<p>Approved at the steering board; the plan is re-baselined to the new pilot date.</p>","text":"Approved at the steering board; the plan is re-baselined to the new pilot date.","authorResourceId":4,"authorName":"Maya Patel"},{"id":2,"timestamp":"2026-09-18T13:05:00.000Z","html":"<p>Customer comms circulated with the new pilot date; the maintenance-window notice is re-issued.</p>","text":"Customer comms circulated with the new pilot date; the maintenance-window notice is re-issued.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |
 
 ## Stakeholders
 
@@ -157,7 +176,7 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 
 ## Plan
 
-2026-06-01,2026-12-18,month,EUR,true
+2026-03-02,2027-02-26,month,EUR,true
 
 ## Project Meta
 
@@ -176,8 +195,8 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 - products: SSO, MFA, Customer Directory
 - platform: Azure AD B2C
 - deployment: Cloud
-- startDate: 2026-06-01
-- endDate: 2026-12-18
+- startDate: 2026-03-02
+- endDate: 2027-02-26
 - profitCenter: PC-4711
 - quotes: Q-2026-0042
 - salesforceUrl: https://example.salesforce.com/opportunity/cip-2026
@@ -380,17 +399,17 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "status": "dismissed",
     "data": {
       "name": "Design Sign-off",
-      "date": "2026-07-07",
-      "daysOverdue": 2
+      "date": "2026-05-29",
+      "daysOverdue": 3
     },
-    "firstSeenAt": "2026-07-08T07:00:00.000Z",
-    "lastSeenAt": "2026-07-09T07:00:00.000Z",
-    "occurrences": 2,
+    "firstSeenAt": "2026-05-30T07:00:00.000Z",
+    "lastSeenAt": "2026-06-01T07:00:00.000Z",
+    "occurrences": 3,
     "entityRef": {
       "view": "milestones",
       "id": 1
     },
-    "dismissedAt": "2026-07-09T11:30:00.000Z",
+    "dismissedAt": "2026-06-01T11:30:00.000Z",
     "dismissReason": "Signed off in the steering call; the minutes were filed late."
   },
   {
@@ -509,6 +528,95 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 ```json
 [
   {
+    "id": "demo-seed-015",
+    "timestamp": "2026-03-02T09:00:00.000Z",
+    "kind": "budget.created",
+    "args": [
+      "Inception & Design"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-016",
+    "timestamp": "2026-03-02T09:20:00.000Z",
+    "kind": "milestone.created",
+    "args": [
+      4,
+      "Kickoff"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-017",
+    "timestamp": "2026-03-06T16:30:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      15,
+      "Project charter and kickoff"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-018",
+    "timestamp": "2026-03-27T15:40:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      16,
+      "Current-state identity assessment"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-019",
+    "timestamp": "2026-04-02T14:10:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      17,
+      "Customer stakeholder interviews"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-020",
+    "timestamp": "2026-04-16T16:00:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      19,
+      "Target identity architecture"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-021",
+    "timestamp": "2026-04-29T11:25:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      18,
+      "Requirements catalogue"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-022",
+    "timestamp": "2026-05-08T14:05:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      20,
+      "Identity vendor selection"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-023",
+    "timestamp": "2026-05-15T15:30:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      21,
+      "Privacy impact assessment"
+    ],
+    "actor": "user"
+  },
+  {
     "id": "demo-seed-001",
     "timestamp": "2026-05-26T08:30:00.000Z",
     "kind": "budget.created",
@@ -527,17 +635,27 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "actor": "user"
   },
   {
-    "id": "demo-seed-003",
-    "timestamp": "2026-06-30T16:40:00.000Z",
+    "id": "demo-seed-024",
+    "timestamp": "2026-05-28T17:10:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      22,
+      "Design sign-off pack"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-025",
+    "timestamp": "2026-05-29T16:00:00.000Z",
     "kind": "budget.updated",
     "args": [
-      "Discovery Phase (closed)"
+      "Inception & Design (closed)"
     ],
     "actor": "user"
   },
   {
     "id": "demo-seed-005",
-    "timestamp": "2026-07-07T17:00:00.000Z",
+    "timestamp": "2026-06-02T17:00:00.000Z",
     "kind": "milestone.updated",
     "args": [
       1
@@ -550,6 +668,26 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
         "to": "Signed off by the steering committee."
       }
     ]
+  },
+  {
+    "id": "demo-seed-003",
+    "timestamp": "2026-06-30T16:40:00.000Z",
+    "kind": "budget.updated",
+    "args": [
+      "Discovery Phase (closed)"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-026",
+    "timestamp": "2026-07-01T10:15:00.000Z",
+    "kind": "raid.created",
+    "args": [
+      14,
+      "R",
+      "Identity vendor SDK delivery late"
+    ],
+    "actor": "user"
   },
   {
     "id": "demo-seed-004",
@@ -571,12 +709,32 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "actor": "user"
   },
   {
+    "id": "demo-seed-027",
+    "timestamp": "2026-07-31T16:05:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      23,
+      "Integrate identity vendor SDK"
+    ],
+    "actor": "user"
+  },
+  {
     "id": "demo-seed-007",
     "timestamp": "2026-08-03T11:45:00.000Z",
     "kind": "task.completed",
     "args": [
       2,
       "POC OIDC integration"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-028",
+    "timestamp": "2026-08-12T15:45:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      24,
+      "Customer self-registration flow"
     ],
     "actor": "user"
   },
@@ -592,6 +750,42 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "actor": "user"
   },
   {
+    "id": "demo-seed-029",
+    "timestamp": "2026-08-21T16:40:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      25,
+      "MVP demo to the customer"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-030",
+    "timestamp": "2026-08-21T17:00:00.000Z",
+    "kind": "milestone.updated",
+    "args": [
+      5
+    ],
+    "actor": "user",
+    "changes": [
+      {
+        "field": "achievedDate",
+        "from": "",
+        "to": "2026-08-21"
+      }
+    ]
+  },
+  {
+    "id": "demo-seed-031",
+    "timestamp": "2026-08-27T13:20:00.000Z",
+    "kind": "task.completed",
+    "args": [
+      26,
+      "Pilot cohort selection"
+    ],
+    "actor": "user"
+  },
+  {
     "id": "demo-seed-009",
     "timestamp": "2026-09-01T09:30:00.000Z",
     "kind": "raid.escalated",
@@ -601,6 +795,23 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
       "High"
     ],
     "actor": "ai"
+  },
+  {
+    "id": "demo-seed-032",
+    "timestamp": "2026-09-04T15:30:00.000Z",
+    "kind": "change.updated",
+    "args": [
+      2,
+      "Extend go-live by two weeks"
+    ],
+    "actor": "user",
+    "changes": [
+      {
+        "field": "status",
+        "from": "Proposed",
+        "to": "Approved"
+      }
+    ]
   },
   {
     "id": "demo-seed-010",
@@ -645,6 +856,15 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "kind": "budget.created",
     "args": [
       "Hypercare Support (fixed price)"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-033",
+    "timestamp": "2026-09-16T10:00:00.000Z",
+    "kind": "budget.created",
+    "args": [
+      "Closure & Handover"
     ],
     "actor": "user"
   },

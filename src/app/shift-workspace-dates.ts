@@ -49,7 +49,8 @@ function rollToWeekday(iso: string): string {
   const dow = toUtc(iso).getUTCDay(); // 0 Sun … 6 Sat
   return dow === 6 ? addDays(iso, 2) : dow === 0 ? addDays(iso, 1) : iso;
 }
-function mondayOf(iso: string): string {
+/** The Monday of `iso`'s ISO week. */
+export function mondayOf(iso: string): string {
   const dow = toUtc(iso).getUTCDay();
   return addDays(iso, dow === 0 ? -6 : 1 - dow);
 }
@@ -103,6 +104,17 @@ function walk(v: unknown, n: number, unit: PlanGranularity): unknown {
     }
   }
   return out;
+}
+
+/** The generic value walker, exported for callers that shift a data structure that is not a
+ *  whole Workspace (the demo's seeded Trends records). Same rules as `shiftWorkspaceDates`. */
+export function shiftDatesIn<T>(value: T, n: number, unit: PlanGranularity): T {
+  return walk(value, n, unit) as T;
+}
+
+/** Shifts a bare date or period key ("2026-03", "2026-W12", "2026-03-31"); anything else is returned unchanged. */
+export function shiftPeriodKey(key: string, n: number, unit: PlanGranularity): string {
+  return shiftKey(key, n, unit);
 }
 
 export function shiftWorkspaceDates(ws: Workspace, n: number): Workspace {

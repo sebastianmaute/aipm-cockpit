@@ -701,28 +701,28 @@ test("a11y: harbor-light — Turso storage Apply controls (passphrase token)", a
   await expectNoBlockingViolations(page, "Turso Apply (passphrase, wrong passphrase)");
 });
 
-// §681: the pink CountBadge. The seed carries no "now" action, so no scanned view
-// above renders a badge and the gate could not see white-on-pink at 3.83:1
-// (beacon) or under 2.7:1 (every dark built-in). One overdue, blocked, urgent
-// task makes `nowCount` positive, which draws the badge on the top bar's bell
-// in every view. Records are put by id, so this adds the task to the seed.
-const BADGE_TASK = {
-  ...((SEED_WORKSPACE.tasks as Record<string, unknown>[]).find((t) => t.status !== "Done") ?? {}),
+// §681: the pink CountBadge. It draws on the top bar's bell in every view when
+// `nowCount` is positive, and the gate could not otherwise see white-on-pink at
+// 3.83:1 (beacon) or under 2.7:1 (every dark built-in). An overdue, unachieved
+// milestone is a "now" action on its own (urgencyOverdue 40 + impactBlocksMilestone
+// 20 + semiClarity 7 = 67 ≥ TIER_NOW 60), so the test seeds one rather than relying
+// on the sample. ★ A TASK cannot do this: an overdue task scores at most 55 (40 +
+// clarity 15), and the badge here once came only from the sample's own unachieved
+// milestone, which the 12-month sample marks achieved. Records are put by id.
+const BADGE_MILESTONE = {
+  ...((SEED_WORKSPACE.milestones as Record<string, unknown>[])[0] ?? {}),
   id: 99001,
-  taskName: "Vendor sign-off (overdue)",
-  status: "In Progress",
-  priority: "Urgent",
-  dueDate: "2026-08-01",
-  lastUpdateDate: "2026-07-01",
-  blockers: "Waiting on vendor sign-off",
-  completedDate: undefined,
+  name: "Vendor sign-off (overdue)",
+  date: "2026-08-01",
+  achievedDate: undefined,
+  linkedTaskIds: [],
 };
 
 for (const combo of COMBOS) {
   const id = `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
   test(`a11y: ${id} — pink count badge (§681)`, async ({ page }) => {
     await page.addInitScript(seedScript(combo));
-    await reseedWorkspace(page, { tasks: [BADGE_TASK] });
+    await reseedWorkspace(page, { milestones: [BADGE_MILESTONE] });
     await gotoApp(page);
     await waitForViewSettled(page);
 

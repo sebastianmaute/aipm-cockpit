@@ -48,7 +48,7 @@ function makeArgs(overrides: Partial<UseTursoProjectsArgs> = {}): UseTursoProjec
     tursoAuthToken: "tok",
     tursoProjectId: "p-1",
     switchToTursoProject: vi.fn(async () => {}),
-    createTursoProject: vi.fn(async () => {}),
+    createTursoProject: vi.fn(async () => null),
     archiveTursoProject: vi.fn(async () => {}),
     restoreTursoProject: vi.fn(async () => {}),
     hardDeleteTursoProject: vi.fn(async () => {}),

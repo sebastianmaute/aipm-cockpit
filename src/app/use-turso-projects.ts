@@ -38,7 +38,7 @@ export interface UseTursoProjectsArgs {
   tursoProjectId: string | null;
   // Turso backend operations (from useStorageBackend / refresh callback).
   switchToTursoProject: (id: string) => Promise<void>;
-  createTursoProject: (meta: ProjectMeta, opts?: NewProjectOpts) => Promise<void>;
+  createTursoProject: (meta: ProjectMeta, opts?: NewProjectOpts) => Promise<string | null>;
   archiveTursoProject: (id: string) => Promise<void>;
   restoreTursoProject: (id: string) => Promise<void>;
   hardDeleteTursoProject: (id: string) => Promise<void>;

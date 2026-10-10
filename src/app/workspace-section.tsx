@@ -194,6 +194,7 @@ export function WorkspaceSection({
   onExportCurrentProject,
   onLoadProjectFromFile,
   onMigrateProjectToTurso,
+  onLoadDemo,
   onArchiveProject,
   onRestoreProject,
   onHardDeleteProject,
@@ -1066,6 +1067,7 @@ export function WorkspaceSection({
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}
               onMigrateToTurso={onMigrateProjectToTurso}
+              onLoadDemo={isPopout ? undefined : onLoadDemo}
               onArchive={onArchiveProject}
               onRestore={onRestoreProject}
               onHardDelete={onHardDeleteProject}

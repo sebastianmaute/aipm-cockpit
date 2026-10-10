@@ -10,8 +10,26 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Explore a demo project from the start screen, the guided way.** The start screen now has an
+  "Explore the demo" card that opens a sample project with the guided tour. Without Turso it says
+  that Trends needs Turso and offers a guided setup first, then offers the demo again once Turso is
+  connected. The Projects panel has an "Explore a demo project" button as well; it never replaces
+  a project kept in browser storage, and is disabled while one exists.
+- **The demo project comes with a Trends history.** When Turso is connected, the demo is created in
+  your Turso database with weekly snapshots from March to September already in place, so the Trends
+  view has something to show on the first visit. The history is an estimate: effort is not dated per
+  task, so the early weeks are reconstructed, not recorded.
+
 ### Changed
 
+- **The desktop app's update window shows formatted release notes.** Headings, bullet lists, bold text and
+  code now appear as they do on the releases page, instead of one run of plain text. The window now shows
+  notes up to 100,000 characters instead of 20,000; the 1.16.0 notes alone ran to about 34,000.
+- **Installing and updating the desktop app now say that they take a while.** The installer opens with a
+  welcome page saying that installing takes a few minutes and the window may seem frozen, and the update
+  window says the same before you choose to download, alongside the existing note in "Update ready".
 - **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, export, version and template
   buttons in the header, and the workspace collapse toggle, use the standard icon button: 32px instead of 36px,
   and the export, version and template icons are a shade lighter, like settings. In every dialog header the
@@ -28,6 +46,21 @@ longer carries its own changelog comment.
   Set as baseline is dark blue, not green), and the remaining near-size buttons, pills and counts use the
   standard sizes. Reports' "Add report" is a "+ Add report" button with a menu, like the other panes' Add
   buttons.
+
+### Fixed
+
+- **The demo's Trends history has no gaps, and the start card quotes the weeks it really stores.** The
+  seeded weekly snapshots moved by whole months, so each one landed on a different weekday: some weeks
+  were left empty and drawn as gaps, and others held two snapshots, one of which was dropped. They now
+  move by whole weeks and end in the week before the demo is created, so the live snapshot follows on
+  without a gap. The card now quotes the number of weeks the demo stores.
+- **Trends charts label only as many points along the bottom axis as fit without overlapping.** With
+  more snapshots than that, every label was drawn and they overlapped into an unreadable band. That is
+  five weekly labels, four daily ones and six monthly ones; the first and last points are always
+  labelled.
+- **The version-name field in History has an accessible name.** The field that names a version after
+  "Save version now" had only a placeholder, which screen readers are not required to read as its name. It
+  now carries the same words as its name.
 
 ## [1.16.0] - 2026-10-09 "Rankin"
 

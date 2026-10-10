@@ -1,8 +1,9 @@
-import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, reseedWorkspace, waitForViewSettled } from "./seed";
 import { DASHBOARD_LAYOUT_KEY } from "../src/app/dashboard-layout-store";
 import { DASHBOARD_BURN_UPGRADE } from "../src/app/dashboard-layout";
 import { rowsForHeight } from "../src/app/arrangement-measure";
 import { tileById, type DashboardTileId } from "../src/app/dashboard-tiles";
+import { SEED_WORKSPACE } from "./seed-workspace";
 import { KPI_STRIP_COLS, type KpiCellCount } from "../src/app/dashboard-sections/dashboard-kpi-strip";
 
 /**
@@ -345,9 +346,21 @@ test.describe("dashboard grid measured heights across reload and density", () =>
  * workspace's items are short enough to stay on one line at w:1 as well as w:2, so `1 col → 2 col`
  * never changes the ROW COUNT (only the free space beside the text), making the non-vacuity check
  * below unsatisfiable. `milestones`' body (`MilestoneHorizonStrip`) is `flex flex-wrap` chips, whose
- * wrap genuinely depends on width — measured 3 rows narrow vs 2 rows at the default width for this
- * sample data.
+ * wrap genuinely depends on width.
+ * ★★ The chips come from the test's OWN milestones (`WRAP_MILESTONES`), not the sample's: the
+ * 12-month sample's names happened to wrap to the same row count at both widths, which failed the
+ * non-vacuity check below on data alone. Records are put by id, so these join the seed.
  */
+const WRAP_BASE = (SEED_WORKSPACE.milestones as Record<string, unknown>[])[0] ?? {};
+const WRAP_MILESTONES = [
+  // A full overdue bucket (MAX_PER_BUCKET chips): one chip per line when narrow, packed when wide.
+  { id: 99101, name: "Design sign-off with the architecture board", date: "2026-07-01" },
+  { id: 99102, name: "Vendor contract countersignature", date: "2026-07-02" },
+  { id: 99103, name: "Data migration cutover rehearsal", date: "2026-07-03" },
+  { id: 99104, name: "Security review remediation", date: "2026-07-04" },
+  { id: 99105, name: "Accessibility audit sign-off", date: "2026-07-05" },
+].map((m) => ({ ...WRAP_BASE, ...m, achievedDate: undefined, linkedTaskIds: [] }));
+
 const NARROW_MILESTONES_LAYOUT = {
   v: 1,
   board: [{ id: "milestones", w: 1, h: 2, wSet: true }],
@@ -361,6 +374,7 @@ test.describe("dashboard grid Reset re-measures", () => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
     });
     await seedLayout(page, NARROW_MILESTONES_LAYOUT);
+    await reseedWorkspace(page, { milestones: WRAP_MILESTONES });
     await page.setViewportSize({ width: XL, height: 1000 });
     await gotoApp(page);
     await openView(page, "Dashboard");
