@@ -558,17 +558,20 @@ describe("live-turso.yml", () => {
   // and an ordinary spec (smoke, a11y) is not partition-scoped and would write to the shared
   // database; a typo would also silently drop a spec. A live spec is one that imports
   // e2e/live-turso-env.ts or live-turso-schema.ts (any quoting, with or without .ts), or reads the
-  // throwaway pair itself (turso-revision-live does). Each list stays a plain list of names.
+  // throwaway pair itself in CODE (process.env.TURSO_THROWAWAY_… or a quoted "TURSO_THROWAWAY_…",
+  // as turso-revision-live does): a bare mention in a comment does not count. Each list is a plain
+  // list of names, anchored to WHOLE file names, and matches exactly the listed files.
   it("runs exactly the live specs, each in one list, through the projects the npm scripts name", () => {
-    const LIVE_READER = /["']\.\/live-turso-(env|schema)(\.ts)?["']|TURSO_THROWAWAY_/;
+    const LIVE_READER = /["']\.\/live-turso-(env|schema)(\.ts)?["']|process\.env\.TURSO_THROWAWAY_|["']TURSO_THROWAWAY_/;
     const specFile = (name) => new URL(`../e2e/${name}.spec.ts`, import.meta.url);
     const list = (name) => {
-      const src = config.match(new RegExp(`^const ${name} = /\\(([^)]*)\\)\\\\\\.spec\\\\\\.ts/;`, "m"))?.[1];
-      expect(src, name).toMatch(/^[a-z0-9-]+(\|[a-z0-9-]+)*$/);
-      return src.split("|");
+      const literal = config.match(new RegExp(`^const ${name} = (/.*/);\\r?$`, "m"))?.[1];
+      const names = literal?.match(/^\/\(\?:\^\|\[\\\\\/\]\)\(([a-z0-9-]+(?:\|[a-z0-9-]+)*)\)\\\.spec\\\.ts\$\/$/)?.[1];
+      expect(names, `${name} must be /(?:^|[\\\\/])(name|name)\\.spec\\.ts$/, got ${literal}`).toBeDefined();
+      return { re: new RegExp(literal.slice(1, -1)), names: names.split("|") };
     };
-    const destructive = list("LIVE_TURSO_DESTRUCTIVE");
-    const appSpecs = list("LIVE_TURSO_APP");
+    const { re: destructiveRe, names: destructive } = list("LIVE_TURSO_DESTRUCTIVE");
+    const { re: appRe, names: appSpecs } = list("LIVE_TURSO_APP");
     expect(destructive.filter((n) => appSpecs.includes(n))).toEqual([]);
     // Listed before the branch that adds the file has merged. Each entry must NOT exist yet: the
     // tree that gains the file fails here until the entry is removed, so the full check below
@@ -577,6 +580,15 @@ describe("live-turso.yml", () => {
     const PENDING = ["turso-revision-live", "version-compare-live", "demo-trends-live"];
     for (const name of PENDING) {
       expect(existsSync(specFile(name)), `e2e/${name}.spec.ts exists now: remove "${name}" from PENDING`).toBe(false);
+      expect([...destructive, ...appSpecs], `PENDING "${name}" is in neither list`).toContain(name);
+    }
+    // Each regex, as Playwright applies it (to a full path, either separator), matches exactly its
+    // listed files that exist, and no file whose name merely ends in a listed name.
+    const specs = readdirSync(new URL("../e2e/", import.meta.url)).filter((f) => f.endsWith(".spec.ts"));
+    for (const [re, names] of [[destructiveRe, destructive], [appRe, appSpecs]]) {
+      const hits = specs.filter((f) => re.test(`/repo/e2e/${f}`) || re.test(`C:\\repo\\e2e\\${f}`));
+      expect(hits.map((f) => f.replace(/\.spec\.ts$/, "")).sort()).toEqual(names.filter((n) => !PENDING.includes(n)).sort());
+      for (const n of names) expect(re.test(`/repo/e2e/old-${n}.spec.ts`), `${re} matches old-${n}`).toBe(false);
     }
     for (const name of [...destructive, ...appSpecs]) {
       if (PENDING.includes(name)) continue;

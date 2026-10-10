@@ -20,16 +20,18 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // table beside the partition-scoped UI specs would pull tables out from under
 // them. They live in their own project, which runs its files one at a time and
 // which `chromium` ignores; run it on its own (`npm run e2e:live-destructive`),
-// never in the same invocation as `chromium`.
-const LIVE_TURSO_DESTRUCTIVE = /(turso-ddl-probe-live|turso-revision-live)\.spec\.ts/;
+// never in the same invocation as `chromium`. Both lists match WHOLE file names (anchored on a path
+// separator and the end), so `old-meta-decode-loss.spec.ts` is not caught by `meta-decode-loss`.
+const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-live)\.spec\.ts$/;
 
 // The live-Turso specs that DRIVE THE APP, partition-scoped, so they share the throwaway database
 // safely with each other (one worker) but never with LIVE_TURSO_DESTRUCTIVE. `chromium` still
 // runs them, where they skip without the throwaway pair. `npm run e2e:live-app` runs exactly this
 // list, through the `live-turso-app` project, which exists only when that script sets
-// E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script, and
-// ci-workflow.test.mjs fails when an e2e spec importing ./live-turso-env is in neither list.
-const LIVE_TURSO_APP = /(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts/;
+// E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script. What
+// may be listed here, and what must be, is pinned by ci-workflow.test.mjs ("runs exactly the live
+// specs ...").
+const LIVE_TURSO_APP = /(?:^|[\\/])(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts$/;
 
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
 // `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token
