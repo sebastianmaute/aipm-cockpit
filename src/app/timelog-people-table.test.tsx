@@ -5,6 +5,8 @@ import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser } from "./timelog-types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buttonClassFor } from "../test/button-variant";
+import { primitiveClassFor } from "../test/primitive-class";
+import { Badge } from "./badge";
 
 const USERS: readonly TimelogUser[] = [
   { userId: 1, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@x.com", isActive: true },
@@ -166,6 +168,30 @@ describe("TimelogPeopleTable Clear link on the shared Button", () => {
     );
     expect(screen.getByRole("button", { name: /^Clear link/ }).className).toBe(
       buttonClassFor({ variant: "secondary", size: "xs" }),
+    );
+  });
+});
+
+// §695 — the match chip is the shared Badge pill.
+describe("TimelogPeopleTable match chip", () => {
+  it("renders the shared Badge", () => {
+    render(
+      <TimelogPeopleTable
+        lang="en-US"
+        isPopout={false}
+        colWidths={{ select: 40, people: 200, resource: 200, actions: 80 }}
+        startColResize={() => {}}
+        sel={SEL}
+        visibleFilteredIds={USERS.map((u) => u.userId)}
+        filteredUsers={USERS}
+        effectiveUserLinks={[{ timelogUserId: 1, resourceId: 7, manual: true }]}
+        matchableResources={[]}
+        manualLinkUser={() => {}}
+        removeUsers={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Manual").className).toBe(
+      primitiveClassFor(<Badge pill className="border border-line text-muted-foreground">x</Badge>),
     );
   });
 });

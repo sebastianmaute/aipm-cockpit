@@ -4,9 +4,8 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
-import { Select } from "../form-controls";
+import { Select, Checkbox } from "../form-controls";
 import { RemovableChipRow } from "./removable-chip-row";
 import { FieldHint } from "../field-hint";
 
@@ -118,11 +117,9 @@ export function TimezoneSettingsSection({
       {!hideDisplaySwitcher && (
         <div className="mt-4">
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={!!settings.showDisplayTzSwitcher}
               onChange={(e) => onChange({ ...settings, showDisplayTzSwitcher: e.target.checked })}
-              className={`${FOCUS_RING} ${TRANSITION}`}
             />
             {t(lang, "tzShowSwitcher")}
           </label>

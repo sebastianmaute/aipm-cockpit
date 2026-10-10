@@ -42,12 +42,12 @@ describe("fieldClass", () => {
     expect(fieldClass()).not.toContain("w-full");
   });
 
-  it("supports a compact xs size (px-2 py-1 text-xs) vs the md default", () => {
+  it("supports a compact xs size (px-2 py-1.5 text-xs) vs the md default", () => {
     expect(fieldClass(false, undefined, "md")).toContain("px-3");
-    const xs = fieldClass(false, undefined, "xs");
-    expect(xs).toContain("px-2");
-    expect(xs).toContain("py-1");
-    expect(xs).toContain("text-xs");
+    const xs = fieldClass(false, undefined, "xs").split(/\s+/);
+    // §685 (owner decision 2026-10-09): xs is 30px tall, the height of an xs Button.
+    expect(xs).toEqual(expect.arrayContaining(["px-2", "py-1.5", "text-xs"]));
+    expect(xs).not.toContain("py-1");
     expect(xs).not.toContain("px-3");
   });
 });
@@ -218,5 +218,46 @@ describe("FieldGroup", () => {
     expect(group.className).toBe("flex flex-col gap-1");
     expect(container.querySelector("div > span")?.textContent).toBe("Cap");
     expect(group.firstElementChild?.textContent).toBe("Cap");
+  });
+});
+
+// §686 — field states carry a field's meaning on the shared shell.
+describe("fieldClass states", () => {
+  const tokens = (...a: Parameters<typeof fieldClass>) => fieldClass(...a).split(/\s+/);
+
+  it("defaults to the plain surface fill and line border", () => {
+    expect(tokens(false, undefined, "xs")).toEqual(expect.arrayContaining(["bg-surface", "text-foreground", "border-line"]));
+  });
+
+  it("muted: the muted fill and text, never the plain fill", () => {
+    const c = tokens(false, undefined, "xs", "muted");
+    expect(c).toEqual(expect.arrayContaining(["bg-surface-muted", "text-muted-foreground", "border-line"]));
+    expect(c).not.toContain("bg-surface");
+    expect(c).not.toContain("text-foreground");
+  });
+
+  it("warning: pink border and text", () => {
+    const c = tokens(false, undefined, "xs", "warning");
+    expect(c).toEqual(expect.arrayContaining(["border-ui-pink-strong", "text-ui-pink-strong", "font-medium"]));
+    expect(c).not.toContain("border-line");
+  });
+
+  it("accent: purple border and text", () => {
+    const c = tokens(false, undefined, "xs", "accent");
+    expect(c).toEqual(expect.arrayContaining(["border-ui-purple/40", "text-ui-purple"]));
+    expect(c).not.toContain("border-line");
+  });
+
+  it("invalid keeps its own pink border over any state", () => {
+    const c = tokens(true, undefined, "xs", "warning");
+    expect(c).toContain("border-ui-pink");
+    expect(c).not.toContain("border-ui-pink-strong");
+  });
+
+  it("Input and Select take the state prop", () => {
+    render(<Input aria-label="Hours" state="muted" readOnly />);
+    expect(screen.getByLabelText("Hours").className.split(/\s+/)).toContain("bg-surface-muted");
+    render(<Select aria-label="Who" state="warning"><option>x</option></Select>);
+    expect(screen.getByLabelText("Who").className.split(/\s+/)).toContain("border-ui-pink-strong");
   });
 });

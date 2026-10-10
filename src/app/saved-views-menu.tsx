@@ -3,9 +3,9 @@
 import { useState } from "react";
 
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { Button } from "./button";
 import { Input, Select } from "./form-controls";
 
 /** The minimal shape the menu needs from any saved-view record. The three
@@ -27,9 +27,6 @@ interface SavedViewsMenuProps {
   /** Optional guided-tour anchor, put on the root so no empty wrapper is needed. */
   dataTourId?: string;
 }
-
-const BTN_CLASS =
-  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:opacity-50 ${INTERACTIVE}`;
 
 /**
  * Presentational select + save-as + delete shell shared by the three saved-view
@@ -81,8 +78,7 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <button
-            type="button"
+          <Button variant="secondary" size="xs"
             aria-label={t(lang, "savedViewsSave")}
             disabled={name.trim() === ""}
             onClick={() => {
@@ -91,40 +87,34 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
               setSaving(false);
               setName("");
             }}
-            className={BTN_CLASS}
           >
             {t(lang, "savedViewsSaveConfirm")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button variant="secondary" size="xs"
             onClick={() => {
               setSaving(false);
               setName("");
             }}
-            className={BTN_CLASS}
           >
             {t(lang, "savedViewsCancel")}
-          </button>
+          </Button>
         </>
       ) : (
-        <button
-          type="button"
+        <Button variant="secondary" size="xs"
           onClick={() => {
             setSaving(true);
             setName("");
           }}
-          className={BTN_CLASS}
         >
           {t(lang, "savedViewsSave")}
-        </button>
+        </Button>
       )}
 
       {/* ★ `md`, not the `sm` default: this sits in one `items-center` row beside the
-          BTN_CLASS buttons (`border` + `py-1` + `text-sm`/20px line-height = 30px), and
-          it replaced a button that used BTN_CLASS itself. `sm` (`p-1` + a 16px icon +
-          `border` = 26px) shrank it below its neighbours; `md` (`p-1.5` → 30px) restores
-          the pre-change height exactly. Derived from the class recipes — jsdom has no
-          layout, so no unit test can see this. */}
+          `xs` Buttons and the `xs` name field, all 30px (`py-1.5` + a 16px line +
+          `border`). `sm` (`p-1` + a 16px icon + `border` = 26px) would sit below its
+          neighbours; `md` (`p-1.5` → 30px) matches them. Derived from the class
+          recipes — jsdom has no layout, so no unit test can see this. */}
       <IconButton
         variant="bordered"
         size="md"

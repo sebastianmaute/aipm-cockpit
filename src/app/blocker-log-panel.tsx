@@ -22,6 +22,7 @@ import { TEXTAREA_MAX } from "./sanitize";
 import { normalizeBlockerText } from "./blocker-log";
 import type { BlockerEntry, Resource } from "./types";
 import { Button } from "./button";
+import { Textarea } from "./form-controls";
 
 export interface BlockerLogPanelProps {
   entries: readonly BlockerEntry[];
@@ -33,8 +34,6 @@ export interface BlockerLogPanelProps {
   resources: readonly Resource[];
   lang: Lang;
 }
-
-const TEXTAREA = `w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${INTERACTIVE}`;
 
 /** An entry's author: its stored name, else the live directory name, else none. */
 function authorOf(entry: BlockerEntry, resources: readonly Resource[]): string | undefined {
@@ -80,13 +79,14 @@ function OpenRow(props: OpenRowProps) {
       </div>
       {editing ? (
         <div className="flex flex-col gap-2">
-          <textarea
+          <Textarea
             value={editText}
             onChange={(e) => props.onChangeEdit(e.target.value)}
             aria-label={rowLabel(t(lang, "edit"), token)}
             maxLength={TEXTAREA_MAX}
             rows={3}
-            className={TEXTAREA}
+            autoGrow
+            className="w-full max-h-40 overflow-y-auto"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="xs" onClick={props.onCancelEdit} aria-label={rowLabel(t(lang, "cancel"), token)}>
@@ -195,14 +195,17 @@ export function BlockerLogPanel(props: BlockerLogPanelProps) {
   return (
     <>
       <div className="shrink-0 border-b border-line p-3">
-        <textarea
+        <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           aria-label={t(lang, "blockerLogPlaceholder")}
           placeholder={t(lang, "blockerLogPlaceholder")}
           maxLength={TEXTAREA_MAX}
           rows={3}
-          className={TEXTAREA}
+          autoGrow
+          // ★ Capped: the floating window is a fixed 560px with overflow hidden, so
+          // an uncapped field would push the Add button and the list out of view.
+          className="w-full max-h-40 overflow-y-auto"
         />
         <div className="mt-2 flex justify-end">
           <Button

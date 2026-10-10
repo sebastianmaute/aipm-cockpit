@@ -32,7 +32,6 @@ import { TaskLinkPicker } from "./task-link-picker";
 import { useToastContext } from "./toast-context";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { rowLabel } from "./row-tokens";
@@ -53,6 +52,7 @@ import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
+import { menuItemClass } from "./control-classes";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -794,7 +794,7 @@ export function ChangeEditModal({
                       <button
                         type="button"
                         onClick={() => addLinkedRaid(r.id)}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
+                        className={`${menuItemClass()} items-center gap-2`}
                       >
                         <span className="font-mono text-xs text-muted-foreground">
                           #{r.id}

@@ -294,13 +294,9 @@ export function TasksSelectionBar({
         {t(lang, "selectionCount", selectedCount)}
       </span>
       <div className="ml-auto flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={handleBulkSendInquiry}
-          className={`rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:opacity-90 ${INTERACTIVE}`}
-        >
+        <Button variant="accent" size="sm" onClick={handleBulkSendInquiry}>
           {t(lang, "bulkSendInquiries")}
-        </button>
+        </Button>
         <ToggleButton lang={lang} pressed={bulkEditOpen} onToggle={onToggleBulkEdit}>
           {t(lang, "bulkEdit")}
         </ToggleButton>

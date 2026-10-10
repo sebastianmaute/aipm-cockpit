@@ -12,10 +12,10 @@ import { CommTemplateDiffView } from "../comm-template-diff-view";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
 import { FieldHint } from "../field-hint";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { INTERACTIVE } from "../interaction-styles";
 import { Button } from "../button";
 import { ToggleButton } from "../toggle-button";
-import { Input, Select } from "../form-controls";
+import { Input, Select, RADIO_CLASS } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
 import { RichTextEditor } from "../rich-text-editor-lazy";
@@ -189,7 +189,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               name="commSendMode"
               checked={(props.settings.commTemplateSendMode ?? "mailto") === value}
               onChange={() => props.onChange({ ...props.settings, commTemplateSendMode: value })}
-              className={`h-4 w-4 cursor-pointer border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={RADIO_CLASS}
             />
             <span>{t(lang, key)}</span>
           </label>

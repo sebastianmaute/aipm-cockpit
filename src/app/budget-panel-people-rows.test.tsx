@@ -415,7 +415,8 @@ describe("HOURS_LINE_UNITS — the shared alignment constant", () => {
       expect(line).toHaveClass("gap-1");
       expect(line.children[0]).toHaveClass("w-14");
       expect(line.children[1]).toHaveClass("w-16");
-      expect(line.children[1]).toHaveClass("px-1");
+      // The xs field's own px-2 is overridden, so the digits keep the px-1 inset.
+      expect(line.children[1]).toHaveClass("px-1!");
     }
     expect(HOURS_LINE_UNITS).toBe(14 + 1 + 16);
   });

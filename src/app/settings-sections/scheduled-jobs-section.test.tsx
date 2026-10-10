@@ -210,3 +210,13 @@ describe("ScheduledJobsSection Show more on the shared Button", () => {
     );
   });
 });
+
+// §691 — Add job is the accent Button at xs.
+describe("ScheduledJobsSection Add job", () => {
+  it("draws the accent Button", () => {
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }).className).toBe(
+      buttonClassFor({ variant: "accent", size: "xs", className: "self-start" }),
+    );
+  });
+});

@@ -6,6 +6,7 @@ import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
+import { Badge } from "./badge";
 import {
   LABELS_MAX_COUNT,
   LABEL_MAX,
@@ -107,9 +108,10 @@ export function LabelsInput({
         onClick={() => !disabled && inputRef.current?.focus()}
       >
         {value.map((label, idx) => (
-          <span
+          <Badge
             key={`${label}-${idx}`}
-            className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey"
+            pill
+            className="gap-1 bg-surface-muted font-medium text-ui-dark-blue dark:text-ui-light-grey"
           >
             {label}
             {!disabled && (
@@ -126,7 +128,7 @@ export function LabelsInput({
                 <XMarkIcon aria-hidden="true" className="h-3 w-3" />
               </IconButton>
             )}
-          </span>
+          </Badge>
         ))}
         <input
           ref={inputRef}

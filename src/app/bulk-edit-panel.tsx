@@ -4,8 +4,7 @@ import type React from "react";
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Button } from "./button";
-import { Input, Select } from "./form-controls";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Input, Select, Checkbox } from "./form-controls";
 
 export interface BulkFieldOption {
   value: string;
@@ -140,16 +139,15 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
           const on = !!enabled[f.key];
           return (
             <div key={f.key} className="flex items-start gap-3">
-              <input
+              <Checkbox
                 id={`${id}-enable`}
-                type="checkbox"
                 // §277 — the visible <label> below reads just the field; the
                 // accessible name is qualified so it differs from the value
                 // control's and from the column header's sort button.
                 aria-label={t(lang, "bulkEditChangeField", f.label)}
                 checked={on}
                 onChange={() => setEnabled((e) => ({ ...e, [f.key]: !e[f.key] }))}
-                className={`mt-2 h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-2"
               />
               <div className="min-w-0 flex-1">
                 <label htmlFor={`${id}-enable`} className="mb-1 block cursor-pointer text-sm font-medium text-foreground">

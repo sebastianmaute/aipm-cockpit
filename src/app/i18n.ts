@@ -1554,7 +1554,7 @@ const enUS = {
   reportsNoMatches: "No matches for current filter.",
   reportsAddReport: "Add report",
   reportsRemoveReport: "Remove report",
-  reportsAddReportNone: "All reports added",
+  reportsAddReportNone: "No reports to add",
 
   help: "Help",
   helpIntro:
