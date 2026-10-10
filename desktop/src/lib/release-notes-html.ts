@@ -5,13 +5,16 @@
 //
 // ★★ SAFE BY CONSTRUCTION, NOT BY FILTERING. Nothing from the source is copied through as markup.
 // The source is cut into tags and text; every text run is entity-decoded and then re-escaped, and
-// every tag is either swapped for one of a fixed set of tags this module writes itself, WITH NO
-// ATTRIBUTES, or dropped. So no attribute (href, src, on*, style) can reach the page, whatever the
-// release body holds, and the page's CSP (`default-src 'none'`, one script by hash) stays the second
+// every tag is either swapped for one of a fixed set of tags this module writes itself, with no
+// attribute taken from the source, or dropped. (The one attribute it writes is the constant
+// `class="plain"` on a body with no markup.) So no source attribute (href, src, on*, style) can
+// reach the page, whatever the release body holds, and the page's CSP (`default-src 'none'`, one script by hash) stays the second
 // line rather than the only one. There is no DOM in the main process, so there is no DOMPurify here;
 // a filter that tried to keep "safe" source tags is exactly the hand-rolled sanitiser to avoid.
 // ★ The output is balanced: a closing tag is written only for a tag this module opened, and every
 // tag still open at the end is closed, so a malformed body cannot leave the page's structure open.
+// Nesting is capped at MAX_DEPTH: tags opened past it are dropped (their text stays), which also
+// bounds the work a pathologically nested body costs, as `max` bounds its text.
 
 /** HTML that came out of `notesToSafeHtml`. The brand stops a raw string reaching the page. */
 export type SafeNotesHtml = string & { readonly __safeNotesHtml: true };
@@ -35,7 +38,12 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const NAMED: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  // The typographic ones a hand-written changelog is likeliest to carry; GitHub mostly emits UTF-8.
+  mdash: "—", ndash: "–", hellip: "…", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”",
+  laquo: "«", raquo: "»", middot: "·", bull: "•", copy: "©", reg: "®", trade: "™",
+};
 
 // One pass, so "&amp;lt;" decodes to the literal text "&lt;" and never on to "<". A code point
 // outside Unicode is left as written (String.fromCodePoint would throw on it).
@@ -57,8 +65,11 @@ const KEPT: Record<string, string> = {
 // fuse their text ("ab"). Any other dropped tag (a, span, sup, ...) leaves its text as it stands.
 const SEPARATING = new Set(["div", "table", "thead", "tbody", "tr", "td", "th", "dl", "dt", "dd", "section", "details", "summary"]);
 // Dropped together with everything inside them: their content is not release-note text.
-const DROPPED_WITH_CONTENT = /<(script|style|template|svg|math|iframe|object|noscript|textarea|title|head)\b[\s\S]*?<\/\1\s*>/gi;
-const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
+const DROPPED_WITH_CONTENT = /<(script|style|template|svg|math|iframe|object|noscript|textarea|title|head)(?=[\s/>])[\s\S]*?<\/\1\s*>/gi;
+// A tag name may contain `-` and ends at whitespace, `/` or `>`, so a custom element such as
+// <li-item> or GitHub's <g-emoji> is its own (dropped) tag, never read as <li> or <g>.
+const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)(?=[\s/>])[^>]*>/g;
+const MAX_DEPTH = 64;
 
 function isHighSurrogate(code: number): boolean {
   return code >= 0xd800 && code <= 0xdbff;
@@ -90,6 +101,7 @@ export function notesToSafeHtml(notes: unknown, max: number): SafeNotesHtml {
 
   const out: string[] = [];
   const open: string[] = [];
+  let preDepth = 0;
   let budget = max;
   let visible = false;
   let clipped = false;
@@ -102,9 +114,8 @@ export function notesToSafeHtml(notes: unknown, max: number): SafeNotesHtml {
 
   const writeText = (raw: string) => {
     if (clipped) return;
-    const inPre = open.includes("pre");
     let text = decodeEntities(raw);
-    if (!inPre) {
+    if (preDepth === 0) {
       text = text.replace(/\s+/g, " ");
       if (endsInSpace()) text = text.replace(/^ /, "");
     }
@@ -128,7 +139,7 @@ export function notesToSafeHtml(notes: unknown, max: number): SafeNotesHtml {
     if (name === "br") {
       // Release bodies are hard-wrapped prose, and GitHub renders each wrap as a <br>; kept as line
       // breaks, every paragraph would show the source file's ragged line ends.
-      if (open.includes("pre")) out.push("\n");
+      if (preDepth > 0) out.push("\n");
       else space();
       continue;
     }
@@ -142,14 +153,20 @@ export function notesToSafeHtml(notes: unknown, max: number): SafeNotesHtml {
       continue;
     }
     if (!closing) {
+      if (open.length >= MAX_DEPTH) continue;
       out.push(`<${tag}>`);
       open.push(tag);
+      if (tag === "pre") preDepth += 1;
       continue;
     }
     // Close only what this module opened, and whatever it opened inside that since.
     const i = open.lastIndexOf(tag);
     if (i === -1) continue;
-    while (open.length > i) out.push(`</${open.pop()}>`);
+    while (open.length > i) {
+      const t = open.pop() as string;
+      if (t === "pre") preDepth -= 1;
+      out.push(`</${t}>`);
+    }
   }
   if (!clipped && at < source.length) writeText(source.slice(at));
   while (open.length > 0) out.push(`</${open.pop()}>`);

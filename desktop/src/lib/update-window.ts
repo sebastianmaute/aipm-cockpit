@@ -32,7 +32,7 @@ const SCRIPT_HASH = createHash("sha256").update(SCRIPT, "utf8").digest("base64")
 
 /** Shown above the buttons: installing replaces the running app, and nothing is visible meanwhile. */
 export const UPDATE_DURATION_HINT =
-  "Downloading and installing takes a few minutes. The download runs in the background, with its progress on the taskbar icon. While the update installs, the app closes and nothing is visible for a while, so it may seem frozen: please wait, and do not start it again.";
+  "Downloading and installing takes a few minutes. The download runs in the background, with its progress on the taskbar icon. While the update installs, the app closes and nothing is visible for a while, so it may seem frozen: please wait, and do not start it again until the installation has finished.";
 
 /** The whole page. `notesHtml` is inserted as is, which is why it must come from notesToSafeHtml. */
 export function buildUpdatePromptHtml({ version, notesHtml }: { version: string; notesHtml: SafeNotesHtml }): string {

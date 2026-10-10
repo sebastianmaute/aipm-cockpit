@@ -8,6 +8,9 @@ export const STARTUP_CHECK_DELAY_MS = 10_000;
 // in a native message box that cannot scroll, which cut every real changelog short. It was 20,000
 // until 1.16.0, whose release notes run to about 34,000 characters of text and were cut short again.
 export const NOTES_MAX = 100_000;
+// The native message box the window falls back to cannot scroll, so its plain-text notes keep the
+// old fit-the-box cap; the install hint goes BEFORE them there, so it is never pushed off-screen.
+export const BOX_NOTES_MAX = 1500;
 const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";
@@ -56,7 +59,7 @@ export function decideOnAvailable(
   if (trigger === "startup" && skipped === available.version) return { kind: "silent" };
   return {
     kind: "prompt", version: available.version,
-    notes: notesToPlainText(available.releaseNotes), notesHtml: notesToSafeHtml(available.releaseNotes, NOTES_MAX),
+    notes: notesToPlainText(available.releaseNotes, BOX_NOTES_MAX), notesHtml: notesToSafeHtml(available.releaseNotes, NOTES_MAX),
   };
 }
 

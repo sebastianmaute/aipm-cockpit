@@ -129,7 +129,7 @@ function wireUpdater(
   const promptAvailable = (version: string, notes: string, notesHtml: SafeNotesHtml): Promise<UpdateChoice> => {
     const fallback = async (): Promise<UpdateChoice> => {
       const r = await box({
-        type: "info", title: "Update available", message: `AI PM Cockpit ${version} is available.`, detail: `${notes}\n\n${UPDATE_DURATION_HINT}`,
+        type: "info", title: "Update available", message: `AI PM Cockpit ${version} is available.`, detail: `${UPDATE_DURATION_HINT}\n\n${notes}`,
         buttons: ["Download and install", "Later", "Skip this version"], defaultId: 0, cancelId: 1,
       });
       return r === 0 ? "download" : r === 2 ? "skip" : "later";
