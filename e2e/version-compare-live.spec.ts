@@ -8,9 +8,10 @@
 //     diff must still carry a row-unique accessible name (§243, §257, §305);
 //   - two named versions taken with "Save version now";
 //   - "Compared with current" lists both tasks' changes;
-//   - "Restore this" on one record reverts that task in the app and in the
-//     database, and leaves the other alone;
-//   - "Compare selected" and "Compare side by side" both render.
+//   - "Restore this" on one record reverts that task in the database and leaves
+//     the other alone;
+//   - "Compare selected" renders the diff, and "Compare side by side" renders
+//     both versions' column headings.
 //
 // ★★★ It reads only the throwaway pair and needs the app's database to BE the
 // throwaway one (`live-turso-env.ts`); it skips, saying why, otherwise. Every
@@ -22,6 +23,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { TABLE_NAMES } from "../src/app/turso-schema";
+import { SNAPSHOT_TABLE_NAMES } from "../src/app/snapshot-schema";
 import {
   LIVE, appIsThrowaway, SKIP_NO_THROWAWAY, SKIP_APP_NOT_THROWAWAY, guardAppDatabase,
   rawPipeline as pipeline, txt,
@@ -54,13 +56,18 @@ const PROJECT_ROW: Record<string, string> = {
 
 async function cleanPartition(): Promise<void> {
   await ensureTenantSchema();
-  await pipeline([
+  const results = await pipeline([
     { sql: "DELETE FROM project_versions WHERE project_id = ?", args: [txt(PID)] },
-    // The app's own live Trends capture writes here too; snapshot is outside TABLE_NAMES.
-    { sql: "DELETE FROM snapshot WHERE project_id = ?", args: [txt(PID)] },
+    // The app's own live Trends capture writes here too (snapshot and snapshot_series), and both
+    // tables are outside TABLE_NAMES.
+    ...SNAPSHOT_TABLE_NAMES.map((t) => ({ sql: `DELETE FROM ${t} WHERE project_id = ?`, args: [txt(PID)] })),
     ...TABLE_NAMES.map((t) => ({ sql: `DELETE FROM ${t} WHERE project_id = ?`, args: [txt(PID)] })),
     { sql: "DELETE FROM projects WHERE id = ?", args: [txt(PID)] },
   ]);
+  // `ensureTenantSchema` creates every tenant table, so only the side tables (versions and
+  // snapshots) may answer "no such table" on a database the app has never captured into.
+  const failed = results.filter((r) => r.type === "error" && !/no such table/i.test(r.error?.message ?? "")).length;
+  expect(failed, "cleaning the probe partition failed").toBe(0);
 }
 
 async function seedProject(): Promise<void> {
@@ -107,9 +114,11 @@ async function waitForShell(page: Page): Promise<void> {
   await expect(page.getByRole("link", { name: "Dashboard", exact: true }).or(page.getByRole("button", { name: "Dashboard", exact: true })).first()).toBeVisible({ timeout: 90_000 });
 }
 
-/** Append `suffix` to the nth inline-editable task name and commit with Enter. */
-async function appendToTaskName(page: Page, nth: number, suffix: string): Promise<void> {
-  await page.getByTitle(/ — click to edit$/).filter({ hasText: TASK_NAME }).nth(nth).dblclick();
+/** Append `suffix` to the first task name that does not carry it yet, and commit with Enter.
+ *  Chosen by content, not by row index, so a table sorted by name cannot send both edits to
+ *  the same task. */
+async function appendToNextTaskName(page: Page, suffix: string): Promise<void> {
+  await page.getByTitle(/ — click to edit$/).filter({ hasText: TASK_NAME, hasNotText: suffix }).first().dblclick();
   const input = page.getByRole("textbox", { name: /^Task name – / });
   await expect(input).toBeFocused();
   await page.keyboard.press("End");
@@ -128,7 +137,9 @@ async function saveVersion(page: Page, label: string, expectedCount: number): Pr
 
 /** Every `aria-label` of a VISIBLE control inside `scope`, for the row-unique
  *  check. Visible only: the chat and RAID panels stay mounted while hidden
- *  (workspace-section), so their toolbars would read as duplicates of this one. */
+ *  (workspace-section), so their toolbars would read as duplicates of this one.
+ *  `aria-label` only: every per-row control in the history panel and the diff
+ *  view is named that way (none uses `aria-labelledby` or bare text). */
 async function controlNames(page: Page, scopeSelector: string): Promise<string[]> {
   return page.evaluate((sel) => {
     const scope = document.querySelector(sel);
@@ -180,10 +191,9 @@ test.describe("version compare and restore — live Turso", () => {
 
     await openView(page, "Open Points");
     // The SAME suffix on both, so the two changed records carry one label in the
-    // diff: the case the row-unique names exist for. The filter matches by
-    // substring, so the edited first task is still row 0.
-    await appendToTaskName(page, 0, EDIT_SUFFIX);
-    await appendToTaskName(page, 1, EDIT_SUFFIX);
+    // diff: the case the row-unique names exist for.
+    await appendToNextTaskName(page, EDIT_SUFFIX);
+    await appendToNextTaskName(page, EDIT_SUFFIX);
     await expect
       .poll(async () => Object.values(await storedTaskNames()).sort(), { message: "the edits never reached the database", timeout: 30_000 })
       .toEqual([`${TASK_NAME}${EDIT_SUFFIX}`, `${TASK_NAME}${EDIT_SUFFIX}`]);
@@ -224,7 +234,15 @@ test.describe("version compare and restore — live Turso", () => {
     await expect(page.getByRole("heading", { name: "Changes", exact: true })).toBeVisible();
     await shot("04-compare-selected");
     expect(duplicates(await controlNames(page, "main")), "duplicate accessible names in the version-to-version diff").toEqual([]);
+    // The side-by-side layout heads each column with its version's label (CSS upper-cases it).
+    // Counted, not just found: each label is already on screen in the version list, so only
+    // one MORE of each shows the columns rendered.
+    const baselineLabels = page.getByText(BASELINE, { exact: true });
+    const afterLabels = page.getByText(AFTER, { exact: true });
+    const [baselineBefore, afterBefore] = [await baselineLabels.count(), await afterLabels.count()];
     await page.getByRole("button", { name: "Compare side by side", exact: true }).click();
+    await expect(baselineLabels, "side by side added no Baseline column heading").toHaveCount(baselineBefore + 1);
+    await expect(afterLabels, "side by side added no After edit column heading").toHaveCount(afterBefore + 1);
     await shot("05-side-by-side");
     expect(duplicates(await controlNames(page, "main")), "duplicate accessible names in the side-by-side view").toEqual([]);
   });

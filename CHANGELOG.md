@@ -33,7 +33,7 @@ longer carries its own changelog comment.
 
 - **The version-name field in History has an accessible name.** The field that names a version after
   "Save version now" had only a placeholder, which screen readers are not required to read as its name. It
-  now carries the same words as its name. Found by the first live run of the version-compare checks.
+  now carries the same words as its name.
 
 ## [1.16.0] - 2026-10-09 "Rankin"
 
