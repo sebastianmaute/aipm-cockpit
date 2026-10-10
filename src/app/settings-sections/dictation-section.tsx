@@ -9,9 +9,9 @@ import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
 import { logDiag } from "../diagnostics";
 import { removeSealed } from "../secrets-store";
-import { INTERACTIVE } from "../interaction-styles";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 import { Input } from "../form-controls";
+import { Button } from "../button";
 
 const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
@@ -160,26 +160,21 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
           {t(lang, "dictationHotkey")}
         </span>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="md"
             aria-label={t(lang, "dictationHotkey")}
             onClick={() => setHotkeyArmed(true)}
             onKeyDown={handleHotkeyCapture}
             onMouseDown={handleHotkeyMouseCapture}
             onAuxClick={handleHotkeyMouseCapture}
             onBlur={() => setHotkeyArmed(false)}
-            className={`rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground ${INTERACTIVE}`}
           >
             {hotkeyArmed ? t(lang, "dictationHotkeySet") : hotkey}
-          </button>
-          <button
-            type="button"
-            aria-label={t(lang, "dictationHotkeyReset")}
-            onClick={handleHotkeyReset}
-            className={`rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground ${INTERACTIVE}`}
-          >
+          </Button>
+          <Button variant="secondary" size="md" aria-label={t(lang, "dictationHotkeyReset")} onClick={handleHotkeyReset}>
             {t(lang, "dictationHotkeyReset")}
-          </button>
+          </Button>
         </div>
         <FieldHint>{t(lang, "dictationHotkeyNote")}</FieldHint>
       </div>

@@ -5,7 +5,7 @@ import { ProjectSwitcher } from "./project-switcher";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import { buttonClassFor } from "../test/button-variant";
+import { buttonClassFor, iconButtonClassFor } from "../test/button-variant";
 
 const projects: ProjectRegistryEntry[] = [
   {
@@ -354,5 +354,27 @@ describe("ProjectSwitcher row names", () => {
     const second = screen.getByRole("menuitem", { name: /Gemini.*GMN \(2\)$/ });
     expect(second.querySelector(".sr-only")?.textContent).toBe("(2)");
     expectRowUniqueNames({ minControls: 3, roles: ["menuitem"], requireCollisionSeed: true });
+  });
+});
+
+// §102 re-scan: the reload button hand-rolled a bordered icon box at 32px
+// beside the 34px `sm` trigger; it is IconButton `bordered` `md`, and a
+// 20px icon makes it 34px too (6px padding each side + 2px border).
+describe("ProjectSwitcher reload button (§102)", () => {
+  it("is IconButton bordered md with a 20px icon", () => {
+    renderSwitcher({ onReload: vi.fn() });
+    const reload = screen.getByRole("button", { name: t("en-US", "reloadProject") });
+    expect(reload.className).toBe(iconButtonClassFor({ variant: "bordered", size: "md", className: "shrink-0" }));
+    expect(reload).toHaveAttribute("title", t("en-US", "reloadProjectHint"));
+    const svg = reload.querySelector("svg");
+    expect(svg?.getAttribute("class")).toContain("h-5");
+    expect(svg?.getAttribute("class")).toContain("w-5");
+  });
+
+  it("still calls onReload", async () => {
+    const onReload = vi.fn();
+    renderSwitcher({ onReload });
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "reloadProject") }));
+    expect(onReload).toHaveBeenCalledTimes(1);
   });
 });
