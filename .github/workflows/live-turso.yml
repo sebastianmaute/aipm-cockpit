@@ -94,16 +94,18 @@ jobs:
       # ★★ Secrets go on a STEP's env: only, never the job's: a job-level env: would hand the token to
       # checkout, setup-node and npm ci, which runs every dependency's install scripts.
       # Each test step has its own timeout, below the job's, so a hung step FAILS rather than the job
-      # being cancelled: the next step and the upload then run as after any failure. Each run is also
-      # bounded so that a broadly broken run ENDS (and writes its report) before its timeout: the
-      # drop-tables project has no retries (playwright.config.ts), and the app step passes
-      # --retries=1 --max-failures=3.
+      # being cancelled: the next step and the upload then run as after any failure. ★★ Inside that,
+      # each Playwright run has its own wall clock, E2E_GLOBAL_TIMEOUT_MS (playwright.config.ts's
+      # globalTimeout), two minutes under the step's: Playwright then stops itself and still writes
+      # its HTML report, whatever the number of tests. --max-failures does NOT do that: it counts a
+      # failure only after its retries, and retries are queued after every test's first attempt.
       - name: Live specs that drop tables
         timeout-minutes: 12
         env:
           TURSO_THROWAWAY_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           TURSO_THROWAWAY_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drop-tables
+          E2E_GLOBAL_TIMEOUT_MS: "600000"
         run: npm run e2e:live-destructive
       # Then the specs that drive the app, one at a time, on a dev server started with the throwaway
       # database as the app's own. Runs even when the step above failed, so one failure does not
@@ -119,6 +121,7 @@ jobs:
           NEXT_PUBLIC_TURSO_DATABASE_URL: ${{ secrets.TURSO_THROWAWAY_DATABASE_URL }}
           NEXT_PUBLIC_TURSO_AUTH_TOKEN: ${{ secrets.TURSO_THROWAWAY_AUTH_TOKEN }}
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/drive-app
+          E2E_GLOBAL_TIMEOUT_MS: "1080000"
         # The quoted filter is a regex with | in it; bash keeps it one argument.
         shell: bash
         run: npx playwright test "(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts" --project=chromium --workers=1 --retries=1 --max-failures=3

@@ -204,14 +204,23 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   `--workers=1`, on a dev server started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`,
   so the app's database is the throwaway one. The step's file filter names every live UI spec,
   including ones a later branch adds. Each test step has its own `timeout-minutes` (12 and 20; the
-  job's is 50, and the tests check the two leave at least 15 minutes of setup under it), so a hung
+  job's is 50, and the tests check that the two plus 15 minutes of setup fit under it), so a hung
   step fails rather than the whole job being cancelled, and the other step and the upload still
-  run. Each run is also bounded so that a broadly broken one ENDS, and writes its report, before its
-  step timeout: the `live-turso-destructive` project sets `retries: 0` (no browser; a failure is the
-  database's real answer), and the app step passes `--retries=1 --max-failures=3`. Each step writes its own report folder under `playwright-report/`,
-  uploaded as `live-turso-report` on failure or cancellation, for 7 days. A job that hits its own
-  timeout ends cancelled, and its upload is best-effort: Playwright writes its HTML report only when
-  its run ends, so a step killed mid-run may leave none.
+  run.
+- ★★ **Each Playwright run stops itself before its step is killed.** Playwright writes its HTML
+  report only when a run ends, so a step killed by its timeout uploads none. Each step therefore
+  sets `E2E_GLOBAL_TIMEOUT_MS` (10 and 18 minutes, at least 2 under the step's; the tests check
+  it), which `playwright.config.ts` passes to `globalTimeout`: Playwright then interrupts the run
+  and still writes the report, whatever the number of tests. Measured locally on 2026-10-10 with
+  `E2E_GLOBAL_TIMEOUT_MS=1` and the destructive project: "Timed out waiting 0.001s", exit 1, and
+  an `index.html` written; unset, `abc` or `0` set no limit (4 skipped, exit 0). ★ `--retries=1
+  --max-failures=3` on the app step do NOT bound the time: Playwright counts a failure toward
+  `--max-failures` only after its retries, and queues every retry after all first attempts, so
+  nothing counts until the whole first pass is done. The `live-turso-destructive` project sets
+  `retries: 0` (no browser, so a failure is the database's real answer, and a retry only doubles
+  a broken run). Each step writes its own report folder under `playwright-report/`, uploaded as
+  `live-turso-report` on failure or cancellation, for 7 days. A JOB that hits its own timeout ends
+  cancelled, and its upload is best-effort for the same reason.
 - **Secrets.** `TURSO_THROWAWAY_DATABASE_URL` and `TURSO_THROWAWAY_AUTH_TOKEN`, for a Turso
   database kept for this workflow alone: the specs drop its tables. ★★★ The token must be scoped
   to that ONE database (`turso db tokens create <db>`), never a group or organisation token: what a
@@ -244,13 +253,15 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
   job-level fixed concurrency group and an ungrouped `check`; each of the 8 secret lines directly
   under a STEP's `env:` key, and in exactly the three steps that need them (2 in the check's step,
-  2 in the drop-tables step, 4 in the app step), so moving them onto `npm ci` fails; two separate
+  2 in the drop-tables step, 4 in the app step, each step matched by its name AND its `run:`
+  command), so moving them onto `npm ci` fails; two separate
   raw-text checks (shell `#` lines in a `run: |` body included): only those 8 lines may hold a
   `${{ }}` naming `secrets` or `env`, and no `${{ }}` reads `env.` or `env[...]`; `npm ci` before
   the install step the app step waits on; the order of the two steps, the second running after a
-  failure but not after a failed setup; a step-level timeout on each, summing to at least 15
-  minutes under the job's; `retries: 0` on the destructive project and `--retries=1
-  --max-failures=3` on the app step; the 7-day upload on failure or cancellation; and no other
+  failure but not after a failed setup; a step-level timeout on each, the two plus 15 at most
+  the job's; each step's `E2E_GLOBAL_TIMEOUT_MS` at least 2 minutes under its step's, and
+  `playwright.config.ts` passing it to `globalTimeout`; `retries: 0` on the destructive project and
+  `--retries=1 --max-failures=3` on the app step; the 7-day upload on failure or cancellation; and no other
   workflow file naming the throwaway secrets or handing over every secret (`toJSON(secrets)` in any
   case, `secrets: inherit`). ★ Those checks read text, not parsed YAML: a deliberately obscured
   expression (a YAML anchor, `format()` to build a secret name) is out of their reach. They fail

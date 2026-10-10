@@ -468,15 +468,18 @@ describe("live-turso.yml", () => {
       const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
       expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
       // And WHICH step: the secrets moved onto npm ci's own env: would pass every check above while
-      // handing the token to every dependency's install scripts.
+      // handing the token to every dependency's install scripts. Keyed by the step's name AND its
+      // run: command, so a second step reusing a name does not merge into the count.
       const step = lines.slice(0, i).reverse().find((l) => /^ {6}- /.test(l));
-      perStep[step] = (perStep[step] ?? 0) + 1;
+      const run = lines.slice(i).find((l) => /^ {8}run: /.test(l));
+      const key = `${step?.trim()} | ${run?.trim().slice(0, 40)}`;
+      perStep[key] = (perStep[key] ?? 0) + 1;
     });
     expect(seen).toBe(8);
     expect(perStep).toEqual({
-      "      - name: Are both throwaway database values set?": 2,
-      "      - name: Live specs that drop tables": 2,
-      "      - name: Live specs that drive the app": 4,
+      "- name: Are both throwaway database values set? | run: |": 2,
+      "- name: Live specs that drop tables | run: npm run e2e:live-destructive": 2,
+      "- name: Live specs that drive the app | run: npx playwright test \"(documents-ima": 4,
     });
   });
 
@@ -508,7 +511,8 @@ describe("live-turso.yml", () => {
     for (const v of ["TURSO_THROWAWAY_DATABASE_URL", "TURSO_THROWAWAY_AUTH_TOKEN", "NEXT_PUBLIC_TURSO_DATABASE_URL", "NEXT_PUBLIC_TURSO_AUTH_TOKEN"]) {
       expect(appStep, v).toContain(`${v}: `);
     }
-    // Bounded so a broadly broken run ends, and writes its report, before the step timeout.
+    // At most one retry and three final failures. These do NOT bound the run's time (retries queue
+    // after every first attempt); E2E_GLOBAL_TIMEOUT_MS below does.
     expect(appStep).toMatch(/--project=chromium --workers=1 --retries=1 --max-failures=3$/m);
     // One failure must not hide the other suite, but a failed setup must not add a second failure.
     expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
@@ -529,8 +533,17 @@ describe("live-turso.yml", () => {
     expect(dropMin).toBeGreaterThan(0);
     expect(appMin).toBeGreaterThan(0);
     expect(dropMin + appMin + 15).toBeLessThanOrEqual(jobMin);
-    // The drop-tables project's own bound (no retries) lives in playwright.config.ts.
+    // Each Playwright run's own wall clock, at least 2 minutes under its step's timeout, so it stops
+    // itself and writes its report before the step is killed, whatever the number of tests.
+    const ms = (text) => minutes(text, /^ {10}E2E_GLOBAL_TIMEOUT_MS: "(\d+)"$/m);
+    expect(ms(dropStep)).toBeGreaterThan(0);
+    expect(ms(appStep)).toBeGreaterThan(0);
+    expect(ms(dropStep)).toBeLessThanOrEqual((dropMin - 2) * 60_000);
+    expect(ms(appStep)).toBeLessThanOrEqual((appMin - 2) * 60_000);
     const config = read("playwright.config.ts");
+    expect(config).toMatch(/const GLOBAL_TIMEOUT_MS = Number\(process\.env\.E2E_GLOBAL_TIMEOUT_MS\);/);
+    expect(config).toMatch(/^ {2}globalTimeout: Number\.isInteger\(GLOBAL_TIMEOUT_MS\) && GLOBAL_TIMEOUT_MS > 0 \? GLOBAL_TIMEOUT_MS : undefined,\r?$/m);
+    // The drop-tables project's no-retries setting lives in playwright.config.ts.
     const destructive = config.slice(config.indexOf('name: "live-turso-destructive"'));
     expect(destructive.slice(0, destructive.indexOf("},"))).toMatch(/^\s+retries: 0,\r?$/m);
     expect(dropStep).toContain("TURSO_THROWAWAY_DATABASE_URL: ");
