@@ -551,7 +551,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 
 ★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
 `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). The Turso guard ran
-against a live database on 2026-10-10 (`e2e/turso-revision-live.spec.ts`, §654, not in CI). It drops every workspace table, so it
+against a live database on 2026-10-10 (`e2e/turso-revision-live.spec.ts`, §654); CI collects it but runs it only as a skip until §215 sets the throwaway secrets. It drops every workspace table, so it
 reads only `TURSO_THROWAWAY_DATABASE_URL`/`TURSO_THROWAWAY_AUTH_TOKEN`, never the app's own pair, and skips without them. Nothing has run on a live SharePoint tenant; §652 lists the owed checks.
 
 ## The six write paths

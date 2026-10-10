@@ -32,9 +32,11 @@
 // booleans; the one recorded server message carries only the stored revision.
 
 import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { test, expect } from "@playwright/test";
 import {
   REVISION_CONFLICT_MARKER,
+  REVISION_KEY,
   TABLE_NAMES,
   isRevisionGuard,
   workspaceToStatements,
@@ -52,9 +54,12 @@ function readThrowawayEnv(): { url: string; token: string } {
     url: process.env.TURSO_THROWAWAY_DATABASE_URL ?? "",
     token: process.env.TURSO_THROWAWAY_AUTH_TOKEN ?? "",
   };
-  if (fromProcess.url || fromProcess.token) return fromProcess;
-  if (!existsSync(".env.local")) return { url: "", token: "" };
-  const txt = readFileSync(".env.local", "utf8");
+  // Both halves, or the file decides: a stale URL exported alone must not redirect the run.
+  if (fromProcess.url && fromProcess.token) return fromProcess;
+  // From the repo, not the working directory: a cwd-relative path finds no file and everything skips.
+  const envPath = join(__dirname, "..", ".env.local");
+  if (!existsSync(envPath)) return { url: "", token: "" };
+  const txt = readFileSync(envPath, "utf8");
   const read = (key: string) =>
     (txt.match(new RegExp(`^${key}=(.*)$`, "m"))?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
   return { url: read("TURSO_THROWAWAY_DATABASE_URL"), token: read("TURSO_THROWAWAY_AUTH_TOKEN") };
@@ -80,8 +85,8 @@ async function dropWorkspaceTables(): Promise<void> {
 async function storedRevision(projectId?: string): Promise<string | null> {
   const [res] = await runTursoPipeline(CONFIG, [
     projectId === undefined
-      ? { sql: "SELECT value FROM meta WHERE key = 'revision'" }
-      : { sql: "SELECT value FROM meta WHERE key = 'revision' AND project_id = ?", args: [text(projectId)] },
+      ? { sql: "SELECT value FROM meta WHERE key = ?", args: [text(REVISION_KEY)] }
+      : { sql: "SELECT value FROM meta WHERE key = ? AND project_id = ?", args: [text(REVISION_KEY), text(projectId)] },
   ]);
   const rows = (res.response?.result as { rows?: { value: string }[][] } | undefined)?.rows ?? [];
   return rows.length ? rows[0][0].value : null;
