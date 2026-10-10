@@ -5,7 +5,11 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import TaskManager from "./task-manager";
 import { t } from "./i18n";
 import { DEMO_INTENT_KEY } from "./demo-intent";
-import { DEMO_SAMPLE_NAME, DEMO_SNAPSHOT_WEEKS } from "./demo-project";
+import { DEMO_SAMPLE_NAME, demoHistoryWeeks } from "./demo-project";
+import { createProjectClock, resolveTimezone } from "./timezone";
+
+// The week count the app quotes for today, read the way task-manager reads its clock.
+const DEMO_WEEKS = demoHistoryWeeks(createProjectClock(resolveTimezone(undefined, undefined)).today);
 
 // Pass-through captures of the two hooks' args, for the wiring test below (§491).
 const wiring = vi.hoisted(() => ({
@@ -141,9 +145,9 @@ describe("TaskManager portfolio mode (Turso)", () => {
 
     render(<TaskManager />);
 
-    const note = t("en-US", "demoTursoConnectedNote", DEMO_SNAPSHOT_WEEKS);
+    const note = t("en-US", "demoTursoConnectedNote", DEMO_WEEKS);
     expect(await screen.findByText(note, undefined, { timeout: 40000 })).toBeTruthy();
-    expect(screen.getByText(t("en-US", "demoCardTrendsIncluded", DEMO_SNAPSHOT_WEEKS, t("en-US", "demoProjectName", DEMO_SAMPLE_NAME)))).toBeTruthy();
+    expect(screen.getByText(t("en-US", "demoCardTrendsIncluded", DEMO_WEEKS, t("en-US", "demoProjectName", DEMO_SAMPLE_NAME)))).toBeTruthy();
     expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBeNull();
   }, 45000);
 
@@ -163,7 +167,7 @@ describe("TaskManager portfolio mode (Turso)", () => {
     await waitFor(() => expect(listProjects).toHaveBeenCalled(), { timeout: 40000 });
     await waitFor(() => expect(wiring.backendSucceeded).toBe(true), { timeout: 40000 });
     expect(await screen.findByRole("region", { name: "Storage connection problem" })).toBeTruthy();
-    expect(screen.queryByText(t("en-US", "demoTursoConnectedNote", DEMO_SNAPSHOT_WEEKS))).toBeNull();
+    expect(screen.queryByText(t("en-US", "demoTursoConnectedNote", DEMO_WEEKS))).toBeNull();
     expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBe("turso-setup");
   }, 45000);
 

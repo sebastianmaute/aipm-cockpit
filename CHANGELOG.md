@@ -49,6 +49,15 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The demo's Trends history has no gaps, and the start card quotes the weeks it really stores.** The
+  seeded weekly snapshots moved by whole months, so each one landed on a different weekday: some weeks
+  were left empty and drawn as gaps, and others held two snapshots, one of which was dropped. They now
+  move by whole weeks and end in the week before the demo is created, so the live snapshot follows on
+  without a gap. The card now quotes the number of weeks the demo stores.
+- **Trends charts label only as many points along the bottom axis as fit without overlapping.** With
+  more snapshots than that, every label was drawn and they overlapped into an unreadable band. That is
+  five weekly labels, four daily ones and six monthly ones; the first and last points are always
+  labelled.
 - **The version-name field in History has an accessible name.** The field that names a version after
   "Save version now" had only a placeholder, which screen readers are not required to read as its name. It
   now carries the same words as its name.

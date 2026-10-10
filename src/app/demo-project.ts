@@ -19,17 +19,32 @@ import type { NewProjectOpts } from "./new-project-workspace";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { browserProjectIn, loadRegistry, type ProjectRegistryEntry } from "./projects-registry";
 import type { TursoConfig } from "./turso-config";
-import type { ProjectMeta } from "./types";
+import type { PlanGranularity, ProjectMeta } from "./types";
 import type { Workspace } from "./workspace";
 
 export type DemoOutcome =
   | "turso" | "local" | "local-after-turso-failure" | "turso-without-history"
   | "local-blocked" | "turso-failed";
 
-/** The seeded history's length, which the start card quotes as its week count. Imported
- *  statically so the card can say it before any click: the file is ~79 KB raw, ~3 KB gzipped. */
+/** The seeded history, imported statically so the card can quote its week count before any
+ *  click: the file is ~79 KB raw, ~3 KB gzipped. */
 const DEMO_RECORDS = demoSnapshots as unknown as readonly SnapshotRecord[];
-export const DEMO_SNAPSHOT_WEEKS = DEMO_RECORDS.length;
+
+/** The demo master's plan granularity, which sets the shift unit. `demo-project.test.ts` pins it
+ *  to the master, so the card can count before the 89 KB master is loaded. */
+export const DEMO_PLAN_GRANULARITY: PlanGranularity = "month";
+
+let weeksCache: { today: string; weeks: number } | null = null;
+
+/** How many weeks of history the demo stores when created on `today`: the card and the boot
+ *  note quote it. Counted through the same path the create writes, so the card cannot drift from
+ *  the store. Cached per date, so a render does not re-shift 27 records. */
+export function demoHistoryWeeks(today: string): number {
+  if (weeksCache?.today !== today) {
+    weeksCache = { today, weeks: historyFor(DEMO_RECORDS, DEMO_PLAN_GRANULARITY, today, "weekly").length };
+  }
+  return weeksCache.weeks;
+}
 
 /** The sample master's `project.name`, which the Turso card quotes before the 89 KB master is
  *  loaded. `demo-project.test.ts` pins it to the master. The copy (`demoCardBody`) names it too. */
@@ -74,19 +89,27 @@ export interface CreateDemoDeps {
 
 /** The seeded history as the new project should hold it: shifted by the workspace's own shift,
  *  thinned to the user's cadence, and ending before the current bucket (left to the live
- *  capture, so no bucket is written twice). A shift collision can drop the authored baseline,
- *  so the first remaining record becomes the baseline. */
+ *  capture, so no bucket is written twice). The first remaining record is the baseline. */
 export function demoHistoryFor(
   records: readonly SnapshotRecord[],
   ws: Workspace,
   today: string,
   cadence: SnapshotCadence,
 ): SnapshotRecord[] {
-  const n = demoShiftFor(DEMO_AS_OF, today, ws.plan.granularity);
+  return historyFor(records, ws.plan.granularity, today, cadence);
+}
+
+function historyFor(
+  records: readonly SnapshotRecord[],
+  granularity: PlanGranularity,
+  today: string,
+  cadence: SnapshotCadence,
+): SnapshotRecord[] {
+  const n = demoShiftFor(DEMO_AS_OF, today, granularity);
   const now = new Date(`${today}T00:00:00Z`);
   // Compared per record cadence: a monthly-thinned record carries a "YYYY-MM" bucket, which
   // never orders against a weekly "YYYY-Www" key.
-  return thinForCadence(shiftDemoSnapshots(records, n, ws.plan.granularity), cadence)
+  return thinForCadence(shiftDemoSnapshots(records, n, granularity, today), cadence)
     .filter((r) => r.bucket < bucketKey(now, r.cadence))
     .map((r, i) => ({ ...r, isBaseline: i === 0 }));
 }

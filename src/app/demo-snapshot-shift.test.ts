@@ -28,9 +28,10 @@ function rec(capturedAt: string, over: Partial<SnapshotRecord> = {}): SnapshotRe
 }
 
 describe("shiftDemoSnapshots", () => {
-  it("moves every date, period and key by one month", () => {
-    const [out] = shiftDemoSnapshots([rec("2026-03-06T17:00:00.000Z")], 1, "month");
-    expect(out.capturedAt).toBe("2026-04-06T17:00:00.000Z");
+  it("moves every date, period and key by one month, and the capture into the week before today's", () => {
+    // Today (Wed 2026-04-08) is in W15, so the capture moves 4 whole weeks into W14 and stays a Friday.
+    const [out] = shiftDemoSnapshots([rec("2026-03-06T17:00:00.000Z")], 1, "month", "2026-04-08");
+    expect(out.capturedAt).toBe("2026-04-03T17:00:00.000Z");
     expect(out.forecastEndDate).toBe("2026-07-31"); // a last-of-month date stays last-of-month
     expect(out.planEndDate).toBe("2026-06-29");
     expect(out.milestones[0].target).toBe("2026-06-29");
@@ -40,25 +41,26 @@ describe("shiftDemoSnapshots", () => {
     expect(out.bucket).toBe(bucketKey(new Date(out.capturedAt), "weekly"));
   });
 
-  it("collapses two Fridays that clamp into one ISO week to the later source", () => {
+  it("keeps consecutive weekly captures in consecutive weeks where a month shift would clamp them together", () => {
+    // Jan 23 and Jan 30 shifted by a month would both clamp near Feb 28 and share one ISO week.
     const out = shiftDemoSnapshots(
       [rec("2026-01-23T17:00:00.000Z", { remainingHours: 1 }), rec("2026-01-30T17:00:00.000Z", { remainingHours: 2 })],
-      1, "month",
+      1, "month", "2026-03-02",
     );
-    expect(out).toHaveLength(1);
-    expect(out[0].capturedAt).toBe("2026-02-28T17:00:00.000Z");
-    expect(out[0].remainingHours).toBe(2);
+    expect(out.map((r) => r.capturedAt)).toEqual(["2026-02-20T17:00:00.000Z", "2026-02-27T17:00:00.000Z"]);
+    expect(out.map((r) => r.remainingHours)).toEqual([1, 2]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-W08", "2026-W09"]);
   });
 
-  it("returns equal records for n = 0", () => {
+  it("returns equal records when nothing moves", () => {
     const input = [rec("2026-03-06T17:00:00.000Z"), rec("2026-03-13T17:00:00.000Z")];
-    expect(shiftDemoSnapshots(input, 0, "month")).toEqual(input);
+    expect(shiftDemoSnapshots(input, 0, "month", "2026-03-16")).toEqual(input);
   });
 
   it("does not mutate its input", () => {
     const input = [rec("2026-03-06T17:00:00.000Z")];
     const copy = structuredClone(input);
-    shiftDemoSnapshots(input, 2, "month");
+    shiftDemoSnapshots(input, 2, "month", "2026-05-20");
     expect(input).toEqual(copy);
   });
 });
@@ -89,14 +91,26 @@ describe("the committed demo history", () => {
   const seeded = JSON.parse(readFileSync(join(process.cwd(), "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
 
   it("shifts by one month into unique buckets, id === capturedAt, one baseline", () => {
-    const out = thinForCadence(shiftDemoSnapshots(seeded, 1, "month"), "weekly");
+    const out = thinForCadence(shiftDemoSnapshots(seeded, 1, "month", "2026-10-14"), "weekly");
     expect(new Set(out.map((r) => r.bucket)).size).toBe(out.length);
     expect(out.every((r) => r.id === r.capturedAt)).toBe(true);
     expect(out.filter((r) => r.isBaseline)).toHaveLength(1);
   });
 
-  it("returns the input unchanged for n = 0", () => {
-    expect(shiftDemoSnapshots(seeded, 0, "month")).toEqual(seeded);
+  it("returns the input unchanged when nothing moves", () => {
+    expect(shiftDemoSnapshots(seeded, 0, "month", "2026-09-14")).toEqual(seeded);
+  });
+
+  // The Trends charts mark a gap for every missing weekly bucket. A month shift moved each Friday to
+  // a different weekday, which emptied some weeks and doubled up others ("2 gaps" on a live demo).
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])("keeps every record in its own consecutive week when the contents move %i months", (n) => {
+    const out = shiftDemoSnapshots(seeded, n, "month", new Date(Date.UTC(2026, 8 + n, 15)).toISOString().slice(0, 10));
+    expect(out).toHaveLength(seeded.length);
+    const weeks = out.map((r) => Date.parse(r.capturedAt) / (7 * 86_400_000));
+    for (let i = 1; i < weeks.length; i += 1) expect(weeks[i] - weeks[i - 1]).toBeCloseTo(1, 6);
+    expect(new Set(out.map((r) => new Date(r.capturedAt).getUTCDay()))).toEqual(
+      new Set(seeded.map((r) => new Date(r.capturedAt).getUTCDay())),
+    );
   });
 });
 

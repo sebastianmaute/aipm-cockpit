@@ -90,7 +90,7 @@ import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useTrendSnapshots } from "./use-trend-snapshots";
-import { DEMO_SNAPSHOT_WEEKS, demoVariantFor, isTursoUsable, useLoadDemo } from "./demo-project";
+import { demoHistoryWeeks, demoVariantFor, isTursoUsable, useLoadDemo } from "./demo-project";
 import { useDemoIntentOnBoot } from "./demo-intent";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { useInsightRecommendations } from "./use-insight-recommendations";
@@ -1338,7 +1338,7 @@ function TaskManagerInner() {
   // skeleton would render forever with no banner/nav; falling through restores the banner + Settings path.
   const showTursoListLoading =
     hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !shownStorageError;
-  const demoBoot = useDemoIntentOnBoot({ lang, weeks: DEMO_SNAPSHOT_WEEKS, showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending, listLoaded: portfolioMode !== "turso" || tursoListLoaded, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
+  const demoBoot = useDemoIntentOnBoot({ lang, weeks: demoHistoryWeeks(today), showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending, listLoaded: portfolioMode !== "turso" || tursoListLoaded, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -2219,7 +2219,7 @@ function TaskManagerInner() {
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={handleLoadFromFileEmptyState}
                 onLoadDemo={() => { void loadDemo(); }}
-                demoVariant={demoVariantFor(lang, portfolioMode, tursoConfig)} demoWeeks={DEMO_SNAPSHOT_WEEKS} demoConnectedNote={demoBoot.connectedNote}
+                demoVariant={demoVariantFor(lang, portfolioMode, tursoConfig)} demoWeeks={demoHistoryWeeks(today)} demoConnectedNote={demoBoot.connectedNote}
                 archivedProjects={tursoArchived.map((e) => ({ id: e.id, name: e.meta.name }))}
                 onRestore={handleRestoreFromEmptyState}
                 onDeleteArchived={handleHardDeleteTursoProject}
