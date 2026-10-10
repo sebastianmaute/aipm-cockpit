@@ -460,21 +460,31 @@ describe("live-turso.yml", () => {
     const lines = code(LIVE).split("\n");
     const indent = (l) => l.match(/^\s*/)[0].length;
     let seen = 0;
+    const perStep = {};
     lines.forEach((line, i) => {
       if (!/(?<!steps\.)\bsecrets\b/.test(line)) return;
       seen++;
       expect(line, line).toMatch(/^ {10}[A-Z_]+: \$\{\{ secrets\.TURSO_THROWAWAY_(DATABASE_URL|AUTH_TOKEN) \}\}$/);
       const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
       expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
+      // And WHICH step: the secrets moved onto npm ci's own env: would pass every check above while
+      // handing the token to every dependency's install scripts.
+      const step = lines.slice(0, i).reverse().find((l) => /^ {6}- /.test(l));
+      perStep[step] = (perStep[step] ?? 0) + 1;
     });
-    // check: 2, drop-tables step: 2, drive-app step: 4.
     expect(seen).toBe(8);
+    expect(perStep).toEqual({
+      "      - name: Are both throwaway database values set?": 2,
+      "      - name: Live specs that drop tables": 2,
+      "      - name: Live specs that drive the app": 4,
+    });
   });
 
-  // code() drops every line starting with #, which cannot tell a YAML comment from a "# ..." line
-  // in a run: | body, where GitHub still evaluates ${{ }}. So count on the RAW text: exactly the 8
-  // env lines above may hold an expression naming secrets or env. That also catches a run: line
-  // using the check job's aliases (${{ env.TOKEN }}) or bracket indexing (env['...']).
+  // Two separate checks. (1) code() drops every line starting with #, which cannot tell a YAML
+  // comment from a "# ..." line in a run: | body, where GitHub still evaluates ${{ }}. So count on
+  // the RAW text: only the 8 secret lines above may hold a ${{ }} naming secrets or env. This counts
+  // comment lines too, so a comment quoting such an expression fails it (closed). (2) No ${{ }}
+  // anywhere reads env. or env[...], which catches the check job's aliases (${{ env.TOKEN }}).
   it("has no other expression that reads a secret or an env value", () => {
     const raw = LIVE.split(/\r?\n/).filter((l) => /\$\{\{/.test(l) && /\b(secrets|env)\b/.test(l));
     expect(raw, raw.join("\n")).toHaveLength(8);
@@ -498,7 +508,8 @@ describe("live-turso.yml", () => {
     for (const v of ["TURSO_THROWAWAY_DATABASE_URL", "TURSO_THROWAWAY_AUTH_TOKEN", "NEXT_PUBLIC_TURSO_DATABASE_URL", "NEXT_PUBLIC_TURSO_AUTH_TOKEN"]) {
       expect(appStep, v).toContain(`${v}: `);
     }
-    expect(appStep).toMatch(/--project=chromium --workers=1/);
+    // Bounded so a broadly broken run ends, and writes its report, before the step timeout.
+    expect(appStep).toMatch(/--project=chromium --workers=1 --retries=1 --max-failures=3$/m);
     // One failure must not hide the other suite, but a failed setup must not add a second failure.
     expect(appStep).toMatch(/if: \$\{\{ !cancelled\(\) && steps\.install\.outcome == 'success' \}\}/);
     // The install step it waits on must come after npm ci, or a failed npm ci would not stop it.
@@ -510,8 +521,20 @@ describe("live-turso.yml", () => {
     const dropStep = job.slice(job.lastIndexOf("      - ", drop), job.indexOf("\n", drop));
     // Each test step has its own timeout, below the job's: a hung step fails instead of the job
     // being cancelled, so the other step and the upload still run.
-    expect(dropStep).toMatch(/^ {8}timeout-minutes: \d+$/m);
-    expect(appStep).toMatch(/^ {8}timeout-minutes: \d+$/m);
+    // The sum leaves at least 15 minutes of setup under the job's timeout.
+    const minutes = (text, re) => Number((text.match(re) ?? [])[1]);
+    const dropMin = minutes(dropStep, /^ {8}timeout-minutes: (\d+)$/m);
+    const appMin = minutes(appStep, /^ {8}timeout-minutes: (\d+)$/m);
+    const jobMin = minutes(job, /^ {4}timeout-minutes: (\d+)$/m);
+    expect(dropMin).toBeGreaterThan(0);
+    expect(appMin).toBeGreaterThan(0);
+    expect(dropMin + appMin + 15).toBeLessThanOrEqual(jobMin);
+    // The drop-tables project's own bound (no retries) lives in playwright.config.ts.
+    const config = read("playwright.config.ts");
+    const destructive = config.slice(config.indexOf('name: "live-turso-destructive"'));
+    expect(destructive.slice(0, destructive.indexOf("},"))).toMatch(/^\s+retries: 0,\r?$/m);
+    expect(dropStep).toContain("TURSO_THROWAWAY_DATABASE_URL: ");
+    expect(dropStep).toContain("TURSO_THROWAWAY_AUTH_TOKEN: ");
     expect(dropStep).not.toContain("NEXT_PUBLIC_TURSO_");
     // Separate report folders, so the second step does not overwrite the first's report.
     expect(dropStep).toMatch(/PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report\/drop-tables/);

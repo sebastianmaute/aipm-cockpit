@@ -203,9 +203,12 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   Then, even when that step failed (but not when setup failed), the specs that drive the app,
   `--workers=1`, on a dev server started with the two secrets also mapped into `NEXT_PUBLIC_TURSO_*`,
   so the app's database is the throwaway one. The step's file filter names every live UI spec,
-  including ones a later branch adds. Each test step has its own `timeout-minutes` (12 and 20,
-  under the job's 40), so a hung step fails rather than the whole job being cancelled, and the other
-  step and the upload still run. Each step writes its own report folder under `playwright-report/`,
+  including ones a later branch adds. Each test step has its own `timeout-minutes` (12 and 20; the
+  job's is 50, and the tests check the two leave at least 15 minutes of setup under it), so a hung
+  step fails rather than the whole job being cancelled, and the other step and the upload still
+  run. Each run is also bounded so that a broadly broken one ENDS, and writes its report, before its
+  step timeout: the `live-turso-destructive` project sets `retries: 0` (no browser; a failure is the
+  database's real answer), and the app step passes `--retries=1 --max-failures=3`. Each step writes its own report folder under `playwright-report/`,
   uploaded as `live-turso-report` on failure or cancellation, for 7 days. A job that hits its own
   timeout ends cancelled, and its upload is best-effort: Playwright writes its HTML report only when
   its run ends, so a step killed mid-run may leave none.
@@ -235,20 +238,25 @@ pull request and every push to `main`, beside `ci.yml`, as two jobs:
   fork (it has no secrets, so it skips) and check that the pending run still starts. Record the
   result here. Prefer the fork over a `workflow_dispatch` with the secrets briefly unset: a pending
   run reads the secrets when its job STARTS, so if they are still unset then, that run skips too
-  and the observation proves nothing. `timeout-minutes: 40` bounds how long a hung run holds the
+  and the observation proves nothing. `timeout-minutes: 50` bounds how long a hung run holds the
   slot.
 - **Pinned by** `scripts/ci-workflow.test.mjs`'s `live-turso.yml` block: the shared workflow rules;
   neither job a required check; no workflow (`.yml` or `.yaml`) using `pull_request_target`; the
   job-level fixed concurrency group and an ungrouped `check`; each of the 8 secret lines directly
-  under a STEP's `env:` key; on the raw text (shell `#` lines in a `run: |` body included), no
-  `${{ }}` naming `secrets` or `env` beyond those 8 lines, so no `env.` / `env[...]` expression
-  anywhere; `npm ci` before the install step the app step waits on; the order of the two steps, the
-  second running after a failure but not after a failed setup; a step-level timeout on each; the
-  7-day upload on failure or cancellation; and no other workflow file naming the throwaway secrets
-  or handing over every secret (`toJSON(secrets)` in any case, `secrets: inherit`). ★ Those checks
-  read text, not parsed YAML: a deliberately obscured expression (a YAML anchor, `format()` to
-  build a secret name) is out of their reach. A trailing comment after `env:` or a secret line
-  fails them (closed); keep comments on their own line.
+  under a STEP's `env:` key, and in exactly the three steps that need them (2 in the check's step,
+  2 in the drop-tables step, 4 in the app step), so moving them onto `npm ci` fails; two separate
+  raw-text checks (shell `#` lines in a `run: |` body included): only those 8 lines may hold a
+  `${{ }}` naming `secrets` or `env`, and no `${{ }}` reads `env.` or `env[...]`; `npm ci` before
+  the install step the app step waits on; the order of the two steps, the second running after a
+  failure but not after a failed setup; a step-level timeout on each, summing to at least 15
+  minutes under the job's; `retries: 0` on the destructive project and `--retries=1
+  --max-failures=3` on the app step; the 7-day upload on failure or cancellation; and no other
+  workflow file naming the throwaway secrets or handing over every secret (`toJSON(secrets)` in any
+  case, `secrets: inherit`). ★ Those checks read text, not parsed YAML: a deliberately obscured
+  expression (a YAML anchor, `format()` to build a secret name) is out of their reach. They fail
+  closed on a trailing comment after `env:` or a secret line, and on any comment line quoting a
+  `${{ }}` that names `secrets` or `env`: keep comments on their own line, and describe such an
+  expression rather than quoting it.
 
 ## Weekly
 

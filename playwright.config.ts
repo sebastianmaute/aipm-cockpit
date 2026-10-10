@@ -120,6 +120,10 @@ export default defineConfig({
       name: "live-turso-destructive",
       testMatch: LIVE_TURSO_DESTRUCTIVE,
       workers: 1,
+      // No retries, CI included: these are HTTP probes with no browser, so a failure is the
+      // database's real answer, and three attempts at 60s each would overrun live-turso.yml's
+      // step timeout and lose the report (the HTML report is written only when the run ends).
+      retries: 0,
       fullyParallel: false,
     },
     // Add firefox / webkit later if cross-browser coverage is needed:
