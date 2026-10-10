@@ -10,6 +10,16 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-10-10 "Rankin"
+
+A maintenance release. The start screen offers an "Explore the demo" card that opens a sample project
+with the guided tour; with Turso connected, the demo comes with a weekly Trends history that has no
+gaps, and Trends now labels only as many points as fit along the axis. The desktop app's update window
+shows formatted release notes, and installing and updating say up front that they take a while. Icon
+buttons, fields, menus and badges across the app follow the app standard, and the version-name field in
+History has an accessible name. The demo's Trends history is checked against a live Turso database; the
+new live-Turso CI workflow has not yet completed a run on `main`.
+
 ### Added
 
 - **Explore a demo project from the start screen, the guided way.** The start screen now has an
