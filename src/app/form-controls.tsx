@@ -38,18 +38,42 @@ import { useAutogrow } from "./use-autogrow";
 // primitive has): `md` (default) is the roomy form field; `xs` the compact
 // toolbar/table field.
 const FIELD_BASE =
-  "rounded-md border bg-surface text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-md border placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
 export type FieldSize = "xs" | "md";
 
 const FIELD_SIZE: Record<FieldSize, string> = {
   md: "px-3 py-2 text-sm",
-  xs: "px-2 py-1 text-xs",
+  // ★ 30px tall, the height of an xs Button, so a toolbar's fields and buttons
+  // line up (owner decision 2026-10-09, §685).
+  xs: "px-2 py-1.5 text-xs",
 };
 
-// valid = neutral line border + canonical green ring. invalid = pink semantic
-// ring + pink border (NEVER also carry the green ring — see the header note).
-const FIELD_VALID = `border-line ${FOCUS_RING}`;
+/** What a field's colours say about its value (§686). `muted`: read-only or
+ *  derived; `warning`: a value past a limit (over-allocated); `accent`: a manual
+ *  override. The state owns the fill, text and border colour, so a caller never
+ *  layers its own colour over the shell (a class that fights the base loses by
+ *  stylesheet order). */
+export type FieldState = "default" | "muted" | "warning" | "accent";
+
+const FIELD_STATE_FILL: Record<FieldState, string> = {
+  default: "bg-surface text-foreground",
+  muted: "bg-surface-muted text-muted-foreground",
+  warning: "bg-surface font-medium text-ui-pink-strong",
+  accent: "bg-surface text-ui-purple dark:text-ui-purple-strong",
+};
+
+const FIELD_STATE_BORDER: Record<FieldState, string> = {
+  default: "border-line",
+  muted: "border-line",
+  warning: "border-ui-pink-strong",
+  accent: "border-ui-purple/40 dark:border-ui-purple/50",
+};
+
+// valid = the state's border + canonical green ring. invalid = pink semantic
+// ring + pink border, over any state (NEVER also carry the green ring — see the
+// header note).
+const fieldValid = (state: FieldState) => `${FIELD_STATE_BORDER[state]} ${FOCUS_RING}`;
 const FIELD_INVALID =
   "border-ui-pink focus:outline-none focus:ring-2 focus:ring-ui-pink";
 
@@ -59,8 +83,13 @@ const FIELD_INVALID =
  *  the component. ★ Width is NOT set — pass `w-full`/`flex-1`/a fixed width in
  *  `className` (appended LAST so layout tweaks extend the base). `size` defaults
  *  to `md`. */
-export function fieldClass(invalid?: boolean, className?: string, size: FieldSize = "md"): string {
-  return `${FIELD_BASE} ${FIELD_SIZE[size]} ${invalid ? FIELD_INVALID : FIELD_VALID} ${TRANSITION}${
+export function fieldClass(
+  invalid?: boolean,
+  className?: string,
+  size: FieldSize = "md",
+  state: FieldState = "default",
+): string {
+  return `${FIELD_BASE} ${FIELD_SIZE[size]} ${FIELD_STATE_FILL[state]} ${invalid ? FIELD_INVALID : fieldValid(state)} ${TRANSITION}${
     className ? ` ${className}` : ""
   }`;
 }
@@ -72,15 +101,17 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   invalid?: boolean;
   /** Field size (padding + text size). `md` (default) or compact `xs`. */
   size?: FieldSize;
+  /** What the colours say about the value (§686): `muted`, `warning` or `accent`. */
+  state?: FieldState;
 }
 
 /** Canonical text `<input>`. All native input props pass through; pair with a
  *  `<label>`/`aria-label` (a placeholder is not an accessible name). Pass a
  *  width (`w-full`/`flex-1`/fixed) via `className`. */
-export function Input({ invalid, size, className, "aria-invalid": ariaInvalid, ...props }: InputProps) {
+export function Input({ invalid, size, state, className, "aria-invalid": ariaInvalid, ...props }: InputProps) {
   return (
     <input
-      className={fieldClass(invalid, className, size)}
+      className={fieldClass(invalid, className, size, state)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />
@@ -90,13 +121,15 @@ export function Input({ invalid, size, className, "aria-invalid": ariaInvalid, .
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
   invalid?: boolean;
   size?: FieldSize;
+  /** What the colours say about the value (§686): `muted`, `warning` or `accent`. */
+  state?: FieldState;
 }
 
 /** Canonical native `<select>` — same shell as Input. Pass a width via `className`. */
-export function Select({ invalid, size, className, "aria-invalid": ariaInvalid, ...props }: SelectProps) {
+export function Select({ invalid, size, state, className, "aria-invalid": ariaInvalid, ...props }: SelectProps) {
   return (
     <select
-      className={fieldClass(invalid, className, size)}
+      className={fieldClass(invalid, className, size, state)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />
@@ -109,6 +142,8 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   autoGrow?: boolean;
   /** Field size (padding + text size). `md` (default) or compact `xs`. */
   size?: FieldSize;
+  /** What the colours say about the value (§686): `muted`, `warning` or `accent`. */
+  state?: FieldState;
 }
 
 /** Canonical `<textarea>` — Input shell + `resize-none`. `autoGrow` grows the
@@ -118,6 +153,7 @@ export function Textarea({
   invalid,
   autoGrow,
   size,
+  state,
   className,
   "aria-invalid": ariaInvalid,
   ...props
@@ -129,7 +165,7 @@ export function Textarea({
   return (
     <textarea
       ref={autoGrow ? ref : undefined}
-      className={fieldClass(invalid, `resize-none${className ? ` ${className}` : ""}`, size)}
+      className={fieldClass(invalid, `resize-none${className ? ` ${className}` : ""}`, size, state)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />
@@ -142,6 +178,12 @@ export function Textarea({
 // primitive; `sm` is the compact size the toolbar filter/column popovers use.
 const CHECKBOX_BASE = `rounded border-line accent-ui-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
 const CHECKBOX_SIZE: Record<"sm" | "md", string> = { sm: "h-3.5 w-3.5", md: "h-4 w-4" };
+
+/** The one radio-button style (§684): the checkbox's size, accent, focus ring and
+ *  disabled look, as a class rather than a component. A radio keeps its native
+ *  `<input type="radio">`, so `name`/`checked` grouping stays the browser's.
+ *  Append layout classes after it. */
+export const RADIO_CLASS = `${CHECKBOX_SIZE.md} accent-ui-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
 
 // Omit the native numeric `size` attribute — we repurpose `size` as the variant.
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {

@@ -240,3 +240,13 @@ describe("BlockerLogPanel Add on the shared Button", () => {
     );
   });
 });
+
+// Review fix (§685): the growing textareas are capped so a long blocker cannot
+// push the Add button out of the fixed-height floating window.
+describe("BlockerLogPanel draft field height", () => {
+  it("caps the auto-growing draft and scrolls inside it", () => {
+    render(<Harness initial={[]} />);
+    const draft = screen.getByLabelText(t("en-US", "blockerLogPlaceholder"));
+    expect(draft.className.split(/\s+/)).toEqual(expect.arrayContaining(["max-h-40", "overflow-y-auto"]));
+  });
+});

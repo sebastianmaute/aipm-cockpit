@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ArrangementShelf } from "./arrangement-shelf";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buttonClassFor } from "../test/button-variant";
+import { primitiveClassFor } from "../test/primitive-class";
+import { Badge } from "./badge";
 
 const TRAY = "test-shelf-tray";
 
@@ -140,5 +142,15 @@ describe("ArrangementShelf toggle on the shared Button", () => {
   it("draws the toggle as secondary xs", () => {
     shelf();
     expect(toggle().className).toBe(buttonClassFor({ variant: "secondary", size: "xs" }));
+  });
+});
+
+// §695 — each hidden-tile chip is the shared Badge pill.
+describe("ArrangementShelf chips", () => {
+  it("renders the shared Badge", () => {
+    shelf();
+    expect(screen.getByText("Alpha board").parentElement?.className).toBe(
+      primitiveClassFor(<Badge pill className="gap-1 border border-line bg-surface">x</Badge>),
+    );
   });
 });

@@ -9,7 +9,8 @@ import type { StorageKind } from "./storage";
 import { Card } from "./card";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { TextButton } from "./text-button";
 import { Button } from "./button";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
@@ -38,6 +39,7 @@ import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { TursoConfig } from "./turso-config";
 import type { FeatureModuleId } from "./feature-modules";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { Checkbox } from "./form-controls";
 
 interface SettingsViewProps {
   lang: Lang;
@@ -315,12 +317,10 @@ export function SettingsView(props: SettingsViewProps) {
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
       >
         <label className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={expert}
             aria-label={t(lang, "settingsExpertMode")}
             onChange={(e) => toggleExpert(e.target.checked)}
-            className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
           />
           <span className="inline-flex items-center gap-1">
             {t(lang, "settingsExpertMode")}
@@ -499,14 +499,9 @@ export function SettingsView(props: SettingsViewProps) {
     </div>
 
     <footer className="mx-auto mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">
-      <button
-        type="button"
-        onClick={() => onOpenVersion?.()}
-        title={t(lang, "versionHistory")}
-        className="font-medium text-ui-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-blue"
-      >
+      <TextButton onClick={() => onOpenVersion?.()} title={t(lang, "versionHistory")}>
         {t(lang, "versionVersion")} {APP_VERSION_LABEL}
-      </button>
+      </TextButton>
       <span aria-hidden>·</span>
       <a
         href={APP_LICENSE_URL}

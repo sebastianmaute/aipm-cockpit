@@ -5,9 +5,9 @@ import { type Lang, t } from "./i18n";
 import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
-import { FOCUS_RING } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { Button } from "./button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 
 // Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow re-created
@@ -99,13 +99,11 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
         </ul>
       )}
       <div>
-        <button
-          type="button"
+        <Button variant="secondary" size="xs"
           onClick={() => setPickerOpen(true)}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           {t(lang, "documentsAdd")}
-        </button>
+        </Button>
       </div>
       {pickerOpen && (
         <SharePointPickerModal

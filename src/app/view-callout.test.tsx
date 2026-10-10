@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ViewCallout } from "./view-callout";
 import { t } from "./i18n";
+import { TextButton } from "./text-button";
+import { primitiveClassFor } from "../test/primitive-class";
 
 describe("ViewCallout", () => {
   beforeEach(() => localStorage.clear());
@@ -46,5 +48,16 @@ describe("ViewCallout", () => {
       <ViewCallout view="raid" lang="en-US" showHints isPopout onLearnMore={vi.fn()} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+// §693 — Learn more is the shared TextButton.
+describe("ViewCallout Learn more", () => {
+  it("renders the shared TextButton", () => {
+    localStorage.clear();
+    render(<ViewCallout view="raid" lang="en-US" showHints isPopout={false} onLearnMore={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /learn more/i }).className).toBe(
+      primitiveClassFor(<TextButton className="shrink-0">x</TextButton>),
+    );
   });
 });

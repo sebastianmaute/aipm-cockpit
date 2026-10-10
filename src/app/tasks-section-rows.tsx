@@ -30,6 +30,7 @@ import { SortResizeTh, type useSortHeaderProps } from "./report-table";
 import { TOUR_ANCHORS } from "./app-tour";
 import { GUTTER_WIDTH_PX, colWidthStyle, type TaskColId } from "./open-points-table-geometry";
 import { TASK_ROW_ESTIMATE_PX, useTaskRowWindow, type TaskRowWindowHandle } from "./use-task-row-window";
+import { Checkbox } from "./form-controls";
 
 export interface TasksTableProps {
   lang: Lang;
@@ -112,13 +113,11 @@ export function TasksTable({
           {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
           <th className="w-7" aria-hidden="true" />
           <Th padding="tight" onResize={(e) => startColResize("sel", e)}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={allVisibleSelected}
               onChange={toggleSelectAllVisible}
               aria-label={t(lang, "selectAllVisible")}
               data-tour-id={TOUR_ANCHORS.selectAll}
-              className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
             />
           </Th>
           {!hiddenCols.has("status") && <Th padding="tight" onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}

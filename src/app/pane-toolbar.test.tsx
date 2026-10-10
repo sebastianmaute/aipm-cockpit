@@ -21,9 +21,9 @@ describe("PaneSearchInput", () => {
     const input = screen.getByRole("searchbox", { name: "Search changes" });
     expect(input).toHaveAttribute("placeholder", "Search changes");
     expect(input.className).toContain("w-full");
-    // Empty: no ✕ is rendered, so no room is reserved for one and the padding
-    // stays what it was before the clear existed.
-    expect(input.className).toContain("pr-2.5");
+    // Empty: no ✕ is rendered, so no room is reserved for one; the padding is
+    // the shared xs field's own (§685: xs is `px-2 py-1.5`, 30px tall).
+    expect(input.className.split(/\s+/)).toEqual(expect.arrayContaining(["px-2", "py-1.5"]));
     expect(input.className).not.toContain("pr-8");
     // The clear button is overlaid, so the flex sizing lives on the wrapper.
     const wrapper = container.firstChild as HTMLElement;

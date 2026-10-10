@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { CheckIcon, ChevronRightIcon, ExclamationTriangleIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
-import { HintedLabel, fieldClass } from "./form-controls";
+import { HintedLabel, fieldClass, Checkbox, RADIO_CLASS } from "./form-controls";
 import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -25,7 +25,6 @@ import { emailWriteRefusal } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import { useEmailDraft } from "./use-email-draft";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
-import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
@@ -259,14 +258,12 @@ export function JiraSettingsSection({
         <div className="mt-3 space-y-3">
           <div className="flex items-center gap-1">
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={config.enabled}
                 onChange={(e) => {
                   if (e.target.checked) notifyEnable();
                   update("enabled", e.target.checked);
                 }}
-                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
               />
               <span className="text-foreground">
                 {t(lang, "jiraEnable")}
@@ -467,8 +464,7 @@ export function JiraSettingsSection({
                           className="flex items-center justify-between gap-2 text-sm"
                         >
                           <label className="flex cursor-pointer items-center gap-2">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={included}
                               aria-label={`${t(lang, "jiraExtraProjectInclude")} – ${p.name} (${p.key})`}
                               onChange={(e) => {
@@ -485,7 +481,6 @@ export function JiraSettingsSection({
                                   : current.filter((x) => x.key !== p.key);
                                 onChange({ ...config, extraProjects: next });
                               }}
-                              className={`h-4 w-4 ${FOCUS_RING}`}
                             />
                             <span className="text-foreground">
                               {p.name}{" "}
@@ -496,8 +491,7 @@ export function JiraSettingsSection({
                           </label>
                           {included && (
                             <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={entry.readOnly}
                                 aria-label={`${t(lang, "jiraReadOnly")} – ${p.name} (${p.key})`}
                                 onChange={(e) => {
@@ -509,7 +503,7 @@ export function JiraSettingsSection({
                                   );
                                   onChange({ ...config, extraProjects: next });
                                 }}
-                                className={`h-3.5 w-3.5 ${FOCUS_RING}`}
+                                size="sm"
                               />
                               {t(lang, "jiraReadOnly")}
                             </label>
@@ -542,8 +536,7 @@ export function JiraSettingsSection({
                         </span>
                         <span className="flex items-center gap-3">
                           <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={e.readOnly}
                               aria-label={`${t(lang, "jiraReadOnly")} – ${e.name} (${e.key})`}
                               onChange={(ev) => {
@@ -555,7 +548,7 @@ export function JiraSettingsSection({
                                 );
                                 onChange({ ...config, extraProjects: next });
                               }}
-                              className={`h-3.5 w-3.5 ${FOCUS_RING}`}
+                              size="sm"
                             />
                             {t(lang, "jiraReadOnly")}
                           </label>
@@ -593,11 +586,9 @@ export function JiraSettingsSection({
                     .map((it) => (
                       <li key={it.id}>
                         <label className="flex items-center gap-2 text-xs text-foreground">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={config.issueTypes.includes(it.name)}
                             onChange={() => toggleIssueType(it.name)}
-                            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                           />
                           {it.name}
                         </label>
@@ -622,7 +613,7 @@ export function JiraSettingsSection({
                       name="jira-assignee-mode"
                       checked={config.assigneeMode === mode}
                       onChange={() => update("assigneeMode", mode)}
-                      className="h-3 w-3 cursor-pointer text-ui-dark-blue focus:ring-ui-green"
+                      className={RADIO_CLASS}
                     />
                     <span className="text-foreground">
                       {t(lang, `jiraAssignee_${mode}`)}

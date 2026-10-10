@@ -12,7 +12,6 @@ import { useCallback, useRef, useState } from "react";
 import { ArrowDownTrayIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
-import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Workspace } from "./storage";
@@ -20,6 +19,7 @@ import type { ExportConfig } from "./settings-types";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import { menuItemClass } from "./control-classes";
 
 const OPTIONS: Array<{
   format: ExportFormat;
@@ -99,7 +99,7 @@ export function ExportMenu({
                 <button
                   type="button"
                   onClick={() => pick(o.format)}
-                  className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`${menuItemClass()} flex-col items-start gap-0.5`}
                 >
                   <span className="font-medium text-ui-dark-blue dark:text-ui-light-grey">
                     {t(lang, o.labelKey)}

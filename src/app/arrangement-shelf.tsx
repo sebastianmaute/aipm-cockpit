@@ -3,6 +3,7 @@ import { useMemo, useState, type RefObject } from "react";
 import { Button } from "./button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { t, type Lang } from "./i18n";
+import { Badge } from "./badge";
 import type { BlockDragProps } from "./arrangement-tile";
 
 /**
@@ -160,7 +161,8 @@ export function ArrangementShelfTray({
       ) : (
         <ul className="flex flex-wrap gap-2">
           {hidden.map((h) => (
-            <li key={h.id} className="flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs">
+            <li key={h.id}>
+              <Badge pill className="gap-1 border border-line bg-surface">
               <span>{h.title}</span>
               {/* ★★ The block title is in the accessible name because N chips
                   render at once and N identical "Restore" buttons is a WCAG
@@ -188,6 +190,7 @@ export function ArrangementShelfTray({
               >
                 {restore}
               </Button>
+              </Badge>
             </li>
           ))}
         </ul>

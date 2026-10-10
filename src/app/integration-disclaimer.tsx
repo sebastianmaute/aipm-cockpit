@@ -13,8 +13,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { ExclamationTriangleIcon } from "./icons";
 import { Modal } from "./modal";
+import { Button } from "./button";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 
 type DisclaimerCtx = { notifyEnable: () => void };
 
@@ -73,13 +73,9 @@ function DisclaimerModal({ lang, open, onAck }: { lang: Lang; open: boolean; onA
           </ul>
         </div>
         <div className="flex justify-end border-t border-line p-3">
-          <button
-            type="button"
-            onClick={onAck}
-            className={`rounded-md border border-line bg-ui-green px-4 py-1.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
-          >
+          <Button variant="accent" size="xs" onClick={onAck}>
             {t(lang, "disclaimerAck")}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

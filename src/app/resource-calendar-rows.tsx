@@ -23,6 +23,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { resolveCalendarDrag, type DragMode } from "./calendar-drag";
 import { DragHandle } from "./drag-handle";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
+import { CELL_BUTTON } from "./control-classes";
 
 /** The gesture currently in flight, tracked in a ref (not state) so the drop
  *  handler reads it synchronously without tearing the ghost mid-drag. */
@@ -120,7 +121,7 @@ export function CalendarRows({
                     }
                     title={row.display}
                     aria-label={rowName}
-                    className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+                    className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground`}
                   >
                     {row.display}
                   </button>

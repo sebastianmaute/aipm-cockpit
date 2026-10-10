@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { TasksToolbar, type TasksToolbarProps } from "./tasks-section-toolbar";
+import { TasksToolbar, TasksSelectionBar, type TasksToolbarProps } from "./tasks-section-toolbar";
+import { buttonClassFor } from "../test/button-variant";
 import { TestProviders } from "./test-providers";
 import { loadI18n, t, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -113,5 +114,25 @@ describe("TasksToolbar — a value named like a fixed option stays its own optio
     expect(props.setGroupFilter).toHaveBeenLastCalledWith("All");
     fireEvent.change(groups, { target: { value: FILTER_ALL } });
     expect(props.setGroupFilter).toHaveBeenLastCalledWith(FILTER_ALL);
+  });
+});
+
+// §691 — Send inquiries is the accent Button at sm.
+describe("TasksSelectionBar Send inquiries", () => {
+  test("draws the accent Button", () => {
+    render(
+      <TasksSelectionBar
+        lang="en-US"
+        selectedCount={2}
+        handleBulkSendInquiry={vi.fn()}
+        bulkEditOpen={false}
+        onToggleBulkEdit={vi.fn()}
+        onDeleteSelected={vi.fn()}
+        clearSelection={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "bulkSendInquiries") }).className).toBe(
+      buttonClassFor({ variant: "accent", size: "sm" }),
+    );
   });
 });

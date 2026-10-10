@@ -4,7 +4,6 @@
 // GanttPanel owns the data, drag state, and handlers and threads them in.
 import { Bars2Icon } from "./icons";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
@@ -27,6 +26,7 @@ import {
   priorityFillClass,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
+import { CELL_BUTTON } from "./control-classes";
 
 export function GanttTaskRow({
   rowKey,
@@ -197,7 +197,7 @@ export function GanttTaskRow({
             // nothing here.
             aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+            className={`${CELL_BUTTON} truncate px-2 py-0.5 text-left ${
               isComplete
                 ? "text-muted-foreground line-through"
                 : "text-foreground"
@@ -515,7 +515,7 @@ export function GanttMilestoneRow({
             // This row renders no id, so nothing else disambiguates it.
             aria-label={rowToken}
             title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+            className={`${CELL_BUTTON} truncate px-2 py-0.5 text-left ${
               achieved
                 ? "text-muted-foreground line-through"
                 : "text-foreground"

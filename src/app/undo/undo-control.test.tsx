@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { loadI18n, t, tPlural } from "../i18n";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { UndoControl, RedoControl } from "./undo-control";
+import { primitiveClassFor } from "../../test/primitive-class";
+import { CountBadge } from "../count-badge";
+import { within } from "@testing-library/react";
 
 // ★ `kind` must be a real ActivityKind member and must NOT widen to string.
 //   "task.edited" DOES NOT EXIST — the task members are task.created /
@@ -483,5 +486,14 @@ describe("Undo and redo history — every step has its own name (§672)", () => 
     render(<RedoControl lang={lang} entries={STACK} onRedo={vi.fn()} onRedoThrough={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: t(lang, "redoShowHistory") }));
     expectRowUniqueNames({ minControls: STACK.length, scope: screen.getByRole("listbox"), roles: ["option"] });
+  });
+});
+
+// §695 — the stack depth is the shared CountBadge in its grey variant.
+describe("UndoControl depth count", () => {
+  it("renders the shared CountBadge", () => {
+    render(<UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={vi.fn()} />);
+    const btn = screen.getByRole("button", { name: t("en-US", "undoTooltip") });
+    expect(within(btn).getByText("3").className).toBe(primitiveClassFor(<CountBadge variant="grey">3</CountBadge>));
   });
 });

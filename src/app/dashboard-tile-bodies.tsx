@@ -42,7 +42,6 @@ import { Sparkline } from "./sparkline";
 import { formatDayMonth } from "./forecast-format";
 import { localeFor } from "./date-format";
 import { EmptyState } from "./empty-state";
-import { INTERACTIVE } from "./interaction-styles";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
@@ -60,6 +59,7 @@ import type { Insight, InsightActions, InsightEntityRef } from "./insights/insig
 import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
+import { CELL_BUTTON } from "./control-classes";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -84,7 +84,7 @@ function ActivateBody({
       type="button"
       aria-label={ariaLabel}
       onClick={onActivate}
-      className={`block w-full rounded-md border border-transparent text-left hover:border-ui-dark-blue ${INTERACTIVE} ${className}`}
+      className={`${CELL_BUTTON} block w-full text-left ${className}`}
     >
       {children}
     </button>
@@ -231,7 +231,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
                       type="button"
                       aria-label={t(lang, "dashboardOpenChangeItem", changeTokens.get(c.id) ?? c.title)}
                       onClick={() => a.onOpenChange!(c.id)}
-                      className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      className={`${CELL_BUTTON} flex w-full items-center gap-2 px-2 py-0.5 text-left`}
                     >
                       {content}
                     </button>

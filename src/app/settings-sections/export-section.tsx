@@ -3,10 +3,10 @@
 
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "../export-section-labels";
+import { Checkbox } from "../form-controls";
 
 interface ExportSectionProps {
   lang: Lang;
@@ -36,11 +36,9 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
           return (
             <li key={key}>
               <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   onChange={(e) => handleToggle(key, e.target.checked)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
                 {t(lang, EXPORT_SECTION_LABEL_KEYS[key])}
               </label>

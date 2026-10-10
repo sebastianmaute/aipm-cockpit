@@ -6,7 +6,6 @@
 // ChangesBadge.
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { type Lang, priorityLabel, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
 import { isTaskFinished } from "./task-status";
@@ -23,6 +22,7 @@ import { TaskStatusSelect } from "./task-status-select";
 import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
 import { Select } from "./form-controls";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
+import { CELL_BUTTON } from "./control-classes";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
 
@@ -105,7 +105,7 @@ export function TaskKanbanCard({
           // unconditionally and why 2.5.3 holds by containment, not prefix.
           aria-label={rowToken}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface ${INTERACTIVE}`}
+          className={`${CELL_BUTTON} px-2 py-0.5 text-left font-medium text-foreground`}
         >
           {task.taskName}
         </button>

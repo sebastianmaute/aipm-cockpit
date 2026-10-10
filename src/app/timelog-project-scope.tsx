@@ -7,8 +7,8 @@
 import { t, type Lang } from "./i18n";
 import { timelogProjectLabel, type TimelogProjectRef } from "./timelog-match";
 import { useRowTokens } from "./use-row-tokens";
-import { FOCUS_RING, PRESS, TRANSITION } from "./interaction-styles";
-import { Input } from "./form-controls";
+import { PRESS, TRANSITION } from "./interaction-styles";
+import { Input, Checkbox } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 
 interface TimelogProjectScopeProps {
@@ -52,11 +52,9 @@ export function TimelogProjectScope({
         </span>
         {projects.length > 0 && !off && (
           <label className={`flex items-center gap-1 text-xs text-muted-foreground ${TRANSITION}`}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={allSelected}
               onChange={onToggleAll}
-              className={`accent-ui-dark-blue ${FOCUS_RING}`}
               aria-label={t(lang, "timelogProjectSelectAll")}
             />
             {t(lang, "timelogProjectSelectAll")}
@@ -105,12 +103,10 @@ export function TimelogProjectScope({
           {projects.map((p) => (
             <li key={p.id}>
               <label className={`flex items-center gap-2 px-2 py-1 text-sm ${TRANSITION} ${PRESS}`}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selectedIds.has(p.id)}
                   onChange={() => onToggle(p.id)}
                   disabled={off}
-                  className={`accent-ui-dark-blue ${FOCUS_RING}`}
                   aria-label={`${t(lang, "timelogProjectScopeLabel")} – ${projectTokens.get(p.id) ?? timelogProjectLabel(p)}`}
                 />
                 <span className="truncate">

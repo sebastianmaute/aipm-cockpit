@@ -12,6 +12,7 @@ import { IDENTITY_TYPES, REGULATORY_REQUIREMENTS } from "./project-options";
 import { expectNoLabelBoundToButton, labelsContainingLabels } from "../test/label-binding";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames } from "../test/toolbar-order";
+import { buttonClassFor } from "../test/button-variant";
 import { loadI18n, t } from "./i18n";
 
 // Render guard for the two CHECKBOX-GRID captions.
@@ -381,5 +382,15 @@ describe("contact person in-place edit (§537)", () => {
     await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(setDraft).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: `${t("en-US", "edit")} – Bob Jones` })).toBeInTheDocument();
+  });
+});
+
+// §690 — the contact person's Add is the secondary Button at md.
+describe("IdentityPeopleFields Add", () => {
+  it("draws the secondary Button", () => {
+    render(<IdentityPeopleFields {...props} setDraft={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "add") }).className).toBe(
+      buttonClassFor({ variant: "secondary", size: "md", className: "shrink-0" }),
+    );
   });
 });
