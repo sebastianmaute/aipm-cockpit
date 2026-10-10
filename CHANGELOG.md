@@ -12,6 +12,12 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The desktop app's update window shows formatted release notes.** Headings, bullet lists, bold text and
+  code now appear as they do on the releases page, instead of one run of plain text. The window now shows
+  notes up to 100,000 characters instead of 20,000; the 1.16.0 notes alone ran to about 34,000.
+- **Installing and updating the desktop app now say that they take a while.** The installer opens with a
+  welcome page saying that installing takes a few minutes and the window may seem frozen, and the update
+  window says the same before you choose to download, alongside the existing note in "Update ready".
 - **Icon buttons and glyphs follow the app standard (§688, §689, §694).** The settings, export, version and template
   buttons in the header, and the workspace collapse toggle, use the standard icon button: 32px instead of 36px,
   and the export, version and template icons are a shade lighter, like settings. In every dialog header the
