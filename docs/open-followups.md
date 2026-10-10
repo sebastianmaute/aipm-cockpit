@@ -18474,6 +18474,11 @@ and two places in this file) were corrected in that release; `CONTRIBUTING.md` h
 
 **Work item:** #192
 
+**Precondition for the CI wiring (2026-10-10):** the branch that maps the secrets must keep three things, or it publishes the token or races the database. Each is in place on `verify/637-live-pipeline` (open-followups §637):
+- The live specs read only `TURSO_THROWAWAY_DATABASE_URL` / `TURSO_THROWAWAY_AUTH_TOKEN` (`e2e/live-turso-env.ts`). The UI half also needs the app's `NEXT_PUBLIC_TURSO_*`, so the job maps the two secrets into both pairs.
+- Trace and video stay OFF in any job whose app carries a Turso token. `playwright.config.ts` decides it with `appHasTursoToken`; a trace records the `Authorization` header, and the job uploads `playwright-report/` on failure. Failures debug from screenshots and logs.
+- The specs that drop tables stay out of the `e2e` job: they live in the `live-turso-destructive` project and run only with `E2E_LIVE_DESTRUCTIVE=1`.
+
 **What is unverified in CI.** `e2e/documents-images-interactive.spec.ts` gates both its describes on
 `test.skip(!LIVE, …)`, where `LIVE` comes from `readEnvLocal()` — `process.env` first, then a parse
 of `.env.local`. CI has neither, so all twelve skip and the `e2e` job is green while proving nothing
@@ -43689,8 +43694,8 @@ measurement against a live database.
 
 ## 637. A Turso save whose batch hits a failing statement still commits the rest, then reports failure — CLOSED 2026-09-29
 
-**Status:** CLOSED 2026-09-29 on `fix/persistence-backlog`, verified by unit tests and mutation only; the
-live-database check is written but owed. `runTursoPipeline` (`turso-pipeline.ts`) now sends a statement
+**Status:** CLOSED 2026-09-29 on `fix/persistence-backlog`, verified then by unit tests and mutation only. **Live check, 2026-10-10 (`verify/637-live-pipeline`):** run with `npm run e2e:live-destructive` against a throwaway Turso database, `e2e/turso-ddl-probe-live.spec.ts` passed 4 of 4. That includes "§637 — the same transaction through runTursoPipeline writes nothing, and reports the failure": a co-resident write placed BEFORE the failing insert does not survive. Two live mutants of `runTursoPipeline`. Sending separate `execute` requests failed the test, but only on its error-text assertion ("unexpected response shape"), so it does not count as a kill. Dropping the batch steps' `ok` conditions failed it on the surviving co-resident write, which is the real kill. The spec reads only the throwaway pair (`e2e/live-turso-env.ts`) and runs alone, in the `live-turso-destructive` project. Until this run the spec also lived in `documents-images-interactive.spec.ts` and read the app's own database variables. Originally:
+the live-database check was written but owed. `runTursoPipeline` (`turso-pipeline.ts`) now sends a statement
 list that starts with `BEGIN` and ends with `COMMIT` as ONE Hrana `batch` request. Each step runs only if
 the step before it succeeded (`{ type: "ok", step: i - 1 }`), and a trailing `ROLLBACK` step runs when
 `COMMIT` did not succeed (`{ type: "not", cond: { type: "ok", step: last } }`), so a failing statement skips

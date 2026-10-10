@@ -593,7 +593,7 @@ Kept short: `AGENTS.md` owns each rule.
 - **Batch commit**: a statement list that starts with `BEGIN` and ends with `COMMIT` goes out
   as ONE Hrana `batch` request. Each step runs only if the step before it succeeded, and a
   trailing `ROLLBACK` step runs whenever `COMMIT` did not, so a failed save writes nothing
-  (§637; per the Hrana protocol, live-database check owed). Anything before `BEGIN`, or a `BEGIN`
+  (§637; checked against a live database on 2026-10-10 by `e2e/turso-ddl-probe-live.spec.ts`). Anything before `BEGIN`, or a `BEGIN`
   without a trailing `COMMIT`, is refused before sending. `runTursoPipeline` maps the step results back to one result per statement and throws
   the first statement error. Any other list is sent as separate `execute` requests, which do not
   stop at a failing statement.
