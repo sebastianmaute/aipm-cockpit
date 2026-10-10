@@ -553,10 +553,15 @@ describe("live-turso.yml", () => {
   });
 
   // Which specs run has ONE home: playwright.config.ts's LIVE_TURSO_DESTRUCTIVE and LIVE_TURSO_APP.
-  // Every spec that reads e2e/live-turso-env.ts must be in one of them, or it never runs here; and
-  // every listed name must be a real spec, or a typo silently drops one. The lists hand the Turso
-  // values to whatever they match, so each stays a plain list of names.
+  // Both directions are checked. Every live spec must be in one of them, or it never runs here.
+  // Every listed name must be a LIVE spec: the lists hand the Turso values to whatever they match,
+  // and an ordinary spec (smoke, a11y) is not partition-scoped and would write to the shared
+  // database; a typo would also silently drop a spec. A live spec is one that imports
+  // e2e/live-turso-env.ts or live-turso-schema.ts (any quoting, with or without .ts), or reads the
+  // throwaway pair itself (turso-revision-live does). Each list stays a plain list of names.
   it("runs exactly the live specs, each in one list, through the projects the npm scripts name", () => {
+    const LIVE_READER = /["']\.\/live-turso-(env|schema)(\.ts)?["']|TURSO_THROWAWAY_/;
+    const specFile = (name) => new URL(`../e2e/${name}.spec.ts`, import.meta.url);
     const list = (name) => {
       const src = config.match(new RegExp(`^const ${name} = /\\(([^)]*)\\)\\\\\\.spec\\\\\\.ts/;`, "m"))?.[1];
       expect(src, name).toMatch(/^[a-z0-9-]+(\|[a-z0-9-]+)*$/);
@@ -565,18 +570,23 @@ describe("live-turso.yml", () => {
     const destructive = list("LIVE_TURSO_DESTRUCTIVE");
     const appSpecs = list("LIVE_TURSO_APP");
     expect(destructive.filter((n) => appSpecs.includes(n))).toEqual([]);
-    // Listed before the branch that adds the file has merged; each is a no-op once it is on main.
-    // Remove an entry once its file exists there. turso-revision-live: verify/654-turso-guard;
-    // version-compare-live: verify/version-compare-live; demo-trends-live: verify/696-demo-trends.
+    // Listed before the branch that adds the file has merged. Each entry must NOT exist yet: the
+    // tree that gains the file fails here until the entry is removed, so the full check below
+    // applies to it from then on. turso-revision-live: verify/654-turso-guard; version-compare-live:
+    // verify/version-compare-live; demo-trends-live: verify/696-demo-trends.
     const PENDING = ["turso-revision-live", "version-compare-live", "demo-trends-live"];
+    for (const name of PENDING) {
+      expect(existsSync(specFile(name)), `e2e/${name}.spec.ts exists now: remove "${name}" from PENDING`).toBe(false);
+    }
     for (const name of [...destructive, ...appSpecs]) {
-      const exists = existsSync(new URL(`../e2e/${name}.spec.ts`, import.meta.url));
-      expect(exists || PENDING.includes(name), `${name}: no e2e/${name}.spec.ts`).toBe(true);
+      if (PENDING.includes(name)) continue;
+      expect(existsSync(specFile(name)), `${name}: no e2e/${name}.spec.ts`).toBe(true);
+      expect(read(`e2e/${name}.spec.ts`), `${name} is not a live spec`).toMatch(LIVE_READER);
     }
     // live-turso-env.spec.ts tests the helper itself and needs no database.
     const readers = readdirSync(new URL("../e2e/", import.meta.url))
       .filter((f) => f.endsWith(".spec.ts") && f !== "live-turso-env.spec.ts")
-      .filter((f) => /from "\.\/live-turso-env"/.test(read(`e2e/${f}`)))
+      .filter((f) => LIVE_READER.test(read(`e2e/${f}`)))
       .map((f) => f.replace(/\.spec\.ts$/, ""));
     expect(readers.length).toBeGreaterThan(0);
     for (const name of readers) expect([...destructive, ...appSpecs], `${name} is in neither list`).toContain(name);

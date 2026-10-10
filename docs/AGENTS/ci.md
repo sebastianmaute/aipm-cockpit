@@ -209,7 +209,8 @@ pull request and every push to `main`, beside `ci.yml`, and on `workflow_dispatc
   each step writes a JSON report (`E2E_JSON_REPORT`) and then runs `scripts/check-live-run.mjs`,
   which fails the step if any test skipped or none ran. Reproduce the failing case locally, with
   no database touched (the destructive specs skip without `E2E_LIVE_DESTRUCTIVE`):
-  `PLAYWRIGHT_NO_WEBSERVER=1 E2E_JSON_REPORT=<dir>/run.json npx playwright test --project=live-turso-destructive`
+  `PLAYWRIGHT_NO_WEBSERVER=1 PLAYWRIGHT_HTML_OPEN=never PLAYWRIGHT_HTML_OUTPUT_DIR=<dir>/html E2E_JSON_REPORT=<dir>/run.json npx playwright test --project=live-turso-destructive`
+  (the two `PLAYWRIGHT_HTML_*` keep it off your own `playwright-report/`)
   exits 0 with 4 skipped, and `E2E_JSON_REPORT=<dir>/run.json node scripts/check-live-run.mjs`
   then exits 1. On 2026-10-10 both suites, run through their npm scripts against the throwaway
   database, passed the check: 4 and 11 tests ran, none skipped.
