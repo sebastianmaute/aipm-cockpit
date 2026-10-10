@@ -141,7 +141,7 @@ export function tableAddRowClass(): string {
  *  the icon-only counterpart of `buttonClassFor`, for pinning a migrated call
  *  site with `toBe` (§688). Pass the call site's own `className` extras. */
 export function iconButtonClassFor(props: Omit<IconButtonProps, "children" | "label">): string {
-  const { container, unmount } = render(createElement(IconButton, { ...props, label: "x", children: "x" }));
+  const { container, unmount } = render(createElement(IconButton, { ...props, label: "x" } as IconButtonProps, "x"));
   const el = container.querySelector("button");
   if (!el) throw new Error("iconButtonClassFor: the IconButton primitive rendered no <button>");
   const cls = el.className;
