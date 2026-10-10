@@ -7,21 +7,30 @@ import { shiftDatesIn, shiftPeriodKey } from "./shift-workspace-dates";
 import { bucketKey, type SnapshotCadence, type SnapshotRecord } from "./snapshot";
 import type { PlanGranularity } from "./types";
 
-/** Shifts every date of every record by `n` plan periods, then re-derives `id` and
- *  `bucket` from the moved `capturedAt`. A month shift clamps (Jan 30 → Feb 28), so two
- *  source Fridays can land in one bucket: the later source wins, as a live capture would. */
+const WEEK_MS = 7 * 86_400_000;
+
+/** Shifts every date inside every record by `n` plan periods, as the workspace's own dates move,
+ *  but moves each `capturedAt` by the whole number of weeks nearest that shift (measured on the
+ *  latest record), then re-derives `id` and `bucket` from it. ★ A capture moved by months lands
+ *  on a different weekday per record, which empties some weekly buckets and doubles up others,
+ *  and Trends draws a gap for each empty one. Whole weeks keep one capture per consecutive week. */
 export function shiftDemoSnapshots(
   recs: readonly SnapshotRecord[],
   n: number,
   unit: PlanGranularity,
 ): SnapshotRecord[] {
+  const latest = recs.reduce<string | null>((m, r) => (m === null || r.capturedAt > m ? r.capturedAt : m), null);
+  const weeks = latest === null ? 0 : Math.round(
+    (Date.parse(shiftDatesIn({ at: latest }, n, unit).at) - Date.parse(latest)) / WEEK_MS,
+  );
   const byBucket = new Map<string, SnapshotRecord>();
   for (const r of recs) {
     const moved = shiftDatesIn(r, n, unit);
-    const capturedAt = moved.capturedAt;
+    const capturedAt = new Date(Date.parse(r.capturedAt) + weeks * WEEK_MS).toISOString();
     const bucket = bucketKey(new Date(capturedAt), r.cadence);
     byBucket.set(bucket, {
       ...moved,
+      capturedAt,
       id: capturedAt,
       bucket,
       // `shiftDatesIn` shifts period-shaped KEYS, not period VALUES, so each `period` moves here.

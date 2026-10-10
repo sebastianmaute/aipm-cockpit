@@ -39,4 +39,24 @@ describe("TrendChart", () => {
     const { getByText } = render(<TrendChart caption="x" points={[{ label: "W1", value: 1, gapBefore: false }]} emptyLabel="Not enough data" />);
     expect(getByText("Not enough data")).toBeTruthy();
   });
+
+  // 24 weekly labels ("2026-W16") under one 320-unit chart overlapped into an unreadable band.
+  const weekly = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ label: `2026-W${String(i + 10).padStart(2, "0")}`, value: i, gapBefore: false }));
+  const xLabels = (container: HTMLElement) =>
+    [...container.querySelectorAll("text")].map((el) => el.textContent ?? "").filter((s) => s.startsWith("2026-W"));
+
+  it("labels at most six points on a long axis, always the first and the last", () => {
+    const { container } = render(<TrendChart caption="Remaining hours" points={weekly(24)} />);
+    const labels = xLabels(container);
+    expect(labels.length).toBeLessThanOrEqual(6);
+    expect(labels.length).toBeGreaterThanOrEqual(4);
+    expect(labels[0]).toBe("2026-W10");
+    expect(labels.at(-1)).toBe("2026-W33");
+  });
+
+  it("labels every point on a short axis", () => {
+    const { container } = render(<TrendChart caption="Remaining hours" points={weekly(5)} />);
+    expect(xLabels(container)).toEqual(["2026-W10", "2026-W11", "2026-W12", "2026-W13", "2026-W14"]);
+  });
 });

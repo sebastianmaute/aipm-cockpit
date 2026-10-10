@@ -3,7 +3,7 @@
 // The empty state's "Explore the demo" card. Its copy depends on where the demo would go: with a
 // usable Turso config it is created there with its Trends history; otherwise it is local, and the
 // card says Trends needs Turso and offers the guided setup first. `weeks` is the seeded history's
-// length (`DEMO_SNAPSHOT_WEEKS`), never a literal.
+// count (`demoHistoryWeeks`), never a literal.
 
 import { useId } from "react";
 import { Button } from "./button";

@@ -20,6 +20,20 @@ function yAt(v: number, min: number, max: number): number {
   return PAD_T + (1 - (v - min) / (max - min)) * PLOT_H;
 }
 
+/** About six "2026-W16"-wide labels fit under the plot at 8px; more overlap into one band. */
+const MAX_X_LABELS = 6;
+
+/** The indices that get an x label: every point when they fit, otherwise evenly spaced ones,
+ *  always the first and the last (a step-aligned label too close to the last one is dropped). */
+function labelledIndices(n: number): Set<number> {
+  if (n <= MAX_X_LABELS) return new Set(Array.from({ length: n }, (_, i) => i));
+  const step = Math.ceil((n - 1) / (MAX_X_LABELS - 1));
+  const kept = [];
+  for (let i = 0; i < n - 1; i += step) kept.push(i);
+  if (n - 1 - kept[kept.length - 1] < step / 2) kept.pop();
+  return new Set([...kept, n - 1]);
+}
+
 export function TrendChart({
   caption, points, gapCount = 0, gapLabel, emptyLabel, format = (v: number) => String(Math.round(v)),
 }: {
@@ -44,6 +58,7 @@ export function TrendChart({
   const max = Math.max(...values, 0);
   const baseY = PAD_T + PLOT_H;
   const yTicks = max > min ? [min, (min + max) / 2, max] : [min];
+  const labelled = labelledIndices(n);
 
   const segments = points.slice(1).map((p, i) => {
     const x1 = xAt(i, n), y1 = yAt(points[i].value, min, max);
@@ -77,7 +92,7 @@ export function TrendChart({
         ))}
         <polyline points={points.map((p, i) => `${xAt(i, n).toFixed(1)},${yAt(p.value, min, max).toFixed(1)}`).join(" ")}
           fill="none" className="stroke-ui-dark-blue" strokeWidth={0} aria-hidden="true" />
-        {points.map((p, i) => (
+        {points.map((p, i) => !labelled.has(i) ? null : (
           <text key={`x${i}`} x={xAt(i, n)} y={baseY + 12}
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
             className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">

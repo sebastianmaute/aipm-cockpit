@@ -47,6 +47,17 @@ longer carries its own changelog comment.
   standard sizes. Reports' "Add report" is a "+ Add report" button with a menu, like the other panes' Add
   buttons.
 
+### Fixed
+
+- **The demo's Trends history has no gaps, and the start card quotes the weeks it really stores.** The
+  seeded weekly snapshots moved by whole months, so each one landed on a different weekday: some weeks
+  were left empty and drawn as gaps, and others held two snapshots, one of which was dropped. They now
+  move by whole weeks. The card quoted the file's 27 weeks, but the history stops before the current
+  week, so it now quotes the number a demo created today stores.
+- **Trends charts label at most six points along the bottom axis.** With more snapshots than that, every
+  label was drawn and they overlapped into an unreadable band. The first and last points are always
+  labelled.
+
 ## [1.16.0] - 2026-10-09 "Rankin"
 
 A feature release. Long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay

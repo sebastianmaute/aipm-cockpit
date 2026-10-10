@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./snapshot-store", () => ({ appendSnapshots: vi.fn() }));
 
 import {
-  createDemo, DEMO_SAMPLE_NAME, DEMO_SNAPSHOT_WEEKS, demoVariantFor, isTursoUsable, useLoadDemo,
+  createDemo, DEMO_PLAN_GRANULARITY, DEMO_SAMPLE_NAME, demoHistoryFor, demoHistoryWeeks, demoVariantFor, isTursoUsable, useLoadDemo,
   type CreateDemoDeps, type UseLoadDemoDeps,
 } from "./demo-project";
 import { readDemoCreatedLocally } from "./demo-intent";
@@ -106,33 +106,37 @@ describe("createDemo", () => {
     expect(d.createLocal).not.toHaveBeenCalled();
   });
 
-  it("shifts the records by the workspace's month shift, keeps one per bucket and stops before today's week", async () => {
+  it("moves the captures by the whole weeks nearest the month shift and stops before today's week", async () => {
     const d = deps();
     await createDemo(d);
     const out = written(d);
+    // One month (Sep 11 → Oct 11, 30 days) is 4 weeks: every Friday stays a Friday, one per week,
+    // and Oct 2 (today's week) is left to the live capture.
     expect(out.map((r) => r.capturedAt)).toEqual([
-      "2026-05-03T17:00:00.000Z",
-      "2026-05-10T17:00:00.000Z",
-      "2026-09-21T17:00:00.000Z",
+      "2026-04-24T17:00:00.000Z",
+      "2026-05-01T17:00:00.000Z",
+      "2026-05-08T17:00:00.000Z",
+      "2026-09-18T17:00:00.000Z",
+      "2026-09-25T17:00:00.000Z",
     ]);
-    expect(out.map((r) => r.bucket)).toEqual(["2026-W18", "2026-W19", "2026-W39"]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-W17", "2026-W18", "2026-W19", "2026-W38", "2026-W39"]);
     expect(out.map((r) => r.id)).toEqual(out.map((r) => `id-1:${r.capturedAt}`));
   });
 
-  it("marks exactly the first written record as baseline when the shift dropped the authored one", async () => {
+  it("marks exactly the first written record as baseline", async () => {
     const d = deps();
     await createDemo(d);
-    expect(written(d).map((r) => r.isBaseline)).toEqual([true, false, false]);
+    expect(written(d).map((r) => r.isBaseline)).toEqual([true, false, false, false, false]);
   });
 
   it("thins to the monthly cadence and leaves the current month to the live capture", async () => {
     const d = deps({ cadence: "monthly" });
     await createDemo(d);
     const out = written(d);
-    expect(out.map((r) => r.capturedAt)).toEqual(["2026-05-10T17:00:00.000Z", "2026-09-21T17:00:00.000Z"]);
-    expect(out.map((r) => r.bucket)).toEqual(["2026-05", "2026-09"]);
-    expect(out.map((r) => r.cadence)).toEqual(["monthly", "monthly"]);
-    expect(out.map((r) => r.isBaseline)).toEqual([true, false]);
+    expect(out.map((r) => r.capturedAt)).toEqual(["2026-04-24T17:00:00.000Z", "2026-05-08T17:00:00.000Z", "2026-09-25T17:00:00.000Z"]);
+    expect(out.map((r) => r.bucket)).toEqual(["2026-04", "2026-05", "2026-09"]);
+    expect(out.map((r) => r.cadence)).toEqual(["monthly", "monthly", "monthly"]);
+    expect(out.map((r) => r.isBaseline)).toEqual([true, false, false]);
   });
 
   it("falls back to the local demo, without seeding, when the Turso create returns no id", async () => {
@@ -231,10 +235,22 @@ describe("createDemo", () => {
 });
 
 describe("the demo's start-card facts", () => {
-  it("counts the weeks from the committed snapshot file", () => {
+  // The card once quoted the file's length (27) while a demo created on 2026-10-10 stored 23: the
+  // history stops before the current week, so the count moves with the date.
+  it.each(["2026-10-02", "2026-10-10", "2027-01-15"])("quotes exactly the weekly records the demo stores on %s", (today) => {
+    const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
+    const stored = demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly").length;
+    expect(stored).toBeGreaterThan(0);
+    expect(demoHistoryWeeks(today)).toBe(stored);
+  });
+
+  it("is not the file's length on a date whose current week the history reaches", () => {
     const committed: unknown[] = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8"));
-    expect(committed.length).toBeGreaterThan(0);
-    expect(DEMO_SNAPSHOT_WEEKS).toBe(committed.length);
+    expect(demoHistoryWeeks("2026-10-10")).toBeLessThan(committed.length);
+  });
+
+  it("uses the master's own plan granularity", () => {
+    expect(DEMO_PLAN_GRANULARITY).toBe((MASTER as { plan: { granularity: string } }).plan.granularity);
   });
 
   it("names the sample exactly as the master does", () => {

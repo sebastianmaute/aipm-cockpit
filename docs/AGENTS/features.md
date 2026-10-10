@@ -86,8 +86,9 @@ task-manager (size ratchet, zero headroom) only calls it. Turso stays unmutated 
 
 ★ **The history is a committed file, not computed at runtime.** `scripts/generate-demo-snapshots.ts` (run with `npx vite-node`)
 replays the master through `buildDemoSnapshots` (`demo-snapshots.ts`): one record per Friday from `demoSnapshotFridays`, each
-built from `workspaceAsOf(ws, asOf)`, and writes `sample-demo-snapshots.json` (`DEMO_SNAPSHOT_WEEKS` records; the card quotes
-that count, never a literal). The master spans 2026-03-02..2027-02-26 (reproduce:
+built from `workspaceAsOf(ws, asOf)`, and writes `sample-demo-snapshots.json`. ★ The card does NOT quote the file's length: it quotes
+`demoHistoryWeeks(today)`, the number of weekly records a demo created today would store, which moves with the date because
+the history stops before the current week (27 in the file, 26 stored on 2026-10-10; reproduce with a vite-node script that prints `demoHistoryWeeks("2026-10-10")`). The master spans 2026-03-02..2027-02-26 (reproduce:
 `node -e "const w=require('./sample-workspace-small.json');console.log(w.plan.startDate,w.plan.endDate)"`) and `DEMO_AS_OF`
 stays 2026-09-18, so re-authoring the master means regenerating this file in the same commit. ★★ **ACCEPTED APPROXIMATION:
 effort is not dated per task.** A task created after the snapshot date stays in as not-yet-started scope (removing it made
@@ -102,11 +103,14 @@ master's 17 completed tasks spent 727 h against 628 h estimated and in-progress 
 behaviour, not a replay fault (§696). Reproduce: `npx vite-node scripts/generate-demo-snapshots.ts` prints each week's CPI,
 remaining hours and budget RAG; the effort totals come from the `Done` tasks' `originalEstimateMinutes` / `timeSpentMinutes`.
 
-★ **Shifting.** `shiftDemoSnapshots` (`demo-snapshot-shift.ts`) moves the records by the workspace's own shift;
+★ **Shifting.** `shiftDemoSnapshots` (`demo-snapshot-shift.ts`) moves the dates inside each record by the workspace's own
+shift, but moves each `capturedAt` by the whole number of WEEKS nearest that shift. ★★ Moving the captures by months put each
+Friday on a different weekday, which emptied some weekly buckets and doubled up others, and Trends drew a gap for each empty one
+("2 gaps" on a live demo, found by the §696 live run);
 `thinForCadence` keeps one record per month for a monthly cadence and RELABELS the kept ones cadence `"monthly"` with the monthly
 bucket key (a weekly label in a monthly setting would read as a gap in Trends). `demoHistoryFor` then drops every record at or
 after the CURRENT bucket (compared in each record's own cadence — a `YYYY-MM` string never orders against `YYYY-Www`; the live
-capture owns that bucket) and makes the first remaining record the baseline (a shift collision can drop the authored one).
+capture owns that bucket) and makes the first remaining record the baseline.
 `appendSnapshots` (`snapshot-store.ts`) writes the whole list in ONE transaction; ids are `${projectId}:${capturedAt}` because
 `snapshot.id` is a global primary key and a second demo in the same database would collide.
 
