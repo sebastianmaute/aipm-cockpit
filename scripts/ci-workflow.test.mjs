@@ -556,19 +556,18 @@ describe("live-turso.yml", () => {
   // Both directions are checked. Every live spec must be in one of them, or it never runs here.
   // Every listed name must be a LIVE spec: the lists hand the Turso values to whatever they match,
   // and an ordinary spec (smoke, a11y) is not partition-scoped and would write to the shared
-  // database; a typo would also silently drop a spec. A live spec is one that imports
-  // e2e/live-turso-env.ts or live-turso-schema.ts (any quoting, with or without .ts), or reads the
-  // throwaway pair itself in CODE: process.env.TURSO_THROWAWAY_…, a quoted or backtick
-  // "TURSO_THROWAWAY_…" (turso-revision-live does this), or destructured from process.env. A bare
-  // mention in a comment does not count. Each list is a plain list of names, anchored to WHOLE file
-  // names. Every scan is RECURSIVE, as Playwright's search of testDir is.
+  // database; a typo would also silently drop a spec. A live spec is one whose CODE (comments
+  // stripped, so a mention in a comment never counts, backticked or not) imports
+  // e2e/live-turso-env.ts or live-turso-schema.ts (any quoting, with or without .ts), or reads
+  // process.env.TURSO_THROWAWAY_… or a quoted "TURSO_THROWAWAY_…" (turso-revision-live does). Those
+  // are the forms the live specs use; another form (a destructured or aliased process.env) is not
+  // recognised, so such a spec would fail as "in neither list" until it uses one of them. Each list
+  // is a plain list of names, anchored to WHOLE file names. Every scan is RECURSIVE, as Playwright's
+  // search of testDir is.
   it("runs exactly the live specs, each in one list, through the projects the npm scripts name", () => {
-    const LIVE_READER = new RegExp([
-      String.raw`["']\.\/live-turso-(env|schema)(\.ts)?["']`,
-      String.raw`process\.env\.TURSO_THROWAWAY_`,
-      String.raw`["'\x60]TURSO_THROWAWAY_`,
-      String.raw`\{[^}]*\bTURSO_THROWAWAY_\w+[^}]*\}\s*=\s*process\.env\b`,
-    ].join("|"));
+    const LIVE_READER = /["']\.\/live-turso-(env|schema)(\.ts)?["']|process\.env\.TURSO_THROWAWAY_|["']TURSO_THROWAWAY_/;
+    // Block comments, then line comments (a "//" after ":" is a URL, not a comment).
+    const codeOf = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
     // Paths relative to e2e/, forward slashes, so a spec in a subfolder shows up as "sub/name".
     const SPECS = readdirSync(new URL("../e2e/", import.meta.url), { recursive: true })
       .map((f) => String(f).replace(/\\/g, "/"))
@@ -592,25 +591,26 @@ describe("live-turso.yml", () => {
       expect(existsSync(specFile(name)), `e2e/${name}.spec.ts exists now: remove "${name}" from PENDING`).toBe(false);
       expect([...destructive, ...appSpecs], `PENDING "${name}" is in neither list`).toContain(name);
     }
-    // Each regex, as Playwright applies it (to a full path, either separator), matches exactly its
-    // listed top-level files that exist. For a top-level file this backs up the shape check above
-    // (it can only fail if that check is loosened); what it adds is a SUBFOLDER spec with a listed
-    // name, which the anchored regex also matches and which would run with the credentials.
-    for (const [re, names] of [[destructiveRe, destructive], [appRe, appSpecs]]) {
-      const hits = SPECS.filter((f) => re.test(`/repo/e2e/${f}`) || re.test(`C:\\repo\\e2e\\${f.replace(/\//g, "\\")}`));
-      expect(hits.map((f) => f.replace(/\.spec\.ts$/, "")).sort(), `${re} must match exactly its listed top-level specs (a subfolder copy runs with the credentials)`).toEqual(names.filter((n) => !PENDING.includes(n)).sort());
-      for (const n of names) expect(re.test(`/repo/e2e/old-${n}.spec.ts`), `${re} matches old-${n}`).toBe(false);
-    }
+    // First each listed name on its own, so a typo or a deleted spec gets its own message.
     for (const name of [...destructive, ...appSpecs]) {
       if (PENDING.includes(name)) continue;
       expect(existsSync(specFile(name)), `${name}: no e2e/${name}.spec.ts`).toBe(true);
-      expect(read(`e2e/${name}.spec.ts`), `${name} is not a live spec`).toMatch(LIVE_READER);
+      expect(codeOf(read(`e2e/${name}.spec.ts`)), `${name} is not a live spec`).toMatch(LIVE_READER);
+    }
+    // Then each regex, as Playwright applies it (to a full path, either separator): it must match
+    // exactly its listed top-level files. Given the shape check and the loop above, the one case
+    // left for this to catch is a SUBFOLDER spec with a listed name, which the anchored regex also
+    // matches and which would run with the credentials.
+    for (const [re, names] of [[destructiveRe, destructive], [appRe, appSpecs]]) {
+      const hits = SPECS.filter((f) => re.test(`/repo/e2e/${f}`) || re.test(`C:\\repo\\e2e\\${f.replace(/\//g, "\\")}`));
+      expect(hits.map((f) => f.replace(/\.spec\.ts$/, "")).sort(), `${re} matches a spec beyond its listed top-level ones (a subfolder copy runs with the credentials)`).toEqual(names.filter((n) => !PENDING.includes(n)).sort());
+      for (const n of names) expect(re.test(`/repo/e2e/old-${n}.spec.ts`), `${re} matches old-${n}`).toBe(false);
     }
     // live-turso-env.spec.ts tests the helper itself and needs no database. A live spec in a
     // subfolder reads "sub/name" and so is in neither list: keep live specs at the top of e2e/.
     const readers = SPECS
       .filter((f) => f !== "live-turso-env.spec.ts")
-      .filter((f) => LIVE_READER.test(read(`e2e/${f}`)))
+      .filter((f) => LIVE_READER.test(codeOf(read(`e2e/${f}`))))
       .map((f) => f.replace(/\.spec\.ts$/, ""));
     expect(readers.length).toBeGreaterThan(0);
     for (const name of readers) expect([...destructive, ...appSpecs], `${name} is in neither list`).toContain(name);
