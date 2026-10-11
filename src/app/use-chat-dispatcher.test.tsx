@@ -1304,6 +1304,39 @@ describe("useChatDispatcher – optimize_wbs", () => {
     );
     expect(openWbsPlan).not.toHaveBeenCalled();
   });
+
+  // ★★ The dispatcher memo is built once; `useWbsPlan().open` moves identity
+  // when settings hydrate (the first render's open is AI-disabled). A captured
+  // `args.openWbsPlan` would keep calling the FIRST one for the whole session.
+  it("calls the LATEST openWbsPlan after a rerender, not the first render's", () => {
+    const first = vi.fn(() => ({ opened: false, tasksInScope: 0 }));
+    const second = vi.fn(() => ({ opened: true, tasksInScope: 3 }));
+    const settings = makeSettings();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders tasks={[]}>{children}</TestProviders>
+    );
+    const { result, rerender } = renderHook(
+      ({ open }: { open: ChatDispatcherArgs["openWbsPlan"] }) =>
+        useChatDispatcher({
+          settings,
+          clock: testClock("2026-05-19", "UTC"),
+          setSelectedIds: vi.fn(),
+          setSettings: vi.fn(),
+          isReadOnly: false,
+          currentView: "open-points",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+          openWbsPlan: open,
+        }),
+      { wrapper, initialProps: { open: first } },
+    );
+    rerender({ open: second });
+    expect(result.current.openWbsPlan({ group: "Build" })).toEqual({ opened: true, tasksInScope: 3 });
+    expect(second).toHaveBeenCalledWith({ group: "Build" });
+    expect(first).not.toHaveBeenCalled();
+  });
 });
 
 describe("useChatDispatcher – read-only guard for entity write methods", () => {
