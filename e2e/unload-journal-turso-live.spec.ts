@@ -246,8 +246,10 @@ test.describe("§629 — a draft unloaded on a live Turso project reaches the da
     await typeTaskNameDraft(page, marker);
     await page.close({ runBeforeUnload: true });
     // A same-origin document that runs no app code, so the journal is read before any load acts on it.
+    // Served by a route, not a real file: CI's Chromium aborted a navigation to `/favicon.ico`.
     const next = await context.newPage();
-    await next.goto("/favicon.ico");
+    await next.route("**/__e2e-journal-reader", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>reader</title>" }));
+    await next.goto("/__e2e-journal-reader");
     // Polled: `page.close` resolves before the closing page's pagehide handlers finish
     // (pagehide-draft-persist.spec.ts's header has the measurement).
     await expect
