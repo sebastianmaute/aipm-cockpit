@@ -48,7 +48,7 @@ used.
 
 ## Item 6: WebP
 
-- [ ] _(2026-10-11: drew in Microsoft 365 and LibreOffice, which does not close this line; an older perpetual Office is still owed.)_ `6-webp.docx` and `6-webp.pptx`: the "WebP image" picture draws. ★ The useful reader is an
+- [ ] _(2026-10-11: drew in Microsoft 365 and LibreOffice. The older perpetual Office check was WAIVED by the owner the same day and will not be done; §219 closed on that decision.)_ `6-webp.docx` and `6-webp.pptx`: the "WebP image" picture draws. ★ The useful reader is an
   OLDER Word: 2016, 2019 or 2021 perpetual, or a non-subscription Mac Office. Note which build
   you used and what it drew. If you only have current Microsoft 365, say so: it is expected to
   draw it, so that result does not close this item by itself.
