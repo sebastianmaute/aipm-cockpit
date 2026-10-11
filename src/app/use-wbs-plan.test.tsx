@@ -8,6 +8,7 @@ import { useEffect, type ReactNode } from "react";
 import { AiHttpError } from "./ai-errors";
 import { useWbsPlan, type WbsPlan } from "./use-wbs-plan";
 import { ToastProvider } from "./toast-context";
+import { useToast } from "./use-toast";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useUndoStack, type UndoStackApi } from "./undo/use-undo-stack";
@@ -16,7 +17,7 @@ import { type Task } from "./types";
 import * as call from "./wbs-plan-call";
 import * as engine from "./wbs-plan/wbs-plan";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
-import { t, tPlural } from "./i18n";
+import { loadI18n, t, tPlural } from "./i18n";
 
 vi.mock("./wbs-plan-call");
 // The REAL engine, wrapped so one test can make the setTasks updater's apply
@@ -107,20 +108,38 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-function renderHarness(props: Omit<HarnessProps, "onApi"> = {}, seed: readonly Task[] = SEED) {
+// The REAL single-slot toast (use-toast.ts), rendered: a mocked showToast
+// records every call, so it cannot see one toast replacing another.
+function RealToastWrapper({ children }: { children: ReactNode }) {
+  const { toast, showToast: realShowToast, showToastAction } = useToast();
+  return (
+    <ToastProvider value={{ showToast: realShowToast, showToastAction }}>
+      <output data-testid="toast">{toast?.text ?? ""}</output>
+      <FiltersProvider>
+        <WorkspaceProvider>{children}</WorkspaceProvider>
+      </FiltersProvider>
+    </ToastProvider>
+  );
+}
+
+function renderHarness(
+  props: Omit<HarnessProps, "onApi"> = {},
+  seed: readonly Task[] = SEED,
+  Shell: (p: { children: ReactNode }) => ReactNode = Wrapper,
+) {
   const box: { api: Api | null } = { api: null };
   const onApi = (a: Api) => { box.api = a; };
   const { unmount, rerender } = render(
-    <Wrapper>
+    <Shell>
       <Harness {...props} onApi={onApi} />
-    </Wrapper>,
+    </Shell>,
   );
   act(() => { box.api!.ws.setTasks(seed); });
   const reprops = (next: Omit<HarnessProps, "onApi">) =>
     rerender(
-      <Wrapper>
+      <Shell>
         <Harness {...props} {...next} onApi={onApi} />
-      </Wrapper>,
+      </Shell>,
     );
   return Object.assign(() => box.api!, { unmount, reprops });
 }
@@ -239,6 +258,46 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/^Applied/));
     expect(logActivitySpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  // Through the real single-slot toast: two calls in one handler would leave
+  // only the second on screen, so the applied count must share one message.
+  it("a partial apply shows the applied and the skipped count in the one toast the user sees", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([
+        { kind: "regroup", taskId: 1, group: "Backend", why: "" },
+        { kind: "regroup", taskId: 2, group: "Platform", why: "" },
+        { kind: "regroup", taskId: 3, group: "Infra", why: "" },
+      ]),
+    );
+    const api = renderHarness({}, SEED, RealToastWrapper);
+    await proposeFromButton();
+    await screen.findAllByRole("checkbox", { name: /include this change/i });
+    act(() => {
+      api().ws.setTasks((prev) => prev.map((x) => (x.id === 1 ? { ...x, taskName: "Edited meanwhile" } : x)));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 3, 3) }));
+
+    expect(byId(api().ws.tasks, 2)?.group).toBe("Platform");
+    expect(byId(api().ws.tasks, 3)?.group).toBe("Infra");
+    expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
+    expect(screen.getByTestId("toast")).toHaveTextContent(
+      "Work-breakdown changes applied: 2. 1 change was skipped because the tasks it depends on changed.",
+    );
+  });
+
+  it("the combined notice has EN and DE plural forms", async () => {
+    await loadI18n("de");
+    expect(tPlural("en-US", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
+      "Work-breakdown changes applied: 2. 3 changes were skipped because the tasks they depend on changed.",
+    );
+    expect(tPlural("de", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
+      "Übernommene Änderungen an den Arbeitspaketen: 2. 3 Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
+    );
+    expect(tPlural("de", "wbsPlanAppliedSkipped", 1, 4, 1)).toBe(
+      "Übernommene Änderungen an den Arbeitspaketen: 4. 1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
+    );
   });
 
   it("undo reverts edits and leaves created rows single", async () => {

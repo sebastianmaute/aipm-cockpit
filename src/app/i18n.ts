@@ -4921,6 +4921,8 @@ const enUS = {
   wbsPlanAppliedOne: "Applied 1 work-breakdown change.",
   wbsPlanStaleSkipped: "{0} changes were skipped because the tasks they depend on changed.",
   wbsPlanStaleSkippedOne: "1 change was skipped because the tasks it depends on changed.",
+  wbsPlanAppliedSkipped: "Work-breakdown changes applied: {0}. {1} changes were skipped because the tasks they depend on changed.",
+  wbsPlanAppliedSkippedOne: "Work-breakdown changes applied: {0}. 1 change was skipped because the tasks it depends on changed.",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiAllocationPlanOne: "AI planned 1 allocation cell",
   activityAiWbsPlan: "AI applied {0} work-breakdown changes",

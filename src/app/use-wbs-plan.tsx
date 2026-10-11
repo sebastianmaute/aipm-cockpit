@@ -369,10 +369,18 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         });
       }
       logActivityAs?.("ai", "ai.wbsPlan", result.applied);
-      showToast("info", tPlural(lang, "wbsPlanApplied", result.applied, result.applied));
     }
-    if (result.skippedStale > 0) {
-      showToast("info", tPlural(lang, "wbsPlanStaleSkipped", result.skippedStale, result.skippedStale));
+    // ONE toast: there is a single toast slot, so a second call in this
+    // handler would replace the first and a partial apply would report only
+    // what was skipped. The combined key is picked by the skipped count; the
+    // applied count rides a count-neutral "applied: {0}".
+    const { applied, skippedStale } = result;
+    if (applied > 0 && skippedStale > 0) {
+      showToast("info", tPlural(lang, "wbsPlanAppliedSkipped", skippedStale, applied, skippedStale));
+    } else if (applied > 0) {
+      showToast("info", tPlural(lang, "wbsPlanApplied", applied, applied));
+    } else if (skippedStale > 0) {
+      showToast("info", tPlural(lang, "wbsPlanStaleSkipped", skippedStale, skippedStale));
     }
     reset();
   }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset, setPhase]);

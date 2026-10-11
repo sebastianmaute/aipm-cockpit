@@ -4640,6 +4640,8 @@ export const de: Record<TranslationKey, string> = {
   wbsPlanAppliedOne: "1 Änderung an den Arbeitspaketen übernommen.",
   wbsPlanStaleSkipped: "{0} Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
   wbsPlanStaleSkippedOne: "1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
+  wbsPlanAppliedSkipped: "Übernommene Änderungen an den Arbeitspaketen: {0}. {1} Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
+  wbsPlanAppliedSkippedOne: "Übernommene Änderungen an den Arbeitspaketen: {0}. 1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
   activityAiAllocationPlanOne: "KI hat 1 Planungszelle geplant",
   activityAiWbsPlan: "KI hat {0} Änderungen an den Arbeitspaketen übernommen",
