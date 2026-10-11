@@ -1,12 +1,11 @@
-import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, openView, waitForViewSettled, installAssetByteStore } from "./seed";
 import { join } from "node:path";
 import type { Locator } from "@playwright/test";
 
 // Browser eye-verify for open-followups §414 (the control-defects batch). Each
 // item there is a layout/hover/native-tooltip claim jsdom cannot observe. This
 // spec converts the ones that CAN be driven headlessly into real assertions;
-// item 6 stays owed (see the bottom of the file) because it needs a
-// Turso-backed seed that `./seed` does not provide.
+// item 6 is at the bottom of the file, in its own describe block.
 //
 // These are FINDINGS, not fixes — a failing assertion here is a legitimate
 // result about the shipped code, not a bug in the test.
@@ -429,11 +428,67 @@ test.describe("control-defects eye-verify (§414)", () => {
   });
 });
 
-// Item 6 is deliberately NOT written here. (Item 5, once listed here too, is the
-// keyboard test above since 2026-10-08.)
+// Item 6 — an asset's name reads as interactive (added 2026-10-11).
 //
-// Item 6 (an asset's name reading as interactive) needs a REAL Turso project:
-// `documents-asset-section.tsx` only passes `loadImage` (the prop gating the
-// interactive vs. plain-text branch) when `tursoConfig !== null`, and
-// `./seed`'s fixture is file-mode. A file-mode run can only ever exercise the
-// inert branch, which cannot answer the question this item asks. Still owed.
+// This was long recorded as needing a REAL Turso project. It does not: the
+// question is how the name LOOKS, and `installAssetByteStore` (./seed) makes
+// `tursoConfig` non-null and answers the asset statements itself, which is the
+// whole gate. ★ The item also assumed a file-mode project shows the same name
+// as plain text. It does not: with `tursoConfig === null`,
+// `documents-asset-section.tsx` returns the `assetLibraryTursoOnly` empty state
+// and mounts no library at all, and both `AssetLibrary` mounts pass
+// `loadImage`, so the library's plain-text branch is unreachable in the app
+// today. The file-mode shot therefore shows what a file-mode user really sees.
+test.describe("control-defects eye-verify (§414) — item 6", () => {
+  const ASSET_NAME = "burndown.png";
+  const DOC_TITLE = "Kickoff pack";
+
+  // A DOM click, as in documents-images.spec.ts: an exact-text match, because
+  // every per-row control in documents-list.tsx is named "<action> – <title>".
+  async function openKickoffPack(page: import("@playwright/test").Page) {
+    await openView(page, "Documents");
+    await waitForViewSettled(page);
+    const clicked = await page.evaluate((title) => {
+      const btn = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === title);
+      if (!btn) return false;
+      (btn as HTMLElement).click();
+      return true;
+    }, DOC_TITLE);
+    expect(clicked, `Document row "${DOC_TITLE}" not found`).toBe(true);
+  }
+
+  test("item 6a: under Turso the asset name is a control", async ({ page }) => {
+    await installAssetByteStore(page);
+    // installAssetByteStore writes the settings key itself; this runs after it
+    // and adds `tourSeen`, so the tour's backdrop is not in the screenshot.
+    await page.addInitScript(() => {
+      const key = "aipm-cockpit:settings";
+      const prev = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
+      localStorage.setItem(key, JSON.stringify({ ...prev, tourSeen: true }));
+    });
+    await gotoApp(page);
+    await openKickoffPack(page);
+
+    // The interactive branch renders a <button> holding the name; the inert one
+    // a <span>. Asserting the button is what makes this shot the right branch.
+    const nameButton = page.locator("table button", { hasText: ASSET_NAME }).first();
+    await expect(nameButton).toBeVisible();
+    const table = nameButton.locator("xpath=ancestor::table[1]");
+    await shot(table, "item6a-asset-name-turso.png");
+    await nameButton.hover();
+    await shot(table, "item6a-asset-name-turso-hover.png");
+  });
+
+  test("item 6b: in file mode there is no asset list, only the Turso notice", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await gotoApp(page);
+    await openKickoffPack(page);
+
+    const notice = page.getByText("Images need a Turso project", { exact: false }).first();
+    await expect(notice).toBeVisible();
+    await expect(page.locator("table button", { hasText: ASSET_NAME })).toHaveCount(0);
+    await shot(notice.locator("xpath=.."), "item6b-asset-section-file-mode.png");
+  });
+});
