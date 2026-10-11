@@ -589,7 +589,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds--closed-2026-10-01) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | **CLOSED** 2026-10-01 |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
-| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
+| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--closed-2026-10-11) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | **CLOSED** 2026-10-11 |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--closed-2026-10-02) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | **CLOSED** 2026-10-02 |
@@ -934,6 +934,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--closed-2026-10-10) | The demo's Trends history has never been checked against a live Turso database | — | — | **CLOSED** 2026-10-10 |
 | [§697](#697-the-fused-desktop-apps-runtime-behaviour-is-unverified-runasnode-refusal-the-node_options-probes-control-killserver-and-server-childts-outside-tsc--open) | The fused desktop app's runtime behaviour is unverified: RunAsNode refusal, the NODE_OPTIONS probe's control, `killServer`, and `server-child.ts` outside tsc | — | — | open |
 | [§698](#698-a-jira-sync-overwrites-task-edits-adds-and-deletes-made-while-it-awaits-jira--closed-2026-10-11) | A Jira sync overwrites task edits, adds and deletes made while it awaits Jira | — | — | **CLOSED** 2026-10-11 |
+| [§699](#699-the-timelog-guardrails-have-no-closed-month-rule-because-no-period-lock-concept-exists--open) | The TimeLog guardrails have no closed-month rule, because no period-lock concept exists | — | — | open |
+| [§700](#700-the-timelog-guardrails-do-not-flag-time-booked-on-a-day-the-person-was-absent--open) | The TimeLog guardrails do not flag time booked on a day the person was absent | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29000,11 +29002,11 @@ reachable from a server, a local file and IndexedDB are not.
 the obvious implementation is not obvious. The decision to take first is whether Cockpit wants a
 server-side surface at all.
 
-## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — open
+## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — CLOSED 2026-10-11
 
-**Status:** open — probed and DESIGNED 2026-09-03, not built. The premise needed correcting: reproduce with `grep -rnE 'method: "(POST|PUT|PATCH|DELETE)"' src/app/api/timelog src/app/timelog-api.ts`.
+**Status:** CLOSED 2026-10-11, recorded late: the slice shipped in `0.282.0 "Zamyatin"` (2026-09-05), and this entry went on reading "not built" for five weeks. Four of OpenProject's five rules are built as review-time guardrails in `timelog-policy.ts` (`evaluateTimelogPolicy`): a cap per entry, a cap per user per day, work booked on a non-working day, and hours beyond a person's defined day. Each is an `InsightType` of its own, all default to off and are switched on in `timelog-settings.tsx`, and the one caller is `use-insight-lifecycle.ts`. `reconcileInsights` takes a required `isEvaluated` argument, so a rule that did not run freezes its insights rather than resolving them as an improvement, which was this entry's load-bearing finding. Spec `docs/superpowers/specs/2026-09-04-timelog-guardrails-design.md`, plan `docs/superpowers/plans/2026-09-04-timelog-guardrails.md`. Re-checked 2026-10-11 against the tree, not re-run: `grep -rn "evaluateTimelogPolicy(" src/app --include=*.ts --include=*.tsx | grep -v test` returns the definition and the one caller. The two non-goals the plan said to file when this closed are filed: the closed-month rule as §699, booking on an absence day as §700.
 
-**Work item:** #251
+**Status before closure:** open — probed and DESIGNED 2026-09-03, not built. The premise needed correcting: reproduce with `grep -rnE 'method: "(POST|PUT|PATCH|DELETE)"' src/app/api/timelog src/app/timelog-api.ts`.
 
 OpenProject 17.8 added instance-wide time-entry validations: a cap per entry, a cap per user per
 day, restriction to a user's defined working hours, a block on non-working days, and a block on
@@ -44619,3 +44621,25 @@ With a usable Turso config the demo is created as a Turso project and its weekly
 Found 2026-10-11 by probe tests, after a review of the §293 arming-gate exemption for `handleJiraSync` asked whether "keeps every row" held beyond the snapshot. The sync read `tasksRef.current` once, awaited `updateIssue` (and possibly `transitionIssueTo`) for each locally changed row, then committed `setTasks(next)`. Every change to the task list during those awaits was lost: an edit reverted, a task added vanished, a task deleted came back. The mass-deletion guard never saw the last case, because no row count dropped. The window was as long as the per-row pushes took.
 
 **Source:** review of the §293 branch, 2026-10-11.
+
+## 699. The TimeLog guardrails have no closed-month rule, because no period-lock concept exists — open
+
+**Status:** open 2026-10-11, filed when §347 closed. Reproduce the absence with `grep -rniE "closedMonth|periodLock|lockedPeriod|monthClosed|freezePeriod" src/app --include=*.ts --include=*.tsx | grep -v test`, which returns nothing.
+
+**Work item:** #673
+
+OpenProject's fifth time-entry validation blocks bookings in a month already closed. §347 built the other four as review-time guardrails (`timelog-policy.ts`) and left this one out on purpose, because Cockpit has no input for it. It is a data-model question before it is a rule: a new persisted field for the closed period, a settings surface, and an authority question, namely who may close a month and whether closing it binds other devices. The spec's reasoning is in `docs/superpowers/specs/2026-09-04-timelog-guardrails-design.md`, section 2.
+
+★ Whatever field is added must follow the six write paths, and if it rides the `TimelogLinks` meta-blob it must stay absent rather than empty when unset, as the guardrail policy does.
+
+**Source:** §347's non-goals, filed at its closure.
+
+## 700. The TimeLog guardrails do not flag time booked on a day the person was absent — open
+
+**Status:** open 2026-10-11, filed when §347 closed. Reproduce with `grep -ci "absence" src/app/timelog-policy.ts`, which prints 0.
+
+**Work item:** #674
+
+Time booked on a day the person was on vacation or sick is the strongest booking signal the app holds, and the inputs exist: absences are workspace data, and `AbsenceType` separates `training`, which is bookable, from `vacation` and `sick`. §347 left it out because it was scoped to parity with OpenProject's five rules. A rule here would be a fifth `InsightType` beside the four, and it inherits their constraint: it counts as evaluated only when bookings and the person's absences are both known, so that a missing input freezes its insights rather than resolving them.
+
+**Source:** §347's non-goals, filed at its closure.
