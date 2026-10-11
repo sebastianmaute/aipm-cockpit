@@ -28,12 +28,13 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * filtered local declared in an ENCLOSING function, not only the nearest one.
  *
  * Since 2026-10-11 a committer's parameter may also be destructured, or aliased by
- * a local before it is handed on (`isParameterHandOff`).
+ * a local before it is handed on (`isParameterHandOff`), and a rebuild accumulator
+ * (a local initialised to `[]` and handed to the setter) counts as a site: whether
+ * its loop skips a row is not something this scan can read, so a person decides.
  *
  * ★★★ ITS BOUND. A removal written another way passes unseen: a setter handed a
- * parameter of an OUTER function, a
- * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
- * row, a filtered local hidden by a same-named plain local in a sibling function
+ * parameter of an OUTER function, an exempt accumulator whose loop later learns to
+ * skip a row (its exemption names the function, not the loop), a filtered local hidden by a same-named plain local in a sibling function
  * (each scope is searched whole, nested closures included, first match wins), a
  * generic setter such as the undo runner's (it arms by hand; nothing checks it),
  * or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
@@ -74,6 +75,13 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
   "use-reference-data.ts#onReorderGrades#setGrades": {
     sites: 1,
     reason: "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
+  },
+  "use-jira-sync.ts#handleJiraSync#setTasks": {
+    sites: 1,
+    reason:
+      "A rebuild accumulator that keeps every row: each path through the per-row loop pushes the row once, " +
+      "a failed push included (its catch pushes it unchanged), and the issue loop only appends. Read 2026-10-11; " +
+      "a new path that skips a row would not fail here, so re-read the loop when editing it.",
   },
 };
 
@@ -219,16 +227,18 @@ function localInitializer(from: ts.Node, name: string): ts.Expression | undefine
 }
 
 /** A removal handed to the setter: its argument has a removal shape, or is a local
- *  variable initialised by a `.filter(` or `.splice(` (`const kept = prev.filter(…); setX(kept)`).
- *  ★ A local initialised to `[]` is NOT counted: that is the rebuild accumulator
- *  (`const next = []` then a push per kept row, as in `use-jira-sync.ts`), and whether it
- *  drops a row depends on the loop, which this scan cannot read. */
+ *  variable initialised by a `.filter(` or `.splice(` (`const kept = prev.filter(…); setX(kept)`),
+ *  or by `[]`. ★ That last one is the rebuild accumulator (`const next = []` then a push
+ *  per kept row, as in `use-jira-sync.ts`). Whether it drops a row depends on its loop,
+ *  which this scan cannot read, so it counts and fails CLOSED: an accumulator that keeps
+ *  every row needs an `UNARMED_BY_DESIGN` reason, which a person writes after reading the loop.
+ *  ★ It errs towards flagging: `let next = []; next = rows.map(f);` counts too. */
 function isRemovalArgument(arg: ts.Expression): boolean {
   if (isRemovalValue(arg)) return true;
   const e = unwrap(arg);
   if (!ts.isIdentifier(e)) return false;
   const init = localInitializer(arg, e.text);
-  return !!init && (contains(init, isFilterCall) || contains(init, isSpliceCall));
+  return !!init && (contains(init, isFilterCall) || contains(init, isSpliceCall) || isEmptyArray(unwrap(init)));
 }
 
 /** A COMMITTER: the setter is handed a parameter of the function it sits in
@@ -416,9 +426,10 @@ describe("scanSource (the scanner itself)", () => {
     expect(scan(`function f() { let a = b; let b = a; setTasks(a); }`)).toEqual([]);
   });
 
-  it("ignores an edit, an unlisted setter, a filter outside the setter's value, and a rebuild accumulator", () => {
+  it("ignores an edit, an unlisted setter, and a filter outside the setter's value", () => {
     expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
-    expect(scan(`function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`)).toEqual([]);
+    // A local initialised by anything else, `.map(` included, is no removal.
+    expect(scan(`function e() { const next = rows.map((r) => r); setTasks(next); }`)).toEqual([]);
     expect(scan(`function e() { setTasks((p) => p.length ? p : []); }`)).toEqual([]);
     // §293, 2026-10-11: the same normalisation, negated or compared, is no removal either.
     expect(scan(`function e() { setTasks((p) => !p.length ? [] : p); }`)).toEqual([]);
@@ -452,6 +463,9 @@ describe("scanSource (the scanner itself)", () => {
     ["a length test inside a &&", `function reset() { setTasks((p) => (p.length && keep ? p : [])); }`],
     ["a length compared with another list", `function reset() { setTasks((p) => (p.length > other.length ? p : [])); }`],
     ["a local filtered list one function out", `function Comp() { const kept = tasks.filter(Boolean); const save = () => { setTasks(kept); }; }`],
+    // §293, widened 2026-10-11: a rebuild accumulator, which counts whether or not its loop skips a row.
+    ["a rebuild accumulator", `function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`],
+    ["a typed rebuild accumulator that skips a row", `function e() { const next = [] as Task[]; for (const r of rows) { if (r.gone) continue; next.push(r); } setTasks(next); }`],
     // §293, widened 2026-10-11: a committer's parameter destructured, or aliased first.
     ["a committer's destructured parameter", `const commit = ({ next }) => { setTasks(next); };`],
     ["a committer's array-destructured parameter", `function commit([first, { next }]) { setTasks(next); }`],
