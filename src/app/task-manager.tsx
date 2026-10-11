@@ -30,13 +30,13 @@ import { useBudgetBuckets } from "./use-budget-buckets";
 import { TaskLinkedTaskModal } from "./task-linked-task-modal";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type RaidItem, type ChangeItem } from "./types";
+import { type RaidItem, type ChangeItem } from "./types";
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
 import { useFxRates } from "./use-fx-rates";
-import { resourceDisplayName } from "./resource-foundation";
+import { buildWorkloadTriageHandlers } from "./workload-triage-handlers";
 import { peekMintId } from "./id-mint-session";
 import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -1341,6 +1341,7 @@ function TaskManagerInner() {
   const demoBoot = useDemoIntentOnBoot({ lang, weeks: demoHistoryWeeks(today), showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending, listLoaded: portfolioMode !== "turso" || tursoListLoaded, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
   if (!i18nReady) return null;
 
+  const workloadTriage = buildWorkloadTriageHandlers({ absences, shifts, setTasks, setRaid, setAbsences, setShifts, allowDestructiveSave });
   // Shared props for WorkspaceSection. Spread into both the classic (no
   // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
   const workspaceProps = {
@@ -1470,52 +1471,10 @@ function TaskManagerInner() {
     // Same threshold the over-allocation ALERT uses so the workload cell's pink
     // highlight fires exactly when the alert does (#24 review).
     overAllocatedPct: effectiveNextActions?.workloadAllocatedPct ?? 100,
-    // Workload overdue-task triage (#24) — functional setter so bulk edits from
-    // the popover compose; reassign copies the resource's identity onto the task.
-    onReassignTask: guardEdit((taskId: number, resource: Resource | null) =>
-      setTasks((prev) =>
-        prev.map((tk) =>
-          tk.id === taskId
-            ? {
-                ...tk,
-                assignee: resource ? resourceDisplayName(resource) : "",
-                assigneeEmail: resource?.email ?? "",
-                resourceId: resource?.id ?? undefined,
-              }
-            : tk,
-        ),
-      ),
-    ),
-    onRescheduleTask: guardEdit((taskId: number, iso: string) => setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk)))),
-    // Clear an unlinked workload row (an owner string matching NO resource, so a
-    // name/email string match can't hit a managed resource's record; a task
-    // linked by resourceId keeps that link — we only touch the free-text field).
-    // Tasks + RAID support an empty assignee/owner, so they are UNASSIGNED and
-    // kept. Absences + shifts REQUIRE an assignee (sanitizeAbsence/sanitizeShift
-    // drop an empty one on reload — an "unassigned absence" isn't representable),
-    // so the stray records are REMOVED outright.
-    onClearUnlinked: guardEdit((row: { display: string; email: string; firstName: string; lastName: string }) => {
-      const name = row.display.trim().toLowerCase();
-      const email = row.email.trim().toLowerCase();
-      const matchName = (s: string | undefined | null) => !!name && !!s && s.trim().toLowerCase() === name;
-      const matchEmail = (e: string | undefined | null) => !!email && !!e && e.trim().toLowerCase() === email;
-      // ★ Whether anything is REMOVED, decided from the live arrays before any
-      // setter runs — never inside an updater, which React may invoke twice.
-      // The task/raid writes below are field EDITS (they map), so they remove
-      // no record and must not count; only the two filters do. `absences` and
-      // `shifts` are both COUNTED slices and this route drops an UNBOUNDED
-      // number of their rows on one confirm, so it can trip the save-time
-      // mass-deletion guard on its own — hence the one-shot bypass, armed only
-      // when a row genuinely went (arming on a no-op leaks it to a later save).
-      const removesAbsence = absences.some((a) => matchName(a.assignee));
-      const removesShift = shifts.some((s) => matchName(s.assignee));
-      setTasks((prev) => prev.map((tk) =>
-        matchName(tk.assignee) || matchEmail(tk.assigneeEmail) ? { ...tk, assignee: "", assigneeEmail: "" } : tk));
-      setRaid((prev) => prev.map((r) => matchName(r.owner) ? { ...r, owner: "" } : r));
-      setAbsences((prev) => prev.filter((a) => !matchName(a.assignee)));
-      setShifts((prev) => prev.filter((s) => !matchName(s.assignee)));
-      if (removesAbsence || removesShift) allowDestructiveSave?.();
-    }),
+    // Workload triage (#24) and clear-unlinked: `workload-triage-handlers.ts`.
+    onReassignTask: guardEdit(workloadTriage.onReassignTask),
+    onRescheduleTask: guardEdit(workloadTriage.onRescheduleTask),
+    onClearUnlinked: guardEdit(workloadTriage.onClearUnlinked),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),
