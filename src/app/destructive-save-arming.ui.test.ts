@@ -343,8 +343,9 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(sites.map((s) => s.key)).toContain("use-raid-items.ts#handleDeleteRaidItem#setRaid");
     // A clear to `[]`, seen since the 2026-10-08 widening, not by any `.filter(`.
     expect(sites.find((s) => s.key === "use-bulk-operations.ts#handleClearAll#setTasks")?.armed).toBe(true);
-    // The unbounded route behind a wrapper call (guardEdit), judged by its own body.
-    expect(sites.filter((s) => s.key.startsWith("task-manager.tsx#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
+    // The unbounded clear-unlinked route, moved out of task-manager.tsx (§491 step 16); its two
+    // filters (absences, shifts) both arm. The wrapper-call naming it used to pin is the scanner case above.
+    expect(sites.filter((s) => s.key.startsWith("workload-triage-handlers.ts#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
     // A committer, seen since batch 21: any caller's list reaches setBudgets through it.
     expect(sites.find((s) => s.key === "use-budget-buckets.ts#commitBuckets#setBudgets")?.armed).toBe(true);
   });

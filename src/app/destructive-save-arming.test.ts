@@ -59,9 +59,10 @@ import { evaluateSaveGuard } from "./save-guard";
  *      milestones-panel.tsx `del`                    left the workspace under an
  *                                                    open modal"
  *   M9 drop the `removesAbsence || removesShift` → "onClearUnlinked does NOT arm      [mutated]
- *      guard, task-manager.tsx onClearUnlinked       when nothing matched"
+ *      guard, workload-triage-handlers.ts            when nothing matched"
+ *      onClearUnlinked (task-manager.tsx until §491 step 16)
  *   M10 drop the `|| removesShift` disjunct ONLY,→ "onClearUnlinked does NOT arm      [mutated]
- *       task-manager.tsx onClearUnlinked             when nothing matched"
+ *       workload-triage-handlers.ts onClearUnlinked  when nothing matched"
  *   M11 arming removed, use-register-tools       → "deleteAbsence arms only when      [mutated]
  *       deleteAbsence                                 an absence was removed"
  *   M12 arming removed, use-register-tools       → "deleteCalendarEvent arms only     [mutated]
