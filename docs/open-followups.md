@@ -933,6 +933,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§695](#695-five-pills-and-counts-hand-roll-the-shapes-that-badge-and-countbadge-draw--closed-2026-10-09) | Five pills and counts hand-roll the shapes that `Badge` and `CountBadge` draw | — | — | **CLOSED** 2026-10-09 |
 | [§696](#696-the-demos-trends-history-has-never-been-checked-against-a-live-turso-database--closed-2026-10-10) | The demo's Trends history has never been checked against a live Turso database | — | — | **CLOSED** 2026-10-10 |
 | [§697](#697-the-fused-desktop-apps-runtime-behaviour-is-unverified-runasnode-refusal-the-node_options-probes-control-killserver-and-server-childts-outside-tsc--open) | The fused desktop app's runtime behaviour is unverified: RunAsNode refusal, the NODE_OPTIONS probe's control, `killServer`, and `server-child.ts` outside tsc | — | — | open |
+| [§698](#698-a-jira-sync-overwrites-task-edits-adds-and-deletes-made-while-it-awaits-jira--closed-2026-10-11) | A Jira sync overwrites task edits, adds and deletes made while it awaits Jira | — | — | **CLOSED** 2026-10-11 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44606,3 +44607,13 @@ With a usable Turso config the demo is created as a Turso project and its weekly
 **Close when** each of the four is either measured on a packaged build or answered by a gate, and the result is recorded here.
 
 **Source:** §561, closed 2026-10-10.
+
+---
+
+## 698. A Jira sync overwrites task edits, adds and deletes made while it awaits Jira — CLOSED 2026-10-11
+
+**Status:** CLOSED 2026-10-11 on `test/jira-sync-midsync-edit` (GitHub #670). `handleJiraSync` now merges its results into the task list as it is at commit time, through a `setTasks` updater (`mergeSyncedTasks` in `use-jira-sync.ts`), instead of committing its rebuilt snapshot as a value. A row that is still the snapshot's own object takes its synced version. Any other row was edited, added or replaced during the awaits and is kept. A snapshot row no longer present stays deleted. A task created from Jira is skipped when a row with its key now exists, and re-minted when a row added meanwhile took its id. Measured with `npx vitest run src/app/use-jira-sync.test.tsx --maxWorkers=2`: 59 passed. Seven new tests in "an edit made while the push awaits Jira (§698)". The first three failed on `origin/main` (an edit reverted, an add lost, a delete undone). The fourth, an edit to the row being pushed, failed as well, and the fifth is a control that passes either way. The pull arms' buffered status transitions are now logged only for rows whose synced version lands, read off the rendered list (`tasksRef`) at commit; an edit made just before the commit and not yet rendered is not seen, so that row's transition is still logged. Mutants 5/5 killed: the merge ignoring the current list (6 red), the synced row never applied (11), no re-mint on an id collision (1), no skip on a key collision (1), every transition logged again (1). ★ Conflict resolution (`handleResolveConflicts`) was left as it was: it reads `tasksRef` after its await and replaces only the merged row.
+
+Found 2026-10-11 by probe tests, after a review of the §293 arming-gate exemption for `handleJiraSync` asked whether "keeps every row" held beyond the snapshot. The sync read `tasksRef.current` once, awaited `updateIssue` (and possibly `transitionIssueTo`) for each locally changed row, then committed `setTasks(next)`. Every change to the task list during those awaits was lost: an edit reverted, a task added vanished, a task deleted came back. The mass-deletion guard never saw the last case, because no row count dropped. The window was as long as the per-row pushes took.
+
+**Source:** review of the §293 branch, 2026-10-11.
