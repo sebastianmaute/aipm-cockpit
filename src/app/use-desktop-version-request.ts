@@ -14,7 +14,7 @@
 // task-manager.tsx) instead of owning anything. Opening while already open
 // is a plain `setOpen(true)` no-op, and a second modal simply cannot exist
 // by construction -- there is exactly one render site left
-// (task-manager.tsx's `modalsBlock`).
+// (task-manager.tsx's `modalsBlock`, built by `buildAppModalsBlock` in app-modals-block.tsx).
 //
 // ★ MOUNTED ONCE, AT THE TASK-MANAGER ROOT, not inside ModernShell or the
 // classic tree. TaskManagerInner is a SINGLE component instance regardless of
