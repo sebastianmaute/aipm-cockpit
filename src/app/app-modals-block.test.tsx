@@ -61,6 +61,7 @@ function makeDeps(overrides: Partial<AppModalsBlockDeps> = {}): AppModalsBlockDe
     linkedTaskOpen: false, setLinkedTaskOpen: vi.fn(), handleCreateLinkedTask: vi.fn(),
     notesWindowProps: { tag: "notes" }, blockersWindowProps: { tag: "blockers" },
     raidCreate: { tag: "raid-create" }, raid: [], stakeholdersEnabled: true, stakeholders: [], requestOpen: vi.fn(),
+    wbsPlanModal: <div data-testid="wbs-plan-modal" />,
     ...overrides,
   };
   return deps as unknown as AppModalsBlockDeps;
@@ -110,6 +111,21 @@ describe("buildAppModalsBlock — the popout gates", () => {
     expect("onCreateResource" in (seen.AppModals ?? {})).toBe(true);
     expect(seen.AppModals?.onCreateResource).toBeUndefined();
     expect(seen.AppModals?.onAddAssigneeToAddressBook).toBeUndefined();
+  });
+});
+
+describe("buildAppModalsBlock — the optimize_wbs modal slot", () => {
+  it("renders the wbs plan modal node, in the main window and in a popout", () => {
+    const first = renderBlock(makeDeps());
+    expect(first.getByTestId("wbs-plan-modal")).toBeTruthy();
+    first.unmount();
+    const second = renderBlock(makeDeps({ isPopout: true }));
+    expect(second.getByTestId("wbs-plan-modal")).toBeTruthy();
+  });
+
+  it("renders nothing for a null slot", () => {
+    const view = renderBlock(makeDeps({ wbsPlanModal: null }));
+    expect(view.queryByTestId("wbs-plan-modal")).toBeNull();
   });
 });
 

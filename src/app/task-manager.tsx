@@ -5,6 +5,7 @@ import { computeBudgetReport } from "./budget-report";
 import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
 import { useChatDispatcherWiring } from "./use-chat-dispatcher-wiring";
+import { useWbsPlan } from "./use-wbs-plan";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useToast } from "./use-toast";
@@ -1093,6 +1094,7 @@ function TaskManagerInner() {
 
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs });
   const dispatcher = useChatDispatcherWiring({
     settings,
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
@@ -1587,7 +1589,7 @@ function TaskManagerInner() {
       dispatcher={dispatcher}
       logActivityAs={logActivityAs}
       captureFieldEdit={undoApi.captureFieldEdit}
-      captureMerge={undoApi.capture}
+      captureMerge={undoApi.capture} aiOptimizeButton={wbsPlan.button}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
@@ -1868,7 +1870,7 @@ function TaskManagerInner() {
     editingResource, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
     toast, pauseToast, resumeToast,
     linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask, notesWindowProps, blockersWindowProps,
-    raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen,
+    raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen, wbsPlanModal: wbsPlan.modal,
   });
 
   // The existing tree. Its root className already branches on isPopout, so this

@@ -59,6 +59,8 @@ export interface TasksToolbarProps {
   jiraSyncing: boolean;
   jiraProjectKey: string;
   dedupButton: React.ReactNode;
+  /** The AI work-breakdown optimizer trigger; leads the control row (null in a popout). */
+  aiOptimizeButton?: React.ReactNode;
   hideFinished: boolean;
   onToggleHideFinished: () => void;
   hideExternal: boolean;
@@ -91,7 +93,7 @@ export interface TasksToolbarProps {
 }
 
 export function TasksToolbar({
-  lang, onAdd, jiraEnabled, handleJiraSync, jiraSyncing, jiraProjectKey, dedupButton,
+  lang, onAdd, jiraEnabled, handleJiraSync, jiraSyncing, jiraProjectKey, dedupButton, aiOptimizeButton,
   hideFinished, onToggleHideFinished, hideExternal, onToggleHideExternal, tasksViewMode, setTasksViewMode,
   assignableResources, laneIds, addLane, search, setSearch, priorityFilter, setPriorityFilter, effectiveFilters,
   setAssigneeFilter, setGroupFilter, setLabelFilter, uniqueAssignees, uniqueGroups, uniqueLabels,
@@ -106,6 +108,7 @@ export function TasksToolbar({
     fixed.some((key) => fold(t(lang, key)) === fold(value)) ? t(lang, "filterQuotedValue", value) : value;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
+      {aiOptimizeButton}
       <AddButton
         onClick={onAdd}
         aria-label={t(lang, "addTaskButton")}

@@ -178,6 +178,8 @@ export interface TasksSectionProps {
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** Capture a single (removed + edited) undo entry for an AI dedup merge. */
   captureMerge?: UndoStackApi["capture"];
+  /** The optimize_wbs toolbar trigger, built by `useWbsPlan` in task-manager (null in a popout). */
+  aiOptimizeButton?: React.ReactNode;
 }
 
 export function TasksSection({
@@ -242,6 +244,7 @@ export function TasksSection({
   logActivityAs,
   captureFieldEdit,
   captureMerge,
+  aiOptimizeButton,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -663,6 +666,7 @@ export function TasksSection({
         jiraSyncing={jiraSyncing}
         jiraProjectKey={jiraProjectKey}
         dedupButton={dedup.button}
+        aiOptimizeButton={aiOptimizeButton}
         hideFinished={hideFinished}
         onToggleHideFinished={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
         hideExternal={hideExternal}

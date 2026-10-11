@@ -4,7 +4,7 @@ import { render, screen, fireEvent, act, waitFor, within } from "@testing-librar
 import { t, loadI18n } from "./i18n";
 import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
-import { expectButtonOrder } from "../test/toolbar-order";
+import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -1164,6 +1164,15 @@ describe("TasksSection", () => {
     // Clear-all only has to LEAD; the trailing group must be adjacent AND in
     // the exact column/size order the convention specifies.
     expectButtonOrder(["clearAll", "printHint"]);
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+  });
+
+  it("leads the control row with the AI optimize button, ahead of everything else, keeping the trailing group contiguous", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} aiOptimizeButton={<button type="button">{t("en-US", "wbsPlanButton")}</button>} />);
+    expect(buttonNames()[0]).toContain(t("en-US", "wbsPlanButton"));
+    expectButtonOrder(["wbsPlanButton", "clearAll", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
 
