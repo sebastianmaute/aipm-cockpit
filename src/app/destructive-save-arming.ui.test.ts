@@ -23,16 +23,18 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * also a COMMITTER: a setter handed a parameter of its own function, so a list
  * computed by any caller passes through it (`commitBuckets` in
  * `use-budget-buckets.ts` is the one today; `isParameterHandOff` says what it
- * does not see).
+ * does not see). Since 2026-10-11 also a CONDITIONAL clear (`setX(cond ? [] : p)`,
+ * see `isEmptyArrayResult` for the one normalisation it lets through), and a
+ * filtered local declared in an ENCLOSING function, not only the nearest one.
  *
  * ★★★ ITS BOUND. A removal written another way passes unseen: a committer that
  * copies its parameter into a local before handing it on, a committer whose
  * parameter is destructured, a setter handed a parameter of an OUTER function, a
  * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
- * row, a conditional clear (`setX(cond ? [] : p)`), a local declared in an OUTER
- * function (the lookup reads the nearest function only, and takes the first
- * same-named declaration in it, nested closures included), a generic setter such
- * as the undo runner's, or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
+ * row, a filtered local hidden by a same-named plain local in a sibling function
+ * (each scope is searched whole, nested closures included, first match wins), a
+ * generic setter such as the undo runner's (it arms by hand; nothing checks it),
+ * or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
  * enclosing function calls it" is a PRESENCE check, not an ordering or branch
  * check — whether the arm fires on the right path is each route's own test.
  *
@@ -115,13 +117,78 @@ function unwrap(n: ts.Expression): ts.Expression {
   }
 }
 
-/** The value an expression or an updater arrow RESULTS in: `[]`, `() => []`, `(p) => { return []; }`. */
+const NON_EMPTY_WHEN_TRUE: ReadonlyMap<ts.SyntaxKind, string> = new Map([
+  [ts.SyntaxKind.GreaterThanToken, "0"],
+  [ts.SyntaxKind.ExclamationEqualsEqualsToken, "0"],
+  [ts.SyntaxKind.ExclamationEqualsToken, "0"],
+  [ts.SyntaxKind.GreaterThanEqualsToken, "1"],
+]);
+const EMPTY_WHEN_TRUE: ReadonlyMap<ts.SyntaxKind, string> = new Map([
+  [ts.SyntaxKind.EqualsEqualsEqualsToken, "0"],
+  [ts.SyntaxKind.EqualsEqualsToken, "0"],
+  [ts.SyntaxKind.LessThanToken, "1"],
+  [ts.SyntaxKind.LessThanEqualsToken, "0"],
+]);
+
+/** A condition that is exactly an emptiness test of one list, read as the list's name
+ *  and which way it points: `X.length`, `X.length > 0`, `!== 0`, `!= 0`, `>= 1` are TRUE
+ *  when X is non-empty; `=== 0`, `== 0`, `< 1`, `<= 0` are TRUE when it is empty; each
+ *  leading `!` flips that. Anything else (another operator, another number, a `&&`, a
+ *  comparison with a second list) is no emptiness test, and gets `undefined`. */
+function lengthTestOf(cond: ts.Expression): { name: string; trueWhenEmpty: boolean } | undefined {
+  let c = unwrap(cond);
+  let flips = 0;
+  while (ts.isPrefixUnaryExpression(c) && c.operator === ts.SyntaxKind.ExclamationToken) { flips++; c = unwrap(c.operand); }
+  let trueWhenEmpty = false;
+  if (ts.isBinaryExpression(c)) {
+    const right = unwrap(c.right);
+    if (!ts.isNumericLiteral(right)) return undefined;
+    const op = c.operatorToken.kind;
+    if (NON_EMPTY_WHEN_TRUE.get(op) === right.text) trueWhenEmpty = false;
+    else if (EMPTY_WHEN_TRUE.get(op) === right.text) trueWhenEmpty = true;
+    else return undefined;
+    c = unwrap(c.left);
+  }
+  if (!(ts.isPropertyAccessExpression(c) && c.name.text === "length" && ts.isIdentifier(c.expression))) return undefined;
+  return { name: c.expression.text, trueWhenEmpty: flips % 2 === 0 ? trueWhenEmpty : !trueWhenEmpty };
+}
+
+/** A value that IS `[]`, or a `?:` with a `[]` branch (`cond ? [] : p`), which drops
+ *  every row whenever its condition picks that branch. ★ One normalisation is let
+ *  through: the `[]` sits on the branch an emptiness test of `p` takes when `p` IS
+ *  empty, with plain `p` on the other (`p.length ? p : []`, `!p.length ? [] : p`,
+ *  `p.length === 0 ? [] : p`). That branch only ever replaces an empty list, so no
+ *  row is lost, whatever it holds.
+ *  The direction is checked: `p.length ? [] : p` empties a NON-empty list and counts,
+ *  as does any condition `lengthTestOf` cannot read as an emptiness test. ★ It errs
+ *  towards flagging: `p.length ? [...p] : []` or `p.length ? p.map(f) : []` is flagged
+ *  too, because the other branch must be `p` itself. */
+function isEmptyArrayResult(v: ts.Expression): boolean {
+  const e = unwrap(v);
+  if (isEmptyArray(e)) return true;
+  if (!ts.isConditionalExpression(e)) return false;
+  const yes = unwrap(e.whenTrue);
+  const no = unwrap(e.whenFalse);
+  const emptyBranch = isEmptyArrayResult(yes) ? "yes" : isEmptyArrayResult(no) ? "no" : undefined;
+  if (!emptyBranch) return false;
+  const other = emptyBranch === "yes" ? no : yes;
+  const test = lengthTestOf(e.condition);
+  const normalises =
+    test !== undefined &&
+    ts.isIdentifier(other) &&
+    other.text === test.name &&
+    test.trueWhenEmpty === (emptyBranch === "yes");
+  return !normalises;
+}
+
+/** The value an expression or an updater arrow RESULTS in: `[]`, `() => []`, `(p) => { return []; }`,
+ *  or any of those through a conditional (`cond ? [] : p`). */
 function resultsInEmptyArray(arg: ts.Expression): boolean {
   const e = unwrap(arg);
-  if (isEmptyArray(e)) return true;
+  if (isEmptyArrayResult(e)) return true;
   if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) {
-    if (!ts.isBlock(e.body)) return isEmptyArray(unwrap(e.body));
-    return contains(e.body, (n) => ts.isReturnStatement(n) && !!n.expression && isEmptyArray(unwrap(n.expression)));
+    if (!ts.isBlock(e.body)) return isEmptyArrayResult(e.body);
+    return contains(e.body, (n) => ts.isReturnStatement(n) && !!n.expression && isEmptyArrayResult(n.expression));
   }
   return false;
 }
@@ -130,17 +197,23 @@ function resultsInEmptyArray(arg: ts.Expression): boolean {
 const isRemovalValue = (v: ts.Expression): boolean =>
   contains(v, isFilterCall) || contains(v, isSpliceCall) || resultsInEmptyArray(v);
 
-/** The initializer of `name`'s `const`/`let` declaration in the nearest function scope around `from`. */
+/** The initializer of `name`'s `const`/`let` declaration, looked up through the function
+ *  scopes around `from`, nearest first, up to the file (`const kept = rows.filter(…);
+ *  const h = () => setTasks(kept);` finds `kept` one function out). ★ Each scope is
+ *  searched whole, nested functions included, so a same-named local in a SIBLING function
+ *  can be found first. That cuts both ways: a sibling's `.filter(` flags a site that does
+ *  not remove, and a sibling's plain local hides a `.filter(` declared further out. */
 function localInitializer(from: ts.Node, name: string): ts.Expression | undefined {
-  let scope: ts.Node | undefined = from.parent;
-  while (scope && !ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
-  if (!scope) return undefined;
-  let init: ts.Expression | undefined;
-  contains(scope, (n) => {
-    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) { init = n.initializer; return true; }
-    return false;
-  });
-  return init;
+  for (let scope: ts.Node | undefined = from.parent; scope; scope = scope.parent) {
+    if (!ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) continue;
+    let init: ts.Expression | undefined;
+    contains(scope, (n) => {
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) { init = n.initializer; return true; }
+      return false;
+    });
+    if (init) return init;
+  }
+  return undefined;
 }
 
 /** A removal handed to the setter: its argument has a removal shape, or is a local
@@ -310,6 +383,11 @@ describe("scanSource (the scanner itself)", () => {
     expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
     expect(scan(`function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`)).toEqual([]);
     expect(scan(`function e() { setTasks((p) => p.length ? p : []); }`)).toEqual([]);
+    // §293, 2026-10-11: the same normalisation, negated or compared, is no removal either.
+    expect(scan(`function e() { setTasks((p) => !p.length ? [] : p); }`)).toEqual([]);
+    expect(scan(`function e() { setTasks((p) => (p.length > 0 ? p : [])); }`)).toEqual([]);
+    expect(scan(`function e() { setTasks((p) => (p.length === 0 ? [] : p)); }`)).toEqual([]);
+    expect(scan(`function e() { setTasks((p) => (!!p.length ? p : [])); }`)).toEqual([]);
   });
 
   // §293, widened 2026-10-08: the other written shapes of a removal.
@@ -323,6 +401,20 @@ describe("scanSource (the scanner itself)", () => {
     ["a local spliced list", `function del(i) { const gone = rows.splice(i, 1); setTasks(gone); }`],
     ["a committer handed its own parameter", `function commit(next) { setTasks(next); }`],
     ["a committer's parameter through a cast", `const commit = (next) => { setTasks(next as Task[]); };`],
+    // §293, widened 2026-10-11: a conditional clear, and a local declared one function out.
+    ["a conditional clear", `function reset() { setTasks(wipe ? [] : tasks); }`],
+    ["a conditional clear in an updater", `function reset() { setTasks((p) => (wipe ? [] : p)); }`],
+    ["a conditional clear returned from a block", `function reset() { setTasks((p) => { return wipe ? p : []; }); }`],
+    ["a nested conditional clear", `function reset() { setTasks((p) => (a ? p : b ? [] : p)); }`],
+    ["a length test of ANOTHER list", `function reset() { setTasks((p) => (other.length ? p : [])); }`],
+    // Review finding: an emptiness test pointing the OTHER way empties a non-empty list.
+    ["a clear-if-non-empty", `function reset() { setTasks((p) => (p.length ? [] : p)); }`],
+    ["a negated test the wrong way", `function reset() { setTasks((p) => (!p.length ? p : [])); }`],
+    ["the clear-if-non-empty idiom of use-version-history.ts", `function reset() { setTasks((p) => (p.length === 0 ? p : [])); }`],
+    ["a length compared with another number", `function reset() { setTasks((p) => (p.length > 5 ? p : [])); }`],
+    ["a length test inside a &&", `function reset() { setTasks((p) => (p.length && keep ? p : [])); }`],
+    ["a length compared with another list", `function reset() { setTasks((p) => (p.length > other.length ? p : [])); }`],
+    ["a local filtered list one function out", `function Comp() { const kept = tasks.filter(Boolean); const save = () => { setTasks(kept); }; }`],
   ])("finds %s", (_label, src) => {
     expect(scan(src).map((x) => x.setter)).toEqual(["setTasks"]);
   });
