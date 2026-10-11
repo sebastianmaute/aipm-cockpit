@@ -39,7 +39,7 @@ npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --
   default and cannot be dragged narrower. Check the wider ID column looks right in the table.
 - [x] **Item 4.** _(2026-10-11: confirmed by the owner.)_ `item4-documents-expanded.png` and `item4-documents-collapsed.png`: the panel
   reflows sensibly when the body collapses, and the underlined chevron next to the name reads well.
-- [ ] **Item 6.** `item6a-asset-name-turso.png` and `item6a-asset-name-turso-hover.png`: under Turso, an image's name in
+- [x] **Item 6.** _(2026-10-11: confirmed by the owner on these screenshots.)_ `item6a-asset-name-turso.png` and `item6a-asset-name-turso-hover.png`: under Turso, an image's name in
   the Documents asset list reads as clickable (it opens a preview), and underlines on hover. `item6b-asset-section-file-mode.png`:
   a file-based project shows no asset list at all, only the notice that images need a Turso project. ★ The kit used to say a
   file-based project shows the same name as plain text; it does not, since the library never mounts there. No real Turso
