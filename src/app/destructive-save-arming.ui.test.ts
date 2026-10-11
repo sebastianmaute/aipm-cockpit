@@ -42,8 +42,8 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * generic setter such as the undo runner's (it arms by hand; nothing checks it),
  * or a counted slice's setter handed down under another name. Those stay a by-hand
  * review, as §293 records. And "the enclosing function calls it" is a PRESENCE
- * check, not an ordering or branch
- * check — whether the arm fires on the right path is each route's own test.
+ * check, not an ordering or branch check — whether the arm fires on the right path
+ * is each route's own test.
  *
  * ★ The setters are derived from `SLICE_POLICY`'s counted slices, so a newly
  * counted slice is scanned the day it is counted. Parsed with the TypeScript
@@ -241,20 +241,43 @@ function localInitializer(from: ts.Node, name: string): ts.Expression | undefine
  *  every row needs an `UNARMED_BY_DESIGN` reason, which a person writes after reading the loop.
  *  ★ It errs towards flagging: `let next = []; next = rows.map(f);` counts too.
  *  The local may be handed on as is (`kept`), as a copy (`[...kept]`) or from an updater
- *  (`() => kept`), and through any chain of plain aliases (`const out = kept;`). */
+ *  (`() => kept`, `() => { return kept; }`), and through any chain of plain aliases
+ *  (`const out = kept;`). */
 function isRemovalArgument(arg: ts.Expression): boolean {
   if (isRemovalValue(arg)) return true;
-  const name = handedOnName(arg);
-  return name !== undefined && isRemovalLocal(arg, name, new Set());
+  return handedOnNames(arg).some((name) => isRemovalLocal(arg, name, new Set()));
 }
 
-/** The local an argument hands over unchanged: `next`, `[...next]` or `() => next`. */
-function handedOnName(arg: ts.Expression): string | undefined {
-  let e = unwrap(arg);
-  if ((ts.isArrowFunction(e) || ts.isFunctionExpression(e)) && !ts.isBlock(e.body)) e = unwrap(e.body);
+/** The name a value copies unchanged: `next` or `[...next]`. */
+function copiedName(v: ts.Expression): string | undefined {
+  let e = unwrap(v);
   const only = ts.isArrayLiteralExpression(e) && e.elements.length === 1 ? e.elements[0] : undefined;
   if (only && ts.isSpreadElement(only)) e = unwrap(only.expression);
   return ts.isIdentifier(e) ? e.text : undefined;
+}
+
+/** The locals an argument hands over unchanged: the value's own (`next`, `[...next]`), or
+ *  each one an updater returns (`() => next`, `function () { return next; }`; returns in
+ *  nested functions are not read). An updater's OWN parameter is never one: `(p) => p`
+ *  keeps the list it is given, whatever an outer local named `p` holds. */
+function handedOnNames(arg: ts.Expression): string[] {
+  const e = unwrap(arg);
+  if (!ts.isArrowFunction(e) && !ts.isFunctionExpression(e)) {
+    const name = copiedName(e);
+    return name === undefined ? [] : [name];
+  }
+  const own = new Set(e.parameters.flatMap((param) => boundNames(param.name)));
+  const results: ts.Expression[] = [];
+  if (!ts.isBlock(e.body)) results.push(e.body);
+  else {
+    const visit = (n: ts.Node): void => {
+      if (ts.isFunctionLike(n)) return;
+      if (ts.isReturnStatement(n) && n.expression) results.push(n.expression);
+      ts.forEachChild(n, visit);
+    };
+    ts.forEachChild(e.body, visit);
+  }
+  return results.map(copiedName).filter((name): name is string => name !== undefined && !own.has(name));
 }
 
 /** `name`'s declaration, found from `from` by `localInitializer`, is a `.filter(`, a `.splice(`,
@@ -458,7 +481,16 @@ describe("scanSource (the scanner itself)", () => {
 
   // Review finding: the angle-bracket cast, which only a `.ts` file can hold.
   it("sees an alias through an angle-bracket cast in a .ts file", () => {
-    expect(scanSource("x.ts", `function commit(next) { const l = <Task[]>next; setTasks(l); }`, setters).map((x) => x.setter)).toEqual(["setTasks"]);
+    const src = `function commit(next) { const l = <Task[]>next; setTasks(l); }`;
+    expect(scanSource("x.ts", src, setters).map((x) => x.setter)).toEqual(["setTasks"]);
+  });
+
+  // Second review: an updater handing back its OWN parameter keeps the list, whatever an outer local of that name holds.
+  it("ignores an updater that returns its own parameter", () => {
+    expect(scan(`function C() { const prev = rows.filter(Boolean); const h = () => setTasks((prev) => prev); }`)).toEqual([]);
+    expect(scan(`function a() { const p = rows.filter(Boolean); } function b() { setTasks((p) => { return p; }); }`)).toEqual([]);
+    // A return inside a NESTED function is that function's result, not the updater's.
+    expect(scan(`function e() { const kept = a.filter(Boolean); setTasks((p) => { const f = () => { return kept; }; return p; }); }`)).toEqual([]);
   });
 
   it("ignores an edit, an unlisted setter, and a filter outside the setter's value", () => {
@@ -506,6 +538,9 @@ describe("scanSource (the scanner itself)", () => {
     ["an alias of an accumulator", `function e() { const next = []; const out = next; setTasks(out); }`],
     ["a spread copy of an accumulator", `function e() { const next = []; setTasks([...next]); }`],
     ["an updater returning an accumulator", `function e() { const next = []; setTasks(() => next); }`],
+    // Second review: a block-bodied or `function` updater returns the local too.
+    ["a block updater returning an accumulator", `function e() { const next = []; setTasks(() => { return next; }); }`],
+    ["a function updater returning a filtered local", `function e() { const kept = a.filter(Boolean); setTasks(function () { return kept; }); }`],
     // §293, widened 2026-10-11: a committer's parameter destructured, or aliased first.
     ["a committer's destructured parameter", `const commit = ({ next }) => { setTasks(next); };`],
     ["a committer's array-destructured parameter", `function commit([first, { next }]) { setTasks(next); }`],
