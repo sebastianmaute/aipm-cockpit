@@ -45,9 +45,13 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * Since 2026-10-11 a setter HANDED ON under another name is followed (`aliasNames`):
  * through a property, a JSX prop, a variable, a renaming
  * destructure, or a parameter of a named function it is passed to by position (bound
- * through `useCallback`/`useMemo` too), to a fixed point; and a wrapper that applies its
- * own parameter inside a setter's updater (`commitAssets`) is a setter itself, so its
- * caller's `(p) => p.filter(…)` is the site. A committer whose updater returns its
+ * directly or through `useCallback`, or returned by a `useMemo` factory), to a fixed point; and a wrapper that applies its
+ * own parameter inside a setter's updater (`commitAssets`) is an UPDATER, followed
+ * through the same hand-ons (`{ setItems: setTasksForPush }`), so its caller's
+ * `(p) => p.filter(…)` is the site. An updater call counts only when it is handed a
+ * removal-shaped function written in place: a named function reference
+ * (`commitRows(dropAll)`) or a parameter (`(fn) => commitRows(fn)`) is not followed,
+ * nor a per-row callback (`p.map((t) => cb(t))` makes no updater). A committer whose updater returns its
  * parameter (`set(() => value)`) counts too. ★ Not followed: a hand-on by position to a
  * function the scan cannot name (a method, a callback from a map or an argument), an
  * alias made by assignment (`fn = setTasks`), an alias read as a member when it became
@@ -97,8 +101,8 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
   "use-storage-backend.ts#into#set": {
     sites: 1,
     reason:
-      "Tab sync (mirrorApply) applies a value a peer window already saved, and a run holding only mirrored values " +
-      "writes nothing (mirror-ledger isMirroredOnly). A contested run does save, and the mass-deletion guard then " +
+      "Tab sync (mirrorApply) applies a value a peer window edited and saves itself, and a run holding only mirrored " +
+      "values writes nothing (mirror-ledger isMirroredOnly). A contested run does save, and the mass-deletion guard then " +
       "judges it; an arm here would wave that contested save past the guard unjudged.",
   },
 };
@@ -407,18 +411,24 @@ function isNamed(v: ts.Expression, names: ReadonlySet<string>, members: Readonly
   return ts.isPropertyAccessExpression(e) && members.has(e.name.text);
 }
 
+const MEMO_HOOK = /^(React\.)?use(Callback|Memo)$/;
+
 /** The function a variable's initializer holds: an arrow or function expression, also
- *  through any call it is an argument of (`useCallback(fn, deps)`, `useMemo(…)`), the
- *  same climb `functionName` makes in the other direction. */
+ *  as the first argument of `useCallback(fn, deps)`. ★ Only those two callees: the first
+ *  function argument of ANY call would make `const rows = items.map((set) => …)` a
+ *  function named `rows`. (`useMemo(() => fn)` hands back what its factory RETURNS, so
+ *  only a factory that returns a function expression directly is read.) */
 function functionValue(init: ts.Expression): ts.SignatureDeclaration | undefined {
   const e = unwrap(init);
   if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) return e;
-  if (!ts.isCallExpression(e)) return undefined;
-  for (const a of e.arguments) {
-    const f = functionValue(a);
-    if (f) return f;
+  if (!ts.isCallExpression(e) || !MEMO_HOOK.test(e.expression.getText())) return undefined;
+  const first = e.arguments[0] && unwrap(e.arguments[0]);
+  if (!first || (!ts.isArrowFunction(first) && !ts.isFunctionExpression(first))) return undefined;
+  if (/useMemo$/.test(e.expression.getText())) {
+    const made = ts.isBlock(first.body) ? undefined : unwrap(first.body);
+    return made && (ts.isArrowFunction(made) || ts.isFunctionExpression(made)) ? made : undefined;
   }
-  return undefined;
+  return first;
 }
 
 /** Every named function in `sources`, by name: a declaration, or a function bound to a
@@ -442,9 +452,23 @@ function functionsByName(sources: readonly ts.SourceFile[]): Map<string, ts.Sign
   return out;
 }
 
-/** `fn` applies one of its own parameters inside an updater it hands to a setter or an
- *  alias (`setAssets((prev) => fn(prev ?? []))`), so whatever function a caller passes
- *  decides what the slice becomes: `commitAssets((p) => p.filter(…))` is a removal. */
+/** `node` contains a match, not looking inside nested functions. */
+function containsOwn(node: ts.Node, pred: (n: ts.Node) => boolean): boolean {
+  let found = false;
+  const visit = (n: ts.Node): void => {
+    if (found || ts.isFunctionLike(n)) return;
+    if (pred(n)) { found = true; return; }
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(node, visit);
+  return found;
+}
+
+/** `fn` applies one of its own parameters to the list inside an updater it hands to a
+ *  setter or an alias (`setAssets((prev) => fn(prev ?? []))`), so whatever function a
+ *  caller passes decides what the slice becomes: `commitAssets((p) => p.filter(…))` is a
+ *  removal. ★ Only in the updater's OWN body: a parameter applied per row inside a nested
+ *  callback (`setTasks((p) => p.map((t) => cb(t)))`) patches rows and drops none. */
 function appliesParameterInUpdater(
   fn: ts.SignatureDeclaration,
   names: ReadonlySet<string>,
@@ -457,7 +481,8 @@ function appliesParameterInUpdater(
     return n.arguments.some((a) => {
       const u = unwrap(a);
       if (!ts.isArrowFunction(u) && !ts.isFunctionExpression(u)) return false;
-      return contains(u.body, (c) => ts.isCallExpression(c) && ts.isIdentifier(c.expression) && own.has(c.expression.text));
+      const isOwnCall = (c: ts.Node): boolean => ts.isCallExpression(c) && ts.isIdentifier(c.expression) && own.has(c.expression.text);
+      return ts.isBlock(u.body) ? containsOwn(u.body, isOwnCall) : isOwnCall(unwrap(u.body)) || containsOwn(u.body, isOwnCall);
     });
   });
 }
@@ -467,12 +492,53 @@ interface Aliases {
   readonly names: ReadonlySet<string>;
   /** The aliases that are property keys, matched as a member call too (`opts.setter(…)`). */
   readonly keys: ReadonlySet<string>;
-  /** Wrappers that apply a caller's FUNCTION inside a setter's updater (`commitAssets`).
-   *  Their call is a site only when that function has a removal shape. ★ A separate class,
-   *  not an alias: they take a function, not a list, so a parameter handed to one is no
-   *  committer, and they seed no further alias, or every `apply(x)` and `onSelect(r)` that
-   *  a generic name reaches would be a site (measured: six false sites). */
+  /** Wrappers that apply a caller's FUNCTION inside a setter's updater (`commitAssets`),
+   *  and the names they are handed on under (`{ setItems: setTasksForPush }`). Their call
+   *  is a site only when that function has a removal shape. ★ A separate class, not an
+   *  alias: they take a function, not a list, so a parameter handed to one is no
+   *  committer, and they never seed a SETTER alias, or every `apply(x)` and `onSelect(r)`
+   *  that a generic name reaches would be a site (measured: six false sites). */
   readonly updaters: ReadonlySet<string>;
+  /** The updaters that are property keys, matched as a member call too. */
+  readonly updaterKeys: ReadonlySet<string>;
+}
+
+/** The names `seed` is handed on under across `sources`, to a fixed point: a property
+ *  value or JSX prop (a KEY, so a member read of it counts too), a variable, a renaming
+ *  destructure of a key, or a parameter of a named function it is passed to by position. */
+function followHandOns(
+  sources: readonly ts.SourceFile[],
+  fns: ReadonlyMap<string, readonly ts.SignatureDeclaration[]>,
+  seedNames: ReadonlySet<string>,
+  seedMembers: ReadonlySet<string>,
+): { names: Set<string>; keys: Set<string> } {
+  const found = new Set<string>();
+  const keys = new Set<string>();
+  for (let before = -1; before !== found.size + keys.size; ) {
+    before = found.size + keys.size;
+    const names = new Set([...seedNames, ...found]);
+    const members = new Set([...seedMembers, ...keys]);
+    const key = (name: string): void => { found.add(name); keys.add(name); };
+    for (const sf of sources) {
+      contains(sf, (n) => {
+        if (ts.isPropertyAssignment(n) && isNamed(n.initializer, names, members) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name))) key(n.name.text);
+        if (ts.isJsxAttribute(n) && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression && isNamed(n.initializer.expression, names, members)) key(n.name.getText());
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && isNamed(n.initializer, names, members)) found.add(n.name.text);
+        if (ts.isBindingElement(n) && n.propertyName && ts.isIdentifier(n.name) && members.has(n.propertyName.getText())) found.add(n.name.text);
+        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+          n.arguments.forEach((a, i) => {
+            if (!isNamed(a, names, members)) return;
+            for (const fn of fns.get((n.expression as ts.Identifier).text) ?? []) {
+              const p = fn.parameters[i];
+              if (p && ts.isIdentifier(p.name)) found.add(p.name.text);
+            }
+          });
+        }
+        return false;
+      });
+    }
+  }
+  return { names: found, keys };
 }
 
 /** Every name a counted setter is HANDED ON under, across `sources`, followed to a
@@ -483,7 +549,8 @@ interface Aliases {
  *  `sources` (through `useCallback`/`useMemo` too), which gives that parameter's name
  *  (`into(kind, setTasks)` with `into = (kind, set) =>` gives `set`). A named function
  *  that applies its own parameter inside a setter's updater is collected apart, as an
- *  `updaters` member (`commitAssets`, see `appliesParameterInUpdater`).
+ *  `updaters` member (`commitAssets`, see `appliesParameterInUpdater`), and then followed
+ *  through the same hand-ons, staying in that class (`{ setItems: setTasksForPush }`).
  *  ★ A name is matched app-wide, not in the receiving function alone, so a call to a
  *  same-named, unrelated function is read as a setter call: that errs towards
  *  flagging, and a person decides. ★ Only a property-key alias is matched as a member
@@ -491,45 +558,20 @@ interface Aliases {
  *  would be one. */
 function aliasNames(sources: readonly ts.SourceFile[], setters: ReadonlySet<string>): Aliases {
   const fns = functionsByName(sources);
-  const aliases = new Set<string>();
-  /** The aliases that are PROPERTY names (an object key or a JSX prop), so a member read
-   *  of them (`opts.setter`) is the setter too. */
-  const keys = new Set<string>();
-  for (let before = -1; before !== aliases.size + keys.size; ) {
-    before = aliases.size + keys.size;
-    const names = new Set([...setters, ...aliases]);
-    const members = new Set([...setters, ...keys]);
-    const key = (name: string): void => { aliases.add(name); keys.add(name); };
-    for (const sf of sources) {
-      contains(sf, (n) => {
-        if (ts.isPropertyAssignment(n) && isNamed(n.initializer, names, members) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name))) key(n.name.text);
-        if (ts.isJsxAttribute(n) && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression && isNamed(n.initializer.expression, names, members)) key(n.name.getText());
-        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && isNamed(n.initializer, names, members)) aliases.add(n.name.text);
-        if (ts.isBindingElement(n) && n.propertyName && ts.isIdentifier(n.name) && members.has(n.propertyName.getText())) aliases.add(n.name.text);
-        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
-          n.arguments.forEach((a, i) => {
-            if (!isNamed(a, names, members)) return;
-            for (const fn of fns.get((n.expression as ts.Identifier).text) ?? []) {
-              const p = fn.parameters[i];
-              if (p && ts.isIdentifier(p.name)) aliases.add(p.name.text);
-            }
-          });
-        }
-        return false;
-      });
-    }
-  }
+  const { names: aliases, keys } = followHandOns(sources, fns, setters, setters);
   const names = new Set([...setters, ...aliases]);
   const members = new Set([...setters, ...keys]);
-  const updaters = new Set<string>();
+  const roots = new Set<string>();
   for (const [name, list] of fns) {
-    if (list.some((fn) => appliesParameterInUpdater(fn, names, members))) updaters.add(name);
+    if (list.some((fn) => appliesParameterInUpdater(fn, names, members))) roots.add(name);
   }
+  // ★ Seeded with the roots as NAMES only: a root is a function's own name, never a property key.
+  const handed = followHandOns(sources, fns, roots, new Set());
   for (const s of setters) { aliases.delete(s); keys.delete(s); }
-  return { names: aliases, keys, updaters };
+  return { names: aliases, keys, updaters: new Set([...roots, ...handed.names]), updaterKeys: handed.keys };
 }
 
-const NO_ALIASES: Aliases = { names: new Set(), keys: new Set(), updaters: new Set() };
+const NO_ALIASES: Aliases = { names: new Set(), keys: new Set(), updaters: new Set(), updaterKeys: new Set() };
 
 /** Every filter-into-counted-setter site in one source. Pure, so the fixture
  *  cases below can feed it text. `aliases` (from `aliasNames`) match as bare calls, and the
@@ -543,7 +585,7 @@ function scanSource(file: string, text: string, setters: ReadonlySet<string>, al
       const bare = ts.isIdentifier(n.expression);
       const setter =
         name && (setters.has(name) || aliases.keys.has(name) || (aliases.names.has(name) && bare)) ? name : undefined;
-      const updater = name && bare && aliases.updaters.has(name) ? name : undefined;
+      const updater = name && ((bare && aliases.updaters.has(name)) || aliases.updaterKeys.has(name)) ? name : undefined;
       const isSite = setter
         ? n.arguments.some((a) => isRemovalArgument(a) || isParameterHandOff(a))
         : !!updater && n.arguments.some((a) => isRemovalValue(a));
@@ -791,6 +833,32 @@ describe("aliasNames (a setter handed on under another name)", () => {
     expect(sites.map((x) => `${x.fn}#${x.setter}#${x.armed}`).sort()).toEqual(
       ["armedRemove#commitRows#true", "remove#commitRows#false"],
     );
+  });
+
+  // Review finding (use-calendar-integrations.ts): the calendar wrappers are updaters
+  // handed on as `setItems` into the push/pull hooks.
+  it("follows an updater handed on under another name, and keeps it an updater", () => {
+    const sites = scanAll({
+      "a.ts": `const setTasksForPush = useCallback((fn) => { setTasks((prev) => fn(prev)); }, []);
+               const wire = () => usePush({ setItems: setTasksForPush });`,
+      "b.ts": `function usePush({ setItems }) {
+                 const drop = (id) => setItems((p) => p.filter((t) => t.id !== id));
+                 const patch = (id) => setItems((p) => p.map((t) => t));
+                 const pass = (rows) => setItems(rows);
+               }
+               function usePull(opts) { const wipe = () => opts.setItems((p) => p.filter(Boolean)); }`,
+    });
+    expect(sites.map((x) => `${x.fn}#${x.setter}`).sort()).toEqual(["drop#setItems", "wipe#setItems"]);
+  });
+
+  it("does not take a per-row callback for an updater, nor a .map callback for a function", () => {
+    const sites = scanAll({
+      "a.ts": `const patchEach = (cb) => setTasks((p) => p.map((t) => cb(t)));
+               const tidy = () => patchEach((t) => ({ ...t, tags: t.tags.filter(Boolean) }));
+               const rows = items.map((set) => set); rows(setTasks);
+               const h = () => set((p) => p.filter(Boolean));`,
+    });
+    expect(sites).toEqual([]);
   });
 
   it("follows a parameter of a function bound through useCallback", () => {
