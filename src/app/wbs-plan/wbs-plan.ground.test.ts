@@ -187,6 +187,15 @@ describe("groundWbsProposal — value checks", () => {
     ).toEqual(["hasEstimate"]);
   });
 
+  test("an estimate on piece 2 is allowed though the original row has one", () => {
+    const r = ground(
+      [split(1), { kind: "estimate", target: P(1, 2), estimateMinutes: 30, why: "" }],
+      [task(1, { originalEstimateMinutes: 10 })],
+    );
+    expect(r.skipped).toEqual([]);
+    expect(r.items.map((g) => g.item.kind)).toEqual(["split", "estimate"]);
+  });
+
   test("duplicateRef: a second regroup or split of the same task, and a repeated newTask ref", () => {
     expect(
       reasons([

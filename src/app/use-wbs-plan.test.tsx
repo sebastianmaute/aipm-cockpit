@@ -229,6 +229,30 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(api().ws.tasks.filter((x) => x.taskName === "Write docs")).toHaveLength(1);
   });
 
+  // The capture holds no image of a created row, so undo leaves a later edit
+  // to that row alone (a whole-row image would roll the rename back).
+  it("undo leaves a created row's later edit alone", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([
+        { kind: "regroup", taskId: 2, group: "Platform", why: "fits" },
+        { kind: "newTask", ref: "n1", taskName: "Write docs", dueDate: "2026-11-15", why: "missing" },
+      ]),
+    );
+    const api = renderHarness();
+    await proposeFromButton();
+    await screen.findAllByRole("checkbox", { name: /include this change/i });
+    fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 2, 2) }));
+    act(() => {
+      api().ws.setTasks((prev) => prev.map((x) => (x.taskName === "Write docs" ? { ...x, taskName: "Write docs v2" } : x)));
+    });
+
+    act(() => { api().undo.undo(); });
+
+    expect(byId(api().ws.tasks, 2)?.group).toBe("Core");
+    expect(api().ws.tasks.filter((x) => x.taskName === "Write docs v2")).toHaveLength(1);
+    expect(api().ws.tasks.filter((x) => x.taskName === "Write docs")).toHaveLength(0);
+  });
+
   it("open() from any view shows the modal, scoped to open non-Jira tasks", async () => {
     vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
     const api = renderHarness({}, [
