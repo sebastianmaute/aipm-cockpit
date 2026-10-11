@@ -1,4 +1,4 @@
-import { sanitizeGroup, sanitizeLabels } from "./sanitize";
+import { sanitizeGroup, sanitizeLabels, sanitizeText } from "./sanitize";
 // ★ The update path's input helpers live in ./chat-tools-updates (moved for the
 //   800-line file-size ratchet, which this file had already crossed).
 import {
@@ -666,7 +666,9 @@ export async function runTool(
 
     case "optimize_wbs": {
       const group = sanitizeGroup(input.group);
-      const instructions = typeof input.instructions === "string" ? input.instructions.slice(0, 1000) : undefined;
+      // Trimmed and capped without splitting a surrogate pair (§22); an
+      // all-whitespace instruction is absent.
+      const instructions = sanitizeText(input.instructions, 1000) || undefined;
       const result = d.openWbsPlan({ group: group || undefined, instructions });
       if (!result.opened) {
         throw new Error("optimize_wbs is not available here (popout window, AI off, or no tasks in scope)");

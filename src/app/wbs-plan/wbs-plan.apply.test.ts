@@ -142,6 +142,20 @@ describe("applyWbsProposal — splits", () => {
     expect(byId(apply(g.items).nextTasks, 1).description).toBe("<p>new</p>");
   });
 
+  test.each([
+    ["empty", ""],
+    ["whitespace", "   "],
+    ["markup that sanitizes to nothing", "<p><script>alert(1)</script></p>"],
+    ["an empty paragraph", "<p> </p>"],
+  ])("a %s piece-1 description is treated as absent — the original's is kept", (_label, description) => {
+    const prev = Object.freeze([task(1, { description: "<p>old</p>" }), task(2)]);
+    const g = ground([split(1, [{ taskName: "A", description }, { taskName: "B" }])], prev);
+    expect(g.items).toHaveLength(1);
+    const item = g.items[0].item;
+    expect(item.kind === "split" ? item.pieces[0].description : "not a split").toBeUndefined();
+    expect(byId(apply(g.items, prev).nextTasks, 1).description).toBe("<p>old</p>");
+  });
+
   test("a split and a regroup of the same task both land on the one row", () => {
     const g = ground([split(1, [{ taskName: "A" }, { taskName: "B" }]), { kind: "regroup", taskId: 1, group: "G", why: "" }]);
     const r = apply(g.items);

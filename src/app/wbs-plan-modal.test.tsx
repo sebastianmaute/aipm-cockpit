@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WbsPlanModal, type WbsPlanModalProps } from "./wbs-plan-modal";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem } from "./wbs-plan/wbs-plan";
@@ -139,12 +139,71 @@ describe("WbsPlanModal", () => {
     expectRowUniqueNames({ minControls: 2, roles: ["checkbox"] });
   });
 
-  it("shows the original name and both piece names on a split row", () => {
+  const pieceTexts = () =>
+    within(screen.getByRole("list", { name: t("en-US", "wbsPlanPiecesLabel") }))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+
+  it("shows piece 1 as old name → new name, and every piece's estimate", () => {
     render5();
-    const row = screen.getAllByRole("listitem").find((li) => within(li).queryByText("Design API"));
-    expect(row).toBeDefined();
-    expect(within(row!).getByText("Build API")).toBeInTheDocument();
-    expect(within(row!).getByText("Implement API")).toBeInTheDocument();
+    expect(pieceTexts()).toEqual([
+      "Build API → Design API · estimate none",
+      "Implement API · estimate none",
+    ]);
+  });
+
+  it("shows piece 1's estimate as before → after and marks a replaced description", () => {
+    const withEstimate = new Map(tasksById).set(1, task(1, "Build API", { originalEstimateMinutes: 480 }));
+    const s = grounded("i0", {
+      kind: "split",
+      taskId: 1,
+      pieces: [
+        { taskName: "Design API", estimateMinutes: 240, description: "<p>new</p>" },
+        { taskName: "Implement API", estimateMinutes: 240 },
+      ],
+      why: "",
+    });
+    render5({ items: [s], tasksById: withEstimate, selected: new Set(["i0"]) });
+    expect(pieceTexts()).toEqual([
+      "Build API → Design API · estimate 480 min → 240 min · replaces the description",
+      "Implement API · estimate 240 min",
+    ]);
+  });
+
+  it("shows piece 1's kept estimate without an arrow when it does not change it", () => {
+    const withEstimate = new Map(tasksById).set(1, task(1, "Build API", { originalEstimateMinutes: 480 }));
+    const same = grounded("i0", {
+      kind: "split",
+      taskId: 1,
+      pieces: [{ taskName: "Design API", estimateMinutes: 480 }, { taskName: "Implement API" }],
+      why: "",
+    });
+    render5({ items: [same], tasksById: withEstimate, selected: new Set(["i0"]) });
+    expect(pieceTexts()[0]).toBe("Build API → Design API · estimate 480 min");
+    cleanup();
+    const absent = grounded("i0", {
+      kind: "split",
+      taskId: 1,
+      pieces: [{ taskName: "Design API" }, { taskName: "Implement API" }],
+      why: "",
+    });
+    render5({ items: [absent], tasksById: withEstimate, selected: new Set(["i0"]) });
+    expect(pieceTexts()[0]).toBe("Build API → Design API · estimate 480 min");
+  });
+
+  it("renders the piece disclosure in German", () => {
+    const withEstimate = new Map(tasksById).set(1, task(1, "Build API", { originalEstimateMinutes: 480 }));
+    const s = grounded("i0", {
+      kind: "split",
+      taskId: 1,
+      pieces: [{ taskName: "Design API", estimateMinutes: 240, description: "<p>x</p>" }, { taskName: "Implement API" }],
+      why: "",
+    });
+    render5({ lang: "de", items: [s], tasksById: withEstimate, selected: new Set(["i0"]) });
+    const list = screen.getByRole("list", { name: t("de", "wbsPlanPiecesLabel") });
+    expect(within(list).getAllByRole("listitem")[0].textContent).toBe(
+      "Build API → Design API · Schätzung 480 Min. → 240 Min. · ersetzt die Beschreibung",
+    );
   });
 
   it("renders no why text when why is empty and shows it otherwise", () => {
@@ -167,6 +226,21 @@ describe("WbsPlanModal", () => {
     render5({ truncated: true });
     expect(screen.getByText(t("en-US", "wbsPlanTruncated"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "wbsPlanUndoNote"))).toBeInTheDocument();
+  });
+
+  // The spec's binding wording: undo does NOT remove the new rows (undo.md "Creates").
+  it("says undo leaves new tasks in place, in EN and DE", () => {
+    render5();
+    expect(
+      screen.getByText("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand."),
+    ).toBeInTheDocument();
+    cleanup();
+    render5({ lang: "de" });
+    expect(
+      screen.getByText(
+        "Rückgängig stellt die Änderungen an bestehenden Aufgaben wieder her; neue Aufgaben bleiben erhalten und können von Hand gelöscht werden.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("does not show the truncation line when not truncated", () => {

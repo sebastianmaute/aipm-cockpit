@@ -583,11 +583,27 @@ describe("runTool — optimize_wbs", () => {
     expect(out).toEqual({ opened: true, tasksInScope: 4 });
   });
 
-  it("caps instructions at 1000 characters", async () => {
+  it("trims instructions, then caps them at 1000 characters", async () => {
     const d = makeDispatcher();
-    await runTool(d, "optimize_wbs", { instructions: "y".repeat(1500) });
+    await runTool(d, "optimize_wbs", { instructions: `  ${"y".repeat(1500)}` });
     const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(arg.instructions).toHaveLength(1000);
+    expect(arg.instructions).toBe("y".repeat(1000));
+  });
+
+  it("never splits a surrogate pair at the 1000-character cap (§22)", async () => {
+    const d = makeDispatcher();
+    // 999 units then an astral character: the cap lands between its two halves.
+    await runTool(d, "optimize_wbs", { instructions: `${"y".repeat(999)}😀tail` });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toBe("y".repeat(999));
+    expect(/[\ud800-\udbff]$/.test(arg.instructions)).toBe(false);
+  });
+
+  it("treats an all-whitespace instruction as absent", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "optimize_wbs", { instructions: " \n\t " });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toBeUndefined();
   });
 
   it("throws when the flow did not open", async () => {

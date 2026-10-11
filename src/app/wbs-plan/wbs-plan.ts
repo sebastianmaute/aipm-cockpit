@@ -133,7 +133,7 @@ export function buildWbsSystemPrompt(): string {
   return [
     "You are a senior project manager optimising a project's work breakdown structure (WBS).",
     "You may propose exactly four operations: split a task into smaller pieces, regroup a task into another group, add a new task, and set an estimate or add a finish-to-start link between tasks.",
-    "This tool never deletes or cancels a task and never overwrites an existing estimate — it only proposes additions and fixes to what is missing or unclear; the user reviews every item before anything changes.",
+    "This tool never deletes or cancels a task and never overwrites an existing estimate, except that a split's piece 1 rewrites the original row: its name, and its description and estimate when you give them (omit them to keep the original's). It only proposes additions and fixes to what is missing or unclear; the user reviews every item before anything changes.",
     "Use ONLY the task ids listed in the digest. Reference a task you are adding in the same proposal by its `ref`, and a piece of a split by `taskId` plus a 1-based `piece` (piece 1 is the original row).",
     "Focus on tasks marked [in scope]; use the rest only as context.",
     "Estimates are in minutes. A link `from` → `to` means `from` must finish before `to` starts.",
@@ -428,8 +428,13 @@ function isValidEstimate(m: number): boolean {
   return Number.isInteger(m) && m >= 1 && m <= MAX_WBS_ESTIMATE_MINUTES;
 }
 
+/** A description that is blank, or sanitizes to blank, counts as ABSENT: on a
+ *  split's piece 1 an empty string would otherwise wipe the original row's
+ *  description, and the preview would show no replacement. */
 function optDescription(d: string | undefined): { description?: string } {
-  return d === undefined ? {} : { description: sanitizeAiRichText(d) };
+  if (d === undefined) return {};
+  const clean = sanitizeAiRichText(d);
+  return htmlPlainProjection(clean).trim() === "" ? {} : { description: clean };
 }
 
 /** R1: an existing task an item names must exist, be open, be non-Jira and be

@@ -122,6 +122,22 @@ export function WbsPlanModal({
     return null;
   };
 
+  // Piece 1 REWRITES the original row, so it shows what it replaces: the old
+  // name → the new one, the original's estimate → piece 1's when it changes,
+  // and a marker when it carries a description (which replaces the original's).
+  // Pieces 2+ are new rows: name and estimate.
+  type SplitPiece = Extract<RawWbsItem, { kind: "split" }>["pieces"][number];
+  const pieceText = (taskId: number, p: SplitPiece, isFirst: boolean): string => {
+    if (!isFirst) return [p.taskName, t(lang, "wbsPlanPieceEstimate", minutes(p.estimateMinutes))].join(" · ");
+    const before = tasksById.get(taskId)?.originalEstimateMinutes;
+    const after = p.estimateMinutes ?? before;
+    const estimate =
+      after === before ? minutes(before) : t(lang, "wbsPlanEstimateChange", minutes(before), minutes(after));
+    const parts = [t(lang, "wbsPlanPieceRename", taskName(taskId), p.taskName), t(lang, "wbsPlanPieceEstimate", estimate)];
+    if (p.description !== undefined) parts.push(t(lang, "wbsPlanReplacesDescription"));
+    return parts.join(" · ");
+  };
+
   const tokens = buildRowTokens(items.map((g) => ({ id: g.key, name: subject(g.item) })));
   const isDisabled = (g: GroundedWbsItem): boolean => g.requires.some((k) => !selected.has(k));
   const count = items.reduce((n, g) => (selected.has(g.key) && !isDisabled(g) ? n + 1 : n), 0);
@@ -150,6 +166,7 @@ export function WbsPlanModal({
                   {group.map((g) => {
                     const disabled = isDisabled(g);
                     const info = detail(g.item);
+                    const split = g.item.kind === "split" ? g.item : null;
                     return (
                       <li key={g.key} className="rounded-md border border-line bg-surface-muted px-3 py-2">
                         <label className="flex cursor-pointer items-start gap-2">
@@ -163,15 +180,13 @@ export function WbsPlanModal({
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium text-foreground">{subject(g.item)}</span>
                             {info && <span className="block text-sm text-foreground">{info}</span>}
-                            {g.item.kind === "split" && (
+                            {split && (
                               <ul
                                 className="mt-1 list-disc pl-5 text-sm text-foreground"
                                 aria-label={t(lang, "wbsPlanPiecesLabel")}
                               >
-                                {g.item.pieces.map((p, i) => (
-                                  <li key={i}>
-                                    <span>{p.taskName}</span>
-                                  </li>
+                                {split.pieces.map((p, i) => (
+                                  <li key={i}>{pieceText(split.taskId, p, i === 0)}</li>
                                 ))}
                               </ul>
                             )}

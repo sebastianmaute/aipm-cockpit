@@ -1014,6 +1014,9 @@
   ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
   exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
   that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
+  ★ That estimate rule covers estimate ITEMS only: a split's piece 1 rewrites the original row, so it may
+  re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
+  the preview shows the rename, the estimate before → after and a "replaces the description" marker.
   An item that cites a new task's ref or a split piece ≥ 2 `requires` that item's key, and apply drops it
   when that item is unticked. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
   longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps

@@ -14,10 +14,17 @@ import { useUndoStack, type UndoStackApi } from "./undo/use-undo-stack";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Task } from "./types";
 import * as call from "./wbs-plan-call";
+import * as engine from "./wbs-plan/wbs-plan";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
 import { t, tPlural } from "./i18n";
 
 vi.mock("./wbs-plan-call");
+// The REAL engine, wrapped so one test can make the setTasks updater's apply
+// throw (the R12 fallback) while the snapshot apply before it succeeds.
+vi.mock("./wbs-plan/wbs-plan", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./wbs-plan/wbs-plan")>();
+  return { ...real, applyWbsProposal: vi.fn(real.applyWbsProposal) };
+});
 
 const AI_ON: Settings = {
   ...defaultSettings,
@@ -138,7 +145,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The preview lists the grounded item, ticked by default.
     const box = await screen.findByRole("checkbox", { name: /include this change/i });
     expect(box).toBeChecked();
-    expect(screen.getByText("Design B")).toBeTruthy();
+    expect(screen.getByText("Design B · estimate none")).toBeTruthy();
 
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];
@@ -341,6 +348,50 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(captured!.aborted).toBe(false);
     api.unmount();
     expect(captured!.aborted).toBe(true);
+  });
+
+  it("open({group}) matches the group case-insensitively and trimmed", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    const api = renderHarness();
+    let res: ReturnType<WbsPlan["open"]> | undefined;
+    act(() => { res = api().wbs.open({ group: "  core " }); });
+    expect(res).toEqual({ opened: true, tasksInScope: 2 });
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    const [context] = vi.mocked(call.runWbsProposal).mock.calls[0];
+    expect(context).toContain("#1 [in scope]");
+    expect(context).toContain("#2 [in scope]");
+    expect(context).not.toContain("#3 [in scope]");
+  });
+
+  it("when the updater's apply falls back to prev: no Applied toast, no log, no undo — the error toast", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([{ kind: "regroup", taskId: 1, group: "Backend", why: "belongs there" }]),
+    );
+    const logActivitySpy = vi.fn();
+    const api = renderHarness({ logActivitySpy });
+    await proposeFromButton();
+    await screen.findByRole("checkbox", { name: /include this change/i });
+
+    const applyMock = vi.mocked(engine.applyWbsProposal);
+    const real = applyMock.getMockImplementation()!;
+    // The snapshot apply (first call) succeeds; every updater call throws, as on
+    // a same-tick id collision.
+    applyMock.mockImplementationOnce(real).mockImplementation(() => {
+      throw new Error("id collision");
+    });
+    try {
+      fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) }));
+    } finally {
+      applyMock.mockImplementation(real);
+    }
+
+    expect(applyMock.mock.calls.length).toBeGreaterThanOrEqual(2); // the updater did run
+    expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "wbsPlanError"));
+    expect(showToast).not.toHaveBeenCalledWith("info", tPlural("en-US", "wbsPlanApplied", 1, 1));
+    expect(logActivitySpy).not.toHaveBeenCalled();
+    expect(api().undo.canUndo).toBe(false);
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("open() refuses with an empty scope", () => {

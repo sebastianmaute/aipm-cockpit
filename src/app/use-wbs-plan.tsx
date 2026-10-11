@@ -22,6 +22,7 @@
 // hallucinated id or a row edited since the proposal never reaches a write.
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
@@ -210,9 +211,10 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const open = useCallback(
     (req: WbsOpenRequest): { opened: boolean; tasksInScope: number } => {
       if (!enabled || phaseRef.current !== "idle") return { opened: false, tasksInScope: 0 };
-      const group = req.group?.trim();
+      // Case-insensitive and trimmed: the model may say "design" for "Design".
+      const group = req.group?.trim().toLowerCase();
       const ids = tasksRef.current
-        .filter((x) => isEditable(x) && (!group || (x.group ?? "") === group))
+        .filter((x) => isEditable(x) && (!group || (x.group ?? "").trim().toLowerCase() === group))
         .map((x) => x.id);
       if (ids.length === 0) return { opened: false, tasksInScope: 0 };
       const runScope: WbsScope = { taskIds: new Set(ids) };
@@ -258,13 +260,27 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       // A pure updater, so StrictMode's double call is harmless. ★ It must not
       // throw: apply throws on an id collision or too few ids, and a throw in
       // an updater crashes the render — so it falls back to `prev`.
-      setTasks((prev) => {
-        try {
-          return applyWbsProposal(prev, ticked, ids, today, scope).nextTasks;
-        } catch {
-          return prev;
-        }
+      // ★ `flushSync` makes the updater run before the next line, so a fallback
+      // is known HERE: nothing was written, so no "Applied N" toast, no
+      // `ai.wbsPlan` row and no undo entry — the generic error instead.
+      let wrote = false;
+      flushSync(() => {
+        setTasks((prev) => {
+          try {
+            const next = applyWbsProposal(prev, ticked, ids, today, scope).nextTasks;
+            wrote = true;
+            return next;
+          } catch {
+            wrote = false;
+            return prev;
+          }
+        });
       });
+      if (!wrote) {
+        showToast("error", t(lang, "wbsPlanError"));
+        reset();
+        return;
+      }
       // Updates only: created rows stay out of the images (docs/AGENTS/undo.md
       // "Creates" — capturing a create duplicates it on undo).
       if (result.editedBefore.length > 0) {
