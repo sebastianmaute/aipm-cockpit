@@ -243,7 +243,7 @@ export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyR
     // A malformed date mints the unparseable key `"7|"` ON PURPOSE. That key is
     // the ONLY production signal that the roll is not fully readable:
     // `parseDailyKey` rejects it → `evaluateTimelogPolicy` sets its per-roll
-    // `skipped` flag → all four guardrail rules are withheld from `evaluated` →
+    // `skipped` flag → every guardrail rule is withheld from `evaluated` →
     // `reconcileInsights` FREEZES the stored insights instead of resolving them.
     // Drop the row and that chain never starts: the rules certify a clean day
     // for hours nobody could place, and `computeClearedOutcome` writes a

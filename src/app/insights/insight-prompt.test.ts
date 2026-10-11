@@ -114,7 +114,7 @@ describe("buildInsightsPromptBlock", () => {
 });
 
 // ★★★ THE THREE NUMBERS MUST ALL DIFFER, for the same reason `insight-text.test.ts`
-// says they must there: the four guardrail fact lines interleave `count`,
+// says they must there: the guardrail fact lines interleave `count`,
 // `threshold` and `worstHours` positionally, and two of them render the threshold
 // BEFORE the peak ("over the 8h cap, worst 12h"). Transposing a pair yields a
 // perfectly fluent sentence carrying the WRONG numbers — tsc only enforces that the
@@ -151,6 +151,10 @@ describe("guardrail fact lines", () => {
     [
       "timelogWorkingHours",
       "- [medium] TimeLog: Ada booked over defined hours on 2 day(s), worst 12h",
+    ],
+    [
+      "timelogAbsenceDay",
+      "- [medium] TimeLog: Ada booked time on 2 day(s) they were absent (vacation, sick or training), worst 12h",
     ],
   ];
 

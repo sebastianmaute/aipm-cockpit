@@ -19,7 +19,7 @@
 //   grep -n "useInsightLifecycle\|useInsightRecommendations\|useRaidCreate" src/app/task-manager.tsx
 import { useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
 import type { AppView } from "./nav-config";
-import type { Shift } from "./types";
+import type { Absence, Shift } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
@@ -46,6 +46,8 @@ export interface InsightLifecycleDeps
   landingProjectId: string;
   holidaysReady: boolean;
   shifts: readonly Shift[];
+  /** §700 — read by the `timelogAbsenceDay` guardrail. */
+  absences: readonly Absence[];
   timelogLinks: TimelogLinks | undefined;
   insights: readonly Insight[] | undefined;
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
@@ -63,7 +65,7 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
   const {
     hydrated, isPopout, loadPending, today, currentProjectId, landingProjectId,
     tasks, milestones, raid, budgets, roles, resources, plan,
-    holidaySet, holidaysReady, shifts, timelogLinks,
+    holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
   } = deps;
   // Assemble the detection input from live entities. `plan` is always present
@@ -130,6 +132,8 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         holidaysReady,
         userLinks: timelogLinks?.userLinks ?? [],
         shifts,
+        absences,
+        resources,
       });
       const detected = detectInsights(
         { ...buildInsightInput(), timelogViolations: policyResult.violations },
@@ -184,7 +188,7 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // Everything left is a guardrail rule (or, defensively, a type nothing
         // here evaluates — which falls through to false, the safe direction).
         // The policy module's OWN report, never the rules that happened to
-        // yield violations and never all four unconditionally.
+        // yield violations and never every rule unconditionally.
         if (!evaluatedRules.has(insight.type)) return false;
         // A `partial` fetch is missing whole people while every rule still
         // reports itself evaluated — a lost zero, not a real one.
@@ -223,7 +227,10 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // ★★★ THE PER-PERSON LINK FLOOR. The two shift-dependent rules need this
         // person to resolve to a resource before "no violation" means anything:
         // `timelogWorkingHours` reads their expected hours from the shift, and
-        // `timelogNonWorkingDay`'s weekday half reads their weekend from it. The
+        // `timelogNonWorkingDay`'s weekday half reads their weekend from it.
+        // `timelogAbsenceDay` (§700) is stricter still: it reads their absences
+        // through the link's RESOURCE, so a link to a deleted resource cannot
+        // answer for them either (`absenceUsers`, see the engine). The
         // whole-rule floor in the engine only asks whether SOME link exists, so
         // removing one person's link leaves the rule evaluated while that person
         // goes dark — and the key is per person.
@@ -235,6 +242,9 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // They still get RAISED — detection is deliberately link-independent
         // (`buildDailyRoll` measures unlinked bookers on purpose). Measuring and
         // certifying-a-clean are different acts, and only the second needs this.
+        if (insight.type === "timelogAbsenceDay") {
+          return policyResult.absenceUsers.includes(who);
+        }
         if (insight.type === "timelogWorkingHours" || insight.type === "timelogNonWorkingDay") {
           return policyResult.linkedUsers.includes(who);
         }
@@ -253,7 +263,7 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     // ★ `priorOverdueCount` is a dep in its OWN right, not merely via
     // `buildInsightInput`: the predicate above reads it directly to decide
     // whether `overdueTrend` was evaluated at all.
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount, loadPending]);
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, absences, resources, priorOverdueCount, loadPending]);
 
   // Lifecycle handlers. Acknowledge, act and dismiss reach the dashboard and the
   // Insights view through `useInsightRecommendations`' `insightActions` bag; the

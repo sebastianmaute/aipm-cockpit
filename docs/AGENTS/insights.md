@@ -20,7 +20,7 @@ types through the validator was weighed and rejected.
 
 - **Pure `insights/` engines (i18n-free):** `detect.ts` `detectInsights(input, today)` runs the
   deterministic detectors (milestone slip · stalled/no-progress work · budget variance · RAID aging ·
-  overdue-trend · the four TimeLog guardrails, below) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges
+  overdue-trend · the five TimeLog guardrails, below) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges
   detected signals into the stored record, DEDUPES by a stable key, and PRESERVES each insight's lifecycle
   (`active` → `acknowledged`/`acted`/`dismissed` → `resolved`). `sanitize-insights.ts` = the single validator
   (never throws), `insight-text.ts` = i18n-free label/summary helpers, `insight-prompt.ts`
@@ -111,7 +111,7 @@ types through the validator was weighed and rejected.
   (`{direction: improved|unchanged|worsened, baseline, current, delta, measuredAt}`). Both ride the SAME
   insights blob (no new backend path, byte-stable when absent). Pure i18n-free `insights/outcome.ts` owns
   `METRIC_FIELD` (milestoneSlip→`daysOverdue` · overdueTrend→`current` · stalledWork→`count` ·
-  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`). ★ **Since §577, `budgetVariance`'s `variancePct` means TO-DATE variance, not whole-window —
+  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the five TimeLog guardrail types→`count`). ★ **Since §577, `budgetVariance`'s `variancePct` means TO-DATE variance, not whole-window —
   and since the §577 F3 follow-up, BOTH sides are to-date.** `budgetVarianceInsight` compares a bucket's
   actual hours TO DATE against its budget TO DATE — both restricted to the SAME periods, whose start is ≤
   `today` (`bucketFiguresToDate`) — plus a closed predecessor's spillover added to the budget side once
@@ -200,13 +200,23 @@ types through the validator was weighed and rejected.
   safe ONLY because the body reads nothing but refs — keep it that way.
 - **TimeLog guardrail insights:** `detectInsights` also turns TimeLog guardrail violations into
   insights, one per rule × TimeLog user (key `timelog:<rule>:<timelogUserId>`), typed
-  `timelogCapPerEntry` · `timelogCapPerDay` · `timelogNonWorkingDay` · `timelogWorkingHours`, all
+  `timelogCapPerEntry` · `timelogCapPerDay` · `timelogNonWorkingDay` · `timelogWorkingHours` ·
+  `timelogAbsenceDay` (§700: time booked on a vacation, sick or training absence of the linked person), all
   `medium` severity, with an `entityRef` to the resource only when the user link resolves. The rules
   run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the runner in `use-insight-lifecycle.ts` feeds from the
   per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The policy's
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
-  (see the `timelog-policy.ts` header). ★ All four measure `count` (violating days), never `worstHours`.
+  (see the `timelog-policy.ts` header). ★ All five measure `count` (violating days), never `worstHours`.
+  ★★ `timelogWorkingHours` and `timelogNonWorkingDay` read a person through their TimeLog link, so the
+  runner certifies a clean for them only for a LINKED person (`linkedUsers`); an unlinked person's row
+  freezes. ★★★ `timelogAbsenceDay` uses the STRICTER `absenceUsers`: a link whose resource still EXISTS,
+  and none of whose counted absences has unreadable dates. Do not fold it into the `linkedUsers` branch. A
+  dangling link keeps an answer for the shift rules (`definedHours` falls back to `DEFAULT_WEEK_HOURS`),
+  but without the resource there is no name to match an absence stored without a `resourceId`, and an
+  unreadable absence matches nothing; either way "no absence booking" is not an answer, and certifying it
+  resolves a stored row as a fabricated "improved". Absences match by `resourceId`, else by name, as
+  `absencesForResource` does.
 - **Changing a detector — sweep for the tests the change INVALIDATES, repo-wide (§598).** Before the
   change, not after the first red pipeline, run
   `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx` (it prints five files today —

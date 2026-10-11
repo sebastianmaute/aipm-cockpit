@@ -667,7 +667,7 @@ function TaskManagerInner() {
   const { onAcknowledgeInsight, onActInsight, onInsightLoggedAsRaid, onDismissInsight } = useInsightLifecycle({
     hydrated, isPopout, loadPending, today, currentProjectId, landingProjectId,
     tasks, milestones, raid, budgets, roles, resources, plan,
-    holidaySet, holidaysReady, shifts, timelogLinks,
+    holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
   });
   // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly

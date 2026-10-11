@@ -5,7 +5,7 @@ import type { Insight, InsightType } from "./insight";
 
 // ★★★ THE THREE NUMBERS MUST ALL DIFFER, and that is the whole reason this file
 // exists. `insightDetail` passes count, worstHours and threshold positionally as
-// {1}, {2} and {3}, and two of the four guardrail sentences render {3} BEFORE
+// {1}, {2} and {3}, and two of the guardrail sentences render {3} BEFORE
 // {2} ("over the 8 h cap — the largest is 12 h"). A transposed index there
 // yields a perfectly fluent sentence carrying the WRONG numbers, which no other
 // gate can see. So a fixture where any two of these are equal is VACUOUS against
@@ -59,6 +59,12 @@ const EN: readonly Case[] = [
     detail:
       "Ada booked more than the defined hours on 2 days — the highest is 12 h. People with no TimeLog link are not checked.",
   },
+  {
+    type: "timelogAbsenceDay",
+    title: "Time booked while absent",
+    detail:
+      "Ada booked time on 2 days they were on vacation, sick or in training — the largest is 12 h. People with no TimeLog link are not checked.",
+  },
 ];
 
 const DE: readonly Case[] = [
@@ -84,6 +90,12 @@ const DE: readonly Case[] = [
     detail:
       "Ada hat an 2 Tagen mehr als die definierten Stunden gebucht — der höchste Wert beträgt 12 h. Personen ohne TimeLog-Verknüpfung werden nicht geprüft.",
   },
+  {
+    type: "timelogAbsenceDay",
+    title: "Zeit während einer Abwesenheit gebucht",
+    detail:
+      "Ada hat an 2 Tagen Zeit gebucht, an denen Urlaub, Krankheit oder Schulung eingetragen war — der größte Wert beträgt 12 h. Personen ohne TimeLog-Verknüpfung werden nicht geprüft.",
+  },
 ];
 
 describe("guardrail insight text", () => {
@@ -92,7 +104,7 @@ describe("guardrail insight text", () => {
     // falls back to en-US, so the DE cases below would assert English, pass, and
     // pin nothing. What makes the omission DETECTABLE rather than silent is that
     // the expectations below are real German: the EN fallback cannot produce
-    // them, so dropping this line turns all four DE cases red.
+    // them, so dropping this line turns every DE case red.
     await loadI18n("de");
   });
 

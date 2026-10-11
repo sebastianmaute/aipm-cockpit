@@ -803,7 +803,7 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
    *  fixture in this file floods with `timelogCapPerDay` ALONE, so three of the
    *  four members were exercised by nothing in the repo and that truncation
    *  survived the whole insights suite (measured against 69dd3099: 0 failed /
-   *  248 passed). The reservation's contract is that ALL FOUR members are held
+   *  248 passed). The reservation's contract is that EVERY member is held
    *  against the budget; this is the input that says so.
    *  ★★★ THE FLOOD IS BUILT FROM `TIMELOG_RULE_IDS`, NOT FROM
    *  `GUARDRAIL_INSIGHT_TYPES`, AND THAT CHOICE IS THE WHOLE TEST. Building it
@@ -812,7 +812,7 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
    *  one of them recognised, so the admitted count lands on the budget and the
    *  singleton survives, and the mutant passes exactly as it does today.
    *  `TIMELOG_RULE_IDS` is the family's independent definition, so under the
-   *  mutant the `timelogWorkingHours` rows go UNRECOGNISED, are admitted as
+   *  mutant the `timelogWorkingHours` and `timelogAbsenceDay` rows go UNRECOGNISED, are admitted as
    *  non-guardrails, and crowd the singleton out of the cap.
    *  ★★ THE GUARDRAIL COUNT IS BY EXCLUSION for the same reason. Counting rows
    *  whose type is in `GUARDRAIL_INSIGHT_TYPES` would measure the mutant's own

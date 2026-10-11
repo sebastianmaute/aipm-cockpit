@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { dailyKey, TIMELOG_RULE_IDS, type TimelogDailyRoll, type TimelogPolicy, type TimelogRuleId } from "./timelog-types";
 import { INSIGHT_TYPES, type InsightType } from "./insights/insight";
-import { MAX_HOURS_PER_DAY, type Shift, type WeekHours } from "./types";
+import { MAX_HOURS_PER_DAY, type Absence, type AbsenceType, type Resource, type Shift, type WeekHours } from "./types";
 import type { TimelogUserLink } from "./timelog-types";
 
 const NO_HOLIDAYS: ReadonlySet<string> = new Set();
@@ -32,7 +32,7 @@ describe("evaluateTimelogPolicy", () => {
   it("reports no violations and an empty evaluated set when the roll is null", () => {
     const policy: TimelogPolicy = { timelogCapPerDay: { enabled: true, threshold: 8 } };
     const res = evaluateTimelogPolicy({
-      daily: null, policy, holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      daily: null, policy, holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([]);
     expect(res.evaluated).toEqual([]);
@@ -42,7 +42,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
@@ -63,7 +63,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: OVER_CAP,
       policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY + 1 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
@@ -73,7 +73,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: OVER_CAP,
       policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toHaveLength(1);
@@ -88,7 +88,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: false, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
@@ -105,7 +105,7 @@ describe("evaluateTimelogPolicy", () => {
         timelogCapPerEntry: { enabled: true, threshold: 6 },
         timelogCapPerDay: { enabled: true, threshold: 8 },
       },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerEntry", "timelogCapPerDay"]);
     expect(res.violations).toEqual([
@@ -117,7 +117,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toEqual([]);
@@ -139,7 +139,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [9, 5, 2] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toEqual([
@@ -151,7 +151,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [3, 2, 2] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: new Set([TUE]), holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: new Set([TUE]), holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
     expect(res.violations).toEqual([
@@ -165,7 +165,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 5, 3] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
     });
@@ -190,7 +190,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], [dailyKey(8, TUE)]: [14, 14, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
     });
@@ -208,7 +208,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
     });
@@ -228,7 +228,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [7, 6, 2] }),
       policy: { timelogCapPerEntry: { enabled: true, threshold: 6 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerEntry"]);
     expect(res.violations).toEqual([]);
@@ -240,7 +240,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogWorkingHours"]);
@@ -260,7 +260,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(7, WED)]: [12, 12, 1],
       }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([
       { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: WED },
@@ -290,7 +290,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(7, MON)]: [4, 4, 1],   // scanned, clean, BEFORE the first breach
       }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([
       {
@@ -307,7 +307,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, WED)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations[0].firstViolationDate).toBe(WED);
     expect(res.violations[0].lastViolationDate).toBe(WED);
@@ -324,7 +324,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(9, THU)]: [9, 9, 1],
       }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations.map((v) => [v.timelogUserId, v.firstViolationDate, v.lastViolationDate])).toEqual([
       [7, TUE, WED],
@@ -345,7 +345,7 @@ describe("evaluateTimelogPolicy", () => {
         timelogCapPerEntry: { enabled: true, threshold: 6 },
         timelogCapPerDay: { enabled: true, threshold: 8 },
       },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations.map((v) => [v.rule, v.firstViolationDate, v.lastViolationDate])).toEqual([
       ["timelogCapPerEntry", TUE, TUE],
@@ -357,7 +357,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: new Set([TUE]), holidaysReady: true,
+      holidaySet: new Set([TUE]), holidaysReady: true, absences: [], resources: [],
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
@@ -378,7 +378,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, WED)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 8, 0, 8, 8, 0])],
     });
@@ -391,7 +391,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [],
     });
@@ -406,7 +406,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
@@ -419,7 +419,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [],
     });
@@ -440,7 +440,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(8, TUE)]: [12, 12, 1],
       }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
     });
@@ -467,7 +467,7 @@ describe("evaluateTimelogPolicy", () => {
       // carry the id — which is what makes this fixture the discriminating one.
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: false,
+      holidaySet: NO_HOLIDAYS, holidaysReady: false, absences: [], resources: [],
       userLinks: [link(7, 40)], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
@@ -483,7 +483,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [link(7, 40)], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
@@ -499,6 +499,7 @@ describe("evaluateTimelogPolicy", () => {
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: new Set([TUE]),
+      absences: [], resources: [],
       userLinks: [], shifts: [],
     };
     expect(evaluateTimelogPolicy({ ...args, holidaysReady: false }).evaluated).toEqual([]);
@@ -509,7 +510,7 @@ describe("evaluateTimelogPolicy", () => {
 
   // ★★ Readiness floors THIS rule and nothing else. Without this, moving the
   // term into the shared `if (daily === null …)` early return would pass every
-  // assertion above while darkening all four rules.
+  // assertion above while darkening every rule.
   it("leaves the other three rules evaluated while holidays are not ready", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, SAT)]: [12, 12, 1] }),
@@ -519,7 +520,7 @@ describe("evaluateTimelogPolicy", () => {
         timelogNonWorkingDay: { enabled: true },
         timelogWorkingHours: { enabled: true },
       },
-      holidaySet: NO_HOLIDAYS, holidaysReady: false,
+      holidaySet: NO_HOLIDAYS, holidaysReady: false, absences: [], resources: [],
       userLinks: [link(7, 40)], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerEntry", "timelogCapPerDay", "timelogWorkingHours"]);
@@ -547,7 +548,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily,
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
@@ -564,7 +565,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily,
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
       userLinks: [], shifts: [],
     });
     // ★★★ WITHHELD, and this assertion used to read `["timelogCapPerDay"]` under
@@ -601,7 +602,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "7|tomorrow": [99, 99, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [link(7, 1)], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     const v = res.violations.find((x) => x.rule === "timelogCapPerDay");
@@ -626,7 +627,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [link(7, 1)], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toEqual([
@@ -652,10 +653,184 @@ describe("evaluateTimelogPolicy", () => {
         timelogCapPerDay: { enabled: true, threshold: 8 },
         timelogNonWorkingDay: { enabled: true },
       },
-      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [link(7, 1)], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations.length).toBeGreaterThan(0);
+  });
+});
+
+// §700 — time booked on a day the person was absent. Counted: vacation, sick
+// and training (owner ruling 2026-10-11); `other` is not.
+describe("timelogAbsenceDay", () => {
+  const ON: TimelogPolicy = { timelogAbsenceDay: { enabled: true } };
+
+  function absence(id: number, type: AbsenceType, startDate: string, endDate: string, owner: { resourceId?: number; assignee?: string }): Absence {
+    return { id, type, startDate, endDate, assignee: owner.assignee ?? "", ...(owner.resourceId === undefined ? {} : { resourceId: owner.resourceId }) };
+  }
+
+  function resource(id: number, firstName: string, lastName: string): Resource {
+    return { id, firstName, lastName } as Resource;
+  }
+
+  function run(daily: TimelogDailyRoll, absences: Absence[], opts: { links?: TimelogUserLink[]; resources?: Resource[]; policy?: TimelogPolicy } = {}) {
+    return evaluateTimelogPolicy({
+      daily,
+      policy: opts.policy ?? ON,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      absences,
+      resources: opts.resources ?? [],
+      userLinks: opts.links ?? [link(7, 40)],
+      shifts: [],
+    });
+  }
+
+  it("flags a linked person's booking on a vacation day", () => {
+    const res = run(roll({ [dailyKey(7, TUE)]: [3, 3, 1] }), [absence(1, "vacation", TUE, TUE, { resourceId: 40 })]);
+    expect(res.evaluated).toEqual(["timelogAbsenceDay"]);
+    expect(res.violations).toEqual([{
+      rule: "timelogAbsenceDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0,
+      firstViolationDate: TUE, lastViolationDate: TUE,
+    }]);
+  });
+
+  it("counts vacation, sick and training, and not other", () => {
+    const THU = "2026-09-03";
+    const FRI = "2026-09-04";
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [1, 1, 1], [dailyKey(7, WED)]: [2, 2, 1], [dailyKey(7, THU)]: [4, 4, 1], [dailyKey(7, FRI)]: [8, 8, 1] }),
+      [
+        absence(1, "vacation", TUE, TUE, { resourceId: 40 }),
+        absence(2, "sick", WED, WED, { resourceId: 40 }),
+        absence(3, "training", THU, THU, { resourceId: 40 }),
+        absence(4, "other", FRI, FRI, { resourceId: 40 }),
+      ],
+    );
+    expect(res.violations).toHaveLength(1);
+    expect(res.violations[0]).toMatchObject({ count: 3, worstHours: 4, firstViolationDate: TUE, lastViolationDate: THU });
+  });
+
+  it("treats both ends of an absence as absent and the days around it as not", () => {
+    const MON = "2026-08-31";
+    const THU = "2026-09-03";
+    const res = run(
+      roll({ [dailyKey(7, MON)]: [8, 8, 1], [dailyKey(7, TUE)]: [1, 1, 1], [dailyKey(7, WED)]: [2, 2, 1], [dailyKey(7, THU)]: [8, 8, 1] }),
+      [absence(1, "vacation", TUE, WED, { resourceId: 40 })],
+    );
+    expect(res.violations[0]).toMatchObject({ count: 2, worstHours: 2, firstViolationDate: TUE, lastViolationDate: WED });
+  });
+
+  it("matches an absence with no resourceId by the resource's name", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [5, 5, 1] }),
+      [absence(1, "sick", TUE, TUE, { assignee: " ada LOVELACE " })],
+      { resources: [resource(40, "Ada", "Lovelace")] },
+    );
+    expect(res.violations).toHaveLength(1);
+    expect(res.violations[0]).toMatchObject({ timelogUserId: 7, count: 1 });
+  });
+
+  it("does not flag a booking against another person's absence", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [5, 5, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 41 }), absence(2, "vacation", TUE, TUE, { assignee: "Grace Hopper" })],
+      { resources: [resource(40, "Ada", "Lovelace"), resource(41, "Grace", "Hopper")] },
+    );
+    expect(res.evaluated).toEqual(["timelogAbsenceDay"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  it("does not flag a zero-hour cell on an absence day", () => {
+    const res = run(roll({ [dailyKey(7, TUE)]: [0, 0, 1] }), [absence(1, "vacation", TUE, TUE, { resourceId: 40 })]);
+    expect(res.evaluated).toEqual(["timelogAbsenceDay"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // ★ The fixture books on an absence day, so "no violations" can only come from
+  // the rule being dark — never from the booking being innocent.
+  it("is not evaluated when no user link exists", () => {
+    const res = run(roll({ [dailyKey(7, TUE)]: [5, 5, 1] }), [absence(1, "vacation", TUE, TUE, { resourceId: 40 })], { links: [] });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  it("is not evaluated when switched off", () => {
+    const res = run(roll({ [dailyKey(7, TUE)]: [5, 5, 1] }), [absence(1, "vacation", TUE, TUE, { resourceId: 40 })], {
+      policy: { timelogAbsenceDay: { enabled: false } },
+    });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  it("leaves an unlinked booker unchecked while the rule is evaluated for a linked one", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [5, 5, 1], [dailyKey(8, TUE)]: [6, 6, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 40 }), absence(2, "vacation", TUE, TUE, { resourceId: 50 })],
+    );
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+    expect(res.linkedUsers).toEqual([7]);
+  });
+
+  // Review finding: a link whose resource was deleted cannot see that person's
+  // name-only absences, so it must not certify a clean for them. It still
+  // REPORTS what it can see — an absence carrying the resourceId.
+  it("certifies only people whose linked resource still exists", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [5, 5, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 40 })],
+      { links: [link(7, 40), link(8, 41)], resources: [resource(41, "Grace", "Hopper")] },
+    );
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+    expect(res.absenceUsers).toEqual([8]);
+    expect(res.linkedUsers).toEqual([7, 8]);
+  });
+
+  it("checks two TimeLog users linked to one resource against that resource's absences", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1], [dailyKey(8, TUE)]: [4, 4, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 40 })],
+      { links: [link(7, 40), link(8, 40)], resources: [resource(40, "Ada", "Lovelace")] },
+    );
+    expect(res.violations.map((v) => [v.timelogUserId, v.resourceId])).toEqual([[7, 40], [8, 40]]);
+    expect(res.absenceUsers).toEqual([7, 8]);
+  });
+
+  it("matches an absence by resourceId even when its name is someone else's", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1] }),
+      [absence(1, "sick", TUE, TUE, { resourceId: 40, assignee: "Grace Hopper" })],
+      { resources: [resource(40, "Ada", "Lovelace"), resource(41, "Grace", "Hopper")] },
+    );
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+  });
+
+  // Review finding: an absence with unreadable dates stops matching silently,
+  // and "no absence booking" would then certify a clean. Its person freezes
+  // instead, as an unreadable cell freezes the roll. Other people are unaffected.
+  it("does not certify a person who has a counted absence with unreadable dates", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1], [dailyKey(8, TUE)]: [4, 4, 1] }),
+      [
+        absence(1, "vacation", "2026-9-1", TUE, { resourceId: 40 }),
+        absence(2, "sick", WED, TUE, { resourceId: 41 }),
+        absence(3, "training", TUE, TUE, { resourceId: 42 }),
+      ],
+      {
+        links: [link(7, 40), link(8, 41), link(9, 42)],
+        resources: [resource(40, "Ada", "Lovelace"), resource(41, "Grace", "Hopper"), resource(42, "Alan", "Turing")],
+      },
+    );
+    expect(res.absenceUsers).toEqual([9]);
+    expect(res.evaluated).toEqual(["timelogAbsenceDay"]);
+  });
+
+  it("ignores unreadable dates on an absence type the rule does not count", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1] }),
+      [absence(1, "other", "", "", { resourceId: 40 })],
+      { resources: [resource(40, "Ada", "Lovelace")] },
+    );
+    expect(res.absenceUsers).toEqual([7]);
   });
 });
 
@@ -665,7 +840,7 @@ describe("rule ids are insight types", () => {
   // Renaming either side turns tsc red.
   it("every rule id is assignable to InsightType", () => {
     const ids: readonly InsightType[] = TIMELOG_RULE_IDS;
-    expect(ids).toHaveLength(4);
+    expect(ids).toHaveLength(5);
   });
 
   it("every rule id survives insight sanitisation", () => {

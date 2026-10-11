@@ -15,6 +15,12 @@ longer carries its own changelog comment.
 - **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
   tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
 
+- **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
+  guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an
+  insight naming the person, how many such days there were and the largest booking. Absences of type
+  "other" are not counted. Like the other guardrails it is off by default and blocks nothing; it checks
+  only people linked to a resource.
+
 ### Fixed
 
 - **A Jira sync no longer undoes changes you make while it runs.** A sync that pushes local changes
