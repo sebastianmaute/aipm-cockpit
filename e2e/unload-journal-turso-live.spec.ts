@@ -246,7 +246,8 @@ test.describe("§629 — a draft unloaded on a live Turso project reaches the da
     await typeTaskNameDraft(page, marker);
     await page.close({ runBeforeUnload: true });
     // A same-origin document that runs no app code, so the journal is read before any load acts on it.
-    // Served by a route, not a real file: CI's Chromium aborted a navigation to `/favicon.ico`.
+    // Served by a route, not a real file: in the live-turso job (run 38126224414) a navigation
+    // here to `/favicon.ico` was aborted (net::ERR_ABORTED), cause unknown.
     const next = await context.newPage();
     await next.route("**/__e2e-journal-reader", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>reader</title>" }));
     await next.goto("/__e2e-journal-reader");
