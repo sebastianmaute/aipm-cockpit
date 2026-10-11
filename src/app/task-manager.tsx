@@ -27,13 +27,9 @@ import { useTaskSubmit } from "./use-task-submit";
 import { useTaskEditorCreate } from "./use-task-editor-create";
 import { useTaskBudgetLink } from "./use-task-budget-link";
 import { useBudgetBuckets } from "./use-budget-buckets";
-import { TaskLinkedTaskModal } from "./task-linked-task-modal";
 import { useGanttHandlers } from "./use-gantt-handlers";
-import { AppModals } from "./app-modals";
 import { type RaidItem, type ChangeItem } from "./types";
-import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
-import { BlockersWindow } from "./blockers-window";
 import { useBlockersWindow } from "./use-blockers-window";
 import { useFxRates } from "./use-fx-rates";
 import { buildWorkloadTriageHandlers } from "./workload-triage-handlers";
@@ -62,7 +58,6 @@ import { isAiKeyStatusBad } from "./ai-key-status";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { WorkspaceSection } from "./workspace-section";
-import { CalendarSummaryModals } from "./calendar-summary-modals";
 import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
@@ -84,7 +79,6 @@ import { useReminderBanners } from "./use-reminder-banners";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
-import { VersionInfoModal } from "./version-info";
 import { useDesktopVersionRequest } from "./use-desktop-version-request";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
@@ -95,7 +89,6 @@ import { useDemoIntentOnBoot } from "./demo-intent";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { useInsightLifecycle } from "./use-insight-lifecycle";
-import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
 import { getTursoConfig } from "./turso-config";
 import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, type JiraExtraProject, type Settings } from "./settings-types";
@@ -103,7 +96,8 @@ import { resolveEffectiveSettings } from "./settings-effective";
 import { buildTaskEditorChrome } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
-import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
+import { useRaidCreate } from "./raid-create-host";
+import { buildAppModalsBlock } from "./app-modals-block";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { Button } from "./button";
@@ -114,13 +108,10 @@ import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useMeetingReportActions } from "./use-meeting-report-actions";
 import { useCommSend } from "./use-comm-send";
-import { CommSendPreviewModal } from "./comm-send-preview-modal";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookImports } from "./use-outlook-imports";
-import { OutlookImportModal } from "./outlook-import-modal";
 import { canImportOutlookContacts } from "./outlook-contacts";
-import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import {
   loadRegistry,
   getCurrentEntry,
@@ -444,8 +435,8 @@ function TaskManagerInner() {
   // (SettingsView's `onOpenVersion` prop) all end up calling the SAME state
   // flip, so a second modal cannot exist by construction. Called
   // unconditionally here because TaskManagerInner is ONE component instance
-  // regardless of isPopout / settings.layout — the <VersionInfoModal> below is
-  // rendered from `modalsBlock`, which every returned tree (classic, popout,
+  // regardless of isPopout / settings.layout — the <VersionInfoModal> is
+  // rendered from `modalsBlock` (app-modals-block.tsx), which every returned tree (classic, popout,
   // modern) includes. See use-desktop-version-request.ts's docstring for the
   // full history (it used to be a third, independently-owned instance).
   const desktopVersionRequest = useDesktopVersionRequest();
@@ -840,9 +831,9 @@ function TaskManagerInner() {
   const { flush: flushEditorBuffer, discard: discardEditorBuffer } = editorBuffer;
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
 
-  // Shared floating note-log window (tasks + RAID + changes), popout-gated at the mount below (see use-notes-window.ts).
+  // Shared floating note-log window (tasks + RAID + changes), popout-gated at its mount in app-modals-block.tsx (see use-notes-window.ts).
   const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
-  // Floating blocker window (tasks only), popout-gated at the mount below beside NotesWindow (see use-blockers-window.ts).
+  // Floating blocker window (tasks only), popout-gated at its mount in app-modals-block.tsx beside NotesWindow (see use-blockers-window.ts).
   const { openTaskBlockers, blockersWindowProps } = useBlockersWindow({ tasks, setTasks, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
@@ -1857,155 +1848,28 @@ function TaskManagerInner() {
     </>
   );
 
-  const modalsBlock = (
-    <>
-      <VersionInfoModal
-        lang={lang}
-        open={desktopVersionRequest.open}
-        onClose={desktopVersionRequest.onClose}
-        logPath={desktopVersionRequest.logPath}
-      />
-      {!isPopout && reviewInsight?.recommendation && reviewPlan && (
-        <RecommendationReviewModal
-          lang={lang}
-          summary={reviewInsight.recommendation.summary}
-          plan={reviewPlan}
-          onConfirm={() => { void confirmInsightRecommendation(); }}
-          onCancel={() => setReviewInsightId(null)}
-        />
-      )}
-      <CalendarSummaryModals
-        lang={lang}
-        milestones={milestones}
-        pushableRaid={pushableRaid}
-        pushableChanges={pushableChanges}
-        pushableAbsences={pushableAbsences}
-        calendarPull={calendarPull}
-        raidPull={raidPull}
-        changePull={changePull}
-        absencePull={absencePull}
-      />
-      <CommSendPreviewModal
-        open={commSend.previewModal.open}
-        req={commSend.previewModal.req}
-        busy={commSend.previewModal.busy}
-        onSend={commSend.previewModal.onSend}
-        onCancel={commSend.previewModal.onCancel}
-        labels={{
-          title: t(lang, "commSendPreviewTitle"),
-          to: t(lang, "commSendPreviewTo"),
-          subject: t(lang, "commSendPreviewSubject"),
-          send: t(lang, "commSendPreviewSend"),
-          sending: t(lang, "commSendPreviewSending"),
-          cancel: t(lang, "commSendPreviewCancel"),
-        }}
-      />
-      <OutlookImportModal
-        lang={lang}
-        open={importOpen}
-        loading={importLoading}
-        error={importError}
-        contacts={importContacts}
-        existingEmails={existingResourceEmails}
-        onConfirm={handleConfirmOutlookImport}
-        onClose={() => setImportOpen(false)}
-      />
-      <OutlookCalendarImportModal
-        lang={lang}
-        open={calImportOpen}
-        loading={calImportLoading}
-        error={calImportError}
-        events={calImportEvents}
-        targetAssignee={calendarTarget.assignee}
-        existingKeys={calendarExistingKeys}
-        onConfirm={handleConfirmCalendarImport}
-        onClose={() => setCalImportOpen(false)}
-      />
-      <AppModals
-        lang={lang}
-        isPopout={isPopout}
-        taskEditorActions={editorLeadingActions}
-        taskDeleteAction={editorDeleteAction}
-        taskEditorExtras={editorExtrasEl}
-        taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
-        taskOnOpenBlockers={editingId !== null ? () => openTaskBlockers(editingId) : undefined /* as notes: existing task only; a new draft has no id to target */}
-        budgetLink={budgetLink}
-        taskCalendarSyncEnabled={calendarTaskEnabled}
-        absenceCalendarSyncEnabled={calendarAbsenceEnabled}
-        jiraConflicts={jiraConflicts}
-        handleResolveConflicts={handleResolveConflicts}
-        jiraResolving={jiraResolving}
-        clearConflicts={clearConflicts}
-        editingAbsence={editingAbsence}
-        absenceKnownAssignees={absenceKnownAssignees}
-        handleSaveAbsence={handleSaveAbsence}
-        handleDeleteAbsence={handleDeleteAbsence}
-        handleCloseAbsenceModal={handleCloseAbsenceModal}
-        editingCalendarEvent={editingCalendarEvent}
-        handleSaveCalendarEvent={handleSaveCalendarEvent}
-        handleDeleteCalendarEvent={handleDeleteCalendarEvent}
-        handleCloseCalendarEventModal={handleCloseCalendarEventModal}
-        editingShift={editingShift}
-        shiftExistingAssigneeKeys={shiftExistingAssigneeKeys}
-        handleSaveShift={handleSaveShift}
-        handleDeleteShift={handleDeleteShift}
-        handleCloseShiftModal={handleCloseShiftModal}
-        today={today}
-        nextId={nextId}
-        contactsList={contactsList}
-        resources={resources}
-        onCreateResource={isPopout ? undefined : handleCreateResource}
-        absences={absences}
-        tasksForDeps={tasks}
-        uniqueGroups={uniqueGroups}
-        uniqueLabels={uniqueLabels}
-        editingIsJiraLinked={editingIsJiraLinked}
-        readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
-        jiraEnabled={settings.jira.enabled}
-        fieldErrors={fieldErrors}
-        submitted={submitted}
-        saveDisabled={saveDisabled}
-        holidaySet={holidaySet}
-        jiraProjectKey={settings.jira.projectKey}
-        jiraDefaultIssueType={settings.jira.issueTypes[0]}
-        handleSubmit={handleSubmit}
-        handleCancelEdit={handleCancelEdit}
-        handleRemoveContact={handleRemoveContact}
-        onAddAssigneeToAddressBook={isPopout ? undefined : handleAddAssigneeToAddressBook}
-        editingResource={editingResource}
-        onSaveResource={handleSaveResourceFromAnywhere}
-        onDeleteResource={handleDeleteResource}
-        onCloseResourceModal={handleCloseResourceFromAnywhere}
-        toast={toast}
-        onToastPause={pauseToast}
-        onToastResume={resumeToast}
-      />
-      {linkedTaskOpen && (
-        <TaskLinkedTaskModal
-          lang={lang}
-          today={today}
-          onCreate={handleCreateLinkedTask}
-          onClose={() => setLinkedTaskOpen(false)}
-        />
-      )}
-      {!isPopout && <NotesWindow {...notesWindowProps} />}
-      {!isPopout && <BlockersWindow {...blockersWindowProps} />}
-      {!isPopout && (
-        <RaidCreateHost
-          create={raidCreate}
-          lang={lang}
-          tasks={tasks}
-          raid={raid}
-          stakeholdersEnabled={stakeholdersEnabled}
-          stakeholders={stakeholders}
-          resources={resources}
-          contacts={contactsList}
-          onCreateResource={handleCreateResource}
-          onJumpToRaid={(id) => requestOpen("raid", id)}
-        />
-      )}
-    </>
-  );
+  // The overlay layer every returned tree renders once — see buildAppModalsBlock.
+  const modalsBlock = buildAppModalsBlock({
+    lang, isPopout, settings, desktopVersionRequest, commSend,
+    reviewInsight, reviewPlan, confirmInsightRecommendation, setReviewInsightId,
+    milestones, pushableRaid, pushableChanges, pushableAbsences, calendarPull, raidPull, changePull, absencePull,
+    importOpen, setImportOpen, importLoading, importError, importContacts, existingResourceEmails, handleConfirmOutlookImport,
+    calImportOpen, setCalImportOpen, calImportLoading, calImportError, calImportEvents,
+    calendarTarget, calendarExistingKeys, handleConfirmCalendarImport,
+    editorLeadingActions, editorDeleteAction, editorExtrasEl, editingId, openTaskNotes, openTaskBlockers,
+    budgetLink, calendarTaskEnabled, calendarAbsenceEnabled,
+    jiraConflicts, handleResolveConflicts, jiraResolving, clearConflicts,
+    editingAbsence, absenceKnownAssignees, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
+    editingCalendarEvent, handleSaveCalendarEvent, handleDeleteCalendarEvent, handleCloseCalendarEventModal,
+    editingShift, shiftExistingAssigneeKeys, handleSaveShift, handleDeleteShift, handleCloseShiftModal,
+    today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,
+    editingIsJiraLinked, editingReadOnlyJiraProjectName, fieldErrors, submitted, saveDisabled, holidaySet,
+    handleSubmit, handleCancelEdit, handleRemoveContact, handleAddAssigneeToAddressBook,
+    editingResource, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
+    toast, pauseToast, resumeToast,
+    linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask, notesWindowProps, blockersWindowProps,
+    raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen,
+  });
 
   // The existing tree. Its root className already branches on isPopout, so this
   // single definition serves both the classic main window AND every popout.
