@@ -69,10 +69,11 @@ const NO_CONFLICTS: ConflictItem[] = [];
  *  version; any other row was edited, added or replaced since and is kept as it is; a snapshot
  *  row no longer present stays deleted. A created task is skipped when a row with its key exists
  *  now, and re-minted when a row added meanwhile took its id.
- *  ★ A row the user edited mid-sync keeps its old `lastSyncedAt`. An edit that stamps
- *  `localModifiedAt` is pushed by the next sync, or met as a conflict when Jira moved since
- *  (as it did for a row this sync pushed). An edit that does not stamp it survives the next
- *  sync unless Jira moved, in which case that sync's pull overwrites it.
+ *  ★ A row the user edited mid-sync keeps its old `lastSyncedAt`, so the next sync re-decides
+ *  it from the row's own `localModifiedAt` and `lastSyncedAt` (whatever the edit stamped):
+ *  pushed if only the row moved, a conflict if Jira moved too (as it did for a row this sync
+ *  pushed), pulled over the edit if only Jira moved. A row with no `lastSyncedAt` is always
+ *  pulled, so an edit to it is overwritten whether or not it stamped `localModifiedAt`.
  *  ★ Pairing is by `syncedVersions`, which also decides which transitions are logged.
  *  ★ It runs inside a `setTasks` updater; a StrictMode double call can mint a re-minted id
  *  twice, which only skips an id. */
