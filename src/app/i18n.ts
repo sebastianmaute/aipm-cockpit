@@ -4881,7 +4881,7 @@ const enUS = {
   wbsPlanReplacesDescription: "replaces the description",
   wbsPlanAssignedTo: "assigned to {0}",
   wbsPlanDescriptionExcerpt: "description: {0}",
-  wbsPlanScopeChanged: "The project changed while the proposal was open, so nothing was applied.",
+  wbsPlanScopeChanged: "The project changed, so the proposal was discarded.",
   wbsPlanUnknownTask: "task #{0}",
   wbsPlanSkip_unknownTask: "the task does not exist",
   wbsPlanSkip_closedTask: "the task is already closed",

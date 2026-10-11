@@ -467,19 +467,51 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    it("Apply refuses during a load hold and writes once the hold ends", async () => {
+    it("a load hold that starts while the preview is open closes it and writes nothing", async () => {
       vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
       const api = renderHarness();
       await proposeFromButton();
       await screen.findByRole("checkbox", { name: /include this change/i });
+      const before = api().ws.tasks;
       api.reprops({ loadPending: true });
-      const applyName = tPlural("en-US", "wbsPlanApply", 1, 1);
-      fireEvent.click(screen.getByRole("button", { name: applyName }));
-      expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
-      expect(screen.getByRole("checkbox", { name: /include this change/i })).toBeInTheDocument();
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(api().ws.tasks).toBe(before);
+      expect(engine.applyWbsProposal).not.toHaveBeenCalled();
+      // The flow is idle again once the hold ends: a fresh open() is accepted.
       api.reprops({ loadPending: false });
-      fireEvent.click(screen.getByRole("button", { name: applyName }));
-      expect(byId(api().ws.tasks, 1)?.group).toBe("Backend");
+      let res: ReturnType<WbsPlan["open"]> | undefined;
+      act(() => { res = api().wbs.open({}); });
+      expect(res?.opened).toBe(true);
+    });
+
+    it("a call that resolves after a hold closed the flow opens no preview", async () => {
+      let resolveCall: (p: ParsedWbsProposal) => void = () => {};
+      // Ignores the abort signal, so only the discarded request generation can stop it.
+      vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise((res) => { resolveCall = res; }));
+      const api = renderHarness();
+      act(() => { api().wbs.open({}); });
+      await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+      api.reprops({ loadPending: true });
+      api.reprops({ loadPending: false });
+      await act(async () => { resolveCall(REGROUP); });
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("a load hold that starts during the call aborts it and closes the dialog", async () => {
+      let captured: AbortSignal | undefined;
+      vi.mocked(call.runWbsProposal).mockImplementation((_c, _a, _i, signal) => {
+        captured = signal;
+        return new Promise(() => {});
+      });
+      const api = renderHarness();
+      act(() => { api().wbs.open({}); });
+      await waitFor(() => expect(captured).toBeDefined());
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      api.reprops({ loadPending: true });
+      expect(captured!.aborted).toBe(true);
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
 

@@ -16,7 +16,8 @@
 //   one line.
 // ★★ It awaits the AI and then writes, so it obeys docs/AGENTS/platform.md "The
 //   load hold": nothing STARTS while `loadPending` (open, the toolbar trigger
-//   and Apply all refuse), and the scope epoch is captured before the await and
+//   and Apply all refuse), a hold that begins mid-flow CLOSES it (§662's
+//   render-time reconcile, as use-blockers-window.ts does), and the scope epoch is captured before the await and
 //   checked after it and again at Apply — a proposal made in one project is never
 //   grounded against, or written into, another (`dropStaleScopeWrite`).
 //
@@ -136,17 +137,38 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const enabled = aiReady && !isPopout;
 
-  const reset = useCallback(() => {
-    abortRef.current?.abort();
-    reqIdRef.current++;
-    setPhase("idle");
+  // The flow's STATE back to idle — state setters only, so the load-hold
+  // reconcile below may call it during render.
+  const clearFlowState = useCallback(() => {
+    setPhaseState("idle");
     setInstruction("");
     setScope(null);
     setItems([]);
     setSkipped([]);
     setTruncated(false);
     setSelected(new Set());
-  }, [setPhase]);
+  }, []);
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    reqIdRef.current++;
+    phaseRef.current = "idle";
+    clearFlowState();
+  }, [clearFlowState]);
+
+  // ★★ A load hold that starts mid-flow closes it — the dialog, a running call
+  // or an open preview — so Apply is never a dead button over a workspace being
+  // replaced. The STATE half is a render-time reconcile, never an effect (§662,
+  // use-blockers-window.ts); it settles because the next render sees "idle".
+  // The REF half (abort the call, discard its result, free `open()`) cannot run
+  // during render, so the effect does it: refs only, no state.
+  if (loadPending && phase !== "idle") clearFlowState();
+  useEffect(() => {
+    if (!loadPending) return;
+    abortRef.current?.abort();
+    reqIdRef.current++;
+    phaseRef.current = "idle";
+  }, [loadPending]);
 
   // Abort an in-flight proposal on unmount. Cleanup-only: sets no state.
   useEffect(() => () => abortRef.current?.abort(), []);

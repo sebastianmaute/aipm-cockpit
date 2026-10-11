@@ -1024,7 +1024,10 @@
   (`htmlPlainProjection`) of each new task's and piece ≥ 2's description. ★ Apply writes regroups before
   splits, so a split's new pieces take a regroup of the same task whichever order the model gave them in.
   ★★ It awaits the AI and then writes, so it follows [platform.md](platform.md) "The load hold": `open()`,
-  the toolbar trigger and Apply refuse while `loadPending`, and the scope epoch captured before the call is
+  the toolbar trigger and Apply refuse while `loadPending`, a hold that begins mid-flow closes the
+  dialog or preview (the state through a render-time reconcile, as `use-blockers-window.ts` does; the abort of a
+  running call and the discarded request generation through a refs-only effect, since refs may not be
+  touched during render), and the scope epoch captured before the call is
   checked by `dropStaleScopeWrite` after it and again at Apply (a moved epoch drops the proposal with the
   `wbsPlanScopeChanged` notice). `getScopeEpoch` and `loadPending` are REQUIRED on `WbsPlanDeps`. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
   longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps

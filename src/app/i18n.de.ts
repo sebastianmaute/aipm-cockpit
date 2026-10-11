@@ -4600,7 +4600,7 @@ export const de: Record<TranslationKey, string> = {
   wbsPlanReplacesDescription: "ersetzt die Beschreibung",
   wbsPlanAssignedTo: "zugewiesen an {0}",
   wbsPlanDescriptionExcerpt: "Beschreibung: {0}",
-  wbsPlanScopeChanged: "Das Projekt hat sich geändert, während der Vorschlag offen war; es wurde nichts angewendet.",
+  wbsPlanScopeChanged: "Das Projekt hat sich geändert, daher wurde der Vorschlag verworfen.",
   wbsPlanUnknownTask: "Aufgabe #{0}",
   wbsPlanSkip_unknownTask: "die Aufgabe existiert nicht",
   wbsPlanSkip_closedTask: "die Aufgabe ist bereits abgeschlossen",

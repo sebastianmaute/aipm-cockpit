@@ -17,6 +17,7 @@ import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { htmlPlainProjection } from "./rich-text-plain";
+import { sanitizeMultiline } from "./sanitize-core";
 import type { Task } from "./types";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason, WbsTarget } from "./wbs-plan/wbs-plan";
 
@@ -68,7 +69,9 @@ const DESCRIPTION_EXCERPT_CHARS = 120;
 /** A one-line plain-text excerpt of sanitized rich HTML (DOM-free projection). */
 function descriptionExcerpt(html: string): string {
   const text = htmlPlainProjection(html).replace(/\s+/g, " ").trim();
-  return text.length > DESCRIPTION_EXCERPT_CHARS ? `${text.slice(0, DESCRIPTION_EXCERPT_CHARS)}…` : text;
+  // `clipText` (via sanitizeMultiline) never splits an astral character.
+  const clipped = sanitizeMultiline(text, DESCRIPTION_EXCERPT_CHARS);
+  return clipped.length < text.length ? `${clipped}…` : clipped;
 }
 
 export function WbsPlanModal({

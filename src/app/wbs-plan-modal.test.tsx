@@ -113,6 +113,27 @@ describe("WbsPlanModal", () => {
     expect(screen.getByText(t("en-US", "wbsPlanDescriptionExcerpt", `${long.slice(0, 120)}…`))).toBeVisible();
   });
 
+  it("never splits an emoji at the excerpt boundary", () => {
+    // 119 ASCII chars, then a two-code-unit emoji spanning units 120-121.
+    const text = `${"a".repeat(119)}😀tail`;
+    const withEmoji = grounded("i2", { kind: "newTask", ref: "r1", taskName: "N", dueDate: "2026-11-01", description: `<p>${text}</p>`, why: "" });
+    render5({ items: [withEmoji], selected: new Set(["i2"]) });
+    const expected = t("en-US", "wbsPlanDescriptionExcerpt", `${"a".repeat(119)}…`);
+    expect(screen.getByText(expected)).toBeVisible();
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(expected)).toBe(false);
+  });
+
+  it("adds no ellipsis to a description that fits", () => {
+    const fits = "b".repeat(120);
+    const withFit = grounded("i2", { kind: "newTask", ref: "r1", taskName: "N", dueDate: "2026-11-01", description: `<p>${fits}</p>`, why: "" });
+    render5({ items: [withFit], selected: new Set(["i2"]) });
+    expect(screen.getByText(t("en-US", "wbsPlanDescriptionExcerpt", fits))).toBeVisible();
+  });
+
+  it("words the unresolved-ref reason neutrally (a task or a piece)", () => {
+    expect(t("en-US", "wbsPlanSkip_unresolvedRef")).toBe("refers to a task or piece the proposal does not create");
+  });
+
   it("shows no assignee or description line for a new task without them", () => {
     render5({ items: [newTask], selected: new Set(["i2"]) });
     expect(screen.queryByText(/assigned to/)).toBeNull();
