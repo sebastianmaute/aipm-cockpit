@@ -31,7 +31,7 @@ const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-
 // E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script. What
 // may be listed here, and what must be, is pinned by ci-workflow.test.mjs ("runs exactly the live
 // specs ...").
-const LIVE_TURSO_APP = /(?:^|[\\/])(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live)\.spec\.ts$/;
+const LIVE_TURSO_APP = /(?:^|[\\/])(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live|unload-journal-turso-live)\.spec\.ts$/;
 
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With
 // `NEXT_PUBLIC_TURSO_AUTH_TOKEN` set, every page's client bundle holds the token

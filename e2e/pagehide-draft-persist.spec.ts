@@ -7,8 +7,12 @@
 // unload. This file can.
 //
 // ★★★ SCOPE: ONE BACKEND. The seed fixture's project uses `kind: "browser"`
-// (IndexedDB), which is also the app's `defaultStorageConfig`. The local file,
-// SharePoint, Turso and the packaged desktop app are not covered; see §629.
+// (IndexedDB), which is also the app's `defaultStorageConfig`. The local file has
+// `local-file-close-save.spec.ts` (§661, opt-in; an Enter-committed edit, not a
+// pagehide draft) and Turso has
+// `unload-journal-turso-live.spec.ts` (read §629 for whether it has passed yet);
+// SharePoint and the packaged desktop app are
+// not covered. See §629.
 //
 // ★★★ HISTORY (2026-09-27, before §629's fix): the draft was committed and its
 // save started, but on a REAL reload the IndexedDB write never landed, and on a
