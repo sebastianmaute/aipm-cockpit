@@ -38,10 +38,19 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * ASSIGNMENT rather than by an initialiser (`let l; l = next;`), a copy made any
  * other way than a lone spread (`next.slice()`, `[...next, x]`), a filtered local
  * or committer alias hidden by a same-named local in a sibling function or block
- * (each scope is searched whole, nested closures included, first match wins), a
- * generic setter such as the undo runner's (it arms by hand; nothing checks it),
- * or a counted slice's setter handed down under another name. Those stay a by-hand
- * review, as §293 records. And "the enclosing function calls it" is a PRESENCE
+ * (each scope is searched whole, nested closures included, first match wins),
+ * or a generic setter such as the undo runner's (it arms by hand; nothing checks it).
+ * Those stay a by-hand review, as §293 records.
+ *
+ * Since 2026-10-11 a setter HANDED ON under another name is followed (`aliasNames`):
+ * through a property, a JSX prop, a variable, a renaming destructure, or a parameter of a
+ * named function it is passed to by position, to a fixed point. A committer whose updater
+ * returns its parameter (`set(() => value)`) counts too. ★ Not followed: a hand-on by
+ * position to a function the scan cannot name (a method, a callback from a map), an
+ * alias made by assignment (`fn = setTasks`), and an alias read as a member when it
+ * became one as a parameter (deliberately: `set` must not make `cache.set` one).
+ * An alias is matched by name app-wide, so an unrelated function of the same name can be
+ * flagged; that errs towards flagging. And "the enclosing function calls it" is a PRESENCE
  * check, not an ordering or branch check — whether the arm fires on the right path
  * is each route's own test.
  *
@@ -79,6 +88,13 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
   "use-reference-data.ts#onReorderGrades#setGrades": {
     sites: 1,
     reason: "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
+  },
+  "use-storage-backend.ts#into#set": {
+    sites: 1,
+    reason:
+      "Tab sync (mirrorApply) applies a value a peer window already saved, and a run holding only mirrored values " +
+      "writes nothing (mirror-ledger isMirroredOnly). A contested run does save, and the mass-deletion guard then " +
+      "judges it; an arm here would hand the bypass to this window's next own save.",
   },
 };
 
@@ -301,10 +317,14 @@ function isRemovalLocal(from: ts.Node, name: string, seen: Set<string>): boolean
  *  it is refused with no exemption path. Give it a named handler. None today. */
 function isParameterHandOff(arg: ts.Expression): boolean {
   const e = unwrap(arg);
-  if (!ts.isIdentifier(e)) return false;
+  // §293: also an updater that returns the parameter (`set(() => value)`,
+  // `set((live) => { …; return value; })`), the shape the load path's `into` uses. The
+  // updater's own parameter is excluded by `handedOnNames`, so `(p) => p` is not one.
+  const names = ts.isIdentifier(e) ? [e.text] : ts.isArrowFunction(e) || ts.isFunctionExpression(e) ? handedOnNames(e) : [];
+  if (names.length === 0) return false;
   let fn: ts.Node | undefined = arg.parent;
   while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
-  return !!fn && derivesFromParameter(fn as ts.SignatureDeclaration, e.text, new Set());
+  return !!fn && names.some((name) => derivesFromParameter(fn as ts.SignatureDeclaration, name, new Set()));
 }
 
 /** The names a binding introduces: `next`, or each name in `{ next }` / `[a, { b }]`, at any depth. */
@@ -369,15 +389,93 @@ function functionName(fn: ts.Node): string | undefined {
  *  A refused site has no exemption path: give the delete a named handler instead. */
 const isUnresolved = (s: Site): boolean => s.fn === "<module>" || /^([A-Z]|use[A-Z0-9])/.test(s.fn);
 
+const parse = (file: string, text: string): ts.SourceFile =>
+  ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+
+/** A value that IS one of `names` (`setTasks`, `s`), or a member read of one of `members`
+ *  (`setters.setTasks`, `opts.setter`). ★ Members are a separate, narrower set: a name that
+ *  became an alias as a PARAMETER (`set`) says nothing about a property of that name, and
+ *  matching it would make `cache.set` a setter. */
+function isNamed(v: ts.Expression, names: ReadonlySet<string>, members: ReadonlySet<string>): boolean {
+  const e = unwrap(v);
+  if (ts.isIdentifier(e)) return names.has(e.text);
+  return ts.isPropertyAccessExpression(e) && members.has(e.name.text);
+}
+
+/** The parameter names of every named function in `sources`, by function name: a
+ *  declaration, or an arrow or function expression bound to a variable. */
+function parametersByFunction(sources: readonly ts.SourceFile[]): Map<string, ts.NodeArray<ts.ParameterDeclaration>[]> {
+  const out = new Map<string, ts.NodeArray<ts.ParameterDeclaration>[]>();
+  const add = (name: string, params: ts.NodeArray<ts.ParameterDeclaration>): void => {
+    out.set(name, [...(out.get(name) ?? []), params]);
+  };
+  for (const sf of sources) {
+    contains(sf, (n) => {
+      if (ts.isFunctionDeclaration(n) && n.name) add(n.name.text, n.parameters);
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+        const init = unwrap(n.initializer);
+        if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) add(n.name.text, init.parameters);
+      }
+      return false;
+    });
+  }
+  return out;
+}
+
+/** Every name a counted setter is HANDED ON under, across `sources`, followed to a
+ *  fixed point so an alias handed on again is found too. A name is one when a setter
+ *  (or an alias) is the value of a property (`{ setter: setTasks }`), a JSX prop, a
+ *  variable (`const s = setTasks`), a renaming destructure (`{ setTasks: setRows }`), or
+ *  an argument whose callee is a named function in `sources`, which gives that
+ *  parameter's name (`into(kind, setTasks)` with `into = (kind, set) =>` gives `set`).
+ *  ★ A name is matched app-wide, not in the receiving function alone, so a call to a
+ *  same-named, unrelated function is read as a setter call: that errs towards
+ *  flagging, and a person decides. ★ An alias is matched only as a bare call (`set(…)`),
+ *  never as a member call, or every `map.set(…)` would be one. */
+function aliasNames(sources: readonly ts.SourceFile[], setters: ReadonlySet<string>): Set<string> {
+  const params = parametersByFunction(sources);
+  const aliases = new Set<string>();
+  /** The aliases that are PROPERTY names (an object key or a JSX prop), so a member read
+   *  of them (`opts.setter`) is the setter too. */
+  const keys = new Set<string>();
+  for (let before = -1; before !== aliases.size + keys.size; ) {
+    before = aliases.size + keys.size;
+    const names = new Set([...setters, ...aliases]);
+    const members = new Set([...setters, ...keys]);
+    const key = (name: string): void => { aliases.add(name); keys.add(name); };
+    for (const sf of sources) {
+      contains(sf, (n) => {
+        if (ts.isPropertyAssignment(n) && isNamed(n.initializer, names, members) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name))) key(n.name.text);
+        if (ts.isJsxAttribute(n) && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression && isNamed(n.initializer.expression, names, members)) key(n.name.getText());
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && isNamed(n.initializer, names, members)) aliases.add(n.name.text);
+        if (ts.isBindingElement(n) && n.propertyName && ts.isIdentifier(n.name) && members.has(n.propertyName.getText())) aliases.add(n.name.text);
+        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+          n.arguments.forEach((a, i) => {
+            if (!isNamed(a, names, members)) return;
+            for (const list of params.get((n.expression as ts.Identifier).text) ?? []) {
+              const p = list[i];
+              if (p && ts.isIdentifier(p.name)) aliases.add(p.name.text);
+            }
+          });
+        }
+        return false;
+      });
+    }
+  }
+  for (const s of setters) aliases.delete(s);
+  return aliases;
+}
+
 /** Every filter-into-counted-setter site in one source. Pure, so the fixture
- *  cases below can feed it text. */
-function scanSource(file: string, text: string, setters: ReadonlySet<string>): Site[] {
-  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+ *  cases below can feed it text. `aliases` (from `aliasNames`) are matched as bare calls only. */
+function scanSource(file: string, text: string, setters: ReadonlySet<string>, aliases: ReadonlySet<string> = new Set()): Site[] {
+  const sf = parse(file, text);
   const sites: Site[] = [];
   const visit = (n: ts.Node): void => {
     if (ts.isCallExpression(n)) {
-      const setter = calleeName(n);
-      if (setter && setters.has(setter) && n.arguments.some((a) => isRemovalArgument(a) || isParameterHandOff(a))) {
+      const name = calleeName(n);
+      const setter = name && (setters.has(name) || (aliases.has(name) && ts.isIdentifier(n.expression))) ? name : undefined;
+      if (setter && n.arguments.some((a) => isRemovalArgument(a) || isParameterHandOff(a))) {
         let fn: ts.Node | undefined = n.parent;
         let name: string | undefined;
         for (; fn; fn = fn.parent) {
@@ -404,10 +502,10 @@ function scanApp(): Site[] {
   const setters = countedSetters();
   const files = (readdirSync(APP, { recursive: true }) as string[])
     .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
-    .sort();
-  return files.flatMap((f) =>
-    scanSource(relative(APP, join(APP, f)).split(sep).join("/"), readFileSync(join(APP, f), "utf8"), setters),
-  );
+    .sort()
+    .map((f) => ({ file: relative(APP, join(APP, f)).split(sep).join("/"), text: readFileSync(join(APP, f), "utf8") }));
+  const aliases = aliasNames(files.map((f) => parse(f.file, f.text)), setters);
+  return files.flatMap((f) => scanSource(f.file, f.text, setters, aliases));
 }
 
 describe("scanSource (the scanner itself)", () => {
@@ -548,6 +646,67 @@ describe("scanSource (the scanner itself)", () => {
     expect(scan(`function commit(next) { if (gone) allowDestructiveSave?.(); setTasks(next); }`)[0]).toMatchObject({ fn: "commit", armed: true });
     expect(scan(`function outer(next) { const h = () => { setTasks(next); }; }`)).toEqual([]);
     expect(scan(`function outer(next) { const h = () => { const l = next; setTasks(l); }; }`)).toEqual([]);
+  });
+
+  it("judges a committer whose updater returns its parameter", () => {
+    expect(scan(`const commit = (value) => { setTasks((live) => { log(live); return value; }); };`)[0]).toMatchObject({ fn: "commit", armed: false });
+    expect(scan(`const commit = (value) => { setTasks(() => value); };`)[0]).toMatchObject({ fn: "commit" });
+    // The updater's own parameter is the list it is given, not a hand-off.
+    expect(scan(`const keep = (value) => { setTasks((value) => value); };`)).toEqual([]);
+  });
+});
+
+// §293, the last listed shape: a counted setter handed on under ANOTHER name. The
+// alias names come from every source at once, so these fixtures scan two files.
+describe("aliasNames (a setter handed on under another name)", () => {
+  const setters = new Set(["setTasks", "setRaid"]);
+  const scanAll = (sources: Record<string, string>): Site[] => {
+    const parsed = Object.entries(sources).map(([file, text]) => parse(file, text));
+    const aliases = aliasNames(parsed, setters);
+    return Object.entries(sources).flatMap(([file, text]) => scanSource(file, text, setters, aliases));
+  };
+
+  it("follows a setter passed as a property, a JSX prop, a variable and a renaming destructure", () => {
+    const sites = scanAll({
+      "a.tsx": `
+        const wire = () => useHelper({ commit: setTasks });
+        const view = () => <Pane onRows={setRaid} />;
+        const s = setTasks;
+        const { setTasks: setRows } = ws;`,
+      "b.tsx": `
+        function useHelper({ commit }) { const drop = (id) => commit((p) => p.filter((t) => t.id !== id)); }
+        function Pane({ onRows }) { const clearAll = () => onRows([]); }
+        const viaVar = (id) => s((p) => p.filter(Boolean));
+        const viaRename = () => setRows([]);`,
+    });
+    expect(sites.map((x) => `${x.fn}#${x.setter}`).sort()).toEqual(
+      ["clearAll#onRows", "drop#commit", "viaRename#setRows", "viaVar#s"],
+    );
+  });
+
+  it("follows a setter passed by position to a named function, and through a second hand-on", () => {
+    const sites = scanAll({
+      "a.ts": `const into = (kind, set) => (value) => set(() => value); into("tasks", setTasks);
+               const wire = () => makeBag({ setter: setTasks }); function makeBag(opts) { return pass(opts.setter); }`,
+      "b.ts": `function pass(fn) { const prune = (id) => fn((p) => p.filter((t) => t.id !== id)); }`,
+    });
+    expect(sites.map((x) => `${x.fn}#${x.setter}`).sort()).toEqual(["into#set", "prune#fn"]);
+  });
+
+  // ★ An alias is matched only as a BARE call. `set` is a real alias above, and every
+  // `map.set(k, v.filter(…))` would otherwise read as a setter call.
+  it("does not read a member call as an alias call, nor an alias as a member read", () => {
+    const sites = scanAll({
+      "a.ts": `const into = (kind, set) => set; into("tasks", setTasks);
+               const index = () => { cache.set("k", rows.filter(Boolean)); };
+               const other = { holidaySet: cache.set };
+               const h = () => holidaySet((p) => p.filter(Boolean));`,
+    });
+    expect(sites).toEqual([]);
+  });
+
+  it("finds no alias where every hand-on keeps the setter's own name", () => {
+    expect([...aliasNames([parse("a.ts", `useHelper({ setTasks }); const { setRaid } = ws;`)], setters)]).toEqual([]);
   });
 });
 
