@@ -95,13 +95,13 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 function renderHarness(props: Omit<HarnessProps, "onApi"> = {}, seed: readonly Task[] = SEED) {
   const box: { api: Api | null } = { api: null };
-  render(
+  const { unmount } = render(
     <Wrapper>
       <Harness {...props} onApi={(a) => { box.api = a; }} />
     </Wrapper>,
   );
   act(() => { box.api!.ws.setTasks(seed); });
-  return () => box.api!;
+  return Object.assign(() => box.api!, { unmount });
 }
 
 const byId = (tasks: readonly Task[], id: number) => tasks.find((x) => x.id === id);
@@ -270,6 +270,53 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     act(() => { api().wbs.open({ group: "Ops" }); });
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanEmpty")));
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("the button refuses a view whose only open tasks are Jira-synced, and makes no call", () => {
+    renderHarness({}, [task(1, { jiraKey: "ABC-1" }), task(2, { jiraKey: "ABC-2" })]);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") }));
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanNoTasks"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(call.runWbsProposal).not.toHaveBeenCalled();
+  });
+
+  it("the button's scope excludes a Jira-synced task in a mixed view", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    renderHarness({}, [...SEED, task(5, { jiraKey: "ABC-1" })]);
+    await proposeFromButton();
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    const context = vi.mocked(call.runWbsProposal).mock.calls[0][0];
+    expect(context).toContain("#1 [in scope]");
+    expect(context).toContain("#5 ");
+    expect(context).not.toContain("#5 [in scope]");
+  });
+
+  it("a call that fails at once leaves open() usable again", async () => {
+    vi.mocked(call.runWbsProposal).mockRejectedValueOnce(new Error("boom"));
+    const api = renderHarness();
+    let first: ReturnType<WbsPlan["open"]> | undefined;
+    await act(async () => { first = api().wbs.open({}); });
+    expect(first).toEqual({ opened: true, tasksInScope: 3 });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "wbsPlanError")));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    let second: ReturnType<WbsPlan["open"]> | undefined;
+    act(() => { second = api().wbs.open({}); });
+    expect(second).toEqual({ opened: true, tasksInScope: 3 });
+  });
+
+  it("unmounting during thinking aborts the signal", async () => {
+    let captured: AbortSignal | undefined;
+    vi.mocked(call.runWbsProposal).mockImplementation((_c, _a, _i, signal) => {
+      captured = signal;
+      return new Promise(() => {});
+    });
+    const api = renderHarness();
+    act(() => { api().wbs.open({}); });
+    await waitFor(() => expect(captured).toBeDefined());
+    expect(captured!.aborted).toBe(false);
+    api.unmount();
+    expect(captured!.aborted).toBe(true);
   });
 
   it("open() refuses with an empty scope", () => {

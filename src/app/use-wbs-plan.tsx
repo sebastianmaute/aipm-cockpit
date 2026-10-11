@@ -92,7 +92,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const { tasks, setTasks, milestones, project, filteredSortedTasks } = useWorkspace();
   const showToast = useToastContext();
 
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhaseState] = useState<Phase>("idle");
   const [instruction, setInstruction] = useState("");
   const [scope, setScope] = useState<WbsScope | null>(null);
   const [items, setItems] = useState<readonly GroundedWbsItem[]>([]);
@@ -107,8 +107,15 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // rather than a closure that may be a render old (the dispatcher's pattern).
   const tasksRef = useRef(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
-  const phaseRef = useRef(phase);
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  // ★ Written in the SAME call as the state, never synced by an effect: a call
+  // that fails in the same tick it started batches "thinking" -> "idle" into no
+  // state change at all, so an effect would never fire and the ref would stay
+  // "thinking", refusing every later open().
+  const phaseRef = useRef<Phase>("idle");
+  const setPhase = useCallback((next: Phase) => {
+    phaseRef.current = next;
+    setPhaseState(next);
+  }, []);
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
@@ -124,7 +131,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setSkipped([]);
     setTruncated(false);
     setSelected(new Set());
-  }, []);
+  }, [setPhase]);
 
   // Abort an in-flight proposal on unmount. Cleanup-only: sets no state.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -180,12 +187,12 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, lang, showToast, reset],
+    [milestones, project, apiKey, settings.ai.model, lang, showToast, reset, setPhase],
   );
 
   const onOpen = useCallback(() => {
     if (!enabled || phase !== "idle") return;
-    const ids = filteredSortedTasks.filter((x) => !isTaskClosed(x)).map((x) => x.id);
+    const ids = filteredSortedTasks.filter(isEditable).map((x) => x.id);
     if (ids.length === 0) {
       showToast("info", t(lang, "wbsPlanNoTasks"));
       return;
@@ -193,7 +200,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setInstruction("");
     setScope({ taskIds: new Set(ids) });
     setPhase("input");
-  }, [enabled, phase, filteredSortedTasks, showToast, lang]);
+  }, [enabled, phase, filteredSortedTasks, showToast, lang, setPhase]);
 
   const onPropose = useCallback(() => {
     if (phase !== "input" || !scope) return;
@@ -209,8 +216,6 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         .map((x) => x.id);
       if (ids.length === 0) return { opened: false, tasksInScope: 0 };
       const runScope: WbsScope = { taskIds: new Set(ids) };
-      // Claim the phase now so a second call in the same tick is refused.
-      phaseRef.current = "thinking";
       setInstruction(req.instructions ?? "");
       setScope(runScope);
       void propose(runScope, req.instructions ?? "");
@@ -279,7 +284,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       showToast("info", tPlural(lang, "wbsPlanStaleSkipped", result.skippedStale, result.skippedStale));
     }
     reset();
-  }, [phase, scope, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset]);
+  }, [phase, scope, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset, setPhase]);
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.
