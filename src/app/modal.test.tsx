@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef, useState } from "react";
+import { StrictMode, useRef, useState } from "react";
 import { FLOATING_LAYER_ATTR, Modal } from "./modal";
 
 // jsdom doesn't implement requestAnimationFrame on the global; install a
@@ -193,6 +193,67 @@ describe("Modal", () => {
 
     rerender(<Harness open={true} />);
     rerender(<Harness open={false} />);
+    expect(opener).toHaveFocus();
+  });
+
+  // ★★ Review finding: the opener used to be read in the effect, AFTER React's
+  //   autoFocus had already moved focus into the dialog, so it was the field
+  //   itself; on close the field was gone and focus fell to <body>.
+  test("restores focus to the opener on close when a child took focus with autoFocus", () => {
+    function Harness({ open }: { open: boolean }) {
+      return (
+        <>
+          <button type="button" data-testid="opener">
+            Open
+          </button>
+          <Modal open={open} onClose={() => {}} ariaLabel="Test">
+            <button type="button">Help</button>
+            <input autoFocus data-testid="field" />
+          </Modal>
+        </>
+      );
+    }
+    const { rerender } = render(<Harness open={false} />);
+    const opener = screen.getByTestId("opener");
+    act(() => opener.focus());
+
+    rerender(<Harness open={true} />);
+    expect(screen.getByTestId("field")).toHaveFocus();
+    rerender(<Harness open={false} />);
+    expect(opener).toHaveFocus();
+  });
+
+  // ★★ StrictMode runs the focus effect, its cleanup, then the effect again with
+  //   the dialog still mounted. A cleanup that restored focus there sent it to
+  //   the opener, and the second frame then moved it to the first focusable.
+  //   `wrapper: StrictMode` puts StrictMode at the root, the shape that is not
+  //   vacuous (AGENTS.md, the StrictMode note under `npm run test:run`). ★ The
+  //   Modal must MOUNT open, as `{open && <XModal/>}` does: StrictMode replays
+  //   effects only on a fiber's mount, so toggling `open` on a mounted Modal
+  //   replays nothing and the test passes with the skip deleted (measured).
+  test("under StrictMode, a child's autoFocus survives and close still restores the opener", () => {
+    function Harness({ show }: { show: boolean }) {
+      return (
+        <>
+          <button type="button" data-testid="opener">
+            Open
+          </button>
+          {show && (
+            <Modal open onClose={() => {}} ariaLabel="Test">
+              <button type="button">Help</button>
+              <input autoFocus data-testid="field" />
+            </Modal>
+          )}
+        </>
+      );
+    }
+    const { rerender } = render(<Harness show={false} />, { wrapper: StrictMode });
+    const opener = screen.getByTestId("opener");
+    act(() => opener.focus());
+
+    rerender(<Harness show={true} />);
+    expect(screen.getByTestId("field")).toHaveFocus();
+    rerender(<Harness show={false} />);
     expect(opener).toHaveFocus();
   });
 
