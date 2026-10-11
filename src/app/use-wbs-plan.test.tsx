@@ -286,6 +286,75 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(api().ws.tasks.filter((x) => x.taskName === "Write docs")).toHaveLength(0);
   });
 
+  // The one capture whose editedAfter names created rows: links to a split's
+  // piece 2 and to a new task. Undo restores the original row; created rows stay
+  // (undo.md "Creates"). Redo re-applies the rewrite and duplicates nothing.
+  it("undo after a split and a new task restores the original row, and redo re-applies it without duplicating rows", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([
+        {
+          kind: "split",
+          taskId: 1,
+          pieces: [
+            { taskName: "Design API", description: "<p>New scope</p>", estimateMinutes: 120 },
+            { taskName: "Build API" },
+          ],
+          why: "too big",
+        },
+        { kind: "newTask", ref: "n1", taskName: "Write docs", dueDate: "2026-11-15", why: "missing" },
+        { kind: "link", from: { kind: "piece", taskId: 1, piece: 2 }, to: { kind: "task", id: 2 }, why: "order" },
+        { kind: "link", from: { kind: "ref", ref: "n1" }, to: { kind: "task", id: 1 }, why: "order" },
+      ]),
+    );
+    const seed = [
+      task(1, { group: "Core", description: "<p>Original</p>", originalEstimateMinutes: 60, dependencies: [{ taskId: 3, type: "FS" }] }),
+      task(2, { group: "Core" }),
+      task(3, { group: "Ops" }),
+    ];
+    const api = renderHarness({}, seed);
+    await proposeFromButton();
+    await screen.findAllByRole("checkbox", { name: /include this change/i });
+    fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 4, 4) }));
+
+    const once = (name: string) => api().ws.tasks.filter((x) => x.taskName === name);
+    const pieceId = once("Build API")[0]?.id;
+    const docsId = once("Write docs")[0]?.id;
+    const rewrite = (x: Task | undefined) => ({
+      taskName: x?.taskName,
+      description: x?.description,
+      originalEstimateMinutes: x?.originalEstimateMinutes,
+      dependencies: x?.dependencies ?? [],
+    });
+    const applied1 = rewrite(byId(api().ws.tasks, 1));
+    const applied2 = rewrite(byId(api().ws.tasks, 2));
+    expect(api().ws.tasks).toHaveLength(5);
+    expect(applied1).toMatchObject({ taskName: "Design API", originalEstimateMinutes: 120 });
+    expect(applied1.description).toContain("New scope");
+    expect(applied1.dependencies).toEqual([{ taskId: 3, type: "FS" }, { taskId: docsId, type: "FS" }]);
+    expect(applied2.dependencies).toEqual([{ taskId: pieceId, type: "FS" }]);
+
+    act(() => { api().undo.undo(); });
+
+    expect(api().ws.tasks).toHaveLength(5);
+    expect(rewrite(byId(api().ws.tasks, 1))).toEqual({
+      taskName: "Task 1",
+      description: "<p>Original</p>",
+      originalEstimateMinutes: 60,
+      dependencies: [{ taskId: 3, type: "FS" }],
+    });
+    expect(rewrite(byId(api().ws.tasks, 2)).dependencies).toEqual([]);
+    expect(once("Build API")).toHaveLength(1);
+    expect(once("Write docs")).toHaveLength(1);
+
+    act(() => { api().undo.redo(); });
+
+    expect(api().ws.tasks).toHaveLength(5);
+    expect(rewrite(byId(api().ws.tasks, 1))).toEqual(applied1);
+    expect(rewrite(byId(api().ws.tasks, 2))).toEqual(applied2);
+    expect(once("Build API").map((x) => x.id)).toEqual([pieceId]);
+    expect(once("Write docs").map((x) => x.id)).toEqual([docsId]);
+  });
+
   it("open() from any view shows the modal, scoped to open non-Jira tasks", async () => {
     vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
     const api = renderHarness({}, [
