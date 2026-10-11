@@ -99,9 +99,18 @@ export interface TimelogPolicyResult {
    *  the window had no cell, so they were reported unanswerable and froze
    *  permanently. Somebody linked and clean must stay clearable, and now is. */
   readonly linkedUsers: readonly number[];
+  /** §700 — the people `timelogAbsenceDay` can answer for: a link whose
+   *  resource still EXISTS. Stricter than `linkedUsers` on purpose. A dangling
+   *  link keeps an answer for the shift rules, because `definedHours` falls back
+   *  to `DEFAULT_WEEK_HOURS`; absences have no such fallback. Without the
+   *  resource there is no name to match an absence stored without a
+   *  `resourceId` against, so "no absence booking" is not an answer and the
+   *  person's row must freeze rather than resolve. Violations it CAN see (an
+   *  absence carrying the `resourceId`) are still reported. */
+  readonly absenceUsers: readonly number[];
 }
 
-const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [], linkedUsers: [] };
+const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [], linkedUsers: [], absenceUsers: [] };
 
 /** The threshold window this engine accepts, deliberately IDENTICAL to the one
  *  `sanitizeTimelogPolicy` enforces on LOAD (`> 0 && <= MAX_HOURS_PER_DAY`).
@@ -411,5 +420,7 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     if (!skipped) evaluated.push(rule);
     violations.push(...drain(rule, acc));
   }
-  return { violations, evaluated, linkedUsers: [...linked] };
+  const known = new Set(resources.map((r) => r.id));
+  const absenceUsers = userLinks.filter((l) => known.has(l.resourceId)).map((l) => l.timelogUserId);
+  return { violations, evaluated, linkedUsers: [...linked], absenceUsers: [...new Set(absenceUsers)] };
 }

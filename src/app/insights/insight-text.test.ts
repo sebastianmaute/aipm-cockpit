@@ -5,7 +5,7 @@ import type { Insight, InsightType } from "./insight";
 
 // ★★★ THE THREE NUMBERS MUST ALL DIFFER, and that is the whole reason this file
 // exists. `insightDetail` passes count, worstHours and threshold positionally as
-// {1}, {2} and {3}, and two of the four guardrail sentences render {3} BEFORE
+// {1}, {2} and {3}, and two of the guardrail sentences render {3} BEFORE
 // {2} ("over the 8 h cap — the largest is 12 h"). A transposed index there
 // yields a perfectly fluent sentence carrying the WRONG numbers, which no other
 // gate can see. So a fixture where any two of these are equal is VACUOUS against

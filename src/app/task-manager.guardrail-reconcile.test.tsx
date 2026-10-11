@@ -40,7 +40,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Dispatch, SetStateAction } from "react";
 import type { Insight } from "./insights/insight";
-import type { Absence } from "./types";
+import type { Absence, Resource } from "./types";
 import type { TimelogDailyRoll, TimelogLinks } from "./timelog-types";
 import { dailyKey } from "./timelog-types";
 import { saveActualsCache } from "./timelog-actuals-store";
@@ -49,6 +49,7 @@ import { saveLandingState } from "./landing-state";
 let setInsightsRef: Dispatch<SetStateAction<readonly Insight[] | undefined>> | null = null;
 let setTimelogLinksRef: Dispatch<SetStateAction<TimelogLinks | undefined>> | null = null;
 let setAbsencesRef: Dispatch<SetStateAction<readonly Absence[]>> | null = null;
+let setResourcesRef: Dispatch<SetStateAction<readonly Resource[]>> | null = null;
 
 /** The stored baseline, whichever METRIC_FIELD this type keeps it under. A
  *  `function` declaration so the hoisted `vi.mock` factory below can close over
@@ -82,6 +83,7 @@ vi.mock("./workspace-section", async (importOriginal) => {
       setInsightsRef = ws.setInsights;
       setTimelogLinksRef = ws.setTimelogLinks;
       setAbsencesRef = ws.setAbsences;
+      setResourcesRef = ws.setResources;
       return (
         <div data-testid="ws-insights">
           {(ws.insights ?? [])
@@ -337,6 +339,7 @@ async function mountAndReconcile(
   insights: readonly Insight[],
   linksOverride: TimelogLinks = links,
   absences: Absence[] = [],
+  resources: Resource[] = [],
 ): Promise<void> {
   render(<TaskManager />);
   await screen.findByTestId("ws-insights", undefined, { timeout: MOUNT_MS });
@@ -346,6 +349,7 @@ async function mountAndReconcile(
     setInsightsRef!(insights);
     setTimelogLinksRef!(linksOverride);
     setAbsencesRef!(absences);
+    setResourcesRef!(resources);
   });
 
   await waitFor(
@@ -358,6 +362,7 @@ beforeEach(() => {
   setInsightsRef = null;
   setTimelogLinksRef = null;
   setAbsencesRef = null;
+  setResourcesRef = null;
   // Back to the real hook's no-countries behaviour, so one readiness test
   // cannot leak a frozen pipeline into whatever runs next under a shuffle.
   holidaysReadyRef = true;
@@ -573,7 +578,29 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
   // the unlinked row as a fabricated "improved".
   it("resolves a linked person with no absence bookings and freezes an unlinked one", async () => {
     seedCache({ dailyUsers: [7, 8, 9, 12] });
-    await mountAndReconcile([absentLinkedInsight, absentUnlinkedInsight], {
+    await mountAndReconcile(
+      [absentLinkedInsight, absentUnlinkedInsight],
+      {
+        userLinks: [{ timelogUserId: 8, resourceId: 40, manual: true }],
+        projectLinks: [],
+        policy: {
+          timelogCapPerDay: { enabled: true, threshold: 8 },
+          timelogAbsenceDay: { enabled: true },
+        },
+      },
+      [],
+      [{ id: 40, firstName: "Ada", lastName: "Lovelace", roleId: null, utilizationMode: "percent", utilization: {} }],
+    );
+    expectResolved(ABSENT_LINKED_KEY);
+    expectFrozen(absentUnlinkedInsight);
+  }, TEST_MS);
+
+  // Review finding: user 8's link points at resource 40, which no longer exists,
+  // so an absence stored by name alone cannot be matched to them. "No absence
+  // booking" is then not an answer, and the row must freeze, not resolve.
+  it("freezes an absence-day insight whose link points at a deleted resource", async () => {
+    seedCache({ dailyUsers: [7, 8, 9, 12] });
+    await mountAndReconcile([absentLinkedInsight], {
       userLinks: [{ timelogUserId: 8, resourceId: 40, manual: true }],
       projectLinks: [],
       policy: {
@@ -581,8 +608,7 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
         timelogAbsenceDay: { enabled: true },
       },
     });
-    expectResolved(ABSENT_LINKED_KEY);
-    expectFrozen(absentUnlinkedInsight);
+    expectFrozen(absentLinkedInsight);
   }, TEST_MS);
 
   // §700 — the workspace's absences reach the engine. User 7's 12h day is

@@ -770,6 +770,20 @@ describe("timelogAbsenceDay", () => {
     expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
     expect(res.linkedUsers).toEqual([7]);
   });
+
+  // Review finding: a link whose resource was deleted cannot see that person's
+  // name-only absences, so it must not certify a clean for them. It still
+  // REPORTS what it can see — an absence carrying the resourceId.
+  it("certifies only people whose linked resource still exists", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [5, 5, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 40 })],
+      { links: [link(7, 40), link(8, 41)], resources: [resource(41, "Grace", "Hopper")] },
+    );
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+    expect(res.absenceUsers).toEqual([8]);
+    expect(res.linkedUsers).toEqual([7, 8]);
+  });
 });
 
 describe("rule ids are insight types", () => {

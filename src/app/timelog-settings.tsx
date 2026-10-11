@@ -261,7 +261,7 @@ interface ThresholdDraft {
   readonly wrote: number | undefined;
 }
 
-/** The four review-time booking rules, all OFF until the user turns them on.
+/** The five review-time booking rules, all OFF until the user turns them on.
  *  Split out of `TimelogSettings` so the two workspace props can be NON-optional
  *  here — the parent renders this only when both are present, which removes the
  *  "guard that can never fire" a single-component version would need. */

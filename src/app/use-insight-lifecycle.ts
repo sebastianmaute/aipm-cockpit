@@ -228,7 +228,9 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // person to resolve to a resource before "no violation" means anything:
         // `timelogWorkingHours` reads their expected hours from the shift, and
         // `timelogNonWorkingDay`'s weekday half reads their weekend from it.
-        // `timelogAbsenceDay` (§700) reads their absences through the same link. The
+        // `timelogAbsenceDay` (§700) is stricter still: it reads their absences
+        // through the link's RESOURCE, so a link to a deleted resource cannot
+        // answer for them either (`absenceUsers`, see the engine). The
         // whole-rule floor in the engine only asks whether SOME link exists, so
         // removing one person's link leaves the rule evaluated while that person
         // goes dark — and the key is per person.
@@ -240,11 +242,10 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // They still get RAISED — detection is deliberately link-independent
         // (`buildDailyRoll` measures unlinked bookers on purpose). Measuring and
         // certifying-a-clean are different acts, and only the second needs this.
-        if (
-          insight.type === "timelogWorkingHours" ||
-          insight.type === "timelogNonWorkingDay" ||
-          insight.type === "timelogAbsenceDay"
-        ) {
+        if (insight.type === "timelogAbsenceDay") {
+          return policyResult.absenceUsers.includes(who);
+        }
+        if (insight.type === "timelogWorkingHours" || insight.type === "timelogNonWorkingDay") {
           return policyResult.linkedUsers.includes(who);
         }
         return true;
