@@ -584,8 +584,10 @@
   test, **zero** call sites. `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
   (`use-raci-suggest.tsx`), `ai.taskDedup` (`use-tasks-dedup.tsx`) and `ai.insightRecommendation`
   (`task-manager.tsx`) are still live and are app AI FEATURES reached from a panel, never from a chat tool
-  call — so "the log has `ai.*` kinds" still does not mean "the log covers the chat assistant"; the
-  `logActivityAs` sites above are what mean that.
+  call. ★ `ai.wbsPlan` (`use-wbs-plan.tsx`) is the exception: it is reached from the Open Points toolbar
+  button AND from the `optimize_wbs` chat tool, because that tool only opens the same proposal flow and the
+  entry is written when the user applies it, either way. So "the log has `ai.*` kinds" still does not mean
+  "the log covers the chat assistant"; the `logActivityAs` sites above are what mean that.
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
   ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes
@@ -1003,6 +1005,24 @@
   ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`;
   no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
+- **AI "Optimize with AI" (Open Points) and the `optimize_wbs` chat tool (§3):** plan-then-apply over the
+  existing task path, mirroring `alloc-plan/` — ZERO new Workspace fields or backend write paths. The model
+  proposes five item kinds (split · regroup · newTask · estimate · link); the user ticks what to keep. Pure
+  engine `wbs-plan/wbs-plan.ts` (`buildWbsContext` digest · forced `PROPOSE_WBS_TOOL` · `parseWbsProposal`,
+  shape only · `groundWbsProposal` · `applyWbsProposal`); one forced call in `wbs-plan-call.ts` through the
+  shared `runForcedToolCall`; glue hook `use-wbs-plan.tsx`; presentational `wbs-plan-modal.tsx`.
+  ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
+  exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
+  that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
+  An item that cites a new task's ref or a split piece ≥ 2 `requires` that item's key, and apply drops it
+  when that item is unticked. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
+  longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps
+  piece 1 of a split on the original id, and records ONE `bulk.edit` field-patch undo entry over the EDITED
+  rows only (created rows stay out of it — see [undo.md](undo.md) "Creates"). ★★ `optimize_wbs` is NOT an
+  entity write: it opens the proposal (`openWbsPlan` → `useWbsPlan().open`) and writes nothing itself, so it
+  sits in `chat-proposal.test.ts`'s non-write list and never stages a proposal card. It throws in a popout
+  (`isReadOnly`) and when the flow did not open (AI off, a run already open, or no open non-Jira task in
+  scope). Gated `aiReady && !isPopout`.
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
   (image/document) from pure `chat-attachments.ts` (classify by mime+extension, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads

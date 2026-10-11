@@ -10,6 +10,11 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
+  tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
+
 ### Fixed
 
 - **A dialog that opens on a text field keeps the cursor there.** Renaming a document or adding a linked

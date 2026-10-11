@@ -156,7 +156,7 @@ export function groundWbsProposal(raw: ParsedWbsProposal, liveTasks: readonly Ta
   - `selfLink`;
   - `duplicateLink`, against an existing dependency and against an earlier proposed link;
   - `unresolvedRef`, for an unknown ref and for `piece: 3` on a two-piece split;
-  - `cycle`: the test `refuses a link that cycles through a proposed new task`. Task 1 depends on 2 today; the proposal adds `newTask a`, a link 2 → a, and a link a → 1. The last link is `cycle` and the first is kept.
+  - `cycle`: the test `refuses a link that cycles through a proposed new task`. Task 2 depends on 1 today; the proposal adds `newTask a`, a link 2 → a, and a link a → 1. The last link is `cycle` and the first is kept.
   - Also:
     - a kept split's `baseRows[0]` is the very live row object;
     - a link to a piece ≥ 2 has `requires` containing the split's key;
