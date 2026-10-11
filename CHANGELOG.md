@@ -27,6 +27,11 @@ longer carries its own changelog comment.
   dialog's help button as it opened, so typing went nowhere until you clicked the field. Closing either
   dialog now also puts focus back on the button that opened it; it used to drop to the page.
 
+- **A name containing `{1}` or `$&` now shows as typed in messages.** When such a name filled the
+  first slot of a message with more than one value, the later values were inserted into the name
+  instead, or the `$` sequence was replaced; a task named "Phase {1}" could read "Phase 2 (piece {1} of
+  Build API)".
+
 ## [1.17.0] - 2026-10-10 "Mankell"
 
 A feature release. The start screen offers an "Explore the demo" card that opens a sample project

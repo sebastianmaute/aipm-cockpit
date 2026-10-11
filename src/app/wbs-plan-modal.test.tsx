@@ -195,7 +195,7 @@ describe("WbsPlanModal", () => {
     const reasons: readonly WbsSkipReason[] = [
       "unknownTask", "closedTask", "jiraTask", "outOfScope", "badPieces", "emptyName", "emptyGroup", "emptyRef",
       "badDate", "badEstimate", "hasEstimate", "duplicateRef", "duplicateTarget", "sameGroup", "selfLink",
-      "duplicateLink", "unresolvedRef", "cycle",
+      "duplicateLink", "unresolvedRef", "ambiguousPiece", "cycle",
     ];
     for (const r of reasons) {
       const key = `wbsPlanSkip_${r}` as const;
@@ -359,16 +359,29 @@ describe("WbsPlanModal", () => {
     expect(boxes[boxes.length - 1]).toHaveAccessibleDescription(`order ${t("en-US", "wbsPlanLinkNeedsEndpoint")}`);
   });
 
-  it("when every proposed item was refused, shows only the reasons, expanded, and no Apply", () => {
+  it("when every proposed item was refused, shows only the reasons, expanded, no Apply and a Close", async () => {
     const skipped: SkippedWbsItem[] = [
       { item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" },
     ];
-    render5({ items: [], selected: new Set(), skipped });
+    const props = render5({ items: [], selected: new Set(), skipped });
     expect(screen.getByText(t("en-US", "wbsPlanAllSkipped"))).toBeVisible();
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     expect(document.querySelector("details")).toHaveAttribute("open");
     expect(screen.getByText(`Write docs — ${t("en-US", "wbsPlanSkip_sameGroup")}`)).toBeVisible();
-    expect(screen.getByRole("button", { name: /Apply/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Apply/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "wbsPlanCancel") })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "close") }));
+    expect(props.onCancel).toHaveBeenCalled();
+  });
+
+  it("names a refused new task with a blank name instead of leaving its row without a subject", () => {
+    const skipped: SkippedWbsItem[] = [
+      { item: { kind: "newTask", ref: "r9", taskName: "   ", dueDate: "2026-11-01", why: "" }, reason: "emptyName" },
+    ];
+    render5({ items: [], selected: new Set(), skipped });
+    expect(
+      screen.getByText(`${t("en-US", "wbsPlanUnnamedNewTask")} — ${t("en-US", "wbsPlanSkip_emptyName")}`),
+    ).toBeVisible();
   });
 
   it("keeps the Not-applied list collapsed and shows no all-refused note while something can apply", () => {

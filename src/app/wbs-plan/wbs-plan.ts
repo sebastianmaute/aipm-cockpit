@@ -357,7 +357,7 @@ export type WbsSkipReason =
   | "unknownTask" | "closedTask" | "jiraTask" | "outOfScope" | "badPieces"
   | "emptyName" | "emptyGroup" | "emptyRef" | "badDate" | "badEstimate" | "hasEstimate"
   | "duplicateRef" | "duplicateTarget" | "sameGroup"
-  | "selfLink" | "duplicateLink" | "unresolvedRef" | "cycle";
+  | "selfLink" | "duplicateLink" | "unresolvedRef" | "ambiguousPiece" | "cycle";
 
 /** Why `useWbsPlan().open` (the chat tool's entry point) opened nothing, so
  *  the tool can tell the model what to say instead of a generic refusal. */
@@ -409,10 +409,19 @@ interface GroundState {
   nextProvisionalId: number;
   /** A ref is CLAIMED by the first newTask that names it (after a non-blank
    *  check), kept or not — a later duplicate would leave links ambiguous. A
-   *  task id is claimed for a split or regroup only by the first one KEPT: a
-   *  malformed first split leaves no pieces to link to, so a valid second one
-   *  is not ambiguous and is kept. */
+   *  task id is claimed for a split or regroup only by the first one KEPT, so
+   *  a valid second split after a malformed first one is still kept. */
   splitClaims: Set<number>;
+  /** Every split item seen per task id, kept or not. A piece target names a
+   *  task and a piece number, never a split, so once a task has two split
+   *  items "piece 2" could mean either one's piece: every piece ≥ 2 target on
+   *  that task is refused (`ambiguousPiece`) instead of being bound to the
+   *  split that was kept. */
+  splitItems: Map<number, number>;
+  /** Existing group spellings by trimmed, lower-cased name — the rule
+   *  `useWbsPlan().open` scopes a group by — so a proposed "design" writes
+   *  the project's "Design" instead of a near-duplicate group. */
+  groups: ReadonlyMap<string, string>;
   regroupClaims: Set<number>;
   refClaims: Set<string>;
   /** Kept splits by task id: the node id of each piece (piece 1 = the task). */
@@ -434,6 +443,26 @@ function provisionalNode(st: GroundState): number {
   // Only `dependencies` is read by the cycle check.
   st.graph.set(id, { id, dependencies: [] } as unknown as Task);
   return id;
+}
+
+function groupKey(g: string): string {
+  return g.trim().toLowerCase();
+}
+
+/** First spelling wins, in task order, so the result is deterministic. */
+function existingGroups(tasks: readonly Task[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const t of tasks) {
+    const g = t.group ?? "";
+    const k = groupKey(g);
+    if (k !== "" && !m.has(k)) m.set(k, g);
+  }
+  return m;
+}
+
+/** A sanitized proposed group, spelled as the existing group it matches. */
+function canonicalGroup(group: string, st: GroundState): string {
+  return st.groups.get(groupKey(group)) ?? group;
 }
 
 function isValidEstimate(m: number): boolean {
@@ -477,12 +506,14 @@ function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipRe
   if (typeof live === "string") return live;
   // Piece 1 is the original row whether or not a split of it is kept.
   if (target.kind === "task" || target.piece === 1) return { node: live.id, base: live, requires: null };
+  if ((st.splitItems.get(live.id) ?? 0) > 1) return "ambiguousPiece";
   const split = st.splits.get(live.id);
   if (!split || target.piece < 1 || target.piece > split.pieceIds.length) return "unresolvedRef";
   return { node: split.pieceIds[target.piece - 1], base: live, requires: split.key };
 }
 
 function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
+  st.splitItems.set(item.taskId, (st.splitItems.get(item.taskId) ?? 0) + 1);
   const live = checkLiveTask(item.taskId, st);
   if (typeof live === "string") return live;
   if (st.splitClaims.has(live.id)) return "duplicateTarget";
@@ -507,11 +538,12 @@ function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict
   const live = checkLiveTask(item.taskId, st);
   if (typeof live === "string") return live;
   if (st.regroupClaims.has(live.id)) return "duplicateTarget";
-  const group = sanitizeGroup(item.group);
+  const group = canonicalGroup(sanitizeGroup(item.group), st);
   if (group === "") return "emptyGroup";
   // A move to the group the task is already in changes nothing, so it is not
-  // offered (it would stamp lastUpdateDate and count as applied).
-  if (group === (live.group ?? "")) return "sameGroup";
+  // offered (it would stamp lastUpdateDate and count as applied). Compared by
+  // the same key as `canonicalGroup`, so "Design" → "design" is refused too.
+  if (groupKey(group) === groupKey(live.group ?? "")) return "sameGroup";
   st.regroupClaims.add(live.id);
   return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
 }
@@ -535,7 +567,7 @@ function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict
     ref,
     taskName,
     dueDate,
-    ...(item.group !== undefined ? { group: sanitizeGroup(item.group) } : {}),
+    ...(item.group !== undefined ? { group: canonicalGroup(sanitizeGroup(item.group), st) } : {}),
     ...optDescription(item.description),
     ...(item.assignee !== undefined ? { assignee: sanitizeAssignee(item.assignee) } : {}),
     ...(estimateMinutes !== undefined ? { estimateMinutes } : {}),
@@ -597,6 +629,8 @@ export function groundWbsProposal(
     graph: new Map(live),
     nextProvisionalId: -1,
     splitClaims: new Set(),
+    splitItems: new Map(),
+    groups: existingGroups(liveTasks),
     regroupClaims: new Set(),
     refClaims: new Set(),
     splits: new Map(),

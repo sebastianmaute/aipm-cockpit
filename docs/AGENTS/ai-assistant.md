@@ -1014,10 +1014,14 @@
   ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
   exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
   that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
-  A regroup to the group the task is already in is refused (`sameGroup`), and a second split or regroup of
-  one task is refused (`duplicateTarget`) only after a first one was KEPT: a malformed first split claims
-  nothing. When every proposed item is refused, the preview still opens, showing only the "Not applied"
-  list with its reasons; only an empty proposal is reported as "no changes".
+  A proposed group is matched to an existing one trimmed and case-insensitively, the rule `open()` scopes
+  a group by, and written in the existing spelling; a regroup to the group the task is already in (by that
+  rule) is refused (`sameGroup`). A second split or regroup of one task is refused (`duplicateTarget`)
+  only after a first one was KEPT: a malformed first split claims nothing. ★ But a piece target names a
+  task and a piece number, never a split, so once a task has two split items, kept or not, every piece ≥ 2
+  target on it is refused (`ambiguousPiece`) rather than bound to the kept split. When every proposed item
+  is refused, the preview still opens, showing only the "Not applied" list with its reasons and a Close
+  button in place of Apply and Cancel; only an empty proposal is reported as "no changes".
   ★ That estimate rule covers estimate ITEMS only: a split's piece 1 rewrites the original row, so it may
   re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
   the preview shows the rename, the estimate before → after and a "replaces the description" marker.

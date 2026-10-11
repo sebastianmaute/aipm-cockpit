@@ -4883,9 +4883,10 @@ const enUS = {
   wbsPlanAssignedTo: "assigned to {0}",
   wbsPlanDescriptionExcerpt: "description: {0}",
   wbsPlanScopeChanged: "The project changed, so the proposal was discarded.",
-  wbsPlanClosedByLoad: "The project is loading, so the work-breakdown proposal was closed.",
+  wbsPlanClosedByLoad: "The project is loading, so Optimize with AI was closed.",
   wbsPlanAllSkipped: "Claude proposed changes, but none of them can be applied. The reasons are listed below.",
   wbsPlanUnknownTask: "task #{0}",
+  wbsPlanUnnamedNewTask: "unnamed new task",
   wbsPlanSkip_unknownTask: "the task does not exist",
   wbsPlanSkip_closedTask: "the task is already closed",
   wbsPlanSkip_jiraTask: "the task is synced from Jira and read-only",
@@ -4903,6 +4904,7 @@ const enUS = {
   wbsPlanSkip_selfLink: "a task cannot depend on itself",
   wbsPlanSkip_duplicateLink: "the dependency already exists or is proposed twice",
   wbsPlanSkip_unresolvedRef: "refers to a task or piece the proposal does not create",
+  wbsPlanSkip_ambiguousPiece: "refers to a piece of a task the proposal splits more than once",
   wbsPlanSkip_cycle: "the dependency would create a cycle",
   wbsPlanButton: "Optimize with AI",
   wbsPlanButtonTitle: "Propose work-breakdown improvements for the tasks shown",
@@ -4917,8 +4919,8 @@ const enUS = {
   wbsPlanError: "Could not optimize the work breakdown.",
   wbsPlanApplied: "Applied {0} work-breakdown changes.",
   wbsPlanAppliedOne: "Applied 1 work-breakdown change.",
-  wbsPlanStaleSkipped: "{0} changes were skipped because their tasks changed.",
-  wbsPlanStaleSkippedOne: "1 change was skipped because its task changed.",
+  wbsPlanStaleSkipped: "{0} changes were skipped because the tasks they depend on changed.",
+  wbsPlanStaleSkippedOne: "1 change was skipped because the tasks it depends on changed.",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiAllocationPlanOne: "AI planned 1 allocation cell",
   activityAiWbsPlan: "AI applied {0} work-breakdown changes",
@@ -5045,11 +5047,18 @@ export function t(
   if (lang === "de" && activeDeDict) dict = activeDeDict;
   else if (lang === "en-GB") dict = enGB;
   else dict = enUS;
-  let s = dict[key] ?? enUS[key];
-  args.forEach((a, i) => {
-    s = s.replace(`{${i}}`, String(a));
+  const s = dict[key] ?? enUS[key];
+  // With no arguments the lookup is returned as is — an unknown key yields
+  // undefined rather than throwing, which callers such as `priorityLabel`
+  // given an unknown value have always relied on.
+  if (args.length === 0) return s;
+  // One pass, so an argument that itself contains "{1}" (a task name, say) is
+  // never substituted again, and a function replacer, so "$&" in an argument
+  // stays literal. A placeholder with no argument is left as written.
+  return s.replace(/\{(0|[1-9]\d*)\}/g, (m: string, i: string) => {
+    const n = Number(i);
+    return n < args.length ? String(args[n]) : m;
   });
-  return s;
 }
 
 /**

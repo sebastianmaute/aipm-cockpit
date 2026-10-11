@@ -128,6 +128,29 @@ describe("groundWbsProposal — value checks", () => {
     expect(r.items.map((g) => g.item)).toEqual([{ kind: "regroup", taskId: 1, group: "Ops", why: "" }]);
   });
 
+  // The same rule `useWbsPlan().open` scopes a group by: trimmed, case-insensitive.
+  test("a group that matches an existing one up to case is written in the existing spelling", () => {
+    const tasks = [task(1, { group: "Core" }), task(2, { group: "Design" }), task(3), task(4, { group: "DESIGN" })];
+    const r = ground(
+      [
+        { kind: "regroup", taskId: 1, group: "design", why: "" },
+        newTask("a", { group: " DESIGN " }),
+        { kind: "regroup", taskId: 2, group: "design", why: "" },
+        { kind: "regroup", taskId: 3, group: "Brand new", why: "" },
+        { kind: "regroup", taskId: 4, group: "design", why: "" },
+      ],
+      tasks,
+    );
+    expect(r.items.map((g) => (g.item.kind === "regroup" || g.item.kind === "newTask" ? g.item.group : null))).toEqual([
+      "Design",
+      "Design",
+      "Brand new",
+    ]);
+    // Task 2 is already in "Design", and task 4's "DESIGN" is the same group
+    // to the scope rule, so neither is moved (task 4 is not respelled either).
+    expect(r.skipped.map((x) => x.reason)).toEqual(["sameGroup", "sameGroup"]);
+  });
+
   test("badDate", () => {
     expect(reasons([newTask("a", { dueDate: "2026-02-30" }), newTask("b", { dueDate: "" })])).toEqual([
       "badDate",
@@ -221,6 +244,21 @@ describe("groundWbsProposal — value checks", () => {
     const r = ground([split(1, 1), { kind: "split", taskId: 1, pieces: [{ taskName: "A" }, { taskName: " " }], why: "" }, split(1, 3)]);
     expect(r.skipped.map((x) => x.reason)).toEqual(["badPieces", "emptyName"]);
     expect(r.items.map((g) => g.key)).toEqual(["i2"]);
+  });
+
+  // A piece target names a task and a piece number, never a split, so "piece 2"
+  // may have been written against the malformed first split.
+  test("ambiguousPiece for a piece ≥ 2 of a task the proposal splits twice, even when only one split is kept", () => {
+    const r = ground([
+      split(1, MAX_SPLIT_PIECES + 1),
+      split(1, 3),
+      link(P(1, 2), T(2)),
+      { kind: "estimate", target: P(1, 3), estimateMinutes: 30, why: "" },
+      link(P(1, 1), T(3)),
+    ]);
+    // Piece 1 is the task itself, so its link is not ambiguous.
+    expect(r.items.map((g) => g.key)).toEqual(["i1", "i4"]);
+    expect(r.skipped.map((x) => x.reason)).toEqual(["badPieces", "ambiguousPiece", "ambiguousPiece"]);
   });
 
   test("a split and a regroup of the same task are both kept", () => {

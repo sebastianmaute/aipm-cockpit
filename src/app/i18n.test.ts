@@ -106,3 +106,48 @@ describe("help — burn-down health entry (§466)", () => {
     expect(body).toMatch(/Restbudget/i);
   });
 });
+
+describe("t() placeholder substitution", () => {
+  it("does not substitute a placeholder that an earlier argument brought in", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "Phase {1}", 2, "Build API")).toBe("Phase {1} (piece 2 of Build API)");
+  });
+
+  it("keeps $ patterns in an argument literal", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "A $& $` $' $1", 2, "B")).toBe("A $& $` $' $1 (piece 2 of B)");
+  });
+
+  it("leaves a placeholder that has no argument as written", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "A")).toBe("A (piece {1} of {2})");
+    expect(t("en-US", "wbsPlanPieceNamed")).toBe("{0} (piece {1} of {2})");
+  });
+
+  // Kept from the sequential version: a kanban card renders `priorityLabel`
+  // for a priority value outside the dictionary.
+  it("returns the lookup unchanged when called without arguments, even for an unknown key", () => {
+    expect(t("en-US", "noSuchKeyForThisTest" as TranslationKey)).toBeUndefined();
+  });
+
+  it("renders numbers and ignores extra arguments", () => {
+    expect(t("en-US", "wbsPlanMinutes", 0, "extra")).toBe("0 min");
+  });
+});
+
+describe("work-breakdown notices name their real cause (§3)", () => {
+  // A link on unchanged rows can go stale through a cycle via a third row, and
+  // the load hold also closes the instruction dialog, before any proposal.
+  it("EN", () => {
+    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because the tasks they depend on changed.");
+    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because the tasks it depends on changed.");
+    expect(t("en-US", "wbsPlanClosedByLoad")).toBe("The project is loading, so Optimize with AI was closed.");
+  });
+
+  it("DE", () => {
+    expect(de.wbsPlanStaleSkipped).toBe(
+      "{0} Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
+    );
+    expect(de.wbsPlanStaleSkippedOne).toBe(
+      "1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
+    );
+    expect(de.wbsPlanClosedByLoad).toBe("Das Projekt wird geladen, daher wurde „Mit KI optimieren“ geschlossen.");
+  });
+});

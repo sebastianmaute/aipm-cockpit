@@ -18,7 +18,7 @@ import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { htmlPlainProjection } from "./rich-text-plain";
-import { sanitizeMultiline } from "./sanitize-core";
+import { sanitizeMultiline, sanitizeTaskName } from "./sanitize-core";
 import type { Task } from "./types";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason, WbsTarget } from "./wbs-plan/wbs-plan";
 
@@ -64,6 +64,7 @@ const SKIP_REASON_KEY: Record<WbsSkipReason, TranslationKey> = {
   selfLink: "wbsPlanSkip_selfLink",
   duplicateLink: "wbsPlanSkip_duplicateLink",
   unresolvedRef: "wbsPlanSkip_unresolvedRef",
+  ambiguousPiece: "wbsPlanSkip_ambiguousPiece",
   cycle: "wbsPlanSkip_cycle",
 };
 
@@ -125,7 +126,9 @@ export function WbsPlanModal({
       case "regroup":
         return taskName(item.taskId);
       case "newTask":
-        return item.taskName;
+        // A refused item is the raw model output: an `emptyName` one would
+        // otherwise render as a row with nothing before its reason.
+        return sanitizeTaskName(item.taskName) || t(lang, "wbsPlanUnnamedNewTask");
       case "estimate":
         return targetLabel(item.target);
       case "link":
@@ -300,12 +303,15 @@ export function WbsPlanModal({
 
         <div className="flex items-center gap-2 border-t border-line px-6 py-4">
           <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t(lang, "wbsPlanUndoNote")}</p>
+          {/* Nothing can be applied, so dismissal is the only action. */}
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={applying}>
-            {t(lang, "wbsPlanCancel")}
+            {t(lang, allSkipped ? "close" : "wbsPlanCancel")}
           </Button>
-          <Button variant="primary" size="sm" onClick={onApply} disabled={!canApply}>
-            {applying ? t(lang, "wbsPlanApplying") : tPlural(lang, "wbsPlanApply", count, count)}
-          </Button>
+          {!allSkipped && (
+            <Button variant="primary" size="sm" onClick={onApply} disabled={!canApply}>
+              {applying ? t(lang, "wbsPlanApplying") : tPlural(lang, "wbsPlanApply", count, count)}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>
