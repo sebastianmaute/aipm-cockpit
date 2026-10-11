@@ -127,13 +127,18 @@ export function WbsPlanModal({
   // and a marker when it carries a description (which replaces the original's).
   // Pieces 2+ are new rows: name and estimate.
   type SplitPiece = Extract<RawWbsItem, { kind: "split" }>["pieces"][number];
+  // "no estimate" reads better than "estimate none" for a piece without one.
+  const pieceEstimate = (m: number | undefined): string =>
+    m === undefined ? t(lang, "wbsPlanPieceNoEstimate") : t(lang, "wbsPlanPieceEstimate", minutes(m));
   const pieceText = (taskId: number, p: SplitPiece, isFirst: boolean): string => {
-    if (!isFirst) return [p.taskName, t(lang, "wbsPlanPieceEstimate", minutes(p.estimateMinutes))].join(" · ");
+    if (!isFirst) return [p.taskName, pieceEstimate(p.estimateMinutes)].join(" · ");
     const before = tasksById.get(taskId)?.originalEstimateMinutes;
     const after = p.estimateMinutes ?? before;
     const estimate =
-      after === before ? minutes(before) : t(lang, "wbsPlanEstimateChange", minutes(before), minutes(after));
-    const parts = [t(lang, "wbsPlanPieceRename", taskName(taskId), p.taskName), t(lang, "wbsPlanPieceEstimate", estimate)];
+      after === before
+        ? pieceEstimate(before)
+        : t(lang, "wbsPlanPieceEstimate", t(lang, "wbsPlanEstimateChange", minutes(before), minutes(after)));
+    const parts = [t(lang, "wbsPlanPieceRename", taskName(taskId), p.taskName), estimate];
     if (p.description !== undefined) parts.push(t(lang, "wbsPlanReplacesDescription"));
     return parts.join(" · ");
   };

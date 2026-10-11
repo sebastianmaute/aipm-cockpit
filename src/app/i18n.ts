@@ -4877,6 +4877,7 @@ const enUS = {
   wbsPlanPieceLabel: "{0} — piece {1}",
   wbsPlanPieceRename: "{0} → {1}",
   wbsPlanPieceEstimate: "estimate {0}",
+  wbsPlanPieceNoEstimate: "no estimate",
   wbsPlanReplacesDescription: "replaces the description",
   wbsPlanUnknownTask: "task #{0}",
   wbsPlanSkip_unknownTask: "the task does not exist",

@@ -145,7 +145,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The preview lists the grounded item, ticked by default.
     const box = await screen.findByRole("checkbox", { name: /include this change/i });
     expect(box).toBeChecked();
-    expect(screen.getByText("Design B · estimate none")).toBeTruthy();
+    expect(screen.getByText("Design B · no estimate")).toBeTruthy();
 
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];

@@ -4596,6 +4596,7 @@ export const de: Record<TranslationKey, string> = {
   wbsPlanPieceLabel: "{0} — Teil {1}",
   wbsPlanPieceRename: "{0} → {1}",
   wbsPlanPieceEstimate: "Schätzung {0}",
+  wbsPlanPieceNoEstimate: "keine Schätzung",
   wbsPlanReplacesDescription: "ersetzt die Beschreibung",
   wbsPlanUnknownTask: "Aufgabe #{0}",
   wbsPlanSkip_unknownTask: "die Aufgabe existiert nicht",

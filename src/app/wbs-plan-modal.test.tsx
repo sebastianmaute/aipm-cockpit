@@ -147,8 +147,8 @@ describe("WbsPlanModal", () => {
   it("shows piece 1 as old name → new name, and every piece's estimate", () => {
     render5();
     expect(pieceTexts()).toEqual([
-      "Build API → Design API · estimate none",
-      "Implement API · estimate none",
+      "Build API → Design API · no estimate",
+      "Implement API · no estimate",
     ]);
   });
 
