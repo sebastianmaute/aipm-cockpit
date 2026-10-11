@@ -54,6 +54,8 @@ function factLine(insight: Insight): string {
       return `TimeLog: ${str(d, "person")} booked time on ${num(d, "count")} non-working day(s), worst ${num(d, "worstHours")}h`;
     case "timelogWorkingHours":
       return `TimeLog: ${str(d, "person")} booked over defined hours on ${num(d, "count")} day(s), worst ${num(d, "worstHours")}h`;
+    case "timelogAbsenceDay":
+      return `TimeLog: ${str(d, "person")} booked time on ${num(d, "count")} day(s) they were absent (vacation, sick or training), worst ${num(d, "worstHours")}h`;
   }
 }
 

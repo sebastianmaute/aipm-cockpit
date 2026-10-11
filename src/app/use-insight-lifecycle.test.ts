@@ -36,7 +36,7 @@ function setup(isPopout = false) {
       hydrated: false, isPopout, loadPending: false, today: TODAY,
       currentProjectId: "p1", landingProjectId: "p1",
       tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
-      holidaySet: new Set<string>(), holidaysReady: true, shifts: [], timelogLinks: undefined,
+      holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks: undefined,
       insights,
       setInsights: (u) => { setSpy(u); setInsights(u); },
       requestOpen,

@@ -449,6 +449,7 @@ function TimelogGuardrails({
         {capRule("timelogCapPerDay", "insightTimelogCapPerDayTitle", "timelogDayCapLabel")}
         {ruleToggle("timelogNonWorkingDay", "insightTimelogNonWorkingDayTitle")}
         {ruleToggle("timelogWorkingHours", "insightTimelogWorkingHoursTitle")}
+        {ruleToggle("timelogAbsenceDay", "insightTimelogAbsenceDayTitle")}
       </div>
     </div>
   );

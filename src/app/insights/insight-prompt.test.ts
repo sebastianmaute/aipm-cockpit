@@ -152,6 +152,10 @@ describe("guardrail fact lines", () => {
       "timelogWorkingHours",
       "- [medium] TimeLog: Ada booked over defined hours on 2 day(s), worst 12h",
     ],
+    [
+      "timelogAbsenceDay",
+      "- [medium] TimeLog: Ada booked time on 2 day(s) they were absent (vacation, sick or training), worst 12h",
+    ],
   ];
 
   for (const [type, line] of CASES) {

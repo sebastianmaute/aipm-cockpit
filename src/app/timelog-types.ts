@@ -54,20 +54,23 @@ export type TimelogLinks = {
   policy?: TimelogPolicy;
 };
 
-/** The four guardrail rules. These literals are ALSO the four guardrail
- *  `InsightType` members — deliberately identical, so no rule→type lookup
- *  table exists to drift. `timelog-policy.test.ts` pins the identity. */
+/** The guardrail rules. These literals are ALSO the guardrail `InsightType`
+ *  members — deliberately identical, so no rule→type lookup table exists to
+ *  drift. `timelog-policy.test.ts` pins the identity. The first four are
+ *  OpenProject's; `timelogAbsenceDay` (§700) is Cockpit's own. */
 export type TimelogRuleId =
   | "timelogCapPerEntry"
   | "timelogCapPerDay"
   | "timelogNonWorkingDay"
-  | "timelogWorkingHours";
+  | "timelogWorkingHours"
+  | "timelogAbsenceDay";
 
 export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogCapPerEntry",
   "timelogCapPerDay",
   "timelogNonWorkingDay",
   "timelogWorkingHours",
+  "timelogAbsenceDay",
 ];
 
 /** `threshold` is hours. Absent on the two rules that compare against the

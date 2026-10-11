@@ -213,6 +213,7 @@ const RULE_LABELS = [
   t("en-US", "insightTimelogCapPerDayTitle"),
   t("en-US", "insightTimelogNonWorkingDayTitle"),
   t("en-US", "insightTimelogWorkingHoursTitle"),
+  t("en-US", "insightTimelogAbsenceDayTitle"),
 ] as const;
 
 function renderGuardrails(policy?: TimelogPolicy, onLinksChange = vi.fn()) {
@@ -248,15 +249,15 @@ describe("TimelogSettings guardrails", () => {
       timelogCapPerEntry: { enabled: true, threshold: 6 },
       timelogCapPerDay: { enabled: true, threshold: 10 },
     });
-    // ★ MEASURED, not a guess: this fixture renders exactly 6 controls of these
-    // roles — the four rule toggles, plus one threshold spinbutton for each of
+    // ★ MEASURED, not a guess: this fixture renders exactly 7 controls of these
+    // roles — the five rule toggles, plus one threshold spinbutton for each of
     // the two ENABLED cap rules (a threshold field renders only while its rule
     // is on). Keep this at the measured value: a loose floor would let a
     // silently narrowed `roles` array back in unnoticed.
     // ★ `requireCollisionSeed` is deliberately OFF — this is a distinct-name
-    // regression pin, not a claim to cover a shared-name collision, and the four
-    // rule labels are four different i18n strings that cannot collide by seed.
-    expectRowUniqueNames({ minControls: 6, scope: container, roles: ["button", "spinbutton"] });
+    // regression pin, not a claim to cover a shared-name collision, and the five
+    // rule labels are five different i18n strings that cannot collide by seed.
+    expectRowUniqueNames({ minControls: 7, scope: container, roles: ["button", "spinbutton"] });
   });
 
   it("enables a rule without inventing a threshold", () => {

@@ -10,13 +10,14 @@ export const INSIGHT_TYPES = [
   "stalledWork",
   "budgetVariance",
   "raidAging",
-  // TimeLog guardrails. These four literals are ALSO `TimelogRuleId` — kept
+  // TimeLog guardrails. These five literals are ALSO `TimelogRuleId` — kept
   // deliberately identical so no rule-to-type lookup table exists to drift.
   // `timelog-policy.test.ts` pins the identity with a type-level assertion.
   "timelogCapPerEntry",
   "timelogCapPerDay",
   "timelogNonWorkingDay",
   "timelogWorkingHours",
+  "timelogAbsenceDay",
 ] as const;
 export type InsightType = (typeof INSIGHT_TYPES)[number];
 
@@ -204,9 +205,9 @@ export const GUARDRAIL_INSIGHT_TYPES: ReadonlySet<InsightType> = new Set<Insight
 );
 
 /** Slots at `MAX_INSIGHTS` that guardrail rows may never take FIRST.
- *  ★★★ WHY IT EXISTS. Guardrail cardinality is up to 4 × (TimeLog users seen in
+ *  ★★★ WHY IT EXISTS. Guardrail cardinality is up to 5 × (TimeLog users seen in
  *  a fetch) with no cap in `detect.ts` — `drain` emits one row per (rule, user),
- *  but only for ENABLED rules that actually fired for that user, so 4× is an
+ *  but only for ENABLED rules that actually fired for that user, so 5× is an
  *  upper bound rather than the cardinality. Every guardrail is `medium` while
  *  `overdueTrend` is the app's ONLY `low` detector. Under the comparator that
  *  singleton therefore sorts LAST and loses to every guardrail before ties are
@@ -221,8 +222,8 @@ export const GUARDRAIL_INSIGHT_TYPES: ReadonlySet<InsightType> = new Set<Insight
  *  all, at any total size — the selection is the plain slice again.
  *  ★★ 60 IS A JUDGEMENT CALL ABOUT TYPICAL PROJECT SIZE, NOT A GUARANTEE. It is
  *  meant to cover a large project's `milestoneSlip` and `raidAging` sets plus
- *  the three singletons, and the resulting guardrail budget of 140 is 35 people
- *  across 4 rules — but `milestoneSlip` is one row per overdue milestone and
+ *  the three singletons, and the resulting guardrail budget of 140 is 28 people
+ *  across 5 rules — but `milestoneSlip` is one row per overdue milestone and
  *  `raidAging` one per aging RAID item, and NEITHER is bounded by anything in
  *  the repo. A project with 60 aging RAID items plus a 250-row guardrail fetch
  *  still loses `overdueTrend`, exactly as before this reservation existed.

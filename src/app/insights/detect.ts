@@ -15,7 +15,7 @@ import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resou
 import { INSIGHT_SEVERITY_RANK, type DetectedInsight, type InsightType } from "./insight";
 
 /** The five detectors that run without TimeLog configuration — i.e. everything
- *  in `INSIGHT_TYPES` that is not one of the four guardrail rules.
+ *  in `INSIGHT_TYPES` that is not one of the guardrail rules.
  *
  *  ★★★ MEMBERSHIP HERE IS NOT A LICENCE TO CLEAR, and reading it as one is a
  *  shipped defect. This docstring used to claim all five need "no per-device
@@ -263,7 +263,7 @@ function raidAgingInsights(raid: readonly RaidItem[], today: string): DetectedIn
  *  `timelog-policy.ts`; this only names the person and attaches the ref.
  *  Severity is uniform: a cap breach is a review prompt, not a ranking.
  *  ★ `count` is load-bearing beyond the sentence — it is the `METRIC_FIELD`
- *  for all four types, so an outcome delta reads null without it. */
+ *  for every guardrail type, so an outcome delta reads null without it. */
 function timelogGuardrailInsights(
   violations: readonly TimelogViolation[] | null,
   resources: readonly Resource[],

@@ -40,6 +40,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Dispatch, SetStateAction } from "react";
 import type { Insight } from "./insights/insight";
+import type { Absence } from "./types";
 import type { TimelogDailyRoll, TimelogLinks } from "./timelog-types";
 import { dailyKey } from "./timelog-types";
 import { saveActualsCache } from "./timelog-actuals-store";
@@ -47,6 +48,7 @@ import { saveLandingState } from "./landing-state";
 
 let setInsightsRef: Dispatch<SetStateAction<readonly Insight[] | undefined>> | null = null;
 let setTimelogLinksRef: Dispatch<SetStateAction<TimelogLinks | undefined>> | null = null;
+let setAbsencesRef: Dispatch<SetStateAction<readonly Absence[]>> | null = null;
 
 /** The stored baseline, whichever METRIC_FIELD this type keeps it under. A
  *  `function` declaration so the hoisted `vi.mock` factory below can close over
@@ -79,6 +81,7 @@ vi.mock("./workspace-section", async (importOriginal) => {
       const ws = useWorkspace();
       setInsightsRef = ws.setInsights;
       setTimelogLinksRef = ws.setTimelogLinks;
+      setAbsencesRef = ws.setAbsences;
       return (
         <div data-testid="ws-insights">
           {(ws.insights ?? [])
@@ -129,6 +132,11 @@ const UNCOVERED_KEY = "timelog:timelogCapPerDay:11";
 const LINKED_CLEAN_KEY = "timelog:timelogWorkingHours:8";
 /** The same rule for a person with no link at all. */
 const UNLINKED_KEY = "timelog:timelogWorkingHours:12";
+/** §700 — the same link pair for the absence-day rule. */
+const ABSENT_LINKED_KEY = "timelog:timelogAbsenceDay:8";
+const ABSENT_UNLINKED_KEY = "timelog:timelogAbsenceDay:12";
+/** §700 — a live absence-day violation, detected from the seeded roll. */
+const ABSENT_FRESH_KEY = "timelog:timelogAbsenceDay:7";
 /** Core types — in `CORE_INSIGHT_TYPES`, nothing to do with TimeLog. Present
  *  because the fixture that omitted them let the drop-core mutant ship green. */
 const CORE_KEY = "stalledWork:core";
@@ -243,6 +251,8 @@ const uncoveredInsight = acted({ id: 7, key: UNCOVERED_KEY, type: "timelogCapPer
  *  linked and user 12 is not, so the link is the only difference between them. */
 const linkedCleanInsight = acted({ id: 8, key: LINKED_CLEAN_KEY, type: "timelogWorkingHours", count: 2 });
 const unlinkedInsight = acted({ id: 9, key: UNLINKED_KEY, type: "timelogWorkingHours", count: 3 });
+const absentLinkedInsight = acted({ id: 10, key: ABSENT_LINKED_KEY, type: "timelogAbsenceDay", count: 2 });
+const absentUnlinkedInsight = acted({ id: 11, key: ABSENT_UNLINKED_KEY, type: "timelogAbsenceDay", count: 3 });
 /** A CORE type that consumes `holidaySet` — `budgetVarianceInsight` threads it
  *  into `computeBudgetReport`, so an empty-because-unloaded set moves the very
  *  number its threshold compares against. */
@@ -326,6 +336,7 @@ function seedCache(over: Partial<Parameters<typeof saveActualsCache>[1]> = {}): 
 async function mountAndReconcile(
   insights: readonly Insight[],
   linksOverride: TimelogLinks = links,
+  absences: Absence[] = [],
 ): Promise<void> {
   render(<TaskManager />);
   await screen.findByTestId("ws-insights", undefined, { timeout: MOUNT_MS });
@@ -334,6 +345,7 @@ async function mountAndReconcile(
   act(() => {
     setInsightsRef!(insights);
     setTimelogLinksRef!(linksOverride);
+    setAbsencesRef!(absences);
   });
 
   await waitFor(
@@ -345,6 +357,7 @@ async function mountAndReconcile(
 beforeEach(() => {
   setInsightsRef = null;
   setTimelogLinksRef = null;
+  setAbsencesRef = null;
   // Back to the real hook's no-countries behaviour, so one readiness test
   // cannot leak a frozen pipeline into whatever runs next under a shuffle.
   holidaysReadyRef = true;
@@ -553,6 +566,45 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
     });
     expectResolved(LINKED_CLEAN_KEY);
     expectFrozen(unlinkedInsight);
+  }, TEST_MS);
+
+  // §700 — the same floor for `timelogAbsenceDay`, which reads a person's
+  // absences through their link. Dropping it from the predicate's list resolves
+  // the unlinked row as a fabricated "improved".
+  it("resolves a linked person with no absence bookings and freezes an unlinked one", async () => {
+    seedCache({ dailyUsers: [7, 8, 9, 12] });
+    await mountAndReconcile([absentLinkedInsight, absentUnlinkedInsight], {
+      userLinks: [{ timelogUserId: 8, resourceId: 40, manual: true }],
+      projectLinks: [],
+      policy: {
+        timelogCapPerDay: { enabled: true, threshold: 8 },
+        timelogAbsenceDay: { enabled: true },
+      },
+    });
+    expectResolved(ABSENT_LINKED_KEY);
+    expectFrozen(absentUnlinkedInsight);
+  }, TEST_MS);
+
+  // §700 — the workspace's absences reach the engine. User 7's 12h day is
+  // inside the seeded vacation, so the rule must raise it; with `absences`
+  // dropped at either call site it raises nothing.
+  it("raises a booking on an absence day from the workspace's absences", async () => {
+    await mountAndReconcile(
+      [],
+      {
+        userLinks: [{ timelogUserId: 7, resourceId: 40, manual: true }],
+        projectLinks: [],
+        policy: {
+          timelogCapPerDay: { enabled: true, threshold: 8 },
+          timelogAbsenceDay: { enabled: true },
+        },
+      },
+      [{ id: 1, assignee: "", resourceId: 40, type: "vacation", startDate: "2026-08-24", endDate: "2026-08-24" }],
+    );
+    await waitFor(
+      () => expect(cellFor(ABSENT_FRESH_KEY)[1]).toBe("active"),
+      { timeout: RECONCILE_MS },
+    );
   }, TEST_MS);
 
   it("freezes a guardrail insight when partial holds a non-boolean", async () => {

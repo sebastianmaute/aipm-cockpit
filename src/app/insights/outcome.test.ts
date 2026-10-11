@@ -101,7 +101,7 @@ describe("METRIC_FIELD guard", () => {
       // derived expectation would pass against ANY map and pin nothing. Adding
       // an insight type is meant to land here and force the metric decision.
       ["budgetVariance", "milestoneSlip", "overdueTrend", "raidAging", "stalledWork",
-        "timelogCapPerDay", "timelogCapPerEntry", "timelogNonWorkingDay", "timelogWorkingHours"],
+        "timelogAbsenceDay", "timelogCapPerDay", "timelogCapPerEntry", "timelogNonWorkingDay", "timelogWorkingHours"],
     );
   });
 

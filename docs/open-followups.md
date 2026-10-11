@@ -935,7 +935,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§697](#697-the-fused-desktop-apps-runtime-behaviour-is-unverified-runasnode-refusal-the-node_options-probes-control-killserver-and-server-childts-outside-tsc--open) | The fused desktop app's runtime behaviour is unverified: RunAsNode refusal, the NODE_OPTIONS probe's control, `killServer`, and `server-child.ts` outside tsc | — | — | open |
 | [§698](#698-a-jira-sync-overwrites-task-edits-adds-and-deletes-made-while-it-awaits-jira--closed-2026-10-11) | A Jira sync overwrites task edits, adds and deletes made while it awaits Jira | — | — | **CLOSED** 2026-10-11 |
 | [§699](#699-the-timelog-guardrails-have-no-closed-month-rule-because-no-period-lock-concept-exists--open) | The TimeLog guardrails have no closed-month rule, because no period-lock concept exists | — | — | open |
-| [§700](#700-the-timelog-guardrails-do-not-flag-time-booked-on-a-day-the-person-was-absent--open) | The TimeLog guardrails do not flag time booked on a day the person was absent | — | — | open |
+| [§700](#700-the-timelog-guardrails-do-not-flag-time-booked-on-a-day-the-person-was-absent--closed-2026-10-11) | The TimeLog guardrails do not flag time booked on a day the person was absent | — | — | **CLOSED** 2026-10-11 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44634,11 +44634,11 @@ OpenProject's fifth time-entry validation blocks bookings in a month already clo
 
 **Source:** §347's non-goals, filed at its closure.
 
-## 700. The TimeLog guardrails do not flag time booked on a day the person was absent — open
+## 700. The TimeLog guardrails do not flag time booked on a day the person was absent — CLOSED 2026-10-11
 
-**Status:** open 2026-10-11, filed when §347 closed. Reproduce with `grep -ci "absence" src/app/timelog-policy.ts`, which prints 0.
+**Status:** CLOSED 2026-10-11 on `feat/347-timelog-guardrails` (GitHub #674). A fifth guardrail, `timelogAbsenceDay`, flags a linked person's booking of more than 0 hours on a day inside one of their absences of type vacation, sick or training; `other` is not counted (owner ruling 2026-10-11). It is a `TimelogRuleId` and an `InsightType` like the other four, off by default, switched on in `timelog-settings.tsx`. `evaluateTimelogPolicy` now takes REQUIRED `absences` and `resources`, so a caller cannot omit them and certify a clean; absences match a person by `resourceId`, else by name through `absencesForResource`. The rule is evaluated only while some user link exists, and the runner in `use-insight-lifecycle.ts` certifies a clean only for a linked person, as it does for the two shift-dependent rules. Measured with `npx vitest run src/app/timelog-policy.test.ts src/app/task-manager.guardrail-reconcile.test.tsx src/app/use-insight-lifecycle.test.ts src/app/timelog-settings.test.tsx src/app/insights/ src/app/insights-panel.test.tsx src/app/timelog-sanitize.test.ts src/app/i18n-encoding.test.ts src/app/i18n.test.ts --maxWorkers=2`: 25 files, 461 passed (9 new policy tests, 7 red before the rule existed). Mutants 9/9 killed: `other` counted, `training` not counted, a 0-hour cell flagged, the end date exclusive, no name match, no link floor in the engine, no per-person floor at the call site, the hook dropping `absences`, the caller dropping them.
 
-**Work item:** #674
+**Status before closure:** open 2026-10-11, filed when §347 closed. Reproduce with `grep -ci "absence" src/app/timelog-policy.ts`, which printed 0.
 
 Time booked on a day the person was on vacation or sick is the strongest booking signal the app holds, and the inputs exist: absences are workspace data, and `AbsenceType` separates `training`, which is bookable, from `vacation` and `sick`. §347 left it out because it was scoped to parity with OpenProject's five rules. A rule here would be a fifth `InsightType` beside the four, and it inherits their constraint: it counts as evaluated only when bookings and the person's absences are both known, so that a missing input freezes its insights rather than resolving them.
 

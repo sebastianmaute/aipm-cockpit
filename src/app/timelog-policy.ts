@@ -1,4 +1,4 @@
-// Pure, i18n-free. The four TimeLog guardrail rules.
+// Pure, i18n-free. The five TimeLog guardrail rules.
 //
 // ★★★ REVIEW-TIME, NOT CREATE-TIME. OpenProject's equivalents are validations on
 // entries its own users write. Cockpit never writes a time entry, so these flag
@@ -21,7 +21,13 @@ import {
   type TimelogRuleId,
   type TimelogUserLink,
 } from "./timelog-types";
-import { DEFAULT_WEEK_HOURS, MAX_HOURS_PER_DAY, type Shift } from "./types";
+import { absencesForResource } from "./resource-capacity";
+import { DEFAULT_WEEK_HOURS, MAX_HOURS_PER_DAY, type Absence, type AbsenceType, type Resource, type Shift } from "./types";
+
+/** §700 — the absence types a booking may not fall on. `other` is left out:
+ *  it covers anything from a half day to an off-site, so a booking on it says
+ *  nothing (owner ruling 2026-10-11: vacation, sick and training count). */
+const ABSENCE_DAY_TYPES: ReadonlySet<AbsenceType> = new Set<AbsenceType>(["vacation", "sick", "training"]);
 
 export interface TimelogViolation {
   readonly rule: TimelogRuleId;
@@ -32,7 +38,7 @@ export interface TimelogViolation {
    *  entry). Lower-is-better, which is what metricAtAction/delta require. */
   readonly count: number;
   readonly worstHours: number;
-  /** The number compared against. 0 for the two rules that have no cap. */
+  /** The number compared against. 0 for the rules that have no cap. */
   readonly threshold: number;
   /** ★★★ The earliest and latest day that actually VIOLATED — never the earliest
    *  and latest day SCANNED. `reconcileInsights` needs to ask "does the current
@@ -64,6 +70,13 @@ export interface TimelogPolicyInput {
   readonly holidaysReady: boolean;
   readonly userLinks: readonly TimelogUserLink[];
   readonly shifts: readonly Shift[];
+  /** §700. REQUIRED, like `holidaysReady`: a caller that forgot them would
+   *  make `timelogAbsenceDay` certify "no booking on an absence day" for
+   *  everyone, which `reconcileInsights` reads as a resolved breach. */
+  readonly absences: readonly Absence[];
+  /** Only for matching an absence that has no `resourceId` to a linked person
+   *  by name, the way `absencesForResource` does everywhere else. */
+  readonly resources: readonly Resource[];
 }
 
 export interface TimelogPolicyResult {
@@ -73,8 +86,8 @@ export interface TimelogPolicyResult {
   /** ★★★ THE PEOPLE WITH A RESOLVABLE LINK — the
    *  per-PERSON companion to `evaluated`, which is per-RULE and was not enough.
    *  `timelogWorkingHours` needs a resolvable link to know a person's expected
-   *  hours, and `timelogNonWorkingDay`'s weekday half needs it to know their
- *  weekend. The old
+   *  hours, `timelogNonWorkingDay`'s weekday half needs it to know their
+   *  weekend, and `timelogAbsenceDay` needs it to know their absences. The old
    *  floor asked only whether ANY link existed, so removing ONE person's link
    *  left the rule reporting itself evaluated while that person could no longer
    *  produce a violation — and the insight key is per person, so their row
@@ -160,6 +173,29 @@ function bump(
   if (date > cur.lastViolationDate) cur.lastViolationDate = date;
 }
 
+/** The days each linked resource is absent on a counted type, as inclusive
+ *  ISO ranges. Keyed by resource id, so a booking is checked against its own
+ *  person only. A link whose resource was deleted still matches absences that
+ *  carry its `resourceId`; it cannot match by name, having no name left. */
+function absenceRanges(
+  userLinks: readonly TimelogUserLink[],
+  absences: readonly Absence[],
+  resources: readonly Resource[],
+): Map<number, readonly Absence[]> {
+  const counted = absences.filter((a) => ABSENCE_DAY_TYPES.has(a.type));
+  const byId = new Map(resources.map((r) => [r.id, r]));
+  const out = new Map<number, readonly Absence[]>();
+  for (const { resourceId } of userLinks) {
+    if (out.has(resourceId)) continue;
+    const resource = byId.get(resourceId);
+    out.set(
+      resourceId,
+      resource === undefined ? counted.filter((a) => a.resourceId === resourceId) : absencesForResource(counted, resource),
+    );
+  }
+  return out;
+}
+
 function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
   return [...m.entries()]
     .sort((a, b) => a[0] - b[0])
@@ -176,7 +212,7 @@ function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
 }
 
 export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyResult {
-  const { daily, policy, holidaySet, holidaysReady, userLinks, shifts } = input;
+  const { daily, policy, holidaySet, holidaysReady, userLinks, shifts, absences, resources } = input;
   if (daily === null || policy === undefined) return EMPTY;
 
   const userToResource = new Map(userLinks.map((l) => [l.timelogUserId, l.resourceId]));
@@ -189,6 +225,7 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   const dayCap = policy.timelogCapPerDay;
   const nonWorking = policy.timelogNonWorkingDay;
   const working = policy.timelogWorkingHours;
+  const absent = policy.timelogAbsenceDay;
 
   const doEntry = entryCap?.enabled === true && isCap(entryCap.threshold);
   const doDay = dayCap?.enabled === true && isCap(dayCap.threshold);
@@ -210,11 +247,16 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // ★★ The link floor is what stops a false clean: with no links this rule can
   // produce nothing, and producing nothing is what clear() reads as "resolved".
   const doWorking = working?.enabled === true && userLinks.length > 0;
+  // §700 — the same link floor, for the same reason: absences are per resource,
+  // so with no links this rule can produce nothing.
+  const doAbsent = absent?.enabled === true && userLinks.length > 0;
+  const absentOn = doAbsent ? absenceRanges(userLinks, absences, resources) : new Map<number, readonly Absence[]>();
 
   const perEntry = new Map<number, Accum>();
   const perDay = new Map<number, Accum>();
   const perNonWorking = new Map<number, Accum>();
   const perWorking = new Map<number, Accum>();
+  const perAbsent = new Map<number, Accum>();
   // ★★★ BUILT FROM THE LINKS, NEVER FROM THE ROLL'S CELLS — and building it
   // from cells, as the first cut did, made a linked person who booked NOTHING
   // freeze permanently. The question this set answers is "could the
@@ -267,12 +309,12 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // its INSTINCT was right and only its conclusion about `evaluated` was wrong.
   // Both halves were weighed; do not re-derive one of them and flip this back.
   // ★★ PER-ROLL, NOT PER-RULE, deliberately: an unreadable cell might have
-  // violated ANY of the four, so none of them can certify.
+  // violated ANY of the rules, so none of them can certify.
   // ★★★ AND PER-ROLL MEANS EVERY PERSON, NOT JUST THE ONE THE CELL BELONGED TO.
   // This comment read "so none of them can certify for the person it belonged
   // to", which understates the blast radius by the width of the whole roll:
   // `skipped` is a single flag over one `evaluateTimelogPolicy` call, so one
-  // unreadable cell withholds `evaluated` for all four rules across EVERY user
+  // unreadable cell withholds `evaluated` for every rule across EVERY user
   // in that roll. On the `!isDailyCell` branch the person is in fact
   // identifiable (`parseDailyKey` succeeded), so a narrower per-user withholding
   // is CONSTRUCTIBLE there — it is not built because the `parsed === null`
@@ -338,6 +380,15 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     if (doWorking && definedHours !== null && definedHours > 0 && cell.hours > definedHours) {
       bump(perWorking, userId, resourceId, cell.hours, definedHours, date);
     }
+    // ★ A 0-hour cell is not time booked, so it is not flagged.
+    if (
+      doAbsent &&
+      resourceId !== null &&
+      cell.hours > 0 &&
+      (absentOn.get(resourceId) ?? []).some((a) => a.startDate <= date && date <= a.endDate)
+    ) {
+      bump(perAbsent, userId, resourceId, cell.hours, 0, date);
+    }
   }
 
   const evaluated: TimelogRuleId[] = [];
@@ -347,6 +398,7 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     timelogCapPerDay: { on: doDay, acc: perDay },
     timelogNonWorkingDay: { on: doNonWorking, acc: perNonWorking },
     timelogWorkingHours: { on: doWorking, acc: perWorking },
+    timelogAbsenceDay: { on: doAbsent, acc: perAbsent },
   };
   for (const rule of TIMELOG_RULE_IDS) {
     const { on, acc } = byRule[rule];
