@@ -27,9 +27,11 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * see `isEmptyArrayResult` for the one normalisation it lets through), and a
  * filtered local declared in an ENCLOSING function, not only the nearest one.
  *
- * ★★★ ITS BOUND. A removal written another way passes unseen: a committer that
- * copies its parameter into a local before handing it on, a committer whose
- * parameter is destructured, a setter handed a parameter of an OUTER function, a
+ * Since 2026-10-11 a committer's parameter may also be destructured, or aliased by
+ * a local before it is handed on (`isParameterHandOff`).
+ *
+ * ★★★ ITS BOUND. A removal written another way passes unseen: a setter handed a
+ * parameter of an OUTER function, a
  * rebuild accumulator (`const next = []` plus a push per kept row) that skips a
  * row, a filtered local hidden by a same-named plain local in a sibling function
  * (each scope is searched whole, nested closures included, first match wins), a
@@ -234,8 +236,12 @@ function isRemovalArgument(arg: ts.Expression): boolean {
  *  caller computes — a `.filter(` in another file included — reaches the slice
  *  through here, so the committer is judged as a removal route itself. Its
  *  callers are not followed: the committer is the one place every one of them
- *  passes through. ★ Only a plain identifier parameter of the NEAREST function
- *  counts; a destructured one, or a local alias of a parameter, is not seen.
+ *  passes through. A parameter of the NEAREST function counts whether plain or
+ *  destructured (`({ next }) =>`, `([next]) =>`), and so does a local of that
+ *  function's own body that aliases one (`const list = next;`, `const { next } =
+ *  args;`), through any chain of such aliases. ★ A parameter of an OUTER function
+ *  is not seen, nor an alias declared in a nested function, nor a parameter that
+ *  is transformed (`next.slice()`) rather than aliased.
  *  ★ It fails CLOSED on an inline callback's parameter: `onChange={(next) =>
  *  setTasks(next)}` counts as a committer, and since it resolves to its component
  *  it is refused with no exemption path. Give it a named handler. None today. */
@@ -244,7 +250,31 @@ function isParameterHandOff(arg: ts.Expression): boolean {
   if (!ts.isIdentifier(e)) return false;
   let fn: ts.Node | undefined = arg.parent;
   while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
-  return !!fn && fn.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === e.text);
+  return !!fn && derivesFromParameter(fn as ts.SignatureDeclaration, e.text, new Set());
+}
+
+/** The names a binding introduces: `next`, or each name in `{ next }` / `[a, { b }]`, at any depth. */
+function boundNames(b: ts.BindingName): string[] {
+  if (ts.isIdentifier(b)) return [b.text];
+  return b.elements.flatMap((el) => (ts.isOmittedExpression(el) ? [] : boundNames(el.name)));
+}
+
+/** `name` is a parameter of `fn`, or a local of `fn`'s own body (nested functions not
+ *  searched) whose initializer is, after `unwrap`, another such name. `seen` stops a cycle. */
+function derivesFromParameter(fn: ts.SignatureDeclaration, name: string, seen: Set<string>): boolean {
+  if (seen.has(name)) return false;
+  seen.add(name);
+  if (fn.parameters.some((p) => boundNames(p.name).includes(name))) return true;
+  let init: ts.Expression | undefined;
+  const visit = (n: ts.Node): void => {
+    if (init || (n !== fn && ts.isFunctionLike(n))) return;
+    if (ts.isVariableDeclaration(n) && n.initializer && boundNames(n.name).includes(name)) { init = n.initializer; return; }
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(fn, visit);
+  if (!init) return false;
+  const source = unwrap(init);
+  return ts.isIdentifier(source) && derivesFromParameter(fn, source.text, seen);
 }
 /** `allowDestructiveSave()`, `x.allowDestructiveSave?.()`, or the ref a hook keeps it in,
  *  `allowDestructiveSaveRef.current?.()`. Never `allowDestructiveSaveAnyway`, the user's own
@@ -379,6 +409,13 @@ describe("scanSource (the scanner itself)", () => {
     expect(site!.fn).toBe("onRemove");
   });
 
+  // §293, 2026-10-11: an alias is followed only through the committer's own body, and only as a plain copy.
+  it("ignores a transformed parameter, an alias declared in a nested function, and an alias cycle", () => {
+    expect(scan(`function commit(next) { const list = next.slice(); setTasks(list); }`)).toEqual([]);
+    expect(scan(`function commit(next) { const h = () => { const list = next; }; setTasks(list); }`)).toEqual([]);
+    expect(scan(`function f() { let a = b; let b = a; setTasks(a); }`)).toEqual([]);
+  });
+
   it("ignores an edit, an unlisted setter, a filter outside the setter's value, and a rebuild accumulator", () => {
     expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
     expect(scan(`function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`)).toEqual([]);
@@ -415,6 +452,12 @@ describe("scanSource (the scanner itself)", () => {
     ["a length test inside a &&", `function reset() { setTasks((p) => (p.length && keep ? p : [])); }`],
     ["a length compared with another list", `function reset() { setTasks((p) => (p.length > other.length ? p : [])); }`],
     ["a local filtered list one function out", `function Comp() { const kept = tasks.filter(Boolean); const save = () => { setTasks(kept); }; }`],
+    // §293, widened 2026-10-11: a committer's parameter destructured, or aliased first.
+    ["a committer's destructured parameter", `const commit = ({ next }) => { setTasks(next); };`],
+    ["a committer's array-destructured parameter", `function commit([first, { next }]) { setTasks(next); }`],
+    ["a local alias of a committer's parameter", `function commit(next) { const list = next; setTasks(list); }`],
+    ["a chain of aliases through a cast", `function commit(next) { const a = next; const b = a as Task[]; setTasks(b); }`],
+    ["a destructured local of a committer's parameter", `function commit(args) { const { next } = args; setTasks(next); }`],
   ])("finds %s", (_label, src) => {
     expect(scan(src).map((x) => x.setter)).toEqual(["setTasks"]);
   });
@@ -422,6 +465,7 @@ describe("scanSource (the scanner itself)", () => {
   it("judges a committer by its own body, and ignores a parameter of an OUTER function", () => {
     expect(scan(`function commit(next) { if (gone) allowDestructiveSave?.(); setTasks(next); }`)[0]).toMatchObject({ fn: "commit", armed: true });
     expect(scan(`function outer(next) { const h = () => { setTasks(next); }; }`)).toEqual([]);
+    expect(scan(`function outer(next) { const h = () => { const l = next; setTasks(l); }; }`)).toEqual([]);
   });
 });
 
