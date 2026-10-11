@@ -10,6 +10,13 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A dialog that opens on a text field keeps the cursor there.** Renaming a document or adding a linked
+  task now leaves focus in the field, so you can type straight away; until now focus moved to the
+  dialog's help button as it opened, so typing went nowhere until you clicked the field. Closing either
+  dialog now also puts focus back on the button that opened it; it used to drop to the page.
+
 ## [1.17.0] - 2026-10-10 "Mankell"
 
 A feature release. The start screen offers an "Explore the demo" card that opens a sample project

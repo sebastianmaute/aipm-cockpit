@@ -1,14 +1,17 @@
 "use client";
 
-// Shared modal shell. Owns the cross-cutting a11y concerns so the four
-// concrete modals in this app don't each re-implement them inconsistently:
+// Shared modal shell. Owns the cross-cutting a11y concerns so the concrete
+// modals in this app don't each re-implement them inconsistently (count them:
+// `git grep -l "<Modal\b" -- "src/app/*.tsx" ":!*.test.tsx"`):
 //
 //   • role="dialog" + aria-modal + aria-label/aria-labelledby
 //   • Document-level Escape handler (fires regardless of focus location;
 //     replaces three different ad-hoc implementations).
 //   • Focus trap — Tab and Shift+Tab cycle within the dialog. Without this,
 //     Tab can move focus to the disabled underlying UI (WCAG 2.4.3).
-//   • Initial focus on open — `initialFocusRef` if supplied, else the FIRST
+//   • Initial focus on open — `initialFocusRef` if supplied; else, when a
+//     control inside the dialog already has focus (a child's `autoFocus`),
+//     focus stays there; else the FIRST
 //     FOCUSABLE CHILD, and only then the dialog root, which is reached only
 //     when the panel has no focusable content at all. ★★ That order is
 //     load-bearing, and this line used to state the last two the other way
@@ -20,7 +23,9 @@
 //     the preference order is what keeps it from arising otherwise. A reader
 //     took the old wording at face value on 2026-09-01 and reported every
 //     modal in the app as leaking its first Tab.
-//   • Focus restore on close to whichever element had focus before opening.
+//   • Focus restore on close to whichever element had focus before opening,
+//     including when a child's `autoFocus` took focus at commit (the opener is
+//     then read off that focus event's `relatedTarget`).
 //   • Backdrop click closes (via `e.target === e.currentTarget` so clicks
 //     inside the panel never bubble to dismissal).
 //
@@ -31,9 +36,9 @@
 //   • i18n. The component takes a plain string label so it never has to
 //     reach into the lazy-loaded German dictionary.
 //
-// Migration note: the four migrated modals previously rolled their own
-// Escape handling (three different implementations) and none of them
-// trapped focus or restored it on close — this component fixes all four.
+// Migration note: the first four modals moved onto this shell had rolled their
+// own Escape handling (three different implementations) and none of them
+// trapped focus or restored it on close. Every modal since was built on it.
 
 import {
   useEffect,
@@ -125,6 +130,9 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const pressStartedOnBackdrop = useRef(false);
+  // The element focus last came from when it entered or moved inside the
+  // dialog, read off the focus event's `relatedTarget` (`onFocus` on the root).
+  const openerRef = useRef<HTMLElement | null>(null);
   // Stable per-instance token for the shared dismissal stack.
   const tokenRef = useRef<symbol>(Symbol("modal"));
   // Mirror onClose into a ref so the keydown effect can depend on [open] ALONE.
@@ -151,10 +159,18 @@ export function Modal({
   // the dialog after children mount, restore on close/unmount.
   useEffect(() => {
     if (!open) return;
-    const previouslyFocused =
+    // ★★ This effect runs AFTER commit, and a child's `autoFocus` has already
+    // moved focus into the dialog by then, so `activeElement` would be that
+    // child: gone on close, so nothing was restored and focus fell to <body>.
+    // In that case the opener is the one the root's `onFocus` read off the
+    // focus event's `relatedTarget` during commit.
+    const active =
       typeof document !== "undefined"
         ? (document.activeElement as HTMLElement | null)
         : null;
+    const dialogEl = dialogRef.current;
+    const previouslyFocused =
+      active && dialogEl?.contains(active) ? openerRef.current : active;
 
     // Defer one frame so deep children (e.g. lazy datalist options) have
     // committed before we look up focusables.
@@ -166,14 +182,34 @@ export function Modal({
       // (WCAG 2.4.7); a real control is both visible-focus correct and the
       // natural start of the tab order.
       const root = dialogRef.current;
+      const explicit = initialFocusRef?.current ?? null;
+      // ★★ A control INSIDE the dialog already holding focus keeps it, unless
+      // an explicit `initialFocusRef` says otherwise. That is a child's
+      // `autoFocus` (React focuses it at commit, before this frame runs) or a
+      // click the user made in the first frame. Moving it anyway sent the
+      // rename modal's focus from its autoFocus title field to the header's
+      // help button, so typing went nowhere until the field was clicked (in
+      // the unit test, the frame landed between user.type's click and its
+      // keystroke). The root itself does not count: it carries no focus ring.
+      const active = typeof document !== "undefined" ? document.activeElement : null;
+      if (!explicit && root && active instanceof HTMLElement && active !== root && root.contains(active)) return;
       const firstFocusable =
         root?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? null;
-      const target = initialFocusRef?.current ?? firstFocusable ?? root ?? null;
+      const target = explicit ?? firstFocusable ?? root ?? null;
       target?.focus();
     });
 
     return () => {
       cancelAnimationFrame(raf);
+      // ★★ Only a REAL close restores. StrictMode runs this cleanup and the
+      // effect again with the dialog still in the page; restoring there moved
+      // focus to the opener, and the second run's frame then saw focus outside
+      // the dialog and sent it to the first focusable, losing a child's
+      // autoFocus in dev. Asked of the dialog ELEMENT this run captured, not of
+      // `dialogRef`: React 19's StrictMode detaches refs in that replay too, so
+      // the ref reads null exactly as on a real close (measured). On a real
+      // close the element has left the document.
+      if (dialogEl?.isConnected) return;
       // Only restore if the previously-focused element is still in the
       // document — it may have been removed if the user navigated.
       if (
@@ -304,6 +340,12 @@ export function Modal({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledby}
       tabIndex={-1}
+      onFocus={(e) => {
+        // Where focus came from. React runs this during commit, when a child's
+        // `autoFocus` fires, which is before the focus effect above reads it.
+        // Later moves overwrite it, harmlessly: the effect reads it only then.
+        if (e.relatedTarget instanceof HTMLElement) openerRef.current = e.relatedTarget;
+      }}
       onMouseDown={(e) => {
         pressStartedOnBackdrop.current = e.target === e.currentTarget;
       }}
