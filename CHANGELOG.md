@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A Jira sync no longer undoes changes you make while it runs.** A sync that pushes local changes
+  to Jira waits on Jira for each one, and anything you edited, added or deleted in the task list during
+  that wait was overwritten when it finished: an edit reverted, a new task vanished, a deleted task came
+  back. The sync now merges its results into the list as it is when it finishes, and keeps your changes.
+
 - **A dialog that opens on a text field keeps the cursor there.** Renaming a document or adding a linked
   task now leaves focus in the field, so you can type straight away; until now focus moved to the
   dialog's help button as it opened, so typing went nowhere until you clicked the field. Closing either
