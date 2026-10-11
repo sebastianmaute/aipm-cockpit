@@ -284,8 +284,7 @@ function parseNewTask(o: Record<string, unknown>, why: string): RawWbsItem | nul
 function parseItem(raw: unknown): RawWbsItem | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const why = toStr(o.why);
-  if (why === null) return null;
+  const why = optStr(o.why) ?? ""; // a missing explanation must not discard a valid change
   switch (o.kind) {
     case "split": {
       const taskId = toInt(o.taskId);

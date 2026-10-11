@@ -62,7 +62,6 @@ describe("parseWbsProposal", () => {
         { kind: "regroup", taskId: 2, why: "w" },
         { kind: "regroup", group: "G", why: "w" },
         { kind: "regroup", taskId: 2, group: 5, why: "w" },
-        { kind: "regroup", taskId: 2, group: "G" },
         { kind: "regroup", taskId: "0x10", group: "G", why: "w" },
         { kind: "regroup", taskId: "1e2", group: "G", why: "w" },
         { kind: "regroup", taskId: 1.5, group: "G", why: "w" },
@@ -104,6 +103,19 @@ describe("parseWbsProposal", () => {
       { kind: "split", taskId: 1, why: "w", pieces: [] },
       { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "only", estimateMinutes: 0 }] },
       { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "" }, { taskName: "b", estimateMinutes: 99999 }] },
+    ]);
+  });
+
+  test("keeps an item whose why is missing or not a string", () => {
+    const r = parseWbsProposal({
+      items: [
+        { kind: "regroup", taskId: 2, group: "G" },
+        { kind: "regroup", taskId: 3, group: "G", why: 5 },
+      ],
+    });
+    expect(r?.items).toEqual([
+      { kind: "regroup", taskId: 2, group: "G", why: "" },
+      { kind: "regroup", taskId: 3, group: "G", why: "" },
     ]);
   });
 
