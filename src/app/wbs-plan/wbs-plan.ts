@@ -68,8 +68,9 @@ export interface WbsContextArgs {
   project: ProjectMeta | undefined;
 }
 
-/** Collapse newlines/control chars so a name cannot inject extra digest lines. */
-function oneLine(v: string): string {
+/** Collapse newlines/control chars so a name cannot inject extra digest lines.
+ *  Also how grounding normalises a ref, so the preview matches refs with it. */
+export function oneLine(v: string): string {
   return v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").trim();
 }
 
@@ -414,14 +415,14 @@ interface GroundState {
   splitClaims: Set<number>;
   /** Every split item seen per task id, kept or not. A piece target names a
    *  task and a piece number, never a split, so once a task has two split
-   *  items "piece 2" could mean either one's piece: every piece ≥ 2 target on
-   *  that task is refused (`ambiguousPiece`) instead of being bound to the
-   *  split that was kept. */
+   *  items "piece 2" could mean either one's piece: every target on a piece
+   *  2..MAX_SPLIT_PIECES of that task is refused (`ambiguousPiece`) instead
+   *  of being bound to the split that was kept. A piece outside that range
+   *  is `unresolvedRef`, as for any task (R7). */
   splitItems: Map<number, number>;
-  /** Existing group spellings by trimmed, lower-cased name — the rule
-   *  `useWbsPlan().open` scopes a group by — so a proposed "design" writes
-   *  the project's "Design" instead of a near-duplicate group. */
-  groups: ReadonlyMap<string, string>;
+  /** Group spellings, see `canonicalGroup`. Kept new groups are added as they
+   *  are grounded, so "Testing" and "testing" in one proposal become one. */
+  groups: GroupIndex;
   regroupClaims: Set<number>;
   refClaims: Set<string>;
   /** Kept splits by task id: the node id of each piece (piece 1 = the task). */
@@ -449,20 +450,45 @@ function groupKey(g: string): string {
   return g.trim().toLowerCase();
 }
 
-/** First spelling wins, in task order, so the result is deterministic. */
-function existingGroups(tasks: readonly Task[]): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const t of tasks) {
-    const g = t.group ?? "";
-    const k = groupKey(g);
-    if (k !== "" && !m.has(k)) m.set(k, g);
-  }
-  return m;
+interface GroupIndex {
+  /** Stored spelling by trimmed spelling. */
+  exact: Map<string, string>;
+  /** Stored spelling by trimmed, lower-cased spelling — the rule
+   *  `useWbsPlan().open` scopes a group by. */
+  byKey: Map<string, string>;
 }
 
-/** A sanitized proposed group, spelled as the existing group it matches. */
-function canonicalGroup(group: string, st: GroundState): string {
-  return st.groups.get(groupKey(group)) ?? group;
+/** First spelling wins, in task order, so the result is deterministic. */
+function existingGroups(tasks: readonly Task[]): GroupIndex {
+  const idx: GroupIndex = { exact: new Map(), byKey: new Map() };
+  for (const t of tasks) {
+    const g = t.group ?? "";
+    if (g.trim() === "") continue;
+    if (!idx.exact.has(g.trim())) idx.exact.set(g.trim(), g);
+    if (!idx.byKey.has(groupKey(g))) idx.byKey.set(groupKey(g), g);
+  }
+  return idx;
+}
+
+/** A sanitized proposed group, spelled as the group it means. An exact
+ *  (trimmed) match keeps that group, even when another spelling of it exists:
+ *  the Open Points filter treats "Design" and "DESIGN" as two groups. Only
+ *  without one does the case-insensitive match apply, preferring `own` (the
+ *  task's current group, for a regroup), so a proposed "design" writes the
+ *  project's "Design" instead of a near-duplicate group. */
+function canonicalGroup(group: string, st: GroundState, own = ""): string {
+  if (group === "") return "";
+  const exact = st.groups.exact.get(group);
+  if (exact !== undefined) return exact;
+  if (own.trim() !== "" && groupKey(own) === groupKey(group)) return own;
+  return st.groups.byKey.get(groupKey(group)) ?? group;
+}
+
+/** Record a kept group that no existing spelling matched. */
+function rememberGroup(group: string, st: GroundState): void {
+  if (group === "" || st.groups.byKey.has(groupKey(group))) return;
+  st.groups.exact.set(group, group);
+  st.groups.byKey.set(groupKey(group), group);
 }
 
 function isValidEstimate(m: number): boolean {
@@ -506,9 +532,11 @@ function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipRe
   if (typeof live === "string") return live;
   // Piece 1 is the original row whether or not a split of it is kept.
   if (target.kind === "task" || target.piece === 1) return { node: live.id, base: live, requires: null };
+  // R7: a piece no split could have is unresolved, ambiguous or not.
+  if (target.piece < 1 || target.piece > MAX_SPLIT_PIECES) return "unresolvedRef";
   if ((st.splitItems.get(live.id) ?? 0) > 1) return "ambiguousPiece";
   const split = st.splits.get(live.id);
-  if (!split || target.piece < 1 || target.piece > split.pieceIds.length) return "unresolvedRef";
+  if (!split || target.piece > split.pieceIds.length) return "unresolvedRef";
   return { node: split.pieceIds[target.piece - 1], base: live, requires: split.key };
 }
 
@@ -538,13 +566,17 @@ function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict
   const live = checkLiveTask(item.taskId, st);
   if (typeof live === "string") return live;
   if (st.regroupClaims.has(live.id)) return "duplicateTarget";
-  const group = canonicalGroup(sanitizeGroup(item.group), st);
+  const own = live.group ?? "";
+  const group = canonicalGroup(sanitizeGroup(item.group), st, own);
   if (group === "") return "emptyGroup";
   // A move to the group the task is already in changes nothing, so it is not
-  // offered (it would stamp lastUpdateDate and count as applied). Compared by
-  // the same key as `canonicalGroup`, so "Design" → "design" is refused too.
-  if (groupKey(group) === groupKey(live.group ?? "")) return "sameGroup";
+  // offered (it would stamp lastUpdateDate and count as applied). After
+  // `canonicalGroup`, "DESIGN" → "design" resolves to the task's own group and
+  // is refused, while "DESIGN" → "Design" names another existing group and is
+  // a real move.
+  if (group.trim() === own.trim()) return "sameGroup";
   st.regroupClaims.add(live.id);
+  rememberGroup(group, st);
   return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
 }
 
@@ -573,6 +605,7 @@ function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict
     ...(estimateMinutes !== undefined ? { estimateMinutes } : {}),
     why: oneLine(item.why),
   };
+  if (clean.group !== undefined) rememberGroup(clean.group, st);
   return { key, item: clean, baseRows: [], requires: [] };
 }
 

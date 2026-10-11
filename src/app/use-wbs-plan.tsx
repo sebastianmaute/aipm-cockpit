@@ -60,6 +60,7 @@ import { mintIds } from "./id-mint-session";
 import { isTaskClosed } from "./task-closed";
 import { resolveTimezone, todayInZone } from "./timezone";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import { sanitizeText } from "./sanitize-core";
 
 type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
@@ -67,6 +68,9 @@ type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
  *  like the system prompt, never translated. */
 const DEFAULT_WBS_INSTRUCTION =
   "Review the in-scope tasks and propose the most valuable work-breakdown improvements.";
+/** Cap on the user's instruction, the one `optimize_wbs` applies on the chat
+ *  path (`chat-tools.ts`), so a large paste never reaches the billed request. */
+const MAX_WBS_INSTRUCTION_CHARS = 1000;
 
 export interface WbsPlanDeps {
   settings: Settings;
@@ -129,6 +133,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // discarded (no stale preview, no stale error toast).
   const reqIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  // Set when a load hold closed the flow; the notice waits for the hold to end.
+  const closedByHoldRef = useRef(false);
   // The scope epoch the current proposal was requested in (captured before the
   // await); Apply drops the write when it moved.
   const epochRef = useRef<number | undefined>(undefined);
@@ -178,15 +184,24 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // during render, so the effect does it: refs only, no state.
   // ★ The modal covers the app, so a hold that starts mid-flow is one the user
   // did not start here (a backend-change reload, a swap from another surface):
-  // the effect says why the flow closed. `showToast` is the toast context's
-  // function, not a state setter of this component, so the effect still sets
-  // no state of its own; it fires once, because it frees `phaseRef` after.
+  // the effect says why the flow closed — but only once the hold ENDS: while
+  // it lasts, the app shell (and the toast with it) is replaced by a skeleton,
+  // and the toast's dismiss timer would run out unseen. `showToast` is the
+  // toast context's function, not a state setter of this component, so the
+  // effect still sets no state of its own; it fires once, because it frees
+  // `phaseRef` and clears `closedByHoldRef`.
   if (loadPending && phase !== "idle") clearFlowState();
   useEffect(() => {
-    if (!loadPending) return;
+    if (!loadPending) {
+      if (closedByHoldRef.current) {
+        closedByHoldRef.current = false;
+        showToast("info", t(lang, "wbsPlanClosedByLoad"));
+      }
+      return;
+    }
     abortRef.current?.abort();
     reqIdRef.current++;
-    if (phaseRef.current !== "idle") showToast("info", t(lang, "wbsPlanClosedByLoad"));
+    if (phaseRef.current !== "idle") closedByHoldRef.current = true;
     phaseRef.current = "idle";
   }, [loadPending, showToast, lang]);
 
@@ -207,7 +222,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         const parsed = await runWbsProposal(
           context,
           { apiKey, model: settings.ai.model },
-          text.trim() || DEFAULT_WBS_INSTRUCTION,
+          sanitizeText(text, MAX_WBS_INSTRUCTION_CHARS) || DEFAULT_WBS_INSTRUCTION,
           controller.signal,
         );
         if (reqId !== reqIdRef.current) return; // superseded — discard

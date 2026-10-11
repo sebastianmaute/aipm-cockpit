@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { t, type TranslationKey } from "./i18n";
+import { t, tPlural, type TranslationKey } from "./i18n";
 import { de } from "./i18n.de";
 
 const NEW_KEYS: TranslationKey[] = [
@@ -116,6 +116,13 @@ describe("t() placeholder substitution", () => {
     expect(t("en-US", "wbsPlanPieceNamed", "A $& $` $' $1", 2, "B")).toBe("A $& $` $' $1 (piece 2 of B)");
   });
 
+  // The most likely real input, in a one-value message and in a last slot:
+  // the old string replacement turned "$$" into "$" in any slot.
+  it("keeps $$ in an argument literal, in any slot", () => {
+    expect(t("en-US", "wbsPlanMinutes", "US$$5")).toBe("US$$5 min");
+    expect(t("en-US", "wbsPlanPieceNamed", "A", 2, "Cost $$")).toBe("A (piece 2 of Cost $$)");
+  });
+
   it("leaves a placeholder that has no argument as written", () => {
     expect(t("en-US", "wbsPlanPieceNamed", "A")).toBe("A (piece {1} of {2})");
     expect(t("en-US", "wbsPlanPieceNamed")).toBe("{0} (piece {1} of {2})");
@@ -134,20 +141,38 @@ describe("t() placeholder substitution", () => {
 
 describe("work-breakdown notices name their real cause (§3)", () => {
   // A link on unchanged rows can go stale through a cycle via a third row, and
-  // the load hold also closes the instruction dialog, before any proposal.
+  // the load hold also closes the instruction dialog, before any proposal. The
+  // stale text avoids "depend on": the preview calls links "Dependencies".
   it("EN", () => {
-    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because the tasks they depend on changed.");
-    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because the tasks it depends on changed.");
+    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because tasks they would change were edited in the meantime.");
+    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because tasks it would change were edited in the meantime.");
     expect(t("en-US", "wbsPlanClosedByLoad")).toBe("The project is loading, so Optimize with AI was closed.");
   });
 
   it("DE", () => {
     expect(de.wbsPlanStaleSkipped).toBe(
-      "{0} Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
+      "{0} Änderungen wurden übersprungen, weil sich Aufgaben, die sie ändern würden, inzwischen geändert haben.",
     );
     expect(de.wbsPlanStaleSkippedOne).toBe(
-      "1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
+      "1 Änderung wurde übersprungen, weil sich Aufgaben, die sie ändern würde, inzwischen geändert haben.",
     );
     expect(de.wbsPlanClosedByLoad).toBe("Das Projekt wird geladen, daher wurde „Mit KI optimieren“ geschlossen.");
+  });
+});
+
+describe("the allocation plan's combined applied-and-skipped notice", () => {
+  it("has a plural and a singular form in EN and DE", () => {
+    expect(tPlural("en-US", "allocPlanAppliedSkipped", 2, 3, 2)).toBe(
+      "Allocation changes applied: 3. 2 changes were skipped because the plan changed.",
+    );
+    expect(tPlural("en-US", "allocPlanAppliedSkipped", 1, 3, 1)).toBe(
+      "Allocation changes applied: 3. 1 change was skipped because the plan changed.",
+    );
+    expect(de.allocPlanAppliedSkipped).toBe(
+      "Angewendete Planungsänderungen: {0}. {1} Änderungen wurden übersprungen, weil sich die Planung geändert hat.",
+    );
+    expect(de.allocPlanAppliedSkippedOne).toBe(
+      "Angewendete Planungsänderungen: {0}. 1 Änderung wurde übersprungen, weil sich die Planung geändert hat.",
+    );
   });
 });

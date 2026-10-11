@@ -128,27 +128,60 @@ describe("groundWbsProposal — value checks", () => {
     expect(r.items.map((g) => g.item)).toEqual([{ kind: "regroup", taskId: 1, group: "Ops", why: "" }]);
   });
 
-  // The same rule `useWbsPlan().open` scopes a group by: trimmed, case-insensitive.
-  test("a group that matches an existing one up to case is written in the existing spelling", () => {
-    const tasks = [task(1, { group: "Core" }), task(2, { group: "Design" }), task(3), task(4, { group: "DESIGN" })];
+  const groupOf = (g: { item: RawWbsItem }) =>
+    g.item.kind === "regroup" || g.item.kind === "newTask" ? g.item.group : null;
+
+  // Only WITHOUT an exact match does the scope rule (trimmed, case-insensitive)
+  // pick an existing spelling.
+  test("a group that matches an existing one only up to case is written in the existing spelling", () => {
+    const tasks = [task(1, { group: "Core" }), task(2, { group: "Design" }), task(3)];
     const r = ground(
       [
         { kind: "regroup", taskId: 1, group: "design", why: "" },
         newTask("a", { group: " DESIGN " }),
         { kind: "regroup", taskId: 2, group: "design", why: "" },
         { kind: "regroup", taskId: 3, group: "Brand new", why: "" },
-        { kind: "regroup", taskId: 4, group: "design", why: "" },
       ],
       tasks,
     );
-    expect(r.items.map((g) => (g.item.kind === "regroup" || g.item.kind === "newTask" ? g.item.group : null))).toEqual([
-      "Design",
-      "Design",
-      "Brand new",
-    ]);
-    // Task 2 is already in "Design", and task 4's "DESIGN" is the same group
-    // to the scope rule, so neither is moved (task 4 is not respelled either).
+    expect(r.items.map(groupOf)).toEqual(["Design", "Design", "Brand new"]);
+    // Task 2 is already in "Design", so "design" moves it nowhere.
+    expect(r.skipped.map((x) => x.reason)).toEqual(["sameGroup"]);
+  });
+
+  // The Open Points filter matches groups exactly, so "Design" and "DESIGN"
+  // are two groups there: the model's exact pick must not move to the other.
+  test("an exact match to one of two spellings keeps that spelling, and a move between them is real", () => {
+    const tasks = [
+      task(1, { group: "Core" }),
+      task(2, { group: "Design" }),
+      task(3, { group: "DESIGN" }),
+      task(4, { group: "DESIGN" }),
+      task(5, { group: "Design" }),
+    ];
+    const r = ground(
+      [
+        newTask("a", { group: " DESIGN " }),
+        { kind: "regroup", taskId: 1, group: "DESIGN", why: "" },
+        { kind: "regroup", taskId: 3, group: "Design", why: "" },
+        { kind: "regroup", taskId: 4, group: "design", why: "" },
+        { kind: "regroup", taskId: 5, group: "Design", why: "" },
+      ],
+      tasks,
+    );
+    expect(r.items.map(groupOf)).toEqual(["DESIGN", "DESIGN", "Design"]);
+    // No exact "design": for task 4 it resolves to its own "DESIGN", so it is
+    // not moved; task 5 is already exactly in "Design".
     expect(r.skipped.map((x) => x.reason)).toEqual(["sameGroup", "sameGroup"]);
+  });
+
+  test("two new groups in one proposal that differ only by case become one", () => {
+    const r = ground([
+      newTask("a", { group: "Testing" }),
+      { kind: "regroup", taskId: 1, group: "testing", why: "" },
+      newTask("b", { group: " TESTING " }),
+    ]);
+    expect(r.items.map(groupOf)).toEqual(["Testing", "Testing", "Testing"]);
   });
 
   test("badDate", () => {
@@ -259,6 +292,18 @@ describe("groundWbsProposal — value checks", () => {
     // Piece 1 is the task itself, so its link is not ambiguous.
     expect(r.items.map((g) => g.key)).toEqual(["i1", "i4"]);
     expect(r.skipped.map((x) => x.reason)).toEqual(["badPieces", "ambiguousPiece", "ambiguousPiece"]);
+  });
+
+  // R7: a piece number no split could have is unresolved, whatever the splits.
+  test("a piece below 1 or past the largest split on a task split twice is unresolvedRef, not ambiguousPiece", () => {
+    const r = ground([
+      split(1, MAX_SPLIT_PIECES + 1),
+      split(1, 3),
+      link(P(1, 0), T(2)),
+      { kind: "estimate", target: P(1, -3), estimateMinutes: 30, why: "" },
+      link(P(1, MAX_SPLIT_PIECES + 1), T(3)),
+    ]);
+    expect(r.skipped.map((x) => x.reason)).toEqual(["badPieces", "unresolvedRef", "unresolvedRef", "unresolvedRef"]);
   });
 
   test("a split and a regroup of the same task are both kept", () => {

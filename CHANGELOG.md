@@ -33,10 +33,14 @@ longer carries its own changelog comment.
   dialog's help button as it opened, so typing went nowhere until you clicked the field. Closing either
   dialog now also puts focus back on the button that opened it; it used to drop to the page.
 
-- **A name containing `{1}` or `$&` now shows as typed in messages.** When such a name filled the
-  first slot of a message with more than one value, the later values were inserted into the name
-  instead, or the `$` sequence was replaced; a task named "Phase {1}" could read "Phase 2 (piece {1} of
-  Build API)".
+- **A name containing `$` sequences (such as `$$` or `$&`) or `{1}` is now shown as typed in every
+  message.** A `$` sequence in any value of any message was expanded, so "US$$5" showed as "US$5"; and a
+  value containing `{1}` that came before a later value had that value inserted into it, so a task named
+  "Phase {1}" could read "Phase 2 (piece {1} of Build API)".
+
+- **Planning resource allocations with AI now tells you how many changes it applied when some were
+  skipped.** When some of the chosen cells had changed since the proposal, the notice reported only the
+  skipped ones and hid that the rest were applied. One notice now gives both counts.
 
 ## [1.17.0] - 2026-10-10 "Mankell"
 

@@ -1014,14 +1014,22 @@
   ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
   exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
   that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
-  A proposed group is matched to an existing one trimmed and case-insensitively, the rule `open()` scopes
-  a group by, and written in the existing spelling; a regroup to the group the task is already in (by that
-  rule) is refused (`sameGroup`). A second split or regroup of one task is refused (`duplicateTarget`)
-  only after a first one was KEPT: a malformed first split claims nothing. ★ But a piece target names a
-  task and a piece number, never a split, so once a task has two split items, kept or not, every piece ≥ 2
-  target on it is refused (`ambiguousPiece`) rather than bound to the kept split. When every proposed item
-  is refused, the preview still opens, showing only the "Not applied" list with its reasons and a Close
-  button in place of Apply and Cancel; only an empty proposal is reported as "no changes".
+  ★ A proposed group that EXACTLY (trimmed) matches an existing group keeps that spelling, because the
+  Open Points filter treats "Design" and "DESIGN" as two groups. Only without an exact match is it
+  matched trimmed and case-insensitively, the rule `open()` scopes a group by: for a regroup, the task's
+  own group first, then the first existing spelling; a kept new group is remembered, so "Testing" and
+  "testing" in one proposal become one. A regroup that resolves to the task's own group is refused
+  (`sameGroup`); a move from "DESIGN" to an existing "Design" is a real move. A second split or regroup
+  of one task is refused (`duplicateTarget`) only after a first one was KEPT: a malformed first split
+  claims nothing. ★ But a piece target names a task and a piece number, never a split, so once a task has
+  two split items, kept or not, a target on its piece 2 to `MAX_SPLIT_PIECES` is refused
+  (`ambiguousPiece`) rather than bound to the kept split, and the "Not applied" row names that piece
+  without the kept split's piece name; a piece outside that range is `unresolvedRef` (R7). When every
+  proposed item is refused, the preview still opens, showing only the "Not applied" list with its
+  reasons and a Close button, with no Apply, no Cancel and no undo note; only an empty proposal is
+  reported as "no changes". The instruction is capped at 1000 characters (`sanitizeText`) when it is
+  proposed, as the chat tool's is, and a partial apply reports the applied and skipped counts in ONE
+  toast (`wbsPlanAppliedSkipped`), since a second toast would replace the first.
   ★ That estimate rule covers estimate ITEMS only: a split's piece 1 rewrites the original row, so it may
   re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
   the preview shows the rename, the estimate before → after and a "replaces the description" marker.
@@ -1035,8 +1043,10 @@
   the toolbar trigger and Apply refuse while `loadPending`, a hold that begins mid-flow closes the
   dialog or preview (the state through a render-time reconcile, as `use-blockers-window.ts` does; the abort of a
   running call and the discarded request generation through a refs-only effect, since refs may not be
-  touched during render; that effect also shows the `wbsPlanClosedByLoad` notice when the flow was not
-  idle, since the modal covers the app and the hold was not started from it), and the scope epoch captured before the call is
+  touched during render; that effect also records that the flow was not idle
+  and shows the `wbsPlanClosedByLoad` notice when the hold ENDS, since the modal covers the app, the hold
+  was not started from it, and while it lasts the shell, toast included, is a skeleton whose toast timer
+  would run out unseen), and the scope epoch captured before the call is
   checked by `dropStaleScopeWrite` after it and again at Apply (a moved epoch drops the proposal with the
   `wbsPlanScopeChanged` notice). `getScopeEpoch` and `loadPending` are REQUIRED on `WbsPlanDeps`. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
   longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps

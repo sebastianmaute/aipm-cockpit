@@ -229,19 +229,24 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
         staleCount++;
       }
     }
-    if (staleCount > 0) {
-      showToast("info", tPlural(lang, "allocPlanSkippedStale", staleCount, staleCount));
-    }
+    // ★ ONE toast per apply: there is a single toast slot, so a second call
+    // in this handler replaces the first. A partial apply reports both counts
+    // in one message; the stale count alone is shown only when nothing applied.
+    const showStaleOnly = () => {
+      if (staleCount > 0) showToast("info", tPlural(lang, "allocPlanSkippedStale", staleCount, staleCount));
+    };
     if (fresh.length === 0) {
-      // Every chosen cell had moved — the stale toast above already told the
-      // user why; there is nothing left to apply.
+      // Every chosen cell had moved — say why; there is nothing left to apply.
+      showStaleOnly();
       reset();
       return;
     }
 
     const result = applyAllocationCells(before, fresh, new Date().toISOString());
     if (result.editedBefore.length === 0) {
-      // Nothing actually changed (e.g. resources moved under us) — close quietly.
+      // Nothing actually changed (e.g. resources moved under us) — close,
+      // reporting only the skipped cells, if any.
+      showStaleOnly();
       reset();
       return;
     }
@@ -262,7 +267,14 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     // selection count (`chosen.length`) — the two diverge exactly when the
     // stale-cell guard above dropped one or more cells.
     logActivityAs?.("ai", "ai.allocationPlan", fresh.length);
-    showToast("info", tPlural(lang, "allocPlanApplied", fresh.length, fresh.length));
+    // The combined key is picked by the stale count; the applied count rides
+    // a count-neutral "applied: {0}".
+    showToast(
+      "info",
+      staleCount > 0
+        ? tPlural(lang, "allocPlanAppliedSkipped", staleCount, fresh.length, staleCount)
+        : tPlural(lang, "allocPlanApplied", fresh.length, fresh.length),
+    );
     reset();
   }, [phase, cells, selected, resources, setResources, capture, logActivityAs, showToast, lang, reset]);
 

@@ -222,6 +222,15 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "wbsPlanEmpty"));
   });
 
+  // The chat path caps instructions at 1000 characters; the toolbar must too.
+  it("caps the toolbar instruction sent to the model at 1000 characters", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    renderHarness();
+    await proposeFromButton(`  ${"x".repeat(5000)}`);
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runWbsProposal).mock.calls[0][2]).toBe("x".repeat(1000));
+  });
+
   it("an empty proposal toasts wbsPlanEmpty and resets", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
     renderHarness();
@@ -283,20 +292,20 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(byId(api().ws.tasks, 3)?.group).toBe("Infra");
     expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
     expect(screen.getByTestId("toast")).toHaveTextContent(
-      "Work-breakdown changes applied: 2. 1 change was skipped because the tasks it depends on changed.",
+      "Work-breakdown changes applied: 2. 1 change was skipped because tasks it would change were edited in the meantime.",
     );
   });
 
   it("the combined notice has EN and DE plural forms", async () => {
     await loadI18n("de");
     expect(tPlural("en-US", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
-      "Work-breakdown changes applied: 2. 3 changes were skipped because the tasks they depend on changed.",
+      "Work-breakdown changes applied: 2. 3 changes were skipped because tasks they would change were edited in the meantime.",
     );
     expect(tPlural("de", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
-      "Übernommene Änderungen an den Arbeitspaketen: 2. 3 Änderungen wurden übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängen.",
+      "Übernommene Änderungen an den Arbeitspaketen: 2. 3 Änderungen wurden übersprungen, weil sich Aufgaben, die sie ändern würden, inzwischen geändert haben.",
     );
     expect(tPlural("de", "wbsPlanAppliedSkipped", 1, 4, 1)).toBe(
-      "Übernommene Änderungen an den Arbeitspaketen: 4. 1 Änderung wurde übersprungen, weil sich die Aufgaben geändert haben, von denen sie abhängt.",
+      "Übernommene Änderungen an den Arbeitspaketen: 4. 1 Änderung wurde übersprungen, weil sich Aufgaben, die sie ändern würde, inzwischen geändert haben.",
     );
   });
 
@@ -609,21 +618,30 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    it("a load hold that closes an open preview tells the user why", async () => {
+    // While the hold lasts the app shell (and the toast) is a skeleton, so the
+    // notice waits for the hold to END, or its dismiss timer runs out unseen.
+    it("a load hold that closes an open preview tells the user why once the hold ends", async () => {
       vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
       const api = renderHarness();
       await proposeFromButton();
       await screen.findByRole("checkbox", { name: /include this change/i });
       showToast.mockClear();
       api.reprops({ loadPending: true });
+      expect(showToast).not.toHaveBeenCalled();
+      api.reprops({ loadPending: false });
       expect(showToast).toHaveBeenCalledTimes(1);
       expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanClosedByLoad"));
+      // A later hold with the flow idle says nothing more.
+      api.reprops({ loadPending: true });
+      api.reprops({ loadPending: false });
+      expect(showToast).toHaveBeenCalledTimes(1);
     });
 
-    it("a load hold while the flow is idle says nothing", () => {
+    it("a load hold while the flow is idle says nothing, during it or after it", () => {
       const api = renderHarness();
       showToast.mockClear();
       api.reprops({ loadPending: true });
+      api.reprops({ loadPending: false });
       expect(showToast).not.toHaveBeenCalled();
     });
 

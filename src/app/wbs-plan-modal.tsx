@@ -20,7 +20,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { htmlPlainProjection } from "./rich-text-plain";
 import { sanitizeMultiline, sanitizeTaskName } from "./sanitize-core";
 import type { Task } from "./types";
-import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason, WbsTarget } from "./wbs-plan/wbs-plan";
+import { oneLine, type GroundedWbsItem, type RawWbsItem, type SkippedWbsItem, type WbsSkipReason, type WbsTarget } from "./wbs-plan/wbs-plan";
 
 export interface WbsPlanModalProps {
   lang: Lang;
@@ -109,18 +109,28 @@ export function WbsPlanModal({
       : t(lang, "wbsPlanPieceLabel", taskName(taskId), piece);
   };
 
-  // A ref resolves to the newTask that declares it. Piece 1 is stored as the
-  // task itself, so a task this proposal splits is labelled as its piece 1.
-  const targetLabel = (target: WbsTarget): string => {
+  // A ref resolves to the newTask that declares it, compared the way grounding
+  // normalises refs (a refused item still carries the raw one). Piece 1 is
+  // stored as the task itself, so a task this proposal splits is labelled as
+  // its piece 1. On an `ambiguousPiece` item a piece ≥ 2 gets the unnamed
+  // label: naming the kept split's piece would assert the binding the reason
+  // says cannot be made.
+  const targetLabel = (target: WbsTarget, ambiguous = false): string => {
     if (target.kind === "task") return splitOf(target.id) ? pieceLabel(target.id, 1) : taskName(target.id);
-    if (target.kind === "piece") return pieceLabel(target.taskId, target.piece);
-    for (const g of items) {
-      if (g.item.kind === "newTask" && g.item.ref === target.ref) return g.item.taskName;
+    if (target.kind === "piece") {
+      return ambiguous && target.piece !== 1
+        ? t(lang, "wbsPlanPieceLabel", taskName(target.taskId), target.piece)
+        : pieceLabel(target.taskId, target.piece);
     }
-    return target.ref;
+    const ref = oneLine(target.ref);
+    for (const g of items) {
+      if (g.item.kind === "newTask" && g.item.ref === ref) return g.item.taskName;
+    }
+    return sanitizeTaskName(ref);
   };
 
-  const subject = (item: RawWbsItem): string => {
+  const subject = (item: RawWbsItem, reason?: WbsSkipReason): string => {
+    const ambiguous = reason === "ambiguousPiece";
     switch (item.kind) {
       case "split":
       case "regroup":
@@ -130,9 +140,9 @@ export function WbsPlanModal({
         // otherwise render as a row with nothing before its reason.
         return sanitizeTaskName(item.taskName) || t(lang, "wbsPlanUnnamedNewTask");
       case "estimate":
-        return targetLabel(item.target);
+        return targetLabel(item.target, ambiguous);
       case "link":
-        return t(lang, "wbsPlanLinkRow", targetLabel(item.from), targetLabel(item.to));
+        return t(lang, "wbsPlanLinkRow", targetLabel(item.from, ambiguous), targetLabel(item.to, ambiguous));
     }
   };
 
@@ -293,7 +303,7 @@ export function WbsPlanModal({
               <ul className="mt-2 space-y-1">
                 {skipped.map((s, i) => (
                   <li key={`${i}:${s.reason}`} className="text-xs text-muted-foreground">
-                    {subject(s.item)} — {t(lang, SKIP_REASON_KEY[s.reason])}
+                    {subject(s.item, s.reason)} — {t(lang, SKIP_REASON_KEY[s.reason])}
                   </li>
                 ))}
               </ul>
@@ -302,8 +312,9 @@ export function WbsPlanModal({
         </div>
 
         <div className="flex items-center gap-2 border-t border-line px-6 py-4">
-          <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t(lang, "wbsPlanUndoNote")}</p>
-          {/* Nothing can be applied, so dismissal is the only action. */}
+          {/* Nothing can be applied, so dismissal is the only action and
+              there is nothing to undo. The empty paragraph keeps Close right. */}
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">{allSkipped ? null : t(lang, "wbsPlanUndoNote")}</p>
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={applying}>
             {t(lang, allSkipped ? "close" : "wbsPlanCancel")}
           </Button>

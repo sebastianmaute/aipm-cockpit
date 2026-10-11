@@ -384,6 +384,41 @@ describe("WbsPlanModal", () => {
     ).toBeVisible();
   });
 
+  it("shows the undo note only when something can be applied", () => {
+    render5();
+    expect(screen.getByText(t("en-US", "wbsPlanUndoNote"))).toBeInTheDocument();
+    cleanup();
+    render5({
+      items: [],
+      selected: new Set(),
+      skipped: [{ item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" }],
+    });
+    expect(screen.queryByText(t("en-US", "wbsPlanUndoNote"))).toBeNull();
+  });
+
+  // The kept split names its piece 2 "Implement API", but the reason says the
+  // piece cannot be chosen, so the row must not name it.
+  it("labels a piece of an ambiguousPiece item without the kept split's piece name", () => {
+    const skipped: SkippedWbsItem[] = [
+      {
+        item: { kind: "link", from: { kind: "piece", taskId: 1, piece: 2 }, to: { kind: "task", id: 2 }, why: "" },
+        reason: "ambiguousPiece",
+      },
+    ];
+    render5({ skipped });
+    expect(
+      screen.getByText(`Build API — piece 2 must finish before Write docs — ${t("en-US", "wbsPlanSkip_ambiguousPiece")}`),
+    ).toBeInTheDocument();
+  });
+
+  it("resolves an untrimmed ref on a refused item to the new task's name", () => {
+    const skipped: SkippedWbsItem[] = [
+      { item: { kind: "estimate", target: { kind: "ref", ref: "  r1\n" }, estimateMinutes: 30, why: "" }, reason: "hasEstimate" },
+    ];
+    render5({ skipped });
+    expect(screen.getByText(`Release notes — ${t("en-US", "wbsPlanSkip_hasEstimate")}`)).toBeInTheDocument();
+  });
+
   it("keeps the Not-applied list collapsed and shows no all-refused note while something can apply", () => {
     const skipped: SkippedWbsItem[] = [
       { item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" },
