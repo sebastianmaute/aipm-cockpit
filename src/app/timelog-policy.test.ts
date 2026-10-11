@@ -784,6 +784,54 @@ describe("timelogAbsenceDay", () => {
     expect(res.absenceUsers).toEqual([8]);
     expect(res.linkedUsers).toEqual([7, 8]);
   });
+
+  it("checks two TimeLog users linked to one resource against that resource's absences", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1], [dailyKey(8, TUE)]: [4, 4, 1] }),
+      [absence(1, "vacation", TUE, TUE, { resourceId: 40 })],
+      { links: [link(7, 40), link(8, 40)], resources: [resource(40, "Ada", "Lovelace")] },
+    );
+    expect(res.violations.map((v) => [v.timelogUserId, v.resourceId])).toEqual([[7, 40], [8, 40]]);
+    expect(res.absenceUsers).toEqual([7, 8]);
+  });
+
+  it("matches an absence by resourceId even when its name is someone else's", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1] }),
+      [absence(1, "sick", TUE, TUE, { resourceId: 40, assignee: "Grace Hopper" })],
+      { resources: [resource(40, "Ada", "Lovelace"), resource(41, "Grace", "Hopper")] },
+    );
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+  });
+
+  // Review finding: an absence with unreadable dates stops matching silently,
+  // and "no absence booking" would then certify a clean. Its person freezes
+  // instead, as an unreadable cell freezes the roll. Other people are unaffected.
+  it("does not certify a person who has a counted absence with unreadable dates", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1], [dailyKey(8, TUE)]: [4, 4, 1] }),
+      [
+        absence(1, "vacation", "2026-9-1", TUE, { resourceId: 40 }),
+        absence(2, "sick", WED, TUE, { resourceId: 41 }),
+        absence(3, "training", TUE, TUE, { resourceId: 42 }),
+      ],
+      {
+        links: [link(7, 40), link(8, 41), link(9, 42)],
+        resources: [resource(40, "Ada", "Lovelace"), resource(41, "Grace", "Hopper"), resource(42, "Alan", "Turing")],
+      },
+    );
+    expect(res.absenceUsers).toEqual([9]);
+    expect(res.evaluated).toEqual(["timelogAbsenceDay"]);
+  });
+
+  it("ignores unreadable dates on an absence type the rule does not count", () => {
+    const res = run(
+      roll({ [dailyKey(7, TUE)]: [3, 3, 1] }),
+      [absence(1, "other", "", "", { resourceId: 40 })],
+      { resources: [resource(40, "Ada", "Lovelace")] },
+    );
+    expect(res.absenceUsers).toEqual([7]);
+  });
 });
 
 describe("rule ids are insight types", () => {

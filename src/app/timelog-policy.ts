@@ -29,6 +29,15 @@ import { DEFAULT_WEEK_HOURS, MAX_HOURS_PER_DAY, type Absence, type AbsenceType, 
  *  nothing (owner ruling 2026-10-11: vacation, sick and training count). */
 const ABSENCE_DAY_TYPES: ReadonlySet<AbsenceType> = new Set<AbsenceType>(["vacation", "sick", "training"]);
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** An absence whose range the rule can read: two ISO days, start <= end. The
+ *  dates are compared as strings, so anything else matches nothing, silently —
+ *  and silence is what `reconcileInsights` reads as a clean. */
+function isReadableAbsence(a: Absence): boolean {
+  return ISO_DAY.test(a.startDate) && ISO_DAY.test(a.endDate) && a.startDate <= a.endDate;
+}
+
 export interface TimelogViolation {
   readonly rule: TimelogRuleId;
   readonly timelogUserId: number;
@@ -106,7 +115,11 @@ export interface TimelogPolicyResult {
    *  resource there is no name to match an absence stored without a
    *  `resourceId` against, so "no absence booking" is not an answer and the
    *  person's row must freeze rather than resolve. Violations it CAN see (an
-   *  absence carrying the `resourceId`) are still reported. */
+   *  absence carrying the `resourceId`) are still reported.
+   *  ★★ A person with a counted absence whose dates are unreadable is left out
+   *  too: that absence can match no booking, so "no absence booking" is not an
+   *  answer for them — the same rule as an unreadable roll cell, scoped to the
+   *  one person it belongs to. */
   readonly absenceUsers: readonly number[];
 }
 
@@ -259,7 +272,7 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // §700 — the same link floor, for the same reason: absences are per resource,
   // so with no links this rule can produce nothing.
   const doAbsent = absent?.enabled === true && userLinks.length > 0;
-  const absentOn = doAbsent ? absenceRanges(userLinks, absences, resources) : new Map<number, readonly Absence[]>();
+  const absentOn = absenceRanges(userLinks, absences, resources);
 
   const perEntry = new Map<number, Accum>();
   const perDay = new Map<number, Accum>();
@@ -421,6 +434,8 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     violations.push(...drain(rule, acc));
   }
   const known = new Set(resources.map((r) => r.id));
-  const absenceUsers = userLinks.filter((l) => known.has(l.resourceId)).map((l) => l.timelogUserId);
+  const absenceUsers = userLinks
+    .filter((l) => known.has(l.resourceId) && (absentOn.get(l.resourceId) ?? []).every(isReadableAbsence))
+    .map((l) => l.timelogUserId);
   return { violations, evaluated, linkedUsers: [...linked], absenceUsers: [...new Set(absenceUsers)] };
 }

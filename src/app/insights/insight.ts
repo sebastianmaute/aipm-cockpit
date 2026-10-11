@@ -187,7 +187,7 @@ export const MAX_INSIGHTS = 200;
 /** The TimeLog guardrail members of `INSIGHT_TYPES`, as a set for the admission
  *  test in `reconcileInsights`. One reader today.
  *  ★★★ DERIVED FROM `TIMELOG_RULE_IDS`, NEVER RESPELLED — and that is the whole
- *  value of this constant, because the four literals already exist twice (the
+ *  value of this constant, because the five literals already exist twice (the
  *  guardrail tail of `INSIGHT_TYPES` above, and `TIMELOG_RULE_IDS`). A third
  *  hand-written copy stood here and consolidated nothing; do not reintroduce
  *  one. Deriving makes drift a TYPE ERROR: rename a rule id without renaming

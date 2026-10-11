@@ -208,9 +208,15 @@ types through the validator was weighed and rejected.
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
   (see the `timelog-policy.ts` header). ★ All five measure `count` (violating days), never `worstHours`.
-  ★★ `timelogAbsenceDay`, `timelogWorkingHours` and `timelogNonWorkingDay` read a person through their
-  TimeLog link, so the runner certifies a clean for them only for a LINKED person (`linkedUsers`); an
-  unlinked person's row freezes. Absences match by `resourceId`, else by name, as `absencesForResource` does.
+  ★★ `timelogWorkingHours` and `timelogNonWorkingDay` read a person through their TimeLog link, so the
+  runner certifies a clean for them only for a LINKED person (`linkedUsers`); an unlinked person's row
+  freezes. ★★★ `timelogAbsenceDay` uses the STRICTER `absenceUsers`: a link whose resource still EXISTS,
+  and none of whose counted absences has unreadable dates. Do not fold it into the `linkedUsers` branch. A
+  dangling link keeps an answer for the shift rules (`definedHours` falls back to `DEFAULT_WEEK_HOURS`),
+  but without the resource there is no name to match an absence stored without a `resourceId`, and an
+  unreadable absence matches nothing; either way "no absence booking" is not an answer, and certifying it
+  resolves a stored row as a fabricated "improved". Absences match by `resourceId`, else by name, as
+  `absencesForResource` does.
 - **Changing a detector — sweep for the tests the change INVALIDATES, repo-wide (§598).** Before the
   change, not after the first red pipeline, run
   `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx` (it prints five files today —

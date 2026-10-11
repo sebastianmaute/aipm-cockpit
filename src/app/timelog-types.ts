@@ -73,8 +73,8 @@ export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogAbsenceDay",
 ];
 
-/** `threshold` is hours. Absent on the two rules that compare against the
- *  shift rather than a number. */
+/** `threshold` is hours. Absent on the three rules that compare against
+ *  something other than a number: the shift, holidays, or absences. */
 export type TimelogRulePolicy = { enabled: boolean; threshold?: number };
 
 /** Partial by construction: an unconfigured rule has NO key, which is what
