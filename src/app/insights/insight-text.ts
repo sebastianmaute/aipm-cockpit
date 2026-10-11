@@ -32,6 +32,7 @@ export const INSIGHT_TYPE_LABEL_KEY: Record<InsightType, TranslationKey> = {
   timelogCapPerDay: "insightTimelogCapPerDayTitle",
   timelogNonWorkingDay: "insightTimelogNonWorkingDayTitle",
   timelogWorkingHours: "insightTimelogWorkingHoursTitle",
+  timelogAbsenceDay: "insightTimelogAbsenceDayTitle",
 };
 
 // Read a `data` field with a graceful fallback (a detector may omit a field).
@@ -86,5 +87,7 @@ export function insightDetail(insight: Insight, lang: Lang): string {
       return tPlural(lang, "insightTimelogNonWorkingDayDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
     case "timelogWorkingHours":
       return tPlural(lang, "insightTimelogWorkingHoursDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+    case "timelogAbsenceDay":
+      return tPlural(lang, "insightTimelogAbsenceDayDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
   }
 }
