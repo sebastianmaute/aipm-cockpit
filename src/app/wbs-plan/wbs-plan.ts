@@ -58,8 +58,13 @@ export interface WbsContextArgs {
   project: ProjectMeta | undefined;
 }
 
+/** Collapse newlines/control chars so a name cannot inject extra digest lines. */
+function oneLine(v: string): string {
+  return v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").trim();
+}
+
 function plainDescription(html: string | undefined): string {
-  const text = htmlPlainProjection(html ?? "").replace(/\s+/g, " ").trim();
+  const text = oneLine(htmlPlainProjection(html ?? "").replace(/\s+/g, " "));
   return text.length > WBS_CONTEXT_DESCRIPTION_CHARS
     ? `${text.slice(0, WBS_CONTEXT_DESCRIPTION_CHARS)}…`
     : text;
@@ -71,10 +76,10 @@ function taskLine(t: Task, inScope: boolean): string {
   const desc = plainDescription(t.description);
   return [
     `#${t.id}${inScope ? " [in scope]" : ""}`,
-    JSON.stringify(t.taskName),
-    `group=${t.group?.trim() || "-"}`,
+    JSON.stringify(oneLine(t.taskName)),
+    `group=${oneLine(t.group ?? "") || "-"}`,
     `status=${t.status}`,
-    `assignee=${t.assignee?.trim() || "-"}`,
+    `assignee=${oneLine(t.assignee ?? "") || "-"}`,
     `start=${t.startDate || "-"}`,
     `due=${t.dueDate || "-"}`,
     `estimate=${est}`,
@@ -91,13 +96,13 @@ export function buildWbsContext(args: WbsContextArgs): string {
   const { tasks, scopeIds, milestones, project } = args;
   const lines: string[] = [];
   if (project) {
-    lines.push(`PROJECT: ${project.name} ${project.startDate || "?"} .. ${project.endDate || "?"}`);
+    lines.push(`PROJECT: ${oneLine(project.name)} ${project.startDate || "?"} .. ${project.endDate || "?"}`);
   }
-  const groups = [...new Set(tasks.map((t) => t.group?.trim() ?? "").filter((g) => g !== ""))];
+  const groups = [...new Set(tasks.map((t) => oneLine(t.group ?? "")).filter((g) => g !== ""))];
   lines.push(`GROUPS: ${groups.length > 0 ? groups.join(", ") : "(none)"}`);
   lines.push("MILESTONES:");
   if (milestones.length === 0) lines.push("(none)");
-  for (const m of milestones) lines.push(`${m.date} ${m.name}`);
+  for (const m of milestones) lines.push(`${oneLine(m.date)} ${oneLine(m.name)}`);
 
   const ordered = [
     ...tasks.filter((t) => scopeIds.has(t.id)),
@@ -158,7 +163,7 @@ export const PROPOSE_WBS_TOOL = {
             taskId: { type: "integer", description: "split/regroup: the existing task." },
             pieces: {
               type: "array",
-              description: `split: 2..${MAX_SPLIT_PIECES} pieces; the first becomes the original row.`,
+              description: `split: at most ${MAX_SPLIT_PIECES} pieces; the first becomes the original row.`,
               items: {
                 type: "object",
                 properties: {
@@ -188,24 +193,32 @@ export const PROPOSE_WBS_TOOL = {
   },
 };
 
+const INT_STRING_RE = /^-?\d+$/;
+
+/** An integer given as a number, or as a string of decimal digits only —
+ *  never `Number()`'s looser readings ("0x10", "1e2", ""). */
 function toInt(v: unknown): number | null {
-  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
-  return Number.isInteger(n) ? n : null;
+  if (typeof v === "number") return Number.isInteger(v) ? v : null;
+  if (typeof v === "string" && INT_STRING_RE.test(v.trim())) {
+    const n = Number(v.trim());
+    return Number.isSafeInteger(n) ? n : null;
+  }
+  return null;
 }
 
-function toStr(v: unknown): string {
-  return typeof v === "string" ? v.trim() : "";
+/** A string kept VERBATIM (empty and blank included) — the grounding step
+ *  reports bad values to the user, so the parser must not hide them. */
+function toStr(v: unknown): string | null {
+  return typeof v === "string" ? v : null;
 }
 
 function optStr(v: unknown): string | undefined {
-  const s = toStr(v);
-  return s === "" ? undefined : s;
+  return typeof v === "string" ? v : undefined;
 }
 
-/** An estimate in 1..MAX_WBS_ESTIMATE_MINUTES, or null when absent/unusable. */
-function toEstimate(v: unknown): number | null {
-  const n = toInt(v);
-  return n !== null && n >= 1 && n <= MAX_WBS_ESTIMATE_MINUTES ? n : null;
+/** An optional estimate: kept verbatim when it is a finite number, else omitted. */
+function optEstimate(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
 function parseTarget(v: unknown): WbsTarget | null {
@@ -213,31 +226,31 @@ function parseTarget(v: unknown): WbsTarget | null {
   const o = v as { taskId?: unknown; ref?: unknown; piece?: unknown };
   if (o.ref !== undefined) {
     const ref = toStr(o.ref);
-    return o.taskId === undefined && o.piece === undefined && ref !== "" ? { kind: "ref", ref } : null;
+    return o.taskId === undefined && o.piece === undefined && ref !== null ? { kind: "ref", ref } : null;
   }
   const id = toInt(o.taskId);
   if (id === null) return null;
   if (o.piece === undefined) return { kind: "task", id };
   const piece = toInt(o.piece);
-  return piece !== null && piece >= 1 ? { kind: "piece", taskId: id, piece } : null;
+  return piece !== null ? { kind: "piece", taskId: id, piece } : null;
 }
 
 type SplitPieces = Extract<RawWbsItem, { kind: "split" }>["pieces"];
 
 function parsePieces(v: unknown): SplitPieces | null {
-  if (!Array.isArray(v) || v.length < 2) return null;
+  if (!Array.isArray(v)) return null;
   const pieces: SplitPieces = [];
-  for (const raw of v.slice(0, MAX_SPLIT_PIECES)) {
+  for (const raw of v) {
     if (!raw || typeof raw !== "object") return null;
     const p = raw as { taskName?: unknown; description?: unknown; estimateMinutes?: unknown };
     const taskName = toStr(p.taskName);
-    if (taskName === "") return null;
+    if (taskName === null) return null;
     const description = optStr(p.description);
-    const estimateMinutes = toEstimate(p.estimateMinutes);
+    const estimateMinutes = optEstimate(p.estimateMinutes);
     pieces.push({
       taskName,
-      ...(description ? { description } : {}),
-      ...(estimateMinutes !== null ? { estimateMinutes } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(estimateMinutes !== undefined ? { estimateMinutes } : {}),
     });
   }
   return pieces;
@@ -247,28 +260,32 @@ function parseNewTask(o: Record<string, unknown>, why: string): RawWbsItem | nul
   const ref = toStr(o.ref);
   const taskName = toStr(o.taskName);
   const dueDate = toStr(o.dueDate);
-  if (ref === "" || taskName === "" || dueDate === "") return null;
+  if (ref === null || taskName === null || dueDate === null) return null;
   const group = optStr(o.group);
   const description = optStr(o.description);
   const assignee = optStr(o.assignee);
-  const estimateMinutes = toEstimate(o.estimateMinutes);
+  const estimateMinutes = optEstimate(o.estimateMinutes);
   return {
     kind: "newTask",
     ref,
     taskName,
     dueDate,
-    ...(group ? { group } : {}),
-    ...(description ? { description } : {}),
-    ...(assignee ? { assignee } : {}),
-    ...(estimateMinutes !== null ? { estimateMinutes } : {}),
+    ...(group !== undefined ? { group } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(assignee !== undefined ? { assignee } : {}),
+    ...(estimateMinutes !== undefined ? { estimateMinutes } : {}),
     why,
   };
 }
 
+/** SHAPE check only: the kind is known, required fields exist with the right
+ *  JS type, targets have a valid shape. VALUES (empty strings, piece counts,
+ *  estimate ranges, dates) are kept so the grounding step can report them. */
 function parseItem(raw: unknown): RawWbsItem | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const why = toStr(o.why);
+  if (why === null) return null;
   switch (o.kind) {
     case "split": {
       const taskId = toInt(o.taskId);
@@ -278,13 +295,13 @@ function parseItem(raw: unknown): RawWbsItem | null {
     case "regroup": {
       const taskId = toInt(o.taskId);
       const group = toStr(o.group);
-      return taskId !== null && group !== "" ? { kind: "regroup", taskId, group, why } : null;
+      return taskId !== null && group !== null ? { kind: "regroup", taskId, group, why } : null;
     }
     case "newTask":
       return parseNewTask(o, why);
     case "estimate": {
       const target = parseTarget(o.target);
-      const estimateMinutes = toEstimate(o.estimateMinutes);
+      const estimateMinutes = typeof o.estimateMinutes === "number" && Number.isFinite(o.estimateMinutes) ? o.estimateMinutes : null;
       return target && estimateMinutes !== null ? { kind: "estimate", target, estimateMinutes, why } : null;
     }
     case "link": {
@@ -298,9 +315,10 @@ function parseItem(raw: unknown): RawWbsItem | null {
 }
 
 /** Parse the untrusted model tool input into shape-validated items. Returns
- *  null only when the overall shape is unusable (no `items` array); malformed
- *  items are dropped, not fatal. Stops at MAX_WBS_ITEMS and reports that via
- *  `truncated`. Ids/refs are grounded later against the live workspace. */
+ *  null only when the overall shape is unusable (no `items` array); items that
+ *  are structurally malformed are dropped, not fatal. Stops at MAX_WBS_ITEMS
+ *  and reports that via `truncated`. Values are NOT judged here — ids, refs,
+ *  pieces and ranges are grounded later against the live workspace. */
 export function parseWbsProposal(input: unknown): ParsedWbsProposal | null {
   if (!input || typeof input !== "object") return null;
   const itemsRaw = (input as { items?: unknown }).items;

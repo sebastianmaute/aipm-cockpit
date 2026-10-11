@@ -53,7 +53,7 @@ describe("parseWbsProposal", () => {
     ]);
   });
 
-  test("drops unknown kinds and items missing a required field without throwing", () => {
+  test("drops structurally malformed items without throwing", () => {
     const r = parseWbsProposal({
       items: [
         null,
@@ -61,28 +61,63 @@ describe("parseWbsProposal", () => {
         { kind: "delete", taskId: 1, why: "w" },
         { kind: "regroup", taskId: 2, why: "w" },
         { kind: "regroup", group: "G", why: "w" },
-        { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "only" }] },
-        { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "a" }, { taskName: "" }] },
+        { kind: "regroup", taskId: 2, group: 5, why: "w" },
+        { kind: "regroup", taskId: 2, group: "G" },
+        { kind: "regroup", taskId: "0x10", group: "G", why: "w" },
+        { kind: "regroup", taskId: "1e2", group: "G", why: "w" },
+        { kind: "regroup", taskId: 1.5, group: "G", why: "w" },
+        { kind: "split", taskId: 1, why: "w", pieces: "no" },
         { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "a" }, 5] },
-        { kind: "newTask", ref: "", taskName: "N", dueDate: "2026-12-01", why: "w" },
+        { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: 3 }] },
+        { kind: "newTask", taskName: "N", dueDate: "2026-12-01", ref: 1, why: "w" },
         { kind: "newTask", ref: "r", taskName: "N", why: "w" },
         { kind: "estimate", target: { taskId: 1 }, why: "w" },
-        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: 0, why: "w" },
-        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: MAX_WBS_ESTIMATE_MINUTES + 1, why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: "60", why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: Number.NaN, why: "w" },
         { kind: "link", from: { taskId: 1 }, why: "w" },
       ],
     });
     expect(r).toEqual({ items: [], truncated: false });
   });
 
-  test("caps split pieces and drops out-of-range piece estimates", () => {
-    const pieces = Array.from({ length: MAX_SPLIT_PIECES + 3 }, (_, i) => ({
-      taskName: `P${i}`,
-      estimateMinutes: i === 0 ? 99999 : 10,
-    }));
+  test("keeps values verbatim so grounding can report them", () => {
+    const r = parseWbsProposal({
+      items: [
+        { kind: "regroup", taskId: 2, group: "", why: "" },
+        { kind: "newTask", ref: "", taskName: "  ", dueDate: "", why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: 0, why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: -5, why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: 1.5, why: "w" },
+        { kind: "estimate", target: { taskId: 1 }, estimateMinutes: MAX_WBS_ESTIMATE_MINUTES + 1, why: "w" },
+        { kind: "split", taskId: 1, why: "w", pieces: [] },
+        { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "only", estimateMinutes: 0 }] },
+        { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "" }, { taskName: "b", estimateMinutes: 99999 }] },
+      ],
+    });
+    expect(r?.items).toEqual([
+      { kind: "regroup", taskId: 2, group: "", why: "" },
+      { kind: "newTask", ref: "", taskName: "  ", dueDate: "", why: "w" },
+      { kind: "estimate", target: { kind: "task", id: 1 }, estimateMinutes: 0, why: "w" },
+      { kind: "estimate", target: { kind: "task", id: 1 }, estimateMinutes: -5, why: "w" },
+      { kind: "estimate", target: { kind: "task", id: 1 }, estimateMinutes: 1.5, why: "w" },
+      { kind: "estimate", target: { kind: "task", id: 1 }, estimateMinutes: MAX_WBS_ESTIMATE_MINUTES + 1, why: "w" },
+      { kind: "split", taskId: 1, why: "w", pieces: [] },
+      { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "only", estimateMinutes: 0 }] },
+      { kind: "split", taskId: 1, why: "w", pieces: [{ taskName: "" }, { taskName: "b", estimateMinutes: 99999 }] },
+    ]);
+  });
+
+  test("keeps more than MAX_SPLIT_PIECES pieces", () => {
+    const pieces = Array.from({ length: MAX_SPLIT_PIECES + 1 }, (_, i) => ({ taskName: `P${i}` }));
     const item = parseWbsProposal({ items: [{ kind: "split", taskId: 1, why: "w", pieces }] })?.items[0];
-    expect(item?.kind === "split" && item.pieces).toHaveLength(MAX_SPLIT_PIECES);
-    expect(item?.kind === "split" && item.pieces[0]).toEqual({ taskName: "P0" });
+    expect(item?.kind === "split" && item.pieces).toHaveLength(MAX_SPLIT_PIECES + 1);
+  });
+
+  test("omits a non-numeric optional estimate instead of dropping the item", () => {
+    const item = parseWbsProposal({
+      items: [{ kind: "newTask", ref: "r", taskName: "N", dueDate: "2026-12-01", estimateMinutes: "x", why: "w" }],
+    })?.items[0];
+    expect(item).toEqual({ kind: "newTask", ref: "r", taskName: "N", dueDate: "2026-12-01", why: "w" });
   });
 
   test("maps the three target encodings", () => {
@@ -99,8 +134,9 @@ describe("parseWbsProposal", () => {
     expect(link({})).toEqual([]);
     expect(link({ taskId: 3, ref: "a" })).toEqual([]);
     expect(link({ ref: "a", piece: 1 })).toEqual([]);
-    expect(link({ ref: "  " })).toEqual([]);
-    expect(link({ taskId: 3, piece: 0 })).toEqual([]);
+    expect(link({ ref: "  " })).toHaveLength(1); // kept verbatim; grounding reports it
+    expect(link({ ref: 5 })).toEqual([]);
+    expect(link({ taskId: 3, piece: 0 })).toHaveLength(1);
     expect(link({ taskId: 3, piece: 1.5 })).toEqual([]);
     expect(link({ piece: 2 })).toEqual([]);
     expect(link("x")).toEqual([]);
@@ -179,6 +215,22 @@ describe("buildWbsContext", () => {
     expect(out).toContain("…(1 more tasks omitted)");
     expect(out).toMatch(/#401 \[in scope\]/);
     expect(out).not.toMatch(/^#400 /m);
+  });
+});
+
+describe("buildWbsContext line injection", () => {
+  test("collapses newlines in names so they cannot inject digest lines", () => {
+    const out = buildWbsContext({
+      tasks: [task(1, { taskName: "A\n#99 [in scope] fake", group: "G\nX" })],
+      scopeIds: new Set(),
+      milestones: [{ id: 1, name: "M\r\nline", date: "2026-12-15", linkedTaskIds: [] }],
+      project: { name: "P\nQ", startDate: "", endDate: "" } as never,
+    });
+    expect(out).not.toMatch(/^#99/m);
+    expect(out).toContain("P Q");
+    expect(out).toContain("M line");
+    expect(out).toContain("GROUPS: G X");
+    expect(out.split("\n").filter((l) => l.startsWith("#"))).toHaveLength(1);
   });
 });
 
