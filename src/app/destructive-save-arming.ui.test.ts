@@ -80,13 +80,6 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
     sites: 1,
     reason: "A reorder: the filter drops only ids missing from prev, and the drag list passes every row's id.",
   },
-  "use-jira-sync.ts#handleJiraSync#setTasks": {
-    sites: 1,
-    reason:
-      "A rebuild accumulator that keeps every row of the snapshot it read: each path through the per-row loop pushes the row once, " +
-      "a failed push included (its catch pushes it unchanged), and the issue loop only appends. Read 2026-10-11; " +
-      "a new path that skips a row would not fail here, so re-read the loop when editing it.",
-  },
 };
 
 interface Site { key: string; file: string; fn: string; setter: string; line: number; armed: boolean }
@@ -236,7 +229,7 @@ function localInitializer(from: ts.Node, name: string): ts.Expression | undefine
 /** A removal handed to the setter: its argument has a removal shape, or is a local
  *  variable initialised by a `.filter(` or `.splice(` (`const kept = prev.filter(…); setX(kept)`),
  *  or by `[]`. ★ That last one is the rebuild accumulator (`const next = []` then a push
- *  per kept row, as in `use-jira-sync.ts`). Whether it drops a row depends on its loop,
+ *  per kept row, as `use-jira-sync.ts` committed until §698). Whether it drops a row depends on its loop,
  *  which this scan cannot read, so it counts and fails CLOSED: an accumulator that keeps
  *  every row needs an `UNARMED_BY_DESIGN` reason, which a person writes after reading the loop.
  *  ★ It errs towards flagging: `let next = []; next = rows.map(f);` counts too.
