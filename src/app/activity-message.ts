@@ -63,6 +63,7 @@ import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
  */
 const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot: number }>> = {
   "ai.allocationPlan": { base: "activityAiAllocationPlan", slot: 0 },
+  "ai.wbsPlan": { base: "activityAiWbsPlan", slot: 0 },
   "ai.raciSuggest": { base: "activityAiRaciSuggest", slot: 0 },
   // §450 tier 1 — the eight that wrote `task(s)` / `Aufgabe(n)`; the count is
   // `{0}` in every one.

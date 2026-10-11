@@ -28,7 +28,7 @@ describe("activityMessage", () => {
     // it was there for. Measured 2026-09-08: two members; §450 tier 1 added
     // eight (2026-10-02). Bump this deliberately when a kind is added, which
     // is the point.
-    expect(ACTIVITY_PLURAL_KINDS.length).toBe(11);
+    expect(ACTIVITY_PLURAL_KINDS.length).toBe(12);
     for (const kind of ACTIVITY_PLURAL_KINDS) {
       expect(activityPluralBase(kind)).toBe(ACTIVITY_KIND_TO_KEY[kind]);
     }
@@ -81,6 +81,8 @@ describe("activityMessage", () => {
     expect(activityMessage("en-US", "ai.allocationPlan", [0])).toBe(
       "AI planned 0 allocation cells",
     );
+    expect(activityMessage("en-US", "ai.wbsPlan", [1])).toBe("AI applied 1 work-breakdown change");
+    expect(activityMessage("en-US", "ai.wbsPlan", [7])).toBe("AI applied 7 work-breakdown changes");
   });
 
   /**
@@ -100,6 +102,8 @@ describe("activityMessage", () => {
   it("agrees the German forms too", () => {
     expect(activityMessage("de", "ai.allocationPlan", [1])).toBe("KI hat 1 Planungszelle geplant");
     expect(activityMessage("de", "ai.allocationPlan", [3])).toBe("KI hat 3 Planungszellen geplant");
+    expect(activityMessage("de", "ai.wbsPlan", [1])).toBe("KI hat 1 Änderung an den Arbeitspaketen übernommen");
+    expect(activityMessage("de", "ai.wbsPlan", [5])).toBe("KI hat 5 Änderungen an den Arbeitspaketen übernommen");
   });
 
   /**
