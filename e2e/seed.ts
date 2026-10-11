@@ -210,18 +210,27 @@ const E2E_DOCUMENT_ASSETS = [E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY] 
  * `fetch` handler at all, so nothing competes with the route.
  *
  * Call BEFORE gotoApp — the init script has to land before the app boots.
+ *
+ * `tourSeen: true` also marks the guided tour as seen, so its backdrop stays
+ * out of a screenshot. It is written in the SAME literal rather than by a
+ * second script that reads the key back and re-writes it: CodeQL traces that
+ * settings key to the app's secret hydration and flags a read-modify-write of
+ * it as clear-text storage of a secret (PR #664).
  */
-export async function installAssetByteStore(page: Page): Promise<void> {
+export async function installAssetByteStore(page: Page, opts: { tourSeen?: boolean } = {}): Promise<void> {
   // Settings are a SHALLOW merge over defaults in use-settings.ts
   // (`{...defaultSettings, ...parsed}`), so writing this one key leaves
   // storageConfig and everything else at its default. `integrations` is not
   // deep-merged, which is fine: m365 is optional and nothing here needs it.
-  await page.addInitScript(() => {
+  await page.addInitScript((tourSeen: boolean) => {
     localStorage.setItem(
       "aipm-cockpit:settings",
-      JSON.stringify({ integrations: { turso: { enabled: true, databaseUrl: location.origin } } }),
+      JSON.stringify({
+        integrations: { turso: { enabled: true, databaseUrl: location.origin } },
+        ...(tourSeen ? { tourSeen: true } : {}),
+      }),
     );
-  });
+  }, opts.tourSeen === true);
 
   await page.route("**/v2/pipeline", async (route) => {
     const body = route.request().postDataJSON() as

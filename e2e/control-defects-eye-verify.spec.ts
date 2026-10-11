@@ -458,14 +458,8 @@ test.describe("control-defects eye-verify (§414) — item 6", () => {
   }
 
   test("item 6a: under Turso the asset name is a control", async ({ page }) => {
-    await installAssetByteStore(page);
-    // installAssetByteStore writes the settings key itself; this runs after it
-    // and adds `tourSeen`, so the tour's backdrop is not in the screenshot.
-    await page.addInitScript(() => {
-      const key = "aipm-cockpit:settings";
-      const prev = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
-      localStorage.setItem(key, JSON.stringify({ ...prev, tourSeen: true }));
-    });
+    // `tourSeen` keeps the tour's backdrop out of the screenshot.
+    await installAssetByteStore(page, { tourSeen: true });
     await gotoApp(page);
     await openKickoffPack(page);
 
