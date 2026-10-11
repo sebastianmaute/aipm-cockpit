@@ -74,7 +74,7 @@ describe("TaskManager shell selection", () => {
 });
 
 // ★★★ FIX ROUND 1 (M3): the app now has exactly ONE VersionInfoModal render
-// site (task-manager.tsx's modalsBlock, via use-desktop-version-request.ts).
+// site (task-manager.tsx's modalsBlock, built in app-modals-block.tsx, via use-desktop-version-request.ts).
 // modern-shell.test.tsx and settings-view.test.tsx pin their two triggers
 // call the SAME `onOpenVersion` prop at the unit level; this full-stack
 // suite is what proves that wiring actually reaches the one real modal.

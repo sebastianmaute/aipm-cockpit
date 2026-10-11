@@ -4,7 +4,7 @@ import type { Task, TaskStatus } from "./types";
 import type { JiraIssue } from "./jira-api";
 import { JiraApiError } from "./jira-api";
 import type { Settings } from "./settings-types";
-import { useJiraSync } from "./use-jira-sync";
+import { mergeSyncedTasks, useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
@@ -1761,5 +1761,180 @@ describe("useJiraSync — sync and conflict resolution exclude each other", () =
     act(() => { result.current.clearConflicts(); });
 
     expect(result.current.jiraConflicts).toEqual([]);
+  });
+});
+
+// ── An edit made while a sync awaits Jira (open-followups §698) ─────────────
+// The sync reads its snapshot of the task list before the push arm awaits Jira per row. It used
+// to commit the rebuilt snapshot as a VALUE, so an edit, an add or a delete that landed during
+// that await was overwritten. It now merges per row into the CURRENT list: a row still the
+// snapshot's object takes the synced version, any other row is the user's and is kept.
+describe("useJiraSync — an edit made while the push awaits Jira (§698)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  function holdPush() {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([
+      { key: "TEST-1", fields: { summary: "Pushed", updated: "2025-12-01T00:00:00" } },
+    ] as unknown as JiraIssue[]);
+    asMock(jiraApi.updateIssue).mockImplementationOnce(() => held);
+    return release;
+  }
+  const pushing = makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Pushed", lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00" });
+  const local = makeTask({ id: 2, taskName: "Local only" });
+
+  it("keeps an edit to another task", async () => {
+    const release = holdPush();
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => { result.current.replaceTasks((prev) => prev.map((x) => (x.id === 2 ? { ...x, taskName: "Edited mid-sync" } : x))); });
+    expect(result.current.currentTasks.find((x) => x.id === 2)?.taskName).toBe("Edited mid-sync");
+    await act(async () => { release(); await sync; });
+    expect(result.current.currentTasks.find((x) => x.id === 2)?.taskName).toBe("Edited mid-sync");
+  });
+
+  it("keeps a task added", async () => {
+    const release = holdPush();
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => { result.current.replaceTasks((prev) => [...prev, makeTask({ id: 3, taskName: "Added mid-sync" })]); });
+    await act(async () => { release(); await sync; });
+    expect(result.current.currentTasks.map((x) => x.id)).toContain(3);
+  });
+
+  it("keeps a task deleted", async () => {
+    const release = holdPush();
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => { result.current.replaceTasks((prev) => prev.filter((x) => x.id !== 2)); });
+    await act(async () => { release(); await sync; });
+    expect(result.current.currentTasks.map((x) => x.id)).not.toContain(2);
+  });
+
+  it("keeps an edit to the row being pushed", async () => {
+    const release = holdPush();
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => {
+      result.current.replaceTasks((prev) => prev.map((x) => (x.id === 1 ? { ...x, taskName: "Edited while pushing", localModifiedAt: "2026-05-20T10:00:00" } : x)));
+    });
+    await act(async () => { release(); await sync; });
+    const row = result.current.currentTasks.find((x) => x.id === 1)!;
+    // The user's newer edit wins and stays marked as a local change, so the next sync pushes it.
+    expect(row).toMatchObject({ taskName: "Edited while pushing", localModifiedAt: "2026-05-20T10:00:00", lastSyncedAt: "2026-01-01T00:00:00" });
+  });
+
+  it("applies the synced row when nothing touched it", async () => {
+    const release = holdPush();
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => { result.current.replaceTasks((prev) => prev.map((x) => (x.id === 2 ? { ...x, taskName: "Edited mid-sync" } : x))); });
+    await act(async () => { release(); await sync; });
+    const row = result.current.currentTasks.find((x) => x.id === 1)!;
+    expect(row.localModifiedAt).toBeUndefined();
+    expect(row.lastSyncedAt).not.toBe("2026-01-01T00:00:00");
+  });
+
+  it("does not log a pulled completion for a row the user edited mid-sync, and logs it when untouched", async () => {
+    // Row 1 is pulled to Done (a transition the sync logs); row 2 is pushed, and its push is held.
+    const pulled = makeTask({ id: 1, jiraKey: "TEST-1", taskName: "Pulled", lastSyncedAt: "2026-01-01T00:00:00" });
+    const pushed = makeTask({ id: 2, jiraKey: "TEST-2", taskName: "Pushed", lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00" });
+    const run = async (editPulledRow: boolean) => {
+      vi.clearAllMocks();
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+      asMock(jiraApi.isIssueDone).mockReturnValue(false);
+      asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "Pulled", status: "Done", completedDate: "2026-05-10" });
+      asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([
+        { key: "TEST-1", fields: { summary: "Pulled", updated: "2026-05-10T00:00:00" } },
+        { key: "TEST-2", fields: { summary: "Pushed", updated: "2025-12-01T00:00:00" } },
+      ] as unknown as JiraIssue[]);
+      asMock(jiraApi.updateIssue).mockImplementationOnce(() => held);
+      const { result, unmount } = renderSync([pulled, pushed]);
+      let sync!: Promise<void>;
+      await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+      await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+      if (editPulledRow) {
+        act(() => { result.current.replaceTasks((prev) => prev.map((x) => (x.id === 1 ? { ...x, taskName: "Edited" } : x))); });
+      }
+      await act(async () => { release(); await sync; });
+      const kinds = logActivityAs.mock.calls.map((c) => c[1]);
+      const status = result.current.currentTasks.find((x) => x.id === 1)?.status;
+      unmount();
+      return { kinds, status };
+    };
+    expect(await run(false)).toEqual({ kinds: ["task.completed", "jira.sync"], status: "Done" });
+    expect(await run(true)).toEqual({ kinds: ["jira.sync"], status: "To Do" });
+  });
+
+  it("does not create a second task for a Jira key a task added mid-sync already carries", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "From Jira" });
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([
+      { key: "TEST-1", fields: { summary: "Pushed", updated: "2025-12-01T00:00:00" } },
+      { key: "TEST-9", fields: { summary: "From Jira", updated: "2026-05-10T00:00:00" } },
+    ] as unknown as JiraIssue[]);
+    asMock(jiraApi.updateIssue).mockImplementationOnce(() => held);
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    act(() => { result.current.replaceTasks((prev) => [...prev, makeTask({ id: 50, taskName: "Linked by hand", jiraKey: "TEST-9" })]); });
+    await act(async () => { release(); await sync; });
+    expect(result.current.currentTasks.filter((x) => x.jiraKey === "TEST-9").map((x) => x.taskName)).toEqual(["Linked by hand"]);
+  });
+
+  it("re-mints a created task whose id a task added mid-sync already took", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    asMock(jiraApi.buildJql).mockReturnValue("project = TEST");
+    asMock(jiraApi.isIssueDone).mockReturnValue(false);
+    asMock(jiraApi.issueToTaskFields).mockReturnValue({ taskName: "From Jira" });
+    asMock(jiraApi.searchAllIssues).mockResolvedValueOnce([
+      { key: "TEST-1", fields: { summary: "Pushed", updated: "2025-12-01T00:00:00" } },
+      { key: "TEST-9", fields: { summary: "From Jira", updated: "2026-05-10T00:00:00" } },
+    ] as unknown as JiraIssue[]);
+    asMock(jiraApi.updateIssue).mockImplementationOnce(() => held);
+    const { result } = renderSync([pushing, local]);
+    let sync!: Promise<void>;
+    await act(async () => { sync = result.current.handleJiraSync(); await Promise.resolve(); });
+    await vi.waitFor(() => expect(jiraApi.updateIssue).toHaveBeenCalledTimes(1));
+    // Added outside the session minter, the way an import or another writer could, taking id 3.
+    act(() => { result.current.replaceTasks((prev) => [...prev, makeTask({ id: 3, taskName: "Added mid-sync" })]); });
+    await act(async () => { release(); await sync; });
+    const ids = result.current.currentTasks.map((x) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(result.current.currentTasks.find((x) => x.id === 3)?.taskName).toBe("Added mid-sync");
+    expect(result.current.currentTasks.find((x) => x.jiraKey === "TEST-9")?.taskName).toBe("From Jira");
+  });
+});
+
+// §698 review: the pairing of a snapshot row with its synced version is by position, which holds
+// only while every path through the row loop pushes exactly one row. A misaligned pair must
+// degrade to keeping the current row, never hand one task another task's synced version.
+describe("mergeSyncedTasks (§698)", () => {
+  it("keeps a row whose synced counterpart does not share its id", () => {
+    const a = makeTask({ id: 1, taskName: "A" });
+    const b = makeTask({ id: 2, taskName: "B" });
+    const merged = mergeSyncedTasks([a, b], [a, b], [{ ...b, taskName: "B synced" }, { ...a, taskName: "A synced" }], []);
+    expect(merged.map((x) => x.taskName)).toEqual(["A", "B"]);
+    expect(mergeSyncedTasks([a, b], [a, b], [{ ...a, taskName: "A synced" }], []).map((x) => x.taskName)).toEqual(["A synced", "B"]);
   });
 });
