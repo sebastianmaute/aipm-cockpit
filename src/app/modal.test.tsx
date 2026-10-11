@@ -134,6 +134,45 @@ describe("Modal", () => {
     expect(screen.getByTestId("first")).toHaveFocus();
   });
 
+  // ★★ A child's autoFocus is applied by React at commit, before the deferred
+  //   frame runs. That frame used to move focus to the first focusable anyway:
+  //   the rename modal's title field lost it to the header's help button.
+  test("keeps a child's autoFocus instead of moving to the first focusable", () => {
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Test">
+        <button type="button" data-testid="help">Help</button>
+        <input autoFocus data-testid="title" />
+      </Modal>,
+    );
+    expect(screen.getByTestId("title")).toHaveFocus();
+  });
+
+  test("an explicit initialFocusRef still wins over a child's autoFocus", () => {
+    function Harness() {
+      const ref = useRef<HTMLButtonElement | null>(null);
+      return (
+        <Modal open onClose={() => {}} ariaLabel="Test" initialFocusRef={ref}>
+          <input autoFocus data-testid="title" />
+          <button ref={ref} type="button" data-testid="target">Target</button>
+        </Modal>
+      );
+    }
+    render(<Harness />);
+    expect(screen.getByTestId("target")).toHaveFocus();
+  });
+
+  test("focus resting on the dialog root itself still moves to the first focusable", () => {
+    // A ref callback runs at commit, before the frame, and parks focus on the root.
+    const focusRoot = (el: HTMLElement | null) => el?.closest<HTMLElement>('[role="dialog"]')?.focus();
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Test">
+        <span ref={focusRoot} />
+        <button type="button" data-testid="first">First</button>
+      </Modal>,
+    );
+    expect(screen.getByTestId("first")).toHaveFocus();
+  });
+
   test("restores focus to the previously-active element on close", () => {
     function Harness({ open }: { open: boolean }) {
       return (

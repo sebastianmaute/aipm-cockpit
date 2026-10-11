@@ -8,7 +8,9 @@
 //     replaces three different ad-hoc implementations).
 //   • Focus trap — Tab and Shift+Tab cycle within the dialog. Without this,
 //     Tab can move focus to the disabled underlying UI (WCAG 2.4.3).
-//   • Initial focus on open — `initialFocusRef` if supplied, else the FIRST
+//   • Initial focus on open — `initialFocusRef` if supplied; else, when a
+//     control inside the dialog already has focus (a child's `autoFocus`),
+//     focus stays there; else the FIRST
 //     FOCUSABLE CHILD, and only then the dialog root, which is reached only
 //     when the panel has no focusable content at all. ★★ That order is
 //     load-bearing, and this line used to state the last two the other way
@@ -166,9 +168,19 @@ export function Modal({
       // (WCAG 2.4.7); a real control is both visible-focus correct and the
       // natural start of the tab order.
       const root = dialogRef.current;
+      const explicit = initialFocusRef?.current ?? null;
+      // ★★ A control INSIDE the dialog already holding focus keeps it, unless
+      // an explicit `initialFocusRef` says otherwise. That is a child's
+      // `autoFocus` (React focuses it at commit, before this frame runs) or a
+      // click the user made in the first frame. Moving it anyway sent the
+      // rename modal's focus from its autoFocus title field to the header's
+      // help button, and swallowed a keystroke typed in that frame. The root
+      // itself does not count: it carries no focus ring, see above.
+      const active = typeof document !== "undefined" ? document.activeElement : null;
+      if (!explicit && root && active instanceof HTMLElement && active !== root && root.contains(active)) return;
       const firstFocusable =
         root?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? null;
-      const target = initialFocusRef?.current ?? firstFocusable ?? root ?? null;
+      const target = explicit ?? firstFocusable ?? root ?? null;
       target?.focus();
     });
 
