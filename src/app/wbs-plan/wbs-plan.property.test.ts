@@ -96,20 +96,49 @@ const itemArb: fc.Arbitrary<RawWbsItem> = fc.oneof(
   { weight: 4, arbitrary: fc.record({ kind: fc.constant("link" as const), from: targetArb, to: targetArb, why: fc.constant("") }) },
 );
 
+/** True when following `dependencies` from every row never returns to a row
+ *  already on the path. Written here, not imported: the engine's own cycle
+ *  check is the thing under test. */
+function isAcyclic(rows: readonly Task[]): boolean {
+  const deps = new Map(rows.map((t) => [t.id, (t.dependencies ?? []).map((d) => d.taskId)] as const));
+  const state = new Map<number, "open" | "done">();
+  const visit = (id: number): boolean => {
+    const st = state.get(id);
+    if (st === "open") return false;
+    if (st === "done") return true;
+    state.set(id, "open");
+    for (const d of deps.get(id) ?? []) if (!visit(d)) return false;
+    state.set(id, "done");
+    return true;
+  };
+  return rows.every((t) => visit(t.id));
+}
+
+// Anti-vacuity floors, about half of what each seed measured (2026-10-11):
+// cycle refusals 18 of 500 runs; partial ticks 507, requires-drops 51 and
+// ticked links 117 of 1000. A generator change that starves one fails.
+const CYCLE_FLOOR = 9;
+const PARTIAL_FLOOR = 250;
+const DROPPED_FLOOR = 25;
+const LINKED_FLOOR = 55;
+
+const inScopeArb = fc.array(fc.integer({ min: 0, max: 3 }).map((n) => n > 0), { minLength: 10, maxLength: 10 });
+
 describe("applyWbsProposal — properties (ground → tick all → apply)", () => {
   test("never removes a row, never touches a closed, Jira or out-of-scope row", () => {
     // Anti-vacuity: count runs that actually wrote something, so a generator
     // that only ever produces skipped items cannot pass this test.
-    const seen = { created: 0, edited: 0, linked: 0 };
+    const seen = { created: 0, edited: 0, linked: 0, cycleRefused: 0 };
     fc.assert(
       fc.property(
         tasksArb,
         fc.array(itemArb, { maxLength: 16 }),
-        fc.array(fc.integer({ min: 0, max: 3 }).map((n) => n > 0), { minLength: 10, maxLength: 10 }),
+        inScopeArb,
         (tasks, items, inScope) => {
           const prev = Object.freeze(tasks);
           const scope = { taskIds: new Set(tasks.filter((_, i) => inScope[i]).map((t) => t.id)) };
-          const ticked = groundWbsProposal({ items, truncated: false }, prev, scope).items;
+          const grounded = groundWbsProposal({ items, truncated: false }, prev, scope);
+          const ticked = grounded.items;
           const need = countNewRows(ticked);
           const newIds = Array.from({ length: need }, (_, i) => 1000 + i);
           const r = applyWbsProposal(prev, ticked, newIds, TODAY, scope);
@@ -132,6 +161,9 @@ describe("applyWbsProposal — properties (ground → tick all → apply)", () =
             for (const d of t.dependencies ?? []) expect(next.has(d.taskId)).toBe(true);
           }
           expect(r.editedBefore.map((t) => t.id)).toEqual(r.editedAfter.map((t) => t.id));
+          // The spec's headline guarantee: the written graph has no cycle.
+          expect(isAcyclic(r.nextTasks)).toBe(true);
+          if (grounded.skipped.some((x) => x.reason === "cycle")) seen.cycleRefused++;
           if (r.created.length > 0) seen.created++;
           if (r.editedAfter.length > 0) seen.edited++;
           if (ticked.some((g) => g.item.kind === "link")) seen.linked++;
@@ -139,10 +171,49 @@ describe("applyWbsProposal — properties (ground → tick all → apply)", () =
       ),
       { seed: 20261011, numRuns: 500 },
     );
-    // Measured at this seed: created 149, edited 99, linked 23 of 500 runs.
+    // Measured at this seed: created 149, edited 102, linked 26 of 500 runs.
     // The floors sit near half, so a generator change that starves a kind fails.
     expect(seen.created).toBeGreaterThanOrEqual(75);
     expect(seen.edited).toBeGreaterThanOrEqual(50);
     expect(seen.linked).toBeGreaterThanOrEqual(10);
+    expect(seen.cycleRefused).toBeGreaterThanOrEqual(CYCLE_FLOOR);
+  });
+
+  test("a random partial tick never writes a dangling dependency or a cycle", () => {
+    // Anti-vacuity: runs where the tick really left items out, and runs where
+    // apply dropped a ticked item because one it requires was unticked.
+    const seen = { partial: 0, dropped: 0, linked: 0 };
+    fc.assert(
+      fc.property(
+        tasksArb,
+        fc.array(itemArb, { minLength: 8, maxLength: 24 }),
+        inScopeArb,
+        fc.array(fc.boolean(), { minLength: 24, maxLength: 24 }),
+        (tasks, items, inScope, tick) => {
+          const prev = Object.freeze(tasks);
+          const scope = { taskIds: new Set(tasks.filter((_, i) => inScope[i]).map((t) => t.id)) };
+          const all = groundWbsProposal({ items, truncated: false }, prev, scope).items;
+          const ticked = all.filter((_, i) => tick[i]);
+          const newIds = Array.from({ length: countNewRows(ticked) }, (_, i) => 1000 + i);
+          const r = applyWbsProposal(prev, ticked, newIds, TODAY, scope);
+
+          // Fewer items mean fewer claims and edges, so nothing turns stale.
+          expect(r.skippedStale).toBe(0);
+          expect(r.applied).toBeLessThanOrEqual(ticked.length);
+          const ids = new Set(r.nextTasks.map((t) => t.id));
+          expect(ids.size).toBe(r.nextTasks.length);
+          for (const t of prev) expect(ids.has(t.id)).toBe(true);
+          for (const t of r.nextTasks) for (const d of t.dependencies ?? []) expect(ids.has(d.taskId)).toBe(true);
+          expect(isAcyclic(r.nextTasks)).toBe(true);
+          if (ticked.length < all.length) seen.partial++;
+          if (r.applied < ticked.length) seen.dropped++;
+          if (ticked.some((g) => g.item.kind === "link")) seen.linked++;
+        },
+      ),
+      { seed: 20261012, numRuns: 1000 },
+    );
+    expect(seen.partial).toBeGreaterThanOrEqual(PARTIAL_FLOOR);
+    expect(seen.dropped).toBeGreaterThanOrEqual(DROPPED_FLOOR);
+    expect(seen.linked).toBeGreaterThanOrEqual(LINKED_FLOOR);
   });
 });

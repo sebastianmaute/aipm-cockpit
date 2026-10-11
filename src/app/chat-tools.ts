@@ -381,8 +381,12 @@ export type ToolDispatcher = {
   } | null;
   deleteTask(id: number): boolean;
   deleteAllTasks(): number;
-  /** Opens the WBS proposal flow; writes nothing itself. */
-  openWbsPlan(req: { group?: string; instructions?: string }): { opened: boolean; tasksInScope: number };
+  /** Opens the WBS proposal flow; writes nothing itself. A refusal says why. */
+  openWbsPlan(req: { group?: string; instructions?: string }): {
+    opened: boolean;
+    tasksInScope: number;
+    reason?: WbsOpenRefusal;
+  };
   sendInquiry(id: number): { sent: boolean; reason?: string };
   setFilters(filters: Filters): void;
   setLanguage(lang: Lang): void;
@@ -570,6 +574,19 @@ export {
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
 import { listTasksEnvelope, withRowTokens, withToken } from "./chat-tools-lists";
+import type { WbsOpenRefusal } from "./wbs-plan/wbs-plan";
+
+/** Why `optimize_wbs` opened nothing, in words the model can relay. A
+ *  `Record` over the union, so a new refusal is a compile error here. */
+const WBS_OPEN_REFUSAL_TEXT: Record<WbsOpenRefusal, (group: string) => string> = {
+  popout: () => "it is not available in a pop-out window; ask the user to use the main window",
+  aiOff: () => "the AI assistant is off or has no API key in Settings",
+  loading: () => "the project is still loading; try again in a moment",
+  busy: () => "an Optimize with AI proposal is already open; the user must apply or cancel it first",
+  unknownGroup: (group) => `no task is in a group named "${group}"`,
+  noTasks: (group) =>
+    group ? `the group "${group}" has no open, non-Jira tasks` : "there are no open, non-Jira tasks to optimize",
+};
 
 export async function runTool(
   d: ToolDispatcher,
@@ -671,9 +688,11 @@ export async function runTool(
       const instructions = sanitizeText(input.instructions, 1000) || undefined;
       const result = d.openWbsPlan({ group: group || undefined, instructions });
       if (!result.opened) {
-        throw new Error("optimize_wbs is not available here (popout window, AI off, or no tasks in scope)");
+        // Model-facing, so English: the model explains the refusal to the user.
+        const why = result.reason ? WBS_OPEN_REFUSAL_TEXT[result.reason](group) : "it could not be opened";
+        throw new Error(`optimize_wbs did not open: ${why}`);
       }
-      return result;
+      return { opened: true, tasksInScope: result.tasksInScope };
     }
 
     case "delete_all_tasks": {

@@ -258,4 +258,12 @@ describe("tool and prompt", () => {
     expect(p).toContain(String(MAX_WBS_ITEMS));
     expect(p).toContain("prioritise");
   });
+
+  // wbs-plan-call.ts keeps max_tokens at 8192; this line is what keeps a broad
+  // proposal inside it (descriptions are the only unbounded text).
+  test("system prompt asks for short descriptions, omitted on broad requests", () => {
+    const p = buildWbsSystemPrompt();
+    expect(p).toContain("Keep any description to one short sentence");
+    expect(p).toContain("omit descriptions entirely when you propose many items");
+  });
 });

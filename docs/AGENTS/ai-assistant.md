@@ -1014,6 +1014,10 @@
   ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
   exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
   that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
+  A regroup to the group the task is already in is refused (`sameGroup`), and a second split or regroup of
+  one task is refused (`duplicateTarget`) only after a first one was KEPT: a malformed first split claims
+  nothing. When every proposed item is refused, the preview still opens, showing only the "Not applied"
+  list with its reasons; only an empty proposal is reported as "no changes".
   ★ That estimate rule covers estimate ITEMS only: a split's piece 1 rewrites the original row, so it may
   re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
   the preview shows the rename, the estimate before → after and a "replaces the description" marker.
@@ -1027,7 +1031,8 @@
   the toolbar trigger and Apply refuse while `loadPending`, a hold that begins mid-flow closes the
   dialog or preview (the state through a render-time reconcile, as `use-blockers-window.ts` does; the abort of a
   running call and the discarded request generation through a refs-only effect, since refs may not be
-  touched during render), and the scope epoch captured before the call is
+  touched during render; that effect also shows the `wbsPlanClosedByLoad` notice when the flow was not
+  idle, since the modal covers the app and the hold was not started from it), and the scope epoch captured before the call is
   checked by `dropStaleScopeWrite` after it and again at Apply (a moved epoch drops the proposal with the
   `wbsPlanScopeChanged` notice). `getScopeEpoch` and `loadPending` are REQUIRED on `WbsPlanDeps`. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
   longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps
@@ -1035,8 +1040,11 @@
   rows only (created rows stay out of it — see [undo.md](undo.md) "Creates"). ★★ `optimize_wbs` is NOT an
   entity write: it opens the proposal (`openWbsPlan` → `useWbsPlan().open`) and writes nothing itself, so it
   sits in `chat-proposal.test.ts`'s non-write list and never stages a proposal card. It throws in a popout
-  (`isReadOnly`) and when the flow did not open (AI off, a run already open, or no open non-Jira task in
-  scope). Gated `aiReady && !isPopout`.
+  (`isReadOnly`) and when the flow did not open, naming the reason `open()` returned (`WbsOpenRefusal`:
+  a pop-out, the AI off, a load hold, a run already open, a group no task has, or no open non-Jira task in
+  scope) so the model can explain it. ★ The dispatcher passes its synchronously advanced `tasksRef` as
+  `liveTasks`, so a task the chat created earlier in the same model turn is in scope; the hook's own list is
+  synced only after commit. Gated `aiReady && !isPopout`.
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
   (image/document) from pure `chat-attachments.ts` (classify by mime+extension, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads

@@ -48,6 +48,7 @@ import {
   type GroundedWbsItem,
   type SkippedWbsItem,
   type WbsApplyResult,
+  type WbsOpenRefusal,
   type WbsScope,
 } from "./wbs-plan/wbs-plan";
 import { WbsPlanModal } from "./wbs-plan-modal";
@@ -84,6 +85,18 @@ export interface WbsPlanDeps {
 export interface WbsOpenRequest {
   group?: string;
   instructions?: string;
+  /** The caller's synchronously-updated task list (the chat dispatcher's
+   *  `tasksRef`), so a task the chat created earlier in the same model turn
+   *  is in scope and in the digest. Defaults to this hook's own list, which an
+   *  effect syncs only after commit. */
+  liveTasks?: readonly Task[];
+}
+
+export interface WbsOpenResult {
+  opened: boolean;
+  tasksInScope: number;
+  /** Set when nothing opened: why, so the chat tool can tell the model. */
+  reason?: WbsOpenRefusal;
 }
 
 export interface WbsPlan {
@@ -93,8 +106,8 @@ export interface WbsPlan {
   modal: ReactNode;
   /** The chat tool's entry point: goes straight to `thinking`. Refuses (and
    *  opens nothing) in a popout, with the AI off, during a load hold, mid-flow,
-   *  or on an empty scope. */
-  open(req: WbsOpenRequest): { opened: boolean; tasksInScope: number };
+   *  for a group no task has, or on an empty scope — and says which. */
+  open(req: WbsOpenRequest): WbsOpenResult;
 }
 
 /** A task the flow may change: not closed and not Jira-synced. */
@@ -121,6 +134,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const epochRef = useRef<number | undefined>(undefined);
   // The live task list for the click handlers — `open()` and apply read it
   // rather than a closure that may be a render old (the dispatcher's pattern).
+  // ★ Synced after commit, so `open()` prefers the caller's `liveTasks`.
   const tasksRef = useRef(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
   // ★ Written in the SAME call as the state, never synced by an effect: a call
@@ -162,19 +176,25 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // use-blockers-window.ts); it settles because the next render sees "idle".
   // The REF half (abort the call, discard its result, free `open()`) cannot run
   // during render, so the effect does it: refs only, no state.
+  // ★ The modal covers the app, so a hold that starts mid-flow is one the user
+  // did not start here (a backend-change reload, a swap from another surface):
+  // the effect says why the flow closed. `showToast` is the toast context's
+  // function, not a state setter of this component, so the effect still sets
+  // no state of its own; it fires once, because it frees `phaseRef` after.
   if (loadPending && phase !== "idle") clearFlowState();
   useEffect(() => {
     if (!loadPending) return;
     abortRef.current?.abort();
     reqIdRef.current++;
+    if (phaseRef.current !== "idle") showToast("info", t(lang, "wbsPlanClosedByLoad"));
     phaseRef.current = "idle";
-  }, [loadPending]);
+  }, [loadPending, showToast, lang]);
 
   // Abort an in-flight proposal on unmount. Cleanup-only: sets no state.
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const propose = useCallback(
-    async (runScope: WbsScope, text: string) => {
+    async (runScope: WbsScope, text: string, liveTasks?: readonly Task[]) => {
       const reqId = ++reqIdRef.current;
       const controller = new AbortController();
       abortRef.current = controller;
@@ -182,7 +202,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       const startEpoch = getScopeEpoch();
       epochRef.current = startEpoch;
       try {
-        const live = tasksRef.current;
+        const live = liveTasks ?? tasksRef.current;
         const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
         const parsed = await runWbsProposal(
           context,
@@ -198,7 +218,10 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         }
         // Ground against the tasks as they are NOW, not as they were sent.
         const grounded = groundWbsProposal(parsed, tasksRef.current, runScope);
-        if (grounded.items.length === 0) {
+        // Only a proposal with NOTHING in it is "no changes proposed". When the
+        // model proposed items and grounding refused them all, the preview
+        // still opens, showing just the "Not applied" list with its reasons.
+        if (grounded.items.length === 0 && grounded.skipped.length === 0) {
           showToast("info", t(lang, "wbsPlanEmpty"));
           reset();
           return;
@@ -252,21 +275,25 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   }, [phase, scope, instruction, propose]);
 
   const open = useCallback(
-    (req: WbsOpenRequest): { opened: boolean; tasksInScope: number } => {
-      if (!enabled || loadPending || phaseRef.current !== "idle") return { opened: false, tasksInScope: 0 };
+    (req: WbsOpenRequest): WbsOpenResult => {
+      const refuse = (reason: WbsOpenRefusal): WbsOpenResult => ({ opened: false, tasksInScope: 0, reason });
+      if (isPopout) return refuse("popout");
+      if (!aiReady) return refuse("aiOff");
+      if (loadPending) return refuse("loading");
+      if (phaseRef.current !== "idle") return refuse("busy");
       // Case-insensitive and trimmed: the model may say "design" for "Design".
       const group = req.group?.trim().toLowerCase();
-      const ids = tasksRef.current
-        .filter((x) => isEditable(x) && (!group || (x.group ?? "").trim().toLowerCase() === group))
-        .map((x) => x.id);
-      if (ids.length === 0) return { opened: false, tasksInScope: 0 };
+      const inGroup = (x: Task) => !group || (x.group ?? "").trim().toLowerCase() === group;
+      const live = req.liveTasks ?? tasksRef.current;
+      const ids = live.filter((x) => isEditable(x) && inGroup(x)).map((x) => x.id);
+      if (ids.length === 0) return refuse(group && !live.some(inGroup) ? "unknownGroup" : "noTasks");
       const runScope: WbsScope = { taskIds: new Set(ids) };
       setInstruction(req.instructions ?? "");
       setScope(runScope);
-      void propose(runScope, req.instructions ?? "");
+      void propose(runScope, req.instructions ?? "", live);
       return { opened: true, tasksInScope: ids.length };
     },
-    [enabled, loadPending, propose],
+    [isPopout, aiReady, loadPending, propose],
   );
 
   const onToggle = useCallback((key: string) => {

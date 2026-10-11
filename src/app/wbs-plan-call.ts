@@ -43,6 +43,20 @@ export async function runWbsProposal(
     tools: [PROPOSE_WBS_TOOL],
     toolName: PROPOSE_WBS_TOOL.name,
     messages: [{ role: "user", content: userMessage }],
+    // The output budget, kept at 8192 on purpose. Rough sizes of one item's
+    // tool JSON (estimated at ~4 characters a token, not measured): a link,
+    // estimate or regroup ~30-35 tokens with a short `why`, a newTask ~50, a
+    // six-piece split ~135; a one-sentence description adds ~25. So
+    // MAX_WBS_ITEMS (60) items WITHOUT descriptions fit even when every one is
+    // a six-piece split (60 × 135 ≈ 8.1k), and a typical mix fits with short
+    // descriptions. What does not fit is many split pieces each carrying a
+    // description (60 × (135 + 6 × 25) ≈ 17k); that answer is cut off and
+    // surfaces as the generic error. The system prompt therefore tells the
+    // model to keep descriptions to one sentence and to omit them on broad
+    // requests. NOT raised instead: the app sends any live `claude-*` id
+    // (settings-types.ts), and a model whose output cap is 8192 would refuse a
+    // larger `max_tokens` on EVERY call, turning a rare overflow into a
+    // permanent failure. alloc-plan-call.ts uses the same ceiling.
     maxTokens: 8192,
     signal,
   });

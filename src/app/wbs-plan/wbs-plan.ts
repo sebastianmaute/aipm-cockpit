@@ -141,6 +141,9 @@ export function buildWbsSystemPrompt(): string {
     "The digest may be truncated — a trailing '…(N more tasks omitted)' line means your view is partial.",
     "If nothing worthwhile can be proposed, return an empty `items` array rather than guessing.",
     "Call the propose_wbs_changes tool exactly once. Keep every `why` to one short line.",
+    // ★ The response has a fixed output budget (wbs-plan-call.ts): descriptions
+    // are the only unbounded text, and an over-long answer fails as a whole.
+    "Keep any description to one short sentence, and omit descriptions entirely when you propose many items: the answer has a fixed size budget, and one that runs over is lost as a whole.",
   ].join(" ");
 }
 
@@ -351,9 +354,14 @@ export function parseWbsProposal(input: unknown): ParsedWbsProposal | null {
 // ---------------------------------------------------------------------------
 
 export type WbsSkipReason =
-  | "unknownTask" | "closedTask" | "jiraTask" | "outOfScope" | "badPieces" | "overCap"
-  | "emptyName" | "badDate" | "badEstimate" | "hasEstimate" | "duplicateRef"
+  | "unknownTask" | "closedTask" | "jiraTask" | "outOfScope" | "badPieces"
+  | "emptyName" | "emptyGroup" | "emptyRef" | "badDate" | "badEstimate" | "hasEstimate"
+  | "duplicateRef" | "duplicateTarget" | "sameGroup"
   | "selfLink" | "duplicateLink" | "unresolvedRef" | "cycle";
+
+/** Why `useWbsPlan().open` (the chat tool's entry point) opened nothing, so
+ *  the tool can tell the model what to say instead of a generic refusal. */
+export type WbsOpenRefusal = "popout" | "aiOff" | "loading" | "busy" | "unknownGroup" | "noTasks";
 
 export interface SkippedWbsItem {
   item: RawWbsItem;
@@ -399,8 +407,11 @@ interface GroundState {
    *  replaced on write, never mutated, so the live objects stay untouched. */
   graph: Map<number, Task>;
   nextProvisionalId: number;
-  /** A task id or ref is CLAIMED by the first item that names it (after R1),
-   *  kept or not — a later duplicate would leave links ambiguous. */
+  /** A ref is CLAIMED by the first newTask that names it (after a non-blank
+   *  check), kept or not — a later duplicate would leave links ambiguous. A
+   *  task id is claimed for a split or regroup only by the first one KEPT: a
+   *  malformed first split leaves no pieces to link to, so a valid second one
+   *  is not ambiguous and is kept. */
   splitClaims: Set<number>;
   regroupClaims: Set<number>;
   refClaims: Set<string>;
@@ -474,8 +485,7 @@ function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipRe
 function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
   const live = checkLiveTask(item.taskId, st);
   if (typeof live === "string") return live;
-  if (st.splitClaims.has(live.id)) return "duplicateRef";
-  st.splitClaims.add(live.id);
+  if (st.splitClaims.has(live.id)) return "duplicateTarget";
   if (item.pieces.length < 2 || item.pieces.length > MAX_SPLIT_PIECES) return "badPieces";
   const pieces = item.pieces.map((p) => ({
     taskName: sanitizeTaskName(p.taskName),
@@ -484,6 +494,7 @@ function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
   }));
   if (pieces.some((p) => p.taskName === "")) return "emptyName";
   if (pieces.some((p) => p.estimateMinutes !== undefined && !isValidEstimate(p.estimateMinutes))) return "badEstimate";
+  st.splitClaims.add(live.id);
   const pieceIds = [live.id, ...pieces.slice(1).map(() => provisionalNode(st))];
   pieces.forEach((p, i) => {
     if (p.estimateMinutes !== undefined) st.estimated.add(pieceIds[i]);
@@ -495,16 +506,19 @@ function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
 function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict {
   const live = checkLiveTask(item.taskId, st);
   if (typeof live === "string") return live;
-  if (st.regroupClaims.has(live.id)) return "duplicateRef";
-  st.regroupClaims.add(live.id);
+  if (st.regroupClaims.has(live.id)) return "duplicateTarget";
   const group = sanitizeGroup(item.group);
-  if (group === "") return "emptyName";
+  if (group === "") return "emptyGroup";
+  // A move to the group the task is already in changes nothing, so it is not
+  // offered (it would stamp lastUpdateDate and count as applied).
+  if (group === (live.group ?? "")) return "sameGroup";
+  st.regroupClaims.add(live.id);
   return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
 }
 
 function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict {
   const ref = oneLine(item.ref);
-  if (ref === "") return "emptyName";
+  if (ref === "") return "emptyRef";
   if (st.refClaims.has(ref)) return "duplicateRef";
   st.refClaims.add(ref);
   const taskName = sanitizeTaskName(item.taskName);

@@ -606,11 +606,23 @@ describe("runTool — optimize_wbs", () => {
     expect(arg.instructions).toBeUndefined();
   });
 
-  it("throws when the flow did not open", async () => {
+  // Literal expected text, so the model is told the REAL reason (final-review M4).
+  it.each([
+    ["popout", {}, "optimize_wbs did not open: it is not available in a pop-out window; ask the user to use the main window"],
+    ["aiOff", {}, "optimize_wbs did not open: the AI assistant is off or has no API key in Settings"],
+    ["loading", {}, "optimize_wbs did not open: the project is still loading; try again in a moment"],
+    ["busy", {}, "optimize_wbs did not open: an Optimize with AI proposal is already open; the user must apply or cancel it first"],
+    ["unknownGroup", { group: "Desgin" }, 'optimize_wbs did not open: no task is in a group named "Desgin"'],
+    ["noTasks", { group: "Done" }, 'optimize_wbs did not open: the group "Done" has no open, non-Jira tasks'],
+    ["noTasks", {}, "optimize_wbs did not open: there are no open, non-Jira tasks to optimize"],
+  ] as const)("passes the %s refusal through to the model", async (reason, input, message) => {
+    const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0, reason })) });
+    await expect(runTool(d, "optimize_wbs", input)).rejects.toThrow(message);
+  });
+
+  it("still throws, generically, when a refusal carries no reason", async () => {
     const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0 })) });
-    await expect(runTool(d, "optimize_wbs", {})).rejects.toThrow(
-      "optimize_wbs is not available here (popout window, AI off, or no tasks in scope)",
-    );
+    await expect(runTool(d, "optimize_wbs", {})).rejects.toThrow("optimize_wbs did not open: it could not be opened");
   });
 });
 

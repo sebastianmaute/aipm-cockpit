@@ -113,11 +113,19 @@ describe("groundWbsProposal — value checks", () => {
     ).toEqual(["emptyName", "emptyName"]);
   });
 
-  test("emptyName, for a blank regroup group and a blank newTask ref", () => {
+  test("emptyGroup for a blank regroup group, emptyRef for a blank newTask ref", () => {
     expect(reasons([{ kind: "regroup", taskId: 1, group: "  ", why: "" }, newTask("  ")])).toEqual([
-      "emptyName",
-      "emptyName",
+      "emptyGroup",
+      "emptyRef",
     ]);
+  });
+
+  test("sameGroup: a regroup to the group the task is already in is not offered", () => {
+    const tasks = [task(1, { group: "Core" }), task(2), task(3)];
+    const r = ground([{ kind: "regroup", taskId: 1, group: "Core", why: "" }, { kind: "regroup", taskId: 1, group: "Ops", why: "" }], tasks);
+    expect(r.skipped.map((x) => x.reason)).toEqual(["sameGroup"]);
+    // The no-op does not claim the task, so the real move after it is kept.
+    expect(r.items.map((g) => g.item)).toEqual([{ kind: "regroup", taskId: 1, group: "Ops", why: "" }]);
   });
 
   test("badDate", () => {
@@ -196,7 +204,7 @@ describe("groundWbsProposal — value checks", () => {
     expect(r.items.map((g) => g.item.kind)).toEqual(["split", "estimate"]);
   });
 
-  test("duplicateRef: a second regroup or split of the same task, and a repeated newTask ref", () => {
+  test("duplicateTarget for a second regroup or split of the same task, duplicateRef for a repeated ref", () => {
     expect(
       reasons([
         { kind: "regroup", taskId: 1, group: "A", why: "" },
@@ -206,7 +214,13 @@ describe("groundWbsProposal — value checks", () => {
         newTask("a"),
         newTask("a"),
       ]),
-    ).toEqual(["duplicateRef", "duplicateRef", "duplicateRef"]);
+    ).toEqual(["duplicateTarget", "duplicateTarget", "duplicateRef"]);
+  });
+
+  test("a malformed first split does not claim the task: a valid second split of it is kept", () => {
+    const r = ground([split(1, 1), { kind: "split", taskId: 1, pieces: [{ taskName: "A" }, { taskName: " " }], why: "" }, split(1, 3)]);
+    expect(r.skipped.map((x) => x.reason)).toEqual(["badPieces", "emptyName"]);
+    expect(r.items.map((g) => g.key)).toEqual(["i2"]);
   });
 
   test("a split and a regroup of the same task are both kept", () => {

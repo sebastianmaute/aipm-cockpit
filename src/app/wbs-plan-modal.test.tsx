@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WbsPlanModal, type WbsPlanModalProps } from "./wbs-plan-modal";
-import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem } from "./wbs-plan/wbs-plan";
+import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason } from "./wbs-plan/wbs-plan";
 import type { Task } from "./types";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -120,7 +120,9 @@ describe("WbsPlanModal", () => {
     render5({ items: [withEmoji], selected: new Set(["i2"]) });
     const expected = t("en-US", "wbsPlanDescriptionExcerpt", `${"a".repeat(119)}…`);
     expect(screen.getByText(expected)).toBeVisible();
-    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(expected)).toBe(false);
+    // Over the RENDERED dialog, not a string this test built: no lone high
+    // surrogate anywhere in what the user sees.
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(screen.getByRole("dialog").textContent ?? "")).toBe(false);
   });
 
   it("adds no ellipsis to a description that fits", () => {
@@ -190,10 +192,11 @@ describe("WbsPlanModal", () => {
   });
 
   it("gives every skip reason a non-empty EN and DE text", () => {
-    const reasons = [
-      "unknownTask", "closedTask", "jiraTask", "outOfScope", "badPieces", "overCap", "emptyName", "badDate",
-      "badEstimate", "hasEstimate", "duplicateRef", "selfLink", "duplicateLink", "unresolvedRef", "cycle",
-    ] as const;
+    const reasons: readonly WbsSkipReason[] = [
+      "unknownTask", "closedTask", "jiraTask", "outOfScope", "badPieces", "emptyName", "emptyGroup", "emptyRef",
+      "badDate", "badEstimate", "hasEstimate", "duplicateRef", "duplicateTarget", "sameGroup", "selfLink",
+      "duplicateLink", "unresolvedRef", "cycle",
+    ];
     for (const r of reasons) {
       const key = `wbsPlanSkip_${r}` as const;
       expect(t("en-US", key).length).toBeGreaterThan(0);
@@ -320,6 +323,68 @@ describe("WbsPlanModal", () => {
   it("does not show the truncation line when not truncated", () => {
     render5();
     expect(screen.queryByText(t("en-US", "wbsPlanTruncated"))).toBeNull();
+  });
+
+  it("names a split piece in a link or estimate by its own proposed name, piece 1 included", () => {
+    const toPiece2 = grounded(
+      "i5",
+      { kind: "link", from: { kind: "task", id: 2 }, to: { kind: "piece", taskId: 1, piece: 2 }, why: "" },
+      ["i0"],
+    );
+    // Piece 1 is stored as the task itself; this proposal splits task 1.
+    const onPiece1 = grounded("i6", { kind: "estimate", target: { kind: "task", id: 1 }, estimateMinutes: 60, why: "" });
+    render5({ items: [split, toPiece2, onPiece1], selected: new Set(["i0", "i5", "i6"]) });
+    expect(screen.getByText("Write docs must finish before Implement API (piece 2 of Build API)")).toBeVisible();
+    expect(screen.getByText("Design API (piece 1 of Build API)")).toBeVisible();
+  });
+
+  it("falls back to the original name for a piece of a split the proposal does not hold", () => {
+    const skipped: SkippedWbsItem[] = [
+      { item: { kind: "estimate", target: { kind: "piece", taskId: 1, piece: 3 }, estimateMinutes: 5, why: "" }, reason: "unresolvedRef" },
+    ];
+    render5({ items: [regroup], selected: new Set(["i1"]), skipped });
+    expect(screen.getByText(`Build API — piece 3 — ${t("en-US", "wbsPlanSkip_unresolvedRef")}`)).toBeInTheDocument();
+  });
+
+  it("describes each checkbox with its row's detail, why and disabled reason", () => {
+    render5();
+    const boxes = screen.getAllByRole("checkbox");
+    // The regroup row: before → after and nothing of the subject repeated.
+    expect(boxes[1]).toHaveAccessibleDescription("Docs → Launch");
+    // The split row: its pieces and its why.
+    expect(boxes[0]).toHaveAccessibleDescription(
+      "Build API → Design API · no estimate Implement API · no estimate too big",
+    );
+    // The disabled link row says why it cannot apply.
+    expect(boxes[boxes.length - 1]).toHaveAccessibleDescription(`order ${t("en-US", "wbsPlanLinkNeedsEndpoint")}`);
+  });
+
+  it("when every proposed item was refused, shows only the reasons, expanded, and no Apply", () => {
+    const skipped: SkippedWbsItem[] = [
+      { item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" },
+    ];
+    render5({ items: [], selected: new Set(), skipped });
+    expect(screen.getByText(t("en-US", "wbsPlanAllSkipped"))).toBeVisible();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(document.querySelector("details")).toHaveAttribute("open");
+    expect(screen.getByText(`Write docs — ${t("en-US", "wbsPlanSkip_sameGroup")}`)).toBeVisible();
+    expect(screen.getByRole("button", { name: /Apply/ })).toBeDisabled();
+  });
+
+  it("keeps the Not-applied list collapsed and shows no all-refused note while something can apply", () => {
+    const skipped: SkippedWbsItem[] = [
+      { item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" },
+    ];
+    render5({ skipped });
+    expect(screen.queryByText(t("en-US", "wbsPlanAllSkipped"))).toBeNull();
+    expect(document.querySelector("details")).not.toHaveAttribute("open");
+  });
+
+  // Literal German, not t(): the button and the toasts must use ONE verb.
+  it("uses \u00fcbernehmen for the Apply button in German, as the toasts and the log do", () => {
+    render5({ lang: "de", skipped: [{ item: { kind: "regroup", taskId: 2, group: "Docs", why: "" }, reason: "sameGroup" }] });
+    expect(screen.getByRole("button", { name: "3 \u00c4nderungen \u00fcbernehmen" })).toBeInTheDocument();
+    expect(screen.getByText("Nicht \u00fcbernommen", { exact: false })).toBeInTheDocument();
   });
 
   it("fires onApply and onCancel", async () => {

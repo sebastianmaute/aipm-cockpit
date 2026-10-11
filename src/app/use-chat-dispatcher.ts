@@ -617,7 +617,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       openWbsPlan: (req) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
-        return openWbsPlanRef.current(req);
+        // ★ `tasksRef` is advanced SYNCHRONOUSLY by every task write above,
+        // so a task created earlier in this model turn is in scope; the
+        // hook's own list is synced only after commit (cold-review C5).
+        return openWbsPlanRef.current({ ...req, liveTasks: tasksRef.current });
       },
       deleteAllTasks: () => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

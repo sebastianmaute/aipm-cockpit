@@ -11,6 +11,7 @@
 // cannot apply. Everything Apply writes is shown: a new task's assignee, and a
 // plain-text excerpt of each description a new row gets.
 
+import { useId } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
@@ -51,12 +52,15 @@ const SKIP_REASON_KEY: Record<WbsSkipReason, TranslationKey> = {
   jiraTask: "wbsPlanSkip_jiraTask",
   outOfScope: "wbsPlanSkip_outOfScope",
   badPieces: "wbsPlanSkip_badPieces",
-  overCap: "wbsPlanSkip_overCap",
   emptyName: "wbsPlanSkip_emptyName",
+  emptyGroup: "wbsPlanSkip_emptyGroup",
+  emptyRef: "wbsPlanSkip_emptyRef",
   badDate: "wbsPlanSkip_badDate",
   badEstimate: "wbsPlanSkip_badEstimate",
   hasEstimate: "wbsPlanSkip_hasEstimate",
   duplicateRef: "wbsPlanSkip_duplicateRef",
+  duplicateTarget: "wbsPlanSkip_duplicateTarget",
+  sameGroup: "wbsPlanSkip_sameGroup",
   selfLink: "wbsPlanSkip_selfLink",
   duplicateLink: "wbsPlanSkip_duplicateLink",
   unresolvedRef: "wbsPlanSkip_unresolvedRef",
@@ -90,10 +94,25 @@ export function WbsPlanModal({
 
   const taskName = (id: number): string => tasksById.get(id)?.taskName ?? t(lang, "wbsPlanUnknownTask", id);
 
-  // A ref resolves to the newTask that declares it; a piece to "<original> — piece N".
+  const splitOf = (taskId: number): Extract<RawWbsItem, { kind: "split" }> | null => {
+    for (const g of items) if (g.item.kind === "split" && g.item.taskId === taskId) return g.item;
+    return null;
+  };
+  // A piece is named by its OWN proposed name, "<piece> (piece N of <original>)",
+  // read from the split in this proposal. Without one (a skipped item citing a
+  // split that was not kept) it falls back to "<original> — piece N".
+  const pieceLabel = (taskId: number, piece: number): string => {
+    const p = splitOf(taskId)?.pieces[piece - 1];
+    return p
+      ? t(lang, "wbsPlanPieceNamed", p.taskName, piece, taskName(taskId))
+      : t(lang, "wbsPlanPieceLabel", taskName(taskId), piece);
+  };
+
+  // A ref resolves to the newTask that declares it. Piece 1 is stored as the
+  // task itself, so a task this proposal splits is labelled as its piece 1.
   const targetLabel = (target: WbsTarget): string => {
-    if (target.kind === "task") return taskName(target.id);
-    if (target.kind === "piece") return t(lang, "wbsPlanPieceLabel", taskName(target.taskId), target.piece);
+    if (target.kind === "task") return splitOf(target.id) ? pieceLabel(target.id, 1) : taskName(target.id);
+    if (target.kind === "piece") return pieceLabel(target.taskId, target.piece);
     for (const g of items) {
       if (g.item.kind === "newTask" && g.item.ref === target.ref) return g.item.taskName;
     }
@@ -165,6 +184,11 @@ export function WbsPlanModal({
   const isDisabled = (g: GroundedWbsItem): boolean => g.requires.some((k) => !selected.has(k));
   const count = items.reduce((n, g) => (selected.has(g.key) && !isDisabled(g) ? n + 1 : n), 0);
   const canApply = !applying && count > 0;
+  // The prefix of each row's detail ids (aria-describedby on its checkbox).
+  const idBase = useId();
+  // Every proposed item was refused: the preview still opens, so the reasons
+  // are visible, with the "Not applied" list expanded.
+  const allSkipped = items.length === 0 && skipped.length > 0;
 
   return (
     <Modal open onClose={applying ? () => {} : onCancel} ariaLabel={title}>
@@ -178,6 +202,7 @@ export function WbsPlanModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {truncated && <p className="mb-4 text-xs text-muted-foreground">{t(lang, "wbsPlanTruncated")}</p>}
+          {allSkipped && <p className="mb-4 text-sm text-foreground">{t(lang, "wbsPlanAllSkipped")}</p>}
 
           {SECTIONS.map(({ kind, titleKey }) => {
             const group = items.filter((g) => g.item.kind === kind);
@@ -192,6 +217,20 @@ export function WbsPlanModal({
                     const split = g.item.kind === "split" ? g.item : null;
                     const newTaskDescription =
                       g.item.kind === "newTask" && g.item.description !== undefined ? g.item.description : null;
+                    // Each part of the detail gets an id and describes the checkbox,
+                    // whose NAME is the subject alone. Referenced part by part, not
+                    // through one wrapper: the pieces list carries an aria-label,
+                    // which would stand in for its items in a wrapper's text.
+                    const partId = (part: string) => `${idBase}-${g.key}-${part}`;
+                    const describedBy = [
+                      info ? partId("info") : null,
+                      newTaskDescription !== null ? partId("desc") : null,
+                      ...(split ? split.pieces.map((_, i) => partId(`p${i}`)) : []),
+                      g.item.why ? partId("why") : null,
+                      disabled ? partId("off") : null,
+                    ]
+                      .filter((id): id is string => id !== null)
+                      .join(" ");
                     return (
                       <li key={g.key} className="rounded-md border border-line bg-surface-muted px-3 py-2">
                         <label className="flex cursor-pointer items-start gap-2">
@@ -200,13 +239,14 @@ export function WbsPlanModal({
                             disabled={applying || disabled}
                             onChange={() => onToggle(g.key)}
                             aria-label={rowLabel(t(lang, "wbsPlanInclude"), tokens.get(g.key) ?? g.key)}
+                            aria-describedby={describedBy || undefined}
                             className="mt-0.5 shrink-0"
                           />
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium text-foreground">{subject(g.item)}</span>
-                            {info && <span className="block text-sm text-foreground">{info}</span>}
+                            {info && <span id={partId("info")} className="block text-sm text-foreground">{info}</span>}
                             {newTaskDescription !== null && (
-                              <span className="block text-sm text-foreground">
+                              <span id={partId("desc")} className="block text-sm text-foreground">
                                 {t(lang, "wbsPlanDescriptionExcerpt", descriptionExcerpt(newTaskDescription))}
                               </span>
                             )}
@@ -216,15 +256,19 @@ export function WbsPlanModal({
                                 aria-label={t(lang, "wbsPlanPiecesLabel")}
                               >
                                 {split.pieces.map((p, i) => (
-                                  <li key={i}>{pieceText(split.taskId, p, i === 0)}</li>
+                                  <li key={i} id={partId(`p${i}`)}>
+                                    {pieceText(split.taskId, p, i === 0)}
+                                  </li>
                                 ))}
                               </ul>
                             )}
                             {g.item.why && (
-                              <span className="mt-1 block text-xs text-muted-foreground">{g.item.why}</span>
+                              <span id={partId("why")} className="mt-1 block text-xs text-muted-foreground">
+                                {g.item.why}
+                              </span>
                             )}
                             {disabled && (
-                              <span className="mt-1 block text-xs text-muted-foreground">
+                              <span id={partId("off")} className="mt-1 block text-xs text-muted-foreground">
                                 {t(lang, "wbsPlanLinkNeedsEndpoint")}
                               </span>
                             )}
@@ -239,7 +283,7 @@ export function WbsPlanModal({
           })}
 
           {skipped.length > 0 && (
-            <details className="border-t border-line pt-3">
+            <details className="border-t border-line pt-3" open={allSkipped}>
               <summary className="cursor-pointer text-xs font-semibold uppercase text-muted-foreground">
                 {t(lang, "wbsPlanSkippedTitle")} ({skipped.length})
               </summary>

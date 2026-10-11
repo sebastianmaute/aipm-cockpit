@@ -1334,8 +1334,23 @@ describe("useChatDispatcher – optimize_wbs", () => {
     );
     rerender({ open: second });
     expect(result.current.openWbsPlan({ group: "Build" })).toEqual({ opened: true, tasksInScope: 3 });
-    expect(second).toHaveBeenCalledWith({ group: "Build" });
+    expect(second).toHaveBeenCalledWith({ group: "Build", liveTasks: [] });
     expect(first).not.toHaveBeenCalled();
+  });
+
+  // cold-review C5: a task the chat created earlier in the SAME model turn is
+  // not yet committed, so the hook's own list lacks it; the dispatcher hands
+  // its synchronously-advanced list instead.
+  it("hands openWbsPlan the live list, including a task created earlier in the same turn", () => {
+    const openWbsPlan = vi.fn(() => ({ opened: true, tasksInScope: 1 }));
+    const { result } = renderDispatcher([], false, "open-points", undefined, undefined, undefined, undefined, openWbsPlan);
+    act(() => {
+      result.current.createTask({ taskName: "Made this turn", assignee: "Ada", dueDate: "2026-06-01" });
+      result.current.openWbsPlan({ group: "Build" });
+    });
+    const arg = (openWbsPlan.mock.calls[0] as unknown as [{ group?: string; liveTasks?: readonly { taskName: string }[] }])[0];
+    expect(arg.group).toBe("Build");
+    expect(arg.liveTasks?.map((x) => x.taskName)).toEqual(["Made this turn"]);
   });
 });
 

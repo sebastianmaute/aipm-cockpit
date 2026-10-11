@@ -191,6 +191,18 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(vi.mocked(call.runWbsProposal).mock.calls[0][2].trim()).not.toBe("");
   });
 
+  it("a proposal whose every item was refused opens the preview with the reasons, not 'no changes'", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([{ kind: "regroup", taskId: 1, group: "Core", why: "" }]), // task 1 is already in Core
+    );
+    renderHarness();
+    await proposeFromButton();
+    await screen.findByText(t("en-US", "wbsPlanAllSkipped"));
+    expect(screen.getByText(`Task 1 — ${t("en-US", "wbsPlanSkip_sameGroup")}`)).toBeVisible();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "wbsPlanEmpty"));
+  });
+
   it("an empty proposal toasts wbsPlanEmpty and resets", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
     renderHarness();
@@ -313,7 +325,9 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     );
     const api = renderHarness();
     act(() => { api().wbs.open({ group: "Ops" }); });
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanEmpty")));
+    // Refused, so it is listed under "Not applied" with its reason, never offered.
+    await screen.findByText(t("en-US", "wbsPlanAllSkipped"));
+    expect(screen.getByText(`Task 1 — ${t("en-US", "wbsPlanSkip_outOfScope")}`)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
@@ -456,7 +470,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       const api = renderHarness({ loadPending: true });
       let res: ReturnType<WbsPlan["open"]> | undefined;
       act(() => { res = api().wbs.open({}); });
-      expect(res).toEqual({ opened: false, tasksInScope: 0 });
+      expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "loading" });
       expect(call.runWbsProposal).not.toHaveBeenCalled();
       expect(screen.queryByRole("dialog")).toBeNull();
     });
@@ -465,6 +479,24 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       renderHarness({ loadPending: true });
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") }));
       expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("a load hold that closes an open preview tells the user why", async () => {
+      vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
+      const api = renderHarness();
+      await proposeFromButton();
+      await screen.findByRole("checkbox", { name: /include this change/i });
+      showToast.mockClear();
+      api.reprops({ loadPending: true });
+      expect(showToast).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanClosedByLoad"));
+    });
+
+    it("a load hold while the flow is idle says nothing", () => {
+      const api = renderHarness();
+      showToast.mockClear();
+      api.reprops({ loadPending: true });
+      expect(showToast).not.toHaveBeenCalled();
     });
 
     it("a load hold that starts while the preview is open closes it and writes nothing", async () => {
@@ -515,13 +547,39 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     });
   });
 
-  it("open() refuses with an empty scope", () => {
+  it("open() refuses a group no task has as unknownGroup", () => {
     const api = renderHarness();
     let res: ReturnType<WbsPlan["open"]> | undefined;
     act(() => { res = api().wbs.open({ group: "Nope" }); });
-    expect(res).toEqual({ opened: false, tasksInScope: 0 });
+    expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "unknownGroup" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(call.runWbsProposal).not.toHaveBeenCalled();
+  });
+
+  it("open() names why it refused: busy mid-flow, noTasks for a group with no open task", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    const api = renderHarness({}, [...SEED, task(4, { group: "Done", status: "Done", completedDate: "2026-10-01" })]);
+    let res: ReturnType<WbsPlan["open"]> | undefined;
+    act(() => { res = api().wbs.open({ group: "done" }); });
+    expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "noTasks" });
+    act(() => { res = api().wbs.open({}); });
+    expect(res?.opened).toBe(true);
+    act(() => { res = api().wbs.open({}); });
+    expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "busy" });
+  });
+
+  // cold-review C5: the hook's own list is synced after commit, so a task the
+  // chat created earlier in the same model turn reaches it only through the
+  // caller's synchronously-updated list.
+  it("open({liveTasks}) scopes over the caller's live list, not the hook's committed one", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    const api = renderHarness();
+    const created = task(9, { taskName: "Created this turn" });
+    let res: ReturnType<WbsPlan["open"]> | undefined;
+    act(() => { res = api().wbs.open({ liveTasks: [...api().ws.tasks, created] }); });
+    expect(res).toEqual({ opened: true, tasksInScope: 4 });
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runWbsProposal).mock.calls[0][0]).toContain("#9 [in scope]");
   });
 
   it("open() refuses in a popout and the button is null there", () => {
@@ -529,7 +587,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "wbsPlanButton") })).toBeNull();
     let res: ReturnType<WbsPlan["open"]> | undefined;
     act(() => { res = api().wbs.open({}); });
-    expect(res).toEqual({ opened: false, tasksInScope: 0 });
+    expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "popout" });
     expect(call.runWbsProposal).not.toHaveBeenCalled();
   });
 
@@ -540,7 +598,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(button.getAttribute("title")).toBe(t("en-US", "wbsPlanNeedsAi"));
     let res: ReturnType<WbsPlan["open"]> | undefined;
     act(() => { res = api().wbs.open({}); });
-    expect(res).toEqual({ opened: false, tasksInScope: 0 });
+    expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "aiOff" });
     expect(call.runWbsProposal).not.toHaveBeenCalled();
   });
 
