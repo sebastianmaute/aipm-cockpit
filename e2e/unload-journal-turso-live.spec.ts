@@ -197,11 +197,12 @@ async function expectStored(marker: string): Promise<void> {
 /** The load consumed the project's journal and raised no conflict notice. */
 async function expectJournalConsumed(page: Page): Promise<void> {
   await expect.poll(() => readJournal(page), { message: "the load must consume the journal", timeout: 30_000 }).toBeNull();
+  // Belt and braces: a conflict keeps the journal, so the poll above fails first.
   await expect(page.getByRole("region", { name: CONFLICT_NOTICE })).toHaveCount(0);
   const restored = await page.evaluate(() => (window as unknown as { __e2eRestoredToast?: boolean }).__e2eRestoredToast === true);
   test.info().annotations.push({
     type: "restore branch",
-    description: restored ? "restored from the journal and saved back" : "no restore toast: cleared as already landed",
+    description: restored ? "restore toast seen: restored from the journal" : "no restore toast seen (likely cleared as already landed)",
   });
 }
 
