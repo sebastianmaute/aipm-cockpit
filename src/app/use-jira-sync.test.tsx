@@ -4,7 +4,7 @@ import type { Task, TaskStatus } from "./types";
 import type { JiraIssue } from "./jira-api";
 import { JiraApiError } from "./jira-api";
 import type { Settings } from "./settings-types";
-import { useJiraSync } from "./use-jira-sync";
+import { mergeSyncedTasks, useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
@@ -1820,7 +1820,7 @@ describe("useJiraSync — an edit made while the push awaits Jira (§698)", () =
     expect(result.current.currentTasks.map((x) => x.id)).not.toContain(2);
   });
 
-  it("keeps an edit to the row being pushed, and still applies the sync to the rows it did not touch", async () => {
+  it("keeps an edit to the row being pushed", async () => {
     const release = holdPush();
     const { result } = renderSync([pushing, local]);
     let sync!: Promise<void>;
@@ -1879,6 +1879,17 @@ describe("useJiraSync — an edit made while the push awaits Jira (§698)", () =
     };
     expect(await run(false)).toEqual({ kinds: ["task.completed", "jira.sync"], status: "Done" });
     expect(await run(true)).toEqual({ kinds: ["jira.sync"], status: "To Do" });
+  });
+
+  // Review finding: the pairing of a snapshot row with its synced version is by position, which
+  // holds only while every path through the row loop pushes exactly one row. A misaligned pair
+  // must degrade to keeping the current row, never hand one task another task's synced version.
+  it("mergeSyncedTasks keeps a row whose synced counterpart does not share its id", () => {
+    const a = makeTask({ id: 1, taskName: "A" });
+    const b = makeTask({ id: 2, taskName: "B" });
+    const merged = mergeSyncedTasks([a, b], [a, b], [{ ...b, taskName: "B synced" }, { ...a, taskName: "A synced" }], []);
+    expect(merged.map((x) => x.taskName)).toEqual(["A", "B"]);
+    expect(mergeSyncedTasks([a, b], [a, b], [{ ...a, taskName: "A synced" }], []).map((x) => x.taskName)).toEqual(["A synced", "B"]);
   });
 
   it("does not create a second task for a Jira key a task added mid-sync already carries", async () => {

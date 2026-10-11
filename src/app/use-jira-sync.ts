@@ -69,13 +69,25 @@ const NO_CONFLICTS: ConflictItem[] = [];
  *  version; any other row was edited, added or replaced since and is kept as it is; a snapshot
  *  row no longer present stays deleted. A created task is skipped when a row with its key exists
  *  now, and re-minted when a row added meanwhile took its id.
- *  ★ A row the user edited mid-sync keeps its old `lastSyncedAt` and its new
- *  `localModifiedAt`, so the next sync takes it again (as a conflict if the push moved Jira).
+ *  ★ A row the user edited mid-sync keeps its old `lastSyncedAt`, so the next sync takes it
+ *  again. An edit that stamps `localModifiedAt` is then pushed (or met as a conflict if this
+ *  sync's push moved Jira); one that does not is overwritten by that sync's pull.
+ *  ★ `synced[i]` is taken as row `i`'s version only when their ids match. The loop pushes one
+ *  row per snapshot row today, but that is a property of its arms, so a misaligned pair keeps
+ *  the current row rather than handing it another task's version.
  *  ★ It runs inside a `setTasks` updater; a StrictMode double call can mint a re-minted id
  *  twice, which only skips an id. */
-function mergeSyncedTasks(current: readonly Task[], snapshot: readonly Task[], synced: readonly Task[], created: readonly Task[]): Task[] {
+export function mergeSyncedTasks(
+  current: readonly Task[],
+  snapshot: readonly Task[],
+  synced: readonly Task[],
+  created: readonly Task[],
+): Task[] {
   const syncedFor = new Map<Task, Task>();
-  snapshot.forEach((row, i) => syncedFor.set(row, synced[i]!));
+  snapshot.forEach((row, i) => {
+    const version = synced[i];
+    if (version?.id === row.id) syncedFor.set(row, version);
+  });
   const merged = current.map((row) => syncedFor.get(row) ?? row);
   const keys = new Set(merged.map((r) => r.jiraKey).filter(Boolean));
   const ids = new Set(merged.map((r) => r.id));
