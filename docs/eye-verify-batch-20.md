@@ -5,8 +5,8 @@ everything a browser run can measure; what is left below is what only a person c
 tooltips, taste calls on layout, and one item that needs a real Turso project. The entry closes on
 your sign-off. Tick what you saw, and note anything that looks wrong beside its line.
 
-**Screenshots:** run the spec once. It writes five PNGs to `eye-verify-output/batch-20/414/`
-(git-ignored) and all six tests should pass.
+**Screenshots:** run the spec once. It writes eight PNGs to `eye-verify-output/batch-20/414/`
+(git-ignored) and all eight tests should pass.
 
 ```bash
 npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --workers=1
@@ -27,19 +27,21 @@ npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --
 
 ## What needs your eyes
 
-- [ ] **Item 1, the tooltip itself.** In the app, open **Projects** and hover **Load from Turso** and
+- [x] **Item 1, the tooltip itself.** _(2026-10-11: confirmed by the owner.)_ In the app, open **Projects** and hover **Load from Turso** and
   **Move to Turso** (both disabled without Turso set up). A tooltip explaining why should appear, in
   your usual browser, and in Firefox if you have it. The run proves the pointer reaches the hint,
   but no test can see a native tooltip appear.
-- [ ] **Item 2.** `item2-row-with-ask-claude.png`: the sparkles icon sits in its own narrow cell
+- [x] **Item 2.** _(2026-10-11: confirmed on a re-shot taken with the row hovered; the first shot showed no icon.)_ `item2-row-with-ask-claude.png`: the sparkles icon sits in its own narrow cell
   and does not overlap the checkbox.
-- [ ] **Item 3.** `item3b-id-cell-default.png` and `item3b-id-cell-narrowest.png`: with a Jira key and
+- [x] **Item 3.** _(2026-10-11: confirmed by the owner.)_ `item3b-id-cell-default.png` and `item3b-id-cell-narrowest.png`: with a Jira key and
   a second badge on the same task, the badges stack under the ID, one per line, and nothing is cut off.
   The narrowest width used to clip the ID and the Jira key; since 2026-10-08 the column is 112px by
   default and cannot be dragged narrower. Check the wider ID column looks right in the table.
-- [ ] **Item 4.** `item4-documents-expanded.png` and `item4-documents-collapsed.png`: the panel
+- [x] **Item 4.** _(2026-10-11: confirmed by the owner.)_ `item4-documents-expanded.png` and `item4-documents-collapsed.png`: the panel
   reflows sensibly when the body collapses, and the underlined chevron next to the name reads well.
-- [ ] **Item 6, needs a real Turso project.** In a Turso-backed project, open **Documents** and look
-  at an image asset: its name should read as clickable (it opens a preview). In a file-based project
-  the same name should read as plain text. Skip this line if you have no Turso project to hand, and
-  say so.
+- [x] **Item 6.** _(2026-10-11: confirmed by the owner on these screenshots.)_ `item6a-asset-name-turso.png` and `item6a-asset-name-turso-hover.png`: under Turso, an image's name in
+  the Documents asset list reads as clickable (it opens a preview), and underlines on hover. `item6b-asset-section-file-mode.png`:
+  a file-based project shows no asset list at all, only the notice that images need a Turso project. ★ The kit used to say a
+  file-based project shows the same name as plain text; it does not, since the library never mounts there. No real Turso
+  project is needed: the spec fakes the Turso asset store (`installAssetByteStore`). _(2026-10-11: the first look was skipped
+  for want of a Turso project; these screenshots replace it.)_
