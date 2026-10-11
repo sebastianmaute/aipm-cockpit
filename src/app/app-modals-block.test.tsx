@@ -74,6 +74,17 @@ beforeEach(() => {
   for (const k of Object.keys(seen)) delete seen[k];
 });
 
+describe("buildAppModalsBlock — lang", () => {
+  // Every other fixture is en-US, so only this one can tell a passed-through
+  // `lang` from a hard-coded one.
+  it("hands the caller's lang to every child that takes one", () => {
+    renderBlock(makeDeps({ lang: "de", linkedTaskOpen: true }));
+    for (const name of ["VersionInfoModal", "RecommendationReviewModal", "CalendarSummaryModals", "OutlookImportModal", "OutlookCalendarImportModal", "AppModals", "TaskLinkedTaskModal", "RaidCreateHost"]) {
+      expect(seen[name]?.lang, name).toBe("de");
+    }
+  });
+});
+
 describe("buildAppModalsBlock — the popout gates", () => {
   it("mounts the review modal, both windows and the RAID editor outside a popout", () => {
     const deps = makeDeps();
@@ -104,7 +115,7 @@ describe("buildAppModalsBlock — the popout gates", () => {
 
 describe("buildAppModalsBlock — the insight recommendation review", () => {
   it("needs both a recommendation and a plan", () => {
-    renderBlock(makeDeps({ reviewPlan: null } as Partial<AppModalsBlockDeps>));
+    renderBlock(makeDeps({ reviewPlan: null } as Partial<AppModalsBlockDeps>)).unmount();
     expect(seen.RecommendationReviewModal).toBeUndefined();
     renderBlock(makeDeps({ reviewInsight: { id: "i1" } } as unknown as Partial<AppModalsBlockDeps>));
     expect(seen.RecommendationReviewModal).toBeUndefined();
@@ -125,7 +136,7 @@ describe("buildAppModalsBlock — the insight recommendation review", () => {
 
 describe("buildAppModalsBlock — AppModals", () => {
   it("opens notes and blockers only for an existing task, on that task's id", () => {
-    renderBlock(makeDeps());
+    renderBlock(makeDeps()).unmount();
     expect("taskOnOpenNotes" in (seen.AppModals ?? {})).toBe(true);
     expect(seen.AppModals?.taskOnOpenNotes).toBeUndefined();
     expect(seen.AppModals?.taskOnOpenBlockers).toBeUndefined();
@@ -208,7 +219,7 @@ describe("buildAppModalsBlock — the other modals", () => {
   });
 
   it("mounts the linked-task modal only while it is open, and closes it", () => {
-    renderBlock(makeDeps());
+    renderBlock(makeDeps()).unmount();
     expect(seen.TaskLinkedTaskModal).toBeUndefined();
     const deps = makeDeps({ linkedTaskOpen: true });
     renderBlock(deps);

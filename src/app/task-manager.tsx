@@ -1876,8 +1876,8 @@ function TaskManagerInner() {
 
   // Popout windows keep the simple scrolling flow. The classic main window is a
   // viewport-height flex column: the header pins at the top, only the content
-  // region (workspace + tasks) scrolls, and the footer (last child of
-  // modalsBlock) stays visible at the bottom without scrolling the whole page.
+  // region (workspace + tasks) scrolls, and the footer stays visible at the
+  // bottom without scrolling the whole page.
   const legacyTree = isPopout ? (
     <main id="main-content" className="flex flex-1 flex-col p-4">
       {!isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
