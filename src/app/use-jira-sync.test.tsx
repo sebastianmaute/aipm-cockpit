@@ -1881,17 +1881,6 @@ describe("useJiraSync — an edit made while the push awaits Jira (§698)", () =
     expect(await run(true)).toEqual({ kinds: ["jira.sync"], status: "To Do" });
   });
 
-  // Review finding: the pairing of a snapshot row with its synced version is by position, which
-  // holds only while every path through the row loop pushes exactly one row. A misaligned pair
-  // must degrade to keeping the current row, never hand one task another task's synced version.
-  it("mergeSyncedTasks keeps a row whose synced counterpart does not share its id", () => {
-    const a = makeTask({ id: 1, taskName: "A" });
-    const b = makeTask({ id: 2, taskName: "B" });
-    const merged = mergeSyncedTasks([a, b], [a, b], [{ ...b, taskName: "B synced" }, { ...a, taskName: "A synced" }], []);
-    expect(merged.map((x) => x.taskName)).toEqual(["A", "B"]);
-    expect(mergeSyncedTasks([a, b], [a, b], [{ ...a, taskName: "A synced" }], []).map((x) => x.taskName)).toEqual(["A synced", "B"]);
-  });
-
   it("does not create a second task for a Jira key a task added mid-sync already carries", async () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
@@ -1934,5 +1923,18 @@ describe("useJiraSync — an edit made while the push awaits Jira (§698)", () =
     expect(new Set(ids).size).toBe(ids.length);
     expect(result.current.currentTasks.find((x) => x.id === 3)?.taskName).toBe("Added mid-sync");
     expect(result.current.currentTasks.find((x) => x.jiraKey === "TEST-9")?.taskName).toBe("From Jira");
+  });
+});
+
+// §698 review: the pairing of a snapshot row with its synced version is by position, which holds
+// only while every path through the row loop pushes exactly one row. A misaligned pair must
+// degrade to keeping the current row, never hand one task another task's synced version.
+describe("mergeSyncedTasks (§698)", () => {
+  it("keeps a row whose synced counterpart does not share its id", () => {
+    const a = makeTask({ id: 1, taskName: "A" });
+    const b = makeTask({ id: 2, taskName: "B" });
+    const merged = mergeSyncedTasks([a, b], [a, b], [{ ...b, taskName: "B synced" }, { ...a, taskName: "A synced" }], []);
+    expect(merged.map((x) => x.taskName)).toEqual(["A", "B"]);
+    expect(mergeSyncedTasks([a, b], [a, b], [{ ...a, taskName: "A synced" }], []).map((x) => x.taskName)).toEqual(["A synced", "B"]);
   });
 });
