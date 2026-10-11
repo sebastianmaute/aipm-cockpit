@@ -34,11 +34,15 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  *
  * ★★★ ITS BOUND. A removal written another way passes unseen: a setter handed a
  * parameter of an OUTER function, an exempt accumulator whose loop later learns to
- * skip a row (its exemption names the function, not the loop), a filtered local hidden by a same-named plain local in a sibling function
+ * skip a row (its exemption names the function, not the loop), an alias made by
+ * ASSIGNMENT rather than by an initialiser (`let l; l = next;`), a copy made any
+ * other way than a lone spread (`next.slice()`, `[...next, x]`), a filtered local
+ * or committer alias hidden by a same-named local in a sibling function or block
  * (each scope is searched whole, nested closures included, first match wins), a
  * generic setter such as the undo runner's (it arms by hand; nothing checks it),
- * or a counted slice's setter handed down under another name. Those stay a by-hand review, as §293 records. And "the
- * enclosing function calls it" is a PRESENCE check, not an ordering or branch
+ * or a counted slice's setter handed down under another name. Those stay a by-hand
+ * review, as §293 records. And "the enclosing function calls it" is a PRESENCE
+ * check, not an ordering or branch
  * check — whether the arm fires on the right path is each route's own test.
  *
  * ★ The setters are derived from `SLICE_POLICY`'s counted slices, so a newly
@@ -79,7 +83,7 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
   "use-jira-sync.ts#handleJiraSync#setTasks": {
     sites: 1,
     reason:
-      "A rebuild accumulator that keeps every row: each path through the per-row loop pushes the row once, " +
+      "A rebuild accumulator that keeps every row of the snapshot it read: each path through the per-row loop pushes the row once, " +
       "a failed push included (its catch pushes it unchanged), and the issue loop only appends. Read 2026-10-11; " +
       "a new path that skips a row would not fail here, so re-read the loop when editing it.",
   },
@@ -119,10 +123,13 @@ const isFilterCall = isMethodCall("filter");
 const isSpliceCall = isMethodCall("splice");
 const isEmptyArray = (n: ts.Node): boolean => ts.isArrayLiteralExpression(n) && n.elements.length === 0;
 
-/** Strip parentheses and `as`/`satisfies`/`!` wrappers, so `([] as Task[])` reads as `[]`. */
+/** Strip parentheses and `as`/`<T>`/`satisfies`/`!` wrappers, so `([] as Task[])` reads as `[]`. */
 function unwrap(n: ts.Expression): ts.Expression {
   for (;;) {
-    if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isNonNullExpression(n)) n = n.expression;
+    if (
+      ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isTypeAssertionExpression(n) ||
+      ts.isSatisfiesExpression(n) || ts.isNonNullExpression(n)
+    ) n = n.expression;
     else return n;
   }
 }
@@ -232,13 +239,34 @@ function localInitializer(from: ts.Node, name: string): ts.Expression | undefine
  *  per kept row, as in `use-jira-sync.ts`). Whether it drops a row depends on its loop,
  *  which this scan cannot read, so it counts and fails CLOSED: an accumulator that keeps
  *  every row needs an `UNARMED_BY_DESIGN` reason, which a person writes after reading the loop.
- *  ★ It errs towards flagging: `let next = []; next = rows.map(f);` counts too. */
+ *  ★ It errs towards flagging: `let next = []; next = rows.map(f);` counts too.
+ *  The local may be handed on as is (`kept`), as a copy (`[...kept]`) or from an updater
+ *  (`() => kept`), and through any chain of plain aliases (`const out = kept;`). */
 function isRemovalArgument(arg: ts.Expression): boolean {
   if (isRemovalValue(arg)) return true;
-  const e = unwrap(arg);
-  if (!ts.isIdentifier(e)) return false;
-  const init = localInitializer(arg, e.text);
-  return !!init && (contains(init, isFilterCall) || contains(init, isSpliceCall) || isEmptyArray(unwrap(init)));
+  const name = handedOnName(arg);
+  return name !== undefined && isRemovalLocal(arg, name, new Set());
+}
+
+/** The local an argument hands over unchanged: `next`, `[...next]` or `() => next`. */
+function handedOnName(arg: ts.Expression): string | undefined {
+  let e = unwrap(arg);
+  if ((ts.isArrowFunction(e) || ts.isFunctionExpression(e)) && !ts.isBlock(e.body)) e = unwrap(e.body);
+  const only = ts.isArrayLiteralExpression(e) && e.elements.length === 1 ? e.elements[0] : undefined;
+  if (only && ts.isSpreadElement(only)) e = unwrap(only.expression);
+  return ts.isIdentifier(e) ? e.text : undefined;
+}
+
+/** `name`'s declaration, found from `from` by `localInitializer`, is a `.filter(`, a `.splice(`,
+ *  a `[]`, or a plain alias of another such local. `seen` stops a cycle. */
+function isRemovalLocal(from: ts.Node, name: string, seen: Set<string>): boolean {
+  if (seen.has(name)) return false;
+  seen.add(name);
+  const init = localInitializer(from, name);
+  if (!init) return false;
+  if (contains(init, isFilterCall) || contains(init, isSpliceCall) || isEmptyArray(unwrap(init))) return true;
+  const source = unwrap(init);
+  return ts.isIdentifier(source) && isRemovalLocal(source, source.text, seen);
 }
 
 /** A COMMITTER: the setter is handed a parameter of the function it sits in
@@ -270,7 +298,9 @@ function boundNames(b: ts.BindingName): string[] {
 }
 
 /** `name` is a parameter of `fn`, or a local of `fn`'s own body (nested functions not
- *  searched) whose initializer is, after `unwrap`, another such name. `seen` stops a cycle. */
+ *  searched) whose initializer is, after `unwrap`, another such name. `seen` stops a cycle.
+ *  ★ The first declaration of `name` in document order wins, so of two same-named locals
+ *  in sibling blocks only the first is read. */
 function derivesFromParameter(fn: ts.SignatureDeclaration, name: string, seen: Set<string>): boolean {
   if (seen.has(name)) return false;
   seen.add(name);
@@ -426,6 +456,11 @@ describe("scanSource (the scanner itself)", () => {
     expect(scan(`function f() { let a = b; let b = a; setTasks(a); }`)).toEqual([]);
   });
 
+  // Review finding: the angle-bracket cast, which only a `.ts` file can hold.
+  it("sees an alias through an angle-bracket cast in a .ts file", () => {
+    expect(scanSource("x.ts", `function commit(next) { const l = <Task[]>next; setTasks(l); }`, setters).map((x) => x.setter)).toEqual(["setTasks"]);
+  });
+
   it("ignores an edit, an unlisted setter, and a filter outside the setter's value", () => {
     expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
     // A local initialised by anything else, `.map(` included, is no removal.
@@ -466,6 +501,11 @@ describe("scanSource (the scanner itself)", () => {
     // §293, widened 2026-10-11: a rebuild accumulator, which counts whether or not its loop skips a row.
     ["a rebuild accumulator", `function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`],
     ["a typed rebuild accumulator that skips a row", `function e() { const next = [] as Task[]; for (const r of rows) { if (r.gone) continue; next.push(r); } setTasks(next); }`],
+    // Review finding: an alias, a copy or an updater of a filtered or accumulator local hands on the same list.
+    ["an alias of a filtered local", `function C() { const kept = a.filter(Boolean); function commit() { const l = kept; setTasks(l); } }`],
+    ["an alias of an accumulator", `function e() { const next = []; const out = next; setTasks(out); }`],
+    ["a spread copy of an accumulator", `function e() { const next = []; setTasks([...next]); }`],
+    ["an updater returning an accumulator", `function e() { const next = []; setTasks(() => next); }`],
     // §293, widened 2026-10-11: a committer's parameter destructured, or aliased first.
     ["a committer's destructured parameter", `const commit = ({ next }) => { setTasks(next); };`],
     ["a committer's array-destructured parameter", `function commit([first, { next }]) { setTasks(next); }`],
