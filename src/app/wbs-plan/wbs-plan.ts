@@ -2,11 +2,20 @@
 //
 // Pure, i18n-free contract for AI work-breakdown optimisation ("optimize_wbs").
 // Claude proposes WBS changes (split / regroup / new task / estimate / link)
-// via one forced tool call. Its output is UNTRUSTED: this module only
-// shape-validates it; every id, ref and piece is re-grounded against the live
-// workspace later. No React, no fetch, no i18n, no side effects.
+// via one forced tool call. Its output is UNTRUSTED: `parseWbsProposal` only
+// shape-validates it, and `groundWbsProposal` judges every id, ref, piece and
+// value against the live workspace. No React, no fetch, no i18n, no side effects.
 import type { Milestone, ProjectMeta, Task } from "../types";
 import { htmlPlainProjection } from "../rich-text-plain";
+import { sanitizeAiRichText } from "../ai-rich-text";
+import {
+  sanitizeAssignee,
+  sanitizeGroup,
+  sanitizeIsoDate,
+  sanitizeTaskName,
+  wouldCreateDependencyCycle,
+} from "../sanitize-core";
+import { isTaskClosed } from "../task-closed";
 
 /** Bound on how many items one proposal may carry (blast radius + token budget). */
 export const MAX_WBS_ITEMS = 60;
@@ -333,4 +342,259 @@ export function parseWbsProposal(input: unknown): ParsedWbsProposal | null {
     if (item) items.push(item);
   }
   return { items, truncated };
+}
+
+// ---------------------------------------------------------------------------
+// Grounding: judge every parsed VALUE against the live task list. Each item
+// is either kept (sanitized) or skipped with a reason the preview lists.
+// ---------------------------------------------------------------------------
+
+export type WbsSkipReason =
+  | "unknownTask" | "closedTask" | "jiraTask" | "outOfScope" | "badPieces" | "overCap"
+  | "emptyName" | "badDate" | "badEstimate" | "hasEstimate" | "duplicateRef"
+  | "selfLink" | "duplicateLink" | "unresolvedRef" | "cycle" | "staleTask";
+
+export interface SkippedWbsItem {
+  item: RawWbsItem;
+  reason: WbsSkipReason;
+}
+
+export interface GroundedWbsItem {
+  /** Stable within one proposal: `i<index in the parsed items>`. */
+  key: string;
+  /** The sanitized copy. */
+  item: RawWbsItem;
+  /** The existing rows it touches, BY REFERENCE, as seen at grounding — the
+   *  apply-time re-ground compares identity to detect a stale row. */
+  baseRows: readonly Task[];
+  /** Keys of the items whose untick disables this one (a ref's newTask, a
+   *  piece ≥ 2's split). Piece 1 is the original row and needs nothing. */
+  requires: readonly string[];
+}
+
+export interface WbsScope {
+  taskIds: ReadonlySet<number>;
+}
+
+export interface GroundedWbsProposal {
+  items: GroundedWbsItem[];
+  skipped: SkippedWbsItem[];
+  truncated: boolean;
+}
+
+type SplitItem = Extract<RawWbsItem, { kind: "split" }>;
+type RegroupItem = Extract<RawWbsItem, { kind: "regroup" }>;
+type NewTaskItem = Extract<RawWbsItem, { kind: "newTask" }>;
+type EstimateItem = Extract<RawWbsItem, { kind: "estimate" }>;
+type LinkItem = Extract<RawWbsItem, { kind: "link" }>;
+type Verdict = GroundedWbsItem | WbsSkipReason;
+
+interface GroundState {
+  live: ReadonlyMap<number, Task>;
+  scope: WbsScope;
+  /** The post-proposal dependency graph: live tasks, kept new tasks and
+   *  pieces ≥ 2 under provisional negative ids, and every kept link. Rows are
+   *  replaced on write, never mutated, so the live objects stay untouched. */
+  graph: Map<number, Task>;
+  nextProvisionalId: number;
+  /** A task id or ref is CLAIMED by the first item that names it (after R1),
+   *  kept or not — a later duplicate would leave links ambiguous. */
+  splitClaims: Set<number>;
+  regroupClaims: Set<number>;
+  refClaims: Set<string>;
+  /** Kept splits by task id: the node id of each piece (piece 1 = the task). */
+  splits: Map<number, { key: string; pieceIds: number[] }>;
+  /** Kept new tasks by ref. */
+  refs: Map<string, { key: string; id: number }>;
+  /** Node ids the proposal already gives an estimate. */
+  estimated: Set<number>;
+}
+
+interface Endpoint {
+  node: number;
+  base: Task | null;
+  requires: string | null;
+}
+
+function provisionalNode(st: GroundState): number {
+  const id = st.nextProvisionalId--;
+  // Only `dependencies` is read by the cycle check.
+  st.graph.set(id, { id, dependencies: [] } as unknown as Task);
+  return id;
+}
+
+function isValidEstimate(m: number): boolean {
+  return Number.isInteger(m) && m >= 1 && m <= MAX_WBS_ESTIMATE_MINUTES;
+}
+
+function optDescription(d: string | undefined): { description?: string } {
+  return d === undefined ? {} : { description: sanitizeAiRichText(d) };
+}
+
+/** R1: an existing task an item names must exist, be open, be non-Jira and be
+ *  in scope — in that precedence. */
+function checkLiveTask(id: number, st: GroundState): Task | WbsSkipReason {
+  const t = st.live.get(id);
+  if (!t) return "unknownTask";
+  if (isTaskClosed(t)) return "closedTask";
+  if (t.jiraKey) return "jiraTask";
+  if (!st.scope.taskIds.has(id)) return "outOfScope";
+  return t;
+}
+
+function normalizeTarget(t: WbsTarget): WbsTarget {
+  return t.kind === "ref" ? { kind: "ref", ref: oneLine(t.ref) } : t;
+}
+
+function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipReason {
+  if (target.kind === "ref") {
+    const nt = st.refs.get(oneLine(target.ref));
+    return nt ? { node: nt.id, base: null, requires: nt.key } : "unresolvedRef";
+  }
+  const live = checkLiveTask(target.kind === "task" ? target.id : target.taskId, st);
+  if (typeof live === "string") return live;
+  if (target.kind === "task") return { node: live.id, base: live, requires: null };
+  const split = st.splits.get(live.id);
+  if (!split || target.piece < 1 || target.piece > split.pieceIds.length) return "unresolvedRef";
+  return { node: split.pieceIds[target.piece - 1], base: live, requires: target.piece === 1 ? null : split.key };
+}
+
+function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
+  const live = checkLiveTask(item.taskId, st);
+  if (typeof live === "string") return live;
+  if (st.splitClaims.has(live.id)) return "duplicateRef";
+  st.splitClaims.add(live.id);
+  if (item.pieces.length < 2 || item.pieces.length > MAX_SPLIT_PIECES) return "badPieces";
+  const pieces = item.pieces.map((p) => ({
+    taskName: sanitizeTaskName(p.taskName),
+    ...optDescription(p.description),
+    ...(p.estimateMinutes !== undefined ? { estimateMinutes: p.estimateMinutes } : {}),
+  }));
+  if (pieces.some((p) => p.taskName === "")) return "emptyName";
+  if (pieces.some((p) => p.estimateMinutes !== undefined && !isValidEstimate(p.estimateMinutes))) return "badEstimate";
+  const pieceIds = [live.id, ...pieces.slice(1).map(() => provisionalNode(st))];
+  pieces.forEach((p, i) => {
+    if (p.estimateMinutes !== undefined) st.estimated.add(pieceIds[i]);
+  });
+  st.splits.set(live.id, { key, pieceIds });
+  return { key, item: { kind: "split", taskId: live.id, pieces, why: oneLine(item.why) }, baseRows: [live], requires: [] };
+}
+
+function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict {
+  const live = checkLiveTask(item.taskId, st);
+  if (typeof live === "string") return live;
+  if (st.regroupClaims.has(live.id)) return "duplicateRef";
+  st.regroupClaims.add(live.id);
+  const group = sanitizeGroup(item.group);
+  if (group === "") return "emptyName";
+  return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
+}
+
+function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict {
+  const ref = oneLine(item.ref);
+  if (ref === "") return "emptyName";
+  if (st.refClaims.has(ref)) return "duplicateRef";
+  st.refClaims.add(ref);
+  const taskName = sanitizeTaskName(item.taskName);
+  if (taskName === "") return "emptyName";
+  const dueDate = sanitizeIsoDate(item.dueDate);
+  if (dueDate === "") return "badDate";
+  const { estimateMinutes } = item;
+  if (estimateMinutes !== undefined && !isValidEstimate(estimateMinutes)) return "badEstimate";
+  const id = provisionalNode(st);
+  if (estimateMinutes !== undefined) st.estimated.add(id);
+  st.refs.set(ref, { key, id });
+  const clean: NewTaskItem = {
+    kind: "newTask",
+    ref,
+    taskName,
+    dueDate,
+    ...(item.group !== undefined ? { group: sanitizeGroup(item.group) } : {}),
+    ...optDescription(item.description),
+    ...(item.assignee !== undefined ? { assignee: sanitizeAssignee(item.assignee) } : {}),
+    ...(estimateMinutes !== undefined ? { estimateMinutes } : {}),
+    why: oneLine(item.why),
+  };
+  return { key, item: clean, baseRows: [], requires: [] };
+}
+
+function groundEstimate(item: EstimateItem, key: string, st: GroundState): Verdict {
+  const ep = resolveTarget(item.target, st);
+  if (typeof ep === "string") return ep;
+  if (!isValidEstimate(item.estimateMinutes)) return "badEstimate";
+  const liveHasEstimate = ep.base !== null && ep.node === ep.base.id && ep.base.originalEstimateMinutes != null;
+  if (liveHasEstimate || st.estimated.has(ep.node)) return "hasEstimate";
+  st.estimated.add(ep.node);
+  return {
+    key,
+    item: { kind: "estimate", target: normalizeTarget(item.target), estimateMinutes: item.estimateMinutes, why: oneLine(item.why) },
+    baseRows: ep.base ? [ep.base] : [],
+    requires: ep.requires ? [ep.requires] : [],
+  };
+}
+
+function groundLink(item: LinkItem, key: string, st: GroundState): Verdict {
+  const from = resolveTarget(item.from, st);
+  if (typeof from === "string") return from;
+  const to = resolveTarget(item.to, st);
+  if (typeof to === "string") return to;
+  if (from.node === to.node) return "selfLink";
+  const toNode = st.graph.get(to.node) as Task; // every resolved node is in the graph
+  const deps = toNode.dependencies ?? [];
+  if (deps.some((d) => d.taskId === from.node)) return "duplicateLink";
+  if (wouldCreateDependencyCycle(to.node, from.node, st.graph)) return "cycle";
+  st.graph.set(to.node, { ...toNode, dependencies: [...deps, { taskId: from.node, type: "FS" }] });
+  return {
+    key,
+    item: { kind: "link", from: normalizeTarget(item.from), to: normalizeTarget(item.to), why: oneLine(item.why) },
+    baseRows: [...new Set([from.base, to.base].filter((t): t is Task => t !== null))],
+    requires: [...new Set([from.requires, to.requires].filter((k): k is string => k !== null))],
+  };
+}
+
+/** Ground a parsed proposal against the live tasks. Definitions (split,
+ *  regroup, newTask) are judged first, in proposal order, so an estimate or
+ *  link may cite a ref or piece defined later; estimates and links follow,
+ *  in proposal order, each link added to the post-proposal graph only once
+ *  it passes. Output keeps proposal order. Pure: the live rows are never
+ *  written. Items past MAX_WBS_ITEMS were already cut by the parser, which
+ *  reports them through `truncated`. */
+export function groundWbsProposal(
+  raw: ParsedWbsProposal,
+  liveTasks: readonly Task[],
+  scope: WbsScope,
+): GroundedWbsProposal {
+  const live = new Map(liveTasks.map((t) => [t.id, t] as const));
+  const st: GroundState = {
+    live,
+    scope,
+    graph: new Map(live),
+    nextProvisionalId: -1,
+    splitClaims: new Set(),
+    regroupClaims: new Set(),
+    refClaims: new Set(),
+    splits: new Map(),
+    refs: new Map(),
+    estimated: new Set(),
+  };
+  const verdicts = new Map<number, Verdict>();
+  raw.items.forEach((item, i) => {
+    const key = `i${i}`;
+    if (item.kind === "split") verdicts.set(i, groundSplit(item, key, st));
+    else if (item.kind === "regroup") verdicts.set(i, groundRegroup(item, key, st));
+    else if (item.kind === "newTask") verdicts.set(i, groundNewTask(item, key, st));
+  });
+  raw.items.forEach((item, i) => {
+    const key = `i${i}`;
+    if (item.kind === "estimate") verdicts.set(i, groundEstimate(item, key, st));
+    else if (item.kind === "link") verdicts.set(i, groundLink(item, key, st));
+  });
+  const items: GroundedWbsItem[] = [];
+  const skipped: SkippedWbsItem[] = [];
+  raw.items.forEach((item, i) => {
+    const v = verdicts.get(i) as Verdict;
+    if (typeof v === "string") skipped.push({ item, reason: v });
+    else items.push(v);
+  });
+  return { items, skipped, truncated: raw.truncated };
 }
