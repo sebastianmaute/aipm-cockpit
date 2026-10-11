@@ -62,6 +62,53 @@ type ActivityTransition = NonNullable<ReturnType<typeof statusActivityKind>>;
 /** Stable empty queue, so hiding stale conflicts does not hand the modal a new array each render. */
 const NO_CONFLICTS: ConflictItem[] = [];
 
+/** §698 — a sync reads `snapshot` before its push arm awaits Jira row by row, and rebuilds it
+ *  into `synced` (same order, one row per snapshot row) plus `created` (new tasks from Jira).
+ *  The user can edit, add or delete tasks during those awaits, so this merges into the CURRENT
+ *  list rather than replacing it: a row that is still the snapshot's own object takes its synced
+ *  version; any other row was edited, added or replaced since and is kept as it is; a snapshot
+ *  row no longer present stays deleted. A created task is skipped when a row with its key exists
+ *  now, and re-minted when a row added meanwhile took its id.
+ *  ★ A row the user edited mid-sync keeps its old `lastSyncedAt`, so the next sync re-decides
+ *  it from the row's own `localModifiedAt` and `lastSyncedAt` (whatever the edit stamped):
+ *  pushed if only the row moved, a conflict if Jira moved too (as it did for a row this sync
+ *  pushed), pulled over the edit if only Jira moved. A row with no `lastSyncedAt` is always
+ *  pulled, so an edit to it is overwritten whether or not it stamped `localModifiedAt`.
+ *  ★ Pairing is by `syncedVersions`, which also decides which transitions are logged.
+ *  ★ It runs inside a `setTasks` updater; a StrictMode double call can mint a re-minted id
+ *  twice, which only skips an id. */
+export function mergeSyncedTasks(
+  current: readonly Task[],
+  snapshot: readonly Task[],
+  synced: readonly Task[],
+  created: readonly Task[],
+): Task[] {
+  const syncedFor = syncedVersions(snapshot, synced);
+  const merged = current.map((row) => syncedFor.get(row) ?? row);
+  const keys = new Set(merged.map((r) => r.jiraKey).filter(Boolean));
+  const ids = new Set(merged.map((r) => r.id));
+  for (const row of created) {
+    if (row.jiraKey && keys.has(row.jiraKey)) continue;
+    const placed = ids.has(row.id) ? { ...row, id: mintId("task", merged) } : row;
+    merged.push(placed);
+    ids.add(placed.id);
+  }
+  return merged;
+}
+
+/** Each snapshot row's synced version: `synced[i]` for row `i`, taken only when their ids
+ *  match. The loop pushes one row per snapshot row today, but that is a property of its arms,
+ *  so a misaligned pair is left out: its row keeps its current version, and no transition is
+ *  logged for it. */
+function syncedVersions(snapshot: readonly Task[], synced: readonly Task[]): Map<Task, Task> {
+  const versions = new Map<Task, Task>();
+  snapshot.forEach((row, i) => {
+    const version = synced[i];
+    if (version?.id === row.id) versions.set(row, version);
+  });
+  return versions;
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useJiraSync(args: UseJiraSyncArgs) {
   const { tasks, setTasks } = useWorkspace();
@@ -430,10 +477,22 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       // (e.g. the resolution date Jira stamped on a done-transition). No data is lost either way.
       if (dropStaleScopeWrite(args.getScopeEpoch, startEpoch, "useJiraSync.sync", { at: "commit" })) return;
 
-      tasksRef.current = next;
-      setTasks(next);
+      // §698 — merged into the list as it is NOW, not committed as the snapshot's rebuild: an
+      // edit, add or delete made while the push arm awaited Jira used to be overwritten here.
+      // Every path through the row loop pushes exactly one row, so `next`'s first
+      // `list.length` rows are the snapshot's rows in order, and the rest are the created ones.
+      const synced = next.slice(0, list.length);
+      const created = next.slice(list.length);
+      // A buffered transition is logged only for a row whose synced version lands: one the
+      // rendered list (`tasksRef`) still holds as the snapshot's own object. ★ An edit made just
+      // before the commit and not yet rendered is not seen, so its row's transition is still logged.
+      const rendered = new Set<Task>(tasksRef.current);
+      const versions = syncedVersions(list, synced);
+      const landed = new Set(list.filter((row) => rendered.has(row) && versions.has(row)).map((row) => row.id));
+      setTasks((current) => mergeSyncedTasks(current, list, synced, created));
 
       for (const [kind, id, name] of transitions) {
+        if (!landed.has(id)) continue;
         args.logActivityAs("integration", kind, id, name);
       }
       args.logActivityAs("integration", "jira.sync", added + pulled, pushed, conflictItems.length);
@@ -632,8 +691,9 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       //   This loop COMMITS PER ITERATION (`setTasks(next)` a
       //   few lines up), so an early `continue` past a log really would strand
       //   an entry describing a row the workspace never received. The two PULL
-      //   arms have the opposite shape and log inside their loop on purpose —
-      //   see the note at the read-only pull arm for why that is safe there.
+      //   arms have the opposite shape: they buffer their transitions and log them
+      //   after the one batch commit, only for rows whose synced version landed
+      //   (§667, §698; see the note at the read-only pull arm).
       const transition = statusActivityKind(original, merged);
       if (transition) {
         args.logActivityAs("integration", transition, original.id, merged.taskName);
