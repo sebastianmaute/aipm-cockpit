@@ -104,6 +104,7 @@ function makeDeps(over: Partial<ChatDispatcherWiringDeps> = {}): ChatDispatcherW
     logActivityAs: vi.fn(),
     allowDestructiveSave: vi.fn(),
     undo: { captureComposite: vi.fn() },
+    openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
     dashboardModel: MODEL,
     ...over,
   };
@@ -141,6 +142,7 @@ describe("useChatDispatcherWiring — the useChatDispatcher args", () => {
     expect(args().logActivityAs).toBe(d.logActivityAs);
     expect(args().allowDestructiveSave).toBe(d.allowDestructiveSave);
     expect(args().undo).toBe(d.undo);
+    expect(args().openWbsPlan).toBe(d.openWbsPlan);
   });
 
   it("forwards isReadOnly in both states", () => {

@@ -308,6 +308,21 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "optimize_wbs",
+    description:
+      "Open a reviewable work-breakdown-structure proposal for the user. Writes NOTHING itself: the user sees a preview of the proposed changes and nothing changes until they confirm. Optionally restrict it to one task `group` and pass free-text `instructions`. Fails when the user is in a pop-out window, AI is off, or no task is in scope.",
+    input_schema: {
+      type: "object",
+      properties: {
+        group: { type: "string" as const, description: "Optional. Only tasks in this group are in scope." },
+        instructions: {
+          type: "string" as const,
+          description: "Optional. Free-text guidance for the proposal (at most 1000 characters).",
+        },
+      },
+    },
+  },
+  {
     name: "create_task",
     description:
       "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly.",

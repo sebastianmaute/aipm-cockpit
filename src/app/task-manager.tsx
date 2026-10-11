@@ -1092,9 +1092,9 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs });
   const dispatcher = useChatDispatcherWiring({
     settings,
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
@@ -1102,7 +1102,7 @@ function TaskManagerInner() {
     onSettingsLoggedByAi,
     setSelectedIds,
     setSettings,
-    isReadOnly: isPopout,
+    isReadOnly: isPopout, openWbsPlan: wbsPlan.open,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.

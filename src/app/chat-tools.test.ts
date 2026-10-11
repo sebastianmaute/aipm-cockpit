@@ -189,6 +189,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ),
     deleteTask: vi.fn((id: number) => id === 1),
     deleteAllTasks: vi.fn(() => 3),
+    openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 4 })),
     sendInquiry: vi.fn(() => ({ sent: true })),
     setFilters: vi.fn(),
     setLanguage: vi.fn(),
@@ -570,6 +571,29 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher();
     await expect(runTool(d, "get_task", { id: 42 })).rejects.toThrow(
       "task #42 not found",
+    );
+  });
+});
+
+describe("runTool — optimize_wbs", () => {
+  it("opens the plan with the sanitized group and instructions and returns the result", async () => {
+    const d = makeDispatcher();
+    const out = await runTool(d, "optimize_wbs", { group: " Build ", instructions: "x" });
+    expect(d.openWbsPlan).toHaveBeenCalledWith({ group: "Build", instructions: "x" });
+    expect(out).toEqual({ opened: true, tasksInScope: 4 });
+  });
+
+  it("caps instructions at 1000 characters", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "optimize_wbs", { instructions: "y".repeat(1500) });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toHaveLength(1000);
+  });
+
+  it("throws when the flow did not open", async () => {
+    const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0 })) });
+    await expect(runTool(d, "optimize_wbs", {})).rejects.toThrow(
+      "optimize_wbs is not available here (popout window, AI off, or no tasks in scope)",
     );
   });
 });

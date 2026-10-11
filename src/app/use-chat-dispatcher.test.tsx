@@ -76,6 +76,7 @@ const stubGetAllocationsSnapshot = (): AllocationsSnapshot => {
  *  ★ A FRESH mock per probe, so a `toHaveBeenCalledTimes` in that other file
  *  can never be perturbed by whatever this file did first. */
 const stubUndo = () => ({ captureComposite: vi.fn() });
+const stubOpenWbsPlan = () => ({ opened: true, tasksInScope: 1 });
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -190,7 +191,7 @@ function renderRaidProbe() {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       ws: useWorkspace(),
     }),
@@ -220,6 +221,7 @@ function renderDispatcher(
   //  `TestProviders`' own seed mechanism rather than through either write path.
   //  Optional and trailing, so every existing positional call is unaffected.
   seedResources?: Resource[],
+  openWbsPlan: ChatDispatcherArgs["openWbsPlan"] = stubOpenWbsPlan,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -242,6 +244,7 @@ function renderDispatcher(
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        openWbsPlan,
         logActivityAs,
         onSettingsLoggedByAi,
         allowDestructiveSave,
@@ -893,7 +896,7 @@ describe("useChatDispatcher", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );
@@ -952,7 +955,7 @@ describe("useChatDispatcher", () => {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -1292,6 +1295,17 @@ describe("useChatDispatcher – Stakeholder write methods", () => {
   });
 });
 
+describe("useChatDispatcher – optimize_wbs", () => {
+  it("refuses in a popout and does not call openWbsPlan", () => {
+    const openWbsPlan = vi.fn(() => ({ opened: true, tasksInScope: 1 }));
+    const { result } = renderDispatcher([], true, "open-points", undefined, undefined, undefined, undefined, openWbsPlan);
+    expect(() => result.current.openWbsPlan({})).toThrow(
+      "Editing is disabled in the pop-out view — make changes in the main window.",
+    );
+    expect(openWbsPlan).not.toHaveBeenCalled();
+  });
+});
+
 describe("useChatDispatcher – read-only guard for entity write methods", () => {
   it("createRaid throws popoutReadOnly error in read-only mode", () => {
     const { result } = renderDispatcher([], true);
@@ -1428,7 +1442,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -1510,7 +1524,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -4127,7 +4141,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4198,7 +4212,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4341,7 +4355,7 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot, undo: stubUndo(),
+          getAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );

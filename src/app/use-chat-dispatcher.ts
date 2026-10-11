@@ -607,6 +607,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         args.allowDestructiveSave?.();
         return true;
       },
+      openWbsPlan: (req) => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
+        return args.openWbsPlan(req);
+      },
       deleteAllTasks: () => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const count = tasksRef.current.length;

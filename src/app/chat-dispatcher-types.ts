@@ -136,4 +136,6 @@ export interface ChatDispatcherArgs {
    *  (`src/test/chat-dispatcher-fixture.tsx`) supplies an inert default, so only
    *  a fixture that asserts on capture has to pass one. */
   undo: Pick<UndoStackApi, "captureComposite">;
+  /** Opens the WBS proposal flow (`useWbsPlan().open`); the `optimize_wbs` tool writes nothing itself. */
+  openWbsPlan(req: { group?: string; instructions?: string }): { opened: boolean; tasksInScope: number };
 }

@@ -67,6 +67,7 @@ export function makeDispatcherArgs(
      *  `toHaveBeenCalledTimes(1)` into an order-dependent assertion. It is
      *  inert either way: nothing here pushes onto a real stack. */
     undo: { captureComposite: vi.fn() },
+    openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
     ...over,
   };
 }

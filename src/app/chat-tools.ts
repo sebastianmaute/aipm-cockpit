@@ -1,4 +1,4 @@
-import { sanitizeLabels } from "./sanitize";
+import { sanitizeGroup, sanitizeLabels } from "./sanitize";
 // ★ The update path's input helpers live in ./chat-tools-updates (moved for the
 //   800-line file-size ratchet, which this file had already crossed).
 import {
@@ -381,6 +381,8 @@ export type ToolDispatcher = {
   } | null;
   deleteTask(id: number): boolean;
   deleteAllTasks(): number;
+  /** Opens the WBS proposal flow; writes nothing itself. */
+  openWbsPlan(req: { group?: string; instructions?: string }): { opened: boolean; tasksInScope: number };
   sendInquiry(id: number): { sent: boolean; reason?: string };
   setFilters(filters: Filters): void;
   setLanguage(lang: Lang): void;
@@ -660,6 +662,16 @@ export async function runTool(
       const ok = d.deleteTask(id);
       if (!ok) throw new Error(`task #${id} not found`);
       return { deleted: id };
+    }
+
+    case "optimize_wbs": {
+      const group = sanitizeGroup(input.group);
+      const instructions = typeof input.instructions === "string" ? input.instructions.slice(0, 1000) : undefined;
+      const result = d.openWbsPlan({ group: group || undefined, instructions });
+      if (!result.opened) {
+        throw new Error("optimize_wbs is not available here (popout window, AI off, or no tasks in scope)");
+      }
+      return result;
     }
 
     case "delete_all_tasks": {
