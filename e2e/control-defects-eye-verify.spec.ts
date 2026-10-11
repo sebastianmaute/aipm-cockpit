@@ -160,6 +160,13 @@ test.describe("control-defects eye-verify (§414)", () => {
     expect(glyphBox!.x + glyphBox!.width).toBeLessThanOrEqual(cellBox!.x + cellBox!.width + TOLERANCE_PX);
     expect(glyphBox!.y).toBeGreaterThanOrEqual(cellBox!.y - TOLERANCE_PX);
     expect(glyphBox!.y + glyphBox!.height).toBeLessThanOrEqual(cellBox!.y + cellBox!.height + TOLERANCE_PX);
+    // ★ The trigger is `opacity-0` until its row is hovered or focused
+    // (`group-hover:opacity-100`), and a bounding box ignores opacity, so the
+    // geometry above passes on an invisible glyph. Without this hover the
+    // screenshot showed no icon at all and the eye check failed (§414). Wait
+    // for the fade to finish, so the shot cannot catch it half-way.
+    await row.hover();
+    await expect(trigger).toHaveCSS("opacity", "1");
     await shot(row, "item2-row-with-ask-claude.png");
   });
 
