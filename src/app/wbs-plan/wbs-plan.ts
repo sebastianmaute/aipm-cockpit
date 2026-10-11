@@ -353,7 +353,7 @@ export function parseWbsProposal(input: unknown): ParsedWbsProposal | null {
 export type WbsSkipReason =
   | "unknownTask" | "closedTask" | "jiraTask" | "outOfScope" | "badPieces" | "overCap"
   | "emptyName" | "badDate" | "badEstimate" | "hasEstimate" | "duplicateRef"
-  | "selfLink" | "duplicateLink" | "unresolvedRef" | "cycle" | "staleTask";
+  | "selfLink" | "duplicateLink" | "unresolvedRef" | "cycle";
 
 export interface SkippedWbsItem {
   item: RawWbsItem;
@@ -369,7 +369,8 @@ export interface GroundedWbsItem {
    *  apply-time re-ground compares identity to detect a stale row. */
   baseRows: readonly Task[];
   /** Keys of the items whose untick disables this one (a ref's newTask, a
-   *  piece ≥ 2's split). Piece 1 is the original row and needs nothing. */
+   *  piece ≥ 2's split). Piece 1 is the original row and needs nothing: it is
+   *  stored as `{kind:"task"}`, so it survives the split being unticked. */
   requires: readonly string[];
 }
 
@@ -448,8 +449,12 @@ function checkLiveTask(id: number, st: GroundState): Task | WbsSkipReason {
   return t;
 }
 
+/** Piece 1 IS the original row, so it is stored as that task: an item on it
+ *  must not depend on the split being kept (or ticked). */
 function normalizeTarget(t: WbsTarget): WbsTarget {
-  return t.kind === "ref" ? { kind: "ref", ref: oneLine(t.ref) } : t;
+  if (t.kind === "ref") return { kind: "ref", ref: oneLine(t.ref) };
+  if (t.kind === "piece" && t.piece === 1) return { kind: "task", id: t.taskId };
+  return t;
 }
 
 function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipReason {
@@ -459,10 +464,11 @@ function resolveTarget(target: WbsTarget, st: GroundState): Endpoint | WbsSkipRe
   }
   const live = checkLiveTask(target.kind === "task" ? target.id : target.taskId, st);
   if (typeof live === "string") return live;
-  if (target.kind === "task") return { node: live.id, base: live, requires: null };
+  // Piece 1 is the original row whether or not a split of it is kept.
+  if (target.kind === "task" || target.piece === 1) return { node: live.id, base: live, requires: null };
   const split = st.splits.get(live.id);
   if (!split || target.piece < 1 || target.piece > split.pieceIds.length) return "unresolvedRef";
-  return { node: split.pieceIds[target.piece - 1], base: live, requires: target.piece === 1 ? null : split.key };
+  return { node: split.pieceIds[target.piece - 1], base: live, requires: split.key };
 }
 
 function groundSplit(item: SplitItem, key: string, st: GroundState): Verdict {
@@ -726,8 +732,9 @@ interface NewRowFields {
   resourceId?: number;
 }
 
-/** The row shape `createTask` (use-chat-dispatcher.ts) writes, so a created
- *  row is indistinguishable from a chat-created one. */
+/** The row fields `createTask` (use-chat-dispatcher.ts) writes, except
+ *  `resourceId` for a new task: chat links it through `linkPersonForWrite`
+ *  (§375), this does not (R14). A split piece copies the original's. */
 function newRow(id: number, today: string, f: NewRowFields): Task {
   return {
     id,
@@ -752,7 +759,8 @@ function newRow(id: number, today: string, f: NewRowFields): Task {
 /** Piece 1 rewrites the original row's name, and its description and estimate
  *  when given. Pieces 2+ are new rows inheriting the row's people, group,
  *  labels, priority and due date, and no dependencies (grounding's cycle
- *  check assumed none). */
+ *  check assumed none). Regroups are written first, so a regroup of the same
+ *  task gives every piece the new group whichever order the two came in. */
 function applySplit(item: SplitItem, st: ApplyState): void {
   const orig = readRow(st, item.taskId);
   const [first, ...rest] = item.pieces;
@@ -808,8 +816,8 @@ function applyLink(item: LinkItem, st: ApplyState): void {
 }
 
 /** Apply the ticked grounded items to `prevTasks`. Each item is checked again
- *  first (see `selectStillValid`). Definitions (split, regroup, newTask) are
- *  written in proposal order, consuming `newIds` in that order; estimates and
+ *  first (see `selectStillValid`). Regroups are written first; then splits and
+ *  new tasks in proposal order, consuming `newIds` in that order; estimates and
  *  links follow, in proposal order. Throws when `newIds` is too short or names
  *  an existing id (a caller error). Never removes a row, never mutates an
  *  input. */
@@ -836,8 +844,10 @@ export function applyWbsProposal(
     takeId: () => newIds[cursor++],
   };
   for (const { item } of valid) {
+    if (item.kind === "regroup") writeRow(st, item.taskId, { group: item.group });
+  }
+  for (const { item } of valid) {
     if (item.kind === "split") applySplit(item, st);
-    else if (item.kind === "regroup") writeRow(st, item.taskId, { group: item.group });
     else if (item.kind === "newTask") applyNewTask(item, st);
   }
   for (const { item } of valid) {

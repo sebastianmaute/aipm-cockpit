@@ -1018,7 +1018,15 @@
   re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
   the preview shows the rename, the estimate before → after and a "replaces the description" marker.
   An item that cites a new task's ref or a split piece ≥ 2 `requires` that item's key, and apply drops it
-  when that item is unticked. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
+  when that item is unticked. ★ Piece 1 IS the original row: grounding stores a piece-1 target as
+  `{kind:"task"}`, so an estimate or link on it requires nothing and still applies when the split is unticked
+  or skipped. ★ The preview shows everything apply writes: a new task's assignee, and a plain-text excerpt
+  (`htmlPlainProjection`) of each new task's and piece ≥ 2's description. ★ Apply writes regroups before
+  splits, so a split's new pieces take a regroup of the same task whichever order the model gave them in.
+  ★★ It awaits the AI and then writes, so it follows [platform.md](platform.md) "The load hold": `open()`,
+  the toolbar trigger and Apply refuse while `loadPending`, and the scope epoch captured before the call is
+  checked by `dropStaleScopeWrite` after it and again at Apply (a moved epoch drops the proposal with the
+  `wbsPlanScopeChanged` notice). `getScopeEpoch` and `loadPending` are REQUIRED on `WbsPlanDeps`. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
   longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps
   piece 1 of a split on the original id, and records ONE `bulk.edit` field-patch undo entry over the EDITED
   rows only (created rows stay out of it — see [undo.md](undo.md) "Creates"). ★★ `optimize_wbs` is NOT an

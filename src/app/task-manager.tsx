@@ -1092,7 +1092,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const dispatcher = useChatDispatcherWiring({

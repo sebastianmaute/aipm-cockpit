@@ -79,6 +79,59 @@ describe("WbsPlanModal", () => {
     expect(screen.getByText(t("en-US", "wbsPlanLinkNeedsEndpoint"))).toBeVisible();
   });
 
+  it("disables an estimate on a piece while its split is unticked, with the same reason", () => {
+    const pieceEstimate = grounded(
+      "i5",
+      { kind: "estimate", target: { kind: "piece", taskId: 1, piece: 2 }, estimateMinutes: 60, why: "" },
+      ["i0"],
+    );
+    render5({ items: [split, pieceEstimate], selected: new Set(["i5"]) });
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes[1]).toBeDisabled();
+    expect(screen.getByText(t("en-US", "wbsPlanLinkNeedsEndpoint"))).toBeVisible();
+  });
+
+  it("shows a new task's assignee and a plain-text excerpt of its description", () => {
+    const withPeople = grounded("i2", {
+      kind: "newTask",
+      ref: "r1",
+      taskName: "Release notes",
+      dueDate: "2026-11-01",
+      assignee: "Alice",
+      description: "<p>Draft the <strong>release</strong> notes</p>",
+      why: "",
+    });
+    render5({ items: [withPeople], selected: new Set(["i2"]) });
+    expect(screen.getByText(t("en-US", "wbsPlanAssignedTo", "Alice"), { exact: false })).toBeVisible();
+    expect(screen.getByText(t("en-US", "wbsPlanDescriptionExcerpt", "Draft the release notes"))).toBeVisible();
+  });
+
+  it("truncates a long description excerpt", () => {
+    const long = "word ".repeat(60).trim();
+    const withLong = grounded("i2", { kind: "newTask", ref: "r1", taskName: "N", dueDate: "2026-11-01", description: `<p>${long}</p>`, why: "" });
+    render5({ items: [withLong], selected: new Set(["i2"]) });
+    expect(screen.getByText(t("en-US", "wbsPlanDescriptionExcerpt", `${long.slice(0, 120)}…`))).toBeVisible();
+  });
+
+  it("shows no assignee or description line for a new task without them", () => {
+    render5({ items: [newTask], selected: new Set(["i2"]) });
+    expect(screen.queryByText(/assigned to/)).toBeNull();
+    expect(screen.queryByText(/description:/)).toBeNull();
+  });
+
+  it("shows a description excerpt for a piece after the first", () => {
+    const withDesc = grounded("i0", {
+      kind: "split",
+      taskId: 1,
+      pieces: [{ taskName: "Design API" }, { taskName: "Implement API", description: "<p>Write the handlers</p>" }],
+      why: "",
+    });
+    render5({ items: [withDesc], selected: new Set(["i0"]) });
+    const pieces = screen.getByRole("list", { name: t("en-US", "wbsPlanPiecesLabel") });
+    const second = within(pieces).getAllByRole("listitem")[1];
+    expect(second).toHaveTextContent(t("en-US", "wbsPlanDescriptionExcerpt", "Write the handlers"));
+  });
+
   it("enables the link once its endpoint is ticked", () => {
     render5({ selected: new Set(["i2", "i3"]) });
     const boxes = screen.getAllByRole("checkbox");
@@ -118,7 +171,7 @@ describe("WbsPlanModal", () => {
   it("gives every skip reason a non-empty EN and DE text", () => {
     const reasons = [
       "unknownTask", "closedTask", "jiraTask", "outOfScope", "badPieces", "overCap", "emptyName", "badDate",
-      "badEstimate", "hasEstimate", "duplicateRef", "selfLink", "duplicateLink", "unresolvedRef", "cycle", "staleTask",
+      "badEstimate", "hasEstimate", "duplicateRef", "selfLink", "duplicateLink", "unresolvedRef", "cycle",
     ] as const;
     for (const r of reasons) {
       const key = `wbsPlanSkip_${r}` as const;

@@ -66,10 +66,15 @@ interface HarnessProps {
   settings?: Settings;
   isPopout?: boolean;
   logActivitySpy?: ReturnType<typeof vi.fn>;
+  /** A fake scope-epoch reader the test controls. */
+  getScopeEpoch?: () => number;
+  loadPending?: boolean;
   onApi: (api: Api) => void;
 }
 
-function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, onApi }: HarnessProps) {
+const EPOCH_ZERO = () => 0;
+
+function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, getScopeEpoch = EPOCH_ZERO, loadPending = false, onApi }: HarnessProps) {
   const ws = useWorkspace();
   const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
   const wbs = useWbsPlan({
@@ -78,6 +83,8 @@ function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, onApi }: 
     lang: "en-US",
     capture: undo.capture,
     logActivityAs: logActivitySpy as never,
+    getScopeEpoch,
+    loadPending,
   });
   useEffect(() => { onApi({ ws, undo, wbs }); });
   return (
@@ -102,13 +109,20 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 function renderHarness(props: Omit<HarnessProps, "onApi"> = {}, seed: readonly Task[] = SEED) {
   const box: { api: Api | null } = { api: null };
-  const { unmount } = render(
+  const onApi = (a: Api) => { box.api = a; };
+  const { unmount, rerender } = render(
     <Wrapper>
-      <Harness {...props} onApi={(a) => { box.api = a; }} />
+      <Harness {...props} onApi={onApi} />
     </Wrapper>,
   );
   act(() => { box.api!.ws.setTasks(seed); });
-  return Object.assign(() => box.api!, { unmount });
+  const reprops = (next: Omit<HarnessProps, "onApi">) =>
+    rerender(
+      <Wrapper>
+        <Harness {...props} {...next} onApi={onApi} />
+      </Wrapper>,
+    );
+  return Object.assign(() => box.api!, { unmount, reprops });
 }
 
 const byId = (tasks: readonly Task[], id: number) => tasks.find((x) => x.id === id);
@@ -392,6 +406,81 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(logActivitySpy).not.toHaveBeenCalled();
     expect(api().undo.canUndo).toBe(false);
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  describe("the load hold and the scope epoch (platform.md \"The load hold\")", () => {
+    const REGROUP = proposal([{ kind: "regroup", taskId: 1, group: "Backend", why: "" }]);
+
+    it("drops a proposal that resolves after the scope epoch moved: no preview, the scope-changed notice", async () => {
+      let resolveCall: (p: ParsedWbsProposal) => void = () => {};
+      vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise((res) => { resolveCall = res; }));
+      let epoch = 0;
+      const api = renderHarness({ getScopeEpoch: () => epoch });
+      await proposeFromButton();
+      await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+      epoch = 1; // a project swap while the call is in flight
+      await act(async () => { resolveCall(REGROUP); });
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanScopeChanged"));
+      expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
+    });
+
+    it("Apply writes nothing once the scope epoch moved while the preview was open", async () => {
+      vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
+      let epoch = 0;
+      const logActivitySpy = vi.fn();
+      const api = renderHarness({ getScopeEpoch: () => epoch, logActivitySpy });
+      await proposeFromButton();
+      await screen.findByRole("checkbox", { name: /include this change/i });
+      const before = api().ws.tasks;
+      epoch = 1;
+      fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) }));
+      expect(api().ws.tasks).toBe(before);
+      expect(engine.applyWbsProposal).not.toHaveBeenCalled();
+      expect(logActivitySpy).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "wbsPlanScopeChanged"));
+      expect(screen.queryByRole("checkbox")).toBeNull();
+    });
+
+    it("Apply still writes when the epoch did not move", async () => {
+      vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
+      const api = renderHarness({ getScopeEpoch: () => 7 });
+      await proposeFromButton();
+      await screen.findByRole("checkbox", { name: /include this change/i });
+      fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) }));
+      expect(byId(api().ws.tasks, 1)?.group).toBe("Backend");
+    });
+
+    it("open() refuses during a load hold and makes no call", () => {
+      const api = renderHarness({ loadPending: true });
+      let res: ReturnType<WbsPlan["open"]> | undefined;
+      act(() => { res = api().wbs.open({}); });
+      expect(res).toEqual({ opened: false, tasksInScope: 0 });
+      expect(call.runWbsProposal).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("the toolbar trigger opens nothing during a load hold", () => {
+      renderHarness({ loadPending: true });
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("Apply refuses during a load hold and writes once the hold ends", async () => {
+      vi.mocked(call.runWbsProposal).mockResolvedValue(REGROUP);
+      const api = renderHarness();
+      await proposeFromButton();
+      await screen.findByRole("checkbox", { name: /include this change/i });
+      api.reprops({ loadPending: true });
+      const applyName = tPlural("en-US", "wbsPlanApply", 1, 1);
+      fireEvent.click(screen.getByRole("button", { name: applyName }));
+      expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
+      expect(screen.getByRole("checkbox", { name: /include this change/i })).toBeInTheDocument();
+      api.reprops({ loadPending: false });
+      fireEvent.click(screen.getByRole("button", { name: applyName }));
+      expect(byId(api().ws.tasks, 1)?.group).toBe("Backend");
+    });
   });
 
   it("open() refuses with an empty scope", () => {

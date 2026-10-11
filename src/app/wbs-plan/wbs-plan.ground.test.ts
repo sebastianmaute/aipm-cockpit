@@ -299,6 +299,19 @@ describe("groundWbsProposal — the grounded items", () => {
     expect(r.items[1].requires).toEqual([]);
   });
 
+  test("piece 1 is stored as its task, so the item does not depend on the split", () => {
+    const r = ground([split(1), link(T(2), P(1, 1)), { kind: "estimate", target: P(1, 1), estimateMinutes: 30, why: "" }]);
+    expect(r.items[1].item).toMatchObject({ kind: "link", to: T(1) });
+    expect(r.items[2].item).toMatchObject({ kind: "estimate", target: T(1) });
+  });
+
+  test("a link to piece 1 of a skipped split is kept on the original row", () => {
+    const r = ground([split(1, 1), link(T(2), P(1, 1))]);
+    expect(r.skipped.map((s) => s.reason)).toEqual(["badPieces"]);
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].item).toMatchObject({ kind: "link", from: T(2), to: T(1) });
+  });
+
   test("a link to a ref requires that newTask's key", () => {
     const r = ground([newTask("a"), newTask("b"), link(R("a"), R("b"))]);
     expect(r.items[2].requires).toEqual(["i0", "i1"]);

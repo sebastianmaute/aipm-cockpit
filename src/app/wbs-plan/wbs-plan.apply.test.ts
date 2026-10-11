@@ -164,6 +164,45 @@ describe("applyWbsProposal — splits", () => {
     expect(r.editedAfter.map((t) => t.id)).toEqual([1]);
     expect(r.applied).toBe(2);
   });
+
+  // Regroups are written before splits, so the order the model gave them in
+  // does not decide which group the new pieces land in.
+  test.each([
+    ["split then regroup", [split(1, [{ taskName: "A" }, { taskName: "B" }, { taskName: "C" }]), { kind: "regroup", taskId: 1, group: "G", why: "" } as RawWbsItem]],
+    ["regroup then split", [{ kind: "regroup", taskId: 1, group: "G", why: "" } as RawWbsItem, split(1, [{ taskName: "A" }, { taskName: "B" }, { taskName: "C" }])]],
+  ])("a split and a regroup of the same task put every piece in the new group (%s)", (_label, items) => {
+    const prev = Object.freeze([task(1, { group: "Old" }), TASKS[1], TASKS[2]]);
+    const r = apply(ground(items, prev).items, prev);
+    expect([1, 100, 101].map((id) => byId(r.nextTasks, id).group)).toEqual(["G", "G", "G"]);
+    expect(r.applied).toBe(2);
+  });
+});
+
+describe("applyWbsProposal — piece 1 is the original row", () => {
+  test("a link to piece 1 still lands on the original row when the split is unticked", () => {
+    const g = ground([split(1, [{ taskName: "A" }, { taskName: "B" }]), link(T(2), P(1, 1))]);
+    const ticked = g.items.filter((it) => it.item.kind === "link");
+    expect(ticked).toHaveLength(1);
+    const r = apply(ticked);
+    expect(byId(r.nextTasks, 1).dependencies).toEqual([{ taskId: 2, type: "FS" }]);
+    expect(byId(r.nextTasks, 1).taskName).toBe("Task 1");
+    expect(r.applied).toBe(1);
+    expect(r.skippedStale).toBe(0);
+    expect(r.created).toEqual([]);
+  });
+
+  test("an estimate on piece 1 still lands on the original row when the split is unticked", () => {
+    const g = ground([
+      split(1, [{ taskName: "A" }, { taskName: "B" }]),
+      { kind: "estimate", target: P(1, 1), estimateMinutes: 90, why: "" },
+    ]);
+    const ticked = g.items.filter((it) => it.item.kind === "estimate");
+    expect(ticked).toHaveLength(1);
+    const r = apply(ticked);
+    expect(byId(r.nextTasks, 1).originalEstimateMinutes).toBe(90);
+    expect(r.applied).toBe(1);
+    expect(r.skippedStale).toBe(0);
+  });
 });
 
 describe("applyWbsProposal — new tasks", () => {

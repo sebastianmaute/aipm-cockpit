@@ -14,6 +14,11 @@
 //   remount can swallow a request.
 // ★ Workspace slices come from `useWorkspace()`, so task-manager wires it with
 //   one line.
+// ★★ It awaits the AI and then writes, so it obeys docs/AGENTS/platform.md "The
+//   load hold": nothing STARTS while `loadPending` (open, the toolbar trigger
+//   and Apply all refuse), and the scope epoch is captured before the await and
+//   checked after it and again at Apply — a proposal made in one project is never
+//   grounded against, or written into, another (`dropStaleScopeWrite`).
 //
 // SECURITY: the api key is read from the in-memory hydrated settings and passed
 // straight to the call; it is never logged. Model output is UNTRUSTED and is
@@ -52,6 +57,7 @@ import { Textarea } from "./form-controls";
 import { mintIds } from "./id-mint-session";
 import { isTaskClosed } from "./task-closed";
 import { resolveTimezone, todayInZone } from "./timezone";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
@@ -68,6 +74,10 @@ export interface WbsPlanDeps {
   /** ★ ACTOR-AWARE. This hook writes exactly one kind, an `ai.*` one, so it
    *  KNOWS its actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
+  /** REQUIRED (scope-epoch.ts: an optional reader is how a writer goes unguarded). */
+  getScopeEpoch: ScopeEpochReader;
+  /** True while a load or project swap holds the workspace: nothing starts. */
+  loadPending: boolean;
 }
 
 export interface WbsOpenRequest {
@@ -81,7 +91,8 @@ export interface WbsPlan {
   /** The instruction dialog or preview modal (null while idle). */
   modal: ReactNode;
   /** The chat tool's entry point: goes straight to `thinking`. Refuses (and
-   *  opens nothing) in a popout, with the AI off, mid-flow, or on an empty scope. */
+   *  opens nothing) in a popout, with the AI off, during a load hold, mid-flow,
+   *  or on an empty scope. */
   open(req: WbsOpenRequest): { opened: boolean; tasksInScope: number };
 }
 
@@ -89,7 +100,7 @@ export interface WbsPlan {
 const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey;
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
-  const { settings, isPopout, lang, capture, logActivityAs } = deps;
+  const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending } = deps;
   const { tasks, setTasks, milestones, project, filteredSortedTasks } = useWorkspace();
   const showToast = useToastContext();
 
@@ -104,6 +115,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // discarded (no stale preview, no stale error toast).
   const reqIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  // The scope epoch the current proposal was requested in (captured before the
+  // await); Apply drops the write when it moved.
+  const epochRef = useRef<number | undefined>(undefined);
   // The live task list for the click handlers — `open()` and apply read it
   // rather than a closure that may be a render old (the dispatcher's pattern).
   const tasksRef = useRef(tasks);
@@ -143,6 +157,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       const controller = new AbortController();
       abortRef.current = controller;
       setPhase("thinking");
+      const startEpoch = getScopeEpoch();
+      epochRef.current = startEpoch;
       try {
         const live = tasksRef.current;
         const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
@@ -153,6 +169,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           controller.signal,
         );
         if (reqId !== reqIdRef.current) return; // superseded — discard
+        if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useWbsPlan.propose")) {
+          showToast("info", t(lang, "wbsPlanScopeChanged"));
+          reset();
+          return;
+        }
         // Ground against the tasks as they are NOW, not as they were sent.
         const grounded = groundWbsProposal(parsed, tasksRef.current, runScope);
         if (grounded.items.length === 0) {
@@ -188,11 +209,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, lang, showToast, reset, setPhase],
+    [milestones, project, apiKey, settings.ai.model, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {
-    if (!enabled || phase !== "idle") return;
+    if (!enabled || loadPending || phase !== "idle") return;
     const ids = filteredSortedTasks.filter(isEditable).map((x) => x.id);
     if (ids.length === 0) {
       showToast("info", t(lang, "wbsPlanNoTasks"));
@@ -201,7 +222,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setInstruction("");
     setScope({ taskIds: new Set(ids) });
     setPhase("input");
-  }, [enabled, phase, filteredSortedTasks, showToast, lang, setPhase]);
+  }, [enabled, loadPending, phase, filteredSortedTasks, showToast, lang, setPhase]);
 
   const onPropose = useCallback(() => {
     if (phase !== "input" || !scope) return;
@@ -210,7 +231,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
 
   const open = useCallback(
     (req: WbsOpenRequest): { opened: boolean; tasksInScope: number } => {
-      if (!enabled || phaseRef.current !== "idle") return { opened: false, tasksInScope: 0 };
+      if (!enabled || loadPending || phaseRef.current !== "idle") return { opened: false, tasksInScope: 0 };
       // Case-insensitive and trimmed: the model may say "design" for "Design".
       const group = req.group?.trim().toLowerCase();
       const ids = tasksRef.current
@@ -223,7 +244,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       void propose(runScope, req.instructions ?? "");
       return { opened: true, tasksInScope: ids.length };
     },
-    [enabled, propose],
+    [enabled, loadPending, propose],
   );
 
   const onToggle = useCallback((key: string) => {
@@ -236,7 +257,12 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   }, []);
 
   const onApply = useCallback(() => {
-    if (phase !== "preview" || !scope) return;
+    if (phase !== "preview" || !scope || loadPending) return;
+    if (dropStaleScopeWrite(getScopeEpoch, epochRef.current, "useWbsPlan.apply")) {
+      showToast("info", t(lang, "wbsPlanScopeChanged"));
+      reset();
+      return;
+    }
     // Synchronous to its final reset(), so React batches this away; kept for
     // the day apply grows an await (the NOTE in use-alloc-plan.tsx's onConfirm).
     setPhase("applying");
@@ -300,7 +326,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       showToast("info", tPlural(lang, "wbsPlanStaleSkipped", result.skippedStale, result.skippedStale));
     }
     reset();
-  }, [phase, scope, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset, setPhase]);
+  }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset, setPhase]);
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.

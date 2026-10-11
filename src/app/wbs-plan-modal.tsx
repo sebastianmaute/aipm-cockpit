@@ -6,15 +6,17 @@
 // context and writes nothing. Mirrors alloc-plan-modal.tsx.
 //
 // Every proposed change is itemized with its before/after and can be unticked.
-// A dependency whose endpoint is a task created or split by another item is
+// An estimate or dependency on a task or piece that another item creates is
 // disabled (not hidden) while that item is unticked, so the user sees why it
-// cannot apply.
+// cannot apply. Everything Apply writes is shown: a new task's assignee, and a
+// plain-text excerpt of each description a new row gets.
 
 import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { htmlPlainProjection } from "./rich-text-plain";
 import type { Task } from "./types";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason, WbsTarget } from "./wbs-plan/wbs-plan";
 
@@ -58,8 +60,16 @@ const SKIP_REASON_KEY: Record<WbsSkipReason, TranslationKey> = {
   duplicateLink: "wbsPlanSkip_duplicateLink",
   unresolvedRef: "wbsPlanSkip_unresolvedRef",
   cycle: "wbsPlanSkip_cycle",
-  staleTask: "wbsPlanSkip_staleTask",
 };
+
+/** Characters of a description shown in the preview. */
+const DESCRIPTION_EXCERPT_CHARS = 120;
+
+/** A one-line plain-text excerpt of sanitized rich HTML (DOM-free projection). */
+function descriptionExcerpt(html: string): string {
+  const text = htmlPlainProjection(html).replace(/\s+/g, " ").trim();
+  return text.length > DESCRIPTION_EXCERPT_CHARS ? `${text.slice(0, DESCRIPTION_EXCERPT_CHARS)}…` : text;
+}
 
 export function WbsPlanModal({
   lang,
@@ -113,6 +123,7 @@ export function WbsPlanModal({
       const parts = [t(lang, "wbsPlanDue", item.dueDate)];
       if (item.group) parts.push(item.group);
       if (item.estimateMinutes !== undefined) parts.push(minutes(item.estimateMinutes));
+      if (item.assignee) parts.push(t(lang, "wbsPlanAssignedTo", item.assignee));
       return parts.join(" · ");
     }
     if (item.kind === "estimate") {
@@ -125,13 +136,17 @@ export function WbsPlanModal({
   // Piece 1 REWRITES the original row, so it shows what it replaces: the old
   // name → the new one, the original's estimate → piece 1's when it changes,
   // and a marker when it carries a description (which replaces the original's).
-  // Pieces 2+ are new rows: name and estimate.
+  // Pieces 2+ are new rows: name, estimate and a description excerpt.
   type SplitPiece = Extract<RawWbsItem, { kind: "split" }>["pieces"][number];
   // "no estimate" reads better than "estimate none" for a piece without one.
   const pieceEstimate = (m: number | undefined): string =>
     m === undefined ? t(lang, "wbsPlanPieceNoEstimate") : t(lang, "wbsPlanPieceEstimate", minutes(m));
   const pieceText = (taskId: number, p: SplitPiece, isFirst: boolean): string => {
-    if (!isFirst) return [p.taskName, pieceEstimate(p.estimateMinutes)].join(" · ");
+    if (!isFirst) {
+      const parts = [p.taskName, pieceEstimate(p.estimateMinutes)];
+      if (p.description !== undefined) parts.push(t(lang, "wbsPlanDescriptionExcerpt", descriptionExcerpt(p.description)));
+      return parts.join(" · ");
+    }
     const before = tasksById.get(taskId)?.originalEstimateMinutes;
     const after = p.estimateMinutes ?? before;
     const estimate =
@@ -172,6 +187,8 @@ export function WbsPlanModal({
                     const disabled = isDisabled(g);
                     const info = detail(g.item);
                     const split = g.item.kind === "split" ? g.item : null;
+                    const newTaskDescription =
+                      g.item.kind === "newTask" && g.item.description !== undefined ? g.item.description : null;
                     return (
                       <li key={g.key} className="rounded-md border border-line bg-surface-muted px-3 py-2">
                         <label className="flex cursor-pointer items-start gap-2">
@@ -185,6 +202,11 @@ export function WbsPlanModal({
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium text-foreground">{subject(g.item)}</span>
                             {info && <span className="block text-sm text-foreground">{info}</span>}
+                            {newTaskDescription !== null && (
+                              <span className="block text-sm text-foreground">
+                                {t(lang, "wbsPlanDescriptionExcerpt", descriptionExcerpt(newTaskDescription))}
+                              </span>
+                            )}
                             {split && (
                               <ul
                                 className="mt-1 list-disc pl-5 text-sm text-foreground"
