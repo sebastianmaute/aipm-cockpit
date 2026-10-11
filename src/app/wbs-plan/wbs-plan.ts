@@ -5,13 +5,14 @@
 // via one forced tool call. Its output is UNTRUSTED: `parseWbsProposal` only
 // shape-validates it, and `groundWbsProposal` judges every id, ref, piece and
 // value against the live workspace. No React, no fetch, no i18n, no side effects.
-import type { Milestone, ProjectMeta, Task } from "../types";
+import { DEFAULT_TASK_STATUS, type Milestone, type ProjectMeta, type Task } from "../types";
 import { htmlPlainProjection } from "../rich-text-plain";
 import { sanitizeAiRichText } from "../ai-rich-text";
 import {
   sanitizeAssignee,
   sanitizeGroup,
   sanitizeIsoDate,
+  sanitizePriority,
   sanitizeTaskName,
   wouldCreateDependencyCycle,
 } from "../sanitize-core";
@@ -597,4 +598,255 @@ export function groundWbsProposal(
     else items.push(v);
   });
   return { items, skipped, truncated: raw.truncated };
+}
+
+// ---------------------------------------------------------------------------
+// Apply: write the ticked items that are still valid onto a new task list.
+// Pure and deterministic — the caller runs it inside a `setTasks(prev => …)`
+// updater and again on a ref snapshot, and both must agree.
+// ---------------------------------------------------------------------------
+
+export interface WbsApplyResult {
+  nextTasks: Task[];
+  created: Task[];
+  /** Existing rows as they were, in the order they were first edited. */
+  editedBefore: Task[];
+  /** The same rows after, in the same order. */
+  editedAfter: Task[];
+  /** Items actually written. */
+  applied: number;
+  /** Ticked items dropped at apply time because a row they touch changed or
+   *  re-grounding no longer keeps them. Items dropped only because an item
+   *  they require fell away are not counted. */
+  skippedStale: number;
+}
+
+/** Rows the items create: one per newTask plus every split piece after the
+ *  first. The caller mints this many ids before calling `applyWbsProposal`. */
+export function countNewRows(ticked: readonly GroundedWbsItem[]): number {
+  let n = 0;
+  for (const g of ticked) {
+    if (g.item.kind === "newTask") n += 1;
+    else if (g.item.kind === "split") n += g.item.pieces.length - 1;
+  }
+  return n;
+}
+
+/** Drop every item whose `requires` names a key that is not in the list,
+ *  repeated until nothing more falls. */
+function closeOverRequires(items: readonly GroundedWbsItem[]): GroundedWbsItem[] {
+  let cur = [...items];
+  for (;;) {
+    const keys = new Set(cur.map((g) => g.key));
+    const next = cur.filter((g) => g.requires.every((k) => keys.has(k)));
+    if (next.length === cur.length) return next;
+    cur = next;
+  }
+}
+
+/** The ticked items still valid against `prevTasks`, and how many went stale.
+ *  An item is stale when a row it touches is no longer the identical object
+ *  (edited or removed); one that requires such an item is dropped uncounted.
+ *  The survivors are then grounded again, which also catches a
+ *  change of scope; the re-ground key `i<j>` names `active[j]`. A dropped item
+ *  whose own requirements all survived went stale itself; one whose
+ *  requirement fell is removed, uncounted, by the next closure. Each round
+ *  shrinks the list, so the loop ends. */
+function selectStillValid(
+  prevTasks: readonly Task[],
+  ticked: readonly GroundedWbsItem[],
+  scope: WbsScope,
+): { valid: GroundedWbsItem[]; stale: number } {
+  const live = new Map(prevTasks.map((t) => [t.id, t] as const));
+  const required = closeOverRequires(ticked);
+  const rowChanged = new Set(
+    required.filter((g) => g.baseRows.some((b) => live.get(b.id) !== b)).map((g) => g.key),
+  );
+  // An item that requires a changed item is a casualty, even when it touches
+  // the same changed row (a link to a split piece lists the split's row).
+  let stale = required.filter((g) => rowChanged.has(g.key) && !g.requires.some((k) => rowChanged.has(k))).length;
+  let active = closeOverRequires(required.filter((g) => !rowChanged.has(g.key)));
+  for (;;) {
+    const re = groundWbsProposal({ items: active.map((g) => g.item), truncated: false }, prevTasks, scope);
+    const reKept = new Set(re.items.map((g) => g.key));
+    const kept = active.filter((_, j) => reKept.has(`i${j}`));
+    if (kept.length === active.length) return { valid: active, stale };
+    const keptKeys = new Set(kept.map((g) => g.key));
+    stale += active.filter((g, j) => !reKept.has(`i${j}`) && g.requires.every((k) => keptKeys.has(k))).length;
+    active = closeOverRequires(kept);
+  }
+}
+
+interface ApplyState {
+  today: string;
+  prevById: ReadonlyMap<number, Task>;
+  /** Working copies of existing rows; insertion order = first edit. */
+  edited: Map<number, Task>;
+  /** New rows; insertion order = proposal order. */
+  created: Map<number, Task>;
+  /** Kept splits by task id: the row id of each piece (piece 1 = the task). */
+  pieces: Map<number, number[]>;
+  /** Kept new tasks by ref. */
+  refs: Map<string, number>;
+  takeId: () => number;
+}
+
+function readRow(st: ApplyState, id: number): Task {
+  return (st.created.get(id) ?? st.edited.get(id) ?? st.prevById.get(id)) as Task; // every resolved id exists
+}
+
+/** Replace a row with a patched copy; an existing row is stamped `today`. */
+function writeRow(st: ApplyState, id: number, patch: Partial<Task>): void {
+  const row = readRow(st, id);
+  if (st.created.has(id)) st.created.set(id, { ...row, ...patch });
+  else st.edited.set(id, { ...row, ...patch, lastUpdateDate: st.today });
+}
+
+function rowId(st: ApplyState, t: WbsTarget): number {
+  if (t.kind === "ref") return st.refs.get(t.ref) as number;
+  if (t.kind === "task") return t.id;
+  return (st.pieces.get(t.taskId) as number[])[t.piece - 1];
+}
+
+interface NewRowFields {
+  taskName: string;
+  description: string;
+  estimateMinutes?: number;
+  dueDate: string;
+  assignee: string;
+  assigneeEmail: string;
+  group: string;
+  labels: string[];
+  priority: Task["priority"];
+  resourceId?: number;
+}
+
+/** The row shape `createTask` (use-chat-dispatcher.ts) writes, so a created
+ *  row is indistinguishable from a chat-created one. */
+function newRow(id: number, today: string, f: NewRowFields): Task {
+  return {
+    id,
+    taskName: f.taskName,
+    assignee: f.assignee,
+    assigneeEmail: f.assigneeEmail,
+    dueDate: f.dueDate,
+    lastUpdateDate: today,
+    createdDate: today,
+    priority: f.priority,
+    status: DEFAULT_TASK_STATUS,
+    blockers: "",
+    description: f.description,
+    inquiriesSent: 0,
+    group: f.group,
+    labels: f.labels,
+    ...(f.resourceId !== undefined ? { resourceId: f.resourceId } : {}),
+    ...(f.estimateMinutes !== undefined ? { originalEstimateMinutes: f.estimateMinutes } : {}),
+  };
+}
+
+/** Piece 1 rewrites the original row's name, and its description and estimate
+ *  when given. Pieces 2+ are new rows inheriting the row's people, group,
+ *  labels, priority and due date, and no dependencies (grounding's cycle
+ *  check assumed none). */
+function applySplit(item: SplitItem, st: ApplyState): void {
+  const orig = readRow(st, item.taskId);
+  const [first, ...rest] = item.pieces;
+  const ids = [item.taskId, ...rest.map(() => st.takeId())];
+  st.pieces.set(item.taskId, ids);
+  rest.forEach((p, i) => {
+    st.created.set(
+      ids[i + 1],
+      newRow(ids[i + 1], st.today, {
+        taskName: p.taskName,
+        description: p.description ?? "",
+        estimateMinutes: p.estimateMinutes,
+        dueDate: orig.dueDate,
+        assignee: orig.assignee,
+        assigneeEmail: orig.assigneeEmail,
+        group: orig.group ?? "",
+        labels: [...(orig.labels ?? [])],
+        priority: orig.priority,
+        resourceId: orig.resourceId,
+      }),
+    );
+  });
+  writeRow(st, item.taskId, {
+    taskName: first.taskName,
+    ...(first.description !== undefined ? { description: first.description } : {}),
+    ...(first.estimateMinutes !== undefined ? { originalEstimateMinutes: first.estimateMinutes } : {}),
+  });
+}
+
+function applyNewTask(item: NewTaskItem, st: ApplyState): void {
+  const id = st.takeId();
+  st.refs.set(item.ref, id);
+  st.created.set(
+    id,
+    newRow(id, st.today, {
+      taskName: item.taskName,
+      description: item.description ?? "",
+      estimateMinutes: item.estimateMinutes,
+      dueDate: item.dueDate,
+      assignee: item.assignee ?? "",
+      assigneeEmail: "",
+      group: item.group ?? "",
+      labels: [],
+      priority: sanitizePriority(undefined),
+    }),
+  );
+}
+
+function applyLink(item: LinkItem, st: ApplyState): void {
+  const to = rowId(st, item.to);
+  const deps = readRow(st, to).dependencies ?? [];
+  writeRow(st, to, { dependencies: [...deps, { taskId: rowId(st, item.from), type: "FS" }] });
+}
+
+/** Apply the ticked grounded items to `prevTasks`. Each item is checked again
+ *  first (see `selectStillValid`). Definitions (split, regroup, newTask) are
+ *  written in proposal order, consuming `newIds` in that order; estimates and
+ *  links follow, in proposal order. Throws when `newIds` is too short or names
+ *  an existing id (a caller error). Never removes a row, never mutates an
+ *  input. */
+export function applyWbsProposal(
+  prevTasks: readonly Task[],
+  ticked: readonly GroundedWbsItem[],
+  newIds: readonly number[],
+  today: string,
+  scope: WbsScope,
+): WbsApplyResult {
+  const { valid, stale } = selectStillValid(prevTasks, ticked, scope);
+  const prevById = new Map(prevTasks.map((t) => [t.id, t] as const));
+  const need = countNewRows(valid);
+  if (newIds.length < need) throw new Error(`applyWbsProposal: ${need} new ids needed, ${newIds.length} given`);
+  if (newIds.slice(0, need).some((id) => prevById.has(id))) throw new Error("applyWbsProposal: a new id is already taken");
+  let cursor = 0;
+  const st: ApplyState = {
+    today,
+    prevById,
+    edited: new Map(),
+    created: new Map(),
+    pieces: new Map(),
+    refs: new Map(),
+    takeId: () => newIds[cursor++],
+  };
+  for (const { item } of valid) {
+    if (item.kind === "split") applySplit(item, st);
+    else if (item.kind === "regroup") writeRow(st, item.taskId, { group: item.group });
+    else if (item.kind === "newTask") applyNewTask(item, st);
+  }
+  for (const { item } of valid) {
+    if (item.kind === "estimate") writeRow(st, rowId(st, item.target), { originalEstimateMinutes: item.estimateMinutes });
+    else if (item.kind === "link") applyLink(item, st);
+  }
+  const editedIds = [...st.edited.keys()];
+  const created = [...st.created.values()];
+  return {
+    nextTasks: [...prevTasks.map((t) => st.edited.get(t.id) ?? t), ...created],
+    created,
+    editedBefore: editedIds.map((id) => prevById.get(id) as Task),
+    editedAfter: editedIds.map((id) => st.edited.get(id) as Task),
+    applied: valid.length,
+    skippedStale: stale,
+  };
 }
