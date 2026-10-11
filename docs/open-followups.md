@@ -741,7 +741,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--open) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | open |
 | [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--closed-2026-09-15) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | **CLOSED** 2026-09-15 |
 | [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
-| [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--open) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | open |
+| [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--closed-2026-10-11) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | **CLOSED** 2026-10-11 |
 | [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-employer-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
 | [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
 | [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-employer-governance--open) | A delivery project cannot represent the client's own governance structure beside employer governance | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
@@ -38538,9 +38538,9 @@ Size L — a simulation engine, scenario inputs and P50/P80-style output on the 
 
 **Work item:** #41
 
-## 503. Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN
+## 503. Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — CLOSED 2026-10-11
 
-**Status:** POSTPONED by the owner 2026-10-02 — waits for a reproduction. OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
+**Status:** CLOSED 2026-10-11 — owner decision 2026-10-11: closed as not reproducible. Nothing recorded what went wrong at about 37:00 in the demo, so there is no defect to fix or test, and the effort and over-budget fixes of 2026-09-05 predate the demo. If it happens again, it gets a NEW entry with steps to reproduce. ★ The two gaps the code check named below (no action or insight flags an overrunning task; the EVM engine ignores remaining estimates) were never shown to be what misbehaved, and closing this entry does not track them: each needs its own entry if it is wanted. **Earlier:** POSTPONED by the owner 2026-10-02 — waits for a reproduction. OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
 to reproduce.
 
 Something in task effort or over-budget handling misbehaved live at about 37:00 in the demo, and it was
@@ -38554,8 +38554,6 @@ remaining estimates. The next step is a reproduction, not a fix.
 Size unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced.
 
 **Source:** GitLab #43 (F-6, source::demo-2026-09-11)
-
-**Work item:** #43
 
 ## 504. The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard — CLOSED 2026-09-15
 
