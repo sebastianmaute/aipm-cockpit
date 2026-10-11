@@ -732,7 +732,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `workload-triage-handlers.ts` (`buildWorkloadTriageHandlers` — a plain builder, coverage-GATED and tested: the Resources
   workload reassign/reschedule and clear-unlinked handlers, the last with its destructive-save arming), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
-  `task-editor-actions.tsx` (a plain builder for the task editor footer slots), and
+  `task-editor-actions.tsx` (a plain builder for the task editor footer slots), `buildAppModalsBlock` in
+  `app-modals-block.tsx` (a plain builder for `modalsBlock`, the overlay layer every returned tree renders once; its
+  deps keys are all required, so a dropped optional prop is a tsc error), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
