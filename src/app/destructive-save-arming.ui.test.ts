@@ -115,13 +115,41 @@ function unwrap(n: ts.Expression): ts.Expression {
   }
 }
 
-/** The value an expression or an updater arrow RESULTS in: `[]`, `() => []`, `(p) => { return []; }`. */
+/** `X.length`, `X.length > 0`, `X.length !== 0` or `!X.length`, read for X's name. */
+function lengthTestOf(cond: ts.Expression): string | undefined {
+  let c = unwrap(cond);
+  if (ts.isPrefixUnaryExpression(c) && c.operator === ts.SyntaxKind.ExclamationToken) c = unwrap(c.operand);
+  if (ts.isBinaryExpression(c)) c = unwrap(c.left);
+  if (ts.isPropertyAccessExpression(c) && c.name.text === "length" && ts.isIdentifier(c.expression)) return c.expression.text;
+  return undefined;
+}
+
+/** A value that IS `[]`, or a `?:` with a `[]` branch (`cond ? [] : p`), which drops
+ *  every row whenever its condition picks that branch. ★ Except the normalisation
+ *  `p.length ? p : []`: its `[]` branch is taken only when `p` is already empty, so
+ *  no row is lost. That holds only when the condition tests the length of the very
+ *  value the other branch returns; any other condition counts. */
+function isEmptyArrayResult(v: ts.Expression): boolean {
+  const e = unwrap(v);
+  if (isEmptyArray(e)) return true;
+  if (!ts.isConditionalExpression(e)) return false;
+  const yes = unwrap(e.whenTrue);
+  const no = unwrap(e.whenFalse);
+  const emptyBranch = isEmptyArrayResult(yes) ? "yes" : isEmptyArrayResult(no) ? "no" : undefined;
+  if (!emptyBranch) return false;
+  const other = emptyBranch === "yes" ? no : yes;
+  const tested = lengthTestOf(e.condition);
+  return !(tested !== undefined && ts.isIdentifier(other) && other.text === tested);
+}
+
+/** The value an expression or an updater arrow RESULTS in: `[]`, `() => []`, `(p) => { return []; }`,
+ *  or any of those through a conditional (`cond ? [] : p`). */
 function resultsInEmptyArray(arg: ts.Expression): boolean {
   const e = unwrap(arg);
-  if (isEmptyArray(e)) return true;
+  if (isEmptyArrayResult(e)) return true;
   if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) {
-    if (!ts.isBlock(e.body)) return isEmptyArray(unwrap(e.body));
-    return contains(e.body, (n) => ts.isReturnStatement(n) && !!n.expression && isEmptyArray(unwrap(n.expression)));
+    if (!ts.isBlock(e.body)) return isEmptyArrayResult(e.body);
+    return contains(e.body, (n) => ts.isReturnStatement(n) && !!n.expression && isEmptyArrayResult(n.expression));
   }
   return false;
 }
@@ -130,17 +158,23 @@ function resultsInEmptyArray(arg: ts.Expression): boolean {
 const isRemovalValue = (v: ts.Expression): boolean =>
   contains(v, isFilterCall) || contains(v, isSpliceCall) || resultsInEmptyArray(v);
 
-/** The initializer of `name`'s `const`/`let` declaration in the nearest function scope around `from`. */
+/** The initializer of `name`'s `const`/`let` declaration, looked up through the function
+ *  scopes around `from`, nearest first, up to the file (`const kept = rows.filter(…);
+ *  const h = () => setTasks(kept);` finds `kept` one function out). ★ Each scope is
+ *  searched whole, nested functions included, so a same-named local in a SIBLING function
+ *  can be found first. That cuts both ways: a sibling's `.filter(` flags a site that does
+ *  not remove, and a sibling's plain local hides a `.filter(` declared further out. */
 function localInitializer(from: ts.Node, name: string): ts.Expression | undefined {
-  let scope: ts.Node | undefined = from.parent;
-  while (scope && !ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
-  if (!scope) return undefined;
-  let init: ts.Expression | undefined;
-  contains(scope, (n) => {
-    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) { init = n.initializer; return true; }
-    return false;
-  });
-  return init;
+  for (let scope: ts.Node | undefined = from.parent; scope; scope = scope.parent) {
+    if (!ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) continue;
+    let init: ts.Expression | undefined;
+    contains(scope, (n) => {
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) { init = n.initializer; return true; }
+      return false;
+    });
+    if (init) return init;
+  }
+  return undefined;
 }
 
 /** A removal handed to the setter: its argument has a removal shape, or is a local
@@ -310,6 +344,9 @@ describe("scanSource (the scanner itself)", () => {
     expect(scan(`function e() { setTasks((p) => p.map((t) => t)); setOther((p) => p.filter(Boolean)); const k = a.filter(Boolean); setTasks(p); }`)).toEqual([]);
     expect(scan(`function e() { const next = []; for (const r of rows) next.push(r); setTasks(next); }`)).toEqual([]);
     expect(scan(`function e() { setTasks((p) => p.length ? p : []); }`)).toEqual([]);
+    // §293, 2026-10-11: the same normalisation, negated or compared, is no removal either.
+    expect(scan(`function e() { setTasks((p) => !p.length ? [] : p); }`)).toEqual([]);
+    expect(scan(`function e() { setTasks((p) => (p.length > 0 ? p : [])); }`)).toEqual([]);
   });
 
   // §293, widened 2026-10-08: the other written shapes of a removal.
@@ -323,6 +360,13 @@ describe("scanSource (the scanner itself)", () => {
     ["a local spliced list", `function del(i) { const gone = rows.splice(i, 1); setTasks(gone); }`],
     ["a committer handed its own parameter", `function commit(next) { setTasks(next); }`],
     ["a committer's parameter through a cast", `const commit = (next) => { setTasks(next as Task[]); };`],
+    // §293, widened 2026-10-11: a conditional clear, and a local declared one function out.
+    ["a conditional clear", `function reset() { setTasks(wipe ? [] : tasks); }`],
+    ["a conditional clear in an updater", `function reset() { setTasks((p) => (wipe ? [] : p)); }`],
+    ["a conditional clear returned from a block", `function reset() { setTasks((p) => { return wipe ? p : []; }); }`],
+    ["a nested conditional clear", `function reset() { setTasks((p) => (a ? p : b ? [] : p)); }`],
+    ["a length test of ANOTHER list", `function reset() { setTasks((p) => (other.length ? p : [])); }`],
+    ["a local filtered list one function out", `function Comp() { const kept = tasks.filter(Boolean); const save = () => { setTasks(kept); }; }`],
   ])("finds %s", (_label, src) => {
     expect(scan(src).map((x) => x.setter)).toEqual(["setTasks"]);
   });
