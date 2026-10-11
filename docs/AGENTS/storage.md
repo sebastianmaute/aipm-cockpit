@@ -349,9 +349,11 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   leaves out a key whose restore already ran on this page and records this page wrote itself
   (`use-other-journals.ts`).
 
-★★ **What is verified, exactly as the register says.** §629 is MEASURED only on Chromium with
-IndexedDB (`e2e/pagehide-draft-persist.spec.ts`). The packaged desktop window close and real-browser
-runs of the file, SharePoint and Turso backends are "never machine-verified". §629 also records a
+★★ **What is verified, exactly as the register says.** §629 is MEASURED on Chromium with
+IndexedDB (`e2e/pagehide-draft-persist.spec.ts`) and, by §661, on a local-json file's tab close in
+installed Chrome (`e2e/local-file-close-save.spec.ts`, opt-in). Turso has a live spec
+(`e2e/unload-journal-turso-live.spec.ts`, run by `live-turso.yml`); read §629 for whether it has
+passed yet. SharePoint and the packaged desktop window close are "never machine-verified". §629 also records a
 known loop: a restore that is a mass deletion is refused by the guard, and a page reload re-applies
 it. Read §629 before touching either file.
 
