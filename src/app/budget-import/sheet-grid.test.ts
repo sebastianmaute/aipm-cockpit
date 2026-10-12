@@ -102,14 +102,14 @@ describe("readSheetFile", () => {
       `<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Name</t></is></c><c r="B1"><v>45658</v></c></row></sheetData></worksheet>`,
     );
     expect(await readSheetFile("Forecast.XLSX", bytes)).toEqual([
-      { name: "Forecast", rows: [["Name", "45658"]], truncated: false },
+      { name: "Forecast", rows: [["Name", "45658"]], truncated: false, numbers: "dot" },
     ]);
     expect(await readSheetFile("macro.xlsm", bytes)).toHaveLength(1);
   });
 
   it("reads a csv into a single grid named after the file", async () => {
     const grid = await readSheetFile("plan.csv", enc("a;b\r\n1,5;2\r\n"));
-    expect(grid).toEqual([{ name: "plan", rows: [["a", "b"], ["1,5", "2"]], truncated: false }]);
+    expect(grid).toEqual([{ name: "plan", rows: [["a", "b"], ["1,5", "2"]], truncated: false, numbers: "text" }]);
   });
 
   it("decodes a windows-1252 csv when the bytes are not valid UTF-8", async () => {

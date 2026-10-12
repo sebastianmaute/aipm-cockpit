@@ -9,11 +9,19 @@ import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { AiHttpError } from "./ai-errors";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
+import { buildZip } from "./zip";
 import { forecastImportErrorOf, useForecastImport, wideMappingFor, type ForecastImportDeps } from "./use-forecast-import";
 
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 import { useSettings } from "./use-settings";
 const mockUseSettings = useSettings as unknown as ReturnType<typeof vi.fn>;
+
+// A pass-through spy: every test runs the real detection, and one counts it.
+vi.mock("./budget-import/layout-detect", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./budget-import/layout-detect")>();
+  return { ...real, detectLayout: vi.fn(real.detectLayout) };
+});
+import { detectLayout } from "./budget-import/layout-detect";
 
 const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" } };
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
@@ -83,6 +91,12 @@ describe("useForecastImport — the hand route", () => {
     expect(result.current.importPlan?.blockers).toEqual([]);
   });
 
+  it("detects the layout of a one-sheet file once per load", async () => {
+    vi.mocked(detectLayout).mockClear();
+    await loaded(depsOf());
+    expect(detectLayout).toHaveBeenCalledTimes(1);
+  });
+
   it("opens the mapping step on the default columns when no layout is found", async () => {
     const { result } = await loaded(depsOf(), "just,some\r\nwords,here\r\n");
     expect(result.current.step).toBe("mapping");
@@ -129,6 +143,27 @@ describe("useForecastImport — the hand route", () => {
       await result.current.loadFile(csvFile("not a zip", "broken.xlsx"));
     });
     expect(result.current.error).toEqual({ key: "forecastImportErrorUnreadable" });
+  });
+
+  it("reads a workbook's stored numbers with a dot, end to end", async () => {
+    const str = (ref: string, text: string) => `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+    const num = (ref: string, value: string) => `<c r="${ref}"><v>${value}</v></c>`;
+    const sheetXml = "<worksheet><sheetData>"
+      + `<row r="1">${str("A1", "Name")}${str("B1", "Jan 2026")}${str("C1", "Feb 2026")}${str("D1", "Mar 2026")}</row>`
+      + `<row r="2">${str("A2", "Ann Lee")}${num("B2", "7.5")}${num("C2", "2.625")}${num("D2", "40")}</row>`
+      + "</sheetData></worksheet>";
+    const blob = buildZip([
+      { path: "xl/workbook.xml", data: `<workbook><sheets><sheet name="Plan" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+      { path: "xl/_rels/workbook.xml.rels", data: `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>` },
+      { path: "xl/worksheets/sheet1.xml", data: sheetXml },
+    ]);
+    const file = new File([await blob.arrayBuffer()], "plan.xlsx");
+    const { result } = renderHook(() => useForecastImport(depsOf()));
+    await act(async () => {
+      await result.current.loadFile(file);
+    });
+    expect(result.current.step).toBe("preview");
+    expect(result.current.importPlan?.changes.map((c) => c.next)).toEqual([7.5, 2.63, 40]);
   });
 
   it("an override settles an unmatched person, and the picker list stays put", async () => {

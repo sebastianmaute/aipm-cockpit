@@ -8,9 +8,16 @@
 import { extractXlsxGrid } from "../xlsx-extract";
 import { readZipEntries } from "../unzip";
 
-export type SheetGrid = { name: string; rows: string[][]; truncated: boolean };
+/** How a grid's number cells were written. "dot": an xlsx/xlsm workbook, whose
+ * number cells Excel stores with a dot whatever the user's locale ("2.625" is
+ * 2.625, never 2625). "text": a CSV, where a cell is whatever the exporting
+ * locale typed, so its column's decimal style must be guessed. */
+export type NumberOrigin = "dot" | "text";
 
-const BOM = "﻿";
+/** `numbers` absent reads as "text" (a grid built by hand, as in a test). */
+export type SheetGrid = { name: string; rows: string[][]; truncated: boolean; numbers?: NumberOrigin };
+
+const BOM = "\uFEFF";
 
 /** Count `target` in `line`, skipping everything inside double quotes. */
 function countUnquoted(line: string, target: string): number {
@@ -133,11 +140,11 @@ function extensionOf(fileName: string): string {
 export async function readSheetFile(name: string, bytes: Uint8Array): Promise<SheetGrid[]> {
   const ext = extensionOf(name);
   if (ext === "xlsx" || ext === "xlsm") {
-    return extractXlsxGrid(await readZipEntries(bytes));
+    return extractXlsxGrid(await readZipEntries(bytes)).map((grid) => ({ ...grid, numbers: "dot" as const }));
   }
   if (ext === "csv") {
     const base = name.slice(0, name.length - ext.length - 1);
-    return [{ name: base, rows: parseDelimited(decodeCsvBytes(bytes)), truncated: false }];
+    return [{ name: base, rows: parseDelimited(decodeCsvBytes(bytes)), truncated: false, numbers: "text" }];
   }
   throw new Error("unsupported");
 }

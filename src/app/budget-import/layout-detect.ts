@@ -10,6 +10,7 @@
 
 import { detectDecimalStyle, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
+import type { NumberOrigin } from "./sheet-grid";
 
 export type LayoutDetection = {
   kind: "wide" | "long" | "unknown";
@@ -33,6 +34,9 @@ const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };
 
 type Rows = readonly string[][];
+
+/** How the grid's cells are read: `numbers` is `SheetGrid.numbers`. */
+type Ctx = { numbers: NumberOrigin };
 
 const cellAt = (row: readonly string[] | undefined, col: number): string => row?.[col] ?? "";
 const isBlank = (s: string): boolean => s.trim() === "";
@@ -59,19 +63,19 @@ function shareOf(cells: readonly string[], predicate: (cell: string) => boolean)
 const periodShare = (cells: readonly string[]): number =>
   shareOf(cells, (c) => parsePeriodLabel(c) !== null);
 
-function numberShare(cells: readonly string[]): number {
-  const style = detectDecimalStyle(cells);
-  return shareOf(cells, (c) => parseNumberCell(c, style) !== null);
+function numberShare(cells: readonly string[], ctx: Ctx): number {
+  const style = detectDecimalStyle(cells, ctx.numbers);
+  return shareOf(cells, (c) => parseNumberCell(c, style, ctx.numbers) !== null);
 }
 
 /** True when the cells are numbers (or nothing at all) in at least COLUMN_SHARE. */
-function isNumericOrEmpty(cells: readonly string[]): boolean {
-  return cells.length === 0 || numberShare(cells) >= COLUMN_SHARE;
+function isNumericOrEmpty(cells: readonly string[], ctx: Ctx): boolean {
+  return cells.length === 0 || numberShare(cells, ctx) >= COLUMN_SHARE;
 }
 
-function isMostlyText(cells: readonly string[]): boolean {
-  const style = detectDecimalStyle(cells);
-  return cells.length > 0 && shareOf(cells, (c) => parseNumberCell(c, style) === null) >= TEXT_SHARE;
+function isMostlyText(cells: readonly string[], ctx: Ctx): boolean {
+  const style = detectDecimalStyle(cells, ctx.numbers);
+  return cells.length > 0 && shareOf(cells, (c) => parseNumberCell(c, style, ctx.numbers) === null) >= TEXT_SHARE;
 }
 
 function firstHeaderMatch(header: readonly string[], re: RegExp, skip: ReadonlySet<number>): number | undefined {
@@ -102,10 +106,11 @@ function pickPerson(
   candidates: readonly number[],
   data: Rows,
   email: number | undefined,
+  ctx: Ctx,
 ): number | null {
-  const text = candidates.find((col) => col !== email && isMostlyText(columnCells(data, col)));
+  const text = candidates.find((col) => col !== email && isMostlyText(columnCells(data, col), ctx));
   if (text !== undefined) return text;
-  const emailIsText = email !== undefined && candidates.includes(email) && isMostlyText(columnCells(data, email));
+  const emailIsText = email !== undefined && candidates.includes(email) && isMostlyText(columnCells(data, email), ctx);
   return emailIsText ? email : null;
 }
 
@@ -116,17 +121,17 @@ function withOptionals(base: ColumnMapping, extras: Partial<ColumnMapping>): Col
   return out;
 }
 
-function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly number[]): ColumnMapping | null {
+function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly number[], ctx: Ctx): ColumnMapping | null {
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
   const periodSet = new Set(periodCols);
   // A real wide header has numbers (or nothing) under it; a long sheet's data
   // row with several date cells has dates under it.
-  if (!isNumericOrEmpty(periodCols.flatMap((col) => columnCells(data, col)))) return null;
+  if (!isNumericOrEmpty(periodCols.flatMap((col) => columnCells(data, col)), ctx)) return null;
   const email = findEmailColumn(header, data, periodSet);
   const rate = firstHeaderMatch(header, RATE_HEADER_RE, new Set([...periodCols, ...(email === undefined ? [] : [email])]));
   const leftOfPeriods = Array.from({ length: periodCols[0] }, (_, col) => col).filter((col) => col !== rate);
-  const person = pickPerson(leftOfPeriods, data, email);
+  const person = pickPerson(leftOfPeriods, data, email, ctx);
   if (person === null) return null;
   return withOptionals(
     { layout: "wide", headerRow, person, periodCols: [...periodCols] },
@@ -134,7 +139,7 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
   );
 }
 
-function detectWide(rows: Rows, minPeriods: number): ColumnMapping | null {
+function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const header = rows[headerRow];
@@ -143,7 +148,7 @@ function detectWide(rows: Rows, minPeriods: number): ColumnMapping | null {
       if (!isTotalLabel(header[col]) && parsePeriodLabel(header[col]) !== null) periodCols.push(col);
     }
     if (periodCols.length < minPeriods) continue;
-    const mapping = wideFromHeader(rows, headerRow, periodCols);
+    const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
     if (mapping !== null) return mapping;
   }
   return null;
@@ -173,12 +178,12 @@ function findPeriodColumn(
 }
 
 /** Numeric columns with a header, not the period column, not rate-like. */
-function numericColumns(header: readonly string[], data: Rows, width: number, period: number): number[] {
+function numericColumns(header: readonly string[], data: Rows, width: number, period: number, ctx: Ctx): number[] {
   const out: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && numberShare(cells) >= COLUMN_SHARE;
+    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && numberShare(cells, ctx) >= COLUMN_SHARE;
     if (isCandidate) out.push(col);
   }
   return out;
@@ -190,16 +195,16 @@ function numericColumns(header: readonly string[], data: Rows, width: number, pe
  * unparseable period cell, which would otherwise score a perfect 2.0 as a
  * "header" and silently drop every row above it.
  */
-function isDataRowShaped(header: readonly string[], period: number, hours: number): boolean {
+function isDataRowShaped(header: readonly string[], period: number, hours: number, ctx: Ctx): boolean {
   const hoursCell = cellAt(header, hours);
-  const isNumber = parseNumberCell(hoursCell, "dot") !== null || parseNumberCell(hoursCell, "comma") !== null;
+  const isNumber = parseNumberCell(hoursCell, "dot", ctx.numbers) !== null || parseNumberCell(hoursCell, "comma", ctx.numbers) !== null;
   return isNumber || parsePeriodLabel(cellAt(header, period)) !== null;
 }
 
 /** A long reading of one candidate header row, with how well its columns fit. */
 type ScoredMapping = { mapping: ColumnMapping; score: number };
 
-function longFromHeader(rows: Rows, headerRow: number): ScoredMapping | null {
+function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping | null {
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
   const width = Math.max(header.length, rowWidth(data));
@@ -207,21 +212,21 @@ function longFromHeader(rows: Rows, headerRow: number): ScoredMapping | null {
   if (found === undefined) return null;
   const period = found.col;
 
-  const numeric = numericColumns(header, data, width, period);
+  const numeric = numericColumns(header, data, width, period, ctx);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
   const hoursCols = numeric.filter((col) => !rateCols.includes(col));
   const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
-  if (hours === undefined || isDataRowShaped(header, period, hours)) return null;
+  if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   const rate = rateCols[0];
 
   const used = new Set([period, hours, ...(rate === undefined ? [] : [rate])]);
   const email = findEmailColumn(header, data, used);
   const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
-  const person = pickPerson(candidates, data, email);
+  const person = pickPerson(candidates, data, email, ctx);
   if (person === null) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate }),
-    score: found.share + numberShare(columnCells(data, hours)),
+    score: found.share + numberShare(columnCells(data, hours), ctx),
   };
 }
 
@@ -230,11 +235,11 @@ function longFromHeader(rows: Rows, headerRow: number): ScoredMapping | null {
  * share); the best wins and a tie goes to the LATER row, so a title row whose
  * columns happen to fit loses to the real header under it.
  */
-function detectLong(rows: Rows): ColumnMapping | null {
+function detectLong(rows: Rows, ctx: Ctx): ColumnMapping | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   let best: ScoredMapping | null = null;
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
-    const candidate = longFromHeader(rows, headerRow);
+    const candidate = longFromHeader(rows, headerRow, ctx);
     if (candidate !== null && (best === null || candidate.score >= best.score)) best = candidate;
   }
   return best?.mapping ?? null;
@@ -243,14 +248,19 @@ function detectLong(rows: Rows): ColumnMapping | null {
 /**
  * Guess the layout of a sheet grid and where its columns are. Scans the first
  * 10 rows for the header. Ragged and empty rows are fine (a missing cell is
- * blank). `unknown` when neither a wide nor a long reading fits.
+ * blank). `unknown` when neither a wide nor a long reading fits. `numbers` is
+ * the grid's `SheetGrid.numbers` (a workbook's stored numbers read with a dot).
  */
-export function detectLayout(rows: readonly string[][]): LayoutDetection {
-  const wide = detectWide(rows, MIN_WIDE_PERIODS);
+export function detectLayout(
+  rows: readonly string[][],
+  opts: { numbers?: NumberOrigin } = {},
+): LayoutDetection {
+  const ctx: Ctx = { numbers: opts.numbers ?? "text" };
+  const wide = detectWide(rows, MIN_WIDE_PERIODS, ctx);
   if (wide !== null) return { kind: "wide", mapping: wide };
-  const long = detectLong(rows);
+  const long = detectLong(rows, ctx);
   if (long !== null) return { kind: "long", mapping: long };
-  const narrowWide = detectWide(rows, MIN_WIDE_PERIODS_FALLBACK);
+  const narrowWide = detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, ctx);
   if (narrowWide !== null) return { kind: "wide", mapping: narrowWide };
   return UNKNOWN;
 }

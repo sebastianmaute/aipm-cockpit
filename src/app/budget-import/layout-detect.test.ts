@@ -26,6 +26,19 @@ describe("detectLayout — wide", () => {
     expect(out.dropped).toEqual([{ row: 3, reason: "total" }]);
   });
 
+  it("reads a workbook's stored numbers with a dot, so 2.625 does not unseat the hours", () => {
+    const grid = [
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "7.5", "2.625", "40"],
+      ["Bob", "37.5", "12", "8"],
+    ];
+    expect(detectLayout(grid, { numbers: "dot" }).mapping).toEqual({
+      layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3],
+    });
+    // The same cells from a CSV read German, and two of six are not numbers.
+    expect(detectLayout(grid).kind).toBe("unknown");
+  });
+
   it("finds the header below a title row and a blank row", () => {
     const grid = [
       ["Forecast Q1"],

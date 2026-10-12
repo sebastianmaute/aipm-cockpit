@@ -132,6 +132,11 @@ describe("detectDecimalStyle", () => {
   it("is dot for an empty list", () => {
     expect(detectDecimalStyle([])).toBe("dot");
   });
+  it("does not let a workbook's stored numbers vote", () => {
+    expect(detectDecimalStyle(["2.625", "40"], "dot")).toBe("dot");
+    expect(detectDecimalStyle(["2.625", "40"])).toBe("comma");
+    expect(detectDecimalStyle(["2.625", "7,5"], "dot")).toBe("comma");
+  });
 });
 
 describe("parseNumberCell", () => {
@@ -154,6 +159,23 @@ describe("parseNumberCell", () => {
   it("keeps zero and negatives", () => {
     expect(parseNumberCell("0", "dot")).toBe(0);
     expect(parseNumberCell("-3,5", "comma")).toBe(-3.5);
+  });
+  it("in comma style reads a dot only as a thousands mark in groups of three", () => {
+    expect(parseNumberCell("2.5", "comma")).toBeNull();
+    expect(parseNumberCell("0.125", "comma")).toBeNull();
+    expect(parseNumberCell("12.34,5", "comma")).toBeNull();
+    expect(parseNumberCell("01.234", "comma")).toBeNull();
+    expect(parseNumberCell("1.234", "comma")).toBe(1234);
+    expect(parseNumberCell("1.234.567,5", "comma")).toBe(1234567.5);
+    expect(parseNumberCell("+12,5 h", "comma")).toBe(12.5);
+  });
+  it("reads a workbook's stored number with a dot whatever the column's style", () => {
+    expect(parseNumberCell("2.625", "comma", "dot")).toBe(2.625);
+    expect(parseNumberCell(" -7.5 ", "comma", "dot")).toBe(-7.5);
+    expect(parseNumberCell("2.625", "comma", "text")).toBe(2625);
+    // A text cell in a workbook keeps the column's rule.
+    expect(parseNumberCell("7,5", "comma", "dot")).toBe(7.5);
+    expect(parseNumberCell("1.234,5", "comma", "dot")).toBe(1234.5);
   });
   it("returns null for blank and non-numeric text", () => {
     expect(parseNumberCell("", "dot")).toBeNull();
@@ -229,8 +251,9 @@ describe("gridToForecastRows — wide", () => {
   // The test above cannot tell a column decision from a per-cell one: every
   // cell in it reads the same either way. Only a cell whose own look disagrees
   // with its column can — here a dot decimal in a German column, which the
-  // column rule reads with the dot as a thousands mark (the spec's "decided
-  // once per column, never per cell").
+  // column rule refuses: a German column reads a dot only as a thousands mark
+  // in groups of three (the spec's "decided once per column, never per cell"),
+  // so a per-cell reading would keep Bob's 2.5 and the column reading drops it.
   it("reads a cell by its column's style even when the cell alone would read otherwise", () => {
     const grid = [
       ["Name", "Jan 2026"],
@@ -238,7 +261,8 @@ describe("gridToForecastRows — wide", () => {
       ["Bob", "2.5"],
     ];
     const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
-    expect(out.rows.map((r) => r.hours)).toEqual([1234.5, 25]);
+    expect(out.rows.map((r) => r.hours)).toEqual([1234.5]);
+    expect(out.dropped).toEqual([{ row: 3, reason: "bad-number" }]);
   });
 
   it("does not let a total row flip the decimal style", () => {
@@ -308,6 +332,45 @@ describe("gridToForecastRows — wide", () => {
     ];
     const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
     expect(out.rows[0].period).toBe("2025-01");
+  });
+});
+
+// Reviewer probe (§500 final review): Excel stores every number cell with a
+// dot, so a workbook's "2.625" must not flip its column to German and turn
+// 7.5 into 75. A CSV carries no such guarantee and keeps the column rule.
+describe("gridToForecastRows — a workbook's stored numbers", () => {
+  const wide: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3] };
+  const grid = [
+    ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+    ["Ann", "7.5", "2.625", "40"],
+    ["Bob", "37.5", "12", "8"],
+  ];
+
+  it("reads every stored number with a dot in an xlsx grid", () => {
+    const out = gridToForecastRows(grid, wide, "S", "dot");
+    expect(out.rows.map((r) => r.hours)).toEqual([7.5, 2.625, 40, 37.5, 12, 8]);
+    expect(out.dropped).toEqual([]);
+  });
+
+  it("keeps a text cell from flipping the stored numbers of an xlsx grid", () => {
+    const withText = [["Name", "Jan 2026"], ["Ann", "7,5"], ["Bob", "37.5"]];
+    const out = gridToForecastRows(withText, { ...wide, periodCols: [1] }, "S", "dot");
+    expect(out.rows.map((r) => r.hours)).toEqual([7.5, 37.5]);
+  });
+
+  it("keeps the per-column rule for the same cells in a CSV grid", () => {
+    const out = gridToForecastRows(grid, wide, "S");
+    expect(out.rows.map((r) => r.hours)).toEqual([2625, 40, 12, 8]);
+    expect(out.dropped).toEqual([
+      { row: 2, reason: "bad-number" },
+      { row: 3, reason: "bad-number" },
+    ]);
+  });
+
+  it("reads a workbook rate the same way", () => {
+    const rated = [["Name", "Rate", "Jan 2026"], ["Ann", "95.5", "8"], ["Bob", "1.250", "9"]];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, rate: 1, periodCols: [2] };
+    expect(gridToForecastRows(rated, mapping, "S", "dot").rows.map((r) => r.rate)).toEqual([95.5, 1.25]);
   });
 });
 

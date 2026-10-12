@@ -25,7 +25,7 @@ import { applyForecastImport, buildForecastImportPlan, normalisePerson, type Imp
 import { gridToForecastRows, isTotalLabel, parsePeriodLabel } from "./budget-import/forecast-rows";
 import type { ColumnMapping, DropReason, ForecastRow } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
-import { detectLayout } from "./budget-import/layout-detect";
+import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
 import { readSheetFile, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -148,10 +148,19 @@ export function defaultMappingFor(rows: readonly string[][]): ColumnMapping {
   return wideMappingFor(rows, 0, { person: 0 });
 }
 
-/** The first sheet a layout is found on, else the first sheet. */
-function firstDetectedSheet(sheets: readonly SheetGrid[]): number {
-  const found = sheets.findIndex((s) => detectLayout(s.rows).kind !== "unknown");
-  return found < 0 ? 0 : found;
+/** `detectLayout` over one sheet, read the way its file stores numbers. */
+function detectSheet(grid: SheetGrid): LayoutDetection {
+  return detectLayout(grid.rows, { numbers: grid.numbers });
+}
+
+/** The first sheet a layout is found on (else the first sheet), with its
+ *  detection, so a load detects each sheet at most once. */
+function firstDetectedSheet(sheets: readonly SheetGrid[]): { index: number; detected: LayoutDetection } {
+  for (let index = 0; index < sheets.length; index++) {
+    const detected = detectSheet(sheets[index]);
+    if (detected.kind !== "unknown") return { index, detected };
+  }
+  return { index: 0, detected: detectSheet(sheets[0]) };
 }
 
 type Validated = ReturnType<typeof validateForecastRows>;
@@ -188,7 +197,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const liveBucket = buckets.find((b) => b.id === bucketId);
 
   const handRows = useMemo(
-    () => (sheet && mapping ? gridToForecastRows(sheet.rows, mapping, sheet.name) : null),
+    () => (sheet && mapping ? gridToForecastRows(sheet.rows, mapping, sheet.name, sheet.numbers) : null),
     [sheet, mapping],
   );
 
@@ -222,9 +231,10 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     return reqIdRef.current;
   }, []);
 
-  /** The hand route over one sheet: preview when a layout is found, else the mapping step. */
-  const openHandRoute = useCallback((grid: SheetGrid) => {
-    const detected = detectLayout(grid.rows);
+  /** The hand route over one sheet: preview when a layout is found, else the
+   *  mapping step. `known` is a detection the caller already ran on `grid`. */
+  const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
+    const detected = known ?? detectSheet(grid);
     setRoute("hand");
     setClaudeRows(null);
     setNotes("");
@@ -250,10 +260,10 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       const grids = await readSheetFile(file.name, new Uint8Array(await file.arrayBuffer()));
       if (reqId !== reqIdRef.current) return;
       if (grids.length === 0) throw new Error("empty");
-      const index = firstDetectedSheet(grids);
+      const { index, detected } = firstDetectedSheet(grids);
       setSheets(grids);
       setSheetIndex(index);
-      openHandRoute(grids[index]);
+      openHandRoute(grids[index], detected);
     } catch (e) {
       if (reqId !== reqIdRef.current) return;
       setSheets([]);
