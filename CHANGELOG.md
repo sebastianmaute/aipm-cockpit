@@ -10,6 +10,17 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-12 "Larsson"
+
+A feature release. Optimize with AI in Open Points proposes splits, regroups, missing tasks, estimates and
+links, and you tick what to keep before anything changes. Operating guides now reach eleven AI actions as well
+as the chat, and eight built-in method guides ship for them. A fifth TimeLog guardrail flags time booked on a
+day the person was absent. Fixes: clicking a resize corner no longer saves a size, a Jira sync keeps the changes
+you make while it runs, dialogs that open on a text field keep the cursor there, names containing `$` sequences
+or `{1}` show as typed, and planning allocations with AI reports skipped changes. While devices on an older
+version share the same Turso database, they ignore a guide's "Applies to" choice and can reset or drop it, so
+update every device; see the operating-guides entry below.
+
 ### Added
 
 - **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
