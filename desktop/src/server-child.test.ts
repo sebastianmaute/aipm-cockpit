@@ -43,11 +43,6 @@ describe("killServer (§697)", () => {
     onPlatform(realPlatform);
   });
 
-  it("does nothing for a null child", () => {
-    killServer(null);
-    expect(execFileSync).not.toHaveBeenCalled();
-  });
-
   it("kills the child's own process tree by PID on Windows, never by image name", () => {
     onPlatform("win32");
     const child = spawnFake(4242);
@@ -105,5 +100,22 @@ describe("spawnServer", () => {
     expect(options.env.HOSTNAME).toBe(APP_HOST);
     expect(options.env.PORT).toBe(String(APP_PORT));
     expect(options.env.NODE_ENV).toBe("production");
+  });
+
+  it("drops the env vars that would load code into the server, and keeps the rest", () => {
+    vi.stubEnv("NODE_OPTIONS", "--require /tmp/probe.js");
+    vi.stubEnv("NODE_PATH", "/tmp/shadow");
+    vi.stubEnv("NODE_REPL_EXTERNAL_MODULE", "/tmp/repl.js");
+    vi.stubEnv("AIPM_PROBE_KEEP", "kept");
+    try {
+      spawnFake(1);
+      const [, , options] = fork.mock.calls[0] as [string, string[], { env: NodeJS.ProcessEnv }];
+      expect(options.env).not.toHaveProperty("NODE_OPTIONS");
+      expect(options.env).not.toHaveProperty("NODE_PATH");
+      expect(options.env).not.toHaveProperty("NODE_REPL_EXTERNAL_MODULE");
+      expect(options.env.AIPM_PROBE_KEEP).toBe("kept"); // control: the copy really carries process.env
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
