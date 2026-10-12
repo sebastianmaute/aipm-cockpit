@@ -456,7 +456,8 @@ describe("WbsPlanModal", () => {
       expect(panel().className).toContain("resize");
       // Never wider than the screen: a bare 460px minimum would beat the 95vw cap.
       expect(panel().className).toContain("min-w-[min(460px,95vw)]");
-      expect(panel().className).not.toMatch(/(^|\s)h-\[/);
+      // Any fixed height class (h-[640px], h-96, h-full), not just a bracketed one.
+      expect(panel().className).not.toMatch(/(^|\s)h-/);
       expect(panel().style.height).toBe("");
     });
 

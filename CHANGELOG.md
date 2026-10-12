@@ -24,6 +24,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Clicking a dialog's resize corner without dragging no longer saves its size.** Every resizable dialog
+  saved its size on any press and release of that corner, so a click froze it at the size it had at that
+  moment. Only a real resize is saved now.
+
 - **A Jira sync no longer undoes changes you make while it runs.** A sync that pushes local changes
   to Jira waits on Jira for each one, and anything you edited, added or deleted in the task list during
   that wait was overwritten when it finished: an edit reverted, a new task vanished, a deleted task came
