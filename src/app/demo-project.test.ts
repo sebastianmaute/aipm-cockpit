@@ -244,7 +244,7 @@ describe("the demo's start-card facts", () => {
   // A fresh demo created late in a month showed "2 gaps": the history ended weeks before today's.
   // ★ The loop reuses `WS`: `demoHistoryFor` reads only `ws.plan.granularity`, which the date
   //   shift leaves alone. Building the workspace for each of the 365 days took ~26 s on its own
-  //   and timed the test out under a busy runner (the weekly future-clock run); the 730 history
+  //   and timed the test out under a busy runner (the weekly future-clock run); the history
   //   calls that remain still carry an explicit timeout (end of the test). Under the master's
   //   month granularity (pinned by "uses the master's own plan granularity" below) the built
   //   workspace changes only at a month boundary, so comparing against one built on the 1st of
