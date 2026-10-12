@@ -1,0 +1,388 @@
+import { describe, expect, it } from "vitest";
+import type { BudgetBucket, BucketAllocation, DisciplineAllocation, Resource, ResourcePlan, Role } from "../types";
+import type { ForecastRow } from "./forecast-types";
+import { splitToGranularity } from "./period-split";
+import {
+  applyForecastImport,
+  buildForecastImportPlan,
+  normalisePerson,
+  type ImportCtx,
+  type ImportPlan,
+  type PersonOverride,
+} from "./forecast-plan";
+
+const NONE: ReadonlySet<string> = new Set();
+
+const ROLE_A: Role = { id: 10, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 };
+const ROLE_B: Role = { id: 11, disciplineId: 2, gradeId: 1, internalRate: 80, externalRate: 120 };
+
+function person(id: number, first: string, last: string, extra: Partial<Resource> = {}): Resource {
+  return {
+    id,
+    firstName: first,
+    lastName: last,
+    roleId: ROLE_A.id,
+    utilizationMode: "percent",
+    utilization: {},
+    ...extra,
+  };
+}
+
+function alloc(roleId: number, budgetHours: Record<string, number> = {}, resourceIds: number[] = []): BucketAllocation {
+  return { roleId, resourceIds, budgetHours, actualHours: {} };
+}
+
+function bucketOf(over: Partial<BudgetBucket> = {}): BudgetBucket {
+  return {
+    id: 1,
+    name: "B",
+    type: "time-and-material",
+    currency: "EUR",
+    startDate: "2026-01-01",
+    endDate: "2026-03-31",
+    status: "open",
+    allocations: [],
+    ...over,
+  } as BudgetBucket;
+}
+
+const MONTH_PLAN: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
+
+function ctxOf(over: Partial<ImportCtx> = {}): ImportCtx {
+  return {
+    bucket: bucketOf(),
+    resources: [person(1, "Ann", "Lee", { email: "ann@x.com" })],
+    roles: [ROLE_A, ROLE_B],
+    plan: MONTH_PLAN,
+    holidaySet: NONE,
+    overrides: new Map<string, PersonOverride>(),
+    ...over,
+  };
+}
+
+function row(name: string, period: string, hours: number, extra: Partial<ForecastRow> = {}): ForecastRow {
+  return { person: name, period, hours, ...extra };
+}
+
+function plan(rows: ForecastRow[], over: Partial<ImportCtx> = {}): ImportPlan {
+  return buildForecastImportPlan(rows, ctxOf(over));
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
+}
+
+describe("normalisePerson", () => {
+  it("lower-cases, trims and collapses whitespace", () => {
+    expect(normalisePerson("  Ann \t  LEE ")).toBe("ann lee");
+  });
+});
+
+describe("matching", () => {
+  it("an email match beats a same-name different person", () => {
+    const resources = [
+      person(1, "Ann", "Lee", { email: "other@x.com" }),
+      person(2, "Anna", "Other", { email: "ann@x.com" }),
+    ];
+    const p = plan([row("Ann Lee", "2026-01", 10, { email: " ANN@x.com " })], { resources });
+    expect(p.unresolved).toEqual([]);
+    expect(p.addResources[0].resourceIds).toEqual([2]);
+  });
+
+  it("matches any address in Resource.emails", () => {
+    const resources = [person(1, "Ann", "Lee", { email: "a@x.com", emails: ["Alt@X.com"] })];
+    const p = plan([row("Someone", "2026-01", 10, { email: "alt@x.com" })], { resources });
+    expect(p.unresolved).toEqual([]);
+    expect(p.addResources[0].resourceIds).toEqual([1]);
+  });
+
+  it("matches the name ignoring case and whitespace", () => {
+    const p = plan([row("  ann   LEE ", "2026-01", 10)]);
+    expect(p.unresolved).toEqual([]);
+    expect(p.changes).toHaveLength(1);
+  });
+
+  it("reports two same-name resources as ambiguous with both ids", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Ann", "Lee")];
+    const p = plan([row("Ann Lee", "2026-01", 10)], { resources });
+    expect(p.unresolved).toEqual([{ person: "Ann Lee", why: "ambiguous", candidates: [1, 2] }]);
+    expect(p.changes).toEqual([]);
+  });
+
+  it("reports an unknown person as no-match, keeping the sheet email", () => {
+    const p = plan([row("Zed Zee", "2026-01", 10, { email: "z@x.com" })]);
+    expect(p.unresolved).toEqual([{ person: "Zed Zee", email: "z@x.com", why: "no-match", candidates: [] }]);
+  });
+
+  it("reports a role-less resource as no-role", () => {
+    const resources = [person(1, "Ann", "Lee", { roleId: null })];
+    const p = plan([row("Ann Lee", "2026-01", 10)], { resources });
+    expect(p.unresolved).toEqual([{ person: "Ann Lee", why: "no-role", candidates: [1] }]);
+    expect(p.changes).toEqual([]);
+  });
+
+  it("lists an unresolved person once however many rows they have", () => {
+    const p = plan([row("Zed", "2026-01", 1), row("ZED ", "2026-02", 1)]);
+    expect(p.unresolved).toHaveLength(1);
+  });
+
+  it("an override to a resource id resolves the person", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const overrides = new Map<string, PersonOverride>([["a. lee", 2]]);
+    const p = plan([row("A. Lee", "2026-01", 10)], { resources, overrides });
+    expect(p.unresolved).toEqual([]);
+    expect(p.addResources[0].resourceIds).toEqual([2]);
+  });
+
+  it("an override wins over an email match", () => {
+    const resources = [person(1, "Ann", "Lee", { email: "ann@x.com" }), person(2, "Bob", "Ray")];
+    const overrides = new Map<string, PersonOverride>([["ann lee", 2]]);
+    const p = plan([row("Ann Lee", "2026-01", 10, { email: "ann@x.com" })], { resources, overrides });
+    expect(p.addResources[0].resourceIds).toEqual([2]);
+  });
+
+  it("an override to a missing resource id is no-match", () => {
+    const overrides = new Map<string, PersonOverride>([["ann lee", 99]]);
+    const p = plan([row("Ann Lee", "2026-01", 10)], { overrides });
+    expect(p.unresolved).toEqual([{ person: "Ann Lee", why: "no-match", candidates: [] }]);
+  });
+
+  it("an override to skip drops the rows and lists the person once", () => {
+    const overrides = new Map<string, PersonOverride>([["ann lee", "skip"]]);
+    const p = plan([row("Ann Lee", "2026-01", 10), row("ann lee", "2026-02", 5)], { overrides });
+    expect(p.skipped).toEqual(["Ann Lee"]);
+    expect(p.changes).toEqual([]);
+    expect(p.unresolved).toEqual([]);
+  });
+
+  it("still matches an archived resource", () => {
+    const resources = [person(1, "Ann", "Lee", { active: false })];
+    expect(plan([row("Ann Lee", "2026-01", 10)], { resources }).changes).toHaveLength(1);
+  });
+});
+
+describe("routing", () => {
+  it("writes a detailed bucket by role", () => {
+    const p = plan([row("Ann Lee", "2026-01", 10)]);
+    expect(p.changes).toEqual([{ alloc: { kind: "role", roleId: 10 }, period: "2026-01", old: undefined, next: 10 }]);
+    expect(p.newAllocations).toEqual([{ kind: "role", roleId: 10 }]);
+  });
+
+  it("writes a blended bucket by discipline", () => {
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket: bucketOf({ planningMode: "blended" }) });
+    expect(p.changes[0].alloc).toEqual({ kind: "discipline", disciplineId: 1 });
+  });
+
+  it("reads the stored value from the right array", () => {
+    const bucket = bucketOf({
+      planningMode: "blended",
+      allocations: [alloc(10, { "2026-01": 99 })],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 4 }, actualHours: {} }],
+    });
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket });
+    expect(p.changes[0].old).toBe(4);
+    expect(p.newAllocations).toEqual([]);
+  });
+});
+
+describe("aggregation", () => {
+  it("sums two people of one role in one month into one change", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const p = plan([row("Ann Lee", "2026-01", 10.25), row("Bob Ray", "2026-01", 20.5)], { resources });
+    expect(p.changes).toHaveLength(1);
+    expect(p.changes[0].next).toBe(30.75);
+    expect(p.addResources[0].resourceIds).toEqual([1, 2]);
+  });
+
+  it("sums the shares a boundary week gets from two months", () => {
+    const bucket = bucketOf({ startDate: "2026-04-01", endDate: "2026-06-30" });
+    const weekly: ResourcePlan = { ...MONTH_PLAN, granularity: "week" };
+    const apr = splitToGranularity("2026-04", 100, "week", NONE).find((s) => s.key === "2026-W18");
+    const may = splitToGranularity("2026-05", 100, "week", NONE).find((s) => s.key === "2026-W18");
+    expect(apr && may).toBeTruthy();
+    const p = plan([row("Ann Lee", "2026-04", 100), row("Ann Lee", "2026-05", 100)], { bucket, plan: weekly });
+    const w18 = p.changes.filter((c) => c.period === "2026-W18");
+    expect(w18).toHaveLength(1);
+    expect(w18[0].next).toBe(Math.round(((apr?.hours ?? 0) + (may?.hours ?? 0)) * 100) / 100);
+    expect(Math.round(p.changes.reduce((s, c) => s + c.next, 0) * 100)).toBe(20000);
+  });
+
+  it("sums duplicate cents without float drift", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const p = plan([row("Ann Lee", "2026-01", 0.1), row("Bob Ray", "2026-01", 0.2)], { resources });
+    expect(p.changes[0].next).toBe(0.3);
+  });
+
+  it("omits a cell equal to its stored value and leaves other stored months alone", () => {
+    const bucket = bucketOf({ allocations: [alloc(10, { "2026-01": 10, "2026-03": 7 })] });
+    const p = plan([row("Ann Lee", "2026-01", 10), row("Ann Lee", "2026-02", 5)], { bucket });
+    expect(p.changes).toEqual([{ alloc: { kind: "role", roleId: 10 }, period: "2026-02", old: undefined, next: 5 }]);
+    expect(p.hoursDelta).toBe(5);
+  });
+
+  it("a deliberate zero overwrites a stored value", () => {
+    const bucket = bucketOf({ allocations: [alloc(10, { "2026-01": 8 })] });
+    const p = plan([row("Ann Lee", "2026-01", 0)], { bucket });
+    expect(p.changes).toEqual([{ alloc: { kind: "role", roleId: 10 }, period: "2026-01", old: 8, next: 0 }]);
+    expect(p.hoursDelta).toBe(-8);
+  });
+
+  it("totals the delta across increases and decreases", () => {
+    const bucket = bucketOf({ allocations: [alloc(10, { "2026-01": 8, "2026-02": 1.5 })] });
+    const p = plan([row("Ann Lee", "2026-01", 3), row("Ann Lee", "2026-02", 4.25)], { bucket });
+    expect(p.hoursDelta).toBe(-2.25);
+  });
+});
+
+describe("range", () => {
+  it("sends a period outside the bucket to outOfRange once per person and period", () => {
+    const resources = [person(1, "Ann", "Lee")];
+    const p = plan([row("Ann Lee", "2026-01", 10), row("Ann Lee", "2026-06", 5), row("ann lee", "2026-06", 5)], { resources });
+    expect(p.outOfRange).toEqual([{ person: "Ann Lee", period: "2026-06" }]);
+    expect(p.changes.map((c) => c.period)).toEqual(["2026-01"]);
+  });
+
+  it("does not add a person whose every period is out of range", () => {
+    const p = plan([row("Ann Lee", "2026-09", 10)]);
+    expect(p.addResources).toEqual([]);
+    expect(p.newAllocations).toEqual([]);
+    expect(p.changes).toEqual([]);
+  });
+
+  it("adds a person whose cell equals the stored value, but not one already on the allocation", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const bucket = bucketOf({ allocations: [alloc(10, { "2026-01": 10 }, [2])] });
+    const p = plan([row("Ann Lee", "2026-01", 10), row("Bob Ray", "2026-01", 0)], { bucket, resources });
+    expect(p.addResources).toEqual([{ alloc: { kind: "role", roleId: 10 }, resourceIds: [1] }]);
+  });
+});
+
+describe("rate notes", () => {
+  it("notes nothing when the sheet rate equals the internal rate", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: 100 })]).rateNotes).toEqual([]);
+  });
+
+  it("notes nothing when it equals the external rate", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: 150 })]).rateNotes).toEqual([]);
+  });
+
+  it("notes nothing within the 0.5% tolerance", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: 100.4 })]).rateNotes).toEqual([]);
+  });
+
+  it("notes a rate that matches neither, once per person and rate", () => {
+    const p = plan([row("Ann Lee", "2026-01", 10, { rate: 120 }), row("Ann Lee", "2026-02", 10, { rate: 120 })]);
+    expect(p.rateNotes).toEqual([
+      { person: "Ann Lee", resourceId: 1, sheetRate: 120, internalRate: 100, externalRate: 150 },
+    ]);
+  });
+});
+
+describe("blockers", () => {
+  it("is empty when there is something to apply", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10)]).blockers).toEqual([]);
+  });
+
+  it("follows-plan", () => {
+    const p = plan([row("Ann Lee", "2026-01", 10)], { plan: { ...MONTH_PLAN, budgetFollowsPlan: true } });
+    expect(p.blockers).toEqual(["follows-plan"]);
+  });
+
+  it("closed", () => {
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket: bucketOf({ status: "closed" }) });
+    expect(p.blockers).toEqual(["closed"]);
+  });
+
+  it("nothing-to-apply", () => {
+    expect(plan([]).blockers).toEqual(["nothing-to-apply"]);
+  });
+});
+
+describe("applyForecastImport", () => {
+  const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray", { roleId: ROLE_B.id })];
+
+  it("returns a new bucket and carries untouched allocations and fields by reference", () => {
+    const untouched = alloc(11, { "2026-01": 3 });
+    const touched = alloc(10, { "2026-01": 1, "2026-03": 9 }, [1]);
+    const bucket = bucketOf({ allocations: [untouched, touched], taskIds: [5] });
+    const p = plan([row("Ann Lee", "2026-02", 20)], { bucket, resources });
+    const next = applyForecastImport(bucket, p);
+    expect(next).not.toBe(bucket);
+    expect(next.allocations[0]).toBe(untouched);
+    expect(next.allocations[1]).not.toBe(touched);
+    expect(next.allocations[1].budgetHours).toEqual({ "2026-01": 1, "2026-02": 20, "2026-03": 9 });
+    expect(next.allocations[1].actualHours).toBe(touched.actualHours);
+    expect(next.allocations[1].resourceIds).toBe(touched.resourceIds);
+    expect(next.taskIds).toBe(bucket.taskIds);
+    expect(bucket.allocations[1].budgetHours).toEqual({ "2026-01": 1, "2026-03": 9 });
+  });
+
+  it("creates a missing allocation with empty actuals and the matched people", () => {
+    const bucket = bucketOf();
+    const p = plan([row("Ann Lee", "2026-01", 5), row("Ann Lee", "2026-02", 6)], { bucket, resources });
+    const next = applyForecastImport(bucket, p);
+    expect(next.allocations).toEqual([
+      { roleId: 10, resourceIds: [1], budgetHours: { "2026-01": 5, "2026-02": 6 }, actualHours: {} },
+    ]);
+    expect(bucket.allocations).toEqual([]);
+  });
+
+  it("appends a matched person to resourceIds without duplicates", () => {
+    const bucket = bucketOf({ allocations: [alloc(10, {}, [1])] });
+    const p = plan([row("Ann Lee", "2026-01", 5)], { bucket, resources });
+    expect(applyForecastImport(bucket, p).allocations[0].resourceIds).toEqual([1]);
+    const withBob = person(3, "Cy", "Dee");
+    const p2 = plan([row("Ann Lee", "2026-01", 5), row("Cy Dee", "2026-01", 5)], {
+      bucket,
+      resources: [...resources, withBob],
+    });
+    expect(applyForecastImport(bucket, p2).allocations[0].resourceIds).toEqual([1, 3]);
+  });
+
+  it("a blended bucket writes disciplineAllocations and leaves allocations by reference", () => {
+    const existing = alloc(10, { "2026-01": 2 });
+    const bucket = bucketOf({ planningMode: "blended", allocations: [existing] });
+    const p = plan([row("Ann Lee", "2026-01", 5)], { bucket, resources });
+    const next = applyForecastImport(bucket, p);
+    expect(next.allocations).toBe(bucket.allocations);
+    expect(next.disciplineAllocations).toEqual([
+      { disciplineId: 1, resourceIds: [1], budgetHours: { "2026-01": 5 }, actualHours: {} },
+    ]);
+    expect(bucket.disciplineAllocations).toBeUndefined();
+  });
+
+  it("updates an existing discipline allocation without touching its neighbours", () => {
+    const d1: DisciplineAllocation = { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 2 }, actualHours: {} };
+    const d2: DisciplineAllocation = { disciplineId: 2, resourceIds: [], budgetHours: {}, actualHours: {} };
+    const bucket = bucketOf({ planningMode: "blended", disciplineAllocations: [d1, d2] });
+    const p = plan([row("Ann Lee", "2026-01", 5)], { bucket, resources });
+    const next = applyForecastImport(bucket, p);
+    expect(next.disciplineAllocations?.[1]).toBe(d2);
+    expect(next.disciplineAllocations?.[0].budgetHours).toEqual({ "2026-01": 5 });
+  });
+
+  it("never mutates a deep-frozen bucket or plan", () => {
+    const bucket = deepFreeze(
+      bucketOf({ allocations: [alloc(10, { "2026-01": 1 }, [1])], taskIds: [1], planningMode: "detailed" }),
+    );
+    const blended = deepFreeze(bucketOf({ planningMode: "blended", disciplineAllocations: [] }));
+    const rows = deepFreeze([row("Ann Lee", "2026-02", 7), row("Bob Ray", "2026-02", 3)]);
+    const ctx = deepFreeze(ctxOf({ bucket, resources }));
+    const built = buildForecastImportPlan(rows, ctx);
+    expect(() => applyForecastImport(bucket, deepFreeze(built))).not.toThrow();
+    const builtBlended = buildForecastImportPlan(rows, deepFreeze(ctxOf({ bucket: blended, resources })));
+    expect(() => applyForecastImport(blended, deepFreeze(builtBlended))).not.toThrow();
+  });
+
+  it("applying a plan twice is idempotent in outcome", () => {
+    const bucket = bucketOf();
+    const once = applyForecastImport(bucket, plan([row("Ann Lee", "2026-01", 5)], { bucket, resources }));
+    const again = plan([row("Ann Lee", "2026-01", 5)], { bucket: once, resources });
+    expect(again.blockers).toEqual(["nothing-to-apply"]);
+    expect(again.addResources).toEqual([]);
+  });
+});
