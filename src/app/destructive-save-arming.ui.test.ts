@@ -45,13 +45,15 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * Since 2026-10-11 a setter HANDED ON under another name is followed (`aliasNames`):
  * through a property, a JSX prop, a variable, a renaming
  * destructure, or a parameter of a named function it is passed to by position (bound
- * directly or through `useCallback`, or returned by a `useMemo` factory), to a fixed point; and a wrapper that applies its
+ * directly or through `useCallback`, or returned by an expression-bodied `useMemo` factory), to a fixed point; and a wrapper that applies its
  * own parameter inside a setter's updater (`commitAssets`) is an UPDATER, followed
  * through the same hand-ons (`{ setItems: setTasksForPush }`), so its caller's
  * `(p) => p.filter(…)` is the site. An updater call counts only when it is handed a
  * removal-shaped function written in place: a named function reference
  * (`commitRows(dropAll)`) or a parameter (`(fn) => commitRows(fn)`) is not followed,
- * nor a per-row callback (`p.map((t) => cb(t))` makes no updater). A committer whose updater returns its
+ * nor a per-row callback (`p.map((t) => cb(t))` makes no updater), nor an updater read as
+ * a member under its own name (`rows.commitRows(…)` from a shorthand `{ commitRows }`), nor
+ * a wrapper over an updater (`(fn) => commitRows((p) => fn(p))`). A committer whose updater returns its
  * parameter (`set(() => value)`) counts too. ★ Not followed: a hand-on by position to a
  * function the scan cannot name (a method, a callback from a map or an argument), an
  * alias made by assignment (`fn = setTasks`), an alias read as a member when it became
@@ -101,9 +103,10 @@ const UNARMED_BY_DESIGN: Readonly<Record<string, { sites: number; reason: string
   "use-storage-backend.ts#into#set": {
     sites: 1,
     reason:
-      "Tab sync (mirrorApply) applies a value a peer window edited and saves itself, and a run holding only mirrored " +
-      "values writes nothing (mirror-ledger isMirroredOnly). A contested run does save, and the mass-deletion guard then " +
-      "judges it; an arm here would wave that contested save past the guard unjudged.",
+      "Tab sync (mirrorApply) applies a value that a peer window edited and saves itself, and a run holding only " +
+      "mirrored values writes nothing (mirror-ledger isMirroredOnly). A run that also holds an own change, contested or " +
+      "in any other slice, does save, and the mass-deletion guard then judges it; an arm here would wave that save past " +
+      "the guard unjudged.",
   },
 };
 
@@ -497,7 +500,7 @@ interface Aliases {
    *  is a site only when that function has a removal shape. ★ A separate class, not an
    *  alias: they take a function, not a list, so a parameter handed to one is no
    *  committer, and they never seed a SETTER alias, or every `apply(x)` and `onSelect(r)`
-   *  that a generic name reaches would be a site (measured: six false sites). */
+   *  that a generic name reaches would be a site. */
   readonly updaters: ReadonlySet<string>;
   /** The updaters that are property keys, matched as a member call too. */
   readonly updaterKeys: ReadonlySet<string>;
@@ -896,6 +899,8 @@ describe("destructive-save arming, UI surface (§293)", () => {
     expect(sites.filter((s) => s.key.startsWith("workload-triage-handlers.ts#onClearUnlinked#")).map((s) => s.armed)).toEqual([true, true]);
     // A committer, seen since batch 21: any caller's list reaches setBudgets through it.
     expect(sites.find((s) => s.key === "use-budget-buckets.ts#commitBuckets#setBudgets")?.armed).toBe(true);
+    // An updater's caller, seen since §293's updater class: the filter handed to commitAssets is the site.
+    expect(sites.find((s) => s.key === "use-document-assets.ts#remove#commitAssets")?.armed).toBe(true);
   });
 
   // A site that resolves to a component (PascalCase), a hook (`useX`) or the module is
