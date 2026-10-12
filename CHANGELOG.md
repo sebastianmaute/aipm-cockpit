@@ -14,6 +14,7 @@ longer carries its own changelog comment.
 
 - **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
   tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
+  The proposal window can be moved and resized, and its reset button puts it back.
 
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
   guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an

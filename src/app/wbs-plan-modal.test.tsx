@@ -442,4 +442,34 @@ describe("WbsPlanModal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onCancel).toHaveBeenCalled();
   });
+
+  // Resizable and draggable like the app's other working dialogs, with the
+  // header's reset control. Presence alone would pass for a no-op button.
+  it("offers a reset-size control that clears a dragged size", async () => {
+    render5();
+    const panel = document.querySelector<HTMLElement>("[data-modal-panel]")!;
+    expect(panel.className).toContain("resize");
+    panel.style.width = "1200px";
+    panel.style.height = "900px";
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
+    expect(panel.style.width).toBe("");
+    expect(panel.style.height).toBe("");
+  });
+
+  // The footer of the all-refused state is a plain "Close", so the header ✕
+  // carries the title; it is disabled while applying, like the footer.
+  it("names the header close by the title, cancels with it, and disables it while applying", async () => {
+    const name = `${t("en-US", "alertModalClose")} – ${t("en-US", "wbsPlanTitle")}`;
+    const props = render5();
+    await userEvent.click(screen.getByRole("button", { name }));
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+    cleanup();
+    render5({ applying: true });
+    expect(screen.getByRole("button", { name })).toBeDisabled();
+  });
+
+  it("keeps the all-refused footer Close unique beside the header close", () => {
+    render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
+    expect(screen.getAllByRole("button", { name: t("en-US", "close") })).toHaveLength(1);
+  });
 });
