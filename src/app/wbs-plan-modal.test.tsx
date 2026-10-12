@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WbsPlanModal, type WbsPlanModalProps } from "./wbs-plan-modal";
@@ -448,15 +448,14 @@ describe("WbsPlanModal", () => {
   describe("window chrome", () => {
     const POS = "aipm-cockpit:modal-pos:wbs-plan";
     const SIZE = "aipm-cockpit:modal-size:wbs-plan";
+    // (vitest.setup.ts clears localStorage after every test.)
     const panel = () => document.querySelector<HTMLElement>("[data-modal-panel]")!;
-    afterEach(() => {
-      window.localStorage.removeItem(POS);
-      window.localStorage.removeItem(SIZE);
-    });
 
     it("is resizable and sizes to its content until resized", () => {
       render5();
       expect(panel().className).toContain("resize");
+      // Never wider than the screen: a bare 460px minimum would beat the 95vw cap.
+      expect(panel().className).toContain("min-w-[min(460px,95vw)]");
       expect(panel().className).not.toMatch(/(^|\s)h-\[/);
       expect(panel().style.height).toBe("");
     });
@@ -481,6 +480,18 @@ describe("WbsPlanModal", () => {
     it("puts the first focus on the first enabled proposal, not the header", async () => {
       render5();
       await waitFor(() => expect(screen.getAllByRole("checkbox")[0]).toHaveFocus());
+    });
+
+    it("skips a disabled first proposal for the first focus", async () => {
+      const pieceEstimate = grounded(
+        "i5",
+        { kind: "estimate", target: { kind: "piece", taskId: 1, piece: 2 }, estimateMinutes: 60, why: "" },
+        ["i0"],
+      );
+      render5({ items: [pieceEstimate, estimate], selected: new Set(["i5", "i4"]) });
+      const boxes = screen.getAllByRole("checkbox");
+      expect(boxes[0]).toBeDisabled();
+      await waitFor(() => expect(boxes[1]).toHaveFocus());
     });
 
     it("puts the first focus on the footer button when every proposal was refused", async () => {

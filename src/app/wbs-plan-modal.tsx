@@ -208,8 +208,9 @@ export function WbsPlanModal({
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:wbs-plan");
   const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:wbs-plan");
   // ★ The first focus goes to the first proposal a user can untick (or, when
-  // every proposal was refused, the footer button), not to the header's reset
-  // control, which would otherwise be the panel's first focusable. Picked from
+  // every proposal was refused, the footer button), not to the header's first
+  // control (the voice mic where voice commands are on, else the reset button),
+  // which would otherwise be the panel's first focusable. Picked from
   // the DOM in a layout effect, before the Modal's focus frame reads it, so the
   // shared Checkbox and Button need no ref plumbing.
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -231,7 +232,7 @@ export function WbsPlanModal({
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex min-h-[240px] max-h-[90vh] w-[680px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex min-h-[240px] max-h-[90vh] w-[680px] min-w-[min(460px,95vw)] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         {/* ★ The ✕ is qualified with the title: in the all-refused state the
             footer button is a plain "Close" too. Disabled while applying, as
