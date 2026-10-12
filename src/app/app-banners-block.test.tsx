@@ -69,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("buildAppBanners", () => {
-  it("renders the reminder banners first, and nothing else on a quiet state", () => {
+  it("renders the reminder banners, and nothing else on a quiet state", () => {
     const { view } = renderBanners();
     expect(view.queryByTestId("reminders")).not.toBeNull();
     for (const name of ["StorageBanner", "AiKeyBanner", "UnloadJournalConflictBanner", "ExpiredJournalsBanner", "OtherJournalsBanner", "SavingPausedBanner"]) none(name);
@@ -154,8 +154,10 @@ describe("buildAppBanners", () => {
 
   describe("saving-paused banners", () => {
     it("shows an incomplete load with its counts, outside a popout only", () => {
-      const { deps } = renderBanners({ loadWasIncomplete: true, settings: { layout: "classic" } });
+      const { deps } = renderBanners({ loadWasIncomplete: true, truncationBannerDismissed: true, settings: { layout: "classic" } });
       const p = only("SavingPausedBanner");
+      expect(p.lang).toBe("en-US");
+      expect(p.dismissed).toBe(true);
       expect(p.cause).toEqual({ kind: "truncation", truncation: { tag: "trunc" }, decodeFailureCount: 2, malformedQuoteCount: 3 });
       expect(p.hasFooterIndicator).toBe(false);
       expect(p.onSaveAnyway).toBe(deps.allowIncompleteSave);
@@ -168,8 +170,10 @@ describe("buildAppBanners", () => {
       none("SavingPausedBanner");
     });
 
+    // `canOverwriteConflict` is false unless the pause is a conflict (use-storage-backend.ts), so a load
+    // pause never carries Overwrite; the builder passes whatever that flag says.
     it("shows a load pause that reloads, with no overwrite or download", () => {
-      const { deps } = renderBanners({ loadPause: "failed", canOverwriteConflict: true, loadPauseBannerDismissed: true });
+      const { deps } = renderBanners({ loadPause: "failed", loadPauseBannerDismissed: true });
       const p = only("SavingPausedBanner");
       expect(p.cause).toEqual({ kind: "load", reason: "failed" });
       expect(p.dismissed).toBe(true);
@@ -178,6 +182,7 @@ describe("buildAppBanners", () => {
       expect(deps.reloadCurrentProject).toHaveBeenCalledTimes(1);
       expect(deps.resolveConflictReload).not.toHaveBeenCalled();
       expect(p.onDownload).toBeUndefined();
+      expect(p.onOverwrite).toBeUndefined();
       call(p.onDismiss);
       expect(deps.setLoadPauseBannerDismissed).toHaveBeenLastCalledWith(true);
       call(p.onReopen);

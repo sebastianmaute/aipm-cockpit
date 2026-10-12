@@ -1795,10 +1795,6 @@ function TaskManagerInner() {
     onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast,
   });
 
-  // The Birthday / Jira-token / Storage reminder banners, shared by the classic
-  // tree (rendered after AppHeader) and the modern tree (ModernShell `banners`
-  // slot). Due / RAID-review / stakeholder-comms nudges moved into the Action
-  // Center. Gates kept verbatim — popouts (`!isPopout`) still suppress these.
   // The banner stack every returned tree renders above the workspace — see buildAppBanners.
   const bannersEl = buildAppBanners({
     lang, isPopout, settings, reminderBannersEl,
