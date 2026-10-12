@@ -299,20 +299,20 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(byId(api().ws.tasks, 3)?.group).toBe("Infra");
     expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
     expect(screen.getByTestId("toast")).toHaveTextContent(
-      "Work-breakdown changes applied: 2. 1 change was skipped because tasks it would change were edited in the meantime.",
+      "Work-breakdown changes applied: 2. 1 change was skipped because the task list changed after the proposal.",
     );
   });
 
   it("the combined notice has EN and DE plural forms", async () => {
     await loadI18n("de");
     expect(tPlural("en-US", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
-      "Work-breakdown changes applied: 2. 3 changes were skipped because tasks they would change were edited in the meantime.",
+      "Work-breakdown changes applied: 2. 3 changes were skipped because the task list changed after the proposal.",
     );
     expect(tPlural("de", "wbsPlanAppliedSkipped", 3, 2, 3)).toBe(
-      "Übernommene Änderungen an den Arbeitspaketen: 2. 3 Änderungen wurden übersprungen, weil sich Aufgaben, die sie ändern würden, inzwischen geändert haben.",
+      "Übernommene Änderungen an den Arbeitspaketen: 2. 3 Änderungen wurden übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
     );
     expect(tPlural("de", "wbsPlanAppliedSkipped", 1, 4, 1)).toBe(
-      "Übernommene Änderungen an den Arbeitspaketen: 4. 1 Änderung wurde übersprungen, weil sich Aufgaben, die sie ändern würde, inzwischen geändert haben.",
+      "Übernommene Änderungen an den Arbeitspaketen: 4. 1 Änderung wurde übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
     );
   });
 
@@ -522,6 +522,29 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       "from the chat",
     );
     expect(call.runWbsProposal).toHaveBeenCalledTimes(1);
+  });
+
+  // WCAG 2.4.3: the dialog and the preview are two Modals, and the trigger is
+  // disabled while the preview is open, so neither Modal can hand focus back.
+  it.each(["apply", "cancel", "escape"] as const)("focus returns to the toolbar trigger when the preview closes (%s)", async (how) => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([{ kind: "regroup", taskId: 1, group: "Backend", why: "belongs there" }]),
+    );
+    renderHarness();
+    const trigger = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    trigger.focus();
+    fireEvent.click(trigger);
+    // As for a real user: the dialog has taken focus before Propose is pressed,
+    // so nothing leaves it parked on the (then disabled) trigger.
+    await waitFor(() => expect(screen.getByRole("textbox", { name: t("en-US", "wbsPlanInstructionLabel") })).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanPropose") }));
+    await screen.findByRole("checkbox", { name: /include this change/i });
+    await waitFor(() => expect(document.activeElement).not.toBe(trigger));
+    if (how === "apply") fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) }));
+    else if (how === "cancel") fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanCancel") }));
+    else fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("a call that fails at once leaves open() usable again", async () => {

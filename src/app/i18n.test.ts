@@ -140,23 +140,25 @@ describe("t() placeholder substitution", () => {
 });
 
 describe("work-breakdown notices name their real cause (§3)", () => {
-  // A link on unchanged rows can go stale through a cycle via a third row, and
-  // the load hold also closes the instruction dialog, before any proposal. The
+  // A link on unchanged rows can go stale through a cycle via a third row, so
+  // the stale text names the task list, not the tasks the change touches; the
+  // load hold also closes the instruction dialog, before any proposal, and the
+  // notice shows only once the load has ended, so it is in the past tense. The
   // stale text avoids "depend on": the preview calls links "Dependencies".
   it("EN", () => {
-    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because tasks they would change were edited in the meantime.");
-    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because tasks it would change were edited in the meantime.");
-    expect(t("en-US", "wbsPlanClosedByLoad")).toBe("The project is loading, so Optimize with AI was closed.");
+    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because the task list changed after the proposal.");
+    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because the task list changed after the proposal.");
+    expect(t("en-US", "wbsPlanClosedByLoad")).toBe("Optimize with AI was closed because the project was loading.");
   });
 
   it("DE", () => {
     expect(de.wbsPlanStaleSkipped).toBe(
-      "{0} Änderungen wurden übersprungen, weil sich Aufgaben, die sie ändern würden, inzwischen geändert haben.",
+      "{0} Änderungen wurden übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
     );
     expect(de.wbsPlanStaleSkippedOne).toBe(
-      "1 Änderung wurde übersprungen, weil sich Aufgaben, die sie ändern würde, inzwischen geändert haben.",
+      "1 Änderung wurde übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
     );
-    expect(de.wbsPlanClosedByLoad).toBe("Das Projekt wird geladen, daher wurde „Mit KI optimieren“ geschlossen.");
+    expect(de.wbsPlanClosedByLoad).toBe("„Mit KI optimieren“ wurde geschlossen, weil das Projekt geladen wurde.");
   });
 });
 

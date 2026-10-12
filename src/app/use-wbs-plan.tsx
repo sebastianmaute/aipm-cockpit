@@ -159,6 +159,19 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     phaseRef.current = next;
     setPhaseState(next);
   }, []);
+  // ★★ Focus goes back to the toolbar trigger when a flow it opened ends. The
+  // instruction dialog and the preview are two separate `Modal`s: when the
+  // preview replaces the dialog, the dialog hands focus to the trigger, which
+  // is disabled in "preview", so focus falls to <body> and the preview records
+  // <body> as its opener (WCAG 2.4.3). The effect below runs after the trigger
+  // is enabled again. A chat-opened flow keeps the Modal's own restore.
+  const triggerBoxRef = useRef<HTMLSpanElement | null>(null);
+  const fromTriggerRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "idle" || !fromTriggerRef.current) return;
+    fromTriggerRef.current = false;
+    triggerBoxRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }, [phase]);
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
@@ -295,6 +308,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     }
     setInstruction("");
     setScope({ taskIds: new Set(ids) });
+    fromTriggerRef.current = true;
     setPhase("input");
   }, [enabled, loadPending, filteredSortedTasks, healthFilter, tableToday, holidaySet, showToast, lang, setPhase]);
 
@@ -317,6 +331,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       const ids = live.filter((x) => isEditable(x) && inGroup(x)).map((x) => x.id);
       if (ids.length === 0) return refuse(group && !live.some(inGroup) ? "unknownGroup" : "noTasks");
       const runScope: WbsScope = { taskIds: new Set(ids) };
+      fromTriggerRef.current = false;
       setInstruction(req.instructions ?? "");
       setScope(runScope);
       void propose(runScope, req.instructions ?? "", live);
@@ -429,17 +444,20 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   //   so it is busy (and a Stop button) in `thinking` alone.
   // ★ With the AI off or no key it stays visible but disabled, and its reason
   //   rides `description` → `title`; the accessible NAME stays the visible label.
+  // `contents`: the box adds no layout of its own to the toolbar row.
   const button = isPopout ? null : (
-    <AiTriggerButton
-      lang={lang}
-      busy={phase === "thinking"}
-      onRun={onOpen}
-      onCancel={reset}
-      idleLabelKey="wbsPlanButton"
-      idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={t(lang, aiReady ? "wbsPlanButtonTitle" : "wbsPlanNeedsAi")}
-      disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
-    />
+    <span ref={triggerBoxRef} className="contents">
+      <AiTriggerButton
+        lang={lang}
+        busy={phase === "thinking"}
+        onRun={onOpen}
+        onCancel={reset}
+        idleLabelKey="wbsPlanButton"
+        idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+        description={t(lang, aiReady ? "wbsPlanButtonTitle" : "wbsPlanNeedsAi")}
+        disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
+      />
+    </span>
   );
 
   let modal: ReactNode = null;
