@@ -9,7 +9,7 @@ import { AiHttpError } from "./ai-errors";
 import { useWbsPlan, type WbsPlan } from "./use-wbs-plan";
 import { ToastProvider } from "./toast-context";
 import { useToast } from "./use-toast";
-import { FiltersProvider } from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useUndoStack, type UndoStackApi } from "./undo/use-undo-stack";
 import { defaultSettings, type Settings } from "./settings-types";
@@ -59,6 +59,7 @@ function proposal(items: RawWbsItem[]): ParsedWbsProposal {
 
 interface Api {
   ws: ReturnType<typeof useWorkspace>;
+  filters: ReturnType<typeof useFilters>;
   undo: UndoStackApi;
   wbs: WbsPlan;
 }
@@ -74,9 +75,13 @@ interface HarnessProps {
 }
 
 const EPOCH_ZERO = () => 0;
+/** The table's clock: SEED's due dates (2026-11-01) are ahead of it. */
+const TODAY = "2026-10-12";
+const NO_HOLIDAYS: ReadonlySet<string> = new Set();
 
 function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, getScopeEpoch = EPOCH_ZERO, loadPending = false, onApi }: HarnessProps) {
   const ws = useWorkspace();
+  const filters = useFilters();
   const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
   const wbs = useWbsPlan({
     settings,
@@ -86,8 +91,10 @@ function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, getScopeE
     logActivityAs: logActivitySpy as never,
     getScopeEpoch,
     loadPending,
+    today: TODAY,
+    holidaySet: NO_HOLIDAYS,
   });
-  useEffect(() => { onApi({ ws, undo, wbs }); });
+  useEffect(() => { onApi({ ws, filters, undo, wbs }); });
   return (
     <div>
       {wbs.button}
@@ -487,6 +494,36 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(context).not.toContain("#5 [in scope]");
   });
 
+  // The table applies the RAG health filter on its own (tasks-section.tsx), so
+  // `filteredSortedTasks` alone would put rows the user cannot see in scope.
+  it("the button's scope applies the toolbar's health filter: a row the table hides is not in scope", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    const api = renderHarness({}, [...SEED, task(4, { dueDate: "2026-09-01" })]);
+    act(() => { api().filters.setHealthFilter("red"); });
+    await proposeFromButton();
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    const context = vi.mocked(call.runWbsProposal).mock.calls[0][0];
+    expect(context).toContain("#4 [in scope]");
+    expect(context).toContain("#1 ");
+    expect(context).not.toContain("#1 [in scope]");
+  });
+
+  it("the button opens nothing over a chat open() whose thinking state has not rendered yet", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    const api = renderHarness();
+    const trigger = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    act(() => {
+      api().wbs.open({ instructions: "from the chat" });
+      // Same tick: the trigger's closure still reads the "idle" render.
+      fireEvent.click(trigger);
+    });
+    expect(screen.getByRole("textbox", { name: t("en-US", "wbsPlanInstructionLabel") })).toHaveProperty(
+      "value",
+      "from the chat",
+    );
+    expect(call.runWbsProposal).toHaveBeenCalledTimes(1);
+  });
+
   it("a call that fails at once leaves open() usable again", async () => {
     vi.mocked(call.runWbsProposal).mockRejectedValueOnce(new Error("boom"));
     const api = renderHarness();
@@ -557,6 +594,32 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(logActivitySpy).not.toHaveBeenCalled();
     expect(api().undo.canUndo).toBe(false);
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  // The toast, the log and the undo images report what the UPDATER wrote: an
+  // edit queued but not yet rendered at click time makes `prev` differ from the
+  // click handler's list, and the item it staled was not written.
+  it("an edit queued at click time: the notice, the log and undo follow the write, not the pre-click snapshot", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([{ kind: "regroup", taskId: 1, group: "Backend", why: "belongs there" }]),
+    );
+    const logActivitySpy = vi.fn();
+    const api = renderHarness({ logActivitySpy });
+    await proposeFromButton();
+    await screen.findByRole("checkbox", { name: /include this change/i });
+
+    const apply = screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) });
+    act(() => {
+      api().ws.setTasks((prev) => prev.map((x) => (x.id === 1 ? { ...x, taskName: "Target edit" } : x)));
+      fireEvent.click(apply);
+    });
+
+    expect(byId(api().ws.tasks, 1)?.taskName).toBe("Target edit");
+    expect(byId(api().ws.tasks, 1)?.group).toBe("Core");
+    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "wbsPlanStaleSkipped", 1, 1));
+    expect(showToast).not.toHaveBeenCalledWith("info", tPlural("en-US", "wbsPlanApplied", 1, 1));
+    expect(logActivitySpy).not.toHaveBeenCalled();
+    expect(api().undo.canUndo).toBe(false);
   });
 
   describe("the load hold and the scope epoch (platform.md \"The load hold\")", () => {

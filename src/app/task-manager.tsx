@@ -1092,7 +1092,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const dispatcher = useChatDispatcherWiring({
@@ -1107,18 +1107,10 @@ function TaskManagerInner() {
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,
-    // ★★★ THE BATCH WRAPPER, NOT `undoApi` — and the STABILITY note that used
-    //   to sit here is not merely still satisfied, it is now the mechanism.
-    //   The old text said this had to be A FRESH OBJECT EVERY RENDER and must
-    //   not be memoized, because the dispatcher reads `undoRef.current` through
-    //   an effect keyed on `args.undo`. `chatUndoBatch.undo` is the OPPOSITE —
-    //   minted once (`useMemo` with no deps) — and that is exactly what
-    //   `use-undo-batch.ts`'s header asks for: the wrapper forwards to
-    //   `liveRef.current`, which its OWN effect re-points at `undoApi` every
-    //   render, so freshness is preserved one level down while `undoRef.current`
-    //   stops being swapped mid-replay. An `await` inside `runBatched` can no
-    //   longer have the surface swapped out from under it by a re-render.
-    //   ★ What the old note actually forbade still holds: do NOT add this to the
+    // ★★★ THE BATCH WRAPPER, NOT `undoApi`. Minted once (`useMemo`, no deps), it
+    //   forwards to `liveRef.current`, which use-undo-batch.ts's effect re-points
+    //   at `undoApi` every render: fresh one level down, never swapped mid-replay,
+    //   so an `await` inside `runBatched` keeps its surface. Do NOT add it to the
     //   dispatcher's memo deps.
     undo: chatUndoBatch.undo,
     dashboardModel,

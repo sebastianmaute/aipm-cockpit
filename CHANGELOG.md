@@ -35,12 +35,13 @@ longer carries its own changelog comment.
 
 - **A name containing `$` sequences (such as `$$` or `$&`) or `{1}` is now shown as typed in every
   message.** A `$` sequence in any value of any message was expanded, so "US$$5" showed as "US$5"; and a
-  value containing `{1}` that came before a later value had that value inserted into it, so a task named
-  "Phase {1}" could read "Phase 2 (piece {1} of Build API)".
+  value containing `{1}` that came before a later value had that value inserted into it, so a board lane
+  for a person named "Team {1}" was announced as "Team To Do – To Do". The "Add as resource" row of the
+  person picker now reads the same way.
 
 - **Planning resource allocations with AI now tells you how many changes it applied when some were
   skipped.** When some of the chosen cells had changed since the proposal, the notice reported only the
-  skipped ones and hid that the rest were applied. One notice now gives both counts.
+  applied changes and hid that some were skipped. One notice now gives both counts.
 
 ## [1.17.0] - 2026-10-10 "Mankell"
 

@@ -37,6 +37,8 @@ import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { useWorkspace } from "./workspace-context";
+import { useFilters } from "./filters-context";
+import { filterTasksByHealth } from "./health";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
@@ -84,6 +86,10 @@ export interface WbsPlanDeps {
   getScopeEpoch: ScopeEpochReader;
   /** True while a load or project swap holds the workspace: nothing starts. */
   loadPending: boolean;
+  /** The table's own clock and holidays, so the toolbar scope applies the RAG
+   *  health filter exactly as the Open Points table does. */
+  today: string;
+  holidaySet: ReadonlySet<string>;
 }
 
 export interface WbsOpenRequest {
@@ -118,8 +124,9 @@ export interface WbsPlan {
 const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey;
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
-  const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending } = deps;
+  const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
   const { tasks, setTasks, milestones, project, filteredSortedTasks } = useWorkspace();
+  const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
   const [phase, setPhaseState] = useState<Phase>("idle");
@@ -273,8 +280,15 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   );
 
   const onOpen = useCallback(() => {
-    if (!enabled || loadPending || phase !== "idle") return;
-    const ids = filteredSortedTasks.filter(isEditable).map((x) => x.id);
+    // `phaseRef`, not `phase`: a chat `open()` sets the ref in the same call,
+    // before its "thinking" state renders.
+    if (!enabled || loadPending || phaseRef.current !== "idle") return;
+    // The rows the table shows: `filteredSortedTasks` is upstream of the RAG
+    // health filter, which tasks-section.tsx applies on its own (as
+    // visible-task-rows.ts says, select-all once reached hidden rows this way).
+    // Hide-finished is moot: closed tasks are never editable.
+    const shown = filterTasksByHealth(filteredSortedTasks, healthFilter, tableToday, holidaySet);
+    const ids = shown.filter(isEditable).map((x) => x.id);
     if (ids.length === 0) {
       showToast("info", t(lang, "wbsPlanNoTasks"));
       return;
@@ -282,7 +296,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setInstruction("");
     setScope({ taskIds: new Set(ids) });
     setPhase("input");
-  }, [enabled, loadPending, phase, filteredSortedTasks, showToast, lang, setPhase]);
+  }, [enabled, loadPending, filteredSortedTasks, healthFilter, tableToday, holidaySet, showToast, lang, setPhase]);
 
   const onPropose = useCallback(() => {
     if (phase !== "input" || !scope) return;
@@ -346,31 +360,42 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       reset();
       return;
     }
+    // The undo images' source array: `live` until the updater says otherwise.
+    let base: readonly Task[] = live;
     if (result.applied > 0) {
       // A pure updater, so StrictMode's double call is harmless. ★ It must not
       // throw: apply throws on an id collision or too few ids, and a throw in
       // an updater crashes the render — so it falls back to `prev`.
-      // ★ `flushSync` makes the updater run before the next line, so a fallback
-      // is known HERE: nothing was written, so no "Applied N" toast, no
-      // `ai.wbsPlan` row and no undo entry — the generic error instead.
-      let wrote = false;
+      // ★ `flushSync` makes the updater run before the next line, so what it
+      // did is known HERE. ★★ The toast, the `ai.wbsPlan` count and the undo
+      // images come from the updater's OWN result, never the pre-click one:
+      // `prev` can differ from `live` when a background write is queued but not
+      // rendered, and an item stale against `prev` was not written. A fallback
+      // wrote nothing, so no "Applied N" toast, no row and no undo entry — the
+      // generic error instead.
+      const box: { written: WbsApplyResult | null; from: readonly Task[] } = { written: null, from: live };
       flushSync(() => {
         setTasks((prev) => {
           try {
-            const next = applyWbsProposal(prev, ticked, ids, today, scope).nextTasks;
-            wrote = true;
-            return next;
+            const r = applyWbsProposal(prev, ticked, ids, today, scope);
+            box.written = r;
+            box.from = prev;
+            return r.nextTasks;
           } catch {
-            wrote = false;
+            box.written = null;
             return prev;
           }
         });
       });
-      if (!wrote) {
+      if (!box.written) {
         showToast("error", t(lang, "wbsPlanError"));
         reset();
         return;
       }
+      result = box.written;
+      base = box.from;
+    }
+    if (result.applied > 0) {
       // Updates only: created rows stay out of the images (docs/AGENTS/undo.md
       // "Creates" — capturing a create duplicates it on undo).
       if (result.editedBefore.length > 0) {
@@ -379,7 +404,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           kind: "bulk.edit",
           edited: result.editedBefore,
           editedAfter: result.editedAfter,
-          fromArray: live,
+          fromArray: base,
           entityKey: "task",
         });
       }
