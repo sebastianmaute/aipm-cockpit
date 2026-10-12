@@ -2520,6 +2520,7 @@ const enUS = {
   aiGuideTargetDedup: "Deduplicate & unify tasks",
   aiGuideTargetWeights: "Next-action weight suggestions",
   aiGuideTargetInlineEdit: "Inline AI edit",
+  aiGuideTargetForecastImport: "Forecast import",
   aiGuideScopeAny: "Always on",
   aiViewsTitle: "Views",
   aiViewScopeIntro:

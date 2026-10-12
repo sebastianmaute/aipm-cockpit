@@ -11,6 +11,7 @@ import { BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES } from "./operating-guide
 export const AI_TARGETS = [
   "chat", "wbs", "alloc", "committeeReport", "projectProposal", "raci",
   "digest", "insightRecommend", "jobAnalysis", "dedup", "weights", "inlineEdit",
+  "forecastImport",
 ] as const;
 export type AiTarget = (typeof AI_TARGETS)[number];
 

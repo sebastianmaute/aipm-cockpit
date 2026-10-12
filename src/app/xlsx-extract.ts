@@ -344,8 +344,10 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
 }
 
 /** Renders raw grid rows as a Markdown table; cells are escaped HERE, so the
- *  grid itself (`extractXlsxGrid`) carries the values as the sheet holds them. */
-function renderRows(rows: string[][], truncatedEarlier: boolean): string {
+ *  grid itself (`extractXlsxGrid`) carries the values as the sheet holds them.
+ *  Exported so the forecast import's prompt text (`sheetToPromptText`) shares
+ *  this renderer and its cell budget instead of keeping a second one. */
+export function renderSheetMarkdown(rows: string[][], truncatedEarlier: boolean): string {
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   // A sheet cut before its first data row still says it was cut.
   if (nonEmpty.length === 0) return truncatedEarlier ? XLSX_SHEET_TRUNCATED : "";
@@ -398,7 +400,7 @@ export function extractXlsxGrid(
 export function extractXlsx(entries: Map<string, Uint8Array>): string {
   const sections: string[] = [];
   for (const { name, rows, truncated } of extractXlsxGrid(entries)) {
-    const table = renderRows(rows, truncated);
+    const table = renderSheetMarkdown(rows, truncated);
     if (table === "") continue;
     sections.push(`## Sheet: ${name}\n\n${table}`);
   }

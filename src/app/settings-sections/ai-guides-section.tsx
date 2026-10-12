@@ -52,6 +52,7 @@ const TARGET_LABEL: Record<AiTarget, TranslationKey> = {
   dedup: "aiGuideTargetDedup",
   weights: "aiGuideTargetWeights",
   inlineEdit: "aiGuideTargetInlineEdit",
+  forecastImport: "aiGuideTargetForecastImport",
 };
 
 interface GuideDraft {

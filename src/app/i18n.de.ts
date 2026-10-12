@@ -2369,6 +2369,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideTargetDedup: "Duplikate & vereinheitlichen",
   aiGuideTargetWeights: "Gewichtungsvorschläge für nächste Schritte",
   aiGuideTargetInlineEdit: "KI-Bearbeitung im Eintrag",
+  aiGuideTargetForecastImport: "Prognose-Import",
   aiGuideScopeAny: "Immer aktiv",
   aiViewsTitle: "Ansichten",
   aiViewScopeIntro: "Claude erfährt, wofür die aktuelle Ansicht da ist. Dieser Text wird unabhängig von der Oberflächensprache auf Englisch gesendet.",

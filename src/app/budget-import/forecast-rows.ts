@@ -149,7 +149,7 @@ export function isTotalLabel(cell: string): boolean {
 }
 
 /** 0-based column index as spreadsheet letters: 0 = A, 25 = Z, 26 = AA. */
-function columnLetters(col: number): string {
+export function columnLetters(col: number): string {
   let n = col + 1;
   let out = "";
   while (n > 0) {

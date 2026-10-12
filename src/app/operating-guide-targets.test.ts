@@ -120,6 +120,22 @@ describe("actionGuideText", () => {
   });
 });
 
+describe("forecastImport target (§500)", () => {
+  const forecast = g({ id: "f", name: "Forecast rules", content: "Hours are per month.", scope: { targets: ["forecastImport"] } });
+
+  it("is a known target, listed in the script too", () => {
+    expect(AI_TARGETS).toContain("forecastImport");
+    expect(VALID_ACTION_TARGETS).toContain("forecastImport");
+    expect(guideTargets(forecast)).toEqual(["forecastImport"]);
+  });
+
+  it("reaches its own action's guide text but not the chat", () => {
+    expect(actionGuideText([forecast], true, "forecastImport")).toContain("Hours are per month.");
+    expect(selectActiveGuides([forecast], CTX)).toEqual([]);
+    expect(actionGuideText([forecast], true, "wbs")).toBe("");
+  });
+});
+
 describe("withGuideText", () => {
   it("leaves the system prompt untouched when there is no guide text", () => {
     const blocks = [{ type: "text" as const, text: "fixed" }];
