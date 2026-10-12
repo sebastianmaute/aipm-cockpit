@@ -16,6 +16,11 @@ const MAX_TOKENS = 8192;
  *  Over it, `runForecastImportCall` throws `Error("too-large")` before any request. */
 export const MAX_CLAUDE_IMPORT_CELLS = 20_000;
 
+/** The rendered prompt text may not pass this many characters either: a few
+ *  long cells stay under the cell cap and still make a prompt too large to
+ *  answer. Over it, the same `Error("too-large")`, before any request. */
+export const MAX_CLAUDE_IMPORT_CHARS = 200_000;
+
 const SYSTEM =
   "You read a project forecast spreadsheet and return one row per person and period with the hours planned. " +
   "Copy values exactly as written; never compute, total or estimate. " +
@@ -85,6 +90,8 @@ export async function runForecastImportCall(
   signal?: AbortSignal,
 ): Promise<{ rows: unknown; notes: string }> {
   if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
+  const prompt = sheetToPromptText(sheet);
+  if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
   const raw = await runForcedToolCall({
     apiKey: ai.apiKey,
     model: ai.model,
@@ -92,7 +99,7 @@ export async function runForecastImportCall(
     guideText: ai.guideText,
     tools: [FORECAST_ROWS_TOOL],
     toolName: FORECAST_ROWS_TOOL.name,
-    messages: [{ role: "user", content: sheetToPromptText(sheet) }],
+    messages: [{ role: "user", content: prompt }],
     maxTokens: MAX_TOKENS,
     signal,
   });

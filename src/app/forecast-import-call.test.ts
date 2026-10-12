@@ -6,6 +6,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   FORECAST_ROWS_TOOL,
   MAX_CLAUDE_IMPORT_CELLS,
+  MAX_CLAUDE_IMPORT_CHARS,
   runForecastImportCall,
   sheetToPromptText,
 } from "./forecast-import-call";
@@ -186,6 +187,16 @@ describe("runForecastImportCall", () => {
     const rows = Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 100 + 1 }, () => row);
     await expect(runForecastImportCall({ name: "Big", rows, truncated: false }, AI)).rejects.toThrow("too-large");
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("refuses a sheet whose prompt text is over the character cap, before any request", async () => {
+    const spy = mockResponse({ rows: [] });
+    const row = Array.from({ length: 10 }, () => "y".repeat(3000));
+    const rows = Array.from({ length: 10 }, () => row); // 100 cells, 300,000 chars
+    expect(rows.flat().length).toBeLessThan(MAX_CLAUDE_IMPORT_CELLS);
+    await expect(runForecastImportCall({ name: "Wordy", rows, truncated: false }, AI)).rejects.toThrow("too-large");
+    expect(spy).not.toHaveBeenCalled();
+    expect(MAX_CLAUDE_IMPORT_CHARS).toBe(200_000);
   });
 
   it("allows exactly the cap, and does not count blank cells or rows", async () => {

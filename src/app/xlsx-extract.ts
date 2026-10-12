@@ -182,7 +182,11 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
       const target = tag.name !== null && tag.rid !== null ? relMap.get(tag.rid) : undefined;
       if (tag.name !== null && target) {
         const path = resolveTarget(target);
-        if (entries.has(path)) mapped.push({ name: unescapeXml(tag.name), path });
+        // A worksheet is parsed ONCE: a workbook listing one path under many
+        // <sheet> names would otherwise multiply its cost by the list length.
+        if (entries.has(path) && !mapped.some((m) => m.path === path)) {
+          mapped.push({ name: unescapeXml(tag.name), path });
+        }
       }
       sheetOpenRe.lastIndex = tag.resume;
     }
@@ -317,6 +321,20 @@ function forEachXmlElement(xml: string, name: string, visit: (whole: string) => 
 /** Excel's last row number: a `<row r>` past it is not a real position. */
 const MAX_XLSX_ROW = 1_048_576;
 
+/** Row slots one sheet may take, gaps included — separate from the cell budget,
+ *  which a gap row (no cells) never touches. */
+const MAX_XLSX_SHEET_ROWS = MAX_XLSX_SHEET_CELLS;
+
+/** Row slots across ALL sheets of one workbook. A sparse worksheet costs one
+ *  pointer per gap row, so without this a workbook of many distinct sparse
+ *  sheets could still exhaust memory. */
+export const MAX_XLSX_TOTAL_ROWS = 1_000_000;
+
+/** Every gap row is this ONE array: a gap holds nothing, and a fresh array per
+ *  row was ~1M allocations for a single hostile `<row r>`. Frozen because it is
+ *  shared — rows of the grid are only ever read. */
+const EMPTY_ROW: string[] = Object.freeze([]) as unknown as string[];
+
 /** The 0-based grid index a `<row r="N">` asks for, or null when it has none or
  *  it is not usable — non-numeric, not after the row before it, or past Excel's
  *  last row — in which case the row simply follows the previous one. */
@@ -332,7 +350,7 @@ function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
  *  gap is filled with empty rows (they hold no cells, so the budget ignores them).
  *  The Markdown path drops blank rows anyway; the forecast import cites cells by
  *  row number and needs them to match what the user sees in Excel (§500). */
-function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated: boolean } {
+function sheetRows(xml: string, shared: string[], maxRows: number): { rows: string[][]; truncated: boolean } {
   const rows: string[][] = [];
   let cellCount = 0;
   let truncated = false;
@@ -354,9 +372,13 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       truncated = true;
       return false;
     }
+    const at = rowIndexFromAttr(rowXml, rows.length) ?? rows.length;
+    if (at + 1 > maxRows) {
+      truncated = true;
+      return false;
+    }
     cellCount += cells.length;
-    const at = rowIndexFromAttr(rowXml, rows.length);
-    if (at !== null) while (rows.length < at) rows.push([]);
+    while (rows.length < at) rows.push(EMPTY_ROW);
     rows.push(cells);
     return true;
   });
@@ -410,8 +432,16 @@ export function extractXlsxGrid(
   entries: Map<string, Uint8Array>,
 ): { name: string; rows: string[][]; truncated: boolean }[] {
   const shared = sharedStrings(entries);
+  let slotsLeft = MAX_XLSX_TOTAL_ROWS;
   return sheetEntries(entries).map(({ name, path }) => {
-    const { rows, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared);
+    // Out of slots: the sheet is not read at all, only reported as cut.
+    if (slotsLeft <= 0) return { name, rows: [], truncated: true };
+    const { rows, truncated } = sheetRows(
+      decodeUtf8(entries.get(path)!),
+      shared,
+      Math.min(MAX_XLSX_SHEET_ROWS, slotsLeft),
+    );
+    slotsLeft -= rows.length;
     return { name, rows, truncated };
   });
 }
