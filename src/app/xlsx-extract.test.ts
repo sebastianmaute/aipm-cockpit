@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractXlsx, MAX_XLSX_SHEET_CELLS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
+import { extractXlsx, extractXlsxGrid, MAX_XLSX_SHEET_CELLS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
@@ -471,5 +471,62 @@ describe("extractXlsx", () => {
       const out = extractXlsx(sheetOf(`<row r="1"><c r="A1"><v>1</v></c></row><row r="2"><c r="XFD2"><v>2</v></c></row>`));
       expect(out).not.toContain(XLSX_SHEET_TRUNCATED);
     });
+  });
+});
+
+describe("extractXlsxGrid", () => {
+  // Two sheets, shared strings, a gap, a pipe and a backslash in cells. The
+  // Markdown literal below was captured from extractXlsx BEFORE it was
+  // refactored to render from the grid, so it pins byte-identity (§500).
+  const workbook = `<workbook><sheets>
+    <sheet name="Data" sheetId="1" r:id="rId1"/>
+    <sheet name="Empty" sheetId="2" r:id="rId2"/>
+  </sheets></workbook>`;
+  const rels = `<Relationships>
+    <Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
+    <Relationship Id="rId2" Target="worksheets/sheet2.xml"/>
+  </Relationships>`;
+  const shared = `<sst><si><t>Name</t></si><si><t>a|b</t></si><si><t>x\\y</t></si></sst>`;
+  const sheet1 = `<worksheet><sheetData>
+    <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>
+    <row r="2"/>
+    <row r="3"><c r="A3"><v>1</v></c><c r="C3" t="s"><v>2</v></c></row>
+  </sheetData></worksheet>`;
+  const sheet2 = `<worksheet><sheetData/></worksheet>`;
+  const entries = new Map<string, Uint8Array>([
+    ["xl/workbook.xml", enc(workbook)],
+    ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ["xl/sharedStrings.xml", enc(shared)],
+    ["xl/worksheets/sheet1.xml", enc(sheet1)],
+    ["xl/worksheets/sheet2.xml", enc(sheet2)],
+  ]);
+
+  it("keeps the Markdown rendering byte-identical", () => {
+    expect(extractXlsx(entries)).toBe(
+      "## Sheet: Data\n\n| Name | a\\|b |  |\n| --- | --- | --- |\n| 1 |  | x\\\\y |",
+    );
+  });
+
+  it("returns every sheet with its raw (unescaped) cells", () => {
+    const grid = extractXlsxGrid(entries);
+    expect(grid.map((g) => g.name)).toEqual(["Data", "Empty"]);
+    expect(grid[0].rows[0]).toEqual(["Name", "a|b"]);
+    expect(grid[0].rows[2]).toEqual(["1", "", "x\\y"]);
+    expect(grid[0].truncated).toBe(false);
+    expect(grid[1].rows).toEqual([]);
+  });
+
+  it("flags a sheet cut at the cell budget", () => {
+    const rows = Array.from({ length: 20 }, (_, i) => {
+      const r = i + 1;
+      return `<row r="${r}"><c r="A${r}"><v>1</v></c><c r="XFD${r}"><v>2</v></c></row>`;
+    }).join("");
+    const big = new Map<string, Uint8Array>([
+      ["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData>${rows}</sheetData></worksheet>`)],
+    ]);
+    const [sheet] = extractXlsxGrid(big);
+    expect(sheet.truncated).toBe(true);
+    expect(sheet.rows.length).toBeLessThan(20);
+    expect(MAX_XLSX_SHEET_CELLS).toBeGreaterThan(0);
   });
 });

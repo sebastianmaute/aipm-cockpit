@@ -327,7 +327,7 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
       if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
-      cells.push(escapeMarkdownTableCell(cellValue(cellXml, shared)));
+      cells.push(cellValue(cellXml, shared));
       return true;
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
@@ -343,6 +343,8 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
   return { rows, truncated };
 }
 
+/** Renders raw grid rows as a Markdown table; cells are escaped HERE, so the
+ *  grid itself (`extractXlsxGrid`) carries the values as the sheet holds them. */
 function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   // A sheet cut before its first data row still says it was cut.
@@ -364,7 +366,7 @@ function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   const truncated = truncatedEarlier || kept < nonEmpty.length;
   if (kept === 0) return XLSX_SHEET_TRUNCATED;
   const pad = (r: string[]): string[] => {
-    const c = [...r];
+    const c = r.map(escapeMarkdownTableCell);
     while (c.length < width) c.push("");
     return c;
   };
@@ -378,12 +380,24 @@ function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   return lines.join("\n");
 }
 
+/** Every sheet of an xlsx/xlsm entry map as raw cell rows (values only, not
+ *  Markdown-escaped), in workbook order. `extractXlsx` renders from this, so
+ *  the Markdown path and the grid path cannot drift. `truncated` means the
+ *  sheet was cut at `MAX_XLSX_SHEET_CELLS`. */
+export function extractXlsxGrid(
+  entries: Map<string, Uint8Array>,
+): { name: string; rows: string[][]; truncated: boolean }[] {
+  const shared = sharedStrings(entries);
+  return sheetEntries(entries).map(({ name, path }) => {
+    const { rows, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared);
+    return { name, rows, truncated };
+  });
+}
+
 /** Extract Markdown from an xlsx/xlsm entry map (one section per sheet). */
 export function extractXlsx(entries: Map<string, Uint8Array>): string {
-  const shared = sharedStrings(entries);
   const sections: string[] = [];
-  for (const { name, path } of sheetEntries(entries)) {
-    const { rows, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared);
+  for (const { name, rows, truncated } of extractXlsxGrid(entries)) {
     const table = renderRows(rows, truncated);
     if (table === "") continue;
     sections.push(`## Sheet: ${name}\n\n${table}`);
