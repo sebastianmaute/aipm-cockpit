@@ -47,7 +47,8 @@ import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
 import type { LogActivityAsFn } from "./activity-log-context";
-import { actionGuideText, type OperatingGuide } from "./operating-guide";
+import { type OperatingGuide } from "./operating-guide";
+import { useGuideTextFrom } from "./action-guides-context";
 
 // Cap on any free-text field folded into the linked-entity digest of an insight
 // recommendation prompt — the digest rides a billed call, so an unbounded
@@ -122,7 +123,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     onDismissInsight,
     onLogAsRaid,
   } = deps;
-  const recommendGuideText = actionGuideText(guides, settings.ai?.groundInGuides === true, "insightRecommend");
+  const recommendGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "insightRecommend");
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
   // Generate/apply/reject handlers for an insight's AI recommendation. Apply

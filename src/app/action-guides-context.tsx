@@ -1,8 +1,11 @@
 // src/app/action-guides-context.tsx — hands the operating-guide library to the
 // single-request AI actions (§701). The guides load once in task-manager
-// (`useOperatingGuides`); every action reads its own slice through
-// `useActionGuideText(target)` and passes it to `runForcedToolCall` as
-// `guideText`, so no action builds guide text its own way.
+// (`useOperatingGuides`). Every action's text comes from ONE builder,
+// `actionGuideText`: a hook rendered inside the provider reads it with
+// `useActionGuideText(target)`; the four hooks task-manager calls in its own
+// body sit ABOVE the provider and use `useGuideTextFrom(guides, …)` instead.
+// The text reaches the request as `guideText` — through `runForcedToolCall`
+// for ten actions, through `callInlineEdit` for inline edit.
 "use client";
 import { createContext, useContext, useMemo, type ComponentProps, type ReactNode } from "react";
 import { AiUsageProvider } from "./ai-usage-context";
@@ -52,12 +55,6 @@ export function useGuideTextFrom(
 /** Whether an unattended run may start: see `ActionGuidesValue.ready`. */
 export function useActionGuidesReady(): boolean {
   return useContext(ActionGuidesContext).ready;
-}
-
-/** The raw library, for a caller that resolves its target late (a background
- *  runner reading the latest value through a ref). */
-export function useActionGuides(): ActionGuidesValue {
-  return useContext(ActionGuidesContext);
 }
 
 /** `AiUsageProvider` and `ActionGuidesProvider` in one element, so the root can

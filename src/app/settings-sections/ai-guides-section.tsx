@@ -209,7 +209,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy, defaultTarge
           <Button
             size="xs"
             variant="secondary"
-            className="mt-1 self-start"
+            className="mt-1"
             onClick={() => onChange({ ...draft, targets: [...defaultTargets] })}
           >
             {t(lang, "aiGuideTargetsDefault")}

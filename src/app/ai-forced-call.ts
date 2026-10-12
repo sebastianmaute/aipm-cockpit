@@ -1,7 +1,6 @@
 // src/app/ai-forced-call.ts — the ONE audited fetch envelope for every one-shot,
-// forced-tool Anthropic call in the app (Action-Center analysis, scheduled jobs,
-// weight suggestions, task dedup, committee report, digest narrative, project
-// proposal). Each caller keeps its OWN parse/ground/coerce/validation; only the
+// forced-tool Anthropic call in the app (enumerate them with
+// `grep -rln "runForcedToolCall(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
 // wire call + error throw are shared here, so a leak fix lives in ONE place.
 //
 // SECURITY INVARIANT (never regress): this module NEVER logs or echoes the api

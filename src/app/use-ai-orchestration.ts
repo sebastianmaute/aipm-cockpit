@@ -34,7 +34,8 @@ import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
-import { actionGuideText, type OperatingGuide } from "./operating-guide";
+import { type OperatingGuide } from "./operating-guide";
+import { useGuideTextFrom } from "./action-guides-context";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
@@ -89,7 +90,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     requestOpen,
     requestChat,
   } = deps;
-  const jobGuideText = actionGuideText(guides, settings.ai?.groundInGuides === true, "jobAnalysis");
+  const jobGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "jobAnalysis");
 
   // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
