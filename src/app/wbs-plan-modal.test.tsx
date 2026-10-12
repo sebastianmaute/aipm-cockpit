@@ -453,7 +453,8 @@ describe("WbsPlanModal", () => {
 
     it("is resizable and sizes to its content until resized", () => {
       render5();
-      expect(panel().className).toContain("resize");
+      // Both axes: the bare `resize` class, not resize-x or resize-y.
+      expect(panel().className.split(/\s+/)).toContain("resize");
       // Never wider than the screen: a bare 460px minimum would beat the 95vw cap.
       expect(panel().className).toContain("min-w-[min(460px,95vw)]");
       // Any fixed height class (h-[640px], h-96, h-full), not just a bracketed one.

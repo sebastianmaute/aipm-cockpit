@@ -85,9 +85,8 @@ describe("useResizable — drag persistence", () => {
 
   it("does NOT persist when the pointerdown is outside the corner", () => {
     const box = render(<Harness />).getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
-    box.dispatchEvent(pointer("pointerdown", { clientX: 10, clientY: 10 }));
-    window.dispatchEvent(pointer("pointerup"));
+    // The size DOES change, so only the corner hit-test can keep this unsaved.
+    drag(box, { width: 400, height: 300 }, { width: 512, height: 333 }, { clientX: 10, clientY: 10 });
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 
@@ -100,8 +99,10 @@ describe("useResizable — drag persistence", () => {
   it("removes the window pointerup listener on unmount (no save after teardown)", () => {
     const view = render(<Harness />);
     const box = view.getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
+    stubRect(box, { right: 200, bottom: 200, width: 400, height: 300 });
     box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+    // The size DOES change, so only the removed listener can keep this unsaved.
+    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
     view.unmount();
     window.dispatchEvent(pointer("pointerup"));
     expect(window.localStorage.getItem(KEY)).toBeNull();
