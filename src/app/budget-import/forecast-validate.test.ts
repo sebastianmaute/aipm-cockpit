@@ -6,7 +6,7 @@ const GRID: SheetGrid = {
   name: "Sheet1",
   rows: [
     ["Person", "2026-01", "2026-02"],
-    ["Ann", "40", "1.234,5"],
+    ["Ann", "40", "35,5"],
     ["Bob", "20", "x"],
     [],
     ["Cy"],
@@ -18,7 +18,7 @@ const plain = { sheet: GRID, requireSource: false };
 const strict = { sheet: GRID, requireSource: true };
 
 function gridNamed(name: string): SheetGrid {
-  return { name, rows: [["Ann", "40"]], truncated: false };
+  return { name, rows: [["Person", "2026-01"], ["Ann", "40"]], truncated: false };
 }
 
 describe("validateForecastRows: shape", () => {
@@ -154,10 +154,10 @@ describe("validateForecastRows: source (Claude route)", () => {
 
   it("reads the cell in either decimal style", () => {
     // "12,5" is 12.5 as a comma number and unreadable as a dot number.
-    const german: SheetGrid = { name: "Sheet1", rows: [["Ann", "12,5", "1.234,5"]], truncated: false };
+    const german: SheetGrid = { name: "Sheet1", rows: [["Person", "2026-01", "2026-02"], ["Ann", "12,5", "1.234,5"]], truncated: false };
     const opts = { sheet: german, requireSource: true };
-    expect(validateForecastRows([row("Sheet1!B1", 12.5)], opts).rejected).toEqual([]);
-    expect(validateForecastRows([row("Sheet1!C1", 700)], opts).rejected).toHaveLength(1);
+    expect(validateForecastRows([row("Sheet1!B2", 12.5)], opts).rejected).toEqual([]);
+    expect(validateForecastRows([row("Sheet1!C2", 700)], opts).rejected).toHaveLength(1);
   });
 
   it("rejects a cell outside the grid, past a ragged row, or on an empty row", () => {
@@ -192,19 +192,31 @@ describe("validateForecastRows: source (Claude route)", () => {
     }
   });
 
+  it("rejects a source whose sheet part is empty", () => {
+    const unnamed: SheetGrid = { name: "", rows: [["Person", "2026-01"], ["Ann", "40"]], truncated: false };
+    const opts = { sheet: unnamed, requireSource: true };
+    for (const ref of ["!B2", "''!B2"]) {
+      expect(validateForecastRows([row(ref)], opts).rejected.map((r) => r.reason)).toEqual(["source"]);
+    }
+    expect(validateForecastRows([row("!B2")], strict).rejected).toHaveLength(1);
+  });
+
   it("does not check the source when requireSource is false, but keeps a string one", () => {
     const out = validateForecastRows([row("Sheet1!Z99")], plain);
     expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 40, source: "Sheet1!Z99" }]);
     expect(validateForecastRows([row(5)], plain).ok[0].source).toBeUndefined();
   });
 
-  it("maps A1 letters to columns: AA is column 26, row 1 is rows[0]", () => {
+  it("maps A1 letters to columns: AA is column 26, row 2 is rows[1]", () => {
     const wide: SheetGrid = {
       name: "Sheet1",
-      rows: [[...Array.from({ length: 26 }, () => ""), "12"]],
+      rows: [
+        [...Array.from({ length: 26 }, () => ""), "2026-01"],
+        ["Ann", ...Array.from({ length: 25 }, () => ""), "12"],
+      ],
       truncated: false,
     };
-    const out = validateForecastRows([row("Sheet1!AA1", 12)], { sheet: wide, requireSource: true });
+    const out = validateForecastRows([row("Sheet1!AA2", 12)], { sheet: wide, requireSource: true });
     expect(out.rejected).toEqual([]);
   });
 
@@ -212,14 +224,14 @@ describe("validateForecastRows: source (Claude route)", () => {
     it("matches a name with regex metacharacters, quoted and unquoted", () => {
       const sheet = gridNamed("Plan (v2)+");
       const opts = { sheet, requireSource: true };
-      expect(validateForecastRows([row("Plan (v2)+!B1")], opts).rejected).toEqual([]);
-      expect(validateForecastRows([row("'Plan (v2)+'!B1")], opts).rejected).toEqual([]);
+      expect(validateForecastRows([row("Plan (v2)+!B2")], opts).rejected).toEqual([]);
+      expect(validateForecastRows([row("'Plan (v2)+'!B2")], opts).rejected).toEqual([]);
     });
 
     it("does not treat the sheet name as a pattern", () => {
       const sheet = gridNamed("Plan (v2)+");
       const opts = { sheet, requireSource: true };
-      for (const ref of ["Plan (v2)!B1", "Plan v2!B1", "Plan (v2)++!B1", "'Plan (v2)'!B1"]) {
+      for (const ref of ["Plan (v2)!B2", "Plan v2!B2", "Plan (v2)++!B2", "'Plan (v2)'!B2"]) {
         expect(validateForecastRows([row(ref)], opts).rejected).toHaveLength(1);
       }
     });
@@ -227,10 +239,10 @@ describe("validateForecastRows: source (Claude route)", () => {
     it("reads a doubled apostrophe in a quoted name as one", () => {
       const sheet = gridNamed("Bob's");
       const opts = { sheet, requireSource: true };
-      expect(validateForecastRows([row("'Bob''s'!B1")], opts).rejected).toEqual([]);
-      expect(validateForecastRows([row("Bob's!B1")], opts).rejected).toEqual([]);
-      expect(validateForecastRows([row("'Bob's'!B1")], opts).rejected).toHaveLength(1);
-      expect(validateForecastRows([row("'Bobs'!B1")], opts).rejected).toHaveLength(1);
+      expect(validateForecastRows([row("'Bob''s'!B2")], opts).rejected).toEqual([]);
+      expect(validateForecastRows([row("Bob's!B2")], opts).rejected).toEqual([]);
+      expect(validateForecastRows([row("'Bob's'!B2")], opts).rejected).toHaveLength(1);
+      expect(validateForecastRows([row("'Bobs'!B2")], opts).rejected).toHaveLength(1);
     });
 
     it("accepts a quoted plain name", () => {
@@ -239,19 +251,121 @@ describe("validateForecastRows: source (Claude route)", () => {
   });
 });
 
+describe("validateForecastRows: source evidence (Claude route)", () => {
+  const cite = (person: string, period: string, hours: number, source: string, extra: object = {}) => ({
+    person,
+    period,
+    hours,
+    source,
+    ...extra,
+  });
+
+  it("accepts a correct wide citation (person in the row, period in the column header)", () => {
+    expect(validateForecastRows([cite("Ann", "2026-02", 35.5, "Sheet1!C2")], strict).rejected).toEqual([]);
+    expect(validateForecastRows([cite("bob ", "2026-01", 20, "Sheet1!B3")], strict).rejected).toEqual([]);
+  });
+
+  it("accepts a correct long citation (person, period and hours in one row)", () => {
+    const long: SheetGrid = {
+      name: "Sheet1",
+      rows: [["Person", "Period", "Hours"], ["Ann", "Jan 2026", "40"]],
+      truncated: false,
+    };
+    const opts = { sheet: long, requireSource: true };
+    expect(validateForecastRows([cite("Ann", "2026-01", 40, "Sheet1!C2")], opts).rejected).toEqual([]);
+    const wrongPeriod = validateForecastRows([cite("Ann", "2026-02", 40, "Sheet1!C2")], opts);
+    expect(wrongPeriod.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("rejects Bob citing Ann's January cell for February", () => {
+    const out = validateForecastRows([cite("Bob", "2026-02", 40, "Sheet1!B2")], strict);
+    expect(out.ok).toEqual([]);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("rejects a cell on another person's row even with the right period and hours", () => {
+    const out = validateForecastRows([cite("Bob", "2026-01", 40, "Sheet1!B2")], strict);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("rejects the person's own row cited for a period of another column", () => {
+    const out = validateForecastRows([cite("Ann", "2026-02", 40, "Sheet1!B2")], strict);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("matches the person by email when the row carries one", () => {
+    const withEmail: SheetGrid = {
+      name: "Sheet1",
+      rows: [["Person", "Email", "2026-01"], ["Annie", " Ann@X.io", "40"]],
+      truncated: false,
+    };
+    const opts = { sheet: withEmail, requireSource: true };
+    const byEmail = cite("Ann", "2026-01", 40, "Sheet1!C2", { email: "ann@x.io" });
+    expect(validateForecastRows([byEmail], opts).rejected).toEqual([]);
+    expect(validateForecastRows([cite("Ann", "2026-01", 40, "Sheet1!C2")], opts).rejected).toHaveLength(1);
+  });
+
+  it("does not let the cited cell vouch for the person", () => {
+    const out = validateForecastRows([cite("40", "2026-01", 40, "Sheet1!B2")], strict);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+});
+
+describe("validateForecastRows: a source cell is used once", () => {
+  const row = (source: string) => ({ person: "Ann", period: "2026-01", hours: 40, source });
+
+  it("rejects the second row citing the same cell", () => {
+    const out = validateForecastRows([row("Sheet1!B2"), row("Sheet1!B2")], strict);
+    expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 40, source: "Sheet1!B2" }]);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+    expect(out.duplicates).toEqual([]);
+  });
+
+  it("treats quoted and bare spellings of one cell as the same cell", () => {
+    const out = validateForecastRows([row("'Sheet1'!B2"), row("Sheet1!B2")], strict);
+    expect(out.ok).toHaveLength(1);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("applies on the hand-parsed route too", () => {
+    const out = validateForecastRows([row("Sheet1!B2"), row("Sheet1!B2")], plain);
+    expect(out.ok).toHaveLength(1);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("does not burn a cell on a row that was rejected for another reason", () => {
+    const out = validateForecastRows([{ ...row("Sheet1!B2"), hours: -1 }, row("Sheet1!B2")], plain);
+    expect(out.ok).toHaveLength(1);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["hours"]);
+  });
+});
+
+describe("validateForecastRows: hours normalisation", () => {
+  it("rounds every row to two decimals, not only sums", () => {
+    const out = validateForecastRows([{ person: "Ann", period: "2026-01", hours: 40.004 }], plain);
+    expect(out.ok[0].hours).toBe(40);
+  });
+
+  it("turns -0 into 0", () => {
+    const out = validateForecastRows([{ person: "Ann", period: "2026-01", hours: -0 }], plain);
+    expect(Object.is(out.ok[0].hours, 0)).toBe(true);
+  });
+});
+
 describe("validateForecastRows: duplicates", () => {
   it("sums Ann / 'ann ' for the same period into one row and reports it", () => {
     const out = validateForecastRows(
       [
         { person: "Ann", period: "2026-01", hours: 40, email: "a@x.io", rate: 90, source: "Sheet1!B2" },
-        { person: "ann ", period: "2026-01", hours: 20, email: "other@x.io", rate: 10 },
+        { person: "ann ", period: "2026-01", hours: 20, email: "other@x.io", rate: 10, source: "Sheet1!B9" },
       ],
       plain,
     );
-    expect(out.ok).toEqual([
-      { person: "Ann", period: "2026-01", hours: 60, email: "a@x.io", rate: 90, source: "Sheet1!B2" },
+    expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 60, email: "a@x.io", rate: 90 }]);
+    expect("source" in out.ok[0]).toBe(false);
+    expect(out.duplicates).toEqual([
+      { person: "Ann", period: "2026-01", count: 2, sources: ["Sheet1!B2", "Sheet1!B9"] },
     ]);
-    expect(out.duplicates).toEqual([{ person: "Ann", period: "2026-01", count: 2 }]);
   });
 
   it("matches duplicates across period spellings", () => {
@@ -264,7 +378,7 @@ describe("validateForecastRows: duplicates", () => {
       plain,
     );
     expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 16 }]);
-    expect(out.duplicates).toEqual([{ person: "Ann", period: "2026-01", count: 3 }]);
+    expect(out.duplicates).toEqual([{ person: "Ann", period: "2026-01", count: 3, sources: [] }]);
   });
 
   it("does not merge different periods or different people", () => {
@@ -302,7 +416,7 @@ describe("validateForecastRows: duplicates", () => {
       plain,
     );
     expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 1488 }]);
-    expect(out.duplicates).toEqual([{ person: "Ann", period: "2026-01", count: 2 }]);
+    expect(out.duplicates).toEqual([{ person: "Ann", period: "2026-01", count: 2, sources: [] }]);
     expect(out.rejected.map((r) => r.reason)).toEqual(["hours"]);
   });
 
