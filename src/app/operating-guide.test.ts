@@ -1,7 +1,7 @@
 // src/app/operating-guide.test.ts
 import { describe, it, expect } from "vitest";
 import {
-  selectActiveGuides, partitionGuidesByViewScope, assembleGuideBlocks, guidesCharCount,
+  selectActiveGuides, partitionGuidesByViewScope, assembleGuideBlocks, guidesCharCount, guideTargets,
   GUIDE_CHAR_BUDGET, type OperatingGuide, type GuideContext,
 } from "./operating-guide";
 import { builtinSeeds } from "./use-operating-guides";
@@ -131,11 +131,14 @@ describe("guidesCharCount", () => {
   it("exposes a positive budget", () => {
     expect(GUIDE_CHAR_BUDGET).toBeGreaterThan(0);
   });
-  // The budget is the shipped baseline: every built-in guide enabled sits
-  // exactly AT it (no banner on a fresh install), and one character more
-  // crosses it. The settings banner tests `> GUIDE_CHAR_BUDGET`.
-  it("equals the combined size of the guides this build seeds", () => {
-    const seeds = builtinSeeds();
+  // The budget is the shipped baseline for the CHAT: every built-in chat guide
+  // enabled sits exactly AT it (no banner on a fresh install), and one
+  // character more crosses it. The settings banner tests `> GUIDE_CHAR_BUDGET`
+  // over the enabled chat guides; the AI action guides (§701) are capped per
+  // call instead and are not counted.
+  it("equals the combined size of the chat guides this build seeds", () => {
+    const seeds = builtinSeeds().filter((s) => guideTargets(s).includes("chat"));
+    expect(seeds.length).toBeLessThan(builtinSeeds().length);
     expect(guidesCharCount(seeds)).toBe(GUIDE_CHAR_BUDGET);
     const grown = [...seeds, base({ id: "user-1", content: "x" })];
     expect(guidesCharCount(grown)).toBeGreaterThan(GUIDE_CHAR_BUDGET);

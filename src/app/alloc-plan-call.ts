@@ -20,6 +20,8 @@ import { runForcedToolCall } from "./ai-forced-call";
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
 }
 
 /** Run one forced propose_allocations tool call and return the parsed result
@@ -46,6 +48,7 @@ export async function runAllocProposal(
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildAllocSystemPrompt(),
+    guideText: ai.guideText,
     tools: [PROPOSE_ALLOCATIONS_TOOL],
     toolName: PROPOSE_ALLOCATIONS_TOOL.name,
     messages: [{ role: "user", content: userMessage }],

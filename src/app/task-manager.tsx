@@ -364,6 +364,7 @@ function TaskManagerInner() {
     () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
     [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
   );
+  const operatingGuides = useOperatingGuides({ config: tursoConfig }); // §701: above every body-level AI hook, which take `guides`
 
   // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
   // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
@@ -882,7 +883,6 @@ function TaskManagerInner() {
     // §626. A startup replay write failed: reported as a failed template save is. Kind and id only.
     onReplayFailure: ({ kind, id }) => reportSilentFailure(showToast, lang, "commTemplates.replayFailed", new Error(`${kind}:${id}`), "guardCommTemplateSaveFailed"),
   });
-  const operatingGuides = useOperatingGuides({ config: tursoConfig });
   const meetingReportActions = useMeetingReportActions({
     lang,
     isPopout,
@@ -896,7 +896,7 @@ function TaskManagerInner() {
     showToast,
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
-    aiModel: settings.ai.model,
+    aiModel: settings.ai.model, guides: operatingGuides.guides,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
@@ -1092,7 +1092,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const dispatcher = useChatDispatcherWiring({

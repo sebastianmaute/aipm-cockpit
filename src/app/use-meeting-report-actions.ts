@@ -11,6 +11,8 @@ import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
+import { useGuideTextFrom } from "./action-guides-context";
+import type { OperatingGuide } from "./operating-guide";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
 import type { MeetingReportVersionUi } from "./meeting-report-panel";
 import type { DashboardModel } from "./dashboard";
@@ -34,6 +36,9 @@ export interface MeetingReportActionsDeps {
   /** Resolved Anthropic key ("" when the AI master switch is off / no key). */
   aiKey: string;
   aiModel: string;
+  /** §701 — REQUIRED: this hook runs in task-manager's body, above the guide
+   *  provider (see `useGuideTextFrom`). */
+  guides: readonly OperatingGuide[];
   /** Turso project id for version rows (only used when tursoConfig !== null). */
   projectId: string;
 }
@@ -67,6 +72,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   const [restoreBusyId, setRestoreBusyId] = useState<string | null>(null);
   /** The in-flight AI draft's controller — a ref so Stop can reach it (§125). */
   const generateCtrlRef = useRef<AbortController | null>(null);
+  const guideText = useGuideTextFrom(deps.guides, deps.settings.ai.groundInGuides, "committeeReport");
   if (deps.isPopout) return undefined;
 
   // Turso-only: snapshot the meeting's CURRENT report as a version before it's
@@ -162,7 +168,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       const html = await runMeetingReport(
         deps.getDashboardModel(),
         meeting.agenda ?? "",
-        { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang },
+        { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang, guideText },
         ctrl.signal,
       );
       // A stop that lost the race to the response still means "don't use it".

@@ -3,13 +3,13 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useOperatingGuides, builtinSeeds, reconcileBuiltins } from "./use-operating-guides";
-import { BUILTIN_GUIDE_ID, BUILTIN_FEATURE_GUIDES } from "./operating-guide-builtin.generated";
+import { BUILTIN_GUIDE_ID, BUILTIN_FEATURE_GUIDES, BUILTIN_ACTION_GUIDES } from "./operating-guide-builtin.generated";
 import type { OperatingGuide } from "./operating-guide";
 
-const SEED_COUNT = 1 + BUILTIN_FEATURE_GUIDES.length; // leadership + feature guides
+const SEED_COUNT = 1 + BUILTIN_FEATURE_GUIDES.length + BUILTIN_ACTION_GUIDES.length; // leadership + feature + AI action guides (§701)
 
 describe("builtinSeeds", () => {
-  it("returns the leadership guide plus every feature guide, all built-in", () => {
+  it("returns the leadership guide plus every feature and AI action guide, all built-in", () => {
     const seeds = builtinSeeds();
     expect(seeds.length).toBe(SEED_COUNT);
     expect(seeds.every((g) => g.builtIn)).toBe(true);

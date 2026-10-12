@@ -16,6 +16,15 @@ longer carries its own changelog comment.
   tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
   The proposal window can be moved and resized, and its reset button puts it back.
 
+- **Operating guides now reach the AI actions, not only the chat.** In Settings → Operating guides, each
+  guide has an "Applies to" choice: the chat assistant, or any of eleven AI actions — Optimize with AI, Plan
+  with AI, the steering committee report, new project with AI, Suggest RACI, the weekly digest narrative,
+  insight recommendations, Analyze with AI, Deduplicate & unify, next-action weight suggestions and inline
+  AI edit. An action sends the guides that name it, your own first, so a team rule such as "split anything
+  over 3 days" no longer has to be typed on every run. Eight built-in method guides ship for the actions where
+  a method helps, and each can be switched off. Existing guides keep applying to the chat only, and a guide
+  never changes what an action is allowed to write.
+
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
   guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an
   insight naming the person, how many such days there were and the largest booking. Absences of type

@@ -116,3 +116,22 @@ describe("runAllocProposal", () => {
     expect(passedSignal).toBe(controller.signal);
   });
 });
+
+// §701 — the user's guides for Plan with AI follow the fixed system prompt.
+describe("runAllocProposal guide text", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const reply = () => ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells: [] } }] });
+  it("appends the guide text after the fixed system prompt", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
+    await runAllocProposal("ctx", { apiKey: "k", model: "m", guideText: "GUIDE-MARK" }, "x");
+    const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as string;
+    expect(system.endsWith("\n\nGUIDE-MARK")).toBe(true);
+    expect(system.length).toBeGreaterThan("\n\nGUIDE-MARK".length);
+  });
+  it("sends the fixed prompt alone without one", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
+    await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x");
+    const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as string;
+    expect(system).not.toContain("GUIDE-MARK");
+  });
+});

@@ -13,6 +13,9 @@ export interface MeetingReportCtx {
   apiKey: string;
   model: string;
   lang: Lang;
+  /** The user's guides for this action (§701), from `actionGuideText`. This
+   *  call has no fixed system prompt, so the guides are the whole of it. */
+  guideText?: string;
 }
 
 /** Run one forced write_status_report tool call and return the parsed HTML body.
@@ -28,6 +31,7 @@ export async function runMeetingReport(
   const input = await runForcedToolCall({
     apiKey: ctx.apiKey,
     model: ctx.model,
+    guideText: ctx.guideText,
     tools: [REPORT_TOOL],
     toolName: "write_status_report",
     messages: [{ role: "user", content: buildMeetingReportPrompt(model, agenda, ctx.lang) }],

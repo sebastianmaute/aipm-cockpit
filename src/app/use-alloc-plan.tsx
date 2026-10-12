@@ -26,6 +26,7 @@ import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { runAllocProposal } from "./alloc-plan-call";
+import { useActionGuideText } from "./action-guides-context";
 import {
   applyAllocationCells,
   buildAllocContext,
@@ -81,6 +82,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const abortRef = useRef<AbortController | null>(null);
 
   const apiKey = aiKeyIfEnabled(settings.ai);
+  const guideText = useActionGuideText("alloc");
   const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0;
 
   // Invalidate/abort anything pending and clear the propose/preview state.
@@ -122,7 +124,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setPhase("thinking");
     try {
       const context = buildAllocContext({ resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet });
-      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model }, instruction, controller.signal);
+      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/keys against the LIVE resources/plan
       // before anything can be shown or applied. A hallucinated resource or an
@@ -178,7 +180,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [phase, instruction, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, apiKey, settings.ai.model, lang, showToast]);
+  }, [phase, instruction, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, apiKey, settings.ai.model, guideText, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {

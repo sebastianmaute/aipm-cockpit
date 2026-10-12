@@ -83,3 +83,28 @@ describe("runMeetingReport", () => {
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
   });
 });
+
+// §701 — the report call has no fixed system prompt, so the guides are all of it.
+describe("runMeetingReport guide text", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  function stub() {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: [{ type: "tool_use", name: "write_status_report", input: { html: "<p>x</p>" } }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const sys = (m: ReturnType<typeof stub>) =>
+    JSON.parse(((m.mock.calls[0] as unknown[])[1] as RequestInit).body as string).system as unknown;
+  it("sends the guide text as the system prompt", async () => {
+    const m = stub();
+    await runMeetingReport(MODEL, "Agenda", { ...CTX, guideText: "GUIDE-MARK" });
+    expect(sys(m)).toBe("GUIDE-MARK");
+  });
+  it("sends no system prompt without one", async () => {
+    const m = stub();
+    await runMeetingReport(MODEL, "Agenda", CTX);
+    expect(sys(m)).toBeUndefined();
+  });
+});

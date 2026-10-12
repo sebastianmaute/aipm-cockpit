@@ -18,13 +18,14 @@ const SYSTEM =
 
 export async function runRaciSuggestion(
   context: { text: string; truncated: boolean },
-  ai: { apiKey: string; model: string },
+  ai: { apiKey: string; model: string; guideText?: string },
   signal?: AbortSignal,
 ): Promise<{ cells: ProposedCell[]; truncated: boolean }> {
   const raw = await runForcedToolCall({
     apiKey: ai.apiKey,
     model: ai.model,
     system: SYSTEM,
+    guideText: ai.guideText,
     tools: [RACI_SUGGEST_TOOL],
     toolName: RACI_SUGGEST_TOOL.name,
     messages: [{ role: "user", content: context.text }],

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
+import type { ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
 
 const ai = { apiKey: "sk-test", model: "claude-sonnet-4-6" };
 
@@ -70,5 +72,25 @@ describe("useProjectProposal", () => {
     const ctrl = new AbortController(); ctrl.abort();
     await act(async () => { await result.current.generate("hi", ctrl.signal); });
     expect(result.current.error).toBeNull();
+  });
+});
+
+// §701 — the wizard's proposal call reads the guides that target it from the
+// root provider (the wizard renders inside it).
+describe("useProjectProposal guide text", () => {
+  it("appends the guides that target project creation, and only those", async () => {
+    const fetchMock = mockFetchToolUse({ meta: { name: "P" }, features: [] });
+    const guides = [
+      { id: "p", name: "Phases", content: "PROPOSAL-MARK", enabled: true, priority: 10, scope: { targets: ["projectProposal" as const] }, builtIn: false },
+      { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
+    ];
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ActionGuidesProvider value={{ guides, groundInGuides: true }}>{children}</ActionGuidesProvider>
+    );
+    const { result } = renderHook(() => useProjectProposal(ai), { wrapper });
+    await act(async () => { await result.current.generate("x"); });
+    const system = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as string;
+    expect(system).toContain("PROPOSAL-MARK");
+    expect(system).not.toContain("CHAT-ONLY");
   });
 });

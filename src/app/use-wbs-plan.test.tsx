@@ -18,6 +18,7 @@ import * as call from "./wbs-plan-call";
 import * as engine from "./wbs-plan/wbs-plan";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
 import { loadI18n, t, tPlural } from "./i18n";
+import type { OperatingGuide } from "./operating-guide";
 
 vi.mock("./wbs-plan-call");
 // The REAL engine, wrapped so one test can make the setTasks updater's apply
@@ -66,6 +67,7 @@ interface Api {
 
 interface HarnessProps {
   settings?: Settings;
+  guides?: readonly OperatingGuide[];
   isPopout?: boolean;
   logActivitySpy?: ReturnType<typeof vi.fn>;
   /** A fake scope-epoch reader the test controls. */
@@ -78,8 +80,13 @@ const EPOCH_ZERO = () => 0;
 /** The table's clock: SEED's due dates (2026-11-01) are ahead of it. */
 const TODAY = "2026-10-12";
 const NO_HOLIDAYS: ReadonlySet<string> = new Set();
+const NO_GUIDES: readonly OperatingGuide[] = [];
+const guide = (over: Partial<OperatingGuide>): OperatingGuide => ({
+  id: "g", name: "Team rules", content: "Split anything over 3 days.", enabled: true,
+  priority: 10, scope: { targets: ["wbs"] }, builtIn: false, ...over,
+});
 
-function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, getScopeEpoch = EPOCH_ZERO, loadPending = false, onApi }: HarnessProps) {
+function Harness({ settings = AI_ON, guides = NO_GUIDES, isPopout = false, logActivitySpy, getScopeEpoch = EPOCH_ZERO, loadPending = false, onApi }: HarnessProps) {
   const ws = useWorkspace();
   const filters = useFilters();
   const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
@@ -93,6 +100,7 @@ function Harness({ settings = AI_ON, isPopout = false, logActivitySpy, getScopeE
     loadPending,
     today: TODAY,
     holidaySet: NO_HOLIDAYS,
+    guides,
   });
   useEffect(() => { onApi({ ws, filters, undo, wbs }); });
   return (
@@ -171,6 +179,26 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     vi.restoreAllMocks();
   });
 
+  // §701 — the guides that target Optimize with AI reach its call; a chat-only
+  // guide does not, and nothing goes when guide grounding is off.
+  it("sends the guides that target wbs, and only those, with the proposal call", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
+    renderHarness({ guides: [guide({}), guide({ id: "c", content: "Chat-only rule.", scope: {} })] });
+    await proposeFromButton("go");
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    const text = vi.mocked(call.runWbsProposal).mock.calls[0][1].guideText ?? "";
+    expect(text).toContain("Split anything over 3 days.");
+    expect(text).not.toContain("Chat-only rule.");
+  });
+
+  it("sends no guides when guide grounding is off", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
+    renderHarness({ guides: [guide({})], settings: { ...AI_ON, ai: { ...AI_ON.ai, groundInGuides: false } } });
+    await proposeFromButton("go");
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runWbsProposal).mock.calls[0][1].guideText).toBe("");
+  });
+
   it("button → input → propose → preview → apply writes a split: piece 1 keeps its id, piece 2 gets a fresh id", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(
       proposal([
@@ -190,7 +218,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];
     expect(instruction).toBe("split anything over 3 days");
-    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x" });
+    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "" });
     expect(context).toContain("#1 [in scope]");
     expect(signal).toBeInstanceOf(AbortSignal);
 

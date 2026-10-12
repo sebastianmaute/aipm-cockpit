@@ -21,7 +21,7 @@ import {
 const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
-import { type OperatingGuide } from "./operating-guide";
+import { actionGuideText, guideTargets, type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export interface InlineEditArgs {
@@ -129,6 +129,15 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
+  // §701 — guides that target inline edit itself. This path already carries the
+  // CHAT's guides (above, through `buildSystemPrompt`), so a guide that targets
+  // the chat too is left out here rather than sent twice.
+  const inlineGuides = actionGuideText(
+    args.guides.filter((g) => !guideTargets(g).includes("chat")),
+    args.groundInGuides,
+    "inlineEdit",
+  );
+  if (inlineGuides) system.push({ type: "text", text: inlineGuides });
   const res = await callClaude(
     args.apiKey,
     args.model,

@@ -25,3 +25,12 @@ describe("runRaciSuggestion", () => {
     expect(JSON.stringify(args.system ?? "")).not.toContain("sk-ant-secret");
   });
 });
+
+// §701 — Suggest RACI forwards the user's guides to the forced call.
+describe("runRaciSuggestion guide text", () => {
+  it("passes guideText through to runForcedToolCall", async () => {
+    vi.mocked(runForcedToolCall).mockResolvedValue({ cells: [] });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", model: "m", guideText: "GUIDE-MARK" });
+    expect(vi.mocked(runForcedToolCall).mock.calls.at(-1)![0].guideText).toBe("GUIDE-MARK");
+  });
+});

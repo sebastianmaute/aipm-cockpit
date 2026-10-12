@@ -29,6 +29,20 @@ export function useActionGuideText(target: Exclude<AiTarget, "chat">): string {
   return useMemo(() => actionGuideText(guides, groundInGuides, target), [guides, groundInGuides, target]);
 }
 
+/** The same text from an explicit library, for a hook called in
+ *  TASK-MANAGER'S OWN BODY. ★★ Such a hook sits ABOVE `AiProviders` — that
+ *  provider is in task-manager's returned JSX, so it wraps task-manager's
+ *  children only — and `useActionGuideText` would read the empty default and
+ *  send no guides, silently. Those hooks take a REQUIRED `guides` dep instead
+ *  (task-manager passes `operatingGuides.guides`). */
+export function useGuideTextFrom(
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  target: Exclude<AiTarget, "chat">,
+): string {
+  return useMemo(() => actionGuideText(guides, groundInGuides, target), [guides, groundInGuides, target]);
+}
+
 /** The raw library, for a caller that resolves its target late (a background
  *  runner reading the latest value through a ref). */
 export function useActionGuides(): ActionGuidesValue {

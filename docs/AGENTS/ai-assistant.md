@@ -70,6 +70,26 @@
   upgrade); all built-ins undeletable via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current
   view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
+- **Guides for the single-request AI actions (§701):** `GuideScope.targets` (over `AI_TARGETS` in
+  `operating-guide.ts`) names the surfaces a guide reaches. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
+  (`guideTargets`): every guide stored before §701 has none, so reading it as "everywhere" would send all of
+  them to every action. `selectActiveGuides` (chat) drops a guide that does not target `chat`;
+  `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, the user's
+  own BEFORE built-ins (on purpose: "the earlier one wins", and a new guide is created at the lowest priority,
+  so by priority alone a built-in method guide would beat the team's rule), within `ACTION_GUIDE_CHAR_CAP`,
+  skipping a guide WHOLE. Views/modes/modules are ignored for actions. `runForcedToolCall` appends the text
+  after `system` via `guideText` (`withGuideText`), keeping the fixed prompt a stable prefix.
+  ★★★ **HOW A CALLER GETS THE TEXT DEPENDS ON WHERE IT RUNS.** `AiProviders` (`action-guides-context.tsx`) is
+  rendered in task-manager's RETURNED JSX, so it wraps task-manager's CHILDREN only. A hook rendered inside a
+  panel reads `useActionGuideText(target)`; a hook called in TASK-MANAGER'S OWN BODY (`useWbsPlan`,
+  `useMeetingReportActions`, `useAiOrchestration`, `useInsightRecommendations`) would read the empty default
+  there and silently send nothing — those take a REQUIRED `guides` dep and use `useGuideTextFrom`. Only a test
+  through the real TaskManager sees the difference (`task-manager.action-guides.test.tsx`); a hook-level test
+  that mounts a provider passes either way. ★ Inline edit already carries the CHAT's guides, so its
+  `inlineEdit` guides skip any guide that also targets the chat (no double send). Built-in action guides come
+  from `lib/ai-action-guides.md` (`<!-- targets: … -->`, `parseActionGuides`, `VALID_ACTION_TARGETS` mirrors
+  `AI_TARGETS` minus chat — pinned by `operating-guide-targets.test.ts`). The settings size warning counts
+  chat guides only.
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
   `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic

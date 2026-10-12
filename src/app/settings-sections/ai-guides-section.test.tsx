@@ -247,3 +247,67 @@ describe("AiGuidesSection row names", () => {
     expectRowUniqueNames({ minControls: 3, requireCollisionSeed: true });
   });
 });
+
+// §701 — "Applies to": which AI surfaces a guide reaches.
+describe("AiGuidesSection applies-to targets", () => {
+  const chat = () => screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetChat") });
+  const wbs = () => screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") });
+  const save = () => screen.getByRole("button", { name: t("en-US", "aiGuideSave") });
+  function openAddNamed(og: UseOperatingGuidesResult) {
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideAdd") }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiGuideName")), { target: { value: "Team" } });
+  }
+
+  it("offers one checkbox per AI surface, with only the chat ticked for a new guide", () => {
+    openAddNamed(makeOperatingGuides());
+    expect(chat()).toBeChecked();
+    expect(wbs()).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetInlineEdit") })).not.toBeChecked();
+  });
+
+  it("stores the ticked surfaces as targets", () => {
+    const og = makeOperatingGuides();
+    openAddNamed(og);
+    fireEvent.click(wbs());
+    fireEvent.click(save());
+    expect(og.create).toHaveBeenCalledWith("Team", "", expect.objectContaining({ scope: { targets: ["chat", "wbs"] } }));
+  });
+
+  it("stores a chat-only guide with no targets at all, exactly as before", () => {
+    const og = makeOperatingGuides();
+    openAddNamed(og);
+    fireEvent.click(save());
+    expect(og.create).toHaveBeenCalledWith("Team", "", expect.objectContaining({ scope: {} }));
+  });
+
+  it("keeps Save disabled and says why while no surface is ticked", () => {
+    openAddNamed(makeOperatingGuides());
+    fireEvent.click(chat());
+    expect(save()).toBeDisabled();
+    expect(screen.getByText(t("en-US", "aiGuideTargetsNone"))).toBeInTheDocument();
+  });
+
+  it("opens an action-only guide with its targets ticked and keeps them on save", () => {
+    const g = { id: "w", name: "WBS rules", content: "c", enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const og = makeOperatingGuides({ guides: [g] });
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – WBS rules` }));
+    expect(wbs()).toBeChecked();
+    expect(chat()).not.toBeChecked();
+    fireEvent.click(save());
+    expect(og.update).toHaveBeenCalledWith(expect.objectContaining({ id: "w", scope: { targets: ["wbs"] } }));
+  });
+
+  it("shows on each row where its guide applies", () => {
+    const g = { id: "w", name: "WBS rules", content: "c", enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.getByText(t("en-US", "aiGuideAppliesTo", t("en-US", "aiGuideTargetWbs")))).toBeInTheDocument();
+  });
+
+  it("does not count an action-only guide toward the chat's size warning", () => {
+    const g = { id: "big", name: "Big", content: "x".repeat(200_000), enabled: true, priority: 1, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.queryByText(t("en-US", "aiGuideBudgetWarning"))).toBeNull();
+  });
+});
