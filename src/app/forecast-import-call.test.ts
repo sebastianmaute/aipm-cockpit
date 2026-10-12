@@ -3,7 +3,13 @@
 // untouched. The request body is read off `fetch`, so this checks what reaches
 // Anthropic.
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { FORECAST_ROWS_TOOL, runForecastImportCall, sheetToPromptText } from "./forecast-import-call";
+import {
+  FORECAST_ROWS_TOOL,
+  MAX_CLAUDE_IMPORT_CELLS,
+  runForecastImportCall,
+  sheetToPromptText,
+} from "./forecast-import-call";
+import { validateForecastRows } from "./budget-import/forecast-validate";
 import type { SheetGrid } from "./budget-import/sheet-grid";
 import { XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 
@@ -68,6 +74,52 @@ describe("sheetToPromptText", () => {
   });
 });
 
+// The prompt is the only place the model learns coordinates, and the validator is
+// the only place they are checked, so this ties the two together: a citation read
+// OFF THE RENDERED TEXT must pass, and the row above it must not.
+describe("prompt coordinates against the validator", () => {
+  const GRID: SheetGrid = {
+    name: "Plan",
+    rows: [
+      ["Name", "2026-01", "2026-02"],
+      [],
+      ["Ada", "12", "8"],
+      ["Bob", "5"],
+    ],
+    truncated: false,
+  };
+  const cellsOf = (line: string): string[] => line.replace(/^\| /, "").replace(/ \|$/, "").split(" | ");
+
+  /** Row number and column letter of the data cell holding `value`, read from the text. */
+  function coordinatesInPrompt(value: string): { rowNumber: number; letter: string } {
+    const lines = sheetToPromptText(GRID).split("\n").filter((l) => l.startsWith("|"));
+    const header = cellsOf(lines[0]);
+    for (const line of lines.slice(2)) {
+      const cells = cellsOf(line);
+      const at = cells.indexOf(value, 1);
+      if (at > 0) return { rowNumber: Number(cells[0]), letter: header[at] };
+    }
+    throw new Error(`${value} is not in the prompt`);
+  }
+
+  const rowCiting = (source: string) => ({ person: "Ada", period: "2026-01", hours: 12, source });
+
+  it("accepts a row citing the coordinates the prompt shows, even after a blank row", () => {
+    const { rowNumber, letter } = coordinatesInPrompt("12");
+    expect(rowNumber).toBe(3);
+    const out = validateForecastRows([rowCiting(`Plan!${letter}${rowNumber}`)], { sheet: GRID, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok).toHaveLength(1);
+  });
+
+  it("rejects the same row cited one row lower", () => {
+    const { rowNumber, letter } = coordinatesInPrompt("12");
+    const out = validateForecastRows([rowCiting(`Plan!${letter}${rowNumber - 1}`)], { sheet: GRID, requireSource: true });
+    expect(out.ok).toEqual([]);
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+});
+
 describe("FORECAST_ROWS_TOOL", () => {
   it("requires rows and, per row, person, period, hours and source", () => {
     expect(FORECAST_ROWS_TOOL.name).toBe("propose_forecast_rows");
@@ -126,6 +178,26 @@ describe("runForecastImportCall", () => {
     const controller = new AbortController();
     await runForecastImportCall(SHEET, AI, controller.signal);
     expect(((spy.mock.calls[0] as unknown[])[1] as RequestInit).signal).toBe(controller.signal);
+  });
+
+  it("refuses a sheet over the cell cap before any request", async () => {
+    const spy = mockResponse({ rows: [] });
+    const row = Array.from({ length: 100 }, () => "x");
+    const rows = Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 100 + 1 }, () => row);
+    await expect(runForecastImportCall({ name: "Big", rows, truncated: false }, AI)).rejects.toThrow("too-large");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("allows exactly the cap, and does not count blank cells or rows", async () => {
+    const spy = mockResponse({ rows: [] });
+    const row = Array.from({ length: 100 }, () => "x");
+    const rows = [
+      ...Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 100 }, () => row),
+      ["", " "],
+      [],
+    ];
+    await runForecastImportCall({ name: "Edge", rows, truncated: false }, AI);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("never puts the api key in the request body", async () => {

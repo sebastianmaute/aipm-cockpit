@@ -314,6 +314,24 @@ function forEachXmlElement(xml: string, name: string, visit: (whole: string) => 
   }
 }
 
+/** Excel's last row number: a `<row r>` past it is not a real position. */
+const MAX_XLSX_ROW = 1_048_576;
+
+/** The 0-based grid index a `<row r="N">` asks for, or null when it has none or
+ *  it is not usable — non-numeric, not after the row before it, or past Excel's
+ *  last row — in which case the row simply follows the previous one. */
+function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
+  const m = /^<row\b[^>]*?\br="(\d+)"/.exec(rowXml);
+  if (m === null) return null;
+  const index = Number(m[1]) - 1;
+  return index >= rowCount && index < MAX_XLSX_ROW ? index : null;
+}
+
+/** Rows as a grid whose index is the sheet's own row number minus one. Excel
+ *  omits empty rows from the XML, so a row's `r` decides where it lands and any
+ *  gap is filled with empty rows (they hold no cells, so the budget ignores them).
+ *  The Markdown path drops blank rows anyway; the forecast import cites cells by
+ *  row number and needs them to match what the user sees in Excel (§500). */
 function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated: boolean } {
   const rows: string[][] = [];
   let cellCount = 0;
@@ -337,6 +355,8 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       return false;
     }
     cellCount += cells.length;
+    const at = rowIndexFromAttr(rowXml, rows.length);
+    if (at !== null) while (rows.length < at) rows.push([]);
     rows.push(cells);
     return true;
   });

@@ -529,4 +529,50 @@ describe("extractXlsxGrid", () => {
     expect(sheet.rows.length).toBeLessThan(20);
     expect(MAX_XLSX_SHEET_CELLS).toBeGreaterThan(0);
   });
+
+  // §500 — Excel omits empty rows from the sheet XML, so a grid index must follow
+  // the row's own r attribute or every cell reference shown to the user is off.
+  describe("row numbers follow the r attribute", () => {
+    const gridOf = (rows: string) =>
+      extractXlsxGrid(new Map([["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData>${rows}</sheetData></worksheet>`)]]))[0];
+    const cell = (ref: string, v: string) => `<c r="${ref}"><v>${v}</v></c>`;
+
+    it("puts a row at index r-1 and fills the gap with empty rows", () => {
+      const { rows } = gridOf(
+        `<row r="1">${cell("A1", "a")}</row><row r="4">${cell("A4", "d")}</row><row r="5">${cell("A5", "e")}</row>`,
+      );
+      expect(rows).toEqual([["a"], [], [], ["d"], ["e"]]);
+    });
+
+    it("places a row without r right after the previous one", () => {
+      const { rows } = gridOf(`<row r="3">${cell("A3", "c")}</row><row><c><v>d</v></c></row>`);
+      expect(rows).toEqual([[], [], ["c"], ["d"]]);
+    });
+
+    it("does not count a gap row against the cell budget", () => {
+      // 900,000 gap rows would blow the budget if they counted; they hold no
+      // cells, so nothing is cut.
+      const { rows, truncated } = gridOf(`<row r="1">${cell("A1", "a")}</row><row r="900000">${cell("A900000", "z")}</row>`);
+      expect(truncated).toBe(false);
+      expect(rows.length).toBe(900_000);
+      expect(rows[899_999]).toEqual(["z"]);
+    });
+
+    it("falls back to sequential placement on a hostile r", () => {
+      const { rows } = gridOf(
+        `<row r="3">${cell("A3", "c")}</row>` +
+          `<row r="2">${cell("A2", "back")}</row>` + // not after the previous row
+          `<row r="abc">${cell("A9", "word")}</row>` + // not numeric
+          `<row r="1048577">${cell("A9", "huge")}</row>`, // past Excel's last row
+      );
+      expect(rows).toEqual([[], [], ["c"], ["back"], ["word"], ["huge"]]);
+    });
+
+    it("leaves the Markdown rendering of a gappy sheet unchanged", () => {
+      const out = extractXlsx(new Map([
+        ["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData><row r="1">${cell("A1", "h")}</row><row r="4">${cell("A4", "d")}</row></sheetData></worksheet>`)],
+      ]));
+      expect(out).toBe("## Sheet: Sheet1\n\n| h |\n| --- |\n| d |");
+    });
+  });
 });

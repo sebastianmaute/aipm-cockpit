@@ -11,6 +11,11 @@ import { renderSheetMarkdown } from "./xlsx-extract";
 
 const MAX_TOKENS = 8192;
 
+/** Non-blank cells a sheet may hold and still be sent: well under the 250,000-cell
+ *  extraction cap, which would be a prompt too large to answer inside MAX_TOKENS.
+ *  Over it, `runForecastImportCall` throws `Error("too-large")` before any request. */
+export const MAX_CLAUDE_IMPORT_CELLS = 20_000;
+
 const SYSTEM =
   "You read a project forecast spreadsheet and return one row per person and period with the hours planned. " +
   "Copy values exactly as written; never compute, total or estimate. " +
@@ -70,11 +75,16 @@ export function sheetToPromptText(sheet: SheetGrid): string {
   return `Sheet: ${sheet.name}\n\n${renderSheetMarkdown([header, ...numbered], sheet.truncated)}`;
 }
 
+function countNonBlankCells(sheet: SheetGrid): number {
+  return sheet.rows.reduce((sum, row) => sum + row.filter((c) => c.trim() !== "").length, 0);
+}
+
 export async function runForecastImportCall(
   sheet: SheetGrid,
   ai: { apiKey: string; model: string; guideText?: string },
   signal?: AbortSignal,
 ): Promise<{ rows: unknown; notes: string }> {
+  if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
   const raw = await runForcedToolCall({
     apiKey: ai.apiKey,
     model: ai.model,
