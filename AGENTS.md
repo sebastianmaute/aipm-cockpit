@@ -734,7 +734,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), `buildAppModalsBlock` in
   `app-modals-block.tsx` (a plain builder for `modalsBlock`, the overlay layer every returned tree renders once; its
-  deps keys are all required, so a dropped optional prop is a tsc error), and
+  deps keys are all required, so a dropped optional prop is a tsc error), `buildAppBanners` in `app-banners-block.tsx` (a
+  plain builder for `bannersEl`, the banner stack above the workspace, with its popout gates), and
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its

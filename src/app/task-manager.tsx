@@ -52,7 +52,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { AiKeyBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
+import { buildAppBanners } from "./app-banners-block";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
 import { isAiKeyStatusBad } from "./ai-key-status";
@@ -1795,52 +1795,16 @@ function TaskManagerInner() {
     onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast,
   });
 
-  // The Birthday / Jira-token / Storage reminder banners, shared by the classic
-  // tree (rendered after AppHeader) and the modern tree (ModernShell `banners`
-  // slot). Due / RAID-review / stakeholder-comms nudges moved into the Action
-  // Center. Gates kept verbatim — popouts (`!isPopout`) still suppress these.
-  const bannersEl = (
-    <>
-      {reminderBannersEl}
-      {!isPopout && shownStorageError && shownStorageSource && !storageDismissed[shownStorageSource] && (
-        <StorageBanner kind={shownStorageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageDismissed({ backend: true, list: true })} />
-      )}
-      {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
-      {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (
-        <AiKeyBanner status={aiKeyStatus} lang={lang} onOpenSettings={() => onOpenSettingsSection("ai")} onDismiss={() => setAiKeyBannerDismissed(true)} />
-      )}
-      {unloadJournalConflict && (
-        <UnloadJournalConflictBanner lang={lang} onRestoreAnyway={restoreUnloadJournalAnyway} onDiscard={discardUnloadJournal} />
-      )}
-      {otherJournals.expired.length > 0 && <ExpiredJournalsBanner lang={lang} expired={otherJournals.expired} onDownload={otherJournals.download} onDismiss={otherJournals.dismissExpired} />}
-      {otherJournals.others.length > 0 && (
-        <OtherJournalsBanner lang={lang} others={otherJournals.others} onDownload={otherJournals.download} onDiscard={otherJournals.discard} onDismiss={otherJournals.dismiss} canRestore={otherJournals.isRestorable} onRestore={restoreKeptJournal} />
-      )}
-      {!isPopout && loadWasIncomplete && (
-        <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
-      )}
-      {/* ★ A SIBLING of the truncation mount, never an `else` on it: the two causes
-          are mutually exclusive UPSTREAM, by TWO mechanisms — the save effect returns
-          on truncation ABOVE the destructive guard (no NEW refusal while truncation
-          stands), and its suppress-after-load branch clears a standing refusal (no OLD
-          refusal outlives its workspace). An `else` would ENCODE that exclusivity here
-          and hide where it is actually enforced.
-          ★★ So these siblings are UNGUARDED against each other on purpose, and the cost
-          is visible: were the combined state ever reachable again, BOTH would render —
-          two `role="alert"` regions, two identically-named Dismiss buttons, and two
-          "save anyway" buttons authorising different things. That consequence is
-          characterized in `task-manager.truncation-banner.test.tsx`; the exclusivity
-          itself is pinned in `use-storage-backend.test.tsx`, which is where it lives. */}
-      {/* §586/§587 — the save gate is shut for the active backend (its load failed, or came back empty over
-          a populated project). STICKY for as long as the pause holds: the refused-edit toast times out. */}
-      {!isPopout && loadPause !== null && ( // §4 — a conflict pause shares this mount and its dismissed state, and gets the hook's three resolve handlers (Reload, Overwrite, Download my version); Overwrite only while the refusal named the version it may replace
-        <SavingPausedBanner lang={lang} cause={loadPause === "conflict" ? { kind: "conflict" } : { kind: "load", reason: loadPause }} dismissed={loadPauseBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={() => { void (loadPause === "conflict" ? resolveConflictReload() : reloadCurrentProject()); }} onOverwrite={canOverwriteConflict ? resolveConflictOverwrite : undefined} onDownload={loadPause === "conflict" ? downloadConflictVersion : undefined} onDismiss={() => setLoadPauseBannerDismissed(true)} onReopen={() => setLoadPauseBannerDismissed(false)} />
-      )}
-      {!isPopout && destructiveRefusal !== null && (
-        <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDiscard={() => { void reloadCurrentProject(); }} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
-      )}
-    </>
-  );
+  // The banner stack every returned tree renders above the workspace — see buildAppBanners.
+  const bannersEl = buildAppBanners({
+    lang, isPopout, settings, reminderBannersEl,
+    shownStorageError, shownStorageSource, storageDismissed, setStorageDismissed, onOpenSettings,
+    aiKeyStatus, aiKeyBannerDismissed, setAiKeyBannerDismissed, onOpenSettingsSection,
+    unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
+    loadWasIncomplete, truncation, decodeFailureCount, malformedQuoteCount, allowIncompleteSave, truncationBannerDismissed, setTruncationBannerDismissed,
+    loadPause, resolveConflictReload, reloadCurrentProject, canOverwriteConflict, resolveConflictOverwrite, downloadConflictVersion, loadPauseBannerDismissed, setLoadPauseBannerDismissed,
+    destructiveRefusal, allowDestructiveSaveAnyway, destructiveBannerDismissed, setDestructiveBannerDismissed,
+  });
 
   // The overlay layer every returned tree renders once — see buildAppModalsBlock.
   const modalsBlock = buildAppModalsBlock({
