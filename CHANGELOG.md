@@ -36,7 +36,7 @@ longer carries its own changelog comment.
 - **A name containing `$` sequences (such as `$$` or `$&`) or `{1}` is now shown as typed in every
   message.** A `$` sequence in any value of any message was expanded, so "US$$5" showed as "US$5"; and a
   value containing `{1}` that came before a later value had that value inserted into it, so a board lane
-  for a person named "Team {1}" was announced as "Team To Do – To Do". The "Add as resource" row of the
+  for a person named "Team {1}" was announced as "Team To Do – {1}". The "Add as resource" row of the
   person picker now reads the same way.
 
 - **Planning resource allocations with AI now tells you how many changes it applied when some were
