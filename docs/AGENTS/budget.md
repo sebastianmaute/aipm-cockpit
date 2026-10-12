@@ -265,7 +265,14 @@ engines live in `src/app/budget-import/` (no i18n, no React).
 - **Two routes, one row list.** A file becomes `SheetGrid`s (`readSheetFile`: CSV, or xlsx through
   `extractXlsxGrid`). The HAND route finds the columns (`detectLayout`, editable on the mapping step) and
   reads them with `gridToForecastRows`, deciding the decimal style once over all hours columns
-  (`detectDecimalStyle`), never per cell. The CLAUDE route sends the sheet to ONE forced call
+  (`detectDecimalStyle`), never per cell; in German style a dot is only a thousands mark in groups of
+  three, so a stray `2.5` is reported, not read as 25. ★★ A workbook is exempt from that guess
+  (`SheetGrid.numbers` is "dot" for xlsx/xlsm): Excel stores every number cell with a dot, so those cells
+  read with a dot and never vote — one `2.625` once flipped a whole column and read `7.5` as 75. A month
+  name or week without a year ("Jan", "KW03") is a period only in `ColumnMapping.year`, which the hook
+  starts at the bucket's start year and the mapping step edits; the validator reads a Claude row in the
+  same year. A wide sheet's number column whose header is not a period comes back as an
+  `IgnoredColumn` and is listed under "Not imported". The CLAUDE route sends the sheet to ONE forced call
   (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text from `sheetToPromptText` over the
   shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical

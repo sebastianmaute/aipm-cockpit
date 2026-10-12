@@ -24,10 +24,12 @@ longer carries its own changelog comment.
 - **Import a budget forecast from a spreadsheet (§500).** "Import forecast…" on a budget bucket's card reads
   planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file into that bucket. Detect columns finds the
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
-  person and period), and you can adjust them; German exports (`1.234,5`, `Jan.`, `KW03`) read correctly, and
-  total rows and columns are skipped. Or Ask Claude to read the sheet: every row it returns cites the cell
-  its hours came from, and a row whose cell does not hold them, or that is not on that person's row, is not
-  imported. Monthly figures are spread over a weekly plan (and weekly over a monthly one) by working days,
+  person and period), and you can adjust them. German exports read correctly (`1.234,5`, `Jan. 2026`,
+  `KW03 2026`, `Mrz 26`), and so do month names and weeks without a year (`Jan`, `KW03`) once the
+  import's year is set — it starts at the bucket's start year. Total rows and columns are skipped, and a
+  column of numbers whose header is not a period is listed instead of dropped without a word. Or Ask
+  Claude to read the sheet: every row it returns cites the cell its hours came from, and a row whose cell
+  does not hold them, or that is not on that person's row, is not imported — the preview says which. Monthly figures are spread over a weekly plan (and weekly over a monthly one) by working days,
   keeping the total exact. The preview lists every cell that would change, people it could not match (you
   can pick or skip each one), hours outside the bucket's periods, rates that differ from the rate card, and
   periods the sheet covers only in part. Nothing is written until you apply, and Apply refuses if the bucket
@@ -47,9 +49,9 @@ longer carries its own changelog comment.
 
 ### Security
 
-- **Spreadsheet attachments in the AI assistant chat are bounded (§500).** A workbook with very many sheets,
-  very wide rows, or rows numbered far apart is now read only up to a fixed number of rows and cells across
-  the whole file, and marked as cut, instead of exhausting the browser's memory.
+- **Spreadsheet attachments in the AI assistant chat are bounded (§500).** A workbook with very many sheets
+  or very wide rows is now read only up to a fixed number of rows and cells across the whole file, and
+  marked as cut, instead of exhausting the browser's memory.
 
 ## [1.18.0] - 2026-10-12 "Larsson"
 
