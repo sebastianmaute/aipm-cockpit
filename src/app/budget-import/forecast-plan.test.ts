@@ -300,6 +300,32 @@ describe("partial cells", () => {
   it("never flags a cell written at the sheet's own granularity", () => {
     expect(plan([row("Ann Lee", "2026-01", 10)]).changes[0].partial).toBeUndefined();
   });
+
+  // Only a WORKING day nobody covers makes a cell partial. W32-W36 cover
+  // 3 Aug - 6 Sep 2026; August's uncovered 1st and 2nd are a Saturday and a
+  // Sunday, so August is whole. September is genuinely partial (the positive
+  // control that the check ran at all).
+  it("ignores uncovered weekend days", () => {
+    const weeks = ["2026-W32", "2026-W33", "2026-W34", "2026-W35", "2026-W36"].map((w) => row("Ann Lee", w, 40));
+    const p = plan(weeks, { bucket: bucketOf({ startDate: "2026-01-01", endDate: "2026-12-31" }) });
+    const byPeriod = new Map(p.changes.map((c) => [c.period, c]));
+    expect(byPeriod.get("2026-08")).toBeDefined();
+    expect(byPeriod.get("2026-08")?.partial).toBeUndefined();
+    expect(byPeriod.get("2026-09")?.partial).toBe(true);
+  });
+
+  // W18 runs 27 Apr - 3 May 2026. April covers its Monday to Thursday; Friday
+  // 1 May is a public holiday and the rest is weekend, so W18 is whole. Without
+  // the holiday the same week is partial (the control).
+  it("ignores an uncovered public holiday", () => {
+    const bucket = bucketOf({ startDate: "2026-01-01", endDate: "2026-06-30" });
+    const ctx = { bucket, plan: weekly };
+    const w18 = (holidaySet: ReadonlySet<string>) =>
+      plan([row("Ann Lee", "2026-04", 100)], { ...ctx, holidaySet }).changes.find((c) => c.period === "2026-W18");
+    expect(w18(new Set(["2026-05-01"]))).toBeDefined();
+    expect(w18(new Set(["2026-05-01"]))?.partial).toBeUndefined();
+    expect(w18(NONE)?.partial).toBe(true);
+  });
 });
 
 describe("range", () => {
