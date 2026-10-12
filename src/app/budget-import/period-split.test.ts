@@ -69,9 +69,37 @@ describe("splitToGranularity", () => {
     expect(splitToGranularity("2026-W02", 10, "month", week2)).toEqual([{ key: "2026-01", hours: 10 }]);
   });
 
-  it("writes one zero entry for zero hours so a deliberate zero still overwrites", () => {
-    expect(splitToGranularity("2026-01", 0, "week", NONE)).toEqual([{ key: "2026-W01", hours: 0 }]);
-    expect(splitToGranularity("2026-W01", 0, "month", NONE)).toEqual([{ key: "2025-12", hours: 0 }]);
+  it("writes a zero for every target the source period has working days in", () => {
+    // Aug 2026 starts on a Saturday: the Aug 1-2 weekend is in W31, which must NOT be zeroed.
+    expect(splitToGranularity("2026-08", 0, "week", NONE)).toEqual([
+      { key: "2026-W32", hours: 0 },
+      { key: "2026-W33", hours: 0 },
+      { key: "2026-W34", hours: 0 },
+      { key: "2026-W35", hours: 0 },
+      { key: "2026-W36", hours: 0 },
+    ]);
+    // 2026-W27 = Mon Jun 29 .. Sun Jul 5.
+    expect(splitToGranularity("2026-W27", 0, "month", NONE)).toEqual([
+      { key: "2026-06", hours: 0 },
+      { key: "2026-07", hours: 0 },
+    ]);
+  });
+
+  it("zeroes the calendar-day targets when the source period has no workday", () => {
+    const holidays = new Set(["2025-12-29", "2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02"]);
+    expect(splitToGranularity("2026-W01", 0, "month", holidays)).toEqual([
+      { key: "2025-12", hours: 0 },
+      { key: "2026-01", hours: 0 },
+    ]);
+  });
+
+  it("keeps a zero on the identity path", () => {
+    expect(splitToGranularity("2026-01", 0, "month", NONE)).toEqual([{ key: "2026-01", hours: 0 }]);
+  });
+
+  it("rounds hours to 2 decimals on the identity path too", () => {
+    expect(splitToGranularity("2026-01", 1.005, "month", NONE)).toEqual([{ key: "2026-01", hours: 1.01 }]);
+    expect(splitToGranularity("2026-W05", 12.344, "week", NONE)).toEqual([{ key: "2026-W05", hours: 12.34 }]);
   });
 
   it("puts the rounding remainder on the last key", () => {

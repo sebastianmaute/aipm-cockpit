@@ -32,6 +32,12 @@ function calendarDays(start: string, end: string): number {
   return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / DAY_MS) + 1;
 }
 
+/** Hours to whole cents. The epsilon makes a decimal tie such as 1.005 (stored
+ *  as 1.00499...) round up like the figure the user typed. */
+function toCents(hours: number): number {
+  return Math.round((hours + Number.EPSILON) * 100);
+}
+
 /** Cent shares for weights, rounded one by one; the remainder goes to the LAST
  *  entry. If rounding up earlier shares would push the last below zero, the
  *  deficit is taken from the largest earlier shares instead. */
@@ -68,11 +74,10 @@ export function splitToGranularity(
 ): PeriodShare[] {
   const source = granularityOf(period);
   const bounds = boundsOf(period, source);
-  if (source === target) return [{ key: period, hours }];
+  const totalCents = toCents(hours);
+  if (source === target) return [{ key: period, hours: totalCents / 100 }];
 
   const targets = generatePeriods(bounds.start, bounds.end, target);
-  if (hours === 0) return [{ key: targets[0].key, hours: 0 }];
-
   const clipped = targets.map((t) => ({
     key: t.key,
     start: t.start > bounds.start ? t.start : bounds.start,
@@ -83,8 +88,11 @@ export function splitToGranularity(
   const weights = hasWorkdays ? workdays : clipped.map((c) => calendarDays(c.start, c.end));
 
   const kept = clipped.map((c, i) => ({ key: c.key, weight: weights[i] })).filter((c) => c.weight > 0);
+  // A deliberate zero clears every target the source actually covers, never a
+  // boundary period that only holds a weekend day of it.
+  if (totalCents === 0) return kept.map((c) => ({ key: c.key, hours: 0 }));
   const cents = distributeCents(
-    Math.round(hours * 100),
+    totalCents,
     kept.map((c) => c.weight),
   );
   return kept.map((c, i) => ({ key: c.key, hours: cents[i] / 100 }));
