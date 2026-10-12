@@ -726,7 +726,7 @@ function TaskManagerInner() {
   // context builder + SP5 scheduled-job runner) extracted to useAiOrchestration.
   const { aiAnalysisBundle, buildWeightSuggestionContext } = useAiOrchestration({
     isPopout,
-    settings,
+    settings, guides: operatingGuides.guides,
     lang,
     today,
     project,
@@ -1125,7 +1125,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, loadPending, getScopeEpoch, settings, lang, today, project,
+    isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,

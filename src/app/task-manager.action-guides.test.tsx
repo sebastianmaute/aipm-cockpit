@@ -20,7 +20,9 @@ vi.mock("./workspace-section", async (importOriginal) => ({
 
 // Pass-through spies: the real hooks run; the deps task-manager hands them are
 // recorded on every render.
-const seen: { wbs: OperatingGuide[][]; report: OperatingGuide[][] } = { wbs: [], report: [] };
+const seen: Record<"wbs" | "report" | "orchestration" | "insights", OperatingGuide[][]> = {
+  wbs: [], report: [], orchestration: [], insights: [],
+};
 vi.mock("./use-wbs-plan", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./use-wbs-plan")>();
   return {
@@ -42,15 +44,36 @@ vi.mock("./use-meeting-report-actions", async (importOriginal) => {
   };
 });
 
+vi.mock("./use-ai-orchestration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-ai-orchestration")>();
+  return {
+    ...actual,
+    useAiOrchestration: (deps: Parameters<typeof actual.useAiOrchestration>[0]) => {
+      seen.orchestration.push([...deps.guides]);
+      return actual.useAiOrchestration(deps);
+    },
+  };
+});
+vi.mock("./use-insight-recommendations", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-insight-recommendations")>();
+  return {
+    ...actual,
+    useInsightRecommendations: (deps: Parameters<typeof actual.useInsightRecommendations>[0]) => {
+      seen.insights.push([...deps.guides]);
+      return actual.useInsightRecommendations(deps);
+    },
+  };
+});
+
 import TaskManager from "./task-manager";
 
 const TEAM: OperatingGuide = {
   id: "guide-team", name: "Team rules", content: "Split anything over 3 days.", enabled: true,
-  priority: 50, scope: { targets: ["wbs", "committeeReport"] }, builtIn: false,
+  priority: 50, scope: { targets: ["wbs", "committeeReport", "jobAnalysis", "insightRecommend"] }, builtIn: false,
 };
 
 describe("task-manager feeds the guide library to its body-level AI hooks (§701)", () => {
-  it("hands the stored guides to Optimize with AI and the committee report", async () => {
+  it("hands the stored guides to every AI hook it calls in its own body", async () => {
     window.localStorage.clear();
     window.localStorage.setItem(
       "aipm-cockpit:projects",
@@ -65,6 +88,8 @@ describe("task-manager feeds the guide library to its body-level AI hooks (§701
     await waitFor(() => {
       expect(seen.wbs.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
       expect(seen.report.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
+      expect(seen.orchestration.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
+      expect(seen.insights.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
     });
   }, 45000);
 });
