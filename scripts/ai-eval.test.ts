@@ -228,10 +228,11 @@ describe("runEval — dry run", () => {
     const code = await runEval(h.deps);
 
     // Assert — pre-flight ran over every probe and every assertion held.
-    // ★★ THIS IS THE `ARMS_ARE_ALIAS` PIN. Arm B is a byte-for-byte alias of
-    //    arm A today, so flipping the flag to `false` makes pre-flight push
-    //    "arm B is byte-identical to arm A" for every probe and this run
-    //    returns UNUSABLE instead. Mutation-proved.
+    // ★★ THIS IS THE `ARMS_ARE_ALIAS` PIN. Since §483 arm B is the G2 layout
+    //    and differs from arm A, so flipping the flag to `true` makes pre-flight
+    //    push "ARMS_ARE_ALIAS is true but arm B differs from arm A" for every
+    //    probe and this run returns UNUSABLE instead (mutation M6 on the §483
+    //    branch). Before §483 it pinned the opposite direction.
     expect(code).toBe(EXIT.PASS);
     expect(out).toContain("pre-flight OK");
     expect(h.sent).toHaveLength(0);
@@ -339,12 +340,12 @@ describe("runEval — the standard run", () => {
     //    ★★★ ITS OTHER DIRECTION CANNOT BE DRIVEN FROM HERE, BY CONSTRUCTION.
     //    The check is guarded on `filter === null`, and under that guard
     //    `activeProbes` IS `PROBES`, `reps` IS `REPS` and `armWanted` is
-    //    unconditionally true — so all five disjuncts are false for every
+    //    unconditionally true — so all six disjuncts are false for every
     //    input the seam accepts. It can only fire against a FUTURE narrowing
     //    that bypasses `parseFilter`, which is exactly what it is there for.
-    //    Verified by simulating one: `reps = filter?.reps ?? REPS - 2` makes it
-    //    push "unfiltered run planned 5 probes, reps 3 … the plan itself fell
-    //    short" and this test dies. Do not read a green run as that half
+    //    Verified by simulating one, when there were five probes: `reps =
+    //    filter?.reps ?? REPS - 2` made it push "unfiltered run planned 5 probes, reps 3 … the plan itself fell
+    //    short" and this test died. Do not read a green run as that half
     //    having been exercised by an input.
     expect(code).toBe(EXIT.PASS);
     const record = h.lastRecord();
