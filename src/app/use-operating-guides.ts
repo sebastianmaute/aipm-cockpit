@@ -82,11 +82,12 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
 export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOperatingGuidesResult {
   const [guides, setGuides] = useState<OperatingGuide[]>([]);
   const [busy, setBusy] = useState(false);
-  // §701 — `ready` means "the library for the CURRENT source has loaded", not
+  // §701 — `ready` means "the load for the CURRENT source has SETTLED" (loaded,
+  // or failed — a failed load keeps the previous library, fail-soft), not
   // "some load finished once". It is derived from the source whose load last
   // settled, so a change of source (a file-mode first load, then the Turso
   // config once its sealed token is unlocked) reads not-ready until that
-  // source has loaded: an unattended digest or runner, and the chat composer
+  // source's load has settled: an unattended digest or runner, and the chat composer
   // (§76), no longer go out with the previous source's guides in between.
   // Derived rather than reset, because setting state during render or in an
   // effect to mirror a prop is banned here.
@@ -139,7 +140,11 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     } catch {
       // optional feature — leave guides as-is
     } finally {
-      if (mountedRef.current && cfgRef.current === source) setLoadedFor(source);
+      // Only the refresh that actually set the library may mark it loaded: one
+      // superseded by a create/update/remove during the first load returned
+      // above without `setGuides`, and marking it would read ready with the
+      // library still empty until the mutation's own refresh lands.
+      if (mountedRef.current && cfgRef.current === source && opSeqRef.current === startSeq) setLoadedFor(source);
     }
   }, []);
 
@@ -159,8 +164,11 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
         priority: opts?.priority ?? maxP + 1, scope: opts?.scope ?? {}, builtIn: false,
       };
       await saveGuide(cfgRef.current, g);
-      await refresh();
     } finally {
+      // In `finally`, saved or not (§701): a mutation supersedes a first load
+      // still in flight (opSeq), and only a refresh may then mark the library
+      // loaded — skipped on a failed save, `ready` would stay false for good.
+      await refresh();
       setBusy(false);
     }
   }, [refresh]);
@@ -170,8 +178,11 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     setBusy(true);
     try {
       await saveGuide(cfgRef.current, g);
-      await refresh();
     } finally {
+      // In `finally`, saved or not (§701): a mutation supersedes a first load
+      // still in flight (opSeq), and only a refresh may then mark the library
+      // loaded — skipped on a failed save, `ready` would stay false for good.
+      await refresh();
       setBusy(false);
     }
   }, [refresh]);
@@ -182,8 +193,8 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     setBusy(true);
     try {
       await removeGuide(cfgRef.current, id);
-      await refresh();
     } finally {
+      await refresh(); // saved or not — see `create`
       setBusy(false);
     }
   }, [refresh]);

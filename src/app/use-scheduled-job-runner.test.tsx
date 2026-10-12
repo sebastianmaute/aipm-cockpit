@@ -216,6 +216,24 @@ describe("useScheduledJobRunner — startup order (§701)", () => {
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
 
+  // The production case: the key and the switch-on arrive in ONE settings
+  // commit (both come from the decrypted key). The edge run must send that key,
+  // not the empty one from before — a 401 there burns the job's slot.
+  it("the switch-on run carries the key and guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { enabled: boolean; apiKey: string; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ enabled: p.enabled, ai: { apiKey: p.apiKey, model: "m", guideText: p.guideText } })),
+      { initialProps: { enabled: false, apiKey: "", guideText: "" } },
+    );
+    await act(flush);
+    rerender({ enabled: true, apiKey: "sk-ant-decrypted", guideText: "GUIDE-ARRIVED" });
+    await act(flush);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].apiKey).toBe("sk-ant-decrypted");
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-ARRIVED");
+  });
+
   it("the run on the guides-ready edge carries the guide text that arrived with it", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     const { rerender } = renderHook(
