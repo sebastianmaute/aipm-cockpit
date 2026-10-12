@@ -6,8 +6,9 @@
 // renders it. Mounted only while open, so every open starts from Source.
 //
 // ★ The preview's sections are in a fixed order — blockers, unresolved people,
-// rate notes, what was not imported, Claude's notes, then the cell diff — so the
-// reasons a cell will NOT be written are read before the cells that will.
+// rate notes, what was not imported, Claude's notes, the new lines and people
+// joining them, then the cell diff — so the reasons a cell will NOT be written
+// are read before the cells that will.
 // ★ Every per-person picker is named with a `buildRowTokens` token, and every
 // control has an accessible name; the Apply button is disabled while any
 // blocker stands, and `apply()` re-checks against the live bucket anyway.
@@ -44,6 +45,9 @@ export interface ForecastImportModalProps extends ForecastImportDeps {
 
 const ACCEPT = ".xlsx,.xlsm,.csv";
 const MAX_HEADER_ROW_CHOICES = 50;
+/** Columns a mapping select offers (plus any column already chosen): a sheet
+ *  thousands of columns wide would otherwise render that many options per select. */
+const MAX_COLUMN_CHOICES = 200;
 
 const BLOCKER_KEY: Record<ImportBlocker, TranslationKey> = {
   "follows-plan": "forecastImportBlockerFollowsPlan",
@@ -251,7 +255,12 @@ function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows:
   const yearId = useId();
   const header = rows[draft.headerRow] ?? [];
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0);
-  const columns = Array.from({ length: width }, (_, col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
+  const chosen = [draft.person, draft.email, draft.rate, ...(draft.layout === "long" ? [draft.period, draft.hours] : [])];
+  const offered = new Set([
+    ...Array.from({ length: Math.min(width, MAX_COLUMN_CHOICES) }, (_, col) => col),
+    ...chosen.filter((c): c is number => c !== undefined && c < width),
+  ]);
+  const columns = [...offered].sort((a, b) => a - b).map((col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
   const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, rows));
   const none = t(lang, "forecastImportColNone");
   const next = mappingOf(draft, rows);
@@ -300,6 +309,7 @@ function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows:
           </>
         )}
       </div>
+      {width > MAX_COLUMN_CHOICES && <p className="text-muted-foreground">{t(lang, "forecastImportColumnsCapped", String(MAX_COLUMN_CHOICES))}</p>}
       {draft.layout === "wide" && <p className="text-muted-foreground">{t(lang, "forecastImportPeriodColsFound", periodLabels || none)}</p>}
       <div>
         <h3 className="font-medium text-foreground">{t(lang, "forecastImportSample")}</h3>
@@ -348,6 +358,11 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
 function allocLabel(alloc: AllocationKey, roles: readonly Role[], disciplines: readonly Discipline[], grades: readonly Grade[]): string {
   if (alloc.kind === "role") return roleLabel(roles.find((r) => r.id === alloc.roleId), disciplines, grades) || `#${alloc.roleId}`;
   return disciplines.find((d) => d.id === alloc.disciplineId)?.name || `#${alloc.disciplineId}`;
+}
+
+function resourceName(id: number, resources: readonly Resource[]): string {
+  const resource = resources.find((r) => r.id === id);
+  return resource ? resourceDisplayName(resource) : `#${id}`;
 }
 
 function allocKey(alloc: AllocationKey): string {
@@ -420,6 +435,20 @@ function PreviewStep({ lang, fi, plan, resources, roles, disciplines, grades }: 
       {fi.notes.trim() !== "" && (
         <Section title={t(lang, "forecastImportNotes")}>
           <p className="whitespace-pre-wrap">{fi.notes}</p>
+        </Section>
+      )}
+      {plan.newAllocations.length + plan.addResources.length > 0 && (
+        <Section title={t(lang, "forecastImportMembership")}>
+          <ul className="space-y-0.5">
+            {plan.newAllocations.map((a) => (
+              <li key={`n${allocKey(a)}`}>{t(lang, "forecastImportNewAllocation", allocLabel(a, roles, disciplines, grades))}</li>
+            ))}
+            {plan.addResources.map((a) => (
+              <li key={`a${allocKey(a.alloc)}`}>
+                {t(lang, "forecastImportAddResources", allocLabel(a.alloc, roles, disciplines, grades), a.resourceIds.map((id) => resourceName(id, resources)).join(", "))}
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
       {plan.changes.length > 0 && (

@@ -156,6 +156,18 @@ describe("ForecastImportModal", () => {
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportApply") }));
     expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
     expect(props.onClose).toHaveBeenCalledTimes(1);
+    // Ann is already on the line: no membership change to show.
+    expect(screen.queryByRole("region", { name: t(L, "forecastImportMembership") })).toBeNull();
+  });
+
+  it("shows a new line and the people joining it as changes", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    const section = screen.getByRole("region", { name: t(L, "forecastImportMembership") });
+    expect(within(section).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      t(L, "forecastImportNewAllocation", "Engineering Senior"),
+      t(L, "forecastImportAddResources", "Engineering Senior", "Ann Lee"),
+    ]);
   });
 
   it("warns on a cell the sheet covers only partly", async () => {
@@ -235,6 +247,20 @@ describe("ForecastImportModal", () => {
     expect(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).toHaveValue("0");
     expect(screen.getByText("Ann Lee · 2026-01 · 5 h (f!B2)")).toBeInTheDocument();
     expect(screen.queryByText(t(L, "forecastImportSampleEmpty"))).toBeNull();
+  });
+
+  it("offers the first 200 columns, plus a chosen column past them, and says so", async () => {
+    // A long sheet whose hours column is the 231st.
+    const header = ["Name", "Month", ...Array.from({ length: 228 }, () => ""), "Hours"].join(",");
+    const row = ["Ann Lee", "2026-01", ...Array.from({ length: 228 }, () => ""), "5"].join(",");
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${header}\r\n${row}\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportEditColumns") }));
+    const hours = screen.getByRole("combobox", { name: t(L, "forecastImportColHours") });
+    expect(hours).toHaveValue("230");
+    expect(within(hours).getAllByRole("option")).toHaveLength(201);
+    expect(within(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).getAllByRole("option")).toHaveLength(201);
+    expect(screen.getByText(t(L, "forecastImportColumnsCapped", "200"))).toBeInTheDocument();
   });
 
   it("sets the year for headers without one, defaulting to the bucket's start year", async () => {

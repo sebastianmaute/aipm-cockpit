@@ -246,10 +246,16 @@ describe("isTotalLabel", () => {
     "Gesamt: 2026",
     "Summe:",
     "total:x",
+    "Subtotal",
+    "Subtotal Q1",
+    "Zwischensumme",
+    "Gesamtsumme",
+    "Grand total",
+    "GRAND TOTAL: 2026",
   ])("accepts %j", (label) => {
     expect(isTotalLabel(label)).toBe(true);
   });
-  it.each(["", "Ann", "Totally", "Summer", "Gesamtprojekt", "Sumo wrestler x", "Jan 2026"])(
+  it.each(["", "Ann", "Totally", "Summer", "Gesamtprojekt", "Sumo wrestler x", "Jan 2026", "Grand", "Subtotaler"])(
     "rejects %j",
     (label) => {
       expect(isTotalLabel(label)).toBe(false);

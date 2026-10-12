@@ -179,10 +179,14 @@ export function parseNumberCell(cell: string, style: DecimalStyle, numbers: Numb
   return Number.isFinite(value) ? value : null;
 }
 
-const TOTAL_WORDS = ["total", "totals", "sum", "summe", "gesamt", "σ"] as const;
+const TOTAL_WORDS = [
+  "total", "totals", "sum", "summe", "gesamt", "σ",
+  "subtotal", "zwischensumme", "gesamtsumme", "grand total",
+] as const;
 
-/** A "Total" / "Summe" / "Gesamt" / "Σ" label, bare or followed by a space or
- *  colon ("Total hours", "Gesamt: 2026"). Not "Summer" or "Totally". */
+/** A "Total" / "Subtotal" / "Grand total" / "Summe" / "Zwischensumme" /
+ *  "Gesamt" / "Gesamtsumme" / "Σ" label, bare or followed by a space or colon
+ *  ("Total hours", "Gesamt: 2026"). Not "Summer" or "Totally". */
 export function isTotalLabel(cell: string): boolean {
   const s = cell.trim().toLowerCase();
   return TOTAL_WORDS.some((w) => s === w || s.startsWith(`${w} `) || s.startsWith(`${w}:`));
