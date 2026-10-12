@@ -14,6 +14,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BucketAllocation, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
+import { ForecastImportModal } from "./forecast-import-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
 import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
@@ -158,6 +159,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const { ref: budgetRef, reset: resetBudgetSize } = useResizable("aipm-cockpit:budget-size");
 
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
+  // §500 — the bucket the forecast import was opened for, captured at open: the
+  // dialog stays up if the bucket is removed meanwhile, and its Apply refuses
+  // against the live list instead of the dialog silently vanishing.
+  const [importBucket, setImportBucket] = useState<BudgetBucket | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
   const [bucketFilter, setBucketFilter] = useState("");
   const [roleSort, setRoleSort] = useState<SortDir>("off");
@@ -458,6 +463,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
             plannedByResourcePeriod={plannedByResourcePeriod}
             actualsFetchedAt={actualsFetchedAt}
             onEdit={setEditingBucketId}
+            onImportForecast={isPopout ? undefined : (id) => setImportBucket(bucketById.get(id) ?? null)}
             onUpdateBucket={updateBucket}
             onRemoveBucket={removeBucket}
             onSetCell={setCell}
@@ -471,6 +477,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <AddFirstItemButton onAdd={addBucket} addLabel={`+ ${t(lang, "budgetAddBucket")}…`} padding={6} />
         )}
       </section>
+      {importBucket && !isPopout && (
+        <ForecastImportModal
+          lang={lang}
+          open
+          onClose={() => setImportBucket(null)}
+          bucket={importBucket}
+          buckets={buckets}
+          resources={resources}
+          roles={roles}
+          disciplines={disciplines}
+          grades={grades}
+          plan={plan}
+          holidaySet={holidaySet}
+          onChangeBuckets={props.onChangeBuckets}
+        />
+      )}
       {editingBucketId != null && bucketById.get(editingBucketId) && (
         <BudgetBucketModal
           lang={lang}
