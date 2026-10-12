@@ -29,7 +29,7 @@ import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
 import { normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import type { ColumnMapping, DropReason } from "./budget-import/forecast-types";
-import type { RejectedRow } from "./budget-import/forecast-validate";
+import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useForecastImport, wideMappingFor, type ForecastImport, type ForecastImportDeps } from "./use-forecast-import";
 
@@ -43,7 +43,7 @@ export interface ForecastImportModalProps extends ForecastImportDeps {
 }
 
 const ACCEPT = ".xlsx,.xlsm,.csv";
-const MAX_HEADER_ROW_CHOICES = 10;
+const MAX_HEADER_ROW_CHOICES = 50;
 
 const BLOCKER_KEY: Record<ImportBlocker, TranslationKey> = {
   "follows-plan": "forecastImportBlockerFollowsPlan",
@@ -87,7 +87,7 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
   const onApply = () => {
     if (fi.apply() === "applied") onClose();
   };
-  const canApply = fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy;
+  const canApply = !fi.bucketGone && fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy;
   const sheet = fi.sheets[fi.sheetIndex];
 
   return (
@@ -130,8 +130,9 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
           </div>
           {fi.busy && !fi.claudeBusy && <p role="status" className="text-muted-foreground">{t(lang, "forecastImportReading")}</p>}
           {fi.error && (
-            <Banner severity="error">{"key" in fi.error ? t(lang, fi.error.key) : fi.error.message}</Banner>
+            <Banner severity="error">{"key" in fi.error ? t(lang, fi.error.key, ...(fi.error.args ?? [])) : fi.error.message}</Banner>
           )}
+          {fi.bucketGone && <Banner severity="error">{t(lang, "forecastImportBucketGone")}</Banner>}
           {sheet && <RouteBar lang={lang} fi={fi} />}
           {sheet?.truncated && <Banner severity="warn">{t(lang, "forecastImportTruncated")}</Banner>}
           {sheet && fi.step === "mapping" && <MappingStep lang={lang} fi={fi} rows={sheet.rows} />}
@@ -182,6 +183,8 @@ function RouteBar({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
         idleLabelKey="forecastImportAskClaude"
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
         disabled={!fi.aiAvailable || (fi.busy && !fi.claudeBusy)}
+        // The reason is the button's accessible description, not only text beside it.
+        description={fi.aiAvailable ? undefined : t(lang, "forecastImportAiOff")}
       />
       {!fi.aiAvailable && <p className="text-xs text-muted-foreground">{t(lang, "forecastImportAiOff")}</p>}
     </div>
@@ -246,7 +249,7 @@ function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows:
   const periodLabels = (next.periodCols ?? []).map((c) => header[c]).join(", ");
   return (
     <section className="space-y-3">
-      {fi.mapping === null && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
+      {!fi.layoutDetected && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
       <SegmentedControl
         ariaLabel={t(lang, "forecastImportLayout")}
         value={draft.layout}
@@ -315,7 +318,7 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
         .filter((v) => v !== undefined && v !== null && v !== "")
         .map(String)
     : [];
-  const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", t(lang, REJECT_KEY[r.reason]));
+  const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL)));
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }
 
@@ -393,30 +396,30 @@ function PreviewStep({ lang, fi, plan, resources, roles, disciplines, grades }: 
           <p className="whitespace-pre-wrap">{fi.notes}</p>
         </Section>
       )}
-      <Section title={t(lang, "forecastImportChanges")}>
-        {[...groups.values()].map((g) => (
-          <div key={allocKey(g.alloc)} className="mt-2">
-            <h4 className="font-medium text-foreground">{allocLabel(g.alloc, roles, disciplines, grades)}</h4>
-            <ul className="space-y-0.5">
-              {g.changes.map((c) => (
-                <li key={c.period} className="flex flex-wrap items-center gap-2">
-                  <span className="tabular-nums text-muted-foreground">{c.period}</span>
-                  <span className="tabular-nums">{`${c.old === undefined ? "—" : fmt(c.old)} → ${fmt(c.next)}`}</span>
-                  {c.partial && (
-                    <span className="inline-flex items-center gap-1 text-xs text-foreground">
-                      <ExclamationTriangleIcon aria-hidden="true" className="h-3.5 w-3.5" />
-                      <span>{t(lang, "forecastImportPartial")}</span>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-        {plan.changes.length > 0 && (
+      {plan.changes.length > 0 && (
+        <Section title={t(lang, "forecastImportChanges")}>
+          {[...groups.values()].map((g) => (
+            <div key={allocKey(g.alloc)} className="mt-2">
+              <h4 className="font-medium text-foreground">{allocLabel(g.alloc, roles, disciplines, grades)}</h4>
+              <ul className="space-y-0.5">
+                {g.changes.map((c) => (
+                  <li key={c.period} className="flex flex-wrap items-center gap-2">
+                    <span className="tabular-nums text-muted-foreground">{c.period}</span>
+                    <span className="tabular-nums">{`${c.old === undefined ? "—" : fmt(c.old)} → ${fmt(c.next)}`}</span>
+                    {c.partial && (
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground">
+                        <ExclamationTriangleIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                        <span>{t(lang, "forecastImportPartial")}</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           <p className="mt-2 font-medium text-foreground">{t(lang, "forecastImportTotalDelta", `${delta > 0 ? "+" : ""}${fmt(delta)}`)}</p>
-        )}
-      </Section>
+        </Section>
+      )}
     </div>
   );
 }

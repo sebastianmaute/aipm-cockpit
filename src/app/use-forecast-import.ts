@@ -31,7 +31,7 @@ import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { useActionGuideText } from "./action-guides-context";
-import { checkAttachmentSize } from "./chat-attachments";
+import { checkAttachmentSize, MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import type { TranslationKey } from "./i18n";
 import { aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
@@ -41,7 +41,7 @@ import { useSettings } from "./use-settings";
 export type ForecastImportStep = "source" | "mapping" | "preview";
 export type ForecastImportRoute = "hand" | "claude";
 /** A translated message, or a provider's own safe message shown verbatim. */
-export type ForecastImportError = { key: TranslationKey } | { message: string };
+export type ForecastImportError = { key: TranslationKey; args?: string[] } | { message: string };
 
 export interface ForecastImportDeps {
   /** The bucket the import was opened for. Only its id is trusted at apply time. */
@@ -59,7 +59,14 @@ export interface ForecastImport {
   step: ForecastImportStep;
   sheets: readonly SheetGrid[];
   sheetIndex: number;
+  /** The columns the hand route reads: the detected ones, or — when nothing
+   *  was detected — `defaultMappingFor`, so the mapping step's selects and its
+   *  sample agree from the start. Null only before a sheet is loaded. */
   mapping: ColumnMapping | null;
+  /** False when `detectLayout` found nothing and `mapping` is the default. */
+  layoutDetected: boolean;
+  /** The target bucket is no longer in the live list (removed meanwhile). */
+  bucketGone: boolean;
   setMapping: (next: ColumnMapping | null) => void;
   route: ForecastImportRoute;
   overrides: ReadonlyMap<string, PersonOverride>;
@@ -96,6 +103,7 @@ export interface ForecastImport {
 }
 
 const SAMPLE_ROWS = 5;
+const BYTES_PER_MB = 1024 * 1024;
 const NO_OVERRIDES: ReadonlyMap<string, PersonOverride> = new Map();
 const NO_ROWS: readonly ForecastRow[] = [];
 
@@ -134,6 +142,12 @@ export function wideMappingFor(
   return mapping;
 }
 
+/** The columns the mapping step starts from when nothing was detected:
+ *  header row 1, person in column A, every header period a period column. */
+export function defaultMappingFor(rows: readonly string[][]): ColumnMapping {
+  return wideMappingFor(rows, 0, { person: 0 });
+}
+
 /** The first sheet a layout is found on, else the first sheet. */
 function firstDetectedSheet(sheets: readonly SheetGrid[]): number {
   const found = sheets.findIndex((s) => detectLayout(s.rows).kind !== "unknown");
@@ -155,6 +169,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [sheets, setSheets] = useState<readonly SheetGrid[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [mapping, setMappingState] = useState<ColumnMapping | null>(null);
+  const [layoutDetected, setLayoutDetected] = useState(false);
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
   const [claudeRows, setClaudeRows] = useState<unknown>(null);
   const [notes, setNotes] = useState("");
@@ -214,7 +229,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setClaudeRows(null);
     setNotes("");
     setOverrides(NO_OVERRIDES);
-    setMappingState(detected.mapping);
+    setLayoutDetected(detected.mapping !== null);
+    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows));
     setStep(detected.mapping ? "preview" : "mapping");
   }, []);
 
@@ -226,7 +242,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     if (checkAttachmentSize(file.size) !== null) {
       setSheets([]);
       setStep("source");
-      setError({ key: "forecastImportErrorFileTooLarge" });
+      setError({ key: "forecastImportErrorFileTooLarge", args: [String(MAX_ATTACHMENT_BYTES / BYTES_PER_MB)] });
       return;
     }
     setBusy("file");
@@ -266,12 +282,16 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     openHandRoute(sheet);
   }, [sheet, nextRequest, openHandRoute]);
 
+  // ★ The four user edits below each clear a stale error: a banner from an
+  // earlier failed action must not outlive the user moving on.
   const setMapping = useCallback((next: ColumnMapping | null) => {
+    setError(null);
     setRoute("hand");
     setMappingState(next);
   }, []);
 
   const editMapping = useCallback(() => {
+    setError(null);
     setRoute("hand");
     setStep("mapping");
   }, []);
@@ -279,12 +299,14 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const showPreview = useCallback((next?: ColumnMapping) => {
     const chosen = next ?? mapping;
     if (!chosen) return;
+    setError(null);
     setMappingState(chosen);
     setRoute("hand");
     setStep("preview");
   }, [mapping]);
 
   const setOverride = useCallback((person: string, value: PersonOverride) => {
+    setError(null);
     setOverrides((prev) => new Map(prev).set(normalisePerson(person), value));
   }, []);
 
@@ -325,19 +347,24 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       setError({ key: "forecastImportRefused" });
       return "refused";
     };
+    // Outside the preview the user has reviewed nothing. No message: Apply is
+    // disabled there, and the bucket did not change.
+    if (step !== "preview") return "refused";
     if (!live || !validated || live.status === "closed" || plan.budgetFollowsPlan === true) return refuse();
     const fresh = buildForecastImportPlan(validated.ok, { bucket: live, resources, roles, plan, holidaySet, overrides });
     if (fresh.blockers.length > 0) return refuse();
     const next = { ...applyForecastImport(live, fresh), localModifiedAt: new Date().toISOString() };
     onChangeBuckets(buckets.map((b) => (b.id === bucketId ? next : b)), { kind: "budget.updated", name: live.name });
     return "applied";
-  }, [buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
+  }, [step, buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
 
   return {
     step,
     sheets,
     sheetIndex,
     mapping,
+    layoutDetected,
+    bucketGone: liveBucket === undefined,
     setMapping,
     route,
     overrides,

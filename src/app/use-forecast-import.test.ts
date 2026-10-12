@@ -83,11 +83,21 @@ describe("useForecastImport — the hand route", () => {
     expect(result.current.importPlan?.blockers).toEqual([]);
   });
 
-  it("opens the mapping step empty when no layout is found", async () => {
+  it("opens the mapping step on the default columns when no layout is found", async () => {
     const { result } = await loaded(depsOf(), "just,some\r\nwords,here\r\n");
     expect(result.current.step).toBe("mapping");
-    expect(result.current.mapping).toBeNull();
+    expect(result.current.layoutDetected).toBe(false);
+    expect(result.current.mapping).toEqual(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }));
     expect(result.current.importPlan).toBeNull();
+  });
+
+  it("the sample reads the default columns from the start, before any control is touched", async () => {
+    // One period header is too few for detection, but the default wide
+    // mapping (header row 1, person column A) reads it.
+    const { result } = await loaded(depsOf(), "Name,Jan 2026,Notes\r\nAnn Lee,5,x\r\n");
+    expect(result.current.layoutDetected).toBe(false);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.sample).toEqual([{ person: "Ann Lee", period: "2026-01", hours: 5, source: "forecast!B2" }]);
   });
 
   it("refuses a file over the attachment cap before reading a byte", async () => {
@@ -99,7 +109,8 @@ describe("useForecastImport — the hand route", () => {
       await result.current.loadFile(file);
     });
     expect(read).not.toHaveBeenCalled();
-    expect(result.current.error).toEqual({ key: "forecastImportErrorFileTooLarge" });
+    // The limit is interpolated from MAX_ATTACHMENT_BYTES, not hard-coded in the string.
+    expect(result.current.error).toEqual({ key: "forecastImportErrorFileTooLarge", args: [String(MAX_ATTACHMENT_BYTES / (1024 * 1024))] });
     expect(result.current.step).toBe("source");
   });
 
@@ -147,8 +158,6 @@ describe("useForecastImport — the hand route", () => {
 describe("useForecastImport — moving between steps", () => {
   it("the mapping step: a hand mapping previews, and Edit columns returns to it", async () => {
     const { result } = await loaded(depsOf(), "just,some\r\nwords,here\r\n");
-    act(() => result.current.showPreview());
-    expect(result.current.step).toBe("mapping"); // nothing to preview yet
     const grid = result.current.sheets[0].rows;
     act(() => result.current.setMapping(wideMappingFor(grid, 0, { person: 0 })));
     expect(result.current.mapping).toMatchObject({ layout: "wide", periodCols: [] });
@@ -203,6 +212,42 @@ describe("useForecastImport — moving between steps", () => {
     expect(result.current.sheets[0].name).toBe("forecast");
     expect(result.current.busy).toBe(false);
   });
+
+  it("editing the mapping, previewing, or picking a person clears a stale error", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
+    const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
+    const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
+    const tooLarge = { key: "forecastImportErrorTooLargeForClaude" };
+    const failClaude = async () => {
+      await act(async () => {
+        await result.current.askClaude();
+      });
+      expect(result.current.error).toEqual(tooLarge);
+    };
+    await failClaude();
+    act(() => result.current.editMapping());
+    expect(result.current.error).toBeNull();
+    await failClaude();
+    act(() => result.current.showPreview());
+    expect(result.current.error).toBeNull();
+    await failClaude();
+    act(() => result.current.setOverride("P1", "skip"));
+    expect(result.current.error).toBeNull();
+    await failClaude();
+    act(() => result.current.setMapping(result.current.mapping));
+    expect(result.current.error).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("reports a target bucket that vanished from the live list", async () => {
+    const deps = depsOf();
+    const hook = await loaded(deps);
+    expect(hook.result.current.bucketGone).toBe(false);
+    hook.rerender({ ...deps, buckets: [OTHER] });
+    expect(hook.result.current.bucketGone).toBe(true);
+    expect(hook.result.current.importPlan).toBeNull();
+  });
 });
 
 describe("useForecastImport — apply", () => {
@@ -218,6 +263,7 @@ describe("useForecastImport — apply", () => {
     const [next, meta] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[], unknown];
     expect(meta).toEqual({ kind: "budget.updated", name: "Build" });
     expect(next[1]).toBe(OTHER);
+    expect(next[0].localModifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(next[0].allocations).toEqual([
       { roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 10, "2026-02": 20, "2026-03": 30 }, actualHours: {} },
     ]);
@@ -255,6 +301,19 @@ describe("useForecastImport — apply", () => {
     expect(outcome).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
     expect(hook.result.current.error).toEqual({ key: "forecastImportRefused" });
+  });
+
+  it("refuses outside the preview step", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps);
+    expect(result.current.importPlan?.blockers).toEqual([]);
+    act(() => result.current.editMapping());
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 
   it("refuses a plan with nothing to apply", async () => {

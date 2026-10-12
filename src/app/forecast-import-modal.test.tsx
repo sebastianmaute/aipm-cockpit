@@ -51,7 +51,9 @@ function propsOf(over: Partial<ForecastImportModalProps> = {}): ForecastImportMo
 async function chooseFile(text: string, name = "forecast.csv"): Promise<void> {
   const input = screen.getByLabelText(t(L, "forecastImportFile"));
   fireEvent.change(input, { target: { files: [new File([text], name, { type: "text/csv" })] } });
-  await screen.findByRole("heading", { name: t(L, "forecastImportChanges") });
+  // The hand-route preview always offers "Edit columns"; the "Changes" heading
+  // only renders when something would change.
+  await screen.findByRole("button", { name: t(L, "forecastImportEditColumns") });
 }
 
 const WIDE = "Name,Jan 2026,Feb 2026,Mar 2026\r\n";
@@ -98,11 +100,39 @@ describe("ForecastImportModal", () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseFile(`${WIDE}Annie,4,4,4\r\n`);
     expect(screen.getByText(t(L, "forecastImportBlockerNothing"))).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: t(L, "forecastImportChanges") })).toBeNull();
     fireEvent.change(screen.getByRole("combobox", { name: `${t(L, "forecastImportMatchPerson")} – Annie` }), {
       target: { value: String(ANN.id) },
     });
     expect(screen.queryByText(t(L, "forecastImportBlockerNothing"))).toBeNull();
+    expect(screen.getByRole("heading", { name: t(L, "forecastImportChanges") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
+  });
+
+  it("explains a bucket removed while the preview is open, and Apply stays disabled", async () => {
+    const props = propsOf();
+    const { rerender } = render(<ForecastImportModal {...props} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    const apply = screen.getByRole("button", { name: t(L, "forecastImportApply") });
+    expect(apply).toBeEnabled();
+    rerender(<ForecastImportModal {...props} buckets={[]} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t(L, "forecastImportBucketGone"));
+    expect(apply).toBeDisabled();
+    fireEvent.click(apply);
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(0);
+  });
+
+  it("a bucket closed after opening shows its blocker, and Apply writes nothing", async () => {
+    const props = propsOf();
+    const { rerender } = render(<ForecastImportModal {...props} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    rerender(<ForecastImportModal {...props} buckets={[{ ...BUCKET, status: "closed" }]} />);
+    expect(screen.getByText(t(L, "forecastImportBlockerClosed"))).toBeInTheDocument();
+    const apply = screen.getByRole("button", { name: t(L, "forecastImportApply") });
+    expect(apply).toBeDisabled();
+    fireEvent.click(apply);
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(0);
+    expect(props.onClose).toHaveBeenCalledTimes(0);
   });
 
   it("a blocker notice disables Apply", async () => {
@@ -142,15 +172,21 @@ describe("ForecastImportModal", () => {
     await chooseFile(`${WIDE}Ann Lee,10,x,30\r\nTotal,10,0,30\r\nAnn Lee,800,5,5\r\n`);
     expect(screen.getByText(t(L, "forecastImportRowRef", "3", t(L, "forecastImportDropTotal")))).toBeInTheDocument();
     expect(screen.getByText(t(L, "forecastImportRowRef", "2", t(L, "forecastImportDropBadNumber")))).toBeInTheDocument();
-    expect(screen.getByText(/forecast!B4/)).toBeInTheDocument();
+    // The 744 cap comes from MAX_IMPORT_HOURS_PER_CELL, interpolated: the
+    // string carries a placeholder, not the number.
+    expect(t(L, "forecastImportRejectHours", "999")).toContain("999");
+    expect(screen.getByText(/forecast!B4/)).toHaveTextContent(t(L, "forecastImportRejectHours", "744"));
   });
 
   it("disables Ask Claude with a reason when AI is off", async () => {
     stubSettings(AI_OFF);
     render(<ForecastImportModal {...propsOf()} />);
     await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
-    expect(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") })).toBeDisabled();
+    const ask = screen.getByRole("button", { name: t(L, "forecastImportAskClaude") });
+    expect(ask).toBeDisabled();
     expect(screen.getByText(t(L, "forecastImportAiOff"))).toBeInTheDocument();
+    // The reason is tied to the control, not just placed beside it.
+    expect(ask).toHaveAccessibleDescription(t(L, "forecastImportAiOff"));
   });
 
   it("names a file it cannot read in the source step", async () => {
@@ -163,9 +199,22 @@ describe("ForecastImportModal", () => {
   it("opens the mapping step when no layout is found, and its columns can be set", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     const input = screen.getByLabelText(t(L, "forecastImportFile"));
-    fireEvent.change(input, { target: { files: [new File(["just,some\r\nwords,here\r\n"], "f.csv")] } });
+    // 60 rows: the header-row choice reaches past the first 10, capped at 50.
+    const text = Array.from({ length: 60 }, () => "just,some").join("\r\n");
+    fireEvent.change(input, { target: { files: [new File([text], "f.csv")] } });
     await screen.findByText(t(L, "forecastImportNoLayout"));
     expect(screen.getByRole("radiogroup", { name: t(L, "forecastImportLayout") })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).toBeInTheDocument();
+    expect(within(screen.getByRole("combobox", { name: t(L, "forecastImportHeaderRow") })).getAllByRole("option")).toHaveLength(50);
+  });
+
+  it("the mapping sample reads what the selects show from the start", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File(["Name,Jan 2026,Notes\r\nAnn Lee,5,x\r\n"], "f.csv")] } });
+    await screen.findByText(t(L, "forecastImportNoLayout"));
+    expect(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).toHaveValue("0");
+    expect(screen.getByText("Ann Lee · 2026-01 · 5 h (f!B2)")).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportSampleEmpty"))).toBeNull();
   });
 });
