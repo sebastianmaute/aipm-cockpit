@@ -17,8 +17,9 @@ import { FieldHint } from "../field-hint";
 import { Button } from "../button";
 import { Checkbox, Input, Textarea } from "../form-controls";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
-import type { OperatingGuide, GuideScope } from "../operating-guide";
-import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
+import type { AiTarget, OperatingGuide, GuideScope } from "../operating-guide";
+import { AI_TARGETS, guideTargets, guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
+import type { TranslationKey } from "../i18n";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
@@ -34,17 +35,35 @@ interface AiGuidesSectionProps {
 const APP_MODES: AppMode[] = ["simple", "modular", "advanced"];
 const SCOPE_VIEWS: AppView[] = allNavViews();
 
+/** §701 — the label of each AI surface in the "Applies to" checkboxes. A total
+ *  record, so a new `AI_TARGETS` entry is a tsc error here until it is named. */
+const TARGET_LABEL: Record<AiTarget, TranslationKey> = {
+  chat: "aiGuideTargetChat",
+  wbs: "aiGuideTargetWbs",
+  alloc: "aiGuideTargetAlloc",
+  committeeReport: "aiGuideTargetCommitteeReport",
+  projectProposal: "aiGuideTargetProjectProposal",
+  raci: "aiGuideTargetRaci",
+  digest: "aiGuideTargetDigest",
+  insightRecommend: "aiGuideTargetInsightRecommend",
+  jobAnalysis: "aiGuideTargetJobAnalysis",
+  dedup: "aiGuideTargetDedup",
+  weights: "aiGuideTargetWeights",
+  inlineEdit: "aiGuideTargetInlineEdit",
+};
+
 interface GuideDraft {
   name: string;
   content: string;
   priority: number;
+  targets: AiTarget[];
   scopeModes: AppMode[];
   scopeModules: FeatureModuleId[];
   scopeViews: AppView[];
 }
 
 function emptyDraft(): GuideDraft {
-  return { name: "", content: "", priority: 10, scopeModes: [], scopeModules: [], scopeViews: [] };
+  return { name: "", content: "", priority: 10, targets: ["chat"], scopeModes: [], scopeModules: [], scopeViews: [] };
 }
 
 function draftFromGuide(g: OperatingGuide): GuideDraft {
@@ -52,17 +71,22 @@ function draftFromGuide(g: OperatingGuide): GuideDraft {
     name: g.name,
     content: g.content,
     priority: g.priority,
+    targets: [...guideTargets(g)],
     scopeModes: (g.scope.modes ?? []) as AppMode[],
     scopeModules: (g.scope.modules ?? []) as FeatureModuleId[],
     scopeViews: (g.scope.views ?? []) as AppView[],
   };
 }
 
+/** ★ A chat-only guide is stored WITHOUT `targets`, exactly as before §701, so
+ *  re-saving an old guide does not change its stored scope. */
 function draftToScope(draft: GuideDraft): GuideScope {
+  const chatOnly = draft.targets.length === 1 && draft.targets[0] === "chat";
   return {
     ...(draft.scopeModes.length ? { modes: draft.scopeModes } : {}),
     ...(draft.scopeModules.length ? { modules: draft.scopeModules } : {}),
     ...(draft.scopeViews.length ? { views: draft.scopeViews } : {}),
+    ...(chatOnly ? {} : { targets: AI_TARGETS.filter((x) => draft.targets.includes(x)) }),
   };
 }
 
@@ -96,6 +120,15 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
       : [...draft.scopeViews, view];
     onChange({ ...draft, scopeViews: next });
   }
+
+  function toggleTarget(target: AiTarget) {
+    const next = draft.targets.includes(target)
+      ? draft.targets.filter((x) => x !== target)
+      : [...draft.targets, target];
+    onChange({ ...draft, targets: next });
+  }
+
+  const noTarget = draft.targets.length === 0;
 
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
@@ -134,6 +167,22 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           className="w-24"
         />
       </label>
+      <fieldset>
+        <legend className="mb-1 text-xs text-muted-foreground">{t(lang, "aiGuideTargets")}</legend>
+        <div className="flex flex-wrap gap-3">
+          {AI_TARGETS.map((target) => (
+            <label key={target} className="flex items-center gap-1 text-xs text-foreground">
+              <Checkbox
+                aria-label={t(lang, TARGET_LABEL[target])}
+                checked={draft.targets.includes(target)}
+                onChange={() => toggleTarget(target)}
+              />
+              {t(lang, TARGET_LABEL[target])}
+            </label>
+          ))}
+        </div>
+        <FieldHint>{noTarget ? t(lang, "aiGuideTargetsNone") : t(lang, "aiGuideTargetsHint")}</FieldHint>
+      </fieldset>
       <fieldset>
         <legend className="mb-1 text-xs text-muted-foreground">
           {draft.scopeModes.length === 0 &&
@@ -186,7 +235,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         </div>
       </fieldset>
       <div className="mt-1 flex gap-2">
-        <Button size="xs" disabled={busy || !draft.name.trim()} onClick={onSave}>
+        <Button size="xs" disabled={busy || !draft.name.trim() || noTarget} onClick={onSave}>
           {t(lang, "aiGuideSave")}
         </Button>
         <Button size="xs" variant="secondary" onClick={onCancel}>
@@ -210,9 +259,10 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
     [guideList],
   );
 
+  // The budget is the CHAT's: action guides are capped per call instead (§701).
   const overBudget =
     og != null &&
-    guidesCharCount(og.guides.filter((g) => g.enabled)) > GUIDE_CHAR_BUDGET;
+    guidesCharCount(og.guides.filter((g) => g.enabled && guideTargets(g).includes("chat"))) > GUIDE_CHAR_BUDGET;
 
   function openAdd() {
     setDraft(emptyDraft());
@@ -306,7 +356,12 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="flex-1 text-xs font-medium text-foreground">{g.name}</span>
+                    <span className="flex flex-1 flex-col">
+                      <span className="text-xs font-medium text-foreground">{g.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t(lang, "aiGuideAppliesTo", guideTargets(g).map((x) => t(lang, TARGET_LABEL[x])).join(", "))}
+                      </span>
+                    </span>
                     {g.builtIn && (
                       <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-muted-foreground ring-1 ring-line">
                         {t(lang, "aiGuideBuiltInBadge")}

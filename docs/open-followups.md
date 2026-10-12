@@ -936,6 +936,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§698](#698-a-jira-sync-overwrites-task-edits-adds-and-deletes-made-while-it-awaits-jira--closed-2026-10-11) | A Jira sync overwrites task edits, adds and deletes made while it awaits Jira | — | — | **CLOSED** 2026-10-11 |
 | [§699](#699-the-timelog-guardrails-have-no-closed-month-rule-because-no-period-lock-concept-exists--open) | The TimeLog guardrails have no closed-month rule, because no period-lock concept exists | — | — | open |
 | [§700](#700-the-timelog-guardrails-do-not-flag-time-booked-on-a-day-the-person-was-absent--closed-2026-10-11) | The TimeLog guardrails do not flag time booked on a day the person was absent | — | — | **CLOSED** 2026-10-11 |
+| [§701](#701-ai-actions-other-than-the-chat-ignore-operating-guides--open) | AI actions other than the chat ignore operating guides | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44647,3 +44648,17 @@ OpenProject's fifth time-entry validation blocks bookings in a month already clo
 Time booked on a day the person was on vacation or sick is the strongest booking signal the app holds, and the inputs exist: absences are workspace data, and `AbsenceType` separates `training`, which is bookable, from `vacation` and `sick`. §347 left it out because it was scoped to parity with OpenProject's five rules. A rule here would be a fifth `InsightType` beside the four, and it inherits their constraint: it counts as evaluated only when bookings and the person's absences are both known, so that a missing input freezes its insights rather than resolving them.
 
 **Source:** §347's non-goals, filed at its closure.
+
+## 701. AI actions other than the chat ignore operating guides — open
+
+**Status:** open 2026-10-12, owner decision the same day: build the targeting and the work-breakdown slice first. Reproduce with `grep -rln "selectActiveGuides" src/app --include=*.ts --include=*.tsx | grep -v test`, which returns `chat-api.ts` and the engine `operating-guide.ts` only.
+
+**Work item:** #682
+
+Operating guides reach the assistant chat alone. Every single-request AI action builds its own fixed system prompt and sends none of the user's guides, so a team convention has to be typed as an instruction on each run, and the built-in leadership guide (about 33k characters, mostly unrelated to any one action) would be the wrong thing to send wholesale. The fix is per action: a guide declares which AI actions it applies to, and each action sends the enabled guides that name it, under a cap, after its fixed prompt — where they can be cached.
+
+The actions, ranked by expected benefit: Optimize with AI (`wbs-plan-call.ts`, the first slice); Plan with AI (`alloc-plan-call.ts`); the steering-committee report (`committee-report/report-call.ts`); Use AI project creation (`use-project-proposal.ts`); Suggest RACI (`raci-suggest-call.ts`); the digest narrative (`digest/digest-narrative.ts`); insight recommendations (`insights/recommend-call.ts`); Analyze with AI (`scheduled-job-analysis.ts`); task dedup (`task-dedup-call.ts`); weight suggestions (`weight-suggestion-call.ts`). Inline AI edit (`inline-ai-edit-call.ts`) is chat-like and may be better served by the chat's view-scoped guides than by a new target.
+
+★ A guide with no targets must keep meaning "the chat only", or every existing guide starts reaching every action unasked. ★ Each action's fixed rules must win over its guides: a guide cannot widen what the tool may write, and the action's own grounding and preview stay the boundary.
+
+**Source:** owner question 2026-10-12, after §3 closed.

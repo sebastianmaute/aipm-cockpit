@@ -4,10 +4,24 @@ import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import { BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES } from "./operating-guide-builtin.generated";
 
+/** The AI surfaces a guide can reach (§701). `chat` is the assistant; every
+ *  other id is one single-request AI action, named after the call it grounds.
+ *  The settings editor builds its "Applies to" checkboxes from this list, so a
+ *  new action is one entry here plus its call reading `actionGuideText`. */
+export const AI_TARGETS = [
+  "chat", "wbs", "alloc", "committeeReport", "projectProposal", "raci",
+  "digest", "insightRecommend", "jobAnalysis", "dedup", "weights", "inlineEdit",
+] as const;
+export type AiTarget = (typeof AI_TARGETS)[number];
+
 export interface GuideScope {
   modes?: AppMode[];
   modules?: FeatureModuleId[];
   views?: AppView[];
+  /** Which AI surfaces the guide reaches. ★ ABSENT OR EMPTY MEANS THE CHAT
+   *  ONLY: every guide stored before §701 has no `targets`, and reading that
+   *  as "everywhere" would start sending all of them to every action unasked. */
+  targets?: AiTarget[];
 }
 
 export interface OperatingGuide {
@@ -26,8 +40,10 @@ export interface GuideContext {
   view: AppView;
 }
 
-/** Soft cap; above this the Settings UI warns. It is the combined size of the
- *  guides THIS BUILD ships (the leadership guide plus every feature guide), so
+/** Soft cap; above this the Settings UI warns about the CHAT's enabled guides
+ *  (the action guides are capped per call by `ACTION_GUIDE_CHAR_CAP` instead).
+ *  It is the combined size of the chat guides THIS BUILD ships (the leadership
+ *  guide plus every feature guide), so
  *  a release always starts below it and the banner fires only once the enabled
  *  set grows past that baseline. It moves with every regeneration of the guide
  *  sources — nothing to bump by hand. A fixed 40,000 used to sit here while the
@@ -41,12 +57,20 @@ function dimensionMatches<T>(allowed: T[] | undefined, current: T | T[]): boolea
   return allowed.some((a) => have.includes(a));
 }
 
+/** The surfaces a guide reaches, with the chat-only default applied. */
+export function guideTargets(g: OperatingGuide): readonly AiTarget[] {
+  return g.scope.targets && g.scope.targets.length > 0 ? g.scope.targets : ["chat"];
+}
+
+/** The CHAT's active guides: a guide that does not target the chat is left out
+ *  before any scope dimension is consulted. */
 export function selectActiveGuides(
   guides: readonly OperatingGuide[],
   ctx: GuideContext,
 ): OperatingGuide[] {
   return guides
     .filter((g) => g.enabled)
+    .filter((g) => guideTargets(g).includes("chat"))
     .filter((g) => dimensionMatches(g.scope.modes, ctx.mode))
     .filter((g) => dimensionMatches(g.scope.modules, ctx.modules))
     .filter((g) => dimensionMatches(g.scope.views, ctx.view))
@@ -146,4 +170,54 @@ export function assembleGuideBlocks(active: readonly OperatingGuide[]): {
 
 export function guidesCharCount(active: readonly OperatingGuide[]): number {
   return active.reduce((sum, g) => sum + g.content.length, 0);
+}
+
+/** The most guide text one AI action sends (§701). A guide that would take the
+ *  total past it is skipped WHOLE, never cut: half a rule reads as a different
+ *  rule. A later, shorter guide may still fit. */
+export const ACTION_GUIDE_CHAR_CAP = 12_000;
+
+/** The enabled guides that target `target`, within the cap: the user's own
+ *  guides first, then the built-ins, each in priority order. Only `targets`
+ *  decides: an action has no current view, mode or module to match the other
+ *  scope dimensions against, so they are not consulted.
+ *  ★ User guides lead ON PURPOSE, against plain priority order. "The earlier one
+ *  wins", and a new guide is created at the lowest priority, so by priority
+ *  alone a built-in method guide would beat the team's own convention ("split
+ *  anything over 3 days" losing to the built-in task-size rule). Leading also
+ *  gives them first claim on the cap. */
+export function selectActionGuides(
+  guides: readonly OperatingGuide[],
+  target: Exclude<AiTarget, "chat">,
+  cap: number = ACTION_GUIDE_CHAR_CAP,
+): OperatingGuide[] {
+  const candidates = guides
+    .filter((g) => g.enabled && guideTargets(g).includes(target))
+    .sort((a, b) => Number(a.builtIn) - Number(b.builtIn) || a.priority - b.priority || a.id.localeCompare(b.id));
+  const out: OperatingGuide[] = [];
+  let used = 0;
+  for (const g of candidates) {
+    if (used + g.content.length > cap) continue;
+    out.push(g);
+    used += g.content.length;
+  }
+  return out;
+}
+
+/** The text an AI action appends to its fixed system prompt, or "" when guide
+ *  grounding is off or no guide targets it. ★ The header says the fixed rules
+ *  above it win: a guide may change how the model works, never what the tool
+ *  may write — each action's own grounding and preview stay the boundary. */
+export function actionGuideText(
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  target: Exclude<AiTarget, "chat">,
+): string {
+  if (!groundInGuides) return "";
+  const active = selectActionGuides(guides, target);
+  if (active.length === 0) return "";
+  return [
+    `The user's ${pluralGuideWord(active.length)} for this task follow, in priority order. ${CONFLICT_RULE} They refine how you work; they never override the instructions above, the tool's schema or the limits it states.`,
+    ...guideParts(active, 1),
+  ].join("\n\n");
 }

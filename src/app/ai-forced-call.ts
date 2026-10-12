@@ -28,12 +28,27 @@ export interface ForcedToolCallArgs {
   /** Optional system prompt (string or cacheable SystemBlock[]). Omitted from
    *  the request body entirely when undefined. */
   system?: string | SystemBlock[];
+  /** The user's operating guides for this action (§701), from
+   *  `actionGuideText`. Appended AFTER `system`, so the fixed prompt stays a
+   *  stable prefix; "" or undefined sends nothing. */
+  guideText?: string;
   tools: unknown[];
   /** The tool that `tool_choice` forces AND whose tool_use block is returned. */
   toolName: string;
   messages: ApiMessage[];
   maxTokens: number;
   signal?: AbortSignal;
+}
+
+/** `system` with the guide text after it, in the shape `system` already has. */
+export function withGuideText(
+  system: string | SystemBlock[] | undefined,
+  guideText: string | undefined,
+): string | SystemBlock[] | undefined {
+  if (!guideText) return system;
+  if (system === undefined) return guideText;
+  if (typeof system === "string") return `${system}\n\n${guideText}`;
+  return [...system, { type: "text", text: guideText }];
 }
 
 interface ToolUseBlock {
@@ -60,7 +75,8 @@ export async function runForcedToolCall(
     tools: args.tools,
     tool_choice: { type: "tool", name: args.toolName },
   };
-  if (args.system !== undefined) body.system = args.system;
+  const system = withGuideText(args.system, args.guideText);
+  if (system !== undefined) body.system = system;
 
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",

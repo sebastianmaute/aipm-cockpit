@@ -8,7 +8,7 @@ import { loadGuides, saveGuide, removeGuide } from "./operating-guide-store";
 import type { OperatingGuide, GuideScope } from "./operating-guide";
 import type { TursoConfig } from "./turso-config";
 import {
-  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES,
+  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES, BUILTIN_ACTION_GUIDES,
 } from "./operating-guide-builtin.generated";
 
 export interface UseOperatingGuidesArgs {
@@ -24,9 +24,10 @@ export interface UseOperatingGuidesResult {
   refresh: () => Promise<void>;
 }
 
-/** All built-in guides: the leadership guide (priority 1) followed by the
- *  view-scoped feature guides. These are seeded into an empty store and kept
- *  fresh (content/name/scope) on every load via reconcileBuiltins. */
+/** All built-in guides: the leadership guide (priority 1), the view-scoped
+ *  feature guides, then the AI action guides (§701), which reach only the
+ *  actions they target. These are seeded into an empty store and kept fresh
+ *  (content/name/scope) on every load via reconcileBuiltins. */
 export function builtinSeeds(): OperatingGuide[] {
   return [
     {
@@ -36,6 +37,10 @@ export function builtinSeeds(): OperatingGuide[] {
     ...BUILTIN_FEATURE_GUIDES.map((g, i) => ({
       id: g.id, name: g.name, content: g.content, enabled: true,
       priority: 2 + i, scope: g.scope as GuideScope, builtIn: true,
+    })),
+    ...BUILTIN_ACTION_GUIDES.map((g, i) => ({
+      id: g.id, name: g.name, content: g.content, enabled: true,
+      priority: 2 + BUILTIN_FEATURE_GUIDES.length + i, scope: g.scope as GuideScope, builtIn: true,
     })),
   ];
 }

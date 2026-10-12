@@ -105,7 +105,7 @@ import { Button } from "./button";
 import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
-import { AiUsageProvider } from "./ai-usage-context";
+import { AiProviders } from "./action-guides-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useMeetingReportActions } from "./use-meeting-report-actions";
 import { useCommSend } from "./use-comm-send";
@@ -1977,7 +1977,7 @@ function TaskManagerInner() {
   if (isPopout) {
     return (
       <ActivityLogProvider value={logActivityAs}>
-        <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+        <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
@@ -1985,7 +1985,7 @@ function TaskManagerInner() {
               </ConfirmProvider>
             </VoiceCommandProvider>
           </ToastProvider>
-        </AiUsageProvider>
+        </AiProviders>
       </ActivityLogProvider>
     );
   }
@@ -2002,7 +2002,7 @@ function TaskManagerInner() {
 
   return (
     <ActivityLogProvider value={logActivityAs}>
-      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+      <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>
@@ -2052,7 +2052,7 @@ function TaskManagerInner() {
             </ConfirmProvider>
           </VoiceCommandProvider>
         </ToastProvider>
-      </AiUsageProvider>
+      </AiProviders>
     </ActivityLogProvider>
   );
 }
