@@ -168,6 +168,9 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
       // In `finally`, saved or not (§701): a mutation supersedes a first load
       // still in flight (opSeq), and only a refresh may then mark the library
       // loaded — skipped on a failed save, `ready` would stay false for good.
+      // ★ Order is deliberate: the reload runs BEFORE `busy` clears and before a
+      // failed save's error reaches the caller, so the form never re-enables over a
+      // stale list. `refresh` catches its own errors, so it cannot mask the save's.
       await refresh();
       setBusy(false);
     }
