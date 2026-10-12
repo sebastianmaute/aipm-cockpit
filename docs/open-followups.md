@@ -936,7 +936,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§698](#698-a-jira-sync-overwrites-task-edits-adds-and-deletes-made-while-it-awaits-jira--closed-2026-10-11) | A Jira sync overwrites task edits, adds and deletes made while it awaits Jira | — | — | **CLOSED** 2026-10-11 |
 | [§699](#699-the-timelog-guardrails-have-no-closed-month-rule-because-no-period-lock-concept-exists--open) | The TimeLog guardrails have no closed-month rule, because no period-lock concept exists | — | — | open |
 | [§700](#700-the-timelog-guardrails-do-not-flag-time-booked-on-a-day-the-person-was-absent--closed-2026-10-11) | The TimeLog guardrails do not flag time booked on a day the person was absent | — | — | **CLOSED** 2026-10-11 |
-| [§701](#701-ai-actions-other-than-the-chat-ignore-operating-guides--open) | AI actions other than the chat ignore operating guides | — | — | open |
+| [§701](#701-ai-actions-other-than-the-chat-ignore-operating-guides--closed-2026-10-12) | AI actions other than the chat ignore operating guides | — | — | **CLOSED** 2026-10-12 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44649,11 +44649,11 @@ Time booked on a day the person was on vacation or sick is the strongest booking
 
 **Source:** §347's non-goals, filed at its closure.
 
-## 701. AI actions other than the chat ignore operating guides — open
+## 701. AI actions other than the chat ignore operating guides — CLOSED 2026-10-12
 
-**Status:** open 2026-10-12, owner decision the same day: build the targeting and the work-breakdown slice first. Reproduce with `grep -rln "selectActiveGuides" src/app --include=*.ts --include=*.tsx | grep -v test`, which returns `chat-api.ts` and the engine `operating-guide.ts` only.
+**Status:** CLOSED 2026-10-12 on `feat/wbs-guides` (GitHub #682); all eleven actions were wired in one branch on the owner's word ("all 10 now"), split with the peer session. `GuideScope.targets` over `AI_TARGETS` names the surfaces a guide reaches, and a guide without targets keeps meaning the chat only (`guideTargets`). `actionGuideText` picks one action's enabled guides, the user's own ahead of built-ins, under `ACTION_GUIDE_CHAR_CAP` (12,000 characters, a guide skipped whole), and `runForcedToolCall` appends them after the fixed prompt (`guideText`). Panel hooks read `useActionGuideText`; the four hooks task-manager calls in its own body (`useWbsPlan`, `useMeetingReportActions`, `useAiOrchestration`, `useInsightRecommendations`) take a required `guides` dep, because `AiProviders` wraps task-manager's children only — the peer found that the first cut sent nothing from those four. Inline edit skips guides that also target the chat, which it already carries. Eight built-in method guides ship from `lib/ai-action-guides.md`; the editor gains "Applies to". Measured: my half with `npx vitest run` over 17 files, 301 passed after the merge, plus the editor (23) and the TaskManager-level test; mutants 21/21 killed on my half and 17/17 on the peer's, each by an assertion. Not measured: whether the built-in guides improve proposal quality; `scripts/ai-eval.ts` was not run against them.
 
-**Work item:** #682
+**Status before closure:** open 2026-10-12, owner decision the same day: build the targeting and the work-breakdown slice first. Reproduce with `grep -rln "selectActiveGuides" src/app --include=*.ts --include=*.tsx | grep -v test`, which returns `chat-api.ts` and the engine `operating-guide.ts` only.
 
 Operating guides reach the assistant chat alone. Every single-request AI action builds its own fixed system prompt and sends none of the user's guides, so a team convention has to be typed as an instruction on each run, and the built-in leadership guide (about 33k characters, mostly unrelated to any one action) would be the wrong thing to send wholesale. The fix is per action: a guide declares which AI actions it applies to, and each action sends the enabled guides that name it, under a cap, after its fixed prompt — where they can be cached.
 
