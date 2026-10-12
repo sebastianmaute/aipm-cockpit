@@ -11,7 +11,7 @@
 // cannot apply. Everything Apply writes is shown: a new task's assignee, and a
 // plain-text excerpt of each description a new row gets.
 
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -203,20 +203,35 @@ export function WbsPlanModal({
   // The prefix of each row's detail ids (aria-describedby on its checkbox).
   const idBase = useId();
   // Draggable and resizable like the app's other working dialogs; the header's
-  // reset button restores both (position and size persist per device).
+  // reset button restores both (position and size persist per device). Until
+  // the user resizes it, the height follows the content, up to 90vh.
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:wbs-plan");
   const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:wbs-plan");
+  // ★ The first focus goes to the first proposal a user can untick (or, when
+  // every proposal was refused, the footer button), not to the header's reset
+  // control, which would otherwise be the panel's first focusable. Picked from
+  // the DOM in a layout effect, before the Modal's focus frame reads it, so the
+  // shared Checkbox and Button need no ref plumbing.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const initialFocusRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    initialFocusRef.current =
+      bodyRef.current?.querySelector<HTMLElement>("input[type=checkbox]:not(:disabled)") ??
+      footerRef.current?.querySelector<HTMLElement>("button:not(:disabled)") ??
+      null;
+  });
   // Every proposed item was refused: the preview still opens, so the reasons
   // are visible, with the "Not applied" list expanded.
   const allSkipped = items.length === 0 && skipped.length > 0;
 
   return (
-    <Modal open onClose={applying ? () => {} : onCancel} ariaLabel={title}>
+    <Modal open onClose={applying ? () => {} : onCancel} ariaLabel={title} initialFocusRef={initialFocusRef}>
       <div
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex h-[640px] min-h-[360px] max-h-[95vh] w-[680px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex min-h-[240px] max-h-[90vh] w-[680px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         {/* ★ The ✕ is qualified with the title: in the all-refused state the
             footer button is a plain "Close" too. Disabled while applying, as
@@ -234,7 +249,7 @@ export function WbsPlanModal({
           }}
         />
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {truncated && <p className="mb-4 text-xs text-muted-foreground">{t(lang, "wbsPlanTruncated")}</p>}
           {allSkipped && <p className="mb-4 text-sm text-foreground">{t(lang, "wbsPlanAllSkipped")}</p>}
 
@@ -332,7 +347,7 @@ export function WbsPlanModal({
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-line px-6 py-4">
+        <div ref={footerRef} className="flex items-center gap-2 border-t border-line px-6 py-4">
           {/* Nothing can be applied, so dismissal is the only action and
               there is nothing to undo. The empty paragraph keeps Close right. */}
           <p className="min-w-0 flex-1 text-xs text-muted-foreground">{allSkipped ? null : t(lang, "wbsPlanUndoNote")}</p>

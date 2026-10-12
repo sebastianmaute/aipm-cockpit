@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WbsPlanModal, type WbsPlanModalProps } from "./wbs-plan-modal";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason } from "./wbs-plan/wbs-plan";
@@ -445,31 +445,62 @@ describe("WbsPlanModal", () => {
 
   // Resizable and draggable like the app's other working dialogs, with the
   // header's reset control. Presence alone would pass for a no-op button.
-  it("offers a reset-size control that clears a dragged size", async () => {
-    render5();
-    const panel = document.querySelector<HTMLElement>("[data-modal-panel]")!;
-    expect(panel.className).toContain("resize");
-    panel.style.width = "1200px";
-    panel.style.height = "900px";
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
-    expect(panel.style.width).toBe("");
-    expect(panel.style.height).toBe("");
-  });
+  describe("window chrome", () => {
+    const POS = "aipm-cockpit:modal-pos:wbs-plan";
+    const SIZE = "aipm-cockpit:modal-size:wbs-plan";
+    const panel = () => document.querySelector<HTMLElement>("[data-modal-panel]")!;
+    afterEach(() => {
+      window.localStorage.removeItem(POS);
+      window.localStorage.removeItem(SIZE);
+    });
 
-  // The footer of the all-refused state is a plain "Close", so the header ✕
-  // carries the title; it is disabled while applying, like the footer.
-  it("names the header close by the title, cancels with it, and disables it while applying", async () => {
-    const name = `${t("en-US", "alertModalClose")} – ${t("en-US", "wbsPlanTitle")}`;
-    const props = render5();
-    await userEvent.click(screen.getByRole("button", { name }));
-    expect(props.onCancel).toHaveBeenCalledTimes(1);
-    cleanup();
-    render5({ applying: true });
-    expect(screen.getByRole("button", { name })).toBeDisabled();
-  });
+    it("is resizable and sizes to its content until resized", () => {
+      render5();
+      expect(panel().className).toContain("resize");
+      expect(panel().className).not.toMatch(/(^|\s)h-\[/);
+      expect(panel().style.height).toBe("");
+    });
 
-  it("keeps the all-refused footer Close unique beside the header close", () => {
-    render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
-    expect(screen.getAllByRole("button", { name: t("en-US", "close") })).toHaveLength(1);
+    it("restores a saved size and position, and the reset control clears both", async () => {
+      window.localStorage.setItem(SIZE, JSON.stringify({ width: 900, height: 700 }));
+      window.localStorage.setItem(POS, JSON.stringify({ x: 40, y: 30 }));
+      render5();
+      expect(panel().style.width).toBe("900px");
+      expect(panel().style.height).toBe("700px");
+      expect(panel().style.transform).toBe("translate(40px, 30px)");
+      await userEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
+      expect(panel().style.width).toBe("");
+      expect(panel().style.height).toBe("");
+      expect(panel().style.transform).toBe("translate(0px, 0px)");
+      expect(window.localStorage.getItem(SIZE)).toBeNull();
+      expect(window.localStorage.getItem(POS)).toBeNull();
+    });
+
+    // The header's reset control is the panel's first focusable; the first
+    // proposal a user can untick is where focus belongs.
+    it("puts the first focus on the first enabled proposal, not the header", async () => {
+      render5();
+      await waitFor(() => expect(screen.getAllByRole("checkbox")[0]).toHaveFocus());
+    });
+
+    it("puts the first focus on the footer button when every proposal was refused", async () => {
+      render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
+      await waitFor(() => expect(screen.getByRole("button", { name: t("en-US", "close") })).toHaveFocus());
+    });
+
+    // The all-refused footer is a plain "Close", so the header ✕ carries the
+    // title (exactly one plain "Close"); it is disabled while applying.
+    it("names the header close by the title, cancels with it, and disables it while applying", async () => {
+      const name = `${t("en-US", "alertModalClose")} – ${t("en-US", "wbsPlanTitle")}`;
+      const props = render5();
+      await userEvent.click(screen.getByRole("button", { name }));
+      expect(props.onCancel).toHaveBeenCalledTimes(1);
+      cleanup();
+      render5({ applying: true });
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+      cleanup();
+      render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
+      expect(screen.getAllByRole("button", { name: t("en-US", "close") })).toHaveLength(1);
+    });
   });
 });
