@@ -178,6 +178,25 @@ describe("ForecastImportModal", () => {
     expect(screen.getByText(/forecast!B4/)).toHaveTextContent(t(L, "forecastImportRejectHours", "744"));
   });
 
+  it("says why Claude's row was not imported: the person is not on the cited row", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          name: "propose_forecast_rows",
+          input: { rows: [{ person: "Bob Ray", period: "Jan 2026", hours: 10, source: "forecast!B2" }] },
+        }],
+      }),
+    } as unknown as Response);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!B2/)).toHaveTextContent(t(L, "forecastImportRejectSourcePerson"));
+  });
+
   it("disables Ask Claude with a reason when AI is off", async () => {
     stubSettings(AI_OFF);
     render(<ForecastImportModal {...propsOf()} />);

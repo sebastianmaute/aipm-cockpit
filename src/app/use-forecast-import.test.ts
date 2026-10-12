@@ -431,6 +431,35 @@ describe("useForecastImport — the Claude route", () => {
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 10]]);
   });
 
+  // Reviewer probe (§500 final review): an email the model put on Ann's row
+  // matched Bob first and sent Ann's hours to him.
+  it("never lets a model-supplied email re-route a row's hours to another resource", async () => {
+    claudeResponds({ rows: [{ person: "Ann Lee", email: "bob@corp", period: "Jan 2026", hours: 10, source: "forecast!B2" }] });
+    const bob: Resource = { ...BOB, email: "bob@corp" };
+    const { result } = await loaded(depsOf({ resources: [ANN, bob] }));
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toEqual([]);
+    expect(result.current.importPlan?.addResources).toEqual([{ alloc: { kind: "role", roleId: ROLE.id }, resourceIds: [ANN.id] }]);
+  });
+
+  it("refuses a reply cut off at the output budget with the too-large message", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: "max_tokens",
+        content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [] } }],
+      }),
+    } as unknown as Response);
+    const { result } = await loaded(depsOf());
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.error).toEqual({ key: "forecastImportErrorTooLargeForClaude" });
+    expect(result.current.route).toBe("hand");
+  });
+
   it("does nothing when AI is off", async () => {
     stubSettings(AI_OFF);
     const fetchSpy = vi.spyOn(globalThis, "fetch");

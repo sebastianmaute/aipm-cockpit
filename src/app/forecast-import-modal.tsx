@@ -29,7 +29,7 @@ import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
 import { normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import type { ColumnMapping, DropReason } from "./budget-import/forecast-types";
-import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow } from "./budget-import/forecast-validate";
+import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useForecastImport, wideMappingFor, type ForecastImport, type ForecastImportDeps } from "./use-forecast-import";
 
@@ -55,12 +55,18 @@ const WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
   ambiguous: "forecastImportWhyAmbiguous",
   "no-role": "forecastImportWhyNoRole",
 };
-const REJECT_KEY: Record<RejectedRow["reason"], TranslationKey> = {
+const REJECT_KEY: Record<Exclude<RejectedRow["reason"], "source">, TranslationKey> = {
   shape: "forecastImportRejectShape",
   hours: "forecastImportRejectHours",
   period: "forecastImportRejectPeriod",
   person: "forecastImportRejectPerson",
-  source: "forecastImportRejectSource",
+};
+const SOURCE_KEY: Record<SourceRejection, TranslationKey> = {
+  "bad-ref": "forecastImportRejectSourceRef",
+  "value-mismatch": "forecastImportRejectSourceValue",
+  "person-not-on-row": "forecastImportRejectSourcePerson",
+  "period-not-near": "forecastImportRejectSourcePeriod",
+  "cell-reused": "forecastImportRejectSourceReused",
 };
 const DROP_KEY: Record<DropReason["reason"], TranslationKey> = {
   total: "forecastImportDropTotal",
@@ -334,7 +340,8 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
         .filter((v) => v !== undefined && v !== null && v !== "")
         .map(String)
     : [];
-  const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL)));
+  const why = r.reason === "source" ? t(lang, SOURCE_KEY[r.detail]) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
+  const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", why);
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }
 

@@ -6,15 +6,21 @@
 // which is what makes a hallucinated row fail instead of reaching the plan.
 import { columnLetters } from "./budget-import/forecast-rows";
 import type { SheetGrid } from "./budget-import/sheet-grid";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithStop } from "./ai-forced-call";
 import { renderSheetMarkdown } from "./xlsx-extract";
 
-const MAX_TOKENS = 8192;
+/** The reply's output budget. Each row the model returns costs about 35 output
+ *  tokens, so 16,000 holds roughly 450 rows; a reply that reaches it stops with
+ *  `stop_reason: "max_tokens"` and its tool input may be cut short, so such a
+ *  reply is refused (`Error("too-large")`), never imported in part. */
+const MAX_TOKENS = 16_000;
 
-/** Non-blank cells a sheet may hold and still be sent: well under the 250,000-cell
- *  extraction cap, which would be a prompt too large to answer inside MAX_TOKENS.
- *  Over it, `runForecastImportCall` throws `Error("too-large")` before any request. */
-export const MAX_CLAUDE_IMPORT_CELLS = 20_000;
+/** Non-blank cells a sheet may hold and still be sent. Bounds the prompt (context
+ *  and cost) and, with it, how many rows the reply can owe: a sheet near this cap
+ *  can still hold more hours cells than MAX_TOKENS can return, which the
+ *  `max_tokens` refusal catches. Over it, `runForecastImportCall` throws
+ *  `Error("too-large")` before any request. */
+export const MAX_CLAUDE_IMPORT_CELLS = 4000;
 
 /** The rendered prompt text may not pass this many characters either: a few
  *  long cells stay under the cell cap and still make a prompt too large to
@@ -92,7 +98,7 @@ export async function runForecastImportCall(
   if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
   const prompt = sheetToPromptText(sheet);
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
-  const raw = await runForcedToolCall({
+  const { input: raw, stopReason } = await runForcedToolCallWithStop({
     apiKey: ai.apiKey,
     model: ai.model,
     system: SYSTEM,
@@ -103,5 +109,6 @@ export async function runForecastImportCall(
     maxTokens: MAX_TOKENS,
     signal,
   });
+  if (stopReason === "max_tokens") throw new Error("too-large");
   return { rows: raw.rows, notes: typeof raw.notes === "string" ? raw.notes : "" };
 }

@@ -293,21 +293,79 @@ describe("validateForecastRows: source evidence (Claude route)", () => {
     expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
   });
 
-  it("matches the person by email when the row carries one", () => {
-    const withEmail: SheetGrid = {
-      name: "Sheet1",
-      rows: [["Person", "Email", "2026-01"], ["Annie", " Ann@X.io", "40"]],
-      truncated: false,
-    };
+  const withEmail: SheetGrid = {
+    name: "Sheet1",
+    rows: [["Person", "Email", "2026-01"], ["Annie", " Ann@X.io", "40"]],
+    truncated: false,
+  };
+
+  it("requires the person on the cited row: an email alone does not vouch", () => {
     const opts = { sheet: withEmail, requireSource: true };
     const byEmail = cite("Ann", "2026-01", 40, "Sheet1!C2", { email: "ann@x.io" });
-    expect(validateForecastRows([byEmail], opts).rejected).toEqual([]);
-    expect(validateForecastRows([cite("Ann", "2026-01", 40, "Sheet1!C2")], opts).rejected).toHaveLength(1);
+    const out = validateForecastRows([byEmail], opts);
+    expect(out.ok).toEqual([]);
+    expect(out.rejected).toEqual([{ row: byEmail, reason: "source", detail: "person-not-on-row" }]);
+  });
+
+  it("keeps an email that is on the cited row", () => {
+    const opts = { sheet: withEmail, requireSource: true };
+    const out = validateForecastRows([cite("annie", "2026-01", 40, "Sheet1!C2", { email: "ann@x.io" })], opts);
+    expect(out.ok).toEqual([{ person: "annie", email: "ann@x.io", period: "2026-01", hours: 40, source: "Sheet1!C2" }]);
+  });
+
+  // Reviewer probe (§500 final review): the model put Bob's email on Ann's row,
+  // and matching by email first sent Ann's 40 hours to Bob.
+  it("strips an email the cited row does not hold, so it cannot re-route the hours", () => {
+    const out = validateForecastRows([cite("Ann", "2026-01", 40, "Sheet1!B2", { email: "bob@corp" })], strict);
+    expect(out.rejected).toEqual([]);
+    expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 40, source: "Sheet1!B2" }]);
+  });
+
+  it("keeps a model email on the hand route, where nothing is cited", () => {
+    const out = validateForecastRows([cite("Ann", "2026-01", 40, "Sheet1!B2", { email: "bob@corp" })], plain);
+    expect(out.ok[0].email).toBe("bob@corp");
   });
 
   it("does not let the cited cell vouch for the person", () => {
     const out = validateForecastRows([cite("40", "2026-01", 40, "Sheet1!B2")], strict);
     expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+});
+
+describe("validateForecastRows: why a source was rejected", () => {
+  const cite = (person: string, period: string, hours: number, source?: string) => ({ person, period, hours, source });
+  const detailsOf = (rows: unknown[], opts = strict) =>
+    validateForecastRows(rows, opts).rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+
+  it("names a missing, malformed or out-of-sheet reference", () => {
+    expect(detailsOf([cite("Ann", "2026-01", 40)])).toEqual(["bad-ref"]);
+    expect(detailsOf([cite("Ann", "2026-01", 40, "Other!B2")])).toEqual(["bad-ref"]);
+    expect(detailsOf([cite("Ann", "2026-01", 40, "Sheet1!b2")])).toEqual(["bad-ref"]);
+    expect(detailsOf([cite("Ann", "2026-01", 40, "Sheet1!Z99")])).toEqual(["bad-ref"]);
+  });
+
+  it("names a cell that does not hold the hours", () => {
+    expect(detailsOf([cite("Ann", "2026-01", 80, "Sheet1!B2")])).toEqual(["value-mismatch"]);
+    expect(detailsOf([cite("Ann", "2026-01", 40, "Sheet1!A2")])).toEqual(["value-mismatch"]);
+  });
+
+  it("names a person who is not on the cited row", () => {
+    expect(detailsOf([cite("Bob", "2026-01", 40, "Sheet1!B2")])).toEqual(["person-not-on-row"]);
+  });
+
+  it("names a period that is neither in the row nor above the cell", () => {
+    expect(detailsOf([cite("Ann", "2026-02", 40, "Sheet1!B2")])).toEqual(["period-not-near"]);
+  });
+
+  it("names a cell already used by an earlier row, on either route", () => {
+    const rows = [cite("Ann", "2026-01", 40, "Sheet1!B2"), cite("Ann", "2026-01", 40, "Sheet1!B2")];
+    expect(detailsOf(rows)).toEqual(["cell-reused"]);
+    expect(detailsOf(rows, plain)).toEqual(["cell-reused"]);
+  });
+
+  it("gives no detail for the other reasons", () => {
+    const out = validateForecastRows([cite("Ann", "2026-01", -1, "Sheet1!B2")], strict);
+    expect(out.rejected).toEqual([{ row: cite("Ann", "2026-01", -1, "Sheet1!B2"), reason: "hours" }]);
   });
 });
 

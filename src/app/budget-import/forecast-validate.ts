@@ -18,18 +18,25 @@ const LETTERS_IN_ALPHABET = 26;
 const CHAR_CODE_A = 65;
 const HOURS_DECIMALS_FACTOR = 100;
 
-export type RejectedRow = {
-  row: ForecastRow | unknown;
-  reason: "shape" | "hours" | "period" | "person" | "source";
-};
+/** Why a row's `source` does not back it: no cell of this sheet is named
+ *  (missing, malformed, another sheet, outside the grid), the cell does not hold
+ *  the hours, the person is not on the cell's row, the period is neither in that
+ *  row nor above the cell, or an earlier row already used the cell. */
+export type SourceRejection = "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "cell-reused";
+
+export type RejectedRow =
+  | { row: ForecastRow | unknown; reason: "shape" | "hours" | "period" | "person" }
+  | { row: ForecastRow | unknown; reason: "source"; detail: SourceRejection };
 
 /** A person and period that several input rows contributed to. `sources` lists
  *  the contributing rows' own `source` references in input order (rows without
  *  one add nothing). */
 export type DuplicateRow = { person: string; period: string; count: number; sources: string[] };
 
-type Rejection = RejectedRow["reason"];
-type Checked = { ok: true; row: ForecastRow } | { ok: false; reason: Rejection };
+type Checked =
+  | { ok: true; row: ForecastRow }
+  | { ok: false; reason: "shape" | "hours" | "period" | "person" }
+  | { ok: false; reason: "source"; detail: SourceRejection };
 /** `defaultYear`: the year a period label without one ("Jan", "KW03") is read
  *  in — the row's own `period` and the sheet cells that back it alike. */
 type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number };
@@ -76,10 +83,10 @@ function cellMatchesHours(cell: string, hours: number): boolean {
   });
 }
 
-function isPersonOnRow(rowCells: readonly string[], citedCol: number, row: ForecastRow): boolean {
-  const wanted = [row.person, row.email].filter((v): v is string => v !== undefined && v.trim() !== "");
-  const names = wanted.map((v) => v.trim().toLowerCase());
-  return rowCells.some((cell, col) => col !== citedCol && names.includes(cell.trim().toLowerCase()));
+/** `text` (trimmed, case-insensitive) is a cell of the row other than the cited one. */
+function isOnRow(rowCells: readonly string[], citedCol: number, text: string): boolean {
+  const wanted = text.trim().toLowerCase();
+  return wanted !== "" && rowCells.some((cell, col) => col !== citedCol && cell.trim().toLowerCase() === wanted);
 }
 
 /** The period sits in the cited cell's row (long layout) or in its column above
@@ -96,18 +103,46 @@ function isPeriodNearCell(sheet: SheetGrid, rowIdx: number, colIdx: number, row:
   });
 }
 
-/** True when `row.source` names a cell of `sheet` that holds the row's hours,
- *  on a row that names the person, under or beside the row's period. */
-function isSourceGenuine(row: ForecastRow, sheet: SheetGrid, year: number | undefined): boolean {
-  if (row.source === undefined) return false;
-  const cellPart = cellPartOf(row.source, sheet.name);
+/** The cited cell's 0-based row and column when `source` names a cell of
+ *  `sheet`, else null. */
+function citedCell(source: string | undefined, sheet: SheetGrid): { rowIdx: number; colIdx: number; cell: string } | null {
+  if (source === undefined) return null;
+  const cellPart = cellPartOf(source, sheet.name);
   const match = cellPart === null ? null : CELL_REF.exec(cellPart);
-  if (match === null) return false;
+  if (match === null) return null;
   const rowIdx = Number(match[2]) - 1;
   const colIdx = columnIndex(match[1]);
   const cell = sheet.rows[rowIdx]?.[colIdx];
-  if (cell === undefined || !cellMatchesHours(cell, row.hours)) return false;
-  return isPersonOnRow(sheet.rows[rowIdx], colIdx, row) && isPeriodNearCell(sheet, rowIdx, colIdx, row, year);
+  return cell === undefined ? null : { rowIdx, colIdx, cell };
+}
+
+/**
+ * Null when `row.source` names a cell of `sheet` that holds the row's hours, on
+ * a row where ANOTHER cell names the PERSON, under or beside the row's period;
+ * else why not. An email never vouches for the person: the model can write any
+ * email beside any name (`checkRow` strips an email the row does not hold).
+ */
+function sourceProblem(row: ForecastRow, sheet: SheetGrid, year: number | undefined): SourceRejection | null {
+  const cited = citedCell(row.source, sheet);
+  if (cited === null) return "bad-ref";
+  const { rowIdx, colIdx, cell } = cited;
+  if (!cellMatchesHours(cell, row.hours)) return "value-mismatch";
+  if (!isOnRow(sheet.rows[rowIdx], colIdx, row.person)) return "person-not-on-row";
+  return isPeriodNearCell(sheet, rowIdx, colIdx, row, year) ? null : "period-not-near";
+}
+
+/** The row without its email; everything else kept. */
+function withoutEmail(row: ForecastRow): ForecastRow {
+  const out: ForecastRow = { person: row.person, period: row.period, hours: row.hours };
+  if (row.rate !== undefined) out.rate = row.rate;
+  if (row.source !== undefined) out.source = row.source;
+  return out;
+}
+
+/** The cited row holds this email in a cell other than the cited one. */
+function isEmailOnCitedRow(row: ForecastRow, sheet: SheetGrid): boolean {
+  const cited = citedCell(row.source, sheet);
+  return cited !== null && row.email !== undefined && isOnRow(sheet.rows[cited.rowIdx], cited.colIdx, row.email);
 }
 
 function isValidHours(value: unknown): value is number {
@@ -133,8 +168,13 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof email === "string") row.email = email;
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
-  if (opts.requireSource && !isSourceGenuine({ ...row, hours }, opts.sheet, opts.defaultYear)) return { ok: false, reason: "source" };
-  return { ok: true, row };
+  if (!opts.requireSource) return { ok: true, row };
+  const problem = sourceProblem({ ...row, hours }, opts.sheet, opts.defaultYear);
+  if (problem !== null) return { ok: false, reason: "source", detail: problem };
+  // An email the cited row does not show is the model's, not the sheet's, and
+  // matching by email first would route the hours to whoever owns it.
+  const isEmailBacked = row.email === undefined || isEmailOnCitedRow(row, opts.sheet);
+  return { ok: true, row: isEmailBacked ? row : withoutEmail(row) };
 }
 
 /** A summed row: the first row's person, email and rate, but NO `source` — the
@@ -150,7 +190,9 @@ function withoutSource(row: ForecastRow): ForecastRow {
  * Checks forecast rows from either import route. Each row is judged on its own
  * first (hours within 0..744 and rounded to two decimals, canonical period,
  * non-blank person and — on the Claude route — a `source` that cites a cell
- * holding that number on the person's row under or beside the period). A source
+ * holding that number on the person's row under or beside the period; the PERSON
+ * must be on that row, and an email the row does not hold is dropped from the
+ * accepted row). A rejected `source` names its cause in `detail`. A source
  * cell backs ONE row: a later row citing it again is rejected `source`, since
  * two rows cannot both be what one cell holds. Only then are rows for the same
  * person (case-insensitive, trimmed) and period summed, so a sum may exceed
@@ -169,8 +211,14 @@ export function validateForecastRows(
   for (const raw of input as unknown[]) {
     const checked = checkRow(raw, opts);
     const key = checked.ok && checked.row.source !== undefined ? sourceKey(checked.row.source, opts.sheet.name) : null;
-    if (!checked.ok || (key !== null && usedSources.has(key))) {
-      rejected.push({ row: raw, reason: checked.ok ? "source" : checked.reason });
+    if (!checked.ok) {
+      rejected.push(checked.reason === "source"
+        ? { row: raw, reason: "source", detail: checked.detail }
+        : { row: raw, reason: checked.reason });
+      continue;
+    }
+    if (key !== null && usedSources.has(key)) {
+      rejected.push({ row: raw, reason: "source", detail: "cell-reused" });
       continue;
     }
     if (key !== null) usedSources.add(key);

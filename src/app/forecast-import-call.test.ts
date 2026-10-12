@@ -26,11 +26,19 @@ const SHEET: SheetGrid = {
   truncated: false,
 };
 
-function mockResponse(input: unknown): ReturnType<typeof vi.spyOn> {
+function mockResponse(input: unknown, stopReason = "tool_use"): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue({
     ok: true,
-    json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input }] }),
+    json: async () => ({ stop_reason: stopReason, content: [{ type: "tool_use", name: "propose_forecast_rows", input }] }),
   } as unknown as Response);
+}
+
+/** `count` non-blank cells in rows of 100. */
+function sheetOfCells(count: number): SheetGrid {
+  const rows = Array.from({ length: Math.ceil(count / 100) }, (_, r) =>
+    Array.from({ length: Math.min(100, count - r * 100) }, () => "x"),
+  );
+  return { name: "Cells", rows, truncated: false };
 }
 
 type Sent = {
@@ -144,7 +152,7 @@ describe("runForecastImportCall", () => {
     const out = await runForecastImportCall(SHEET, AI);
     const body = sentBody(spy);
     expect(body.tool_choice).toEqual({ type: "tool", name: "propose_forecast_rows" });
-    expect(body.max_tokens).toBe(8192);
+    expect(body.max_tokens).toBe(16000);
     expect(body.messages[0].content).toContain("Sheet: S");
     expect(body.messages[0].content).toContain("Ada");
     expect(out).toEqual({ rows, notes: "skipped Total" });
@@ -209,6 +217,20 @@ describe("runForecastImportCall", () => {
     ];
     await runForecastImportCall({ name: "Edge", rows, truncated: false }, AI);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps a sheet at 4,000 non-blank cells: 4,000 is sent, 4,001 is refused before any request", async () => {
+    expect(MAX_CLAUDE_IMPORT_CELLS).toBe(4000);
+    const spy = mockResponse({ rows: [] });
+    await runForecastImportCall(sheetOfCells(4000), AI);
+    expect(spy).toHaveBeenCalledTimes(1);
+    await expect(runForecastImportCall(sheetOfCells(4001), AI)).rejects.toThrow("too-large");
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("never returns the rows of a reply cut off at the output budget", async () => {
+    mockResponse({ rows: [{ person: "Ada", period: "2026-01", hours: 12, source: "S!B2" }] }, "max_tokens");
+    await expect(runForecastImportCall(SHEET, AI)).rejects.toThrow("too-large");
   });
 
   it("never puts the api key in the request body", async () => {

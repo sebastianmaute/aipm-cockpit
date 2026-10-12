@@ -272,9 +272,12 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   period, a non-blank person; same person and period are summed (a summed row carries no `source`;
   `duplicates` lists the contributors). A source cell backs ONE row on either route — a second row citing
   it is rejected. With `requireSource` (the Claude route only, whose rows are UNTRUSTED) a row passes only
-  when its cited cell holds its hours, a DIFFERENT cell of that row holds the person (or email), and the
-  period sits in that row or in the cited column above. That is the safety boundary against an invented
-  value; the prompt is not.
+  when its cited cell holds its hours, a DIFFERENT cell of that row holds the PERSON, and the period sits
+  in that row or in the cited column above. That is the safety boundary against an invented value; the
+  prompt is not. ★★ An email never vouches for the person, and an email the cited row does not hold is
+  STRIPPED from the accepted row: the model can write any email beside any name, and matching tries the
+  email first, so a model-supplied `bob@…` on Ann's row once routed Ann's hours to Bob (final review).
+  A rejected source names its cause (`SourceRejection`), and the preview shows each cause in its own words.
 - **`buildForecastImportPlan` diffs against ONE bucket.** Periods are split to the plan's granularity by
   working days (`splitToGranularity`, total kept to the cent). ★★ The in-range set is
   `bucketActivePeriods(bucket, plan)` — the definition the card, the report, the burndown and the forecast
@@ -294,7 +297,12 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   actuals and stored cells, so only a change to the periods the bucket owns tells the two apart (the
   "a cell the live bucket no longer owns" test).
 - **Size bounds.** The Claude route refuses before any request over `MAX_CLAUDE_IMPORT_CELLS` non-blank
-  cells or `MAX_CLAUDE_IMPORT_CHARS` of prompt text. The xlsx reader is bounded per sheet (cells and rows,
+  cells or `MAX_CLAUDE_IMPORT_CHARS` of prompt text — both bound the INPUT, its context and its cost. The
+  OUTPUT is bounded separately: each returned row costs about 35 output tokens, and the reply's budget
+  (`MAX_TOKENS` in `forecast-import-call.ts`) holds a few hundred rows, which a sheet under the cell cap
+  can still exceed. A turn that ends on `max_tokens` may carry a cut-off `tool_use` input, so
+  `runForecastImportCall` reads the stop reason (`runForcedToolCallWithStop`) and refuses such a reply
+  as `Error("too-large")`, never importing part of it. The xlsx reader is bounded per sheet (cells and rows,
   `MAX_XLSX_SHEET_CELLS`), per workbook (`MAX_XLSX_TOTAL_ROWS`, `MAX_XLSX_TOTAL_CELLS`), and reads each
   worksheet path once (`sheetEntries` de-duplicates). Gap rows from a `<row r>` jump share one empty row.
   ★★ These bounds protect the CHAT attachment path too — it is the same reader. The many-sheet wide-cell
