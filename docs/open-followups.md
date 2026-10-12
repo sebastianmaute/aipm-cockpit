@@ -380,7 +380,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§135](#135-a-mixed-type-dependency-pair-arriving-from-outside-the-modal-is-invisible-there-and-not-individually-removable--closed-2026-10-08) | A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable | — | — | **CLOSED** 2026-10-08 |
 | [§136](#136-the-dependencies-branch-of-sanitizeinlinepatch-has-no-caller--closed-2026-10-02) | The `dependencies` branch of `sanitizeInlinePatch` has no caller | — | — | **CLOSED** 2026-10-02 |
 | [§137](#137-the-seven-rich-entity-fields-editor-cannot-represent-three-tags-their-storage-permits--closed-2026-08-11) | The seven rich entity fields' editor cannot represent three tags their storage permits | — | — | **CLOSED** 2026-08-11 |
-| [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
+| [§138](#138-the-open-followups-consolidation-p2-and-p3-done-p4-the-extraction-and-strip-remains) | The open-followups consolidation: P2 and P3 done, P4 (the extraction and strip) remains | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
 | [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open--closed-2026-10-02) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | **CLOSED** 2026-10-02 |
@@ -3221,7 +3221,9 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
 
-**Status:** open — two UX-roadmap slices — S6 designed and planned but unexecuted, S7 undesigned. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. Two citations moved: the entity-type union is `CalendarEntityType` (`grep -n "export type CalendarEntityType" src/app/settings-types.ts` → line 626, not 493) and the Graph event shape is `GraphEvent` in `outlook-calendar-write.ts`, not lines 17–19. The S6 task "entity-qualify the Push/Pull names (= §42)" has shipped separately (bf16ecc5e; §42 closed 2026-09-14), so drop it when S6 is executed.
+
+**Earlier:** open — two UX-roadmap slices — S6 designed and planned but unexecuted, S7 undesigned. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #107
 
@@ -6986,7 +6988,9 @@ in the wrapper argument, one line away from the thing being measured.
 
 ## 86. AI cannot read timelog entries — deliberate, no tool exposes them
 
-**Status:** open — an AI capability gap, no timelog read tool. Reproduced 2026-08-28 by `grep -n "timelog" src/app/ask-claude-prompts.ts`.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open, deliberately. The pin's test is now named "has no chip for timelog, whose read tool is deferred" (`grep -n "has no chip for timelog" src/app/ask-claude-prompts.test.ts` → line 57).
+
+**Earlier:** open — an AI capability gap, no timelog read tool. Reproduced 2026-08-28 by `grep -n "timelog" src/app/ask-claude-prompts.ts`.
 
 **Work item:** #124
 
@@ -9368,7 +9372,9 @@ width before the branch renders, so there is no group to reflow.
 
 ## 113. The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record
 
-**Status:** open — a decision record kept deliberately after its slices shipped, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** every slice has shipped; the entry stays for the decisions it records. Two claims are stale. `assetDataSelect` now takes `(id, projectId, legacyKeys)` (`grep -n "assetDataSelect = " src/app/document-assets-schema.ts`), still one id per request. Text alignment is BUILT: §140 (closed 2026-08-13) shipped the value allow-list and `@tiptap/extension-text-align`, so the alignment paragraph below describes the state before that.
+
+**Earlier:** open — a decision record kept deliberately after its slices shipped, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** none — decision record
 
@@ -9825,7 +9831,9 @@ Recorded so a reader who remembers "two lines" does not go looking for a change 
 
 ## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
 
-**Status:** open — an accepted decision about what the duplication gate measures, kept as a decision record (#144 closed 2026-09-26: nothing to fix). Re-measured 2026-09-26 on jscpd 5.3.2: `npm run dup:check` exits 0 with Total duplicated lines **2297 / 207417 = 1.11%** against the 1.75 threshold (0.64pp headroom), and a threshold bisect gives exit 0 at 1.11 and exit 1 at 1.10, so the gate still compares the TOTAL duplicated-LINE percentage. The trigger this entry sets (1.50%) has not fired. Earlier figures below (1.19%, jscpd 5.0.11) are dated.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still untriggered. Re-measured on jscpd 5.4.0 (not 5.3.2): `npm run dup:check` total duplicated lines 2636 / 227264 = 1.16% against the 1.75 threshold; the bisect exits 0 at 1.16 and at 1.36 (total tokens are 1.37%) and 1 at 1.15, so the gate still reads the TOTAL duplicated-LINE percentage. AGENTS.md's dup:check comment still quotes the older 1.11% / 5.3.2 figures.
+
+**Earlier:** open — an accepted decision about what the duplication gate measures, kept as a decision record (#144 closed 2026-09-26: nothing to fix). Re-measured 2026-09-26 on jscpd 5.3.2: `npm run dup:check` exits 0 with Total duplicated lines **2297 / 207417 = 1.11%** against the 1.75 threshold (0.64pp headroom), and a threshold bisect gives exit 0 at 1.11 and exit 1 at 1.10, so the gate still compares the TOTAL duplicated-LINE percentage. The trigger this entry sets (1.50%) has not fired. Earlier figures below (1.19%, jscpd 5.0.11) are dated.
 
 **Work item:** none — decision record
 
@@ -11882,9 +11890,11 @@ its own implementation while every reference to it stayed right; the first is §
 A rule stated once and referenced twice can disagree with itself, and the implementation is the copy
 a reader trusts.
 
-## 138. The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured
+## 138. The open-followups consolidation: P2 and P3 done, P4 (the extraction and strip) remains
 
-**Status:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **Update 2026-10-12, P2 and P3 done:** P2 probed the 48 open entries other than §138, §483 and §491 (those three were in flight), with six read-only agents in batches, each handed its entries verbatim. Verdicts: no entry was found done, so nothing closes; 34 entries got a dated `**Update 2026-10-12 (§138 P2 probe):**` note recording a stale claim, a partial delivery or a fresh measurement, each re-checked by hand before it was written, and the rest were confirmed still open with nothing to add. P3 is those 34 notes, applied serially; each prior Status stays verbatim under `**Earlier:**`. `npm run followups:status:check` → all 51 open entries conforming. Owner decision 2026-10-12 on P4's conflict: `tech-debt-register.md` stays a separate artifact and is linked, never folded in (see the P4 section). P4's other three parts remain.
+
+**Earlier:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #154
 
@@ -11937,16 +11947,15 @@ must capture the name it negates. Apply the same suspicion to an agent's "done".
 file, no parallel edits.
 
 **P4 — the extraction and strip.** The unbounded one, and the reason the whole thing is deferred
-rather than half-done. Four parts: orphaned open items into this register; fold or link
+rather than half-done. Four parts: orphaned open items into this register; link (never fold in)
 `tech-debt-register.md`; strip open-state prose out of `AGENTS.md` and `docs/AGENTS/*.md`; strip
 open-item comments from source while KEEPING the provenance citations.
 
-★★★ **P4 CARRIES AN UNRESOLVED CONFLICT AND MUST NOT PICK A SIDE SILENTLY.** The agreed scope says
-fold `tech-debt-register.md` in and delete it. The header of THIS file says the opposite in as many
-words — a different artifact class, owner-assigned and quarterly-reviewed, and merging it "would
-create two masters and guarantee drift". Both arguments are good. Whoever resumes decides it
-explicitly and rewrites the losing paragraph; leaving both standing is the drift either one warns
-about.
+★★★ **P4'S CONFLICT IS DECIDED: LINK, NEVER FOLD (owner decision 2026-10-12).** The original scope
+said to fold `tech-debt-register.md` in and delete it; the header of THIS file said the opposite — a
+different artifact class, owner-assigned and quarterly-reviewed, whose merge "would create two masters
+and guarantee drift". The header's side won. The register links the tech-debt rows it touches and
+copies none of them.
 
 ★★ **Inserting entries here breaks every `docs/open-followups.md:LINE` citation below the insertion,
 and the doc-claims ratchet cannot see the ones in `scripts/`.** Twelve such cites were found in
@@ -12051,7 +12060,9 @@ tooling gets no static help at all, so it needs the same behavioural probe as an
 
 ## 139. The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two
 
-**Status:** open — the entity-side attach door is not built. Reproduced 2026-08-28 by `grep -rn "linkedEntities" src/app --include=*.tsx`.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. A third look-alike now exists: `DocumentBadge` on task, RAID, change and milestone rows (6ee0c675e, b35f51900) shows the linked-document count and opens Documents. It reads and navigates; it does not attach. The entity editors still import nothing from `document-ref.ts` (`grep -c "document-ref" src/app/task-form-fields.tsx` → 0).
+
+**Earlier:** open — the entity-side attach door is not built. Reproduced 2026-08-28 by `grep -rn "linkedEntities" src/app --include=*.tsx`.
 
 **Work item:** #155
 
@@ -16269,7 +16280,9 @@ this is, it is not the size cap.
 
 ## 189. Adopt Prettier at `printWidth: 120` and raise the size cap to 900
 
-**Status:** open, DECIDED but deliberately not implemented. **Severity:** low
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. Two implementation notes are stale. `__fixtures__/` holds two `.ts` files since 2026-09-03 (`find src -path '*__fixtures__*' -name '*.ts'` → `cfbf-writer.ts`, `minimal-outlook.msg.base64.ts`), which a `.ts`-scoped Prettier run DOES reach, so exclude `**/__fixtures__/**` explicitly. `eslint.config.mjs` now adds one rule of its own (`no-restricted-imports`, not stylistic) beside the presets and `globalIgnores`. Prettier is still not adopted: `grep -c '"prettier"' package.json` → 0.
+
+**Earlier:** open, DECIDED but deliberately not implemented. **Severity:** low
 (no defect — a tooling decision plus its migration cost). **Decided:**
 2026-08-19. **Deferred the same day**, to be done as its own slice rather than
 riding on an unrelated branch. Never machine-verified by a committed probe.
@@ -20857,7 +20870,9 @@ failure mode this register keeps recording.
 
 ## 237. The AI cannot see anything outside the active project
 
-**Status:** **Update 2026-10-05:** the RACI WRITE half is recorded as DELIBERATE and the entry narrowed to the cross-project gap. Chat refuses `raci` on every write path: `sanitize-records.ts` maps it to `() => false` for an update, and `createStakeholder` in `use-register-tools.ts` forces `raci: {}` after the field guard. The reviewed write path is the RACI view (its grid, and Suggest RACI, whose `propose_raci` planner stages rows for review). What was missing was the disclosure: a model asked to make someone Accountable would call `update_stakeholder`, see the field dropped and report a change that never happened. The `create_stakeholder` and `update_stakeholder` descriptions and the `raci` view reading now say chat cannot set RACI and point the user to that view. Pinned by "the stakeholder tools disclose that RACI is not writable" in `chat-tool-defs.test.ts` and "tells the model RACI is changed in the RACI view, not by chat" in `view-ai-scope.test.ts`; verified by `npx vitest run src/app/chat-tool-defs.test.ts src/app/view-ai-scope.test.ts` (3 red before the text change, green after). Not checked against a live model turn. Still OPEN: the cross-project gap below, disclosed to the model rather than fixed. Previous update, 2026-10-04: the RACI READ half is DONE — `StakeholderSummary` now carries `raci` (milestone id → letter, a copy of `Stakeholder.raci`), so `list_stakeholders` answers "who is Accountable for milestone X" in general chat; the tool description and the `raci` view reading in `view-ai-scope.ts` say to join it with `list_milestones` and skip ids that list does not return. Pinned by "toStakeholderSummary carries RACI (§237)" in `chat-tools.test.ts` and "points the model at the raci field list_stakeholders returns" in `view-ai-scope.test.ts`. Still open: the model cannot WRITE a RACI (`createStakeholder` hardcodes `raci: {}`; `propose_raci` is the write path), and the cross-project gap below, which stays disclosed rather than fixed. The RACI paragraph below is the pre-fix record. Original status: open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the cross-project half is still open. The disclosure is VIEW-SCOPED: `chat-api.ts` sends only `buildViewScopeBlock(snapshot.currentView, …)`, and the "active project only" note lives in the Portfolio health entry (`grep -n "active project only" src/app/view-ai-scope.ts` → line 45), so a portfolio question asked from any other view reaches the model with no such note.
+
+**Earlier:** **Update 2026-10-05:** the RACI WRITE half is recorded as DELIBERATE and the entry narrowed to the cross-project gap. Chat refuses `raci` on every write path: `sanitize-records.ts` maps it to `() => false` for an update, and `createStakeholder` in `use-register-tools.ts` forces `raci: {}` after the field guard. The reviewed write path is the RACI view (its grid, and Suggest RACI, whose `propose_raci` planner stages rows for review). What was missing was the disclosure: a model asked to make someone Accountable would call `update_stakeholder`, see the field dropped and report a change that never happened. The `create_stakeholder` and `update_stakeholder` descriptions and the `raci` view reading now say chat cannot set RACI and point the user to that view. Pinned by "the stakeholder tools disclose that RACI is not writable" in `chat-tool-defs.test.ts` and "tells the model RACI is changed in the RACI view, not by chat" in `view-ai-scope.test.ts`; verified by `npx vitest run src/app/chat-tool-defs.test.ts src/app/view-ai-scope.test.ts` (3 red before the text change, green after). Not checked against a live model turn. Still OPEN: the cross-project gap below, disclosed to the model rather than fixed. Previous update, 2026-10-04: the RACI READ half is DONE — `StakeholderSummary` now carries `raci` (milestone id → letter, a copy of `Stakeholder.raci`), so `list_stakeholders` answers "who is Accountable for milestone X" in general chat; the tool description and the `raci` view reading in `view-ai-scope.ts` say to join it with `list_milestones` and skip ids that list does not return. Pinned by "toStakeholderSummary carries RACI (§237)" in `chat-tools.test.ts` and "points the model at the raci field list_stakeholders returns" in `view-ai-scope.test.ts`. Still open: the model cannot WRITE a RACI (`createStakeholder` hardcodes `raci: {}`; `propose_raci` is the write path), and the cross-project gap below, which stays disclosed rather than fixed. The RACI paragraph below is the pre-fix record. Original status: open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
 **Severity:** low. The model is not wrong, it is blind; for the second gap it is told so. Reproduced 2026-08-28 by `grep -c "raci" src/app/raci-suggest/raci-suggest.ts`.
 
 **Work item:** #203
@@ -28978,7 +28993,9 @@ not carry it, and adding untasked guards to a fix commit is how a slice stops be
 
 ## 346. No MCP server — the AI can only act from inside the app — open
 
-**Status:** open — **never machine-verified** (2026-09-03). Reproduce the absence with
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; the owner's decision on a server-side surface is untouched. The tool count is stale: 54, not 33 — `awk 'NR>=285' src/app/chat-tool-defs.ts | grep -cE '^\s{4}name: "'` → 49 in `TOOL_DEFS` plus 5 `DOCUMENT_TOOL_DEFS` — now also covering absences, calendar events and documents. The documents half: `grep -cE '^\s{4}name: "' src/app/chat-tool-defs-documents.ts` → 5.
+
+**Earlier:** open — **never machine-verified** (2026-09-03). Reproduce the absence with
 `grep -rli "modelcontextprotocol\|mcp-server" src package.json` (no hits) and `ls src/app/api`
 (`_shared confluence ecb jira stt timelog` — every route is an OUTBOUND proxy; nothing inbound).
 
@@ -29086,7 +29103,9 @@ Worth its own entry when someone takes it.
 
 ## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
 
-**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open, and further from built than the body says: neither `CalendarEvent` nor `CommitteeMeeting` carries a task, RAID or milestone reference (`grep -n "interface CommitteeMeeting" -A8 src/app/types.ts`), so there is no link in the data yet either. Building it means a new persisted relation first (six write paths). §347 is closed (2026-10-11), so the "after §347" sequencing is met.
+
+**Earlier:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
 
 **Work item:** #252
 
@@ -32325,7 +32344,9 @@ always compare the reported file count against the number of paths named, every 
 
 ## 413. The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users — ACCEPTED COST
 
-**Status:** OPEN as a recorded decision, not as work. 2026-09-06, never machine-verified — nothing
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the accepted cost stands. The two SHAs are pre-cut-over and no longer resolve; today's equivalents are 4d1182918 (`git log -S"title={mix}"`) and ed2577ca1. The third cost is smaller than written: since §414 (e02a3092b) the ID column defaults to 112 px with a floor (`grep -n "  id: " src/app/tasks-section-columns.ts`).
+
+**Earlier:** OPEN as a recorded decision, not as work. 2026-09-06, never machine-verified — nothing
 can test "a keyboard user cannot reach a `title`", and the two halves that ARE testable already
 have owners (`task-raid-badge.test.tsx` pins the accessible name's containment property;
 `grep -n "title=" src/app/task-raid-badge.tsx` shows the one attribute this entry is about).
@@ -34138,7 +34159,9 @@ the next person who reads `loadArrangement`.
 ## 428. `focusAfterMove` / `triggerRefs` has no detector at any layer, and the Playwright probe that was owed refuted its own premise — OPEN
 
 
-**Status:** open as a DECISION, not as a defect — nothing is broken and nothing is owed. Recorded
+**Status:** **Update 2026-10-12 (§138 P2 probe):** on the DASHBOARD the first branch has fired: `restoreFromShelf` (41ba9c33b) focuses the restored tile's ⋮ through `triggerRefs` once the tray's restore button unmounts, so the popover is not the focus owner there, and `dashboard-panel.test.tsx`'s "lands focus on the restored tile's ⋮ trigger when the restore empties the tray" pins it (not yet mutation-proved). The decision stays open for Reports' `focusAfterMove` alone (`grep -n "setFocusAfterMove" src/app/reports.tsx`).
+
+**Earlier:** open as a DECISION, not as a defect — nothing is broken and nothing is owed. Recorded
 2026-09-07, verified by three runs of
 `npx playwright test e2e/reports-arrangement-focus.spec.ts --project=chromium --workers=1`
 in Chromium against a live dev server, one mutant at a time:
@@ -35855,7 +35878,9 @@ itself, a round-trip claim `change-log.ts` owns verbatim, and an argument restat
 original. No fact was deleted. There is no second round of that available; the file is now dense.
 ## 452. The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns — OPEN
 
-**Status:** 2026-09-09 — never machine-verified. Every figure below is MODELLED from Anthropic's
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still a do-not-build record; the half-trim model recomputes to the same ~46 / ~25 / ~18 turns. Not to be confused with `fitHistoryToBudget` (`grep -n "fitHistoryToBudget" src/app/chat-threads.ts`, §575): a wire-only budget on attachment BYTES that replaces the oldest attachments with placeholders and is byte-identical under budget. It trims attachment payloads, not turns, and is not C1.
+
+**Earlier:** 2026-09-09 — never machine-verified. Every figure below is MODELLED from Anthropic's
 published cache ratios and the prefix size the guide-block cache-split slice measured; no run has been
 instrumented to confirm a payback point, and nothing here has been reproduced against live usage.
 
@@ -36230,7 +36255,9 @@ serialises, since the census is written into the artifact.
 
 ## 456. Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why — OPEN
 
-**Status:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** re-measured: 15 headerless `<Modal>` sites carry no help icon. Two of them postdate this record and have neither an icon nor a `NO help icon` refusal: `inline-ai-edit-popover.tsx` (§694) and `use-wbs-plan.tsx` (optimize_wbs) — `grep -c "NO help icon" src/app/inline-ai-edit-popover.tsx src/app/use-wbs-plan.tsx` → 0 and 0. Each needs the icon-or-refusal decision recorded at its call site.
+
+**Earlier:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
 
 **Work item:** none — decision record
 
@@ -36478,7 +36505,9 @@ can be seen.
 
 ## 462. There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN
 
-**Status:** OPEN 2026-09-11 — a deferred decision, not a defect; no Linux package has been built or
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the Linux build is still unbuilt; the GitLab framing below is obsolete. Releases build in `.github/workflows/release.yml` on `windows-latest`, and `expectedAssets()` in `scripts/release-publish-lib.mjs` pins exactly the exe, its blockmap and `latest.yml` (`grep -n "export function expectedAssets" -A3 scripts/release-publish-lib.mjs`), so a Linux build adds to that list. The nested-`artifactName` guard now lives in `scripts/ci-workflow.test.mjs`, and `desktop/src` does call `app.getPath("userData")` (in `updater.ts`).
+
+**Earlier:** OPEN 2026-09-11 — a deferred decision, not a defect; no Linux package has been built or
 run on purpose. Presence witnesses re-run 2026-09-11: `grep -n "^artifactName:" desktop/electron-builder.yml`
 (the one installer name), `grep -n -A 1 "^win:" desktop/electron-builder.yml` (`target: nsis`, the only
 target), `grep -n '"desktop:package": "npm' package.json` (`--win`),
@@ -38120,7 +38149,9 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 ## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
+
+**Earlier:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
 hit, `grep -n "signExecutable: false" desktop/electron-builder.yml` → 2 hits (the key itself and the comment
 explaining it), and
 `grep -n "Run anyway" docs/desktop-rollout.md` → 1 hit. The rollout guide tells every tester to click past
@@ -38434,7 +38465,9 @@ Size S–M.
 
 ## 498. The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN
 
-**Status:** **Update 2026-10-05:** the packaged-desktop leg of this smoke also verifies the §547 refactor, which moved the sign-in popup's auth-flow state machine and its Electron listeners out of `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts` (merged at `091ad6312`). It is covered by `npx vitest run desktop/src/lib/auth-flow-tracker.test.ts` and `npm run desktop:typecheck`, but no packaged sign-in run has exercised it yet. **Update 2026-10-03:** the manual smoke is now documented — `docs/RUNBOOK.md` "Microsoft 365 sign-in smoke (manual)" (sign in, one Graph read, reload, sign out, console clean; browser AND packaged desktop), required on every `@azure/msal-browser` bump by CONTRIBUTING's Dependencies section. Still owed: a first real run against a tenant, recorded here (date, app version, msal version, browser or desktop); keep this entry open until then. A CI tenant with a gated e2e stays unscoped. OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still owed, and the consequence warned of has happened: the specifier is `^5.24.0` (`grep -n "@azure/msal-browser" package.json`), bumped from 5.23.0 by Dependabot e8f83cae6 on 2026-10-11 with no recorded RUNBOOK smoke.
+
+**Earlier:** **Update 2026-10-05:** the packaged-desktop leg of this smoke also verifies the §547 refactor, which moved the sign-in popup's auth-flow state machine and its Electron listeners out of `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts` (merged at `091ad6312`). It is covered by `npx vitest run desktop/src/lib/auth-flow-tracker.test.ts` and `npm run desktop:typecheck`, but no packaged sign-in run has exercised it yet. **Update 2026-10-03:** the manual smoke is now documented — `docs/RUNBOOK.md` "Microsoft 365 sign-in smoke (manual)" (sign in, one Graph read, reload, sign out, console clean; browser AND packaged desktop), required on every `@azure/msal-browser` bump by CONTRIBUTING's Dependencies section. Still owed: a first real run against a tenant, recorded here (date, app version, msal version, browser or desktop); keep this entry open until then. A CI tenant with a gated e2e stays unscoped. OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
 and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms-auth.test.tsx`,
 `msal-redirect/page.test.tsx`). MSAL is exercised only in unit tests.
 
@@ -38520,7 +38553,9 @@ Size M — terminology and hints first, the S-curve chart as a second slice.
 
 ## 502. There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rlniE "monte.?carlo|percentile|quantile" src/app --include=*.ts --include=*.tsx` → no output.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. One claim is stale: the BUDGET forecast now has a linear extrapolation to replace — `budget-forecast.ts`'s current-pace forecast (24bbfa40e) carries a 20-working-day burn rate to the plan end and a run-out date (`grep -n "burnRatePerDay =" src/app/budget-forecast.ts`). The schedule forecast still has none.
+
+**Earlier:** OPEN 2026-09-13 — `grep -rlniE "monte.?carlo|percentile|quantile" src/app --include=*.ts --include=*.tsx` → no output.
 
 Kai Mindermann asked for Monte Carlo forecasting with scenarios and confidence levels, because project reality
 is neither linear nor exponential. He called it his strongest functional ask and made it three times (twice on
@@ -38580,7 +38615,9 @@ Size M — once the full article has been read.
 
 ## 505. There is no project governance module that weights health by engagement type — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, a per-bucket revenue switch;
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed", "e2e"]`: §488 (closed 2026-10-02) shipped a per-bucket end-to-end contract type, still a revenue switch on the bucket; nothing sets an engagement type on the project, and overall health is unweighted.
+
+**Earlier:** OPEN 2026-09-13 — `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, a per-bucket revenue switch;
 nothing sets an engagement type on the project.
 
 Michael Leather asked for a governance module with weighted governance factors per engagement. A fixed-price
@@ -38602,7 +38639,9 @@ Size L — engagement type on the project, a weight profile and a weighted healt
 
 ## 506. A delivery project cannot represent the client's own governance structure beside employer governance — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. "Internal members only" is loose: members are resource ids (`memberResourceIds`) and a resource may be flagged `isExternal`, so a customer person can sit on the one committee — but there is no link to stakeholders and no second, customer-side body (`grep -n "interface SteeringCommittee" -A8 src/app/types.ts`).
+
+**Earlier:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
 steering committee.
 
 Michael Leather said delivery projects must plug into the customer's governance alongside the employer's. It was
@@ -38647,7 +38686,9 @@ Size L — identity and login, ownership, access control, hosting, then the port
 
 ## 508. No admin role can lock a tenant-level policy of mandatory and suppressed fields — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rlnE "isAdmin|rbac" src/app --include=*.ts --include=*.tsx` → no output.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open and still depends on §507. §521, named under Related, is closed (2026-09-13). `grep -rlnE "isAdmin|rbac" src/app --include=*.ts --include=*.tsx` → nothing.
+
+**Earlier:** OPEN 2026-09-13 — `grep -rlnE "isAdmin|rbac" src/app --include=*.ts --include=*.tsx` → no output.
 
 Michael Leather asked that a portfolio or programme manager define which data fields are mandatory and which
 are suppressed, per tenant. On the call it was described as architecturally supported but not implemented.
@@ -38667,7 +38708,9 @@ Size L — depends on the identity work in §507.
 
 ## 509. There is no central target for exporting project data to consolidate by hand — OPEN (filename half done 2026-10-05)
 
-**Status:** **Update 2026-10-05:** the FILENAME half is done: `exportFilename` leads the stem with the project code when one is set (`aipm-cockpit-project-<code>-<name>-<date>`), and `documentFilename` prefixes a downloaded document with it (`<code>-<title>-<date>`); each half is slugged by `filenameStem`, a blank one is dropped, and `joinFilenameStems` holds the joined stem to the one-stem `MAX_FILENAME_STEM` cap, the code limited to half of it so part of the title always survives. Verified by `npx vitest run src/app/export.test.ts src/app/document-download.test.ts` and 4 mutants (the code dropped at each naming site) each turning a test red. Still OPEN: the central target — the SharePoint storage backend is unverified on a live tenant (§652), so an upload there is not built. OPEN 2026-09-13 — `grep -rn "EXPORT_SECTION_KEYS = " src/app` → `settings-types.ts`, the section switches. The browser-download-only
+**Status:** **Update 2026-10-12 (§138 P2 probe):** PARTIAL. The project code in export and document filenames has shipped (1ab1ba09a, a337551d5; `grep -n "projectCodeStem" src/app/export.ts`), so the body's "Filenames carry no project code" no longer holds. The central target is still owed: every export ends in a browser download, and an upload waits on §652.
+
+**Earlier:** **Update 2026-10-05:** the FILENAME half is done: `exportFilename` leads the stem with the project code when one is set (`aipm-cockpit-project-<code>-<name>-<date>`), and `documentFilename` prefixes a downloaded document with it (`<code>-<title>-<date>`); each half is slugged by `filenameStem`, a blank one is dropped, and `joinFilenameStems` holds the joined stem to the one-stem `MAX_FILENAME_STEM` cap, the code limited to half of it so part of the title always survives. Verified by `npx vitest run src/app/export.test.ts src/app/document-download.test.ts` and 4 mutants (the code dropped at each naming site) each turning a test red. Still OPEN: the central target — the SharePoint storage backend is unverified on a live tenant (§652), so an upload there is not built. OPEN 2026-09-13 — `grep -rn "EXPORT_SECTION_KEYS = " src/app` → `settings-types.ts`, the section switches. The browser-download-only
 behaviour is never machine-verified beyond the issue's code check.
 
 Michael Leather asked for an interim consolidation path until §507 lands: export local project data to a
@@ -38688,7 +38731,9 @@ Size M — a SharePoint folder upload over the existing Graph code (the project 
 
 ## 510. The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN
 
-**Status:** **Update 2026-10-04:** central extraction is built, by owner decision 2026-10-04: Settings → Storage, in expert mode only, offers "Download activity log (internal)", a JSON file marked internal (`activity-audit.ts`) that carries every entry with its field changes (old and new values) and an English message. On a multi-project Turso database it covers every project in the portfolio, archived ones flagged (`readPortfolioActivityLogs` in `turso-portfolio.ts`; a NULL log reads as none, an unreadable or non-array one is listed empty, FLAGGED `logUnreadable` and logged, and partly dropped entries are counted in `entriesDropped`), with the project open now contributing its LIVE log rather than its last saved one, and added if it is not in the projects table yet; on any other storage only the project open now, and the control says which before the download. It is not an export section and goes through no export config; `docs/AGENTS/activity-log.md` records it as the one exception to the storage-only rule. It is NOT access control: the app has no roles (§508), so the storage credential is the boundary. Verified by `npx vitest run src/app/activity-audit.test.ts src/app/activity-audit-download.test.ts src/app/settings-sections/activity-audit-section.test.tsx src/app/settings-view.test.tsx src/app/turso-portfolio.test.ts src/app/turso-portfolio.execute.test.ts src/app/i18n-encoding.test.ts --maxWorkers=1` (7 files, 71 tests, exit 0); 17 mutants each turn a test red. Not run against a live Turso database. What stays OPEN: the 500-entry cap (`ACTIVITY_MAX_ENTRIES`) and naming the PM in an entry, which needs an identity source the app does not have. OPEN 2026-09-13 — `grep -rn "ACTIVITY_MAX_ENTRIES = " src/app` → `activity-log.ts`, 500. **Post-merge follow-ups 2026-10-04**, verified by `npx vitest run src/app/activity-audit.test.ts src/app/activity-audit-download.test.ts src/app/settings-sections/activity-audit-section.test.tsx src/app/settings-view.test.tsx src/app/turso-portfolio.test.ts src/app/turso-portfolio.execute.test.ts src/app/use-load-truncation.test.ts src/app/i18n-encoding.test.ts --maxWorkers=1` (8 files, 135 tests, exit 0): the project open now is flagged `logUnreadable` on any scope when its stored log failed to decode at load (`activityLogUnreadable` from use-load-truncation.ts); an unreadable stored log is logged by error name only, since a parse message quotes audit data; a failed portfolio read is logged; the success text says the download started; the project open now keeps its own unreadable flag when its live log replaces the stored row. ★ The flag is derived from the load's decode report, which "Save anyway" clears: after that save overwrites the stored log, later files carry no flag for the lost entries. Mutants for each turn a test red.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** PARTIAL, as the Status says; one remainder is unlisted: the PM can still clear the log from the Activity panel (`grep -n "activityClear" src/app/activity-log-panel.tsx`), so a central extract sees only what survived the last clear.
+
+**Earlier:** **Update 2026-10-04:** central extraction is built, by owner decision 2026-10-04: Settings → Storage, in expert mode only, offers "Download activity log (internal)", a JSON file marked internal (`activity-audit.ts`) that carries every entry with its field changes (old and new values) and an English message. On a multi-project Turso database it covers every project in the portfolio, archived ones flagged (`readPortfolioActivityLogs` in `turso-portfolio.ts`; a NULL log reads as none, an unreadable or non-array one is listed empty, FLAGGED `logUnreadable` and logged, and partly dropped entries are counted in `entriesDropped`), with the project open now contributing its LIVE log rather than its last saved one, and added if it is not in the projects table yet; on any other storage only the project open now, and the control says which before the download. It is not an export section and goes through no export config; `docs/AGENTS/activity-log.md` records it as the one exception to the storage-only rule. It is NOT access control: the app has no roles (§508), so the storage credential is the boundary. Verified by `npx vitest run src/app/activity-audit.test.ts src/app/activity-audit-download.test.ts src/app/settings-sections/activity-audit-section.test.tsx src/app/settings-view.test.tsx src/app/turso-portfolio.test.ts src/app/turso-portfolio.execute.test.ts src/app/i18n-encoding.test.ts --maxWorkers=1` (7 files, 71 tests, exit 0); 17 mutants each turn a test red. Not run against a live Turso database. What stays OPEN: the 500-entry cap (`ACTIVITY_MAX_ENTRIES`) and naming the PM in an entry, which needs an identity source the app does not have. OPEN 2026-09-13 — `grep -rn "ACTIVITY_MAX_ENTRIES = " src/app` → `activity-log.ts`, 500. **Post-merge follow-ups 2026-10-04**, verified by `npx vitest run src/app/activity-audit.test.ts src/app/activity-audit-download.test.ts src/app/settings-sections/activity-audit-section.test.tsx src/app/settings-view.test.tsx src/app/turso-portfolio.test.ts src/app/turso-portfolio.execute.test.ts src/app/use-load-truncation.test.ts src/app/i18n-encoding.test.ts --maxWorkers=1` (8 files, 135 tests, exit 0): the project open now is flagged `logUnreadable` on any scope when its stored log failed to decode at load (`activityLogUnreadable` from use-load-truncation.ts); an unreadable stored log is logged by error name only, since a parse message quotes audit data; a failed portfolio read is logged; the success text says the download started; the project open now keeps its own unreadable flag when its live log replaces the stored row. ★ The flag is derived from the load's decode report, which "Save anyway" clears: after that save overwrites the stored log, later files carry no flag for the lost entries. Mutants for each turn a test red.
 
 Michael Leather asked to confirm that each PM's activity and audit log can be retrieved centrally. On the call
 that was confirmed as available and extractable.
@@ -38710,7 +38755,9 @@ Size S–M — a decision first; close if raw Turso SQL access is accepted as th
 
 ## 511. Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rlnE "\.dotx|\.potx" src/app` → no output.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. One claim is stale: the SharePoint picker is also mounted by knowledge links and storage config (`grep -rln "SharePointPickerModal" src/app --include=*.tsx`); only the file-content fetch is still used by project import alone.
+
+**Earlier:** OPEN 2026-09-13 — `grep -rlnE "\.dotx|\.potx" src/app` → no output.
 
 Michael Leather asked that document generation be forced through employer templates from a drive folder. On the
 call it was described as prepared but deprioritised; the employer branding skill and templates are already used
@@ -38822,7 +38869,9 @@ Size M — a decision register (or a Decision category beside RAID) and contact 
 
 ## 517. The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rn "MAX_VISIBLE_PER_TIER = " src/app` → `actions-panel.tsx`, 5 per tier, with no overall cap.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. One claim is stale: expert mode does more than reveal advanced settings — on next actions it also shows each row's score and a learning-settings button (`grep -n "expertMode" src/app/action-row.tsx src/app/action-hero-card.tsx src/app/actions-panel.tsx`). It does not reduce what is shown.
+
+**Earlier:** OPEN 2026-09-13 — `grep -rn "MAX_VISIBLE_PER_TIER = " src/app` → `actions-panel.tsx`, 5 per tier, with no overall cap.
 
 Kai Mindermann endorsed the existing simple view (fewer fields) and asked for the same data-visualisation
 principle across the app, especially overviews and actions. The concrete target: no left nav, no top bar, only
@@ -38845,7 +38894,9 @@ Size M–L — the chromeless next-actions view first, then the principle across
 
 ## 518. There is no single-action focus mode that steps through the next actions one at a time — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rln "ActionHeroCard" src/app` → `action-hero-card.tsx` and `actions-panel.tsx` (plus a test
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; no stepper exists. `grep -rln "ActionHeroCard" src/app` now returns 6 files, not 4: the Dashboard's row-2 hero (049883786) is a new mount beside the Actions panel's.
+
+**Earlier:** OPEN 2026-09-13 — `grep -rln "ActionHeroCard" src/app` → `action-hero-card.tsx` and `actions-panel.tsx` (plus a test
 and `action-cta.ts`); no stepper exists. Never machine-verified beyond that.
 
 Kai Mindermann proposed showing one action at a time, with dots for what follows and "mark complete" to
@@ -40111,7 +40162,9 @@ Related: §501, §504, §549.
 
 ## 551. Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN
 
-**Status:** OPEN 2026-09-16 — established by reading `appendStatements` in `snapshot-schema.ts` against the
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. §637 made today's append all-or-nothing, but that does not shrink this risk: every client that still writes `currency` predates 510f4445d, which is an ancestor of a476cbafd (§637) — `git merge-base --is-ancestor 510f4445d a476cbafd` exits 0 — so it runs the pipeline that does not stop at a failed statement. The column is still carried: `grep -n "unused since §469" src/app/snapshot-schema.ts` → line 23.
+
+**Earlier:** OPEN 2026-09-16 — established by reading `appendStatements` in `snapshot-schema.ts` against the
 pipeline behaviour AGENTS.md records in its `idKind` bullet; never machine-verified. Deferred by the earned-value history slice
 (`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`, §4.4), user approved filing.
 
@@ -40536,7 +40589,9 @@ every automatic CI job.
 
 ## 562. The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed)
 
-**Status:** OPEN 2026-09-18 — established by reading `api/jira/_rate-limit.ts` and by `grep -rn "rateLimit(" src/app/api --include=*.ts`, which enumerates the call sites and their scopes; the limiter itself is **never machine-verified** under a varying forwarding header. Filed as a DECISION to record, not a defect to fix: "accept, self-hosted single-process app" may well be the right answer, but it is currently implicit, and an implicit acceptance is indistinguishable from an oversight the next time someone reads the file.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the acceptance is still unwritten. One claim is stale: the bypass IS machine-verified, pinned as intended behaviour by `_rate-limit.test.ts`'s "tracks distinct IPs independently" (one x-forwarded-for value exhausted to 429, a second still allowed). `findings-2026-09.md` MEDIUM-1 still describes one shared limit; it is per scope (`grep -n "rateLimit(" src/app/api -r`).
+
+**Earlier:** OPEN 2026-09-18 — established by reading `api/jira/_rate-limit.ts` and by `grep -rn "rateLimit(" src/app/api --include=*.ts`, which enumerates the call sites and their scopes; the limiter itself is **never machine-verified** under a varying forwarding header. Filed as a DECISION to record, not a defect to fix: "accept, self-hosted single-process app" may well be the right answer, but it is currently implicit, and an implicit acceptance is indistinguishable from an oversight the next time someone reads the file.
 
 **Work item:** none — decision record
 
@@ -40572,7 +40627,9 @@ Related: §13 (PX-9's original filing).
 
 ## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
 
-**Status:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.2–v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160. The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future; both are stale.
+
+**Earlier:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
 
 **Work item:** none — decision record
 
@@ -42272,7 +42329,9 @@ across the family and not closed by that fix).
 
 ## 610. Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open
 
-**Status:** open 2026-09-23 — never machine-verified; undecidable until the repository is public,
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still owed. The repository is PUBLIC (`gh repo view --json visibility`), and 0 of 208 PRs are cross-repository, so no fork PR has shown the red check yet. The mechanism differs from the body: `ci.yml` writes the empty `LEAK_LIST` secret to a file and exports `LEAK_LIST_FILE` anyway, so `leaks:check` exits 2 on "holds no entries", not on an unset variable. Same red outcome. `grep -n "LEAK_LIST_FILE" .github/workflows/ci.yml` → line 54, the unconditional export.
+
+**Earlier:** open 2026-09-23 — never machine-verified; undecidable until the repository is public,
 because a private repository cannot receive fork PRs.
 
 **Work item:** #392
@@ -42481,7 +42540,9 @@ too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:
 
 ## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
 
-**Status:** **Update 2026-10-06 — weekly tally 2 of 4.** Scheduled run 37293040675 (2026-10-05, seed 37293040675) is the second clean run for this entry: its full log has no `ReferenceError`, no `window is not defined` and no `Unhandled Error`/`Unhandled Rejection` line (`gh run view 37293040675 --log | grep -c ReferenceError` → 0). The run itself failed, for two reasons unrelated to this entry: one `use-jira-sync.test.tsx` test that a leaked `…Once` stub broke under that seed (fixed 2026-10-06 by resetting every mocked `jira-api` export before each test), and the `braces` advisory (§671). Two more clean weekly runs close this. **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
+**Status:** **Update 2026-10-12 (§138 P2 probe):** weekly tally 3 of 4. Scheduled run 38234101549 (2026-10-12, `522e038e1`): `unit-shuffled-random` passed 1359 files, and `gh run view 38234101549 --log | grep -c ReferenceError` → 0, with no `window is not defined` and every "unhandled" hit an MSW request notice. It failed only on `audit-full` (§671) and `register-sync`. A manual dispatch run, 38074547272 (2026-10-10), was also clean but is not a weekly run. One more clean weekly run closes this. The hedge is still in place: `grep -n "isFakeTimers" vitest.setup.ts` → line 118.
+
+**Earlier:** **Update 2026-10-06 — weekly tally 2 of 4.** Scheduled run 37293040675 (2026-10-05, seed 37293040675) is the second clean run for this entry: its full log has no `ReferenceError`, no `window is not defined` and no `Unhandled Error`/`Unhandled Rejection` line (`gh run view 37293040675 --log | grep -c ReferenceError` → 0). The run itself failed, for two reasons unrelated to this entry: one `use-jira-sync.test.tsx` test that a leaked `…Once` stub broke under that seed (fixed 2026-10-06 by resetting every mocked `jira-api` export before each test), and the `braces` advisory (§671). Two more clean weekly runs close this. **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
 one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
 naming `@tiptap/react`'s real `setTimeout(…, 1)` editor-destroy and this entry in a comment. This
 hedge is **never machine-verified against the actual race**, and there is no seeded before/after
@@ -43322,7 +43383,9 @@ over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1,
 
 ## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload — open
 
-**Status:** **Update 2026-10-11 — the local file is measured; Turso's live spec passed in CI.** (1) **Local file (local-json): measured by §661 on 2026-10-08**, in installed Chrome with an Origin Private File System handle: a tab closed right after a task-name edit committed with Enter, inside the save debounce, never reached the file (the close-time save was still waiting on its Web Lock when the tab went), the journal held it, and reopening the project restored the edit and saved it to the file within 4 s, in 3 of 3 headed runs and the committed spec's run. Reproduce with `$env:LOCAL_FILE_PROBE=1; npx playwright test e2e/local-file-close-save.spec.ts --project=chromium --workers=1` (opt-in, skipped in CI). Not measured there: an unblurred draft (the pagehide commit), a reload, and the CSV and Markdown file formats, which share the backend and the journal but not the serializer. (2) **Turso: `e2e/unload-journal-turso-live.spec.ts`**, in `LIVE_TURSO_APP`, so `live-turso.yml` runs it through `npm run e2e:live-app`. On a portfolio Turso project of its own it types an unblurred task-name draft, then reloads (one test) or closes the tab (the other), and asserts that the journal held the draft (on the reload, read by an init script as the new document starts, before any app code; on the tab close, read by a same-origin page that runs no app code, with a poll), that the stored `taskName`, read from the test process, holds the draft, and that the load consumed the journal (`aipm-cockpit:unload-journal:<project id>`) with no conflict notice; the premise that the draft is NOT stored before the unload is asserted first. `npx playwright test --project=live-turso-app --list` (with `E2E_LIVE_APP=1`) lists both tests. It cannot run locally (the local throwaway token is rejected, HTTP 401), so its runs are the pull request's `live-turso` job: run 38126224414 failed the tab-close test before any assertion, because the reader page's navigation to `/favicon.ico` was aborted (`net::ERR_ABORTED`) on both attempts while the reload test passed; with a route-served blank reader page, run 38128296706 passed both (16 of 16 live app tests; `gh run view 38128296706 -R sebastianmaute/aipm-cockpit --json conclusion` prints `success`). No mutant has been run against it, and which branch each passing test took was not recorded (the report is uploaded only on failure). Each test records which branch of `restoreOnLoad` ran as a `restore branch` annotation in the run's report; if both read "no restore toast seen", the unload's own save landed and the restore-and-save-back path on Turso is still unmeasured. Still owed after that run, and outside what code here can settle: SharePoint, the packaged-desktop window close, and the guard-refusal loop with its Discard exit in a real browser. **Update 2026-10-03:** the guard-refusal loop now has a Discard: the destructive `SavingPausedBanner` offers "Discard this deletion" (`storageDestructiveDiscard`), which after its own confirmation runs `reloadCurrentProject` — reload from storage, refusal cleared, journal dropped — and `storageRefusedWipe` plus both destructive confirm bodies (EN/DE) point to it instead of a page reload, which re-applied the journal. Pinned by the "Discard on a refused deletion (§629)" describe in `notifications.test.tsx` and the Discard wiring test in `task-manager.truncation-banner.test.tsx` (no confirm gate, no button, no wiring, the old copy: each red). That the exit ends the LOOP is pinned in `use-unload-journal.restore.test.tsx` ("refused restore → Reload project (the banner's Discard) removes the journal"): restored, refused, `reloadCurrentProject` → the journal key is gone (`dropUnconfirmed`, which matches because `retagToThisTab` lifted `lastSavedAt` to the record), and the next page load restores nothing and refuses nothing; red with the `dropUnconfirmed` call removed. The banner offers Discard for every destructive refusal, not only a journal save-back. Still owed, and code cannot settle them: the loop and the Discard exit in a real browser, the packaged-desktop window close, and the file, SharePoint and Turso backends. open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; the remainder is real-target work. The code claims hold. The Turso spec keeps passing on main (live-turso run 38277358747, 16 of 16 drive-app tests), but the log carries no `restore branch` annotation (`gh run view 38277358747 --log | grep -c "restore branch"` → 0), so which branch of `restoreOnLoad` ran is still unrecorded; recording it needs the report uploaded on success or the annotation echoed to stdout. The single restore call is still guarded: `grep -n "lastLoadWasIncomplete(backend) ? null" src/app/use-storage-backend.ts` → line 805.
+
+**Earlier:** **Update 2026-10-11 — the local file is measured; Turso's live spec passed in CI.** (1) **Local file (local-json): measured by §661 on 2026-10-08**, in installed Chrome with an Origin Private File System handle: a tab closed right after a task-name edit committed with Enter, inside the save debounce, never reached the file (the close-time save was still waiting on its Web Lock when the tab went), the journal held it, and reopening the project restored the edit and saved it to the file within 4 s, in 3 of 3 headed runs and the committed spec's run. Reproduce with `$env:LOCAL_FILE_PROBE=1; npx playwright test e2e/local-file-close-save.spec.ts --project=chromium --workers=1` (opt-in, skipped in CI). Not measured there: an unblurred draft (the pagehide commit), a reload, and the CSV and Markdown file formats, which share the backend and the journal but not the serializer. (2) **Turso: `e2e/unload-journal-turso-live.spec.ts`**, in `LIVE_TURSO_APP`, so `live-turso.yml` runs it through `npm run e2e:live-app`. On a portfolio Turso project of its own it types an unblurred task-name draft, then reloads (one test) or closes the tab (the other), and asserts that the journal held the draft (on the reload, read by an init script as the new document starts, before any app code; on the tab close, read by a same-origin page that runs no app code, with a poll), that the stored `taskName`, read from the test process, holds the draft, and that the load consumed the journal (`aipm-cockpit:unload-journal:<project id>`) with no conflict notice; the premise that the draft is NOT stored before the unload is asserted first. `npx playwright test --project=live-turso-app --list` (with `E2E_LIVE_APP=1`) lists both tests. It cannot run locally (the local throwaway token is rejected, HTTP 401), so its runs are the pull request's `live-turso` job: run 38126224414 failed the tab-close test before any assertion, because the reader page's navigation to `/favicon.ico` was aborted (`net::ERR_ABORTED`) on both attempts while the reload test passed; with a route-served blank reader page, run 38128296706 passed both (16 of 16 live app tests; `gh run view 38128296706 -R sebastianmaute/aipm-cockpit --json conclusion` prints `success`). No mutant has been run against it, and which branch each passing test took was not recorded (the report is uploaded only on failure). Each test records which branch of `restoreOnLoad` ran as a `restore branch` annotation in the run's report; if both read "no restore toast seen", the unload's own save landed and the restore-and-save-back path on Turso is still unmeasured. Still owed after that run, and outside what code here can settle: SharePoint, the packaged-desktop window close, and the guard-refusal loop with its Discard exit in a real browser. **Update 2026-10-03:** the guard-refusal loop now has a Discard: the destructive `SavingPausedBanner` offers "Discard this deletion" (`storageDestructiveDiscard`), which after its own confirmation runs `reloadCurrentProject` — reload from storage, refusal cleared, journal dropped — and `storageRefusedWipe` plus both destructive confirm bodies (EN/DE) point to it instead of a page reload, which re-applied the journal. Pinned by the "Discard on a refused deletion (§629)" describe in `notifications.test.tsx` and the Discard wiring test in `task-manager.truncation-banner.test.tsx` (no confirm gate, no button, no wiring, the old copy: each red). That the exit ends the LOOP is pinned in `use-unload-journal.restore.test.tsx` ("refused restore → Reload project (the banner's Discard) removes the journal"): restored, refused, `reloadCurrentProject` → the journal key is gone (`dropUnconfirmed`, which matches because `retagToThisTab` lifted `lastSavedAt` to the record), and the next page load restores nothing and refuses nothing; red with the `dropUnconfirmed` call removed. The banner offers Discard for every destructive refusal, not only a journal save-back. Still owed, and code cannot settle them: the loop and the Discard exit in a real browser, the packaged-desktop window close, and the file, SharePoint and Turso backends. open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
 **Status before the tab-close fix (2026-09-27, kept as measured):** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
@@ -43898,7 +43961,9 @@ SharePoint Online allows `#` and `%` in file and folder names. For such a name, 
 
 ## 652. SharePoint storage has never been verified on a live tenant (the CSP half is done) — open
 
-**Status:** open — ONLY the live-tenant check remains. ★ Re-checked 2026-10-02: the CSP half this heading names is already done — `src/proxy.ts` `connect-src` allows `https://*.sharepoint.com` and `https://*.files.1drv.com` (added by the §4 work, `git log -S'https://*.sharepoint.com' -- src/proxy.ts`), pinned by `proxy.test.ts`; the owner confirmed on 2026-10-02 that allowing `*.sharepoint.com` is the intended policy. Reproduced 2026-10-02 by `grep -n "sharepoint.com" src/proxy.ts`. The tenant behaviour itself is never machine-verified: what stays owed is checks (1)–(5) below against a real tenant.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still owed; one body sentence is stale. §4 is closed and on main (8b8146b44): the load moved to item metadata plus `@microsoft.graph.downloadUrl`, saves send `If-Match` or create-only, and `connect-src` was widened (`grep -n "sharepoint.com" src/proxy.ts` → line 114). So the "probably blocked outright" sentence describes the state before §4. Checks (1)–(5) still need a real tenant.
+
+**Earlier:** open — ONLY the live-tenant check remains. ★ Re-checked 2026-10-02: the CSP half this heading names is already done — `src/proxy.ts` `connect-src` allows `https://*.sharepoint.com` and `https://*.files.1drv.com` (added by the §4 work, `git log -S'https://*.sharepoint.com' -- src/proxy.ts`), pinned by `proxy.test.ts`; the owner confirmed on 2026-10-02 that allowing `*.sharepoint.com` is the intended policy. Reproduced 2026-10-02 by `grep -n "sharepoint.com" src/proxy.ts`. The tenant behaviour itself is never machine-verified: what stays owed is checks (1)–(5) below against a real tenant.
 
 **Previously:** open 2026-09-29, found during §4 Task 4. Never machine-verified against a tenant: read off `src/app/sharepoint-backend.ts` (the load fetches `…/content` from `graph.microsoft.com`, which answers with a 302 to a pre-authenticated download URL on a SharePoint host) and `src/proxy.ts` (`connect-src` allows only `graph.microsoft.com` among Microsoft hosts, and CSP checks redirect targets too).
 
@@ -44207,7 +44272,9 @@ regressing either way.
 
 ## 671. The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` — OPEN
 
-**Status:** OPEN 2026-10-06 — measured with `npm audit --audit-level=low` (exit 1, "5 high severity vulnerabilities", all one advisory) and `npm audit --omit=dev --audit-level=high` (exit 0). The advisory is GHSA-vfj7-8cjw-p6xm (published 2026-09-18), whose vulnerable range is `braces <= 3.0.3` with no first patched version (`gh api advisories/GHSA-vfj7-8cjw-p6xm`). `grep -n '"fast-glob"' node_modules/@next/eslint-plugin-next/package.json` prints `"fast-glob": "3.3.1"`, an exact pin, and `npm ls braces --all` shows one path: `eslint-config-next@16.3.6` › `@next/eslint-plugin-next@16.3.6` › `fast-glob@3.3.1` › `micromatch@4.0.8` › `braces@3.0.3`.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still waiting on upstream. The path is now `eslint-config-next@16.3.8` › `@next/eslint-plugin-next@16.3.8` (`grep -n "eslint-config-next" package.json`), and `npm view @next/eslint-plugin-next@latest` (16.4.0) and `@canary` (16.5.0-canary.8) both still pin fast-glob 3.3.1; braces 3.0.3 is still the newest. The audit-full logs of runs 38234101549 and 38074547272 show this advisory alone.
+
+**Earlier:** OPEN 2026-10-06 — measured with `npm audit --audit-level=low` (exit 1, "5 high severity vulnerabilities", all one advisory) and `npm audit --omit=dev --audit-level=high` (exit 0). The advisory is GHSA-vfj7-8cjw-p6xm (published 2026-09-18), whose vulnerable range is `braces <= 3.0.3` with no first patched version (`gh api advisories/GHSA-vfj7-8cjw-p6xm`). `grep -n '"fast-glob"' node_modules/@next/eslint-plugin-next/package.json` prints `"fast-glob": "3.3.1"`, an exact pin, and `npm ls braces --all` shows one path: `eslint-config-next@16.3.6` › `@next/eslint-plugin-next@16.3.6` › `fast-glob@3.3.1` › `micromatch@4.0.8` › `braces@3.0.3`.
 
 **Work item:** #581
 
@@ -44598,7 +44665,9 @@ With a usable Turso config the demo is created as a Turso project and its weekly
 
 ## 697. The fused desktop app's runtime behaviour is unverified: RunAsNode refusal, the NODE_OPTIONS probe's control, and whether `killServer` matters on a packaged build — open
 
-**Status:** open — Update 2026-10-12: item 4 is answered by a gate, and item 3 is narrowed. (4) `npm run desktop:typecheck` (`scripts/check-desktop-types.mjs`, in the `static` group of `scripts/gate-local.mjs` and so in CI's `static` job since 2026-09-24, before this entry opened) runs `tsc -p desktop/tsconfig.json`, whose `include` is `src/**/*.ts`, so `server-child.ts` was already typechecked: a type error appended to it turned the gate red (exit 1, `error TS2322` at `server-child.ts`), measured 2026-10-12 with `npm --prefix desktop ci --ignore-scripts` then `npm run desktop:typecheck`. The root `tsconfig.json` exclude stays and is not a gap. (3) `desktop/src/server-child.test.ts` pins `killServer`'s own decisions with `electron` and `node:child_process` mocked: a PID-scoped `taskkill /PID <pid> /T /F` on Windows, `child.kill()` elsewhere, nothing once `exit` has fired, a child with no PID yet killed the moment it spawns, a failed `taskkill` swallowed; and `spawnServer` binding `127.0.0.1` on the fixed port and dropping `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from the child env. 10 mutants of `server-child.ts` (a no-op `killServer`, the exited set ignored, `exit` never recorded, no spawn deferral, `/T` dropped, `taskkill` on every platform, a failure rethrown, the host widened to `0.0.0.0`, the scrub bypassed, `NODE_PATH` left out of it) each turned a test red. Still owed for item 3: that `killServer` matters on a packaged build, where Windows tears the child down with the app anyway; the unit test cannot show that. Items 1 and 2 are unchanged. **Earlier:** open 2026-10-10, moved out of §561 when it closed. §561 asked whether CI confirms the Electron fuses, and the release build now reads them off every packaged exe. These four items were owed there and are not answered by reading the fuse wire. Items 1 to 3 are packaged-build checks that no automatic gate runs, and each is never machine-verified. Item 4 was re-read on `origin/main` on 2026-10-10 with `grep -n "server-child" tsconfig.json`, which still lists the file in `exclude`. The original notes are under §561's "What is owed", items 3, 5, 6 and 7.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** items 1–3 still need a packaged Windows build. Item 4's heading below is answered: `server-child.ts` is outside the ROOT typecheck but inside the blocking `desktop:typecheck` gate (`grep -n "desktop:typecheck" scripts/gate-local.mjs`).
+
+**Earlier:** open — Update 2026-10-12: item 4 is answered by a gate, and item 3 is narrowed. (4) `npm run desktop:typecheck` (`scripts/check-desktop-types.mjs`, in the `static` group of `scripts/gate-local.mjs` and so in CI's `static` job since 2026-09-24, before this entry opened) runs `tsc -p desktop/tsconfig.json`, whose `include` is `src/**/*.ts`, so `server-child.ts` was already typechecked: a type error appended to it turned the gate red (exit 1, `error TS2322` at `server-child.ts`), measured 2026-10-12 with `npm --prefix desktop ci --ignore-scripts` then `npm run desktop:typecheck`. The root `tsconfig.json` exclude stays and is not a gap. (3) `desktop/src/server-child.test.ts` pins `killServer`'s own decisions with `electron` and `node:child_process` mocked: a PID-scoped `taskkill /PID <pid> /T /F` on Windows, `child.kill()` elsewhere, nothing once `exit` has fired, a child with no PID yet killed the moment it spawns, a failed `taskkill` swallowed; and `spawnServer` binding `127.0.0.1` on the fixed port and dropping `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from the child env. 10 mutants of `server-child.ts` (a no-op `killServer`, the exited set ignored, `exit` never recorded, no spawn deferral, `/T` dropped, `taskkill` on every platform, a failure rethrown, the host widened to `0.0.0.0`, the scrub bypassed, `NODE_PATH` left out of it) each turned a test red. Still owed for item 3: that `killServer` matters on a packaged build, where Windows tears the child down with the app anyway; the unit test cannot show that. Items 1 and 2 are unchanged. **Earlier:** open 2026-10-10, moved out of §561 when it closed. §561 asked whether CI confirms the Electron fuses, and the release build now reads them off every packaged exe. These four items were owed there and are not answered by reading the fuse wire. Items 1 to 3 are packaged-build checks that no automatic gate runs, and each is never machine-verified. Item 4 was re-read on `origin/main` on 2026-10-10 with `grep -n "server-child" tsconfig.json`, which still lists the file in `exclude`. The original notes are under §561's "What is owed", items 3, 5, 6 and 7.
 
 **Work item:** #661
 
