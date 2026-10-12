@@ -143,7 +143,8 @@ function generateToken(id, salt, attempt) {
   return out;
 }
 
-/** The five relocatable blocks, one probe each.
+/** The probed blocks, one probe each: the five relocatable snapshot blocks,
+ *  then the view-scoped guide block slice G2 moves (§483).
  *
  *  `id`               which snapshot-derived block carries the target token
  *  `label`            how that block INTRODUCES its token in the prompt, and
@@ -627,10 +628,10 @@ export function hitRate(outcomes) {
   return outcomes.filter((o) => o === "hit").length / outcomes.length;
 }
 
-/** ★★★ THE AGGREGATE QUESTION (§454) — all five codes in ONE reply, for arm M.
+/** ★★★ THE AGGREGATE QUESTION (§454) — every probe's code in ONE reply, for arm M.
  *  A MEASUREMENT, NEVER THE GATE: `verdict` reads A, B and X only, and the
  *  single-probe form stays the calibrated gate. This measures a different
- *  thing — five lookups in one pass, not five independent answers — so its
+ *  thing — several lookups in one pass, not independent answers — so its
  *  rates are not comparable with the per-probe ones and start their own series.
  *
  *  Built from the same `askFrom` text each probe's own question uses, so a
@@ -641,7 +642,7 @@ export const AGGREGATE_QUESTION =
 
 /** Per-code outcomes of the aggregate arm. A CODE-level shape, deliberately not
  *  `OUTCOMES`: `ambiguous` and `wrong-block` are reply-level ideas that a
- *  reply naming all five tokens would trip on every hit. */
+ *  reply naming every token would trip on every hit. */
 export const AGGREGATE_OUTCOMES = Object.freeze(["hit", "wrong", "absent"]);
 
 /** Score one aggregate reply, code by code.
@@ -963,7 +964,7 @@ export function filterSpec(filter) {
 /** Read the diagnostic filter out of the environment.
  *
  *  ★★ A filter exists so one broken probe can be re-run for cents instead of
- *  the standard run's full sweep — 70 requests, from
+ *  the standard run's full sweep — 81 requests with six probes (70 with five), from
  *  `activeProbes * (A + B + X) + N + R + M` in `ai-eval.ts`. `R` is `reps` only
  *  when a rolling reference exists AND a previous run is recorded — BOTH
  *  preconditions, not just the committed file — so the pre-reference sweep of

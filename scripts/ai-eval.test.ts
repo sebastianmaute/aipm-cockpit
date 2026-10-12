@@ -392,6 +392,9 @@ describe("runEval — the standard run", () => {
     for (const b of inTurnOnly) {
       expect(inSystemOnly[0].system.startsWith(`${b.system}\n`)).toBe(true);
       expect(b.system.length).toBeGreaterThan(30000);
+      // ...and it lands at the HEAD of the turn context, ahead of its first line
+      // (the date block), which is the placement the app's G2 must copy.
+      expect(b.turn.indexOf(target)).toBeLessThan(b.turn.indexOf(plantedToken("date", SALT)));
     }
   });
 
