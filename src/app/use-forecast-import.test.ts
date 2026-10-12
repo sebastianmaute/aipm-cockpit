@@ -285,6 +285,22 @@ describe("useForecastImport — apply", () => {
     expect(next[0].allocations[0].budgetHours).toEqual({ "2026-01": 10, "2026-02": 20, "2026-03": 30 });
   });
 
+  // Applying the plan the preview opened with onto the live bucket keeps the
+  // live actuals and stored cells, so only a change to what the bucket OWNS can
+  // tell a re-plan from a stale plan: the March cell the open-time plan carries
+  // would land outside the shortened bucket, where no screen shows it.
+  it("re-plans the bucket's periods: a cell the live bucket no longer owns is not written", async () => {
+    const deps = depsOf();
+    const hook = await loaded(deps);
+    expect(hook.result.current.importPlan?.changes.map((c) => c.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    hook.rerender({ ...deps, buckets: [{ ...BUCKET, endDate: "2026-02-28" }, OTHER] });
+    act(() => {
+      hook.result.current.apply();
+    });
+    const [next] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[]];
+    expect(next[0].allocations[0].budgetHours).toEqual({ "2026-01": 10, "2026-02": 20 });
+  });
+
   it.each([
     ["closed", (d: ForecastImportDeps) => ({ ...d, buckets: [{ ...BUCKET, status: "closed" as const }, OTHER] })],
     ["follows plan", (d: ForecastImportDeps) => ({ ...d, plan: { ...PLAN, budgetFollowsPlan: true } })],
