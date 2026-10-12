@@ -239,7 +239,7 @@ export function actionGuideText(
  *  guides for that action (`selectActionGuides`). A disabled guide reaches
  *  nothing anyway and is absent. Drives the settings editor's "not sent to"
  *  row note, so a targeted guide that is never sent says so instead of failing
- *  silently. One `selectActionGuides` per action (eleven), not one per guide per
+ *  silently. One `selectActionGuides` per action (each non-chat `AI_TARGETS` id), not one per guide per
  *  action, so the editor computes it once per change to the library rather than
  *  on every keystroke. */
 export function actionTargetsNotSentByGuide(

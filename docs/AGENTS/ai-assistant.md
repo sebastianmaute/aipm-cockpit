@@ -71,7 +71,9 @@
   view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
 - **Guides for the single-request AI actions (§701):** `GuideScope.targets` (over `AI_TARGETS` in
-  `operating-guide.ts`) names the surfaces a guide reaches. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
+  `operating-guide.ts`) names the surfaces a guide reaches: the chat plus one id per single-request action.
+  `forecastImport` (the budget forecast import's Claude route) was added by §500, read with
+  `useActionGuideText` in `useForecastImport`; it ships no built-in guide. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
   (`guideTargets`): every guide stored before §701 has none, so reading it as "everywhere" would send all of
   them to every action. `selectActiveGuides` (chat) drops a guide that does not target `chat`;
   `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, in plain
@@ -910,6 +912,11 @@
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
   overflow.
+- **Forecast import, Claude route (§500):** ONE forced `propose_forecast_rows` call in
+  `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCall`) reads
+  one sheet and returns rows that each cite their cell; the rows are UNTRUSTED and reach the plan only through
+  `validateForecastRows` with `requireSource`. Engine, bounds and the single writer:
+  [`budget.md`](budget.md) "Forecast import (§500)".
 - **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
   free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
   (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —

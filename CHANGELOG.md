@@ -21,6 +21,19 @@ longer carries its own changelog comment.
   change, and the counts are stored apart from the token limits, which they never affect. With operating
   guides off, the panel says no view guides are sent instead.
 
+- **Import a budget forecast from a spreadsheet (§500).** "Import forecast…" on a budget bucket's card reads
+  planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file into that bucket. Detect columns finds the
+  person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
+  person and period), and you can adjust them; German exports (`1.234,5`, `Jan.`, `KW03`) read correctly, and
+  total rows and columns are skipped. Or Ask Claude to read the sheet: every row it returns cites the cell
+  its hours came from, and a row whose cell does not hold them, or that is not on that person's row, is not
+  imported. Monthly figures are spread over a weekly plan (and weekly over a monthly one) by working days,
+  keeping the total exact. The preview lists every cell that would change, people it could not match (you
+  can pick or skip each one), hours outside the bucket's periods, rates that differ from the rate card, and
+  periods the sheet covers only in part. Nothing is written until you apply, and Apply refuses if the bucket
+  was closed or removed, or "Budget hours follow plan" was switched on, while the preview was open. One
+  apply is one undo step. Operating guides can now target the forecast import.
+
 ### Fixed
 
 - **"Ask Claude" now always tells Claude which page you asked from.** A press on Open Points, or one
@@ -31,6 +44,12 @@ longer carries its own changelog comment.
   app is still loading its guides, the page goes with that text when you send it unchanged; once you edit
   it, it is your own message from the chat. When Claude checks where you are while answering, it gets the
   same page rather than the chat tab.
+
+### Security
+
+- **Spreadsheet attachments in the AI assistant chat are bounded (§500).** A workbook with very many sheets,
+  very wide rows, or rows numbered far apart is now read only up to a fixed number of rows and cells across
+  the whole file, and marked as cut, instead of exhausting the browser's memory.
 
 ## [1.18.0] - 2026-10-12 "Larsson"
 

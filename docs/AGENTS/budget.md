@@ -2,8 +2,8 @@
 
 Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine treats every
 figure as EUR, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
-mirroring rule the panel and the engine share, bucket earned value (Phase C EVM), and the Budget
-panel's module map and column arithmetic.
+mirroring rule the panel and the engine share, bucket earned value (Phase C EVM), the Budget
+panel's module map and column arithmetic, and the forecast import (§500).
 
 Does NOT own the dashboard's budget tiles ([`dashboard.md`](dashboard.md)), the `budgetHistory` meta-blob slice
 ([`activity-log.md`](activity-log.md) "Sibling slice: `budgetHistory`"), the role rate card
@@ -257,10 +257,54 @@ comments).
 - ★ A new derived section goes into `DERIVED_EXPORT_SECTION_KEYS`; `SLICE_EXPORT_SECTION_KEYS` is every key
   minus those, and `export-workspace.test.ts` fails if a key is in neither list, because it is not a slice.
 
+## Forecast import (§500)
+
+A bucket card's "Import forecast" opens `ForecastImportModal`; all logic is `useForecastImport`, and the
+engines live in `src/app/budget-import/` (no i18n, no React).
+
+- **Two routes, one row list.** A file becomes `SheetGrid`s (`readSheetFile`: CSV, or xlsx through
+  `extractXlsxGrid`). The HAND route finds the columns (`detectLayout`, editable on the mapping step) and
+  reads them with `gridToForecastRows`, deciding the decimal style once over all hours columns
+  (`detectDecimalStyle`), never per cell. The CLAUDE route sends the sheet to ONE forced call
+  (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text from `sheetToPromptText` over the
+  shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
+- **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
+  period, a non-blank person; same person and period are summed (a summed row carries no `source`;
+  `duplicates` lists the contributors). A source cell backs ONE row on either route — a second row citing
+  it is rejected. With `requireSource` (the Claude route only, whose rows are UNTRUSTED) a row passes only
+  when its cited cell holds its hours, a DIFFERENT cell of that row holds the person (or email), and the
+  period sits in that row or in the cited column above. That is the safety boundary against an invented
+  value; the prompt is not.
+- **`buildForecastImportPlan` diffs against ONE bucket.** Periods are split to the plan's granularity by
+  working days (`splitToGranularity`, total kept to the cent). ★★ The in-range set is
+  `bucketActivePeriods(bucket, plan)` — the definition the card, the report, the burndown and the forecast
+  read. A first cut used `generatePeriods(bucket.startDate, bucket.endDate, granularity)`, which also kept a
+  period starting before the bucket or running past the plan: cells no screen shows, written silently
+  (caught in review; pinned by the "range" tests). A target cell that a sheet period covers only partly
+  is still written but flagged `partial` for the preview; only uncovered WORKING days count (weekends and
+  `holidaySet` days are skipped in `hasUncoveredWorkday`). Overrides settle only rows whose automatic
+  match failed. Blockers: `follows-plan` (budget follows plan is on), `closed`, `nothing-to-apply`.
+- **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation
+  membership (a missing allocation is created with empty actuals) — never rates, the plan, other
+  buckets, stored actual hours or resources. It does not read
+  `blockers`; the caller must not call it while any exist. ★★ `apply()` RE-PLANS FROM LIVE STATE: it looks
+  the bucket up by id in the current `buckets`, refuses if it is gone, closed or follows the plan, rebuilds
+  the plan and refuses on any blocker, then commits through ONE `onChangeBuckets` call — `commitBuckets`,
+  so one undo entry and one `budget.updated` log. Applying the plan the preview opened with would keep live
+  actuals and stored cells, so only a change to the periods the bucket owns tells the two apart (the
+  "a cell the live bucket no longer owns" test).
+- **Size bounds.** The Claude route refuses before any request over `MAX_CLAUDE_IMPORT_CELLS` non-blank
+  cells or `MAX_CLAUDE_IMPORT_CHARS` of prompt text. The xlsx reader is bounded per sheet (cells and rows,
+  `MAX_XLSX_SHEET_CELLS`), per workbook (`MAX_XLSX_TOTAL_ROWS`, `MAX_XLSX_TOTAL_CELLS`), and reads each
+  worksheet path once (`sheetEntries` de-duplicates). Gap rows from a `<row r>` jump share one empty row.
+  ★★ These bounds protect the CHAT attachment path too — it is the same reader. The many-sheet wide-cell
+  blow-up they close predates §500; the row-gap one came with it (honouring `<row r>` so a cited row
+  number matches Excel).
+
 ## Open register entries
 
 §473 (a non-EUR plan) · §476 (the
-baseline currency is hardcoded EUR) · §500 (budget
-forecast hours cannot be imported from a spreadsheet) · §551 (the dead snapshot
-`currency` column). This list was read off the register on 2026-09-27 and is not gated. Re-check
+baseline currency is hardcoded EUR) · §551 (the dead snapshot
+`currency` column). This list was read off the register on 2026-09-27 and is not gated (§500 removed
+on its closure, 2026-10-12). Re-check
 it against the headings, since a `budget` search also returns entries about other budgets.
