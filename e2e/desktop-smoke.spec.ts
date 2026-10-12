@@ -383,9 +383,9 @@ function forceKillApp(child: ChildProcess): void {
 // test rather than silently "working" -- but that only proves the APP quit
 // within budget, not that `killServer` ran: a round-1 mutant (`killServer`
 // made a no-op) left this spec green anyway, because Windows tears the
-// utility-process child down with the app regardless. `killServer` staying
-// unproven is filed as an owed item in open-followups §561, not a gap §561
-// flags this spec for.
+// utility-process child down with the app regardless. Its own decisions are
+// pinned with Electron mocked by desktop/src/server-child.test.ts; that it
+// matters on a packaged build stays owed in open-followups §697.
 async function killApp(child: ChildProcess): Promise<void> {
   if (child.pid === undefined || child.exitCode !== null) return;
   const pid = child.pid;

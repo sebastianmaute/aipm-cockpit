@@ -35,6 +35,7 @@
     "scripts",
     "desktop/src/main.ts",
     "desktop/src/server-child.ts",
+    "desktop/src/server-child.test.ts",
     "desktop/src/updater.ts",
     "desktop/src/updater.test.ts",
     "desktop/src/updater-module-shape.test.ts"

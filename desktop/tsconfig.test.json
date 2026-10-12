@@ -5,6 +5,6 @@
     "module": "esnext",
     "moduleResolution": "bundler"
   },
-  "include": ["src/updater.test.ts", "src/updater-module-shape.test.ts"],
+  "include": ["src/updater.test.ts", "src/updater-module-shape.test.ts", "src/server-child.test.ts"],
   "exclude": []
 }
