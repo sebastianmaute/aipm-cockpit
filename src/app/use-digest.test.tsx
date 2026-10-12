@@ -4,6 +4,9 @@ import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
+import type { ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 function model(rag: "R" | "A" | "G" = "A"): DashboardModel {
   return {
@@ -501,5 +504,33 @@ describe("useDigest", () => {
     await act(async () => { await result.current.generateNow(); });
     expect(runNarrative).not.toHaveBeenCalled();
     expect(result.current.digest?.narrative).toBeUndefined();
+  });
+});
+
+// §701 — the narrative call carries the digest's operating guides.
+describe("useDigest operating guides (§701)", () => {
+  const guide: OperatingGuide = {
+    id: "g-digest", name: "Digest guide", content: "DIGEST-GUIDE-701", enabled: true,
+    priority: 1, scope: { targets: ["digest"] }, builtIn: false,
+  };
+  function wrapper({ children }: { children: ReactNode }) {
+    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true }}>{children}</ActionGuidesProvider>;
+  }
+
+  it("hands the provider's digest guide text to the narrative call", async () => {
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", runNarrative })), { wrapper });
+    await act(async () => { await result.current.generateNow(); });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+    const ctx = runNarrative.mock.calls[0][1] as { guideText?: string };
+    expect(ctx.guideText).toBe(actionGuideText([guide], true, "digest"));
+    expect(ctx.guideText).toContain("DIGEST-GUIDE-701");
+  });
+
+  it("sends no guide text outside a provider", async () => {
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", runNarrative })));
+    await act(async () => { await result.current.generateNow(); });
+    expect((runNarrative.mock.calls[0][1] as { guideText?: string }).guideText).toBe("");
   });
 });

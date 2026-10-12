@@ -84,3 +84,13 @@ describe("useActionAnalysis — lifecycle", () => {
     expect(seen[1]?.aborted).toBe(true);
   });
 });
+
+// §701 — the guide text on the creds reaches the call.
+describe("useActionAnalysis — operating guides (§701)", () => {
+  it("passes the creds' guide text to the call", async () => {
+    const run = vi.spyOn(jobAnalysis, "runJobAnalysis").mockResolvedValue({ summary: "s", actions: [] } as never);
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "sk-ant-x", model: "m", guideText: "JOB-GUIDE-701" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(run.mock.calls[0][1].guideText).toBe("JOB-GUIDE-701");
+  });
+});

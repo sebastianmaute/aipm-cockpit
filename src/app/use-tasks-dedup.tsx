@@ -25,6 +25,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { isAbortError } from "./abort-error";
 import { runDedupProposal } from "./task-dedup-call";
+import { useActionGuideText } from "./action-guides-context";
 import {
   applyMerges,
   buildDedupContext,
@@ -86,6 +87,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const abortRef = useRef<AbortController | null>(null);
 
   const apiKey = aiKeyIfEnabled(settings.ai);
+  const guideText = useActionGuideText("dedup");
   const enabled =
     isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && tasks.length >= MIN_TASKS_FOR_DEDUP;
 
@@ -118,7 +120,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     try {
       const raw = await runDedupProposal(
         buildDedupContext(tasks),
-        { apiKey, model: settings.ai.model },
+        { apiKey, model: settings.ai.model, guideText },
         controller.signal,
       );
       if (reqId !== reqIdRef.current) return; // superseded — discard
@@ -151,7 +153,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       }
       setPhase("idle");
     }
-  }, [enabled, phase, tasks, apiKey, settings.ai.model, lang, showToast]);
+  }, [enabled, phase, tasks, apiKey, settings.ai.model, guideText, lang, showToast]);
 
   const onToggle = useCallback((keepId: number) => {
     setSelected((prev) => {

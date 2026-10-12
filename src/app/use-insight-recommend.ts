@@ -17,7 +17,7 @@ import type { RecommendPlanWorkspace } from "./insights/recommend-plan";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
-  ai: { apiKey: string; model: string };
+  ai: { apiKey: string; model: string; guideText?: string };
   today: string;
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
@@ -82,6 +82,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
           return await runInsightRecommendation({
             apiKey: current.ai.apiKey,
             model: current.ai.model,
+            guideText: current.ai.guideText,
             context: current.buildContextFor(insight),
             index: current.buildIndex(),
             today: current.today,

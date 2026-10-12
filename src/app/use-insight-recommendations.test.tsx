@@ -6,6 +6,7 @@ import { useInsightRecommendations, type InsightRecommendationDeps } from "./use
 import { entityToken } from "./ai-entity-token";
 import { t } from "./i18n";
 import type { Insight, InsightRecommendation } from "./insights/insight";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -51,6 +52,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     isPopout: false,
     loadPending: false,
     getScopeEpoch: () => 0,
+    guides: [],
     settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",
@@ -424,5 +426,46 @@ describe("§360 — a resources entityRef gets a profile digest", () => {
   it("falls back to no linked entity when the person is gone", async () => {
     const ctx = await contextFor(new Map() as InsightRecommendationDeps["resourcesById"], 7);
     expect(ctx).toContain("(no linked entity)");
+  });
+});
+
+// §701 — this hook runs in task-manager's own body, above the AiProviders it renders, so it
+// resolves the insightRecommend guide text from its `guides` dep. Both paths must carry it.
+describe("insight recommendations carry the operating guides (§701)", () => {
+  const guide: OperatingGuide = {
+    id: "g-rec", name: "Recommend guide", content: "REC-GUIDE-701", enabled: true,
+    priority: 1, scope: { targets: ["insightRecommend"] }, builtIn: false,
+  };
+  const expected = actionGuideText([guide], true, "insightRecommend");
+  const settings = (runner: boolean) => ({
+    ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: true, insightRecommendations: runner },
+  }) as unknown as InsightRecommendationDeps["settings"];
+
+  it("the on-demand generate sends the guide text", async () => {
+    const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+    const store = mkStore([mkInsight()]);
+    const { result } = renderHook(() => useInsightRecommendations(mkDeps({ settings: settings(false), guides: [guide], insights: store.read(), setInsights: store.setInsights })));
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][0].guideText).toBe(expected);
+    expect(expected).toContain("REC-GUIDE-701");
+  });
+
+  it("the background runner's tick sends the guide text", async () => {
+    const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+    const store = mkStore([mkInsight()]);
+    renderHook(() => useInsightRecommendations(mkDeps({ settings: settings(true), guides: [guide], insights: store.read(), setInsights: store.setInsights })));
+    await act(async () => {}); // flush the runner's mount-tick effect
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][0].guideText).toBe(expected);
+  });
+
+  it("sends no guide text when grounding is off", async () => {
+    const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+    const store = mkStore([mkInsight()]);
+    const off = { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } } as unknown as InsightRecommendationDeps["settings"];
+    const { result } = renderHook(() => useInsightRecommendations(mkDeps({ settings: off, guides: [guide], insights: store.read(), setInsights: store.setInsights })));
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(generate.mock.calls[0][0].guideText).toBe("");
   });
 });

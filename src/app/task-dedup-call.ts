@@ -20,6 +20,8 @@ import { runForcedToolCall } from "./ai-forced-call";
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
 }
 
 /** Run one forced propose_task_merges tool call and return the raw parsed groups.
@@ -35,6 +37,7 @@ export async function runDedupProposal(
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildDedupSystemPrompt(),
+    guideText: ai.guideText,
     tools: [PROPOSE_MERGES_TOOL],
     toolName: PROPOSE_MERGES_TOOL.name,
     messages: [{ role: "user", content: context }],

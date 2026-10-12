@@ -20,7 +20,7 @@ export interface ScheduledJobRunnerArgs {
   recordRun: (jobId: number, run: ScheduledJobRun) => void;
   /** Closes over the live workspace (SP4 buildAnalysisContext). */
   buildContext: () => string;
-  ai: { apiKey: string; model: string };
+  ai: { apiKey: string; model: string; guideText?: string };
   /** Caller wires the desktop-notification path; already formats title/body. */
   notify: (title: string, body: string) => void;
   /** Injectable for tests; default () => new Date(). */

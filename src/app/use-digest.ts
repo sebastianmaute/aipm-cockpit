@@ -10,6 +10,7 @@ import { buildDigest, type DigestModel } from "./digest/digest-model";
 import { loadDigestState, advanceDigestState, isDigestDue } from "./digest/digest-state";
 import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-email";
 import { runDigestNarrative } from "./digest/digest-narrative";
+import { useActionGuideText } from "./action-guides-context";
 import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import type { DigestConfig } from "./digest/digest-config";
 
@@ -54,6 +55,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [digest, setDigest] = useState<DigestModel | null>(null);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const guideText = useActionGuideText("digest");
   /** The in-flight narrative's controller — a ref so `cancel` can reach it. */
   const narrativeCtrlRef = useRef<AbortController | null>(null);
   /** Set by `cancel` (a USER stop), never by the timeout, and cleared at the
@@ -106,7 +108,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
-            const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
+            const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang, guideText }, ctrl.signal);
             // A Stop (or the timeout) that lost the race to the response still
             // means "don't use it".
             if (narrative && !ctrl.signal.aborted) {
@@ -129,7 +131,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         setBusy(false);
       }
     },
-    [deps],
+    [deps, guideText],
   );
 
   useEffect(() => {

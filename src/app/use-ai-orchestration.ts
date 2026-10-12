@@ -34,6 +34,7 @@ import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
@@ -41,6 +42,10 @@ const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 export interface AiOrchestrationDeps {
   isPopout: boolean;
   settings: Settings;
+  /** §701 — the operating-guide library. This hook runs in task-manager's own body, ABOVE the
+   *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
+   *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
+  guides: readonly OperatingGuide[];
   lang: Lang;
   today: string;
   project: ProjectMeta | undefined;
@@ -62,6 +67,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   const {
     isPopout,
     settings,
+    guides,
     lang,
     today,
     project,
@@ -78,12 +84,14 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     requestOpen,
     requestChat,
   } = deps;
+  const jobGuideText = actionGuideText(guides, settings.ai?.groundInGuides === true, "jobAnalysis");
 
   // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
   const actionAnalysis = useActionAnalysis({
     apiKey: aiKeyIfEnabled(settings.ai),
     model: settings.ai?.model ?? "claude-sonnet-5",
+    guideText: jobGuideText,
   });
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
   // returns a fresh object each render so depending on the whole thing defeats
@@ -191,7 +199,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
     notify: notifyScheduledJob,
   });
 

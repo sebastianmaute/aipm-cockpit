@@ -16,6 +16,8 @@ export interface RecommendCallArgs {
   index: GroundingIndex;
   today: string;
   signal?: AbortSignal;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
 }
 
 /** Run one forced propose_insight_actions tool call and return the grounded
@@ -30,6 +32,7 @@ export async function runInsightRecommendation(
     apiKey: args.apiKey,
     model: args.model,
     system: buildRecommendSystemPrompt(),
+    guideText: args.guideText,
     tools: [RECOMMEND_TOOL],
     toolName: RECOMMEND_TOOL.name,
     messages: [{ role: "user", content: args.context }],

@@ -22,7 +22,7 @@ export interface InsightRecommendRunnerArgs {
   /** Caller passes isAiEnabled && ai.insightRecommendations===true && !isPopout. */
   enabled: boolean;
   insights: readonly Insight[];
-  ai: { apiKey: string; model: string };
+  ai: { apiKey: string; model: string; guideText?: string };
   today: string;
   /** Cadence in minutes. Re-clamped here — this hook drives BILLED calls, so it
    *  never trusts a caller-supplied rate. */
@@ -116,6 +116,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
           const rec = await runInsightRecommendation({
             apiKey: aiRef.current.apiKey,
             model: aiRef.current.model,
+            guideText: aiRef.current.guideText,
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,

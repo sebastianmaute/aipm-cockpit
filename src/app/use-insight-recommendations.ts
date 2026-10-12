@@ -47,6 +47,7 @@ import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
 import type { LogActivityAsFn } from "./activity-log-context";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 // Cap on any free-text field folded into the linked-entity digest of an insight
 // recommendation prompt — the digest rides a billed call, so an unbounded
@@ -65,6 +66,10 @@ export interface InsightRecommendationDeps {
    *  call site hands it over. */
   getScopeEpoch: ScopeEpochReader;
   settings: Settings;
+  /** §701 — the operating-guide library. This hook runs in task-manager's own body, ABOVE the
+   *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
+   *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
+  guides: readonly OperatingGuide[];
   lang: Lang;
   today: string;
   project: ProjectMeta | undefined;
@@ -92,6 +97,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     loadPending,
     getScopeEpoch,
     settings,
+    guides,
     lang,
     today,
     project,
@@ -111,6 +117,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     onDismissInsight,
     onLogAsRaid,
   } = deps;
+  const recommendGuideText = actionGuideText(guides, settings.ai?.groundInGuides === true, "insightRecommend");
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
   // Generate/apply/reject handlers for an insight's AI recommendation. Apply
@@ -246,7 +253,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -266,7 +273,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // hold and its result is simply discarded when it lands.
     enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,
