@@ -65,8 +65,8 @@ export function ChatThreadSidebar({
 }: ChatThreadSidebarProps) {
   // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
   // drag can change. Without it the hook records whatever height the flex row
-  // had stretched the column to at pointerup (a stray click on the grabber is
-  // enough) and replays it forever, so once the chat pane grows taller the
+  // had stretched the column to at the end of a width drag and replays it
+  // forever, so once the chat pane grows taller the
   // sidebar's `border-r` stops short of the pane bottom. The option neither
   // saves nor restores a height, so entries written before it existed are
   // ignored too. First and only x-only consumer of the hook.

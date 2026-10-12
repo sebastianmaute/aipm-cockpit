@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WbsPlanModal, type WbsPlanModalProps } from "./wbs-plan-modal";
 import type { GroundedWbsItem, RawWbsItem, SkippedWbsItem, WbsSkipReason } from "./wbs-plan/wbs-plan";
@@ -441,5 +441,79 @@ describe("WbsPlanModal", () => {
     expect(props.onApply).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onCancel).toHaveBeenCalled();
+  });
+
+  // Resizable and draggable like the app's other working dialogs, with the
+  // header's reset control. Presence alone would pass for a no-op button.
+  describe("window chrome", () => {
+    const POS = "aipm-cockpit:modal-pos:wbs-plan";
+    const SIZE = "aipm-cockpit:modal-size:wbs-plan";
+    // (vitest.setup.ts clears localStorage after every test.)
+    const panel = () => document.querySelector<HTMLElement>("[data-modal-panel]")!;
+
+    it("is resizable and sizes to its content until resized", () => {
+      render5();
+      // Both axes: the bare `resize` class, not resize-x or resize-y.
+      expect(panel().className.split(/\s+/)).toContain("resize");
+      // Never wider than the screen: a bare 460px minimum would beat the 95vw cap.
+      expect(panel().className).toContain("min-w-[min(460px,95vw)]");
+      // Any fixed height class (h-[640px], h-96, h-full), not just a bracketed one.
+      expect(panel().className).not.toMatch(/(^|\s)h-/);
+      expect(panel().style.height).toBe("");
+    });
+
+    it("restores a saved size and position, and the reset control clears both", async () => {
+      window.localStorage.setItem(SIZE, JSON.stringify({ width: 900, height: 700 }));
+      window.localStorage.setItem(POS, JSON.stringify({ x: 40, y: 30 }));
+      render5();
+      expect(panel().style.width).toBe("900px");
+      expect(panel().style.height).toBe("700px");
+      expect(panel().style.transform).toBe("translate(40px, 30px)");
+      await userEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
+      expect(panel().style.width).toBe("");
+      expect(panel().style.height).toBe("");
+      expect(panel().style.transform).toBe("translate(0px, 0px)");
+      expect(window.localStorage.getItem(SIZE)).toBeNull();
+      expect(window.localStorage.getItem(POS)).toBeNull();
+    });
+
+    // The header's reset control is the panel's first focusable; the first
+    // proposal a user can untick is where focus belongs.
+    it("puts the first focus on the first enabled proposal, not the header", async () => {
+      render5();
+      await waitFor(() => expect(screen.getAllByRole("checkbox")[0]).toHaveFocus());
+    });
+
+    it("skips a disabled first proposal for the first focus", async () => {
+      const pieceEstimate = grounded(
+        "i5",
+        { kind: "estimate", target: { kind: "piece", taskId: 1, piece: 2 }, estimateMinutes: 60, why: "" },
+        ["i0"],
+      );
+      render5({ items: [pieceEstimate, estimate], selected: new Set(["i5", "i4"]) });
+      const boxes = screen.getAllByRole("checkbox");
+      expect(boxes[0]).toBeDisabled();
+      await waitFor(() => expect(boxes[1]).toHaveFocus());
+    });
+
+    it("puts the first focus on the footer button when every proposal was refused", async () => {
+      render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
+      await waitFor(() => expect(screen.getByRole("button", { name: t("en-US", "close") })).toHaveFocus());
+    });
+
+    // The all-refused footer is a plain "Close", so the header ✕ carries the
+    // title (exactly one plain "Close"); it is disabled while applying.
+    it("names the header close by the title, cancels with it, and disables it while applying", async () => {
+      const name = `${t("en-US", "alertModalClose")} – ${t("en-US", "wbsPlanTitle")}`;
+      const props = render5();
+      await userEvent.click(screen.getByRole("button", { name }));
+      expect(props.onCancel).toHaveBeenCalledTimes(1);
+      cleanup();
+      render5({ applying: true });
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+      cleanup();
+      render5({ items: [], skipped: [{ item: { kind: "regroup", taskId: 1, group: "X", why: "" }, reason: "emptyGroup" as WbsSkipReason }] });
+      expect(screen.getAllByRole("button", { name: t("en-US", "close") })).toHaveLength(1);
+    });
   });
 });

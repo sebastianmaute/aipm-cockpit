@@ -160,9 +160,12 @@ describe("HelpMenu window size (§338)", () => {
       expect(panel.style.width).toBe("777px");
       expect(panel.style.height).toBe("555px");
 
-      stubRect(panel, { right: 200, bottom: 200, width: 900, height: 700 });
+      // A real drag: the size at pointerdown differs from the one at pointerup
+      // (useResizable saves nothing for a corner click that changed no dimension).
+      stubRect(panel, { right: 200, bottom: 200, width: 777, height: 555 });
       act(() => {
         panel.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+        stubRect(panel, { right: 200, bottom: 200, width: 900, height: 700 });
         window.dispatchEvent(pointer("pointerup"));
       });
       expect(JSON.parse(window.localStorage.getItem(SIZE_KEY)!)).toEqual({ width: 900, height: 700 });

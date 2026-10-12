@@ -13,8 +13,17 @@
 //      element — that's where the native CSS resize handle sits — and treats
 //      that as the start of a drag. On the matching `pointerup` (anywhere),
 //      it reads the resulting `getBoundingClientRect()` and persists the new
-//      size. This deliberately ignores natural reflows (window resize, parent
-//      flex changes), so only an explicit drag mutates the saved size.
+//      size — but only when a dimension this key owns CHANGED since the
+//      pointerdown. A click on the corner with no drag saves nothing, so it
+//      cannot pin a content-sized element to the height it had that moment.
+//      This deliberately ignores natural reflows (window resize, parent flex
+//      changes), so only an explicit drag mutates the saved size.
+//      ★ Near-exact, not exact: a reflow DURING a corner press still saves; a
+//      drag that ends at its starting size saves nothing yet leaves the
+//      browser's inline size on the element for the session; a saved size
+//      larger than the CSS clamp, dragged back to the clamped size, is not
+//      overwritten (reset clears it); and `pointercancel` is not handled, so a
+//      cancelled drag stays armed until the next `pointerup`.
 //
 //   3. Returns a `reset()` callback that clears inline `width`/`height`
 //      (letting the class-based defaults take over again) and removes the
@@ -35,18 +44,18 @@ type SavedSize = {
 
 /** Which dimensions this key owns.
  *
- *  ★ `"x"` is for an element whose CSS is `resize-x`. Step 2 above arms on any
- *  pointerdown in the corner square and saves on the matching pointerup with no
- *  check that anything MOVED — which is harmless for a dimension the drag can
+ *  ★ `"x"` is for an element whose CSS is `resize-x`. A `"both"` key saves
+ *  BOTH dimensions once either changed — harmless for a dimension the drag can
  *  change, and wrong for one it cannot: on an x-only element the recorded height
  *  is whatever the parent flex row had stretched the element to at that instant,
  *  and replaying it later pins the element to a stale height its container has
- *  since outgrown. `"x"` neither saves nor restores a height, so a stale entry
- *  written before the caller opted in is ignored too.
+ *  since outgrown. `"x"` owns the width alone: it neither saves nor restores a
+ *  height (a stale entry written before the caller opted in is ignored), and a
+ *  height-only change is not a drag. The change check in step 2 does not make
+ *  it redundant: a real width drag on an x-only element would still record the
+ *  stretched height.
  *
- *  Default `"both"` — every existing call site keeps byte-identical behaviour,
- *  which is why this is a per-key option rather than a fix inside the drag
- *  bookkeeping. */
+ *  Default `"both"`. */
 export type ResizableAxis = "both" | "x";
 
 export interface ResizableOptions {
@@ -88,6 +97,8 @@ export function useResizable(storageKey: string, options?: ResizableOptions) {
     }
 
     let dragging = false;
+    // The size at pointerdown: pointerup saves only when it changed.
+    let start = { width: 0, height: 0 };
 
     function onPointerDown(e: PointerEvent) {
       if (!el) return;
@@ -99,6 +110,7 @@ export function useResizable(storageKey: string, options?: ResizableOptions) {
         e.clientY <= rect.bottom
       ) {
         dragging = true;
+        start = { width: Math.round(rect.width), height: Math.round(rect.height) };
       }
     }
 
@@ -110,6 +122,7 @@ export function useResizable(storageKey: string, options?: ResizableOptions) {
         width: Math.round(rect.width),
         height: axis === "both" ? Math.round(rect.height) : null,
       };
+      if (size.width === start.width && (size.height === null || size.height === start.height)) return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(size));
       } catch {

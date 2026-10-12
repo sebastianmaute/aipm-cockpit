@@ -109,7 +109,7 @@ test("the Optimize with AI preview, as proposed and with a link disabled", async
     has: page.getByRole("heading", { name: "New tasks", exact: true }),
   });
   await newTasks.getByRole("checkbox").uncheck();
-  await expect(dialog.getByText("Needs the change that creates one of its tasks.", { exact: true }).first()).toBeVisible();
+  await expect(dialog.getByText("Needs the unticked change that creates the task or piece it refers to.", { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: `${OUT}/wbs-plan-preview-link-disabled.png`, fullPage: false });
 
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();

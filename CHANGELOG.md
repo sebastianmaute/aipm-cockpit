@@ -14,6 +14,7 @@ longer carries its own changelog comment.
 
 - **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
   tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
+  The proposal window can be moved and resized, and its reset button puts it back.
 
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
   guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an
@@ -22,6 +23,10 @@ longer carries its own changelog comment.
   only people linked to a resource.
 
 ### Fixed
+
+- **Clicking a dialog's or pane's resize corner without dragging no longer saves its size.** Every
+  resizable dialog and pane saved its size on any press and release of that corner, so a click froze it at
+  the size it had at that moment. Only a real resize is saved now.
 
 - **A Jira sync no longer undoes changes you make while it runs.** A sync that pushes local changes
   to Jira waits on Jira for each one, and anything you edited, added or deleted in the task list during

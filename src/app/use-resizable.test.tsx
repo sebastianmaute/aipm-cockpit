@@ -27,6 +27,14 @@ function pointer(type: string, coords?: { clientX: number; clientY: number }) {
   return ev;
 }
 
+/** A corner drag: the rect is `from` at pointerdown and `to` at pointerup. */
+function drag(el: HTMLElement, from: Partial<DOMRect>, to: Partial<DOMRect>, at = { clientX: 195, clientY: 195 }) {
+  stubRect(el, { right: 200, bottom: 200, ...from });
+  el.dispatchEvent(pointer("pointerdown", at));
+  stubRect(el, { right: 200, bottom: 200, ...to });
+  window.dispatchEvent(pointer("pointerup"));
+}
+
 beforeEach(() => window.localStorage.clear());
 afterEach(() => cleanup());
 
@@ -56,34 +64,54 @@ describe("useResizable — restore", () => {
 describe("useResizable — drag persistence", () => {
   it("persists the new size when the drag starts in the bottom-right corner", () => {
     const box = render(<Harness />).getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
     // pointerdown inside the 20px corner, pointerup anywhere → save.
-    box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
-    window.dispatchEvent(pointer("pointerup"));
+    drag(box, { width: 400, height: 300 }, { width: 512, height: 333 });
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 512, height: 333 });
+  });
+
+  // A press-and-release on the corner moves nothing; saving then would pin a
+  // content-sized dialog to whatever height it had at that moment.
+  it("does NOT persist a corner click that changed no dimension", () => {
+    const box = render(<Harness />).getByTestId("box");
+    drag(box, { width: 512, height: 333 }, { width: 512, height: 333 });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  // A content-sized panel measures fractional (a 90vh cap rarely lands on a
+  // whole pixel); the size at pointerdown is rounded like the one at pointerup,
+  // or a plain click would read as a 0.4px change and save.
+  it("does NOT persist a corner click on a fractional size", () => {
+    const box = render(<Harness />).getByTestId("box");
+    drag(box, { width: 680.4, height: 612.6 }, { width: 680.4, height: 612.6 });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("persists a drag that changed only the height", () => {
+    const box = render(<Harness />).getByTestId("box");
+    drag(box, { width: 512, height: 300 }, { width: 512, height: 333 });
     expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 512, height: 333 });
   });
 
   it("does NOT persist when the pointerdown is outside the corner", () => {
     const box = render(<Harness />).getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
-    box.dispatchEvent(pointer("pointerdown", { clientX: 10, clientY: 10 }));
-    window.dispatchEvent(pointer("pointerup"));
+    // The size DOES change, so only the corner hit-test can keep this unsaved.
+    drag(box, { width: 400, height: 300 }, { width: 512, height: 333 }, { clientX: 10, clientY: 10 });
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 
   it("rounds fractional rect dimensions before saving", () => {
     const box = render(<Harness />).getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 511.7, height: 332.2 });
-    box.dispatchEvent(pointer("pointerdown", { clientX: 199, clientY: 199 }));
-    window.dispatchEvent(pointer("pointerup"));
+    drag(box, { width: 400, height: 300 }, { width: 511.7, height: 332.2 }, { clientX: 199, clientY: 199 });
     expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 512, height: 332 });
   });
 
   it("removes the window pointerup listener on unmount (no save after teardown)", () => {
     const view = render(<Harness />);
     const box = view.getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
+    stubRect(box, { right: 200, bottom: 200, width: 400, height: 300 });
     box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+    // The size DOES change, so only the removed listener can keep this unsaved.
+    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
     view.unmount();
     window.dispatchEvent(pointer("pointerup"));
     expect(window.localStorage.getItem(KEY)).toBeNull();
@@ -92,8 +120,8 @@ describe("useResizable — drag persistence", () => {
 
 describe("useResizable — axis: \"x\"", () => {
   // ★ WHY THIS OPTION EXISTS. The hook arms `dragging` on any pointerdown in
-  //   the corner square and writes BOTH dimensions on pointerup, with no check
-  //   that anything moved. On a `resize-x` element the height it records is not
+  //   the corner square and writes BOTH dimensions on pointerup once either one
+  //   changed. On a `resize-x` element the height it records is not
   //   a user choice at all — it is whatever the parent flex row happened to
   //   stretch the column to at that instant — and replaying it later freezes
   //   the column short of its container. Opt-in, so the 40-odd `resize`
@@ -110,10 +138,15 @@ describe("useResizable — axis: \"x\"", () => {
 
   it("persists the width only, leaving height null", () => {
     const box = render(<XHarness />).getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
-    box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
-    window.dispatchEvent(pointer("pointerup"));
+    drag(box, { width: 400, height: 333 }, { width: 512, height: 333 });
     expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 512, height: null });
+  });
+
+  // Height is not this key's to save, so a height change alone is no drag.
+  it("does NOT persist when only the height (which it does not own) changed", () => {
+    const box = render(<XHarness />).getByTestId("box");
+    drag(box, { width: 512, height: 300 }, { width: 512, height: 333 });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 
   it("ignores a saved height on restore, including one written by an older build", () => {
@@ -161,9 +194,7 @@ describe("useResizable — a component that mounts closed (§338)", () => {
     const { rerender, getByTestId, queryByTestId } = render(<ClosableHarness open={false} />);
     rerender(<ClosableHarness open />);
     const box = getByTestId("box");
-    stubRect(box, { right: 200, bottom: 200, width: 700, height: 500 });
-    box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
-    window.dispatchEvent(pointer("pointerup"));
+    drag(box, { width: 640, height: 480 }, { width: 700, height: 500 });
     expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 700, height: 500 });
 
     rerender(<ClosableHarness open={false} />);
