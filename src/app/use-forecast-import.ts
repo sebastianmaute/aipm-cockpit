@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import { gridToForecastRows, isTotalLabel, parsePeriodLabel } from "./budget-import/forecast-rows";
-import type { ColumnMapping, DropReason, ForecastRow } from "./budget-import/forecast-types";
+import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
 import { readSheetFile, type SheetGrid } from "./budget-import/sheet-grid";
@@ -80,6 +80,8 @@ export interface ForecastImport {
   rejected: readonly RejectedRow[];
   duplicates: readonly DuplicateRow[];
   dropped: readonly DropReason[];
+  /** The hand route's number columns left unread (header not a period). */
+  ignoredColumns: readonly IgnoredColumn[];
   /** The first rows the current hand mapping reads, for the mapping step. */
   sample: readonly ForecastRow[];
   notes: string;
@@ -124,43 +126,58 @@ export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
 
 /** A wide mapping over a chosen header row: every header cell that reads as a
  *  period becomes a period column, except the person / email / rate columns
- *  and totals. */
+ *  and totals. `year` reads headers without a year ("Jan") and is kept on
+ *  the mapping. */
 export function wideMappingFor(
   rows: readonly string[][],
   headerRow: number,
   cols: { person: number; email?: number; rate?: number },
+  year?: number,
 ): ColumnMapping {
   const header = rows[headerRow] ?? [];
   const taken = new Set([cols.person, cols.email, cols.rate].filter((c): c is number => c !== undefined));
   const periodCols = header.flatMap((cell, col) =>
-    !taken.has(col) && !isTotalLabel(cell) && parsePeriodLabel(cell) !== null ? [col] : [],
+    !taken.has(col) && !isTotalLabel(cell) && parsePeriodLabel(cell, year) !== null ? [col] : [],
   );
   const mapping: ColumnMapping = { layout: "wide", headerRow, person: cols.person };
   if (cols.email !== undefined) mapping.email = cols.email;
   if (cols.rate !== undefined) mapping.rate = cols.rate;
   mapping.periodCols = periodCols;
+  if (year !== undefined) mapping.year = year;
   return mapping;
 }
 
 /** The columns the mapping step starts from when nothing was detected:
  *  header row 1, person in column A, every header period a period column. */
-export function defaultMappingFor(rows: readonly string[][]): ColumnMapping {
-  return wideMappingFor(rows, 0, { person: 0 });
+export function defaultMappingFor(rows: readonly string[][], year?: number): ColumnMapping {
+  return wideMappingFor(rows, 0, { person: 0 }, year);
+}
+
+/** The year a header without one is read in by default: the target bucket's
+ *  start year. */
+export function bucketStartYear(bucket: BudgetBucket): number | undefined {
+  const year = Number(bucket.startDate.slice(0, 4));
+  return Number.isInteger(year) && year > 0 ? year : undefined;
 }
 
 /** `detectLayout` over one sheet, read the way its file stores numbers. */
-function detectSheet(grid: SheetGrid): LayoutDetection {
-  return detectLayout(grid.rows, { numbers: grid.numbers });
+function detectSheet(grid: SheetGrid, year: number | undefined): LayoutDetection {
+  return detectLayout(grid.rows, { numbers: grid.numbers, defaultYear: year });
 }
 
 /** The first sheet a layout is found on (else the first sheet), with its
  *  detection, so a load detects each sheet at most once. */
-function firstDetectedSheet(sheets: readonly SheetGrid[]): { index: number; detected: LayoutDetection } {
+function firstDetectedSheet(
+  sheets: readonly SheetGrid[],
+  year: number | undefined,
+): { index: number; detected: LayoutDetection } {
+  let first: LayoutDetection | null = null;
   for (let index = 0; index < sheets.length; index++) {
-    const detected = detectSheet(sheets[index]);
+    const detected = detectSheet(sheets[index], year);
+    first ??= detected;
     if (detected.kind !== "unknown") return { index, detected };
   }
-  return { index: 0, detected: detectSheet(sheets[0]) };
+  return { index: 0, detected: first ?? detectSheet(sheets[0], year) };
 }
 
 type Validated = ReturnType<typeof validateForecastRows>;
@@ -168,6 +185,7 @@ type Validated = ReturnType<typeof validateForecastRows>;
 export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const { buckets, resources, roles, plan, holidaySet, onChangeBuckets } = deps;
   const bucketId = deps.bucket.id;
+  const startYear = bucketStartYear(deps.bucket);
   const { settings } = useSettings();
   const guideText = useActionGuideText("forecastImport");
   const apiKey = aiKeyIfEnabled(settings.ai);
@@ -203,9 +221,11 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
 
   const validated = useMemo<Validated | null>(() => {
     if (!sheet) return null;
-    if (route === "claude") return validateForecastRows(claudeRows, { sheet, requireSource: true });
-    return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false }) : null;
-  }, [sheet, route, claudeRows, handRows]);
+    // The Claude route reads year-less headers in the year the mapping step shows.
+    const defaultYear = mapping?.year ?? startYear;
+    if (route === "claude") return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear });
+    return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear }) : null;
+  }, [sheet, route, claudeRows, handRows, mapping, startYear]);
 
   const okRows = validated?.ok ?? NO_ROWS;
   const canPreview = step === "preview" && validated !== null && liveBucket !== undefined;
@@ -234,15 +254,15 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   /** The hand route over one sheet: preview when a layout is found, else the
    *  mapping step. `known` is a detection the caller already ran on `grid`. */
   const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
-    const detected = known ?? detectSheet(grid);
+    const detected = known ?? detectSheet(grid, startYear);
     setRoute("hand");
     setClaudeRows(null);
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
-    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows));
+    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, startYear));
     setStep(detected.mapping ? "preview" : "mapping");
-  }, []);
+  }, [startYear]);
 
   const loadFile = useCallback(async (file: File) => {
     const reqId = nextRequest();
@@ -260,7 +280,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       const grids = await readSheetFile(file.name, new Uint8Array(await file.arrayBuffer()));
       if (reqId !== reqIdRef.current) return;
       if (grids.length === 0) throw new Error("empty");
-      const { index, detected } = firstDetectedSheet(grids);
+      const { index, detected } = firstDetectedSheet(grids, startYear);
       setSheets(grids);
       setSheetIndex(index);
       openHandRoute(grids[index], detected);
@@ -272,7 +292,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     } finally {
       if (reqId === reqIdRef.current) setBusy(false);
     }
-  }, [nextRequest, openHandRoute]);
+  }, [nextRequest, openHandRoute, startYear]);
 
   const selectSheet = useCallback((index: number) => {
     const grid = sheets[index];
@@ -384,6 +404,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     rejected: validated?.rejected ?? [],
     duplicates: validated?.duplicates ?? [],
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
+    ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,
     notes,
     error,

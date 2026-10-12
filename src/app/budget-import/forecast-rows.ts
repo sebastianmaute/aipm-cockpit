@@ -7,7 +7,7 @@
 
 import { isoWeekParts } from "../resource-capacity";
 import { excelSerialToIso, type NumberOrigin } from "./sheet-grid";
-import type { ColumnMapping, DropReason, ForecastRow } from "./forecast-types";
+import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 export type DecimalStyle = "dot" | "comma";
 
@@ -18,11 +18,15 @@ const DEC_28_DAY = 28; // always inside the last ISO week of its year
 const MAX_HOUR = 23;
 const MAX_MINUTE_OR_SECOND = 59;
 const TWO_DIGIT_YEAR_BASE = 2000;
+const MIN_DEFAULT_YEAR = 1000;
+const MAX_DEFAULT_YEAR = 9999;
+/** Share of the person rows that must hold a number for an unread column to be reported. */
+const IGNORED_COLUMN_SHARE = 0.5;
 
 const MONTHS: Readonly<Record<string, number>> = {
-  jan: 1, januar: 1, january: 1,
+  jan: 1, januar: 1, january: 1, jän: 1, jänner: 1,
   feb: 2, februar: 2, february: 2,
-  mar: 3, mär: 3, märz: 3, maerz: 3, march: 3,
+  mar: 3, mär: 3, märz: 3, maerz: 3, mrz: 3, march: 3,
   apr: 4, april: 4,
   may: 5, mai: 5,
   jun: 6, juni: 6, june: 6,
@@ -63,16 +67,35 @@ function serialKey(cell: string): string | null {
   return iso === null ? null : iso.slice(0, 7);
 }
 
+/** A usable default year, else undefined (absent, fractional, not four digits). */
+function usableYear(year: number | undefined): number | undefined {
+  const isYear = year !== undefined && Number.isInteger(year) && year >= MIN_DEFAULT_YEAR && year <= MAX_DEFAULT_YEAR;
+  return isYear ? year : undefined;
+}
+
+/** A month name ("Jan", "Mrz.", "Januar") or week ("KW03", "KW 3", "W03") that
+ *  names no year, read in `year`. Bare numbers are never read this way. */
+function yearlessKey(s: string, year: number): string | null {
+  let m = /^([a-zäöü]+)\.?$/.exec(s);
+  if (m) {
+    const month = MONTHS[m[1]];
+    return month === undefined ? null : monthKey(year, month);
+  }
+  m = /^(?:kw|w)\s*(\d{1,2})$/.exec(s);
+  return m ? weekKey(year, Number(m[1])) : null;
+}
+
 /**
  * A period header as a canonical key: month "YYYY-MM" or week "YYYY-Www".
  * Case-insensitive, trimmed; null for anything unrecognised. Two-digit years
- * mean 20YY.
+ * mean 20YY. With `defaultYear`, a month name or week with no year of its own
+ * ("Jan", "KW03") is read in that year; without it, such a label is null.
  */
-export function parsePeriodLabel(cell: string): string | null {
+export function parsePeriodLabel(cell: string, defaultYear?: number): string | null {
   const s = cell.trim().toLowerCase();
   if (s === "") return null;
 
-  let m = /^(\d{4})-(\d{1,2})$/.exec(s);
+  let m = /^(\d{4})[-/](\d{1,2})$/.exec(s);
   if (m) return monthKey(Number(m[1]), Number(m[2]));
 
   // ISO date, optionally with a time ("2026-01-15 00:00:00", "...T09:30:00.000Z").
@@ -97,15 +120,16 @@ export function parsePeriodLabel(cell: string): string | null {
   if (m) return weekKey(Number(m[2]), Number(m[1]));
 
   m = /^([a-zäöü]+)\.?[\s-]*(\d{4}|\d{2})$/.exec(s);
-  if (m) {
-    const month = MONTHS[m[1]];
-    if (month === undefined) return null;
+  // "KW03" matches this shape too; it is a year-less week, read below.
+  const month = m === null ? undefined : MONTHS[m[1]];
+  if (m && month !== undefined) {
     const year = m[2].length === 2 ? TWO_DIGIT_YEAR_BASE + Number(m[2]) : Number(m[2]);
     return monthKey(year, month);
   }
 
   if (/^\d{5}(\.\d+)?$/.test(s)) return serialKey(s);
-  return null;
+  const year = usableYear(defaultYear);
+  return year === undefined ? null : yearlessKey(s, year);
 }
 
 /** Whitespace removed and one trailing unit or currency mark cut. */
@@ -205,7 +229,7 @@ function wideColumns(header: readonly string[], mapping: ColumnMapping): Array<{
   for (const col of mapping.periodCols ?? []) {
     const label = cellAt(header, col);
     if (isTotalLabel(label)) continue;
-    const period = parsePeriodLabel(label);
+    const period = parsePeriodLabel(label, mapping.year);
     if (period !== null) out.push({ col, period });
   }
   return out;
@@ -217,13 +241,15 @@ function wideColumns(header: readonly string[], mapping: ColumnMapping): Array<{
  * with nothing in any mapped cell is skipped without a drop). `dropped.row`
  * is the 1-based sheet row. Hours are returned as read, unrounded. `numbers` is
  * the grid's `SheetGrid.numbers`: a workbook's stored numbers read with a dot.
+ * Period labels without a year are read in `mapping.year`. `ignoredColumns`
+ * lists a wide sheet's unread number columns (see `IgnoredColumn`).
  */
 export function gridToForecastRows(
   rows: readonly string[][],
   mapping: ColumnMapping,
   sheetName: string,
   numbers: NumberOrigin = "text",
-): { rows: ForecastRow[]; dropped: DropReason[] } {
+): { rows: ForecastRow[]; dropped: DropReason[]; ignoredColumns: IgnoredColumn[] } {
   const out: ForecastRow[] = [];
   const dropped: DropReason[] = [];
   const header = rows[mapping.headerRow] ?? [];
@@ -256,7 +282,7 @@ export function gridToForecastRows(
     const meta = readMeta(row, mapping, rateStyle, numbers);
     const cells = wide
       ? columns
-      : [{ col: mapping.hours ?? -1, period: parsePeriodLabel(cellAt(row, mapping.period)) }];
+      : [{ col: mapping.hours ?? -1, period: parsePeriodLabel(cellAt(row, mapping.period), mapping.year) }];
     for (const { col, period } of cells) {
       const raw = cellAt(row, col);
       if (isBlank(raw)) continue;
@@ -271,5 +297,32 @@ export function gridToForecastRows(
   }
 
   dropped.sort((a, b) => a.row - b.row);
-  return { rows: out, dropped };
+  const ignoredColumns = wide ? unreadNumberColumns(header, mapping, columns, people, numbers) : [];
+  return { rows: out, dropped, ignoredColumns };
+}
+
+/** The columns from the first period column on that are not read, not a
+ *  mapped field and not a total, yet hold a number in more than half of the
+ *  person rows — hours the import would otherwise leave out without a word. */
+function unreadNumberColumns(
+  header: readonly string[],
+  mapping: ColumnMapping,
+  read: ReadonlyArray<{ col: number }>,
+  people: ReadonlyArray<{ row: readonly string[] }>,
+  numbers: NumberOrigin,
+): IgnoredColumn[] {
+  const periodCols = mapping.periodCols ?? [];
+  if (periodCols.length === 0 || people.length === 0) return [];
+  const skip = new Set<number | undefined>([mapping.person, mapping.email, mapping.rate, ...read.map((c) => c.col)]);
+  const width = people.reduce((max, { row }) => Math.max(max, row.length), header.length);
+  const out: IgnoredColumn[] = [];
+  for (let col = Math.min(...periodCols); col < width; col++) {
+    const label = cellAt(header, col);
+    if (skip.has(col) || isTotalLabel(label)) continue;
+    const cells = people.map(({ row }) => cellAt(row, col));
+    const style = detectDecimalStyle(cells, numbers);
+    const numeric = cells.filter((c) => parseNumberCell(c, style, numbers) !== null).length;
+    if (numeric > people.length * IGNORED_COLUMN_SHARE) out.push({ col, header: label.trim() });
+  }
+  return out;
 }

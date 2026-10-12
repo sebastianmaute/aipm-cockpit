@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { gridToForecastRows } from "./forecast-rows";
 import { detectLayout } from "./layout-detect";
+import { parseDelimited } from "./sheet-grid";
 
 const GERMAN_WIDE = [
   ["Name", "Jan 2026", "Feb 2026", "Gesamt"],
@@ -37,6 +38,35 @@ describe("detectLayout — wide", () => {
     });
     // The same cells from a CSV read German, and two of six are not numbers.
     expect(detectLayout(grid).kind).toBe("unknown");
+  });
+
+  // Reviewer probe (§500 final review): "Mrz" is how a German Excel abbreviates
+  // March, and an unknown month header silently dropped the month.
+  it("reads a German CSV whose March is \"Mrz 26\"", () => {
+    const grid = parseDelimited("Mitarbeiter;Jan 26;Feb 26;Mrz 26;Apr 26\r\nAnn;1;2;3;4\r\n");
+    const { mapping } = detectLayout(grid);
+    expect(mapping?.periodCols).toEqual([1, 2, 3, 4]);
+    expect(gridToForecastRows(grid, mapping!, "S").rows.map((r) => r.period)).toEqual([
+      "2026-01", "2026-02", "2026-03", "2026-04",
+    ]);
+  });
+
+  it("reads month headers without a year under a default year, and only then", () => {
+    const grid = [["Name", "Jan", "Feb", "Mär"], ["Ann", "10", "20", "30"]];
+    const out = detectLayout(grid, { defaultYear: 2026 });
+    expect(out.kind).toBe("wide");
+    expect(out.mapping).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3], year: 2026 });
+    expect(gridToForecastRows(grid, out.mapping!, "S").rows.map((r) => r.period)).toEqual([
+      "2026-01", "2026-02", "2026-03",
+    ]);
+    expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null });
+  });
+
+  it("reads a long sheet of year-less months under a default year", () => {
+    const grid = [["Name", "Monat", "Stunden"], ["Ann", "Jan", "4"], ["Ann", "Feb", "5"]];
+    expect(detectLayout(grid, { defaultYear: 2026 }).mapping).toEqual({
+      layout: "long", headerRow: 0, person: 0, period: 1, hours: 2, year: 2026,
+    });
   });
 
   it("finds the header below a title row and a blank row", () => {

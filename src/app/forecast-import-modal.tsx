@@ -18,7 +18,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { Banner } from "./banner";
-import { Select } from "./form-controls";
+import { Input, Select } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { ExclamationTriangleIcon, SparklesIcon } from "./icons";
@@ -193,7 +193,7 @@ function RouteBar({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
 
 // ------------------------------------------------------------------ mapping
 
-type Draft = { layout: "wide" | "long"; headerRow: number; person: number; email?: number; rate?: number; period: number; hours: number };
+type Draft = { layout: "wide" | "long"; headerRow: number; person: number; email?: number; rate?: number; period: number; hours: number; year?: number };
 
 function draftOf(mapping: ColumnMapping | null): Draft {
   return {
@@ -204,14 +204,16 @@ function draftOf(mapping: ColumnMapping | null): Draft {
     rate: mapping?.rate,
     period: mapping?.period ?? 1,
     hours: mapping?.hours ?? 2,
+    year: mapping?.year,
   };
 }
 
 function mappingOf(d: Draft, rows: readonly string[][]): ColumnMapping {
-  if (d.layout === "wide") return wideMappingFor(rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate });
+  if (d.layout === "wide") return wideMappingFor(rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate }, d.year);
   const mapping: ColumnMapping = { layout: "long", headerRow: d.headerRow, person: d.person, period: d.period, hours: d.hours };
   if (d.email !== undefined) mapping.email = d.email;
   if (d.rate !== undefined) mapping.rate = d.rate;
+  if (d.year !== undefined) mapping.year = d.year;
   return mapping;
 }
 
@@ -240,6 +242,7 @@ function ColumnSelect({ label, value, columns, optional, noneLabel, onChange }: 
 function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows: readonly string[][] }) {
   const draft = draftOf(fi.mapping);
   const headerId = useId();
+  const yearId = useId();
   const header = rows[draft.headerRow] ?? [];
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0);
   const columns = Array.from({ length: width }, (_, col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
@@ -267,6 +270,19 @@ function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows:
               <option key={i} value={i}>{String(i + 1)}</option>
             ))}
           </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor={yearId} className="text-foreground">{t(lang, "forecastImportYear")}</label>
+          <Input
+            id={yearId}
+            type="number"
+            size="xs"
+            value={draft.year === undefined ? "" : String(draft.year)}
+            onChange={(e) => {
+              const year = Number(e.target.value);
+              commit({ year: e.target.value === "" || !Number.isInteger(year) ? undefined : year });
+            }}
+          />
         </div>
         <ColumnSelect label={t(lang, "forecastImportColPerson")} value={draft.person} columns={columns} optional={false} noneLabel={none} onChange={(c) => commit({ person: c ?? 0 })} />
         <ColumnSelect label={t(lang, "forecastImportColEmail")} value={draft.email} columns={columns} optional noneLabel={none} onChange={(email) => commit({ email })} />
@@ -349,7 +365,7 @@ function PreviewStep({ lang, fi, plan, resources, roles, disciplines, grades }: 
     group.changes.push(c);
     groups.set(key, group);
   }
-  const hasNotImported = fi.rejected.length + fi.dropped.length + plan.outOfRange.length + plan.skipped.length + fi.duplicates.length > 0;
+  const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length + fi.duplicates.length > 0;
   const delta = plan.hoursDelta;
   return (
     <div className="space-y-4">
@@ -372,6 +388,9 @@ function PreviewStep({ lang, fi, plan, resources, roles, disciplines, grades }: 
       {hasNotImported && (
         <Section title={t(lang, "forecastImportNotImported")}>
           <ul className="space-y-0.5 text-muted-foreground">
+            {fi.ignoredColumns.map((c) => (
+              <li key={`c${c.col}`}>{t(lang, "forecastImportIgnoredColumn", columnLetters(c.col), c.header || "—")}</li>
+            ))}
             {fi.dropped.map((d, i) => (
               <li key={`d${i}`}>{t(lang, "forecastImportRowRef", String(d.row), t(lang, DROP_KEY[d.reason]))}</li>
             ))}

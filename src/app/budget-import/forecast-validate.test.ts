@@ -311,6 +311,39 @@ describe("validateForecastRows: source evidence (Claude route)", () => {
   });
 });
 
+describe("validateForecastRows: a default year for headers without one", () => {
+  const sheet: SheetGrid = { name: "Sheet1", rows: [["Person", "Jan", "Feb"], ["Ann", "40", "35"]], truncated: false };
+  const cite = (period: string) => ({ person: "Ann", period, hours: 40, source: "Sheet1!B2" });
+
+  it("accepts a row under a year-less header, the period written with or without its year", () => {
+    for (const period of ["Jan 2026", "Jan", "2026-01"]) {
+      const out = validateForecastRows([cite(period)], { sheet, requireSource: true, defaultYear: 2026 });
+      expect(out.rejected).toEqual([]);
+      expect(out.ok.map((r) => r.period)).toEqual(["2026-01"]);
+    }
+  });
+
+  it("rejects a period of another year than the header is read in", () => {
+    const out = validateForecastRows([cite("Jan 2026")], { sheet, requireSource: true, defaultYear: 2025 });
+    expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("without a year, a year-less period is not a period and the header vouches for nothing", () => {
+    expect(validateForecastRows([cite("Jan")], strict).rejected.map((r) => r.reason)).toEqual(["period"]);
+    const opts = { sheet, requireSource: true };
+    expect(validateForecastRows([cite("Jan 2026")], opts).rejected.map((r) => r.reason)).toEqual(["source"]);
+  });
+
+  it("does not let the person cell vouch for the period: Jan is a name, not January", () => {
+    const long: SheetGrid = { name: "Sheet1", rows: [["Person", "Period", "Hours"], ["Jan", "Feb", "40"]], truncated: false };
+    const opts = { sheet: long, requireSource: true, defaultYear: 2026 };
+    const asJanuary = { person: "Jan", period: "Jan", hours: 40, source: "Sheet1!C2" };
+    expect(validateForecastRows([asJanuary], opts).rejected.map((r) => r.reason)).toEqual(["source"]);
+    const asFebruary = { ...asJanuary, period: "Feb" };
+    expect(validateForecastRows([asFebruary], opts).ok.map((r) => r.period)).toEqual(["2026-02"]);
+  });
+});
+
 describe("validateForecastRows: a source cell is used once", () => {
   const row = (source: string) => ({ person: "Ann", period: "2026-01", hours: 40, source });
 

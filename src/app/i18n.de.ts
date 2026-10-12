@@ -2400,6 +2400,8 @@ export const de: Record<TranslationKey, string> = {
   forecastImportColHours: "Stundenspalte",
   forecastImportColNone: "Keine",
   forecastImportPeriodColsFound: "Periodenspalten in der Kopfzeile: {0}",
+  forecastImportYear: "Jahr für Kopfzeilen ohne Jahr",
+  forecastImportIgnoredColumn: "Spalte {0} ({1}): enthält Zahlen, aber die Überschrift ist keine Periode",
   forecastImportSample: "Erste gelesene Zeilen",
   forecastImportSampleEmpty: "Mit diesen Spalten wird keine Zeile gelesen.",
   forecastImportShowPreview: "Vorschau anzeigen",

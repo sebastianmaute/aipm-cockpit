@@ -16,7 +16,8 @@ export type ForecastRow = {
 /** Where each field sits in a sheet. Column indices are 0-based; `headerRow`
  *  is a 0-based row index. A "wide" sheet has one column per period
  *  (`periodCols`); a "long" sheet has one row per person and period
- *  (`period` + `hours`). */
+ *  (`period` + `hours`). `year` is the year a period label without one
+ *  ("Jan", "KW03") is read in; absent, such a label is not a period. */
 export type ColumnMapping = {
   layout: "wide" | "long";
   headerRow: number;
@@ -26,7 +27,14 @@ export type ColumnMapping = {
   periodCols?: number[];
   period?: number;
   hours?: number;
+  year?: number;
 };
+
+/** A wide sheet's column right of the first period column that the import did
+ *  not read although most data rows hold a number in it: its header is not a
+ *  period (an unknown month spelling, a missing year) and not a total. `col` is
+ *  0-based; `header` is the header cell as written. */
+export type IgnoredColumn = { col: number; header: string };
 
 /** A sheet row (or cell) the import left out. `row` is the 1-based sheet row
  *  number, the one the spreadsheet shows. */

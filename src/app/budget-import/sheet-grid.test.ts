@@ -31,7 +31,7 @@ describe("parseDelimited", () => {
   });
 
   it("strips a leading BOM", () => {
-    expect(parseDelimited("﻿a,b\n1,2\n")).toEqual([
+    expect(parseDelimited("\uFEFFa,b\n1,2\n")).toEqual([
       ["a", "b"],
       ["1", "2"],
     ]);
@@ -64,7 +64,7 @@ describe("parseDelimited", () => {
 
   it("returns no rows for empty input", () => {
     expect(parseDelimited("")).toEqual([]);
-    expect(parseDelimited("﻿")).toEqual([]);
+    expect(parseDelimited("\uFEFF")).toEqual([]);
   });
 });
 

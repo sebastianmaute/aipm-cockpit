@@ -30,7 +30,9 @@ export type DuplicateRow = { person: string; period: string; count: number; sour
 
 type Rejection = RejectedRow["reason"];
 type Checked = { ok: true; row: ForecastRow } | { ok: false; reason: Rejection };
-type Options = { sheet: SheetGrid; requireSource: boolean };
+/** `defaultYear`: the year a period label without one ("Jan", "KW03") is read
+ *  in — the row's own `period` and the sheet cells that back it alike. */
+type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number };
 type Merged = { row: ForecastRow; count: number; sources: string[] };
 
 const CELL_REF = /^([A-Z]{1,3})([1-9]\d*)$/;
@@ -81,19 +83,22 @@ function isPersonOnRow(rowCells: readonly string[], citedCol: number, row: Forec
 }
 
 /** The period sits in the cited cell's row (long layout) or in its column above
- *  it (wide layout header). */
-function isPeriodNearCell(sheet: SheetGrid, rowIdx: number, colIdx: number, period: string): boolean {
-  const isInRow = sheet.rows[rowIdx].some((cell, col) => col !== colIdx && parsePeriodLabel(cell) === period);
+ *  it (wide layout header). A cell that names the row's person never counts:
+ *  with a default year, a person called "Jan" would otherwise vouch for January. */
+function isPeriodNearCell(sheet: SheetGrid, rowIdx: number, colIdx: number, row: ForecastRow, year: number | undefined): boolean {
+  const person = row.person.trim().toLowerCase();
+  const isInRow = sheet.rows[rowIdx].some((cell, col) =>
+    col !== colIdx && cell.trim().toLowerCase() !== person && parsePeriodLabel(cell, year) === row.period);
   if (isInRow) return true;
   return sheet.rows.slice(0, rowIdx).some((above) => {
     const cell = above[colIdx];
-    return cell !== undefined && parsePeriodLabel(cell) === period;
+    return cell !== undefined && parsePeriodLabel(cell, year) === row.period;
   });
 }
 
 /** True when `row.source` names a cell of `sheet` that holds the row's hours,
  *  on a row that names the person, under or beside the row's period. */
-function isSourceGenuine(row: ForecastRow, sheet: SheetGrid): boolean {
+function isSourceGenuine(row: ForecastRow, sheet: SheetGrid, year: number | undefined): boolean {
   if (row.source === undefined) return false;
   const cellPart = cellPartOf(row.source, sheet.name);
   const match = cellPart === null ? null : CELL_REF.exec(cellPart);
@@ -102,7 +107,7 @@ function isSourceGenuine(row: ForecastRow, sheet: SheetGrid): boolean {
   const colIdx = columnIndex(match[1]);
   const cell = sheet.rows[rowIdx]?.[colIdx];
   if (cell === undefined || !cellMatchesHours(cell, row.hours)) return false;
-  return isPersonOnRow(sheet.rows[rowIdx], colIdx, row) && isPeriodNearCell(sheet, rowIdx, colIdx, row.period);
+  return isPersonOnRow(sheet.rows[rowIdx], colIdx, row) && isPeriodNearCell(sheet, rowIdx, colIdx, row, year);
 }
 
 function isValidHours(value: unknown): value is number {
@@ -118,7 +123,7 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
   const { person, period, hours, rate, email, source } = raw;
   if (typeof person !== "string" || person.trim() === "") return { ok: false, reason: "person" };
-  const canonicalPeriod = typeof period === "string" ? parsePeriodLabel(period) : null;
+  const canonicalPeriod = typeof period === "string" ? parsePeriodLabel(period, opts.defaultYear) : null;
   if (canonicalPeriod === null) return { ok: false, reason: "period" };
   if (!isValidHours(hours)) return { ok: false, reason: "hours" };
   const isRateBad = rate !== undefined && !(typeof rate === "number" && Number.isFinite(rate) && rate >= 0);
@@ -128,7 +133,7 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof email === "string") row.email = email;
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
-  if (opts.requireSource && !isSourceGenuine({ ...row, hours }, opts.sheet)) return { ok: false, reason: "source" };
+  if (opts.requireSource && !isSourceGenuine({ ...row, hours }, opts.sheet, opts.defaultYear)) return { ok: false, reason: "source" };
   return { ok: true, row };
 }
 

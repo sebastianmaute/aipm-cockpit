@@ -62,6 +62,13 @@ describe("parsePeriodLabel", () => {
     ["2026-01-15T00:00:00", "2026-01"],
     ["2026-01-15T00:00:00.000Z", "2026-01"],
     ["2026-02-28", "2026-02"],
+    ["Mrz 2026", "2026-03"],
+    ["Mrz 26", "2026-03"],
+    ["Mrz. 2026", "2026-03"],
+    ["Jän 2026", "2026-01"],
+    ["Jänner 2026", "2026-01"],
+    ["2026/01", "2026-01"],
+    ["2026/1", "2026-01"],
   ];
   it.each(accepted)("parses %j as %s", (cell, expected) => {
     expect(parsePeriodLabel(cell)).toBe(expected);
@@ -101,6 +108,44 @@ describe("parsePeriodLabel", () => {
   ];
   it.each(rejected)("rejects %j", (cell) => {
     expect(parsePeriodLabel(cell)).toBeNull();
+  });
+});
+
+describe("parsePeriodLabel — a default year for headers without one", () => {
+  const accepted: Array<[string, string]> = [
+    ["Jan", "2026-01"],
+    ["Jan.", "2026-01"],
+    ["JANUAR", "2026-01"],
+    ["Mrz", "2026-03"],
+    ["Mär", "2026-03"],
+    ["Jän", "2026-01"],
+    ["Dez.", "2026-12"],
+    ["KW03", "2026-W03"],
+    ["KW 3", "2026-W03"],
+    ["W03", "2026-W03"],
+    ["kw53", "2026-W53"],
+    // A label that names its year keeps it.
+    ["Jan 2025", "2025-01"],
+    ["KW03 2027", "2027-W03"],
+  ];
+  it.each(accepted)("parses %j with 2026 as %s", (cell, expected) => {
+    expect(parsePeriodLabel(cell, 2026)).toBe(expected);
+  });
+
+  it.each(["01", "1", "3", "Foo", "Q1", "KW54", "W00", "", "Total"])("still rejects %j", (cell) => {
+    expect(parsePeriodLabel(cell, 2026)).toBeNull();
+  });
+
+  it("checks a week against the default year's week count", () => {
+    expect(parsePeriodLabel("KW53", 2025)).toBeNull();
+    expect(parsePeriodLabel("KW53", 2026)).toBe("2026-W53");
+  });
+
+  it("reads nothing year-less without a year, or with one that is not a year", () => {
+    for (const year of [undefined, Number.NaN, 2026.5, 26, 10000]) {
+      expect(parsePeriodLabel("Jan", year)).toBeNull();
+      expect(parsePeriodLabel("KW03", year)).toBeNull();
+    }
   });
 });
 
@@ -371,6 +416,58 @@ describe("gridToForecastRows — a workbook's stored numbers", () => {
     const rated = [["Name", "Rate", "Jan 2026"], ["Ann", "95.5", "8"], ["Bob", "1.250", "9"]];
     const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, rate: 1, periodCols: [2] };
     expect(gridToForecastRows(rated, mapping, "S", "dot").rows.map((r) => r.rate)).toEqual([95.5, 1.25]);
+  });
+});
+
+describe("gridToForecastRows — year-less headers", () => {
+  it("reads month names under the mapping's year", () => {
+    const grid = [["Name", "Jan", "Feb", "Mär"], ["Ann", "1", "2", "3"]];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3], year: 2026 };
+    const out = gridToForecastRows(grid, mapping, "S");
+    expect(out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(gridToForecastRows(grid, { ...mapping, year: undefined }, "S").rows).toEqual([]);
+  });
+
+  it("reads a long sheet's year-less period cells under the mapping's year", () => {
+    const grid = [["Name", "Month", "Hours"], ["Ann", "Mrz", "4"]];
+    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2, year: 2026 };
+    expect(gridToForecastRows(grid, mapping, "S").rows.map((r) => r.period)).toEqual(["2026-03"]);
+  });
+});
+
+// Reviewer probe (§500 final review): a month header the reader does not know
+// ("Mrz" before it was added) dropped that month's hours without a word.
+describe("gridToForecastRows — columns left out", () => {
+  const wide: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 3] };
+
+  it("reports a non-period header between period columns that holds numbers", () => {
+    const grid = [["Name", "Jan 2026", "Foo", "Feb 2026"], ["Ann", "1", "2", "3"], ["Bob", "4", "5", "6"]];
+    expect(gridToForecastRows(grid, wide, "S").ignoredColumns).toEqual([{ col: 2, header: "Foo" }]);
+  });
+
+  it("reports one after the last period column, and a blank header", () => {
+    const grid = [["Name", "Jan 2026", "", "Feb 2026", "Later"], ["Ann", "1", "2", "3", "4"]];
+    expect(gridToForecastRows(grid, wide, "S").ignoredColumns).toEqual([
+      { col: 2, header: "" },
+      { col: 4, header: "Later" },
+    ]);
+  });
+
+  it("does not report text, a mostly-empty column, totals, mapped columns or anything left of the periods", () => {
+    const grid = [
+      ["Name", "Rate", "Jan 2026", "Notes", "Feb 2026", "Total", "Odd"],
+      ["Ann", "95", "1", "late", "3", "4", "7"],
+      ["Bob", "90", "1", "", "3", "4", ""],
+      ["Cy", "90", "1", "", "3", "4", ""],
+    ];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 4] };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
+  });
+
+  it("reports nothing for a long sheet", () => {
+    const grid = [["Name", "Month", "Hours", "Extra"], ["Ann", "2026-01", "4", "9"]];
+    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
   });
 });
 

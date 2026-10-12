@@ -101,7 +101,7 @@ describe("useForecastImport — the hand route", () => {
     const { result } = await loaded(depsOf(), "just,some\r\nwords,here\r\n");
     expect(result.current.step).toBe("mapping");
     expect(result.current.layoutDetected).toBe(false);
-    expect(result.current.mapping).toEqual(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }));
+    expect(result.current.mapping).toEqual(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, 2026));
     expect(result.current.importPlan).toBeNull();
   });
 
@@ -177,6 +177,22 @@ describe("useForecastImport — the hand route", () => {
     act(() => result.current.setOverride("Robert Ray", "skip"));
     expect(result.current.importPlan?.skipped).toEqual(["Robert Ray"]);
     expect(result.current.importPlan?.changes).toEqual([]);
+  });
+
+  it("reads year-less month headers in the target bucket's start year", async () => {
+    const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mär\r\nAnn Lee,10,20,30\r\n");
+    expect(result.current.step).toBe("preview");
+    expect(result.current.mapping?.year).toBe(2026);
+    expect(result.current.importPlan?.changes.map((c) => c.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    // Another year moves every period, here out of the bucket.
+    act(() => result.current.showPreview(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, 2025)));
+    expect(result.current.importPlan?.changes).toEqual([]);
+    expect(result.current.importPlan?.outOfRange).toHaveLength(3);
+  });
+
+  it("reports a numeric column whose header is not a period", async () => {
+    const { result } = await loaded(depsOf(), "Name,Jan 2026,Foo,Feb 2026,Mar 2026\r\nAnn Lee,1,2,3,4\r\n");
+    expect(result.current.ignoredColumns).toEqual([{ col: 2, header: "Foo" }]);
   });
 
   it("exposes the rows and drops of the hand route", async () => {
@@ -405,6 +421,16 @@ describe("useForecastImport — the Claude route", () => {
     expect(result.current.notes).toBe("Skipped the Mar column.");
   });
 
+  it("reads a Claude row under a year-less header in the bucket's start year", async () => {
+    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan", hours: 10, source: "forecast!B2" }] });
+    const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mar\r\nAnn Lee,10,20,30\r\n");
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toEqual([]);
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 10]]);
+  });
+
   it("does nothing when AI is off", async () => {
     stubSettings(AI_OFF);
     const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -471,6 +497,14 @@ describe("wideMappingFor", () => {
     const rows = [["Name", "Mail", "Jan 2026", "Total", "Feb 2026"], ["Ann", "a@x", "1", "3", "2"]];
     expect(wideMappingFor(rows, 0, { person: 0, email: 1 })).toEqual({
       layout: "wide", headerRow: 0, person: 0, email: 1, periodCols: [2, 4],
+    });
+  });
+
+  it("reads year-less headers in the given year and keeps that year on the mapping", () => {
+    const rows = [["Name", "Jan", "Feb"], ["Ann", "1", "2"]];
+    expect(wideMappingFor(rows, 0, { person: 0 })).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [] });
+    expect(wideMappingFor(rows, 0, { person: 0 }, 2026)).toEqual({
+      layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2], year: 2026,
     });
   });
 });

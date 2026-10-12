@@ -2551,6 +2551,8 @@ const enUS = {
   forecastImportColHours: "Hours column",
   forecastImportColNone: "None",
   forecastImportPeriodColsFound: "Period columns in the header row: {0}",
+  forecastImportYear: "Year for headers without a year",
+  forecastImportIgnoredColumn: "Column {0} ({1}): holds numbers, but its header is not a period",
   forecastImportSample: "First rows read",
   forecastImportSampleEmpty: "No rows are read with these columns.",
   forecastImportShowPreview: "Show preview",

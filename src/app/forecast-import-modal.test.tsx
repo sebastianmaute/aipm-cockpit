@@ -217,4 +217,22 @@ describe("ForecastImportModal", () => {
     expect(screen.getByText("Ann Lee · 2026-01 · 5 h (f!B2)")).toBeInTheDocument();
     expect(screen.queryByText(t(L, "forecastImportSampleEmpty"))).toBeNull();
   });
+
+  it("sets the year for headers without one, defaulting to the bucket's start year", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,Jan,Feb,Mar\r\nAnn Lee,1,2,3\r\n");
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportEditColumns") }));
+    const year = screen.getByRole("spinbutton", { name: t(L, "forecastImportYear") });
+    expect(year).toHaveValue(2026);
+    expect(screen.getByText("Ann Lee · 2026-01 · 1 h (forecast!B2)")).toBeInTheDocument();
+    fireEvent.change(year, { target: { value: "2027" } });
+    expect(screen.getByText("Ann Lee · 2027-01 · 1 h (forecast!B2)")).toBeInTheDocument();
+  });
+
+  it("lists a numeric column whose header is not a period under Not imported", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,Jan 2026,Foo,Feb 2026,Mar 2026\r\nAnn Lee,1,2,3,4\r\n");
+    const section = screen.getByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportIgnoredColumn", "C", "Foo"))).toBeInTheDocument();
+  });
 });
