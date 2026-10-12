@@ -174,6 +174,7 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
     // of, silently losing r:id (written after name by real Excel) along with
     // it (M-7). sheetTagAttrs reads both attributes quote-aware instead.
     const mapped: { name: string; path: string }[] = [];
+    const seenPaths = new Set<string>();
     const wbXml = decodeUtf8(wb);
     const sheetOpenRe = /<sheet\b/g;
     while (sheetOpenRe.exec(wbXml) !== null) {
@@ -184,7 +185,8 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
         const path = resolveTarget(target);
         // A worksheet is parsed ONCE: a workbook listing one path under many
         // <sheet> names would otherwise multiply its cost by the list length.
-        if (entries.has(path) && !mapped.some((m) => m.path === path)) {
+        if (entries.has(path) && !seenPaths.has(path)) {
+          seenPaths.add(path);
           mapped.push({ name: unescapeXml(tag.name), path });
         }
       }
@@ -321,6 +323,11 @@ function forEachXmlElement(xml: string, name: string, visit: (whole: string) => 
 /** Excel's last row number: a `<row r>` past it is not a real position. */
 const MAX_XLSX_ROW = 1_048_576;
 
+/** Padded cell slots across ALL sheets of one workbook. `MAX_XLSX_SHEET_CELLS`
+ *  bounds one sheet; thousands of small distinct sheets of wide rows
+ *  (`<c r="XFD1">` pads a row to 16,384) add up to gigabytes without this. */
+export const MAX_XLSX_TOTAL_CELLS = 2_000_000;
+
 /** Row slots one sheet may take, gaps included — separate from the cell budget,
  *  which a gap row (no cells) never touches. */
 const MAX_XLSX_SHEET_ROWS = MAX_XLSX_SHEET_CELLS;
@@ -350,7 +357,11 @@ function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
  *  gap is filled with empty rows (they hold no cells, so the budget ignores them).
  *  The Markdown path drops blank rows anyway; the forecast import cites cells by
  *  row number and needs them to match what the user sees in Excel (§500). */
-function sheetRows(xml: string, shared: string[], maxRows: number): { rows: string[][]; truncated: boolean } {
+function sheetRows(
+  xml: string,
+  shared: string[],
+  limits: { maxRows: number; maxCells: number },
+): { rows: string[][]; cellCount: number; truncated: boolean } {
   const rows: string[][] = [];
   let cellCount = 0;
   let truncated = false;
@@ -368,12 +379,12 @@ function sheetRows(xml: string, shared: string[], maxRows: number): { rows: stri
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
     // bounded by a single row (§579).
-    if (cellCount + cells.length > MAX_XLSX_SHEET_CELLS) {
+    if (cellCount + cells.length > limits.maxCells) {
       truncated = true;
       return false;
     }
     const at = rowIndexFromAttr(rowXml, rows.length) ?? rows.length;
-    if (at + 1 > maxRows) {
+    if (at + 1 > limits.maxRows) {
       truncated = true;
       return false;
     }
@@ -382,7 +393,7 @@ function sheetRows(xml: string, shared: string[], maxRows: number): { rows: stri
     rows.push(cells);
     return true;
   });
-  return { rows, truncated };
+  return { rows, cellCount, truncated };
 }
 
 /** Renders raw grid rows as a Markdown table; cells are escaped HERE, so the
@@ -433,15 +444,16 @@ export function extractXlsxGrid(
 ): { name: string; rows: string[][]; truncated: boolean }[] {
   const shared = sharedStrings(entries);
   let slotsLeft = MAX_XLSX_TOTAL_ROWS;
+  let cellsLeft = MAX_XLSX_TOTAL_CELLS;
   return sheetEntries(entries).map(({ name, path }) => {
     // Out of slots: the sheet is not read at all, only reported as cut.
-    if (slotsLeft <= 0) return { name, rows: [], truncated: true };
-    const { rows, truncated } = sheetRows(
-      decodeUtf8(entries.get(path)!),
-      shared,
-      Math.min(MAX_XLSX_SHEET_ROWS, slotsLeft),
-    );
+    if (slotsLeft <= 0 || cellsLeft <= 0) return { name, rows: [], truncated: true };
+    const { rows, cellCount, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared, {
+      maxRows: Math.min(MAX_XLSX_SHEET_ROWS, slotsLeft),
+      maxCells: Math.min(MAX_XLSX_SHEET_CELLS, cellsLeft),
+    });
     slotsLeft -= rows.length;
+    cellsLeft -= cellCount;
     return { name, rows, truncated };
   });
 }

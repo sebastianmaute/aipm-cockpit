@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractXlsx, extractXlsxGrid, MAX_XLSX_SHEET_CELLS, MAX_XLSX_TOTAL_ROWS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
+import { extractXlsx, extractXlsxGrid, MAX_XLSX_SHEET_CELLS, MAX_XLSX_TOTAL_CELLS, MAX_XLSX_TOTAL_ROWS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
@@ -509,12 +509,67 @@ describe("xlsx reader row-gap bounds", () => {
     for (const late of grid.slice(4)) expect(late).toEqual({ name: late.name, rows: [], truncated: true });
   });
 
+  it("reads thousands of distinct sheets and returns each one", () => {
+    // Not a timing assertion: it pins that de-duplication keeps every DISTINCT
+    // path (and, being linear, that 30,000 of them finish at all).
+    const count = 30_000;
+    const bytes = enc(sheetXml(1));
+    const files = new Map<string, Uint8Array>(
+      Array.from({ length: count }, (_, i): [string, Uint8Array] => [`xl/worksheets/sheet${i + 1}.xml`, bytes]),
+    );
+    const sheets = Array.from({ length: count }, (_, i) => ({ name: `S${i}`, target: `worksheets/sheet${i + 1}.xml` }));
+    const entries = workbookOf(sheets, {});
+    for (const [path, b] of files) entries.set(path, b);
+    expect(extractXlsxGrid(entries)).toHaveLength(count);
+  });
+
   it("returns every sheet after the budget is spent as empty and truncated without reading it", () => {
     const names = ["A", "B", "C", "D", "E"];
     const files = Object.fromEntries(names.map((_, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(250_000)]));
     const grid = extractXlsxGrid(workbookOf(names.map((n, i) => ({ name: n, target: `worksheets/sheet${i + 1}.xml` })), files));
     expect(grid.map((g) => g.truncated)).toEqual([false, false, false, false, true]);
     expect(grid[4].rows).toEqual([]);
+  });
+});
+
+// The per-sheet cell budget alone lets many distinct sheets of padded rows add up:
+// one <c r="XFD1"> pads a row to 16,384 slots.
+describe("xlsx reader workbook cell budget", () => {
+  const wideRows = (n: number) =>
+    Array.from({ length: n }, (_, i) => `<row r="${i + 1}"><c r="XFD${i + 1}"><v>1</v></c></row>`).join("");
+  const sheetOf = (rows: string) => `<worksheet><sheetData>${rows}</sheetData></worksheet>`;
+  const workbookOf = (xmls: string[]) => {
+    const wb = `<workbook><sheets>${xmls.map((_, i) => `<sheet name="S${i}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+    const rels = `<Relationships>${xmls.map((_, i) => `<Relationship Id="rId${i + 1}" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>`;
+    const map = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(wb)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ]);
+    xmls.forEach((x, i) => map.set(`xl/worksheets/sheet${i + 1}.xml`, enc(x)));
+    return map;
+  };
+  const slots = (grid: { rows: string[][] }[]) => grid.reduce((sum, g) => sum + g.rows.reduce((s, r) => s + r.length, 0), 0);
+
+  it("keeps the padded slots of a whole workbook under the total, truncating the later sheets", () => {
+    const xml = sheetOf(wideRows(15));
+    const grid = extractXlsxGrid(workbookOf(Array.from({ length: 200 }, () => xml)));
+    expect(grid).toHaveLength(200);
+    expect(slots(grid)).toBeLessThanOrEqual(MAX_XLSX_TOTAL_CELLS);
+    expect(grid[0].truncated).toBe(false);
+    expect(grid[0].rows).toHaveLength(15);
+    for (const late of grid.slice(100)) expect(late).toEqual({ name: late.name, rows: [], truncated: true });
+  });
+
+  it("leaves an ordinary three-sheet workbook untouched", () => {
+    const grid = extractXlsxGrid(
+      workbookOf([
+        sheetOf('<row r="1"><c r="A1"><v>a</v></c></row>'),
+        sheetOf('<row r="1"><c r="A1"><v>b</v></c><c r="B1"><v>c</v></c></row>'),
+        sheetOf(""),
+      ]),
+    );
+    expect(grid.map((g) => g.truncated)).toEqual([false, false, false]);
+    expect(grid[1].rows).toEqual([["b", "c"]]);
   });
 });
 
