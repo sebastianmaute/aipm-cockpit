@@ -28,8 +28,9 @@ export interface ScheduledJobRunnerArgs {
   /** §701 — false while the operating guides the runs need are still loading
    *  (only when guide grounding is on). A tick waits for it, and the runner
    *  ticks once the moment it turns true, so the run on app open is delayed by
-   *  the load, not skipped until the next interval. Default true. */
-  guidesReady?: boolean;
+   *  the load, not skipped until the next interval. REQUIRED, so tsc proves a
+   *  caller decided it (pass true when there is nothing to wait for). */
+  guidesReady: boolean;
 }
 
 export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
@@ -49,7 +50,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
   useEffect(() => { notifyRef.current = args.notify; }, [args.notify]);
   useEffect(() => { nowRef.current = args.now; }, [args.now]);
-  const guidesReady = args.guidesReady ?? true;
+  const guidesReady = args.guidesReady;
   const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.

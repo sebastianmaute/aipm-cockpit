@@ -29,8 +29,9 @@ export interface InsightRecommendRunnerArgs {
   intervalMinutes: number;
   /** §701 — false while the operating guides the runs need are still loading
    *  (only when guide grounding is on). A tick waits for it, and the runner
-   *  ticks once the moment it turns true. Default true. */
-  guidesReady?: boolean;
+   *  ticks once the moment it turns true. REQUIRED, so tsc proves a caller
+   *  decided it (pass true when there is nothing to wait for). */
+  guidesReady: boolean;
   /** Closes over the live workspace. */
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
@@ -68,7 +69,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
   useEffect(() => { snapshotEntitiesRef.current = args.snapshotEntities; }, [args.snapshotEntities]);
-  const guidesReady = args.guidesReady ?? true;
+  const guidesReady = args.guidesReady;
   const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.

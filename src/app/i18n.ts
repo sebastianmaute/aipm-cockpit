@@ -2507,7 +2507,7 @@ const enUS = {
   aiGuideAppliesTo: "Applies to: {0}",
   aiGuideOverActionCap: "This guide is longer than the {0} characters an AI action takes, so the AI actions ticked here will not receive it.",
   aiGuideNotSentTooLong: "Not sent to {0}: this guide is longer than the {1} characters an AI action takes.",
-  aiGuideNotSentCrowded: "Not sent to {0}: higher-priority guides already fill the {1}-character limit for an AI action.",
+  aiGuideNotSentCrowded: "Not sent to {0}: guides ahead of it already fill the {1}-character limit for an AI action.",
   aiGuideTargetChat: "Chat assistant",
   aiGuideTargetWbs: "Optimize with AI (work breakdown)",
   aiGuideTargetAlloc: "Plan with AI (resource allocation)",

@@ -52,10 +52,10 @@ Built-in operating guides for the single-request AI actions (§701). Each `##` s
 - Assign roles to people who hold the matching authority or skill; do not make someone Accountable for what they cannot decide.
 - Watch the load: a person who is Accountable for most items is a bottleneck worth pointing out.
 
-## Weekly digest narrative
+## Status digest narrative
 <!-- targets: digest -->
 
-- Write for a busy reader: what changed this week, what needs attention, and what comes next, in that order.
+- Write for a busy reader: what changed since the last digest, what needs attention, and what comes next, in that order.
 - Lead with the most significant change, positive or negative, and say why it matters.
 - Use the figures given; do not invent numbers, dates or causes the data does not show.
 - Keep a calm, factual tone. Name a problem plainly, without alarm and without softening it away.

@@ -49,6 +49,7 @@ function renderRunner(overrides: Partial<InsightRecommendRunnerArgs> = {}) {
   const applyRecommendation = vi.fn();
   const args: InsightRecommendRunnerArgs = {
     enabled: true,
+    guidesReady: true,
     insights: [],
     ai: { apiKey: "sk-ant-test", model: "claude-test" },
     today: "2026-01-01",
@@ -226,6 +227,7 @@ describe("useInsightRecommendRunner cadence", () => {
       (p: P) =>
         useInsightRecommendRunner({
           enabled: true,
+          guidesReady: true,
           insights: [makeInsight(1)],
           ai: { apiKey: "sk-ant-test", model: "claude-test" },
           today: "2026-01-01",
@@ -327,6 +329,7 @@ describe("useInsightRecommendRunner — operating guides (§701)", () => {
     mockRun.mockResolvedValue(fakeRec);
     const base: Omit<InsightRecommendRunnerArgs, "insights" | "ai"> = {
       enabled: true,
+      guidesReady: true,
       today: "2026-01-01",
       intervalMinutes: 60,
       buildIndex: () => emptyIndex,

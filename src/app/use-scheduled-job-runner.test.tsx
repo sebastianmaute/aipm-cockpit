@@ -40,6 +40,7 @@ const earlyMorning = () => {
 function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJobRunnerArgs {
   return {
     enabled: true,
+    guidesReady: true,
     jobs: [dailyJob()],
     recordRun: vi.fn(),
     buildContext: () => "ctx",

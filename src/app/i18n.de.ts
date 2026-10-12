@@ -2356,7 +2356,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideAppliesTo: "Gilt für: {0}",
   aiGuideOverActionCap: "Dieser Leitfaden ist länger als die {0} Zeichen, die eine KI-Aktion aufnimmt; die hier gewählten KI-Aktionen erhalten ihn daher nicht.",
   aiGuideNotSentTooLong: "Nicht gesendet an {0}: Dieser Leitfaden ist länger als die {1} Zeichen, die eine KI-Aktion aufnimmt.",
-  aiGuideNotSentCrowded: "Nicht gesendet an {0}: Leitfäden mit höherer Priorität füllen die Grenze von {1} Zeichen für eine KI-Aktion bereits aus.",
+  aiGuideNotSentCrowded: "Nicht gesendet an {0}: vorrangige Leitfäden füllen die Grenze von {1} Zeichen für eine KI-Aktion bereits aus.",
   aiGuideTargetChat: "Chat-Assistent",
   aiGuideTargetWbs: "Mit KI optimieren (Arbeitsstruktur)",
   aiGuideTargetAlloc: "Mit KI planen (Ressourcenzuteilung)",

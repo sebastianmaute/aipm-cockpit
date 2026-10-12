@@ -296,8 +296,8 @@ export const BUILTIN_ACTION_GUIDES: { id: string; name: string; content: string;
   },
   {
     "id": "builtin-action-digest",
-    "name": "AI action: Weekly digest narrative",
-    "content": "## Weekly digest narrative\n\n- Write for a busy reader: what changed this week, what needs attention, and what comes next, in that order.\n- Lead with the most significant change, positive or negative, and say why it matters.\n- Use the figures given; do not invent numbers, dates or causes the data does not show.\n- Keep a calm, factual tone. Name a problem plainly, without alarm and without softening it away.",
+    "name": "AI action: Status digest narrative",
+    "content": "## Status digest narrative\n\n- Write for a busy reader: what changed since the last digest, what needs attention, and what comes next, in that order.\n- Lead with the most significant change, positive or negative, and say why it matters.\n- Use the figures given; do not invent numbers, dates or causes the data does not show.\n- Keep a calm, factual tone. Name a problem plainly, without alarm and without softening it away.",
     "scope": {
       "targets": [
         "digest"
