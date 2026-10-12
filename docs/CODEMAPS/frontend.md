@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.17.0 "Mankell" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.18.0 "Larsson" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
 
 # Frontend
 

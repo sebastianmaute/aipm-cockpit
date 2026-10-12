@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.17.0";
-export const APP_BUILD_DATE = "2026-10-10"; // 1.17.0: a feature release — the start screen offers a guided demo project, which comes with a gap-free weekly Trends history when Turso is connected; Trends labels only as many points as fit the axis; the desktop update window shows formatted release notes, and installing and updating say that they take a while; icon buttons, fields, menus and badges follow the app standard; and the version-name field in History has an accessible name (Mankell)
+export const APP_VERSION = "1.18.0";
+export const APP_BUILD_DATE = "2026-10-12"; // 1.18.0: a feature release — Optimize with AI in Open Points proposes splits, regroups, missing tasks, estimates and links for you to pick from; operating guides reach eleven AI actions as well as the chat, with eight built-in method guides; a fifth TimeLog guardrail flags time booked while absent; and fixes cover resize-corner clicks saving a size, a Jira sync overwriting edits made while it runs, dialogs losing the cursor on open, names with $ sequences or {1}, and AI allocation planning hiding skipped changes (Larsson)
+// 1.17.0: a feature release — the start screen offers a guided demo project, which comes with a gap-free weekly Trends history when Turso is connected; Trends labels only as many points as fit the axis; the desktop update window shows formatted release notes, and installing and updating say that they take a while; icon buttons, fields, menus and badges follow the app standard; and the version-name field in History has an accessible name (Mankell)
 // 1.16.0: a feature release — long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay responsive on large projects; exports and documents gain the budget forecast, and Word files get the project branding, real lists and readable tables; the AI assistant can read RACI assignments and the budget forecast, its proposed tasks carry an owner, priority and group, and voice commands it does not know go to it; screen readers tell same-named rows apart in 32 more places; most small buttons now use the app's one standard button; Next.js 16.3.8 closes six advisories; and a large batch of defect fixes covers templates, Turso images, notes, Jira sync, Word export and the activity-log download (Rankin)
 // 1.15.0: a feature release — Indian rupee (INR) is a supported budget and plan currency, a task's blockers become a dated log with a counting badge, the guided tour grows to a full catalogue of tours, the AI assistant can read a scoped slice of the allocation plan, Jira responses are validated before use, and a large batch of defect fixes covers saving between windows, undo, exports, plurals and documents; projects that use INR, the end-to-end contract type or the blocker log should only be opened in this release or later, because older builds misread or drop them (Cornwell)
 // 1.14.3: a maintenance release — a tab saving over a newer version of the project now pauses with Reload, Overwrite and Download instead of overwriting it, and a window on a local file keeps saving to that file (tested in the browser with browser storage; SharePoint and Turso not yet verified live), tabs on different projects no longer overwrite each other, a rejected or unreadable AI key is named, Turso saves are all or nothing, SharePoint names with # or % work, chat attachments are limited per batch, plus Next.js 16.3.6 for a critical advisory, moment, Electron 44.4.5 and React 19.3.0 (Deaver)
@@ -65,7 +66,15 @@ export const APP_BUILD_DATE = "2026-10-10"; // 1.17.0: a feature release — the
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.17.x line is "Mankell" (Henning Mankell, Swedish crime novelist, author of
+ *  1.18.x line is "Larsson" (Stieg Larsson, Swedish crime novelist, author of
+ *  "The Girl with the Dragon Tattoo", 2005, the first Millennium novel), taken by
+ *  the SELECTION procedure below as the first name in the candidate list. Swept
+ *  BEFORE the 1.18.0 header was written, in one run with its controls, all
+ *  word-bounded: `grep -ciw larsson CHANGELOG.md` 0, `grep -ci '"larsson"'
+ *  CHANGELOG.md` 0, `git log --all --format=%s | grep -ciw larsson` 0 and 0
+ *  files in `src`; positive control `mankell` 1 in CHANGELOG.md and 1 in commit
+ *  subjects, negative control `zzznotaname` 0 in CHANGELOG.md and commit subjects.
+ *  The 1.17.x line was "Mankell" (Henning Mankell, Swedish crime novelist, author of
  *  "Faceless Killers", 1991, the first Kurt Wallander novel), taken by the
  *  SELECTION procedure below as the first name in the candidate list. Swept
  *  BEFORE the 1.17.0 header was written, in one run with its controls, all
@@ -461,7 +470,7 @@ export const APP_BUILD_DATE = "2026-10-10"; // 1.17.0: a feature release — the
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Mankell";
+export const APP_MILESTONE = "Larsson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */
