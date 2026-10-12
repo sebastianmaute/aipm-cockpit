@@ -27,7 +27,9 @@
   route must arm it: `destructive-save-arming.test.ts` checks the AI tools, and
   `destructive-save-arming.ui.test.ts` checks every `.filter(` handed to a counted slice's setter (it
   finds them in the code, so a new one fails until armed or given a reason in `UNARMED_BY_DESIGN`; one inside an unnamed callback of a component or hook is refused outright and needs a named handler). A
-  removal written any other way (a list computed elsewhere, `setX([])`, a setter passed down under another name) is not checked by anything (§293).
+  clear to `[]`, a splice, a list handed in through a committer and a setter handed on under another name are
+  checked too; a removal in a shape the gate's header lists as not followed (an alias made by assignment, a
+  setter handed to a function the scan cannot name, and the rest) is not checked by anything (§293).
   ★★★ **NO AUTOMATIC SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS BEEN APPLIED (§586, §587).** Before it,
   render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (an applied Turso
   URL/token change, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its

@@ -3,6 +3,7 @@
 // which nothing else can see: `getScopeEpoch` is OPTIONAL on `UseUndoStackDeps` (absent = never
 // stale), and task-manager reaches it through a forward ref whose fallback is `() => 0` — so a
 // dropped thread or an unfilled ref keeps every stale entry, silently, with tsc and eslint green.
+// §293 — the same file pins the undo stack's destructive-save arm, which travels the same way.
 //
 // ★ The storage hook's reader is REPLACED with a sentinel whose value the test moves. The real
 //   reader answers 0 until a switch, which is exactly what the `() => 0` fallback answers too, so
