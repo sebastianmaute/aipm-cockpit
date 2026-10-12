@@ -140,6 +140,8 @@ was matching the header line that quoted its own result, so replacing that line 
 reported. `docs/work-inventory.md` records what the recovery found and what remains
 designed-but-unbuilt.
 
+**Superseded 2026-09-13:** the paragraph below was overtaken when a32a20867 folded `tech-debt-register.md`'s open rows into §486 and §490–§498 and archived the file; the owner confirmed the fold on 2026-10-12 (§138).
+
 **Deliberately NOT absorbed:** [`tech-debt-register.md`](tech-debt-register.md) is a different
 artifact class — owner-assigned, quarterly-reviewed, next sweep **2026-10-03**. Copying TD-1/2/3/5/6/7
 here would create two masters and guarantee drift. It is linked, not merged; §2 and §7 below note
@@ -9831,7 +9833,7 @@ Recorded so a reader who remembers "two lines" does not go looking for a change 
 
 ## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still untriggered. Re-measured on jscpd 5.4.0 (not 5.3.2): `npm run dup:check` total duplicated lines 2636 / 227264 = 1.16% against the 1.75 threshold; the bisect exits 0 at 1.16 and at 1.36 (total tokens are 1.37%) and 1 at 1.15, so the gate still reads the TOTAL duplicated-LINE percentage. AGENTS.md's dup:check comment still quotes the older 1.11% / 5.3.2 figures.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still untriggered. Re-measured on jscpd 5.4.0 (not 5.3.2): `npm run dup:check` total duplicated lines 2636 / 227202 = 1.16% against the 1.75 threshold; running its jscpd command with the threshold overridden exits 1 at 1.16 and 0 at 1.17, and 0 at 1.36 (total tokens are 1.37%), so the gate still reads the TOTAL duplicated-LINE percentage. AGENTS.md's dup:check comment still quotes the older 1.11% / 5.3.2 figures.
 
 **Earlier:** open — an accepted decision about what the duplication gate measures, kept as a decision record (#144 closed 2026-09-26: nothing to fix). Re-measured 2026-09-26 on jscpd 5.3.2: `npm run dup:check` exits 0 with Total duplicated lines **2297 / 207417 = 1.11%** against the 1.75 threshold (0.64pp headroom), and a threshold bisect gives exit 0 at 1.11 and exit 1 at 1.10, so the gate still compares the TOTAL duplicated-LINE percentage. The trigger this entry sets (1.50%) has not fired. Earlier figures below (1.19%, jscpd 5.0.11) are dated.
 
@@ -11892,7 +11894,7 @@ a reader trusts.
 
 ## 138. The open-followups consolidation: P2 and P3 done, P4 (the extraction and strip) remains
 
-**Status:** **Update 2026-10-12, P2 and P3 done:** P2 probed the 48 open entries other than §138, §483 and §491 (those three were in flight), with six read-only agents in batches, each handed its entries verbatim. Verdicts: no entry was found done, so nothing closes; 34 entries got a dated `**Update 2026-10-12 (§138 P2 probe):**` note recording a stale claim, a partial delivery or a fresh measurement, each re-checked by hand before it was written, and the rest were confirmed still open with nothing to add. P3 is those 34 notes, applied serially; each prior Status stays verbatim under `**Earlier:**`. `npm run followups:status:check` → all 51 open entries conforming. Owner decision 2026-10-12 on P4's conflict: `tech-debt-register.md` stays a separate artifact and is linked, never folded in (see the P4 section). P4's other three parts remain.
+**Status:** **Update 2026-10-12, P2 and P3 done:** P2 probed the 48 open entries other than §138, §483 and §491 (those three were in flight), with six read-only agents in batches, each handed its entries verbatim. Verdicts: no entry was found done, so nothing closes; 34 entries got a dated `**Update 2026-10-12 (§138 P2 probe):**` note recording a stale claim, a partial delivery or a fresh measurement, each re-checked by hand before it was written, and the rest were confirmed still open with nothing to add. P3 is those 34 notes, applied serially; each prior Status stays verbatim under `**Earlier:**`. A cold review then re-ran a sample and caught one wrong measurement (§116's bisect boundary), corrected before merge. `npm run followups:status:check` → all 51 open entries conforming. P4's tech-debt part was already done when this ran: a32a20867 folded `tech-debt-register.md`'s open rows into §486 and §490–§498 and archived the file on 2026-09-13, and the owner confirmed that fold on 2026-10-12 (see the P4 section). P4's other three parts remain.
 
 **Earlier:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
@@ -11932,6 +11934,8 @@ large — a11y and CSS entries no static check can judge — and it came back at
 
 ### The three phases that remain
 
+> Superseded 2026-10-12: P2 and P3 are done and P4's tech-debt part was done on 2026-09-13; the Status above says what remains.
+
 **P2 — probe all open entries behaviourally.** The only phase whose size is already known, and about
 60% of what is left. Read-only agents, batched; each brief must carry the entry text **verbatim**,
 because an agent told to "read §84" reads the wrong lines the moment the register shifts.
@@ -11947,15 +11951,16 @@ must capture the name it negates. Apply the same suspicion to an agent's "done".
 file, no parallel edits.
 
 **P4 — the extraction and strip.** The unbounded one, and the reason the whole thing is deferred
-rather than half-done. Four parts: orphaned open items into this register; link (never fold in)
-`tech-debt-register.md`; strip open-state prose out of `AGENTS.md` and `docs/AGENTS/*.md`; strip
+rather than half-done. Four parts: orphaned open items into this register; fold in
+`tech-debt-register.md` (done 2026-09-13, a32a20867); strip open-state prose out of `AGENTS.md` and `docs/AGENTS/*.md`; strip
 open-item comments from source while KEEPING the provenance citations.
 
-★★★ **P4'S CONFLICT IS DECIDED: LINK, NEVER FOLD (owner decision 2026-10-12).** The original scope
-said to fold `tech-debt-register.md` in and delete it; the header of THIS file said the opposite — a
-different artifact class, owner-assigned and quarterly-reviewed, whose merge "would create two masters
-and guarantee drift". The header's side won. The register links the tech-debt rows it touches and
-copies none of them.
+★★★ **P4'S CONFLICT IS SETTLED: THE FOLD HAPPENED.** The original scope said to fold
+`tech-debt-register.md` in and delete it; the header of THIS file said the opposite — a different
+artifact class whose merge "would create two masters and guarantee drift". The fold side won on
+2026-09-13: a32a20867 moved the open rows into §486 and §490–§498 and archived the file, which now
+says to add nothing there. The owner confirmed the fold on 2026-10-12, and the header's "Deliberately
+NOT absorbed" paragraph carries a superseded note.
 
 ★★ **Inserting entries here breaks every `docs/open-followups.md:LINE` citation below the insertion,
 and the doc-claims ratchet cannot see the ones in `scripts/`.** Twelve such cites were found in
@@ -32344,7 +32349,7 @@ always compare the reported file count against the number of paths named, every 
 
 ## 413. The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users — ACCEPTED COST
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** the accepted cost stands. The two SHAs are pre-cut-over and no longer resolve; today's equivalents are 4d1182918 (`git log -S"title={mix}"`) and ed2577ca1. The third cost is smaller than written: since §414 (e02a3092b) the ID column defaults to 112 px with a floor (`grep -n "  id: " src/app/tasks-section-columns.ts`).
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the accepted cost stands. The two SHAs are pre-cut-over and no longer resolve; today's equivalents are 4d1182918 (`git log -S"title={mix}" -- src`) and ed2577ca1. The third cost is smaller than written: since §414 (e02a3092b) the ID column defaults to 112 px with a floor (`grep -n "  id: " src/app/tasks-section-columns.ts`).
 
 **Earlier:** OPEN as a recorded decision, not as work. 2026-09-06, never machine-verified — nothing
 can test "a keyboard user cannot reach a `title`", and the two halves that ARE testable already
@@ -36255,7 +36260,7 @@ serialises, since the census is written into the artifact.
 
 ## 456. Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why — OPEN
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** re-measured: 15 headerless `<Modal>` sites carry no help icon. Two of them postdate this record and have neither an icon nor a `NO help icon` refusal: `inline-ai-edit-popover.tsx` (§694) and `use-wbs-plan.tsx` (optimize_wbs) — `grep -c "NO help icon" src/app/inline-ai-edit-popover.tsx src/app/use-wbs-plan.tsx` → 0 and 0. Each needs the icon-or-refusal decision recorded at its call site.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** re-measured: of 15 headerless `<Modal>` sites, 14 carry no help icon (`raci-suggest-modal.tsx` renders `HelpIconButton`). Two of them postdate this record and have neither an icon nor a `NO help icon` refusal: `inline-ai-edit-popover.tsx` (§694) and `use-wbs-plan.tsx` (optimize_wbs) — `grep -c "NO help icon" src/app/inline-ai-edit-popover.tsx src/app/use-wbs-plan.tsx` → 0 and 0. Each needs the icon-or-refusal decision recorded at its call site.
 
 **Earlier:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
 
@@ -40627,7 +40632,7 @@ Related: §13 (PX-9's original filing).
 
 ## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.2–v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160. The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future; both are stale.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160. The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. This entry's trigger (decide when the repository goes public) has fired, so the signing decision is now due.
 
 **Earlier:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
 
