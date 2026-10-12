@@ -82,7 +82,16 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
 export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOperatingGuidesResult {
   const [guides, setGuides] = useState<OperatingGuide[]>([]);
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
+  // §701 — `ready` means "the library for the CURRENT source has loaded", not
+  // "some load finished once". It is derived from the source whose load last
+  // settled, so a change of source (a file-mode first load, then the Turso
+  // config once its sealed token is unlocked) reads not-ready until that
+  // source has loaded: an unattended digest or runner, and the chat composer
+  // (§76), no longer go out with the previous source's guides in between.
+  // Derived rather than reset, because setting state during render or in an
+  // effect to mirror a prop is banned here.
+  const [loadedFor, setLoadedFor] = useState<TursoConfig | null | undefined>(undefined);
+  const ready = loadedFor === config;
   const cfgRef = useRef(config);
   const opSeqRef = useRef(0);
   const mountedRef = useRef(true);
@@ -112,19 +121,25 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
 
   const refresh = useCallback(async () => {
     const startSeq = opSeqRef.current;
+    // ONE source for the whole refresh. Re-reading `cfgRef.current` after an
+    // await let a load of the previous source, settling late, seed and re-read
+    // the NEW source — writing built-ins into it and racing its own refresh.
+    const source = cfgRef.current;
     try {
-      let list = await loadGuides(cfgRef.current);
+      let list = await loadGuides(source);
       const toSave = reconcileBuiltins(list);
       if (toSave.length > 0) {
-        for (const g of toSave) await saveGuide(cfgRef.current, g);
-        list = await loadGuides(cfgRef.current);
+        for (const g of toSave) await saveGuide(source, g);
+        list = await loadGuides(source);
       }
-      if (opSeqRef.current !== startSeq || !mountedRef.current) return;
+      // A refresh of a source that is no longer current is stale: it must not
+      // replace the current source's library, nor mark it loaded.
+      if (opSeqRef.current !== startSeq || !mountedRef.current || cfgRef.current !== source) return;
       setGuides(list);
     } catch {
       // optional feature — leave guides as-is
     } finally {
-      if (mountedRef.current) setReady(true);
+      if (mountedRef.current && cfgRef.current === source) setLoadedFor(source);
     }
   }, []);
 

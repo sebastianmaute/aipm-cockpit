@@ -192,3 +192,41 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
 });
+
+// §701 review 7 — the production startup order: the guides (a quick local
+// read) are ready BEFORE the AI settings (a sealed key, decrypted async)
+// switch the runner on. The first run must follow the switch-on, not wait
+// for the 5-minute interval.
+describe("useScheduledJobRunner — startup order (§701)", () => {
+  beforeEach(() => { mockRun.mockReset(); });
+  const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
+
+  it("runs once the runner is switched on after the guides were already ready", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { enabled: boolean; guidesReady: boolean }) => useScheduledJobRunner(baseArgs(p)),
+      { initialProps: { enabled: false, guidesReady: false } },
+    );
+    await act(flush);
+    rerender({ enabled: false, guidesReady: true });
+    await act(flush);
+    expect(mockRun).not.toHaveBeenCalled(); // still off: the guides-ready tick does nothing
+    rerender({ enabled: true, guidesReady: true });
+    await act(flush); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("the run on the guides-ready edge carries the guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ guidesReady: p.guidesReady, ai: { apiKey: "k", model: "m", guideText: p.guideText } })),
+      { initialProps: { guidesReady: false, guideText: "" } },
+    );
+    await act(flush);
+    rerender({ guidesReady: true, guideText: "GUIDE-LOADED" });
+    await act(flush);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-LOADED");
+  });
+});

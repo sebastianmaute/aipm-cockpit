@@ -20,6 +20,8 @@ vi.mock("./workspace-section", async (importOriginal) => ({
 
 // Pass-through spies: the real hooks run; the deps task-manager hands them are
 // recorded on every render.
+// The guidesReady each runner-owning hook was handed, render by render.
+const readySeen: Record<"orchestration" | "insights", boolean[]> = { orchestration: [], insights: [] };
 const seen: Record<"wbs" | "report" | "orchestration" | "insights", OperatingGuide[][]> = {
   wbs: [], report: [], orchestration: [], insights: [],
 };
@@ -50,6 +52,7 @@ vi.mock("./use-ai-orchestration", async (importOriginal) => {
     ...actual,
     useAiOrchestration: (deps: Parameters<typeof actual.useAiOrchestration>[0]) => {
       seen.orchestration.push([...deps.guides]);
+      readySeen.orchestration.push(deps.guidesReady);
       return actual.useAiOrchestration(deps);
     },
   };
@@ -60,6 +63,7 @@ vi.mock("./use-insight-recommendations", async (importOriginal) => {
     ...actual,
     useInsightRecommendations: (deps: Parameters<typeof actual.useInsightRecommendations>[0]) => {
       seen.insights.push([...deps.guides]);
+      readySeen.insights.push(deps.guidesReady);
       return actual.useInsightRecommendations(deps);
     },
   };
@@ -90,6 +94,14 @@ describe("task-manager feeds the guide library to its body-level AI hooks (§701
       expect(seen.report.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
       expect(seen.orchestration.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
       expect(seen.insights.at(-1)?.some((g) => g.id === TEAM.id)).toBe(true);
+    });
+    // The runners are handed the REAL load state: not ready before the guides
+    // load, ready after. A hard-coded `true` at the call site could not show the false.
+    await waitFor(() => {
+      for (const k of ["orchestration", "insights"] as const) {
+        expect(readySeen[k]).toContain(false);
+        expect(readySeen[k].at(-1)).toBe(true);
+      }
     });
   }, 45000);
 });

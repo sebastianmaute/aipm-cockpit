@@ -376,3 +376,23 @@ describe("useInsightRecommendRunner — operating guides (§701)", () => {
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("useInsightRecommendRunner — guides-ready edge (§701)", () => {
+  test("the run on the guides-ready edge carries the guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean; guideText: string }) => useInsightRecommendRunner({
+        enabled: true, guidesReady: p.guidesReady, insights: [makeInsight(1)],
+        ai: { apiKey: "sk-ant-test", model: "claude-test", guideText: p.guideText },
+        today: "2026-01-01", intervalMinutes: 60, buildIndex: () => emptyIndex,
+        buildContextFor: (i) => `context for ${i.id}`, applyRecommendation: vi.fn(),
+      }),
+      { initialProps: { guidesReady: false, guideText: "" } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    rerender({ guidesReady: true, guideText: "GUIDE-LOADED" });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-LOADED");
+  });
+});

@@ -43,7 +43,24 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   const aiRef = useRef(args.ai);
   const notifyRef = useRef(args.notify);
   const nowRef = useRef(args.now);
-  useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
+  // The tick, reachable from the switched-on and guides-ready effects as well
+  // as the mount effect. Assigned in the mount effect (not during render); the
+  // two edge effects act only on a LATER commit, by which time it is set.
+  const tickRef = useRef<() => Promise<void>>(async () => {});
+  // §701 — tick once when the runner is switched ON. At app open the AI
+  // settings (the key is a sealed secret, decrypted asynchronously) usually
+  // arrive AFTER the guides, so the guides-ready tick below finds the runner
+  // still off; without this the first run waited for the next interval.
+  // Safe here because a tick runs only jobs that are due, and this runner's
+  // `enabled` does not flip on project loads. ★ Do NOT copy this into the
+  // insight runner: its `enabled` includes `!loadPending` (§548), so it would
+  // add a billed round on every project switch. Ref initialised from the
+  // mount value, so mount itself is not an edge (the mount effect ticks).
+  useEffect(() => {
+    const was = enabledRef.current;
+    enabledRef.current = args.enabled;
+    if (!was && args.enabled) void tickRef.current();
+  }, [args.enabled]);
   useEffect(() => { jobsRef.current = args.jobs; }, [args.jobs]);
   useEffect(() => { recordRunRef.current = args.recordRun; }, [args.recordRun]);
   useEffect(() => { buildContextRef.current = args.buildContext; }, [args.buildContext]);
@@ -55,9 +72,6 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
-  // The tick, reachable from the guides-ready effect below as well as the
-  // mount effect. Assigned in the mount effect (not during render).
-  const tickRef = useRef<() => Promise<void>>(async () => {});
 
   // §701 — tick once when the guides finish loading: the mount tick skipped
   // while they loaded, and the next interval may be minutes away. It fires once
