@@ -20,6 +20,15 @@ import {
   type Usage,
   type UsageBuckets,
 } from "./ai-usage";
+import {
+  addViewSwitchSend,
+  isWarmViewSwitch,
+  normalizeViewSwitchBuckets,
+  weekViewSwitchStats,
+  type SendFingerprint,
+  type ViewSwitchBuckets,
+  type ViewSwitchStats,
+} from "./ai-view-switch";
 import { crossed80, crossed100 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
@@ -27,6 +36,10 @@ import type { AiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 
 export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
+/** §702's view-switch counter (`ai-view-switch.ts`). ★ A KEY OF ITS OWN, not
+ *  extra fields on the token buckets: every cap reader walks those buckets, and
+ *  a counter there could only ever reach the cap arithmetic by mistake. */
+export const AI_VIEW_SWITCH_KEY = "aipm-cockpit:ai-view-switches";
 /** ★ One-time, and keyed in localStorage rather than a ref: the point is to
  *  explain the change ACROSS the upgrade, so a per-session flag would re-fire
  *  it on every reload and a ref would lose it on remount. */
@@ -60,6 +73,11 @@ export type AiUsageContextValue = {
   weekTotal: number;
   nextReset: Date;
   record: (u: Usage) => void;
+  /** This week's chat sends and warm view switches (§702). */
+  viewSwitchWeek: ViewSwitchStats;
+  /** Records one finished chat send: classifies it against the previous one
+   *  and adds its cache writes to the matching side. */
+  recordChatSend: (fp: SendFingerprint, cacheWrite: number) => void;
 };
 
 const EMPTY_SESSION_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
@@ -70,6 +88,8 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   weekTotal: 0,
   nextReset: new Date(),
   record: () => {},
+  viewSwitchWeek: { sends: 0, switches: 0, switchCacheWrite: 0, otherCacheWrite: 0 },
+  recordChatSend: () => {},
 });
 
 // ★ Named to surface its side effect at the call site (a lazy useState
@@ -119,6 +139,25 @@ function saveBuckets(buckets: UsageBuckets): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(AI_USAGE_KEY, JSON.stringify(buckets));
+  } catch {
+    // non-fatal: storage quota or private browsing
+  }
+}
+
+function loadViewSwitchBuckets(): ViewSwitchBuckets {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(AI_VIEW_SWITCH_KEY);
+    return raw ? normalizeViewSwitchBuckets(JSON.parse(raw)) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveViewSwitchBuckets(buckets: ViewSwitchBuckets): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify(buckets));
   } catch {
     // non-fatal: storage quota or private browsing
   }
@@ -228,11 +267,35 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     [lang, sessionCap, weeklyCap, showToast],
   );
 
+  const [viewSwitchBuckets, setViewSwitchBuckets] = useState<ViewSwitchBuckets>(loadViewSwitchBuckets);
+  const viewSwitchBucketsRef = useRef<ViewSwitchBuckets>(viewSwitchBuckets);
+  // ★ Per provider lifetime, so the first send after a reload never counts as
+  //   a switch: the cache may well be warm, but nothing says what it holds.
+  const lastSendRef = useRef<SendFingerprint | null>(null);
+
+  const recordChatSend = useCallback((fp: SendFingerprint, cacheWrite: number): void => {
+    const isSwitch = isWarmViewSwitch(lastSendRef.current, fp);
+    lastSendRef.current = fp;
+    const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), isSwitch, cacheWrite);
+    viewSwitchBucketsRef.current = next;
+    setViewSwitchBuckets(next);
+    saveViewSwitchBuckets(next);
+  }, []);
+
   const now = new Date();
   const weekTotal = weekToDate(buckets, now);
   const nextReset = nextWeekReset(now);
+  const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
 
-  const value: AiUsageContextValue = { sessionTotal, sessionUsage, weekTotal, nextReset, record };
+  const value: AiUsageContextValue = {
+    sessionTotal,
+    sessionUsage,
+    weekTotal,
+    nextReset,
+    record,
+    viewSwitchWeek,
+    recordChatSend,
+  };
 
   return <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>;
 }

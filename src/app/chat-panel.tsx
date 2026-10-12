@@ -469,7 +469,7 @@ function ChatPanelInner({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
-  const { record: recordUsage } = useAiUsageContext();
+  const { record: recordUsage, recordChatSend } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
@@ -1012,6 +1012,18 @@ function ChatPanelInner({
           cacheWrite: totalCacheWrite,
           cacheRead: totalCacheRead,
         });
+        // §702: what this send put in front of the transcript, so the counter
+        // can tell a warm view switch (system block 1 changed) from the rest.
+        recordChatSend(
+          {
+            threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
+            stableText: system[0]?.text ?? "",
+            viewText: system.slice(1).map((b) => b.text).join("\n\n"),
+            at: Date.now(),
+            priorTurns: newHistory.length - 1,
+          },
+          totalCacheWrite,
+        );
       }
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can

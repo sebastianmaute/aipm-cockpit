@@ -63,6 +63,8 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
+    viewSwitchWeek: { sends: 0, switches: 0, switchCacheWrite: 0, otherCacheWrite: 0 },
+    recordChatSend: vi.fn(),
   },
 }));
 
@@ -3282,6 +3284,68 @@ describe("cache-token usage recording", () => {
     expect(recordSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
     );
+  });
+
+  // §702: the view-switch counter classifies sends by what each one put in
+  // front of the transcript, so the fingerprint must be the system blocks the
+  // request ACTUALLY carried, and the thread key must hold steady across sends
+  // of one conversation or no send could ever count as a switch.
+  it("hands each finished send's system blocks, thread and cache writes to the view-switch counter", async () => {
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "done" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 700, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response),
+    );
+    const viewGuide: OperatingGuide = {
+      id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
+      scope: { views: ["open-points" as const] }, builtIn: true,
+    };
+
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true }}
+        guides={[viewGuide]}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+    fireEvent.change(ta, { target: { value: "second" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(2));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      system: { text: string }[];
+    };
+    const [firstFp, firstWrite] = recordChatSendSpy.mock.calls[0] as [
+      { threadKey: string; stableText: string; viewText: string; priorTurns: number },
+      number,
+    ];
+    const [secondFp] = recordChatSendSpy.mock.calls[1] as [{ threadKey: string; priorTurns: number }, number];
+    expect(firstFp.stableText).toBe(body.system[0].text);
+    expect(body.system[1].text).toContain("Sort by due date.");
+    expect(firstFp.viewText).toBe(body.system[1].text);
+    expect(firstWrite).toBe(700);
+    expect(firstFp.priorTurns).toBe(0);
+    expect(secondFp.priorTurns).toBeGreaterThan(0);
+    expect(secondFp.threadKey).toBe(firstFp.threadKey);
   });
 });
 

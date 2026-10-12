@@ -9,6 +9,7 @@ import {
   useAiUsageContext,
 } from "../ai-usage-context";
 import { nextWeekReset } from "../ai-usage";
+import { G2_BREAK_EVEN_SENDS_PER_SWITCH, type ViewSwitchStats } from "../ai-view-switch";
 import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
 import {
@@ -145,7 +146,7 @@ type AiUsagePanelProps = {
 };
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps) {
-  const { sessionTotal, weekTotal, nextReset, sessionUsage } = useAiUsageContext();
+  const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek } = useAiUsageContext();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
   //     fatal here, and re-rendering would only make the line vanish mid-read).
@@ -218,6 +219,44 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
+      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} />
     </div>
+  );
+}
+
+/** §702: this week's chat sends and warm view switches. Hidden until the
+ *  first send, so a device that never chats sees no zeros. */
+function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; stats: ViewSwitchStats }) {
+  if (stats.sends === 0) return null;
+  const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
+  const others = stats.sends - stats.switches;
+  const switchesLabel =
+    stats.switches === 0
+      ? fmt(0)
+      : t(lang, "aiViewSwitchRatio", fmt(stats.switches), fmt(stats.sends / stats.switches));
+  // ★ "—" rather than 0 when a side has no sends: an average over nothing is
+  //   undefined, and a 0 would read as "switches cost nothing".
+  const switchAvg = stats.switches === 0 ? "—" : fmt(stats.switchCacheWrite / stats.switches);
+  const otherAvg = others === 0 ? "—" : fmt(stats.otherCacheWrite / others);
+  return (
+    <>
+      <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchSends")}</dt>
+          <dd className="tabular-nums">{fmt(stats.sends)}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchSwitches")}</dt>
+          <dd className="tabular-nums">{switchesLabel}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchCacheWrites")}</dt>
+          <dd className="tabular-nums">{t(lang, "aiViewSwitchCacheWritesValue", switchAvg, otherAvg)}</dd>
+        </div>
+      </dl>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_SENDS_PER_SWITCH))}
+      </p>
+    </>
   );
 }

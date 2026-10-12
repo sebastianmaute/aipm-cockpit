@@ -6,6 +6,7 @@ import {
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
   AI_USAGE_KEY,
+  AI_VIEW_SWITCH_KEY,
   AiUsageProvider,
   useAiUsageContext,
 } from "./ai-usage-context";
@@ -427,5 +428,52 @@ describe("AiUsageProvider", () => {
 
     expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBeNull();
     expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBeNull();
+  });
+});
+
+// §702: the view-switch counter lives beside the token meter but in its own
+// key, so nothing here may reach the cap arithmetic.
+describe("AiUsageProvider — view-switch counter (§702)", () => {
+  const fp = (viewText: string, at: number) => ({ threadKey: "p1:t1", stableText: "S", viewText, at, priorTurns: 2 });
+
+  it("classifies each chat send against the previous one and totals the week", async () => {
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 800); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 200); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 3,
+      switches: 1,
+      switchCacheWrite: 9_000,
+      otherCacheWrite: 1_000,
+    });
+  });
+
+  it("persists to its own key and reloads it, leaving the token buckets untouched", async () => {
+    const first = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    act(() => { first.result.current.recordChatSend(fp("A", 1_000), 50); });
+    first.unmount();
+
+    expect(localStorage.getItem(AI_VIEW_SWITCH_KEY)).not.toBeNull();
+    expect(localStorage.getItem(AI_USAGE_KEY)).toBeNull();
+
+    const second = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    expect(second.result.current.viewSwitchWeek.sends).toBe(1);
+    expect(second.result.current.weekTotal).toBe(0);
+  });
+
+  it("normalises a malformed stored blob instead of casting it", async () => {
+    localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify({ "2000-01-01": { sends: "x" } }));
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 10); });
+
+    expect(result.current.viewSwitchWeek).toEqual({ sends: 1, switches: 0, switchCacheWrite: 0, otherCacheWrite: 10 });
   });
 });
