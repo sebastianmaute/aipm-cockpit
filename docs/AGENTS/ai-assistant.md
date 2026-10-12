@@ -78,10 +78,14 @@
   PRIORITY order (the number Settings shows, as the chat orders them; a new guide defaults to priority 10, so
   it already precedes the built-in action guides), within `ACTION_GUIDE_CHAR_CAP`, skipping a guide WHOLE. An
   unknown stored target id is dropped. Views/modes/modules are ignored for actions. `runForcedToolCall`
-  appends the text after `system` via `guideText` (`withGuideText`) as its own LAST block carrying
-  `cache_control`, so tools + fixed prompt + guides cache as one prefix. `reconcileBuiltins` keeps a stored
+  appends the text after `system` via `guideText` (`withGuideText`) as its own LAST block, marked for
+  caching only when the caller sets `cacheGuides`. `reconcileBuiltins` keeps a stored
   `scope.targets` on a built-in (the editor always stores explicit targets for one), so "Applies to" on a
-  built-in survives the reload. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
+  built-in survives the reload. ★★ CONSEQUENCE: a built-in action guide is stored with its seeded targets
+  from day one, so editing a `<!-- targets: … -->` marker in `lib/ai-action-guides.md` reaches NEW stores
+  only. `actionTargetsNotSent` drives the editor's "not sent to …" row note (over the cap, or crowded out);
+  only the two batching runners set `cacheGuides`, because the cache lives ~5 minutes and a single request
+  would pay the write premium for nothing. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
   while grounding is on and the guides are loading) gates the digest's auto-run, and a REQUIRED `guidesReady`
   dep gates the scheduled-job and insight-recommendation runners; user-started actions do not wait.
   ★★★ **HOW A CALLER GETS THE TEXT DEPENDS ON WHERE IT RUNS.** `AiProviders` (`action-guides-context.tsx`) is

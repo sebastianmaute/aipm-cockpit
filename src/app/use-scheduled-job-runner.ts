@@ -67,7 +67,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         const ranAt = at.toISOString();
         for (const job of due) {
           try {
-            const analysis = await runJobAnalysis(buildContextRef.current(), aiRef.current);
+            const analysis = await runJobAnalysis(buildContextRef.current(), { ...aiRef.current, cacheGuides: true });
             recordRunRef.current(job.id, {
               ranAt,
               summary: analysis.summary,

@@ -13,6 +13,9 @@ interface AiCreds {
   model: string;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
+  /** Cache the guide prefix: set by the scheduled-job runner, which can run
+   *  several due jobs in one tick (`runForcedToolCall`'s `cacheGuides`). */
+  cacheGuides?: boolean;
 }
 
 /** Run one forced report_analysis tool call and return the parsed analysis.
@@ -25,6 +28,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
     model: ai.model,
     system: buildAnalysisSystemPrompt(),
     guideText: ai.guideText,
+    cacheGuides: ai.cacheGuides,
     tools: [ANALYZE_TOOL],
     toolName: "report_analysis",
     messages: [{ role: "user", content: context }],

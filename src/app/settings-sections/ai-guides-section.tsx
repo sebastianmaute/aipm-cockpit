@@ -18,7 +18,9 @@ import { Button } from "../button";
 import { Checkbox, Input, Textarea } from "../form-controls";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import type { AiTarget, OperatingGuide, GuideScope } from "../operating-guide";
-import { AI_TARGETS, guideTargets, guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
+import {
+  ACTION_GUIDE_CHAR_CAP, AI_TARGETS, actionTargetsNotSent, guideTargets, guidesCharCount, GUIDE_CHAR_BUDGET,
+} from "../operating-guide";
 import type { TranslationKey } from "../i18n";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
@@ -66,6 +68,11 @@ function emptyDraft(): GuideDraft {
   return { name: "", content: "", priority: 10, targets: ["chat"], scopeModes: [], scopeModules: [], scopeViews: [] };
 }
 
+/** ★ `targets` come through `guideTargets`, which drops ids this build does
+ *  not know (written by a newer build). A guide whose only targets are unknown
+ *  therefore opens with nothing ticked and Save disabled, and re-saving it after
+ *  ticking something drops the unknown ids — accepted, since this build cannot
+ *  send to them anyway. */
 function draftFromGuide(g: OperatingGuide): GuideDraft {
   return {
     name: g.name,
@@ -132,6 +139,10 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
   }
 
   const noTarget = draft.targets.length === 0;
+  // §701 — an AI action takes at most ACTION_GUIDE_CHAR_CAP characters of
+  // guides; a longer guide ticked for one would save and then never be sent.
+  const overActionCap =
+    draft.content.length > ACTION_GUIDE_CHAR_CAP && draft.targets.some((x) => x !== "chat");
 
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
@@ -185,6 +196,11 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           ))}
         </div>
         <FieldHint>{noTarget ? t(lang, "aiGuideTargetsNone") : t(lang, "aiGuideTargetsHint")}</FieldHint>
+        {overActionCap && (
+          <Banner severity="warn" className="mt-1">
+            {t(lang, "aiGuideOverActionCap", ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
+          </Banner>
+        )}
       </fieldset>
       <fieldset>
         <legend className="mb-1 text-xs text-muted-foreground">
@@ -366,6 +382,16 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                           {t(lang, "aiGuideAppliesTo", guideTargets(g).map((x) => t(lang, TARGET_LABEL[x])).join(", "))}
                         </span>
                       )}
+                      {(() => {
+                        // §701 — targeted but never sent: over the cap alone, or
+                        // crowded out under it by higher-priority guides.
+                        const notSent = actionTargetsNotSent(og.guides, g);
+                        return notSent.length > 0 ? (
+                          <span className="text-xs text-foreground">
+                            {t(lang, "aiGuideNotSent", notSent.map((x) => t(lang, TARGET_LABEL[x])).join(", "), ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
+                          </span>
+                        ) : null;
+                      })()}
                     </span>
                     {g.builtIn && (
                       <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-muted-foreground ring-1 ring-line">

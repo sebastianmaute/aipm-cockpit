@@ -62,8 +62,9 @@ describe.each(Object.keys(CALLS))("%s call — operating guides (§701)", (name)
   it("appends the guide text after the fixed system prompt", async () => {
     const before = await sentSystem(() => run(undefined));
     const withGuide = await sentSystem(() => run(GUIDE));
-    // The guides ride their own block, carrying the cache marker, after the fixed prompt.
-    const guideBlock = { type: "text", text: GUIDE, cache_control: { type: "ephemeral" } };
+    // The guides ride their own block after the fixed prompt, with no cache
+    // marker: these calls are single requests unless a runner asks for one.
+    const guideBlock = { type: "text", text: GUIDE };
     expect(withGuide).toEqual(before === undefined ? [guideBlock] : [{ type: "text", text: before }, guideBlock]);
   });
 
@@ -71,5 +72,20 @@ describe.each(Object.keys(CALLS))("%s call — operating guides (§701)", (name)
     const base = BASE[name]();
     expect(await sentSystem(() => run(undefined))).toEqual(base);
     expect(await sentSystem(() => run(""))).toEqual(base);
+  });
+});
+
+// The two batching runners ask for the cache marker; their calls must forward it.
+describe("cacheGuides is forwarded by the batching calls (§701)", () => {
+  const marked = { type: "text", text: GUIDE, cache_control: { type: "ephemeral" } };
+  it("runJobAnalysis", async () => {
+    const sent = await sentSystem(() => runJobAnalysis("ctx", { ...AI, guideText: GUIDE, cacheGuides: true }));
+    expect((sent as unknown[]).at(-1)).toEqual(marked);
+  });
+  it("runInsightRecommendation", async () => {
+    const sent = await sentSystem(() =>
+      runInsightRecommendation({ ...AI, context: "ctx", index: {} as never, today: "2026-10-12", guideText: GUIDE, cacheGuides: true }),
+    );
+    expect((sent as unknown[]).at(-1)).toEqual(marked);
   });
 });

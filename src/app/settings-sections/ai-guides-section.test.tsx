@@ -332,3 +332,25 @@ describe("AiGuidesSection built-in targets", () => {
     expect(screen.queryByText(/undefined/)).toBeNull();
   });
 });
+
+// §701 review 2 — a guide over the action cap, or crowded out under it, is
+// never sent to the actions it targets; the editor says so instead.
+describe("AiGuidesSection action character cap", () => {
+  it("warns in the form when a guide over the cap is ticked for an AI action", () => {
+    render(<AiGuidesSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideAdd") }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiGuideContent")), { target: { value: "x".repeat(12_001) } });
+    const warning = t("en-US", "aiGuideOverActionCap", (12_000).toLocaleString("en-US"));
+    expect(screen.queryByText(warning)).toBeNull(); // chat only: the cap does not apply
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") }));
+    expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it("notes on the row which ticked actions a guide is not sent to", () => {
+    const big = { id: "big", name: "Big", content: "x".repeat(12_001), enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const small = { id: "small", name: "Small", content: "y", enabled: true, priority: 6, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [big, small] }) })} />);
+    const note = t("en-US", "aiGuideNotSent", t("en-US", "aiGuideTargetWbs"), (12_000).toLocaleString("en-US"));
+    expect(screen.getAllByText(note)).toHaveLength(1);
+  });
+});

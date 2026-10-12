@@ -18,7 +18,7 @@ longer carries its own changelog comment.
 
 - **Operating guides now reach the AI actions, not only the chat.** In Settings → Operating guides, each
   guide has an "Applies to" choice: the chat assistant, or any of eleven AI actions — Optimize with AI, Plan
-  with AI, the steering committee report, new project with AI, Suggest RACI, the weekly digest narrative,
+  with AI, the steering committee report, new project with AI, Suggest RACI, the status digest narrative,
   insight recommendations, Analyze with AI, Deduplicate & unify, next-action weight suggestions and inline
   AI edit. An action sends the guides that name it, in priority order, so a team rule such as "split anything
   over 3 days" no longer has to be typed on every run. Eight built-in method guides ship for the actions where
@@ -26,7 +26,9 @@ longer carries its own changelog comment.
   to the chat only, and a guide never changes what an action is allowed to write. The weekly digest, scheduled
   jobs and insight recommendations wait for the guides to load before they run on their own. While devices on
   an older version share the same Turso database, those devices ignore "Applies to" and show every guide,
-  action-only ones included, to their chat.
+  action-only ones included, to their chat; each time one of them loads it resets "Applies to" on the
+  built-in guides, and re-saving a guide there drops its "Applies to" choice. A guide too long for an AI
+  action, or crowded out by higher-priority guides, now says on its row which actions it is not sent to.
 
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
   guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an

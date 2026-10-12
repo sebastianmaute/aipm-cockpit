@@ -127,7 +127,7 @@ describe("runAllocProposal guide text", () => {
     const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as { text: string }[];
     expect(system).toHaveLength(2);
     expect(system[0].text.length).toBeGreaterThan(0);
-    expect(system[1]).toEqual({ type: "text", text: "GUIDE-MARK", cache_control: { type: "ephemeral" } });
+    expect(system[1]).toEqual({ type: "text", text: "GUIDE-MARK" });
   });
   it("sends the fixed prompt alone without one", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());

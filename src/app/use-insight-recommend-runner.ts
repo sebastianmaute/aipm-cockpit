@@ -117,6 +117,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             apiKey: aiRef.current.apiKey,
             model: aiRef.current.model,
             guideText: aiRef.current.guideText,
+            cacheGuides: true,
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, guideTargets, selectActionGuides, selectActiveGuides,
+  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSent, guideTargets, selectActionGuides, selectActiveGuides,
   type OperatingGuide,
 } from "./operating-guide";
 import { runForcedToolCall, withGuideText } from "./ai-forced-call";
@@ -129,13 +129,19 @@ describe("withGuideText", () => {
     expect(withGuideText(undefined, "")).toBeUndefined();
   });
 
-  // The guides ride their own LAST block with the cache marker, so tools, the
-  // fixed prompt and the guides are cached as one prefix.
-  const G = { type: "text", text: "G", cache_control: { type: "ephemeral" } };
-  it("appends a cache-marked guide block after a string prompt, after the last block, or alone", () => {
+  // The guides ride their own LAST block. Only a caller that asks (a batching
+  // runner) gets the cache marker: a single request would pay to write the
+  // cache and never read it.
+  const G = { type: "text", text: "G" };
+  const CACHED = { type: "text", text: "G", cache_control: { type: "ephemeral" } };
+  it("appends an unmarked guide block after a string prompt, after the last block, or alone", () => {
     expect(withGuideText("fixed", "G")).toEqual([{ type: "text", text: "fixed" }, G]);
     expect(withGuideText([{ type: "text", text: "fixed" }], "G")).toEqual([{ type: "text", text: "fixed" }, G]);
     expect(withGuideText(undefined, "G")).toEqual([G]);
+  });
+  it("marks the guide block for caching only when asked", () => {
+    expect(withGuideText("fixed", "G", true)).toEqual([{ type: "text", text: "fixed" }, CACHED]);
+    expect(withGuideText(undefined, "G", true)).toEqual([CACHED]);
   });
 });
 
@@ -156,6 +162,12 @@ describe("runForcedToolCall sends the guide text", () => {
   it("after the fixed prompt", async () => {
     const m = stubFetch();
     await runForcedToolCall({ ...base, system: "fixed", guideText: "G" });
+    expect(body(m).system).toEqual([{ type: "text", text: "fixed" }, { type: "text", text: "G" }]);
+  });
+
+  it("with the cache marker when the caller asks for it", async () => {
+    const m = stubFetch();
+    await runForcedToolCall({ ...base, system: "fixed", guideText: "G", cacheGuides: true });
     expect(body(m).system).toEqual([
       { type: "text", text: "fixed" },
       { type: "text", text: "G", cache_control: { type: "ephemeral" } },
@@ -231,5 +243,30 @@ describe("reconcileBuiltins keeps the user's targets on a built-in", () => {
   it("does not rewrite a built-in whose only difference from the seed is the user's targets", () => {
     const stored = builtinSeeds().map((s) => (s.id === "builtin-action-wbs" ? { ...s, scope: { targets: ["wbs" as const, "alloc" as const] } } : s));
     expect(reconcileBuiltins(stored)).toEqual([]);
+  });
+});
+
+// §701 review 2 — a guide that targets an action but is never sent says so.
+describe("actionTargetsNotSent", () => {
+  it("names an action a guide over the cap alone will never reach", () => {
+    const big = g({ id: "big", content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1), scope: { targets: ["chat", "wbs"] } });
+    expect(actionTargetsNotSent([big], big)).toEqual(["wbs"]);
+  });
+
+  it("names an action where higher-priority guides crowd it out under the cap", () => {
+    const first = g({ id: "a", priority: 1, content: "x".repeat(ACTION_GUIDE_CHAR_CAP - 10), scope: { targets: ["wbs", "raci"] } });
+    const second = g({ id: "b", priority: 2, content: "x".repeat(20), scope: { targets: ["wbs", "raci"] } });
+    const raciOnly = [{ ...first, scope: { targets: ["wbs" as const] } }, second];
+    expect(actionTargetsNotSent([first, second], second)).toEqual(["wbs", "raci"]);
+    expect(actionTargetsNotSent(raciOnly, second)).toEqual(["wbs"]);
+  });
+
+  it("reports nothing for a guide that is sent, disabled, or chat-only", () => {
+    const ok = g({ id: "ok", scope: { targets: ["wbs"] } });
+    expect(actionTargetsNotSent([ok], ok)).toEqual([]);
+    const off = g({ id: "off", enabled: false, content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1), scope: { targets: ["wbs"] } });
+    expect(actionTargetsNotSent([off], off)).toEqual([]);
+    const chat = g({ id: "chat", content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1) });
+    expect(actionTargetsNotSent([chat], chat)).toEqual([]);
   });
 });

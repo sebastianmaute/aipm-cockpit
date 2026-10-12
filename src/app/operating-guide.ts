@@ -228,3 +228,18 @@ export function actionGuideText(
     ...guideParts(active, 1),
   ].join("\n\n");
 }
+
+/** The AI actions a guide targets but will NOT reach, because it is over the
+ *  cap or loses its place under the cap to higher-priority guides for that
+ *  action (`selectActionGuides`). A disabled guide reaches nothing anyway and
+ *  reports none. Used by the settings editor so a targeted guide that is never
+ *  sent says so instead of failing silently. */
+export function actionTargetsNotSent(
+  guides: readonly OperatingGuide[],
+  guide: OperatingGuide,
+): Exclude<AiTarget, "chat">[] {
+  if (!guide.enabled) return [];
+  return guideTargets(guide)
+    .filter((t): t is Exclude<AiTarget, "chat"> => t !== "chat")
+    .filter((t) => !selectActionGuides(guides, t).some((g) => g.id === guide.id));
+}

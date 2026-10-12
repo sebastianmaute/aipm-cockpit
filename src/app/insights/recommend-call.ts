@@ -18,6 +18,9 @@ export interface RecommendCallArgs {
   signal?: AbortSignal;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
+  /** Cache the guide prefix: set by the recommendation runner, which works
+   *  through several insights in one tick (`runForcedToolCall`'s `cacheGuides`). */
+  cacheGuides?: boolean;
 }
 
 /** Run one forced propose_insight_actions tool call and return the grounded
@@ -33,6 +36,7 @@ export async function runInsightRecommendation(
     model: args.model,
     system: buildRecommendSystemPrompt(),
     guideText: args.guideText,
+    cacheGuides: args.cacheGuides,
     tools: [RECOMMEND_TOOL],
     toolName: RECOMMEND_TOOL.name,
     messages: [{ role: "user", content: args.context }],

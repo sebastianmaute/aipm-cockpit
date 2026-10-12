@@ -344,5 +344,7 @@ describe("useInsightRecommendRunner — operating guides (§701)", () => {
     await act(async () => { vi.advanceTimersByTime(60 * 60 * 1000); await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-B");
+    // A tick works through several insights on one prefix, so it asks to cache it.
+    expect(mockRun.mock.calls[0][0].cacheGuides).toBe(true);
   });
 });

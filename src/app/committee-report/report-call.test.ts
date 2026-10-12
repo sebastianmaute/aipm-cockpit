@@ -100,7 +100,7 @@ describe("runMeetingReport guide text", () => {
   it("sends the guide text as the system prompt", async () => {
     const m = stub();
     await runMeetingReport(MODEL, "Agenda", { ...CTX, guideText: "GUIDE-MARK" });
-    expect(sys(m)).toEqual([{ type: "text", text: "GUIDE-MARK", cache_control: { type: "ephemeral" } }]);
+    expect(sys(m)).toEqual([{ type: "text", text: "GUIDE-MARK" }]);
   });
   it("sends no system prompt without one", async () => {
     const m = stub();

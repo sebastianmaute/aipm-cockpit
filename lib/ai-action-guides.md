@@ -2,6 +2,8 @@
 
 Built-in operating guides for the single-request AI actions (§701). Each `##` section becomes one built-in guide, sent only to the actions its `<!-- targets: ... -->` marker names. They describe method, not app behaviour: what each action may write is fixed by its own tool and preview, and nothing here can widen it. Users can switch any of them off, or reprioritise them, in Settings → Operating guides.
 
+★ A section's `targets` are SEEDED ONCE. `reconcileBuiltins` keeps whatever `targets` a store already holds (so a user's "Applies to" choice survives), and every built-in action guide is stored with targets from its first seed — so changing a marker here reaches new installs only, never a store that already has the guide. Content and name changes do reach every store.
+
 ## Work breakdown method
 <!-- targets: wbs -->
 

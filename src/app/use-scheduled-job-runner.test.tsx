@@ -164,5 +164,7 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     await act(async () => { vi.advanceTimersByTime(5 * 60 * 1000); for (let i = 0; i < 10; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-B");
+    // A tick can run several due jobs on one prefix, so the runner asks to cache it.
+    expect(mockRun.mock.calls[0][1].cacheGuides).toBe(true);
   });
 });
