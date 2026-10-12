@@ -226,6 +226,21 @@ describe("gridToForecastRows — wide", () => {
     expect(out.rows.map((r) => r.hours)).toEqual([12, 1234.5, 1.5, 3]);
   });
 
+  // The test above cannot tell a column decision from a per-cell one: every
+  // cell in it reads the same either way. Only a cell whose own look disagrees
+  // with its column can — here a dot decimal in a German column, which the
+  // column rule reads with the dot as a thousands mark (the spec's "decided
+  // once per column, never per cell").
+  it("reads a cell by its column's style even when the cell alone would read otherwise", () => {
+    const grid = [
+      ["Name", "Jan 2026"],
+      ["Ann", "1.234,5"],
+      ["Bob", "2.5"],
+    ];
+    const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
+    expect(out.rows.map((r) => r.hours)).toEqual([1234.5, 25]);
+  });
+
   it("does not let a total row flip the decimal style", () => {
     const grid = [
       ["Name", "Jan 2026"],
