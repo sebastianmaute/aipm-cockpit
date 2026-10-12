@@ -244,9 +244,13 @@ describe("the demo's start-card facts", () => {
   // A fresh demo created late in a month showed "2 gaps": the history ended weeks before today's.
   // ★ The loop reuses `WS`: `demoHistoryFor` reads only `ws.plan.granularity`, which the date
   //   shift leaves alone. Building the workspace for each of the 365 days took ~26 s on its own
-  //   and timed the test out under a busy runner (the weekly future-clock run). On the 1st of each
-  //   month the result is compared with one from a workspace built for that day, so a
-  //   `demoHistoryFor` that starts reading more of the workspace still fails here.
+  //   and timed the test out under a busy runner (the weekly future-clock run). Under the master's
+  //   month granularity (pinned by "uses the master's own plan granularity" below) the built
+  //   workspace changes only at a month boundary, so comparing against one built on the 1st of
+  //   each month covers every distinct workspace the per-day build made, and a `demoHistoryFor`
+  //   that starts reading more of the workspace still fails here.
+  // The monthly-cadence check pins the "before the current bucket" filter: for weekly records it
+  //   never removes anything, but late in a month the thinned last record sits in the current month.
   it("stores the whole file, ending in the week before today's, with no gap up to a live capture, on every day of a year", () => {
     const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
     let rebuilt = 0;
@@ -259,6 +263,8 @@ describe("the demo's start-card facts", () => {
       }
       expect(stored, today).toHaveLength(committed.length);
       expect(stored.at(-1)!.bucket, today).toBe(bucketKey(new Date(ms - 7 * 86_400_000), "weekly"));
+      const thisMonth = bucketKey(new Date(ms), "monthly");
+      expect(demoHistoryFor(committed, WS, today, "monthly").filter((r) => r.bucket >= thisMonth), today).toEqual([]);
       const live = { ...stored[0], capturedAt: `${today}T12:00:00.000Z`, bucket: bucketKey(new Date(ms), "weekly") };
       expect(detectGaps([...stored, live], "weekly", new Date(ms)), today).toEqual([]);
     }
