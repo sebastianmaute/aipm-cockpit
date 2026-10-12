@@ -313,7 +313,7 @@ export function ResourcePicker({
                   >
                     {row.kind === "add" ? (
                       <span className="font-medium text-ui-green-strong">
-                        {t(lang, "resourcePickerAddAsResource").replace("{0}", row.name)}
+                        {t(lang, "resourcePickerAddAsResource", row.name)}
                       </span>
                     ) : (
                       <>

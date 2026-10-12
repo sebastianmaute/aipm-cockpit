@@ -189,6 +189,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ),
     deleteTask: vi.fn((id: number) => id === 1),
     deleteAllTasks: vi.fn(() => 3),
+    openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 4 })),
     sendInquiry: vi.fn(() => ({ sent: true })),
     setFilters: vi.fn(),
     setLanguage: vi.fn(),
@@ -571,6 +572,57 @@ describe("runTool — list_tasks / get_task", () => {
     await expect(runTool(d, "get_task", { id: 42 })).rejects.toThrow(
       "task #42 not found",
     );
+  });
+});
+
+describe("runTool — optimize_wbs", () => {
+  it("opens the plan with the sanitized group and instructions and returns the result", async () => {
+    const d = makeDispatcher();
+    const out = await runTool(d, "optimize_wbs", { group: " Build ", instructions: "x" });
+    expect(d.openWbsPlan).toHaveBeenCalledWith({ group: "Build", instructions: "x" });
+    expect(out).toEqual({ opened: true, tasksInScope: 4 });
+  });
+
+  it("trims instructions, then caps them at 1000 characters", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "optimize_wbs", { instructions: `  ${"y".repeat(1500)}` });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toBe("y".repeat(1000));
+  });
+
+  it("never splits a surrogate pair at the 1000-character cap (§22)", async () => {
+    const d = makeDispatcher();
+    // 999 units then an astral character: the cap lands between its two halves.
+    await runTool(d, "optimize_wbs", { instructions: `${"y".repeat(999)}😀tail` });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toBe("y".repeat(999));
+    expect(/[\ud800-\udbff]$/.test(arg.instructions)).toBe(false);
+  });
+
+  it("treats an all-whitespace instruction as absent", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "optimize_wbs", { instructions: " \n\t " });
+    const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.instructions).toBeUndefined();
+  });
+
+  // Literal expected text, so the model is told the REAL reason (final-review M4).
+  it.each([
+    ["popout", {}, "optimize_wbs did not open: it is not available in a pop-out window; ask the user to use the main window"],
+    ["aiOff", {}, "optimize_wbs did not open: the AI assistant is off or has no API key in Settings"],
+    ["loading", {}, "optimize_wbs did not open: the project is still loading; try again in a moment"],
+    ["busy", {}, "optimize_wbs did not open: an Optimize with AI proposal is already open; the user must apply or cancel it first"],
+    ["unknownGroup", { group: "Desgin" }, 'optimize_wbs did not open: no task is in a group named "Desgin"'],
+    ["noTasks", { group: "Done" }, 'optimize_wbs did not open: the group "Done" has no open, non-Jira tasks'],
+    ["noTasks", {}, "optimize_wbs did not open: there are no open, non-Jira tasks to optimize"],
+  ] as const)("passes the %s refusal through to the model", async (reason, input, message) => {
+    const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0, reason })) });
+    await expect(runTool(d, "optimize_wbs", input)).rejects.toThrow(message);
+  });
+
+  it("still throws, generically, when a refusal carries no reason", async () => {
+    const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0 })) });
+    await expect(runTool(d, "optimize_wbs", {})).rejects.toThrow("optimize_wbs did not open: it could not be opened");
   });
 });
 

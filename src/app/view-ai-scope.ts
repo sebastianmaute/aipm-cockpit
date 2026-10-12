@@ -291,7 +291,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   "open-points": {
     purpose:
       "Open Points is the main task table: every task with status, assignee, due date, priority, blockers, group and labels.",
-    toolHints: ["list_tasks", "get_task"],
+    toolHints: ["list_tasks", "get_task", "optimize_wbs"],
     reading:
       "Done and Cancelled are both closed, but only Done counts as delivered. Cancelled is never overdue.",
   },

@@ -584,8 +584,10 @@
   test, **zero** call sites. `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
   (`use-raci-suggest.tsx`), `ai.taskDedup` (`use-tasks-dedup.tsx`) and `ai.insightRecommendation`
   (`task-manager.tsx`) are still live and are app AI FEATURES reached from a panel, never from a chat tool
-  call — so "the log has `ai.*` kinds" still does not mean "the log covers the chat assistant"; the
-  `logActivityAs` sites above are what mean that.
+  call. ★ `ai.wbsPlan` (`use-wbs-plan.tsx`) is the exception: it is reached from the Open Points toolbar
+  button AND from the `optimize_wbs` chat tool, because that tool only opens the same proposal flow and the
+  entry is written when the user applies it, either way. So "the log has `ai.*` kinds" still does not mean
+  "the log covers the chat assistant"; the `logActivityAs` sites above are what mean that.
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
   ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes
@@ -1003,6 +1005,60 @@
   ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`;
   no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
+- **AI "Optimize with AI" (Open Points) and the `optimize_wbs` chat tool (§3):** plan-then-apply over the
+  existing task path, mirroring `alloc-plan/` — ZERO new Workspace fields or backend write paths. The model
+  proposes five item kinds (split · regroup · newTask · estimate · link); the user ticks what to keep. Pure
+  engine `wbs-plan/wbs-plan.ts` (`buildWbsContext` digest · forced `PROPOSE_WBS_TOOL` · `parseWbsProposal`,
+  shape only · `groundWbsProposal` · `applyWbsProposal`); one forced call in `wbs-plan-call.ts` through the
+  shared `runForcedToolCall`; glue hook `use-wbs-plan.tsx`; presentational `wbs-plan-modal.tsx`.
+  ★★ Grounding is the anti-hallucination gate: an item naming an existing task is refused unless that task
+  exists, is open, is not Jira-synced and is in the run's scope, in that precedence. An estimate on a target
+  that already has one is refused, and so is a link that would close a cycle in the post-proposal graph.
+  ★ A proposed group that EXACTLY (trimmed) matches an existing group keeps that spelling, because the
+  Open Points filter treats "Design" and "DESIGN" as two groups. Only without an exact match is it
+  matched trimmed and case-insensitively, the rule `open()` scopes a group by: for a regroup, the task's
+  own group first, then the first existing spelling; a kept new group is remembered, so "Testing" and
+  "testing" in one proposal become one. A regroup that resolves to the task's own group is refused
+  (`sameGroup`); a move from "DESIGN" to an existing "Design" is a real move. A second split or regroup
+  of one task is refused (`duplicateTarget`) only after a first one was KEPT: a malformed first split
+  claims nothing. ★ But a piece target names a task and a piece number, never a split, so once a task has
+  two split items, kept or not, a target on its piece 2 to `MAX_SPLIT_PIECES` is refused
+  (`ambiguousPiece`) rather than bound to the kept split, and the "Not applied" row names that piece
+  without the kept split's piece name; a piece outside that range is `unresolvedRef` (R7). When every
+  proposed item is refused, the preview still opens, showing only the "Not applied" list with its
+  reasons and a Close button, with no Apply, no Cancel and no undo note; only an empty proposal is
+  reported as "no changes". The instruction is capped at 1000 characters (`sanitizeText`) when it is
+  proposed, as the chat tool's is, and a partial apply reports the applied and skipped counts in ONE
+  toast (`wbsPlanAppliedSkipped`), since a second toast would replace the first.
+  ★ That estimate rule covers estimate ITEMS only: a split's piece 1 rewrites the original row, so it may
+  re-estimate and re-describe it; a blank (or sanitized-to-blank) piece-1 description counts as absent, and
+  the preview shows the rename, the estimate before → after and a "replaces the description" marker.
+  An item that cites a new task's ref or a split piece ≥ 2 `requires` that item's key, and apply drops it
+  when that item is unticked. ★ Piece 1 IS the original row: grounding stores a piece-1 target as
+  `{kind:"task"}`, so an estimate or link on it requires nothing and still applies when the split is unticked
+  or skipped. ★ The preview shows everything apply writes: a new task's assignee, and a plain-text excerpt
+  (`htmlPlainProjection`) of each new task's and piece ≥ 2's description. ★ Apply writes regroups before
+  splits, so a split's new pieces take a regroup of the same task whichever order the model gave them in.
+  ★★ It awaits the AI and then writes, so it follows [platform.md](platform.md) "The load hold": `open()`,
+  the toolbar trigger and Apply refuse while `loadPending`, a hold that begins mid-flow closes the
+  dialog or preview (the state through a render-time reconcile, as `use-blockers-window.ts` does; the abort of a
+  running call and the discarded request generation through a refs-only effect, since refs may not be
+  touched during render; that effect also records that the flow was not idle
+  and shows the `wbsPlanClosedByLoad` notice when the hold ENDS, since the modal covers the app, the hold
+  was not started from it, and while it lasts the shell, toast included, is a skeleton whose toast timer
+  would run out unseen), and the scope epoch captured before the call is
+  checked by `dropStaleScopeWrite` after it and again at Apply (a moved epoch drops the proposal with the
+  `wbsPlanScopeChanged` notice). `getScopeEpoch` and `loadPending` are REQUIRED on `WbsPlanDeps`. ★ Apply re-checks every ticked item against the LIVE rows (a row that is no
+  longer the identical object makes its item stale, counted in a toast), mints new ids at apply time, keeps
+  piece 1 of a split on the original id, and records ONE `bulk.edit` field-patch undo entry over the EDITED
+  rows only (created rows stay out of it — see [undo.md](undo.md) "Creates"). ★★ `optimize_wbs` is NOT an
+  entity write: it opens the proposal (`openWbsPlan` → `useWbsPlan().open`) and writes nothing itself, so it
+  sits in `chat-proposal.test.ts`'s non-write list and never stages a proposal card. It throws in a popout
+  (`isReadOnly`) and when the flow did not open, naming the reason `open()` returned (`WbsOpenRefusal`:
+  a pop-out, the AI off, a load hold, a run already open, a group no task has, or no open non-Jira task in
+  scope) so the model can explain it. ★ The dispatcher passes its synchronously advanced `tasksRef` as
+  `liveTasks`, so a task the chat created earlier in the same model turn is in scope; the hook's own list is
+  synced only after commit. Gated `aiReady && !isPopout`.
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
   (image/document) from pure `chat-attachments.ts` (classify by mime+extension, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useAllocPlan } from "./use-alloc-plan";
 import { ToastProvider } from "./toast-context";
+import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Resource, type ResourcePlan } from "./types";
 import * as call from "./alloc-plan-call";
@@ -97,6 +98,16 @@ function Harness({
       )}
       <output data-testid="util">{JSON.stringify(resources.map((r) => ({ id: r.id, u: r.utilization })))}</output>
     </div>
+  );
+}
+
+function RealToast({ children }: { children: ReactNode }) {
+  const { toast, showToast: realShowToast, showToastAction } = useToast();
+  return (
+    <ToastProvider value={{ showToast: realShowToast, showToastAction }}>
+      <output data-testid="toast">{toast?.text ?? ""}</output>
+      {children}
+    </ToastProvider>
   );
 }
 
@@ -316,10 +327,12 @@ describe("useAllocPlan (plan-then-apply)", () => {
     // currentValue captured at propose time (0).
     const externalEdit = (prev: readonly Resource[]) =>
       prev.map((r) => (r.id === 1 ? { ...r, utilization: { "2026-08": 5 } } : r));
+    // The REAL single-slot toast, rendered: a mocked showToast records every
+    // call, so it cannot see the second call replacing the first.
     render(
-      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+      <RealToast>
         <Harness captureSpy={captureSpy} logActivitySpy={logActivitySpy} externalEdit={externalEdit} />
-      </ToastProvider>,
+      </RealToast>,
     );
 
     openAndType();
@@ -338,11 +351,10 @@ describe("useAllocPlan (plan-then-apply)", () => {
         { id: 2, u: { "2026-08": 20 } },
       ]);
     });
-    // Assert the STALE toast specifically (not just "contains 1") — the
-    // applied-count toast below ALSO contains "1", so a loose stringContaining
-    // assertion here would pass even if the stale toast were never sent.
-    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedStale", 1, 1));
-    expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanApplied", 1, 1));
+    // ONE toast the user sees, carrying both counts.
+    expect(screen.getByTestId("toast")).toHaveTextContent(
+      "Allocation changes applied: 1. 1 change was skipped because the plan changed.",
+    );
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.
     expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
@@ -369,7 +381,8 @@ describe("useAllocPlan (plan-then-apply)", () => {
     fireEvent.click(screen.getByRole("button", { name: "external-edit" }));
     fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1")));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedStale", 1, 1)));
+    expect(showToast).toHaveBeenCalledTimes(1);
     expect(captureSpy).not.toHaveBeenCalled();
     expect(logActivitySpy).not.toHaveBeenCalled();
     const util = JSON.parse(screen.getByTestId("util").textContent ?? "[]");

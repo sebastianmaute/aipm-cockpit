@@ -88,6 +88,7 @@ export type ActivityKind =
   | "ai.taskDedup"
   | "ai.insightRecommendation"
   | "ai.allocationPlan"
+  | "ai.wbsPlan"
   | "ai.raciSuggest"
   | "ai.documentWrite"
   | "undo"
@@ -349,6 +350,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.taskDedup": "activityAiTaskDedup",
   "ai.insightRecommendation": "activityAiInsightRecommendation",
   "ai.allocationPlan": "activityAiAllocationPlan",
+  "ai.wbsPlan": "activityAiWbsPlan",
   "ai.raciSuggest": "activityAiRaciSuggest",
   "ai.documentWrite": "activityAiDocumentWrite",
   "undo": "activityUndo",

@@ -48,7 +48,7 @@ type ForwardedArgs = {
 export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDispatcher {
   const {
     dashboardModel, settings, clock, onSettingsLoggedByAi, setSelectedIds, setSettings, isReadOnly,
-    currentView, settingsProjectId, holidaySet, logActivityAs, allowDestructiveSave, undo,
+    currentView, settingsProjectId, holidaySet, logActivityAs, allowDestructiveSave, undo, openWbsPlan,
   } = deps;
   const { tasks, absences, resources, roles, budgets, plan, fxRates } = useWorkspace();
 
@@ -94,6 +94,7 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
       currentView, settingsProjectId, holidaySet, logActivityAs,
       allowDestructiveSave,
       undo,
+      openWbsPlan,
     } satisfies ForwardedArgs),
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,

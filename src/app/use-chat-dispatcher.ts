@@ -150,6 +150,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   const undoRef = useRef(args.undo);
+  // ★★ Ref-routed like its siblings: the memo below is built once, and
+  // `useWbsPlan().open` changes identity whenever its settings, key or scope
+  // do — a captured `args.openWbsPlan` would freeze the first render's
+  // (still unhydrated, AI-disabled) `open` for the whole session.
+  const openWbsPlanRef = useRef(args.openWbsPlan);
   // ★★★ ONE ref per register slice, SHARED with use-register-tools.ts (passed in
   // below). Its RAID/stakeholder/absence WRITERS and `updateResource`'s email
   // propagation (spec Part 7) must read and advance the SAME `.current`: with a
@@ -219,6 +224,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     undoRef.current = args.undo;
   }, [args.undo]);
+  useEffect(() => {
+    openWbsPlanRef.current = args.openWbsPlan;
+  }, [args.openWbsPlan]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -606,6 +614,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //    carries the same reasoning at its own arming site).
         args.allowDestructiveSave?.();
         return true;
+      },
+      openWbsPlan: (req) => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
+        // ★ `tasksRef` is advanced SYNCHRONOUSLY by every task write above,
+        // so a task created earlier in this model turn is in scope; the
+        // hook's own list is synced only after commit (cold-review C5).
+        return openWbsPlanRef.current({ ...req, liveTasks: tasksRef.current });
       },
       deleteAllTasks: () => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

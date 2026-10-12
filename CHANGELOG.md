@@ -12,6 +12,9 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Optimize with AI** in Open Points proposes splits, regroups, missing tasks, estimates and links; you
+  tick what to keep before anything changes. The AI assistant can open the same proposal when you ask it to.
+
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking
   guardrails, and a booking on a day the person has a vacation, sick or training absence surfaces as an
   insight naming the person, how many such days there were and the largest booking. Absences of type
@@ -29,6 +32,16 @@ longer carries its own changelog comment.
   task now leaves focus in the field, so you can type straight away; until now focus moved to the
   dialog's help button as it opened, so typing went nowhere until you clicked the field. Closing either
   dialog now also puts focus back on the button that opened it; it used to drop to the page.
+
+- **A name containing `$` sequences (such as `$$` or `$&`) or `{1}` is now shown as typed in every
+  message.** A `$` sequence in any value of any message was expanded, so "US$$5" showed as "US$5"; and a
+  value containing `{1}` that came before a later value had that value inserted into it, so a board lane
+  for a person named "Team {1}" was announced as "Team To Do – {1}". The "Add as resource" row of the
+  person picker now reads the same way.
+
+- **Planning resource allocations with AI now tells you how many changes it applied when some were
+  skipped.** When some of the chosen cells had changed since the proposal, the notice reported only the
+  applied changes and hid that some were skipped. One notice now gives both counts.
 
 ## [1.17.0] - 2026-10-10 "Mankell"
 

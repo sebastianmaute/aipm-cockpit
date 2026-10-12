@@ -77,6 +77,7 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
 ];
 
 const NON_WRITE_NAMES = [
+  "optimize_wbs",
   "list_tasks", "get_task", "set_filters", "set_language", "get_app_state",
   "get_dashboard_snapshot", "list_raid", "list_changes", "list_milestones",
   "list_stakeholders", "list_resources", "list_allocations",

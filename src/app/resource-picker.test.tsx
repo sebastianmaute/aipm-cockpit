@@ -138,6 +138,12 @@ describe("ResourcePicker", () => {
     expect(onChange).toHaveBeenCalledWith({ name: "Brand New", email: "", resourceId: 99 });
   });
 
+  it("shows a typed name with `$` sequences as typed in the + Add row", () => {
+    setup({ name: "US$$5 $&", email: "", resourceId: null });
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.getByText("+ Add “US$$5 $&” as resource")).toBeTruthy();
+  });
+
   it("does not offer + Add when the typed name exactly matches a resource", () => {
     setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: null });
     fireEvent.focus(screen.getByRole("combobox"));

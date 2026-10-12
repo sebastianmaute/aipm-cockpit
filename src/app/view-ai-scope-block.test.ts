@@ -66,7 +66,7 @@ describe("buildViewScopeBlock", () => {
     //    passes the test above and fails this one.
     it("leaves every other view's hints and reading intact", () => {
       const text = buildViewScopeBlock("open-points", NO_HISTORY);
-      expect(text).toContain("Relevant tools here: list_tasks, get_task.");
+      expect(text).toContain("Relevant tools here: list_tasks, get_task, optimize_wbs.");
       expect(text).toContain("only Done counts as delivered");
     });
   });

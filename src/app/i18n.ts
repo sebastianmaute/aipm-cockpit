@@ -4841,6 +4841,8 @@ const enUS = {
   allocPlanError: "Could not plan allocations.",
   allocPlanApplied: "Applied {0} allocation changes.",
   allocPlanAppliedOne: "Applied 1 allocation change.",
+  allocPlanAppliedSkipped: "Allocation changes applied: {0}. {1} changes were skipped because the plan changed.",
+  allocPlanAppliedSkippedOne: "Allocation changes applied: {0}. 1 change was skipped because the plan changed.",
   allocPlanClamped: "trimmed to the maximum",
   allocPlanHoursOfCapacity: "{0}h of {1}h",
   allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
@@ -4854,8 +4856,82 @@ const enUS = {
   allocPlanSkipDuplicate: "duplicate cell",
   allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
+  wbsPlanTitle: "Optimize work breakdown with AI",
+  wbsPlanInclude: "Include this change",
+  wbsPlanCancel: "Cancel",
+  wbsPlanApply: "Apply {0} changes",
+  wbsPlanApplyOne: "Apply {0} change",
+  wbsPlanApplying: "Applying…",
+  wbsPlanUndoNote: "Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.",
+  wbsPlanTruncated: "Some proposed changes were not shown — the proposal was too large.",
+  wbsPlanSkippedTitle: "Not applied",
+  wbsPlanLinkNeedsEndpoint: "Needs the unticked change that creates the task or piece it refers to.",
+  wbsPlanSectionSplits: "Split tasks",
+  wbsPlanSectionRegroups: "Change groups",
+  wbsPlanSectionNewTasks: "New tasks",
+  wbsPlanSectionEstimates: "Estimates",
+  wbsPlanSectionLinks: "Dependencies",
+  wbsPlanPiecesLabel: "Pieces",
+  wbsPlanNoGroup: "no group",
+  wbsPlanNoEstimate: "none",
+  wbsPlanMinutes: "{0} min",
+  wbsPlanDue: "due {0}",
+  wbsPlanGroupChange: "{0} → {1}",
+  wbsPlanEstimateChange: "{0} → {1}",
+  wbsPlanLinkRow: "{0} must finish before {1}",
+  wbsPlanPieceLabel: "{0} — piece {1}",
+  wbsPlanPieceNamed: "{0} (piece {1} of {2})",
+  wbsPlanPieceRename: "{0} → {1}",
+  wbsPlanPieceEstimate: "estimate {0}",
+  wbsPlanPieceNoEstimate: "no estimate",
+  wbsPlanReplacesDescription: "replaces the description",
+  wbsPlanAssignedTo: "assigned to {0}",
+  wbsPlanDescriptionExcerpt: "description: {0}",
+  wbsPlanScopeChanged: "The project changed, so the proposal was discarded.",
+  wbsPlanClosedByLoad: "Optimize with AI was closed because the project was loading.",
+  wbsPlanAllSkipped: "Claude proposed changes, but none of them can be applied. The reasons are listed below.",
+  wbsPlanUnknownTask: "task #{0}",
+  wbsPlanUnnamedNewTask: "unnamed new task",
+  wbsPlanSkip_unknownTask: "the task does not exist",
+  wbsPlanSkip_closedTask: "the task is already closed",
+  wbsPlanSkip_jiraTask: "the task is synced from Jira and read-only",
+  wbsPlanSkip_outOfScope: "the task is outside the current scope",
+  wbsPlanSkip_badPieces: "the split has an invalid number of pieces",
+  wbsPlanSkip_emptyName: "a task name is empty",
+  wbsPlanSkip_emptyGroup: "the group name is empty",
+  wbsPlanSkip_emptyRef: "the new task has no reference",
+  wbsPlanSkip_badDate: "the date is invalid",
+  wbsPlanSkip_badEstimate: "the estimate is invalid",
+  wbsPlanSkip_hasEstimate: "an estimate is already set — on the task or by the proposal",
+  wbsPlanSkip_duplicateRef: "a new-task reference is used twice",
+  wbsPlanSkip_duplicateTarget: "the proposal already has a change of this kind for the task",
+  wbsPlanSkip_sameGroup: "the task is already in that group",
+  wbsPlanSkip_selfLink: "a task cannot depend on itself",
+  wbsPlanSkip_duplicateLink: "the dependency already exists or is proposed twice",
+  wbsPlanSkip_unresolvedRef: "refers to a task or piece the proposal does not create",
+  wbsPlanSkip_ambiguousPiece: "refers to a piece of a task the proposal splits more than once",
+  wbsPlanSkip_cycle: "the dependency would create a cycle",
+  wbsPlanButton: "Optimize with AI",
+  wbsPlanButtonTitle: "Propose work-breakdown improvements for the tasks shown",
+  wbsPlanNeedsAi: "Turn on the AI assistant and add an API key under Settings → AI Assistant to use this.",
+  wbsPlanNoTasks: "There are no open tasks in the current view to optimize.",
+  wbsPlanIntro: "Claude proposes splits, new groups, new tasks, estimates and dependencies. Nothing changes until you review and apply.",
+  wbsPlanInstructionLabel: "Instructions (optional)",
+  wbsPlanInstructionPlaceholder: "e.g. split anything over 3 days",
+  wbsPlanPropose: "Propose",
+  wbsPlanThinking: "Proposing…",
+  wbsPlanEmpty: "No work-breakdown changes were proposed.",
+  wbsPlanError: "Could not optimize the work breakdown.",
+  wbsPlanApplied: "Applied {0} work-breakdown changes.",
+  wbsPlanAppliedOne: "Applied 1 work-breakdown change.",
+  wbsPlanStaleSkipped: "{0} changes were skipped because the task list changed after the proposal.",
+  wbsPlanStaleSkippedOne: "1 change was skipped because the task list changed after the proposal.",
+  wbsPlanAppliedSkipped: "Work-breakdown changes applied: {0}. {1} changes were skipped because the task list changed after the proposal.",
+  wbsPlanAppliedSkippedOne: "Work-breakdown changes applied: {0}. 1 change was skipped because the task list changed after the proposal.",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiAllocationPlanOne: "AI planned 1 allocation cell",
+  activityAiWbsPlan: "AI applied {0} work-breakdown changes",
+  activityAiWbsPlanOne: "AI applied 1 work-breakdown change",
   activityAiDocumentWrite: "Assistant edited a document",
 
   // Asset library (S3c-1 — document images)
@@ -4978,11 +5054,18 @@ export function t(
   if (lang === "de" && activeDeDict) dict = activeDeDict;
   else if (lang === "en-GB") dict = enGB;
   else dict = enUS;
-  let s = dict[key] ?? enUS[key];
-  args.forEach((a, i) => {
-    s = s.replace(`{${i}}`, String(a));
+  const s = dict[key] ?? enUS[key];
+  // With no arguments the lookup is returned as is — an unknown key yields
+  // undefined rather than throwing, which callers such as `priorityLabel`
+  // given an unknown value have always relied on.
+  if (args.length === 0) return s;
+  // One pass, so an argument that itself contains "{1}" (a task name, say) is
+  // never substituted again, and a function replacer, so "$&" in an argument
+  // stays literal. A placeholder with no argument is left as written.
+  return s.replace(/\{(0|[1-9]\d*)\}/g, (m: string, i: string) => {
+    const n = Number(i);
+    return n < args.length ? String(args[n]) : m;
   });
-  return s;
 }
 
 /**

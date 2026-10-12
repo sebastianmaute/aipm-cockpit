@@ -15,7 +15,7 @@
 // ★ Every deps key is REQUIRED, optional props included, so a dropped one is a
 // tsc error at the call site rather than a silently missing control (the task
 // editor's `budgetLink` is optional at every hop below and was lost that way).
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { t, type Lang } from "./i18n";
 import type { Settings } from "./settings-types";
 import { AppModals, type AppModalsProps } from "./app-modals";
@@ -95,6 +95,7 @@ export type AppModalsBlockDeps = AllKeys<
     blockersWindowProps: ComponentProps<typeof BlockersWindow>;
     raidCreate: RaidHostProps["create"];
     requestOpen: (view: "raid", id: number) => void;
+    wbsPlanModal: ReactNode;
   }
 >;
 
@@ -118,7 +119,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
     editingResource, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
     toast, pauseToast, resumeToast,
     linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask, notesWindowProps, blockersWindowProps,
-    raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen,
+    raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen, wbsPlanModal,
   } = deps;
   return (
     <>
@@ -267,6 +268,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
           onJumpToRaid={(id) => requestOpen("raid", id)}
         />
       )}
+      {wbsPlanModal}
     </>
   );
 }

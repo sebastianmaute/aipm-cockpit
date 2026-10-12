@@ -10,6 +10,7 @@ import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
 import { type AllocationsScopeInput, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { type UndoStackApi } from "./undo/use-undo-stack";
+import type { WbsOpenRequest, WbsOpenResult } from "./use-wbs-plan";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -136,4 +137,7 @@ export interface ChatDispatcherArgs {
    *  (`src/test/chat-dispatcher-fixture.tsx`) supplies an inert default, so only
    *  a fixture that asserts on capture has to pass one. */
   undo: Pick<UndoStackApi, "captureComposite">;
+  /** Opens the WBS proposal flow (`useWbsPlan().open`); the `optimize_wbs` tool writes nothing itself.
+   *  The dispatcher adds its own `liveTasks`, so the flow sees this turn's creates. */
+  openWbsPlan(req: WbsOpenRequest): WbsOpenResult;
 }

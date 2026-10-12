@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { t, type TranslationKey } from "./i18n";
+import { t, tPlural, type TranslationKey } from "./i18n";
 import { de } from "./i18n.de";
 
 const NEW_KEYS: TranslationKey[] = [
@@ -104,5 +104,77 @@ describe("help — burn-down health entry (§466)", () => {
     const body = de["helpAutomatedHealthBody"];
     expect(body).not.toMatch(/geplanten Verbrauch dem bisherigen Ist-Verbrauch/i);
     expect(body).toMatch(/Restbudget/i);
+  });
+});
+
+describe("t() placeholder substitution", () => {
+  it("does not substitute a placeholder that an earlier argument brought in", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "Phase {1}", 2, "Build API")).toBe("Phase {1} (piece 2 of Build API)");
+  });
+
+  it("keeps $ patterns in an argument literal", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "A $& $` $' $1", 2, "B")).toBe("A $& $` $' $1 (piece 2 of B)");
+  });
+
+  // The most likely real input, in a one-value message and in a last slot:
+  // the old string replacement turned "$$" into "$" in any slot.
+  it("keeps $$ in an argument literal, in any slot", () => {
+    expect(t("en-US", "wbsPlanMinutes", "US$$5")).toBe("US$$5 min");
+    expect(t("en-US", "wbsPlanPieceNamed", "A", 2, "Cost $$")).toBe("A (piece 2 of Cost $$)");
+  });
+
+  it("leaves a placeholder that has no argument as written", () => {
+    expect(t("en-US", "wbsPlanPieceNamed", "A")).toBe("A (piece {1} of {2})");
+    expect(t("en-US", "wbsPlanPieceNamed")).toBe("{0} (piece {1} of {2})");
+  });
+
+  // Kept from the sequential version: a kanban card renders `priorityLabel`
+  // for a priority value outside the dictionary.
+  it("returns the lookup unchanged when called without arguments, even for an unknown key", () => {
+    expect(t("en-US", "noSuchKeyForThisTest" as TranslationKey)).toBeUndefined();
+  });
+
+  it("renders numbers and ignores extra arguments", () => {
+    expect(t("en-US", "wbsPlanMinutes", 0, "extra")).toBe("0 min");
+  });
+});
+
+describe("work-breakdown notices name their real cause (§3)", () => {
+  // A link on unchanged rows can go stale through a cycle via a third row, so
+  // the stale text names the task list, not the tasks the change touches; the
+  // load hold also closes the instruction dialog, before any proposal, and the
+  // notice shows only once the load has ended, so it is in the past tense. The
+  // stale text avoids "depend on": the preview calls links "Dependencies".
+  it("EN", () => {
+    expect(t("en-US", "wbsPlanStaleSkipped", 2)).toBe("2 changes were skipped because the task list changed after the proposal.");
+    expect(t("en-US", "wbsPlanStaleSkippedOne")).toBe("1 change was skipped because the task list changed after the proposal.");
+    expect(t("en-US", "wbsPlanClosedByLoad")).toBe("Optimize with AI was closed because the project was loading.");
+  });
+
+  it("DE", () => {
+    expect(de.wbsPlanStaleSkipped).toBe(
+      "{0} Änderungen wurden übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
+    );
+    expect(de.wbsPlanStaleSkippedOne).toBe(
+      "1 Änderung wurde übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
+    );
+    expect(de.wbsPlanClosedByLoad).toBe("„Mit KI optimieren“ wurde geschlossen, weil das Projekt geladen wurde.");
+  });
+});
+
+describe("the allocation plan's combined applied-and-skipped notice", () => {
+  it("has a plural and a singular form in EN and DE", () => {
+    expect(tPlural("en-US", "allocPlanAppliedSkipped", 2, 3, 2)).toBe(
+      "Allocation changes applied: 3. 2 changes were skipped because the plan changed.",
+    );
+    expect(tPlural("en-US", "allocPlanAppliedSkipped", 1, 3, 1)).toBe(
+      "Allocation changes applied: 3. 1 change was skipped because the plan changed.",
+    );
+    expect(de.allocPlanAppliedSkipped).toBe(
+      "Angewendete Planungsänderungen: {0}. {1} Änderungen wurden übersprungen, weil sich die Planung geändert hat.",
+    );
+    expect(de.allocPlanAppliedSkippedOne).toBe(
+      "Angewendete Planungsänderungen: {0}. 1 Änderung wurde übersprungen, weil sich die Planung geändert hat.",
+    );
   });
 });

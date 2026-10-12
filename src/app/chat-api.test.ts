@@ -182,7 +182,7 @@ describe("buildSystemPrompt never advertises a tool the request will not carry",
     )
       .map((b) => b.text)
       .join("\n");
-    expect(text).toContain("Relevant tools here: list_tasks, get_task.");
+    expect(text).toContain("Relevant tools here: list_tasks, get_task, optimize_wbs.");
   });
 });
 
