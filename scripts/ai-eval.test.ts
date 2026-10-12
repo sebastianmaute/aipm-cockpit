@@ -79,7 +79,7 @@ const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
 /** The default `AI_EVAL_SALT`, i.e. what an env with no salt set resolves to. */
 const SALT = 1;
 
-/** The standard run's fixed shape, derived rather than restated: five probes,
+/** The standard run's fixed shape, derived rather than restated: six probes,
  *  five reps of arm A and of arm B, one control, five anchor reps, five
  *  aggregate (arm M, §454) reps, and no rolling replay while no rolling
  *  reference exists. */
@@ -227,7 +227,7 @@ describe("runEval — dry run", () => {
     // Act
     const code = await runEval(h.deps);
 
-    // Assert — pre-flight ran over all five probes and every assertion held.
+    // Assert — pre-flight ran over every probe and every assertion held.
     // ★★ THIS IS THE `ARMS_ARE_ALIAS` PIN. Arm B is a byte-for-byte alias of
     //    arm A today, so flipping the flag to `false` makes pre-flight push
     //    "arm B is byte-identical to arm A" for every probe and this run
@@ -362,7 +362,7 @@ describe("runEval — the standard run", () => {
     // Act
     await runEval(h.deps);
 
-    // Assert — 5 probes x (5 A + 5 B + 1 X) + 5 anchor reps, no replay.
+    // Assert — every probe x (5 A + 5 B + 1 X) + 5 anchor + 5 aggregate reps, no replay.
     expect(h.sent).toHaveLength(STANDARD_REQUESTS);
     expect(out.join("\n")).toContain(`planned requests: ${STANDARD_REQUESTS}`);
   });

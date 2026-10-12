@@ -1676,8 +1676,8 @@
   fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Building G2 in the app is
   tracked as `docs/open-followups.md` §702 (split from §483 on 2026-10-12, after the harness measured
   G2 and it passed). The usage meter below cannot settle the cost side as it stands: it stores daily
-  token totals only and counts no view switches, so the saving stays modelled until §702 adds a
-  counter.
+  token totals only and counts no view switches, so the saving stays modelled unless a counter is
+  added; whether to measure before building is an open owner decision recorded in §702.
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
