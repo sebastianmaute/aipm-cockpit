@@ -15,6 +15,7 @@ import {
 } from "../src/app/chat-api";
 import { buildWireMessages } from "../src/app/chat-cache-layout";
 import { builtinSeeds } from "../src/app/use-operating-guides";
+import type { OperatingGuide } from "../src/app/operating-guide";
 import type { ApiMessage, ApiUsage, SystemBlock } from "../src/app/chat-api";
 // ★★ The weights are IMPORTED, never restated. A second copy of the four
 //    ratios is a second thing to drift, and a drifted weight makes two runs'
@@ -284,28 +285,61 @@ function snapshotFor(tokens: Record<string, string>) {
 
 type Arm = { system: SystemBlock[]; messages: ApiMessage[] };
 
+/** The prompt layouts an arm can be assembled in. "current" is the app's own
+ *  layout; "g2" is slice G2 (§483), which moves the view-scoped guide block off
+ *  the cached `system` array onto the turn tail. */
+type Variant = "current" | "g2";
+
+/** The viewGuide probe's block: an operating guide scoped to the snapshot's
+ *  current view ("budget"), carrying the guide code. Harness-only, and planted
+ *  AFTER the built-in budget guide by priority, so the model meets ~3 KB of
+ *  real guide text before the code (the probe's depth headroom).
+ *  ★★ It must stay a CHAT guide on one view: `selectActiveGuides` drops a guide
+ *  that does not target the chat, and `partitionGuidesByViewScope` files a
+ *  guide with no views as always-on — block 0, which G2 does not move. */
+function evalViewGuide(tokens: Record<string, string>): OperatingGuide {
+  return {
+    id: "eval-view-guide",
+    name: "Eval view guide",
+    content: `The ${plantLabel("viewGuide")} is ${tokens.viewGuide}.`,
+    enabled: true,
+    priority: 999,
+    scope: { views: ["budget"] },
+    builtIn: false,
+  };
+}
+
 /** Assemble one arm's request.
  *
- *  ★★ `variant` is where the candidate layout plugs in. H ships with "current"
- *  only, and arm B is deliberately an ALIAS of arm A: an A/A run must come back
- *  PASS, which is the harness's own self-test and the only way to validate the
- *  machinery before any gated slice exists. Each of G2, the guide trim and
- *  tool-array gating adds its own variant here and flips it from its plan. */
-function assembleArm(variant: "current", tokens: Record<string, string>, question: string): Arm {
+ *  ★★ `variant` is where the candidate layout plugs in. "current" builds the
+ *  app's layout; "g2" builds the same bytes and then moves `system` block 1 —
+ *  the current view's guides — to the head of the turn context, so `system`
+ *  becomes view-invariant. Nothing else may move; `declaredHalf` and the
+ *  pre-flight hold every other block to its own half. The guide trim and
+ *  tool-array gating would each add their own variant here. */
+function assembleArm(variant: Variant, tokens: Record<string, string>, question: string): Arm {
   const snapshot = snapshotFor(tokens);
-  const guides = builtinSeeds();
+  const guides = [...builtinSeeds(), evalViewGuide(tokens)];
   const toolFlags = {};
-  const system = buildStableSystemBlocks("en-US", snapshot, guides, true, toolFlags);
-  const turnContext = buildTurnContext("en-US", snapshot, guides, true, toolFlags);
+  const stable = buildStableSystemBlocks("en-US", snapshot, guides, true, toolFlags);
+  const turn = buildTurnContext("en-US", snapshot, guides, true, toolFlags);
+  const [block0, ...viewScoped] = stable;
+  const system = variant === "g2" ? [block0] : stable;
+  const turnContext = variant === "g2" ? [...viewScoped.map((b) => b.text), turn].join("\n\n") : turn;
   const history: ApiMessage[] = [{ role: "user", content: question }];
   const { messages } = buildWireMessages(history, turnContext);
-  void variant;
   return { system, messages };
 }
 
-/** The variant arm B is built from. "current" today, which makes arm B a
- *  deliberate byte-for-byte ALIAS of arm A — see `assembleCandidate`. */
-const CANDIDATE_VARIANT = "current";
+/** Which half of an arm built in `variant` carries `probeId`'s block. Every
+ *  snapshot-derived block rides the turn in every layout; the view-scoped guide
+ *  rides `system` until G2 moves it. */
+function declaredHalf(variant: Variant, probeId: string): "system" | "turn" {
+  return probeId === "viewGuide" && variant === "current" ? "system" : "turn";
+}
+
+/** The variant arm B is built from: slice G2 (§483). See `assembleCandidate`. */
+const CANDIDATE_VARIANT: Variant = "g2";
 
 /** Whether arm B is still a byte-alias of arm A.
  *
@@ -329,17 +363,16 @@ const CANDIDATE_VARIANT = "current";
  *  itself, which is the single outcome this harness exists to make impossible.
  *  `preflight`'s own docstring concedes it cannot prove relocation when both
  *  arms declare the same half — this is the check that forces them to differ. */
-const ARMS_ARE_ALIAS = true;
+const ARMS_ARE_ALIAS = false;
 
 /** Arm B — the candidate.
  *
- *  ★★ THIS IS THE ONE ARM THAT LEGITIMATELY SHARES ARM A'S BUILDER, and only
- *  because `CANDIDATE_VARIANT` is still "current": an A/A run must come back
- *  PASS, which is the harness's own self-test and the only way to validate the
- *  machinery before a gated slice exists. It has its own function anyway so
- *  that a slice registering a real variant changes ONE line here and cannot
- *  accidentally move arm A with it. Arms R, N and X are the opposite case and
- *  each says why below. */
+ *  ★★ IT SHARES ARM A'S BUILDER and differs only in the variant it passes, so
+ *  the two arms can differ by the relocation under test and by nothing else.
+ *  It has its own function so that registering a variant changes ONE line here
+ *  and cannot move arm A with it. Until §483 `CANDIDATE_VARIANT` was "current"
+ *  and this arm was a byte-alias of arm A — the A/A self-test the recorded runs
+ *  before it are. Arms R, N and X are the opposite case and each says why below. */
 function assembleCandidate(tokens: Record<string, string>, question: string): Arm {
   return assembleArm(CANDIDATE_VARIANT, tokens, question);
 }
@@ -836,8 +869,8 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   if (!drift.ok) failures.push(...drift.failures);
 
   for (const probe of activeProbes) {
-    const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
-    const armB = flatten(assembleCandidate(tokens, probe.question), "turn");
+    const armA = flatten(assembleArm("current", tokens, probe.question), declaredHalf("current", probe.id));
+    const armB = flatten(assembleCandidate(tokens, probe.question), declaredHalf(CANDIDATE_VARIANT, probe.id));
 
     // ★★★ ARM B MUST BE PROVABLY THE ARM `ARMS_ARE_ALIAS` SAYS IT IS. Both
     //     directions fail here, at PRE-FLIGHT, before a cent is spent — see the
@@ -862,9 +895,15 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     //     because they only ever check each arm against its OWN declaration.
     //     Requiring the two declared halves to differ is what forces those
     //     assertions to prove the move.
-    if (!ARMS_ARE_ALIAS && armA.expectedHalf === armB.expectedHalf) {
+    //     ★★ PER PROBE SINCE §483: a candidate moves SOME blocks, so this asks
+    //     only that at least one probe declares a different half on arm B —
+    //     any probe, not just the active ones, since a filtered diagnostic run
+    //     still measures the same variant; `preflight` below then proves every arm's block sits in the half it
+    //     declares, which also catches a block the variant moved undeclared.
+    if (!ARMS_ARE_ALIAS && probe === activeProbes[0]
+      && !PROBES.some((p) => declaredHalf("current", p.id) !== declaredHalf(CANDIDATE_VARIANT, p.id))) {
       failures.push(
-        `${probe.id}: both arms declare the ${armA.expectedHalf} half — relocation is proven only when the declared halves differ, so a candidate must declare the other one`,
+        "no probe declares a different half on arm B — relocation is proven only when some probe's declared halves differ, so a candidate must declare the half it moves a block to",
       );
     }
 
@@ -918,15 +957,10 @@ ${armA.turn}`;
       armPrompts: { A: armA, B: armB },
       // ★ The two drift references are NOT passed: they are run-level and are
       //   checked once, above, by `driftReferenceCheck`.
-      // ★★ NOTHING IS SUPPRESSED HERE. Both arms declare "turn" and both
-      //    position assertions run and hold. That is honest for an A/A
-      //    self-test — arm B is a deliberate alias of arm A until a gated slice
-      //    registers a variant, so there is genuinely no relocation to prove.
-      //    A real candidate declares the OTHER half for its arm and `preflight`
-      //    then proves the block moved. There is no flag to drop here —
-      //    `ARMS_ARE_ALIAS` above is not a suppression, it is the assertion
-      //    that the two arms are what the flag claims, and it is what forces a
-      //    candidate to declare the other half so these assertions bite.
+      // ★★ NOTHING IS SUPPRESSED HERE. Each arm declares its half through
+      //    `declaredHalf`, and both position assertions run for every probe:
+      //    the viewGuide probe proves G2 moved the guide block, and the others
+      //    prove it moved nothing else.
     });
     if (!res.ok) failures.push(`${probe.id}: ${res.failures.join("; ")}`);
   }

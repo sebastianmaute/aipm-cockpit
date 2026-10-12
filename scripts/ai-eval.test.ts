@@ -367,6 +367,50 @@ describe("runEval — the standard run", () => {
     expect(out.join("\n")).toContain(`planned requests: ${STANDARD_REQUESTS}`);
   });
 
+  // ★★★ THE G2 CANDIDATE (§483). Arm A carries the view-scoped guide in the
+  //     cached `system` array; arm B carries it on the turn tail. Counting by
+  //     HALF, not by dispatch order: arm A's reps put the guide code in `system`
+  //     only, arm B's in the turn only, and the control in neither.
+  it("sends the view-scoped guide in system on arm A and on the turn tail on arm B", async () => {
+    // Arrange
+    const h = harness();
+    const probe = PROBES.find((p) => p.id === "viewGuide")!;
+    const target = plantedToken("viewGuide", SALT);
+
+    // Act
+    await runEval(h.deps);
+
+    // Assert
+    const asked = h.sent.filter((s) => s.whole.includes(probe.question));
+    const inSystemOnly = asked.filter((s) => occurrences(s.system, target) === 1 && occurrences(s.turn, target) === 0);
+    const inTurnOnly = asked.filter((s) => occurrences(s.turn, target) === 1 && occurrences(s.system, target) === 0);
+    const inNeither = asked.filter((s) => occurrences(s.whole, target) === 0);
+    expect(inSystemOnly).toHaveLength(REPS);
+    expect(inTurnOnly).toHaveLength(REPS);
+    expect(inNeither).toHaveLength(1);
+    // Only block 1 moved: arm B's system is arm A's block 0 alone, byte for byte.
+    for (const b of inTurnOnly) {
+      expect(inSystemOnly[0].system.startsWith(`${b.system}\n`)).toBe(true);
+      expect(b.system.length).toBeGreaterThan(30000);
+    }
+  });
+
+  it("moves nothing else: every other probe's code rides the turn on both arms", async () => {
+    // Arrange
+    const h = harness();
+
+    // Act
+    await runEval(h.deps);
+
+    // Assert — a variant that moved a block it did not declare fails here.
+    for (const p of PROBES.filter((q) => q.id !== "viewGuide")) {
+      const target = plantedToken(p.id, SALT);
+      const asked = h.sent.filter((s) => s.whole.includes(p.question) && occurrences(s.whole, target) === 1);
+      expect(asked, p.id).toHaveLength(2 * REPS);
+      for (const s of asked) expect(occurrences(s.system, target), p.id).toBe(0);
+    }
+  });
+
   it("groups every probe's arms together and dispatches its control last", async () => {
     // Arrange
     const h = harness();

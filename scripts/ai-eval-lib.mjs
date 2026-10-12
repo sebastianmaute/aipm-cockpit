@@ -55,6 +55,9 @@ export const TOKEN_IDS = Object.freeze([
   //     time and read as catastrophic drift.
   "datePrev", "viewScopePrev", "insightsPrev", "activityRecapPrev",
   "chatPointerAlt1", "chatPointerAlt2",
+  // ★★ G2's probe (§483), appended for the same reason as the hardening ids:
+  //    every token above keeps its bytes at every salt.
+  "viewGuide",
 ]);
 
 /** A nonsense token for one id, derived from (id, salt).
@@ -253,6 +256,9 @@ export const PROBE_HARDENING = Object.freeze({
   //     than a saturated one. The mechanism stays here, off, because the shape
   //     is worth having available; the knob and its one-probe cap are unchanged.
   chatPointer: Object.freeze({ competitor: false, fillerBefore: 2, composition: false }),
+  // ★ The guide block has no list to pad and no near-miss line: its depth is
+  //   the built-in view guide it is planted AFTER (see the CLI's evalViewGuide).
+  viewGuide: Object.freeze({ competitor: false, fillerBefore: 0, composition: false }),
 });
 
 /** The two qualifiers a `competitor` probe writes into its block and its
@@ -287,6 +293,11 @@ const PROBE_SPECS = [
     compositionAsk:
       "the transcript code of the earlier conversation about the view you are currently looking at",
   },
+  // ★★ G2's probe (§483): the one block the CURRENT layout carries in the cached
+  //    `system` array (an operating guide scoped to the current view) rather than
+  //    on the turn. It is the block slice G2 moves, so it is the only probe whose
+  //    two arms declare different halves.
+  { id: "viewGuide", label: "guide code", distractorBlock: "viewScope", headroom: "depth" },
 ];
 
 function askFrom(spec) {

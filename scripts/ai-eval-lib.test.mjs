@@ -199,10 +199,15 @@ describe("plantedToken", () => {
 });
 
 describe("PROBES", () => {
-  it("covers the five blocks slice B relocated", () => {
+  it("covers the five blocks slice B relocated, then the view-scoped guide G2 relocates", () => {
     expect(PROBES.map((p) => p.id)).toEqual([
-      "date", "viewScope", "insights", "activityRecap", "chatPointer",
+      "date", "viewScope", "insights", "activityRecap", "chatPointer", "viewGuide",
     ]);
+  });
+
+  it("appends the G2 probe's token id last, so every earlier token keeps its bytes", () => {
+    expect(TOKEN_IDS.at(-1)).toBe("viewGuide");
+    expect(TOKEN_IDS.indexOf("viewGuide")).toBeGreaterThan(TOKEN_IDS.indexOf("chatPointerAlt2"));
   });
 
   it("gives every probe a distractor in a DIFFERENT block", () => {
