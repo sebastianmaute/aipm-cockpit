@@ -247,3 +247,142 @@ describe("AiGuidesSection row names", () => {
     expectRowUniqueNames({ minControls: 3, requireCollisionSeed: true });
   });
 });
+
+// §701 — "Applies to": which AI surfaces a guide reaches.
+describe("AiGuidesSection applies-to targets", () => {
+  const chat = () => screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetChat") });
+  const wbs = () => screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") });
+  const save = () => screen.getByRole("button", { name: t("en-US", "aiGuideSave") });
+  function openAddNamed(og: UseOperatingGuidesResult) {
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideAdd") }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiGuideName")), { target: { value: "Team" } });
+  }
+
+  it("offers one checkbox per AI surface, with only the chat ticked for a new guide", () => {
+    openAddNamed(makeOperatingGuides());
+    expect(chat()).toBeChecked();
+    expect(wbs()).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetInlineEdit") })).not.toBeChecked();
+  });
+
+  it("stores the ticked surfaces as targets", () => {
+    const og = makeOperatingGuides();
+    openAddNamed(og);
+    fireEvent.click(wbs());
+    fireEvent.click(save());
+    expect(og.create).toHaveBeenCalledWith("Team", "", expect.objectContaining({ scope: { targets: ["chat", "wbs"] } }));
+  });
+
+  it("stores a chat-only guide with no targets at all, exactly as before", () => {
+    const og = makeOperatingGuides();
+    openAddNamed(og);
+    fireEvent.click(save());
+    expect(og.create).toHaveBeenCalledWith("Team", "", expect.objectContaining({ scope: {} }));
+  });
+
+  it("keeps Save disabled and says why while no surface is ticked", () => {
+    openAddNamed(makeOperatingGuides());
+    fireEvent.click(chat());
+    expect(save()).toBeDisabled();
+    expect(screen.getByText(t("en-US", "aiGuideTargetsNone"))).toBeInTheDocument();
+  });
+
+  it("opens an action-only guide with its targets ticked and keeps them on save", () => {
+    const g = { id: "w", name: "WBS rules", content: "c", enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const og = makeOperatingGuides({ guides: [g] });
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – WBS rules` }));
+    expect(wbs()).toBeChecked();
+    expect(chat()).not.toBeChecked();
+    fireEvent.click(save());
+    expect(og.update).toHaveBeenCalledWith(expect.objectContaining({ id: "w", scope: { targets: ["wbs"] } }));
+  });
+
+  it("shows on each row where its guide applies", () => {
+    const g = { id: "w", name: "WBS rules", content: "c", enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.getByText(t("en-US", "aiGuideAppliesTo", t("en-US", "aiGuideTargetWbs")))).toBeInTheDocument();
+  });
+
+  it("does not count an action-only guide toward the chat's size warning", () => {
+    const g = { id: "big", name: "Big", content: "x".repeat(200_000), enabled: true, priority: 1, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.queryByText(t("en-US", "aiGuideBudgetWarning"))).toBeNull();
+  });
+});
+
+// §701 review — a built-in narrowed to the chat must store that explicitly, or
+// the reload restores the seed's targets.
+describe("AiGuidesSection built-in targets", () => {
+  it("stores explicit targets when a built-in action guide is narrowed to the chat", () => {
+    const g = { id: "builtin-action-wbs", name: "AI action: WBS", content: "c", enabled: true, priority: 25, scope: { targets: ["wbs" as const] }, builtIn: true };
+    const og = makeOperatingGuides({ guides: [g] });
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – AI action: WBS` }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetChat") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideSave") }));
+    expect(og.update).toHaveBeenCalledWith(expect.objectContaining({ scope: { targets: ["chat"] } }));
+  });
+
+  it("never renders an unknown stored target as a missing label", () => {
+    const g = { id: "f", name: "Future", content: "c", enabled: true, priority: 5, scope: { targets: ["futureAction"] as never }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.queryByText(/undefined/)).toBeNull();
+  });
+});
+
+// §701 review 2 — a guide over the action cap, or crowded out under it, is
+// never sent to the actions it targets; the editor says so instead.
+describe("AiGuidesSection action character cap", () => {
+  it("warns in the form when a guide over the cap is ticked for an AI action", () => {
+    render(<AiGuidesSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideAdd") }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiGuideContent")), { target: { value: "x".repeat(12_001) } });
+    const warning = t("en-US", "aiGuideOverActionCap", (12_000).toLocaleString("en-US"));
+    expect(screen.queryByText(warning)).toBeNull(); // chat only: the cap does not apply
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") }));
+    expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it("notes on the row which ticked actions a guide is not sent to", () => {
+    const big = { id: "big", name: "Big", content: "x".repeat(12_001), enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const small = { id: "small", name: "Small", content: "y", enabled: true, priority: 6, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [big, small] }) })} />);
+    const note = t("en-US", "aiGuideNotSentTooLong", t("en-US", "aiGuideTargetWbs"), (12_000).toLocaleString("en-US"));
+    expect(screen.getAllByText(note)).toHaveLength(1);
+    // A static note, not a live region: one per row must not announce on each render.
+    expect(screen.getByText(note).closest("[role]")).toHaveAttribute("role", "note");
+  });
+
+  it("says a short guide is crowded out, not that it is too long", () => {
+    const first = { id: "a", name: "First", content: "x".repeat(11_990), enabled: true, priority: 1, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const second = { id: "b", name: "Second", content: "y".repeat(20), enabled: true, priority: 2, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [first, second] }) })} />);
+    const label = t("en-US", "aiGuideTargetWbs");
+    const cap = (12_000).toLocaleString("en-US");
+    expect(screen.getAllByText(t("en-US", "aiGuideNotSentCrowded", label, cap))).toHaveLength(1);
+    expect(screen.queryByText(t("en-US", "aiGuideNotSentTooLong", label, cap))).toBeNull();
+  });
+});
+
+// §701 review 3 — a built-in's stored targets outlive releases, so the editor
+// offers the way back to the shipped ones; a user's own guide has none.
+describe("AiGuidesSection built-in default targets", () => {
+  it("restores a built-in guide's shipped targets", () => {
+    const g = { id: "builtin-action-wbs", name: "AI action: WBS", content: "c", enabled: true, priority: 25, scope: { targets: ["raci" as const] }, builtIn: true };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – AI action: WBS` }));
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetRaci") })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideTargetsDefault") }));
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetRaci") })).not.toBeChecked();
+  });
+
+  it("offers no restore button for the user's own guide", () => {
+    render(<AiGuidesSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – My Guide` }));
+    expect(screen.queryByRole("button", { name: t("en-US", "aiGuideTargetsDefault") })).toBeNull();
+  });
+});

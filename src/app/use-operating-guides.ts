@@ -8,7 +8,7 @@ import { loadGuides, saveGuide, removeGuide } from "./operating-guide-store";
 import type { OperatingGuide, GuideScope } from "./operating-guide";
 import type { TursoConfig } from "./turso-config";
 import {
-  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES,
+  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES, BUILTIN_ACTION_GUIDES,
 } from "./operating-guide-builtin.generated";
 
 export interface UseOperatingGuidesArgs {
@@ -24,9 +24,10 @@ export interface UseOperatingGuidesResult {
   refresh: () => Promise<void>;
 }
 
-/** All built-in guides: the leadership guide (priority 1) followed by the
- *  view-scoped feature guides. These are seeded into an empty store and kept
- *  fresh (content/name/scope) on every load via reconcileBuiltins. */
+/** All built-in guides: the leadership guide (priority 1), the view-scoped
+ *  feature guides, then the AI action guides (§701), which reach only the
+ *  actions they target. These are seeded into an empty store and kept fresh
+ *  (content/name/scope) on every load via reconcileBuiltins. */
 export function builtinSeeds(): OperatingGuide[] {
   return [
     {
@@ -37,14 +38,23 @@ export function builtinSeeds(): OperatingGuide[] {
       id: g.id, name: g.name, content: g.content, enabled: true,
       priority: 2 + i, scope: g.scope as GuideScope, builtIn: true,
     })),
+    ...BUILTIN_ACTION_GUIDES.map((g, i) => ({
+      id: g.id, name: g.name, content: g.content, enabled: true,
+      priority: 2 + BUILTIN_FEATURE_GUIDES.length + i, scope: g.scope as GuideScope, builtIn: true,
+    })),
   ];
 }
 
 const BUILTIN_IDS = new Set(builtinSeeds().map((g) => g.id));
 
 /** For each built-in: seed it if absent; if present, refresh content/name/scope
- *  but PRESERVE the user's enabled + priority. Returns only the rows that need
- *  saving (idempotent — an unchanged store yields an empty list). */
+ *  but PRESERVE the user's enabled + priority, and the user's `scope.targets`
+ *  (§701 — the "Applies to" choice in Settings). Returns only the rows that need
+ *  saving (idempotent — an unchanged store yields an empty list).
+ *  ★ Stored targets win from then on, so a later release that changes a built-in
+ *  guide's seeded targets does not reach a store that already holds them. The
+ *  editor always stores explicit targets for a built-in (`draftToScope`), so a
+ *  user who narrows one to the chat keeps that too. */
 export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] {
   const byId = new Map(existing.map((g) => [g.id, g]));
   const out: OperatingGuide[] = [];
@@ -54,12 +64,16 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
       out.push(seed);
       continue;
     }
+    // `Array.isArray`, not truthiness: stored scope is unvalidated JSON, and a
+    // malformed `targets` must fall back to the seed's, not be kept forever.
+    const stored = cur.scope?.targets;
+    const scope = Array.isArray(stored) ? { ...seed.scope, targets: stored } : seed.scope;
     if (
       cur.content !== seed.content ||
       cur.name !== seed.name ||
-      JSON.stringify(cur.scope) !== JSON.stringify(seed.scope)
+      JSON.stringify(cur.scope) !== JSON.stringify(scope)
     ) {
-      out.push({ ...seed, enabled: cur.enabled, priority: cur.priority });
+      out.push({ ...seed, scope, enabled: cur.enabled, priority: cur.priority });
     }
   }
   return out;
@@ -68,7 +82,17 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
 export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOperatingGuidesResult {
   const [guides, setGuides] = useState<OperatingGuide[]>([]);
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
+  // §701 — `ready` means "the load for the CURRENT source has SETTLED" (loaded,
+  // or failed — a failed load keeps the previous library, fail-soft), not
+  // "some load finished once". It is derived from the source whose load last
+  // settled, so a change of source (a file-mode first load, then the Turso
+  // config once its sealed token is unlocked) reads not-ready until that
+  // source's load has settled: an unattended digest or runner, and the chat composer
+  // (§76), no longer go out with the previous source's guides in between.
+  // Derived rather than reset, because setting state during render or in an
+  // effect to mirror a prop is banned here.
+  const [loadedFor, setLoadedFor] = useState<TursoConfig | null | undefined>(undefined);
+  const ready = loadedFor === config;
   const cfgRef = useRef(config);
   const opSeqRef = useRef(0);
   const mountedRef = useRef(true);
@@ -98,19 +122,29 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
 
   const refresh = useCallback(async () => {
     const startSeq = opSeqRef.current;
+    // ONE source for the whole refresh. Re-reading `cfgRef.current` after an
+    // await let a load of the previous source, settling late, seed and re-read
+    // the NEW source — writing built-ins into it and racing its own refresh.
+    const source = cfgRef.current;
     try {
-      let list = await loadGuides(cfgRef.current);
+      let list = await loadGuides(source);
       const toSave = reconcileBuiltins(list);
       if (toSave.length > 0) {
-        for (const g of toSave) await saveGuide(cfgRef.current, g);
-        list = await loadGuides(cfgRef.current);
+        for (const g of toSave) await saveGuide(source, g);
+        list = await loadGuides(source);
       }
-      if (opSeqRef.current !== startSeq || !mountedRef.current) return;
+      // A refresh of a source that is no longer current is stale: it must not
+      // replace the current source's library, nor mark it loaded.
+      if (opSeqRef.current !== startSeq || !mountedRef.current || cfgRef.current !== source) return;
       setGuides(list);
     } catch {
       // optional feature — leave guides as-is
     } finally {
-      if (mountedRef.current) setReady(true);
+      // Only the refresh that actually set the library may mark it loaded: one
+      // superseded by a create/update/remove during the first load returned
+      // above without `setGuides`, and marking it would read ready with the
+      // library still empty until the mutation's own refresh lands.
+      if (mountedRef.current && cfgRef.current === source && opSeqRef.current === startSeq) setLoadedFor(source);
     }
   }, []);
 
@@ -130,8 +164,14 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
         priority: opts?.priority ?? maxP + 1, scope: opts?.scope ?? {}, builtIn: false,
       };
       await saveGuide(cfgRef.current, g);
-      await refresh();
     } finally {
+      // In `finally`, saved or not (§701): a mutation supersedes a first load
+      // still in flight (opSeq), and only a refresh may then mark the library
+      // loaded — skipped on a failed save, `ready` would stay false for good.
+      // ★ Order is deliberate: the reload runs BEFORE `busy` clears and before a
+      // failed save's error reaches the caller, so the form never re-enables over a
+      // stale list. `refresh` catches its own errors, so it cannot mask the save's.
+      await refresh();
       setBusy(false);
     }
   }, [refresh]);
@@ -141,8 +181,11 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     setBusy(true);
     try {
       await saveGuide(cfgRef.current, g);
-      await refresh();
     } finally {
+      // In `finally`, saved or not (§701): a mutation supersedes a first load
+      // still in flight (opSeq), and only a refresh may then mark the library
+      // loaded — skipped on a failed save, `ready` would stay false for good.
+      await refresh();
       setBusy(false);
     }
   }, [refresh]);
@@ -153,8 +196,8 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     setBusy(true);
     try {
       await removeGuide(cfgRef.current, id);
-      await refresh();
     } finally {
+      await refresh(); // saved or not — see `create`
       setBusy(false);
     }
   }, [refresh]);

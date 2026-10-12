@@ -20,11 +20,17 @@ export interface ScheduledJobRunnerArgs {
   recordRun: (jobId: number, run: ScheduledJobRun) => void;
   /** Closes over the live workspace (SP4 buildAnalysisContext). */
   buildContext: () => string;
-  ai: { apiKey: string; model: string };
+  ai: { apiKey: string; model: string; guideText?: string };
   /** Caller wires the desktop-notification path; already formats title/body. */
   notify: (title: string, body: string) => void;
   /** Injectable for tests; default () => new Date(). */
   now?: () => Date;
+  /** §701 — false while the operating guides the runs need are still loading
+   *  (only when guide grounding is on). A tick waits for it, and the runner
+   *  ticks once the moment it turns true, so the run on app open is delayed by
+   *  the load, not skipped until the next interval. REQUIRED, so tsc proves a
+   *  caller decided it (pass true when there is nothing to wait for). */
+  guidesReady: boolean;
 }
 
 export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
@@ -37,20 +43,60 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   const aiRef = useRef(args.ai);
   const notifyRef = useRef(args.notify);
   const nowRef = useRef(args.now);
-  useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
+  // The tick, reachable from the switched-on and guides-ready effects as well
+  // as the mount effect. Assigned in the mount effect (not during render); the
+  // two edge effects act only on a LATER commit, by which time it is set.
+  const tickRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => { jobsRef.current = args.jobs; }, [args.jobs]);
   useEffect(() => { recordRunRef.current = args.recordRun; }, [args.recordRun]);
   useEffect(() => { buildContextRef.current = args.buildContext; }, [args.buildContext]);
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
   useEffect(() => { notifyRef.current = args.notify; }, [args.notify]);
   useEffect(() => { nowRef.current = args.now; }, [args.now]);
+  const guidesReady = args.guidesReady;
+  const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
 
+  // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER EVERY REF-SYNC EFFECT ABOVE.
+  // Effects run in declaration order, and `tick` builds the first request
+  // synchronously, before its first await: declared above the `aiRef` sync, an
+  // edge tick sends the PREVIOUS commit's key and guide text. At app open that
+  // is the empty key from before decryption — a 401 that `recordRun` books as
+  // this slot's failed run, so the job then waits for its next slot (§701
+  // review 8). Pinned by "the switch-on run carries the key and guide text that
+  // arrived with it".
+
+  // §701 — tick once when the runner is switched ON. At app open the AI
+  // settings (the key is a sealed secret, decrypted asynchronously) usually
+  // arrive AFTER the guides, so the guides-ready tick below finds the runner
+  // still off; without this the first run waited for the next interval.
+  // Safe here because a tick runs only jobs that are due, and this runner's
+  // `enabled` does not flip on project loads. ★ Do NOT copy this into the
+  // insight runner: its `enabled` includes `!loadPending` (§548), so it would
+  // add a billed round on every project switch. Ref initialised from the
+  // mount value, so mount itself is not an edge (the mount effect ticks).
+  useEffect(() => {
+    const was = enabledRef.current;
+    enabledRef.current = args.enabled;
+    if (!was && args.enabled) void tickRef.current();
+  }, [args.enabled]);
+
+  // §701 — tick once when the guides finish loading: the mount tick skipped
+  // while they loaded, and the next interval may be minutes away. It fires once
+  // per load; turning grounding on while the guides are still loading can flip
+  // it true→false→true and add one more tick, which is harmless (a tick runs
+  // only jobs that are due).
+  useEffect(() => {
+    const was = guidesReadyRef.current;
+    guidesReadyRef.current = guidesReady;
+    if (!was && guidesReady) void tickRef.current();
+  }, [guidesReady]);
+
   useEffect(() => {
     const tick = async () => {
-      if (!enabledRef.current) return;
+      if (!enabledRef.current || !guidesReadyRef.current) return;
       if (isRunningRef.current) return; // a run is already in flight
       const at = (nowRef.current ?? (() => new Date()))();
       const due = dueJobs(jobsRef.current, at);
@@ -67,7 +113,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         const ranAt = at.toISOString();
         for (const job of due) {
           try {
-            const analysis = await runJobAnalysis(buildContextRef.current(), aiRef.current);
+            // Cache the guide prefix only when this tick sends more than one
+            // request: a lone request would pay the cache write and never read it.
+            const analysis = await runJobAnalysis(buildContextRef.current(), { ...aiRef.current, cacheGuides: due.length > 1 });
             recordRunRef.current(job.id, {
               ranAt,
               summary: analysis.summary,
@@ -96,6 +144,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       }
     };
 
+    tickRef.current = tick;
     // Fire on mount.
     void tick();
 

@@ -1,7 +1,6 @@
 // src/app/ai-forced-call.ts — the ONE audited fetch envelope for every one-shot,
-// forced-tool Anthropic call in the app (Action-Center analysis, scheduled jobs,
-// weight suggestions, task dedup, committee report, digest narrative, project
-// proposal). Each caller keeps its OWN parse/ground/coerce/validation; only the
+// forced-tool Anthropic call in the app (enumerate them with
+// `grep -rln "runForcedToolCall(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
 // wire call + error throw are shared here, so a leak fix lives in ONE place.
 //
 // SECURITY INVARIANT (never regress): this module NEVER logs or echoes the api
@@ -28,12 +27,44 @@ export interface ForcedToolCallArgs {
   /** Optional system prompt (string or cacheable SystemBlock[]). Omitted from
    *  the request body entirely when undefined. */
   system?: string | SystemBlock[];
+  /** The user's operating guides for this action (§701), from
+   *  `actionGuideText`. Appended AFTER `system`, so the fixed prompt stays a
+   *  stable prefix; "" or undefined sends nothing. */
+  guideText?: string;
+  /** Put the cache marker on the guide block. Only a caller that sends several
+   *  requests with the same prefix within the cache's five-minute life gains
+   *  from it — a background runner working through a batch. A single request
+   *  would pay the cache-write premium and never read it back. */
+  cacheGuides?: boolean;
   tools: unknown[];
   /** The tool that `tool_choice` forces AND whose tool_use block is returned. */
   toolName: string;
   messages: ApiMessage[];
   maxTokens: number;
   signal?: AbortSignal;
+}
+
+/** `system` with the guide text after it as its own LAST block. With `cache`,
+ *  that block carries the cache marker, so tools + fixed prompt + guides are
+ *  cached as one prefix — which pays only WITHIN a batch (the cache lives about
+ *  five minutes, and the background runners tick an hour or a cadence apart),
+ *  so only the two batching runners ask for it. Below the model's minimum
+ *  cacheable length the marker is simply not honoured, never an error. No guide
+ *  text: `system` unchanged, byte for byte. ★ A caller passing a block array
+ *  with its own markers would add one more; no forced caller does today (the
+ *  4-per-request limit). */
+export function withGuideText(
+  system: string | SystemBlock[] | undefined,
+  guideText: string | undefined,
+  cache = false,
+): string | SystemBlock[] | undefined {
+  if (!guideText) return system;
+  const guideBlock: SystemBlock = cache
+    ? { type: "text", text: guideText, cache_control: { type: "ephemeral" } }
+    : { type: "text", text: guideText };
+  if (system === undefined) return [guideBlock];
+  if (typeof system === "string") return [{ type: "text", text: system }, guideBlock];
+  return [...system, guideBlock];
 }
 
 interface ToolUseBlock {
@@ -60,7 +91,8 @@ export async function runForcedToolCall(
     tools: args.tools,
     tool_choice: { type: "tool", name: args.toolName },
   };
-  if (args.system !== undefined) body.system = args.system;
+  const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
+  if (system !== undefined) body.system = system;
 
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",

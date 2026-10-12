@@ -42,6 +42,8 @@ import { filterTasksByHealth } from "./health";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
+import { useGuideTextFrom } from "./action-guides-context";
+import type { OperatingGuide } from "./operating-guide";
 import {
   applyWbsProposal,
   buildWbsContext,
@@ -90,6 +92,9 @@ export interface WbsPlanDeps {
    *  health filter exactly as the Open Points table does. */
   today: string;
   holidaySet: ReadonlySet<string>;
+  /** §701 — REQUIRED: this hook runs in task-manager's body, above the guide
+   *  provider (see `useGuideTextFrom`). */
+  guides: readonly OperatingGuide[];
 }
 
 export interface WbsOpenRequest {
@@ -177,6 +182,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const guideText = useGuideTextFrom(deps.guides, settings.ai.groundInGuides, "wbs");
   const enabled = aiReady && !isPopout;
 
   // The flow's STATE back to idle — state setters only, so the load-hold
@@ -243,7 +249,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
         const parsed = await runWbsProposal(
           context,
-          { apiKey, model: settings.ai.model },
+          { apiKey, model: settings.ai.model, guideText },
           sanitizeText(text, MAX_WBS_INSTRUCTION_CHARS) || DEFAULT_WBS_INSTRUCTION,
           controller.signal,
         );
@@ -291,7 +297,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

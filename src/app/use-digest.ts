@@ -10,6 +10,7 @@ import { buildDigest, type DigestModel } from "./digest/digest-model";
 import { loadDigestState, advanceDigestState, isDigestDue } from "./digest/digest-state";
 import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-email";
 import { runDigestNarrative } from "./digest/digest-narrative";
+import { useActionGuideText, useActionGuidesReady } from "./action-guides-context";
 import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import type { DigestConfig } from "./digest/digest-config";
 
@@ -54,6 +55,10 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [digest, setDigest] = useState<DigestModel | null>(null);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const guideText = useActionGuideText("digest");
+  // §701 — the auto-run below is once per cadence and unattended: run it only
+  // once the guides have loaded, or it is narrated without them until next time.
+  const guidesReady = useActionGuidesReady();
   /** The in-flight narrative's controller — a ref so `cancel` can reach it. */
   const narrativeCtrlRef = useRef<AbortController | null>(null);
   /** Set by `cancel` (a USER stop), never by the timeout, and cleared at the
@@ -106,7 +111,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
-            const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
+            const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang, guideText }, ctrl.signal);
             // A Stop (or the timeout) that lost the race to the response still
             // means "don't use it".
             if (narrative && !ctrl.signal.aborted) {
@@ -129,11 +134,11 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         setBusy(false);
       }
     },
-    [deps],
+    [deps, guideText],
   );
 
   useEffect(() => {
-    if (deps.isPopout || !deps.config.enabled || autoHandled.current) return;
+    if (deps.isPopout || !deps.config.enabled || autoHandled.current || !guidesReady) return;
     autoHandled.current = true;
     const state = loadDigestState(deps.projectId);
     const due = state ? isDigestDue(state, deps.now()) : true;
@@ -141,7 +146,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
     // remount). Deferred off the effect's sync phase (setState-in-effect banned).
     void Promise.resolve().then(() => generate({ notify: due, advance: due, narrative: due }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps.projectId, deps.config.enabled]);
+  }, [deps.projectId, deps.config.enabled, guidesReady]);
 
   // Manual "Generate now" is a REAL generate: it advances the cadence + rebaselines
   // the deltas (this IS the current digest), but doesn't notify.

@@ -49,6 +49,8 @@ export interface DigestNarrativeCtx {
   apiKey: string;
   model: string;
   lang: Lang;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
 }
 
 /** Run one forced write_digest_narrative tool call and return the parsed
@@ -63,6 +65,7 @@ export async function runDigestNarrative(
   const input = await runForcedToolCall({
     apiKey: ctx.apiKey,
     model: ctx.model,
+    guideText: ctx.guideText,
     tools: [NARRATIVE_TOOL],
     toolName: "write_digest_narrative",
     messages: [{ role: "user", content: buildDigestNarrativePrompt(digest, ctx.lang) }],

@@ -34,6 +34,8 @@ import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
+import { type OperatingGuide } from "./operating-guide";
+import { useGuideTextFrom } from "./action-guides-context";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
@@ -41,6 +43,14 @@ const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 export interface AiOrchestrationDeps {
   isPopout: boolean;
   settings: Settings;
+  /** §701 — the operating-guide library. This hook runs in task-manager's own body, ABOVE the
+   *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
+   *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
+  guides: readonly OperatingGuide[];
+  /** §701 — whether the guide library has loaded. The scheduled-job RUNNER is
+   *  unattended, so it waits for it while grounding is on rather than spend a
+   *  billed run without the guides. */
+  guidesReady: boolean;
   lang: Lang;
   today: string;
   project: ProjectMeta | undefined;
@@ -62,6 +72,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   const {
     isPopout,
     settings,
+    guides,
+    guidesReady,
     lang,
     today,
     project,
@@ -78,12 +90,14 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     requestOpen,
     requestChat,
   } = deps;
+  const jobGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "jobAnalysis");
 
   // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
   const actionAnalysis = useActionAnalysis({
     apiKey: aiKeyIfEnabled(settings.ai),
     model: settings.ai?.model ?? "claude-sonnet-5",
+    guideText: jobGuideText,
   });
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
   // returns a fresh object each render so depending on the whole thing defeats
@@ -188,10 +202,11 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   );
   useScheduledJobRunner({
     enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
+    guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
     notify: notifyScheduledJob,
   });
 

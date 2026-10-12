@@ -19,6 +19,8 @@ import { runForcedToolCall } from "./ai-forced-call";
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
 }
 
 /** Run one forced propose_wbs_changes tool call and return the parsed result
@@ -40,6 +42,7 @@ export async function runWbsProposal(
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildWbsSystemPrompt(),
+    guideText: ai.guideText,
     tools: [PROPOSE_WBS_TOOL],
     toolName: PROPOSE_WBS_TOOL.name,
     messages: [{ role: "user", content: userMessage }],

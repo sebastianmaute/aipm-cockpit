@@ -40,6 +40,7 @@ const earlyMorning = () => {
 function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJobRunnerArgs {
   return {
     enabled: true,
+    guidesReady: true,
     jobs: [dailyJob()],
     recordRun: vi.fn(),
     buildContext: () => "ctx",
@@ -140,5 +141,110 @@ describe("useScheduledJobRunner", () => {
     });
     expect(mockRun).toHaveBeenCalledTimes(1);
     rendered?.unmount();
+  });
+});
+
+// §701 — the runner hands `aiRef.current` to the call, so a guide edited after mount
+// reaches the next interval tick. Nothing is due at mount; the job turns due with the
+// rerender, so the only call is the tick after it, and a runner reading its mount-time
+// `args.ai` would send "GUIDE-A".
+describe("useScheduledJobRunner — operating guides (§701)", () => {
+  beforeEach(() => { mockRun.mockReset(); vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("a tick sends the latest guide text, not the one it mounted with", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { now: () => Date; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ now: p.now, ai: { apiKey: "k", model: "m", guideText: p.guideText } })),
+      { initialProps: { now: earlyMorning, guideText: "GUIDE-A" } },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled(); // control: not due at mount
+    rerender({ now: afternoon, guideText: "GUIDE-B" });
+    await act(async () => { vi.advanceTimersByTime(5 * 60 * 1000); for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-B");
+    // One due job is one request: caching it would pay the write for nothing.
+    expect(mockRun.mock.calls[0][1].cacheGuides).toBe(false);
+  });
+
+  it("asks to cache the guide prefix when one tick runs several due jobs", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1 }), dailyJob({ id: 2, name: "Second" })] })));
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(mockRun.mock.calls.map((c) => c[1].cacheGuides)).toEqual([true, true]);
+  });
+
+  // The run on app open waits for the guides, then happens at once — not at
+  // the next 5-minute interval.
+  it("holds the tick while the guides load, then runs straight away when they arrive", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean }) => useScheduledJobRunner(baseArgs({ guidesReady: p.guidesReady })),
+      { initialProps: { guidesReady: false } },
+    );
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    rerender({ guidesReady: true });
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); }); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+});
+
+// §701 review 7 — the production startup order: the guides (a quick local
+// read) are ready BEFORE the AI settings (a sealed key, decrypted async)
+// switch the runner on. The first run must follow the switch-on, not wait
+// for the 5-minute interval.
+describe("useScheduledJobRunner — startup order (§701)", () => {
+  beforeEach(() => { mockRun.mockReset(); });
+  const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
+
+  it("runs once the runner is switched on after the guides were already ready", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { enabled: boolean; guidesReady: boolean }) => useScheduledJobRunner(baseArgs(p)),
+      { initialProps: { enabled: false, guidesReady: false } },
+    );
+    await act(flush);
+    rerender({ enabled: false, guidesReady: true });
+    await act(flush);
+    expect(mockRun).not.toHaveBeenCalled(); // still off: the guides-ready tick does nothing
+    rerender({ enabled: true, guidesReady: true });
+    await act(flush); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // The production case: the key and the switch-on arrive in ONE settings
+  // commit (both come from the decrypted key). The edge run must send that key,
+  // not the empty one from before — a 401 there burns the job's slot.
+  it("the switch-on run carries the key and guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { enabled: boolean; apiKey: string; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ enabled: p.enabled, ai: { apiKey: p.apiKey, model: "m", guideText: p.guideText } })),
+      { initialProps: { enabled: false, apiKey: "", guideText: "" } },
+    );
+    await act(flush);
+    rerender({ enabled: true, apiKey: "sk-ant-decrypted", guideText: "GUIDE-ARRIVED" });
+    await act(flush);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].apiKey).toBe("sk-ant-decrypted");
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-ARRIVED");
+  });
+
+  it("the run on the guides-ready edge carries the guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ guidesReady: p.guidesReady, ai: { apiKey: "k", model: "m", guideText: p.guideText } })),
+      { initialProps: { guidesReady: false, guideText: "" } },
+    );
+    await act(flush);
+    rerender({ guidesReady: true, guideText: "GUIDE-LOADED" });
+    await act(flush);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-LOADED");
   });
 });

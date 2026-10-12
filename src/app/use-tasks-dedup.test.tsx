@@ -8,6 +8,8 @@ import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Task } from "./types";
 import * as call from "./task-dedup-call";
+import { ActionGuidesProvider } from "./action-guides-context";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 vi.mock("./task-dedup-call");
 
@@ -266,5 +268,31 @@ describe("useTasksDedup — §650 a refused key shows the key message", () => {
     fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify" }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
+  });
+});
+
+// §701 — the dedup proposal carries the dedup action's operating guides.
+describe("useTasksDedup operating guides (§701)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+  const guide: OperatingGuide = {
+    id: "g-dedup", name: "dedup guide", content: "DEDUP-GUIDE-701", enabled: true,
+    priority: 1, scope: { targets: ["dedup"] }, builtIn: false,
+  };
+
+  it("hands the provider's dedup guide text to the proposal call", async () => {
+    vi.mocked(call.runDedupProposal).mockResolvedValue([]);
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>
+          <Harness />
+        </ActionGuidesProvider>
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
+    await waitFor(() => expect(call.runDedupProposal).toHaveBeenCalledTimes(1));
+    const ai = vi.mocked(call.runDedupProposal).mock.calls[0][1];
+    expect(ai.guideText).toBe(actionGuideText([guide], true, "dedup"));
+    expect(ai.guideText).toContain("DEDUP-GUIDE-701");
   });
 });

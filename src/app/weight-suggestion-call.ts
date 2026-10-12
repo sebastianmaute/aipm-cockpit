@@ -7,13 +7,19 @@ import { type SuggestionScope } from "./next-actions-tuning";
 import { SUGGEST_TOOL, buildSuggestionSystemPrompt, parseSuggestionResponse, type SuggestionResult } from "./weight-suggestion-ai";
 import { runForcedToolCall } from "./ai-forced-call";
 
-interface AiCreds { apiKey: string; model: string }
+interface AiCreds {
+  apiKey: string;
+  model: string;
+  /** The user's guides for this action (§701), from `actionGuideText`. */
+  guideText?: string;
+}
 
 export async function runWeightSuggestion(context: string, ai: AiCreds, current: NextActionsConfig, scope: SuggestionScope): Promise<SuggestionResult> {
   const input = await runForcedToolCall({
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildSuggestionSystemPrompt(),
+    guideText: ai.guideText,
     tools: [SUGGEST_TOOL],
     toolName: "suggest_weights",
     messages: [{ role: "user", content: context }],

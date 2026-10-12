@@ -223,3 +223,35 @@ describe("callInlineEdit", () => {
     });
   });
 });
+
+// §701 — the guides that target inline edit arrive as ready text and are
+// appended after the scope block; without it the system blocks are unchanged.
+describe("callInlineEdit guide text", () => {
+  const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+    content: [],
+    stop_reason: "end_turn",
+    usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+  };
+  async function systemBlocks(guideText?: string) {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({
+      apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
+      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
+      snapshot, guides: [], groundInGuides: true, guideText,
+    });
+    return spy.mock.calls[0][2] as { text: string }[];
+  }
+  it("appends the guide text as the last block, after the scope block", async () => {
+    const without = await systemBlocks();
+    vi.restoreAllMocks();
+    const withText = await systemBlocks("INLINE-MARK");
+    expect(withText).toHaveLength(without.length + 1);
+    expect(withText[withText.length - 1].text).toBe("INLINE-MARK");
+    expect(withText[withText.length - 2].text).toMatch(/INLINE EDIT MODE/);
+  });
+  it("adds no block for empty guide text", async () => {
+    const without = await systemBlocks();
+    vi.restoreAllMocks();
+    expect(await systemBlocks("")).toHaveLength(without.length);
+  });
+});

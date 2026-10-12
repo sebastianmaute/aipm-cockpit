@@ -49,6 +49,7 @@ function renderRunner(overrides: Partial<InsightRecommendRunnerArgs> = {}) {
   const applyRecommendation = vi.fn();
   const args: InsightRecommendRunnerArgs = {
     enabled: true,
+    guidesReady: true,
     insights: [],
     ai: { apiKey: "sk-ant-test", model: "claude-test" },
     today: "2026-01-01",
@@ -226,6 +227,7 @@ describe("useInsightRecommendRunner cadence", () => {
       (p: P) =>
         useInsightRecommendRunner({
           enabled: true,
+          guidesReady: true,
           insights: [makeInsight(1)],
           ai: { apiKey: "sk-ant-test", model: "claude-test" },
           today: "2026-01-01",
@@ -315,5 +317,82 @@ describe("useInsightRecommendRunner — the scope epoch (§548)", () => {
 
     expect(mockRun).toHaveBeenCalledTimes(2);
     expect(applyRecommendation).toHaveBeenCalledTimes(2);
+  });
+});
+
+// §701 — the tick reads the guide text through `aiRef`, so a guide edited after mount
+// reaches the next billed call. Nothing is a candidate at mount, so the only call is
+// the interval tick after the rerender; a runner reading its mount-time `args.ai`
+// would send "GUIDE-A".
+describe("useInsightRecommendRunner — operating guides (§701)", () => {
+  test("a tick sends the latest guide text, not the one it mounted with", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const base: Omit<InsightRecommendRunnerArgs, "insights" | "ai"> = {
+      enabled: true,
+      guidesReady: true,
+      today: "2026-01-01",
+      intervalMinutes: 60,
+      buildIndex: () => emptyIndex,
+      buildContextFor: (i) => `context for ${i.id}`,
+      applyRecommendation: vi.fn(),
+    };
+    const { rerender } = renderHook(
+      (p: { insights: Insight[]; guideText: string }) =>
+        useInsightRecommendRunner({ ...base, insights: p.insights, ai: { apiKey: "sk-ant-test", model: "claude-test", guideText: p.guideText } }),
+      { initialProps: { insights: [] as Insight[], guideText: "GUIDE-A" } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).not.toHaveBeenCalled(); // control: no candidate at mount
+    rerender({ insights: [makeInsight(1)], guideText: "GUIDE-B" });
+    await act(async () => { vi.advanceTimersByTime(60 * 60 * 1000); await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-B");
+    // One candidate is one request: caching it would pay the write for nothing.
+    expect(mockRun.mock.calls[0][0].cacheGuides).toBe(false);
+  });
+
+  test("asks to cache the guide prefix when one tick has several candidates", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    renderRunner({ insights: [makeInsight(1), makeInsight(2)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun.mock.calls.map((c) => c[0].cacheGuides)).toEqual([true, true]);
+  });
+
+  // Held while the guides load, then run at once — not an hour later.
+  test("holds the tick while the guides load, then runs straight away when they arrive", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean }) => useInsightRecommendRunner({
+        enabled: true, insights: [makeInsight(1)], ai: { apiKey: "sk-ant-test", model: "claude-test" },
+        today: "2026-01-01", intervalMinutes: 60, buildIndex: () => emptyIndex,
+        buildContextFor: (i) => `context for ${i.id}`, applyRecommendation: vi.fn(), guidesReady: p.guidesReady,
+      }),
+      { initialProps: { guidesReady: false } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    rerender({ guidesReady: true });
+    await act(async () => { await flushMicrotasks(); }); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useInsightRecommendRunner — guides-ready edge (§701)", () => {
+  test("the run on the guides-ready edge carries the guide text that arrived with it", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean; guideText: string }) => useInsightRecommendRunner({
+        enabled: true, guidesReady: p.guidesReady, insights: [makeInsight(1)],
+        ai: { apiKey: "sk-ant-test", model: "claude-test", guideText: p.guideText },
+        today: "2026-01-01", intervalMinutes: 60, buildIndex: () => emptyIndex,
+        buildContextFor: (i) => `context for ${i.id}`, applyRecommendation: vi.fn(),
+      }),
+      { initialProps: { guidesReady: false, guideText: "" } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    rerender({ guidesReady: true, guideText: "GUIDE-LOADED" });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-LOADED");
   });
 });

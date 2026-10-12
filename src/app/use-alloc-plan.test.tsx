@@ -10,6 +10,7 @@ import { type Resource, type ResourcePlan } from "./types";
 import * as call from "./alloc-plan-call";
 import { type ParsedAllocationProposal } from "./alloc-plan/alloc-plan";
 import { t, tPlural } from "./i18n";
+import { ActionGuidesProvider } from "./action-guides-context";
 
 vi.mock("./alloc-plan-call");
 
@@ -430,5 +431,30 @@ describe("useAllocPlan — §650 a refused key shows the key message", () => {
     fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
+  });
+});
+
+// §701 — Plan with AI renders inside the root guide provider (resources-panel)
+// and sends the guides that target it.
+describe("useAllocPlan guide text", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("passes the guides that target Plan with AI, and only those, to the call", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue(proposal([]));
+    render(
+      <ActionGuidesProvider value={{ guides: [
+      { id: "t", name: "Team", content: "TARGET-MARK", enabled: true, priority: 10, scope: { targets: ["alloc" as const] }, builtIn: false },
+      { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
+    ], groundInGuides: true, ready: true }}>
+        <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+          <Harness />
+        </ToastProvider>
+      </ActionGuidesProvider>,
+    );
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    const text = vi.mocked(call.runAllocProposal).mock.calls[0][1].guideText ?? "";
+    expect(text).toContain("TARGET-MARK");
+    expect(text).not.toContain("CHAT-ONLY");
   });
 });

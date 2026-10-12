@@ -8,6 +8,7 @@ import { type SuggestionScope } from "./next-actions-tuning";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { type SuggestionResult } from "./weight-suggestion-ai";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { useActionGuideText } from "./action-guides-context";
 
 interface AiCreds { apiKey: string; model: string }
 
@@ -15,6 +16,7 @@ export function useWeightSuggestions(ai: AiCreds) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SuggestionResult | null>(null);
+  const guideText = useActionGuideText("weights");
 
   const run = useCallback(
     async (context: string, current: NextActionsConfig, scope: SuggestionScope): Promise<SuggestionResult | null> => {
@@ -23,7 +25,7 @@ export function useWeightSuggestions(ai: AiCreds) {
       setBusy(true);
       setError(null);
       try {
-        const parsed = await runWeightSuggestion(context, { apiKey: key, model: ai.model }, current, scope);
+        const parsed = await runWeightSuggestion(context, { apiKey: key, model: ai.model, guideText }, current, scope);
         setResult(parsed);
         return parsed;
       } catch (e) {
@@ -40,7 +42,7 @@ export function useWeightSuggestions(ai: AiCreds) {
         setBusy(false);
       }
     },
-    [ai.apiKey, ai.model],
+    [ai.apiKey, ai.model, guideText],
   );
 
   const clear = useCallback(() => { setResult(null); setError(null); }, []);

@@ -9,6 +9,7 @@ import type { Milestone, Stakeholder } from "./types";
 import { t, tPlural } from "./i18n";
 import { MAX_CONTEXT_MILESTONES } from "./raci-suggest/raci-suggest";
 import * as call from "./raci-suggest-call";
+import { ActionGuidesProvider } from "./action-guides-context";
 
 vi.mock("./raci-suggest-call");
 
@@ -407,5 +408,29 @@ describe("useRaciSuggest — §650 a refused key shows the key message", () => {
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
+  });
+});
+
+// §701 — Suggest RACI renders inside the root guide provider (raci-panel) and
+// sends the guides that target it.
+describe("useRaciSuggest guide text", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("passes the guides that target Suggest RACI, and only those, to the call", async () => {
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
+    render(
+      <ActionGuidesProvider value={{ guides: [
+      { id: "t", name: "Team", content: "TARGET-MARK", enabled: true, priority: 10, scope: { targets: ["raci" as const] }, builtIn: false },
+      { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
+    ], groundInGuides: true, ready: true }}>
+        <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+          <Harness />
+        </ToastProvider>
+      </ActionGuidesProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() => expect(call.runRaciSuggestion).toHaveBeenCalled());
+    const text = vi.mocked(call.runRaciSuggestion).mock.calls[0][1].guideText ?? "";
+    expect(text).toContain("TARGET-MARK");
+    expect(text).not.toContain("CHAT-ONLY");
   });
 });

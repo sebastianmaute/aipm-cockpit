@@ -4,6 +4,9 @@ vi.mock("./weight-suggestion-call", () => ({ runWeightSuggestion: vi.fn() }));
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { useWeightSuggestions } from "./use-weight-suggestions";
 import { defaultNextActionsConfig } from "./settings-types";
+import type { ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 describe("useWeightSuggestions", () => {
   // One module-level mock serves every test, so reset its calls and its resolved value before each:
@@ -26,5 +29,35 @@ describe("useWeightSuggestions", () => {
     const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }));
     await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
     expect(result.current.error).toBe("429");
+  });
+});
+
+// §701 — the suggestion call carries the weights action's operating guides.
+describe("useWeightSuggestions operating guides (§701)", () => {
+  beforeEach(() => { vi.mocked(runWeightSuggestion).mockReset(); });
+  const guide: OperatingGuide = {
+    id: "g-weights", name: "weights guide", content: "WEIGHTS-GUIDE-701", enabled: true,
+    priority: 1, scope: { targets: ["weights"] }, builtIn: false,
+  };
+  function wrapper({ children }: { children: ReactNode }) {
+    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>;
+  }
+
+  it("hands the provider's weights guide text to the call", async () => {
+    const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }), { wrapper });
+    await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
+    expect(runWeightSuggestion).toHaveBeenCalledTimes(1);
+    const ai = vi.mocked(runWeightSuggestion).mock.calls[0][1];
+    expect(ai.guideText).toBe(actionGuideText([guide], true, "weights"));
+    expect(ai.guideText).toContain("WEIGHTS-GUIDE-701");
+  });
+
+  it("sends no guide text when grounding is off", async () => {
+    function off({ children }: { children: ReactNode }) {
+      return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: false, ready: true }}>{children}</ActionGuidesProvider>;
+    }
+    const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }), { wrapper: off });
+    await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
+    expect(vi.mocked(runWeightSuggestion).mock.calls[0][1].guideText).toBe("");
   });
 });

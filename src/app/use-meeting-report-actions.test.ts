@@ -64,6 +64,7 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     getDashboardModel: () => ({}) as DashboardModel,
     aiKey: "sk-ant-test",
     aiModel: "claude-x",
+    guides: [],
     projectId: "p1",
     ...over,
   };
@@ -123,6 +124,20 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
     const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
     expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+  });
+
+  // §701 — the guides that target the committee report reach its call.
+  it("generate sends the guides that target the committee report", async () => {
+    const guides = [
+      { id: "r", name: "House style", content: "Lead with the decision.", enabled: true, priority: 10, scope: { targets: ["committeeReport" as const] }, builtIn: false },
+      { id: "c", name: "Chat", content: "Chat-only rule.", enabled: true, priority: 11, scope: {}, builtIn: false },
+    ];
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ guides })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const ctx = (runMeetingReport.mock.calls[0] as unknown[])[2] as { guideText?: string };
+    expect(ctx.guideText).toContain("Lead with the decision.");
+    expect(ctx.guideText).not.toContain("Chat-only rule.");
   });
 
   // §125: the AI draft is a billed Anthropic call and must be stoppable.

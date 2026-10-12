@@ -9,6 +9,7 @@ import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectPr
 import { type AttachmentBlock } from "./chat-attachments";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
+import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
 
 /** The user-message content the proposal call accepts: a plain string (SP3) or
@@ -21,6 +22,9 @@ interface AiCreds {
 }
 
 export function useProjectProposal(ai: AiCreds) {
+  // §701 — read here rather than taken from the caller: the wizard is this
+  // hook's only caller and sits inside the root's guide provider.
+  const guideText = useActionGuideText("projectProposal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +43,7 @@ export function useProjectProposal(ai: AiCreds) {
           apiKey: key,
           model: ai.model,
           system: buildProposalSystemPrompt(),
+          guideText,
           tools: [PROPOSAL_TOOL],
           toolName: "propose_project",
           messages: [{ role: "user", content: input }],
@@ -60,7 +65,7 @@ export function useProjectProposal(ai: AiCreds) {
         setBusy(false);
       }
     },
-    [ai.apiKey, ai.model],
+    [ai.apiKey, ai.model, guideText],
   );
 
   const reset = useCallback(() => setError(null), []);

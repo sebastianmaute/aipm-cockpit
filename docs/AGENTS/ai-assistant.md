@@ -70,6 +70,42 @@
   upgrade); all built-ins undeletable via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current
   view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
+- **Guides for the single-request AI actions (§701):** `GuideScope.targets` (over `AI_TARGETS` in
+  `operating-guide.ts`) names the surfaces a guide reaches. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
+  (`guideTargets`): every guide stored before §701 has none, so reading it as "everywhere" would send all of
+  them to every action. `selectActiveGuides` (chat) drops a guide that does not target `chat`;
+  `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, in plain
+  PRIORITY order (the number Settings shows, as the chat orders them; a new guide defaults to priority 10, so
+  it already precedes the built-in action guides), within `ACTION_GUIDE_CHAR_CAP`, skipping a guide WHOLE. An
+  unknown stored target id is dropped. Views/modes/modules are ignored for actions. `runForcedToolCall`
+  appends the text after `system` via `guideText` (`withGuideText`) as its own LAST block, marked for
+  caching only when the caller sets `cacheGuides`. `reconcileBuiltins` keeps a stored
+  `scope.targets` on a built-in (the editor always stores explicit targets for one), so "Applies to" on a
+  built-in survives the reload. ★★ CONSEQUENCE: a built-in action guide is stored with its seeded targets
+  from day one, so editing a `<!-- targets: … -->` marker in `lib/ai-action-guides.md` reaches NEW stores
+  only. `actionTargetsNotSentByGuide` drives the editor's "not sent to …" row note (over the cap, or crowded out);
+  only the two batching runners set `cacheGuides`, because the cache lives ~5 minutes and a single request
+  would pay the write premium for nothing. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
+  while grounding is on and the guides are loading) gates the digest's auto-run (its effect re-runs on `ready`), and a REQUIRED `guidesReady`
+  dep reaches the scheduled-job and insight-recommendation runners as their own `guidesReady` arg: a tick
+  skips while it is false and each runner ticks once when it turns true (once per load; turning grounding on mid-load can add one harmless extra tick). ★ For the INSIGHT runner that tick usually does nothing at app open: the guides tend to arrive while the project is still loading (`loadPending`, so `enabled` is false), and its first run then waits for the interval or a visibility change, as before §701. Scheduled jobs and the digest do run as soon as the guides land: at app open the AI settings (a sealed key, decrypted async) usually arrive AFTER the local guide load, so the scheduled runner ALSO ticks once on its `enabled` false→true edge (provided its job list has loaded by then; otherwise the interval picks them up). That edge arrives in the SAME commit as the key its request needs, so both edge effects are declared AFTER every ref-sync effect (★★ declared above the `aiRef` sync, the edge tick sent the PREVIOUS commit's empty key: a 401 booked as the slot's failed run). The switch-on tick is safe there because its `enabled` never flips on project loads, and deliberately NOT copied into the insight runner. ★ `ready` is DERIVED in `useOperatingGuides` as "the source whose load last settled is the current one" (`loadedFor === config`), so a change of source (file mode → Turso once its token unlocks) reads not-ready until the new source's load SETTLES — success or failure, a failed load keeping the previous library (fail-soft); a refresh superseded by a save does not count, and every save refreshes in `finally`, saved or not, so `ready` cannot stick at false; the chat composer's `guidesPending` (§76) inherits that. ★ Keyed on
+  `guidesReady`, NOT on `enabled` — the insight runner's `enabled` flips on every project load (§548), so a
+  re-tick on it would add a billed round per project switch. Each runner sets `cacheGuides` only when its
+  tick sends more than one request. User-started actions do not wait.
+  ★★★ **HOW A CALLER GETS THE TEXT DEPENDS ON WHERE IT RUNS.** `AiProviders` (`action-guides-context.tsx`) is
+  rendered in task-manager's RETURNED JSX, so it wraps task-manager's CHILDREN only. A hook rendered inside a
+  panel reads `useActionGuideText(target)`; a hook called in TASK-MANAGER'S OWN BODY (`useWbsPlan`,
+  `useMeetingReportActions`, `useAiOrchestration`, `useInsightRecommendations`) would read the empty default
+  there and silently send nothing — those take a REQUIRED `guides` dep and use `useGuideTextFrom`. Only a test
+  through the real TaskManager sees the difference (`task-manager.action-guides.test.tsx`); a hook-level test
+  that mounts a provider passes either way. ★★ Inline edit carries NO chat guides in production: both callers
+  (`use-tasks-inline-ai-edit.tsx`, `use-entity-inline-ai-edit.tsx`) pass `guides: []`, so `callInlineEdit`'s
+  chat path builds nothing. Its `inlineEdit` guides are read INSIDE `useInlineEntityEdit` with
+  `useActionGuideText` and passed as `guideText` — threading them through `guides` would reach nothing, and
+  passing the full library there would start sending the chat guides too. Built-in action guides come
+  from `lib/ai-action-guides.md` (`<!-- targets: … -->`, `parseActionGuides`, `VALID_ACTION_TARGETS` mirrors
+  `AI_TARGETS` minus chat — pinned by `operating-guide-targets.test.ts`). The settings size warning counts
+  chat guides only.
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
   `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic

@@ -35,6 +35,9 @@ export interface InlineEditArgs {
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
   groundInGuides: boolean;
+  /** §701 — the guides that target inline edit, from `actionGuideText`;
+   *  appended after the scope block. */
+  guideText?: string;
   // ★★ NO `historySearch` FIELD, deliberately. It was here so the kill switch
   //    could reach a path billed for the tool schema like any other — but this
   //    path is single-shot, so `search_history` can only ever produce a failed
@@ -129,6 +132,14 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
+  // §701 — the guides that target inline edit itself. ★ `args.guides` (the
+  // CHAT path above) is `[]` from both production callers, so this path sends
+  // no chat guides; the inline-edit guides arrive as ready text instead.
+  // ★ They sit AFTER the scope block, which changes with every item, so they
+  // are never part of a cached prefix — accepted: an inline edit is one request,
+  // and moving them ahead of the scope block would put user guidance before the
+  // "you are editing exactly ONE item" boundary it must not override.
+  if (args.guideText) system.push({ type: "text", text: args.guideText });
   const res = await callClaude(
     args.apiKey,
     args.model,

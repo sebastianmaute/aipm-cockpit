@@ -105,7 +105,7 @@ import { Button } from "./button";
 import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
-import { AiUsageProvider } from "./ai-usage-context";
+import { AiProviders } from "./action-guides-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useMeetingReportActions } from "./use-meeting-report-actions";
 import { useCommSend } from "./use-comm-send";
@@ -364,6 +364,7 @@ function TaskManagerInner() {
     () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
     [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
   );
+  const operatingGuides = useOperatingGuides({ config: tursoConfig }); // §701: above every body-level AI hook, which take `guides`
 
   // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
   // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
@@ -725,7 +726,7 @@ function TaskManagerInner() {
   // context builder + SP5 scheduled-job runner) extracted to useAiOrchestration.
   const { aiAnalysisBundle, buildWeightSuggestionContext } = useAiOrchestration({
     isPopout,
-    settings,
+    settings, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     lang,
     today,
     project,
@@ -882,7 +883,6 @@ function TaskManagerInner() {
     // §626. A startup replay write failed: reported as a failed template save is. Kind and id only.
     onReplayFailure: ({ kind, id }) => reportSilentFailure(showToast, lang, "commTemplates.replayFailed", new Error(`${kind}:${id}`), "guardCommTemplateSaveFailed"),
   });
-  const operatingGuides = useOperatingGuides({ config: tursoConfig });
   const meetingReportActions = useMeetingReportActions({
     lang,
     isPopout,
@@ -896,7 +896,7 @@ function TaskManagerInner() {
     showToast,
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
-    aiModel: settings.ai.model,
+    aiModel: settings.ai.model, guides: operatingGuides.guides,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
@@ -1092,7 +1092,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const dispatcher = useChatDispatcherWiring({
@@ -1125,7 +1125,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, loadPending, getScopeEpoch, settings, lang, today, project,
+    isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
@@ -1977,7 +1977,7 @@ function TaskManagerInner() {
   if (isPopout) {
     return (
       <ActivityLogProvider value={logActivityAs}>
-        <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+        <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
@@ -1985,7 +1985,7 @@ function TaskManagerInner() {
               </ConfirmProvider>
             </VoiceCommandProvider>
           </ToastProvider>
-        </AiUsageProvider>
+        </AiProviders>
       </ActivityLogProvider>
     );
   }
@@ -2002,7 +2002,7 @@ function TaskManagerInner() {
 
   return (
     <ActivityLogProvider value={logActivityAs}>
-      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+      <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>
@@ -2052,7 +2052,7 @@ function TaskManagerInner() {
             </ConfirmProvider>
           </VoiceCommandProvider>
         </ToastProvider>
-      </AiUsageProvider>
+      </AiProviders>
     </ActivityLogProvider>
   );
 }

@@ -9,7 +9,7 @@ import { runJobAnalysis } from "./scheduled-job-analysis";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { isAbortError } from "./abort-error";
 
-interface AiCreds { apiKey: string; model: string }
+interface AiCreds { apiKey: string; model: string; guideText?: string }
 
 export function useActionAnalysis(ai: AiCreds) {
   const [busy, setBusy] = useState(false);
@@ -27,7 +27,7 @@ export function useActionAnalysis(ai: AiCreds) {
       setError(null);
       try {
         // Single source of truth for the call (shared with the SP5 job runner).
-        const parsed = await runJobAnalysis(context, { apiKey: key, model: ai.model }, controller.signal);
+        const parsed = await runJobAnalysis(context, { apiKey: key, model: ai.model, guideText: ai.guideText }, controller.signal);
         setResult(parsed);
         return parsed;
       } catch (e) {
@@ -76,7 +76,7 @@ export function useActionAnalysis(ai: AiCreds) {
         }
       }
     },
-    [ai.apiKey, ai.model],
+    [ai.apiKey, ai.model, ai.guideText],
   );
 
   const cancel = useCallback(() => { abortRef.current?.abort(); }, []);

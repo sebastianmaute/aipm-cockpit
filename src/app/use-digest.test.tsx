@@ -4,6 +4,9 @@ import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
+import type { ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
+import { actionGuideText, type OperatingGuide } from "./operating-guide";
 
 function model(rag: "R" | "A" | "G" = "A"): DashboardModel {
   return {
@@ -501,5 +504,52 @@ describe("useDigest", () => {
     await act(async () => { await result.current.generateNow(); });
     expect(runNarrative).not.toHaveBeenCalled();
     expect(result.current.digest?.narrative).toBeUndefined();
+  });
+});
+
+// §701 — the narrative call carries the digest's operating guides.
+describe("useDigest operating guides (§701)", () => {
+  const guide: OperatingGuide = {
+    id: "g-digest", name: "Digest guide", content: "DIGEST-GUIDE-701", enabled: true,
+    priority: 1, scope: { targets: ["digest"] }, builtIn: false,
+  };
+  function wrapper({ children }: { children: ReactNode }) {
+    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>;
+  }
+
+  it("hands the provider's digest guide text to the narrative call", async () => {
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", runNarrative })), { wrapper });
+    await act(async () => { await result.current.generateNow(); });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+    const ctx = runNarrative.mock.calls[0][1] as { guideText?: string };
+    expect(ctx.guideText).toBe(actionGuideText([guide], true, "digest"));
+    expect(ctx.guideText).toContain("DIGEST-GUIDE-701");
+  });
+
+  // The due auto-run is unattended and once per cadence: it waits for the
+  // guide library rather than narrate without it until the next due date.
+  it("holds the due auto-run until the guides have loaded, then runs it with them", async () => {
+    advanceDigestState("p1", { now: "2026-07-02T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    let ready = false;
+    const gated = ({ children }: { children: ReactNode }) => (
+      <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready }}>{children}</ActionGuidesProvider>
+    );
+    const d = deps({ aiKey: "sk-ant-k", runNarrative, config: { enabled: true, cadenceDays: 7 } });
+    let hook!: ReturnType<typeof renderHook>;
+    await act(async () => { hook = renderHook(() => useDigest(d), { wrapper: gated }); });
+    expect(runNarrative).not.toHaveBeenCalled();
+    ready = true;
+    await act(async () => { hook.rerender(); });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+    expect((runNarrative.mock.calls[0][1] as { guideText?: string }).guideText).toContain("DIGEST-GUIDE-701");
+  });
+
+  it("sends no guide text outside a provider", async () => {
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", runNarrative })));
+    await act(async () => { await result.current.generateNow(); });
+    expect((runNarrative.mock.calls[0][1] as { guideText?: string }).guideText).toBe("");
   });
 });
