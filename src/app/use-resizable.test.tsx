@@ -77,6 +77,15 @@ describe("useResizable — drag persistence", () => {
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 
+  // A content-sized panel measures fractional (a 90vh cap rarely lands on a
+  // whole pixel); the size at pointerdown is rounded like the one at pointerup,
+  // or a plain click would read as a 0.4px change and save.
+  it("does NOT persist a corner click on a fractional size", () => {
+    const box = render(<Harness />).getByTestId("box");
+    drag(box, { width: 680.4, height: 612.6 }, { width: 680.4, height: 612.6 });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
   it("persists a drag that changed only the height", () => {
     const box = render(<Harness />).getByTestId("box");
     drag(box, { width: 512, height: 300 }, { width: 512, height: 333 });
