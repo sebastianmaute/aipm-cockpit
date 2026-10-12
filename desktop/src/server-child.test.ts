@@ -30,9 +30,9 @@ function spawnFake(pid: number | undefined): FakeChild {
   return child;
 }
 
-const realPlatform = process.platform;
+const realPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
 function onPlatform(platform: NodeJS.Platform): void {
-  Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  Object.defineProperty(process, "platform", { ...realPlatform, value: platform });
 }
 
 describe("killServer (§697)", () => {
@@ -40,7 +40,7 @@ describe("killServer (§697)", () => {
     vi.clearAllMocks();
   });
   afterEach(() => {
-    onPlatform(realPlatform);
+    Object.defineProperty(process, "platform", realPlatform);
   });
 
   it("kills the child's own process tree by PID on Windows, never by image name", () => {
@@ -86,6 +86,7 @@ describe("killServer (§697)", () => {
     });
     const child = spawnFake(4242);
     expect(() => killServer(child as never)).not.toThrow();
+    expect(execFileSync).toHaveBeenCalledTimes(1); // control: the failing taskkill really ran
   });
 });
 
