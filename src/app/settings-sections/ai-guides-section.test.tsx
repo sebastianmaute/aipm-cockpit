@@ -353,7 +353,7 @@ describe("AiGuidesSection action character cap", () => {
     const note = t("en-US", "aiGuideNotSentTooLong", t("en-US", "aiGuideTargetWbs"), (12_000).toLocaleString("en-US"));
     expect(screen.getAllByText(note)).toHaveLength(1);
     // A static note, not a live region: one per row must not announce on each render.
-    expect(screen.getByText(note)).toHaveAttribute("role", "note");
+    expect(screen.getByText(note).closest("[role]")).toHaveAttribute("role", "note");
   });
 
   it("says a short guide is crowded out, not that it is too long", () => {

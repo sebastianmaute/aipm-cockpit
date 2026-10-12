@@ -415,8 +415,13 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                         if (notSent.length === 0) return null;
                         const key = g.content.length > ACTION_GUIDE_CHAR_CAP ? "aiGuideNotSentTooLong" : "aiGuideNotSentCrowded";
                         return (
-                          <Banner severity="warn" role="note" className="mt-1 text-xs">
-                            {t(lang, key, notSent.map((x) => t(lang, TARGET_LABEL[x])).join(", "), ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
+                          <Banner severity="warn" role="note" className="mt-1">
+                            {/* Size on an inner span: on the Banner itself `text-xs`
+                                would compete with its own `text-sm`, and which wins
+                                is CSS order, not class order. */}
+                            <span className="text-xs">
+                              {t(lang, key, notSent.map((x) => t(lang, TARGET_LABEL[x])).join(", "), ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
+                            </span>
                           </Banner>
                         );
                       })()}

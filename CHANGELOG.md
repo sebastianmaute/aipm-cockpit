@@ -23,8 +23,8 @@ longer carries its own changelog comment.
   AI edit. An action sends the guides that name it, in priority order, so a team rule such as "split anything
   over 3 days" no longer has to be typed on every run. Eight built-in method guides ship for the actions where
   a method helps; each can be switched off, and its "Applies to" choice is kept. Existing guides keep applying
-  to the chat only, and a guide never changes what an action is allowed to write. The weekly digest, scheduled
-  jobs and insight recommendations wait for the guides to load and then run straight away. While devices on
+  to the chat only, and a guide never changes what an action is allowed to write. The weekly digest and scheduled
+  jobs wait for the guides to load and then run straight away; insight recommendations wait for them too. While devices on
   an older version share the same Turso database, those devices ignore "Applies to" and show every guide,
   action-only ones included, to their chat; each time one of them loads it resets "Applies to" on the
   built-in guides it knows (not the new action guides), and re-saving a guide there drops its "Applies to" choice. A guide too long for an AI

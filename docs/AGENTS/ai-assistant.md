@@ -83,12 +83,12 @@
   `scope.targets` on a built-in (the editor always stores explicit targets for one), so "Applies to" on a
   built-in survives the reload. ★★ CONSEQUENCE: a built-in action guide is stored with its seeded targets
   from day one, so editing a `<!-- targets: … -->` marker in `lib/ai-action-guides.md` reaches NEW stores
-  only. `actionTargetsNotSent` drives the editor's "not sent to …" row note (over the cap, or crowded out);
+  only. `actionTargetsNotSentByGuide` drives the editor's "not sent to …" row note (over the cap, or crowded out);
   only the two batching runners set `cacheGuides`, because the cache lives ~5 minutes and a single request
   would pay the write premium for nothing. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
   while grounding is on and the guides are loading) gates the digest's auto-run (its effect re-runs on `ready`), and a REQUIRED `guidesReady`
   dep reaches the scheduled-job and insight-recommendation runners as their own `guidesReady` arg: a tick
-  skips while it is false and each runner ticks ONCE when it turns true (never returns to false). ★ Keyed on
+  skips while it is false and each runner ticks once when it turns true (once per load; turning grounding on mid-load can add one harmless extra tick). ★ For the INSIGHT runner that tick usually does nothing at app open: the guides tend to arrive while the project is still loading (`loadPending`, so `enabled` is false), and its first run then waits for the interval or a visibility change, as before §701. Scheduled jobs and the digest do run as soon as the guides land. ★ Keyed on
   `guidesReady`, NOT on `enabled` — the insight runner's `enabled` flips on every project load (§548), so a
   re-tick on it would add a billed round per project switch. Each runner sets `cacheGuides` only when its
   tick sends more than one request. User-started actions do not wait.

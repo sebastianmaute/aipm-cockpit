@@ -176,10 +176,14 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   }, []);
 
   // §701 — tick once when the guides finish loading: a tick skipped while they
-  // loaded, and the next interval may be an hour away. `guidesReady` never
-  // returns to false, so this fires at most once. Deliberately NOT keyed on
+  // loaded, and the next interval may be an hour away. It fires once per load;
+  // turning grounding on mid-load can add one more tick, which is harmless (a
+  // tick takes only insights without a recommendation). Deliberately NOT keyed on
   // `enabled`, which flips on every project load (§548) and would add a billed
-  // round per project switch.
+  // round per project switch. ★ The consequence: when the guides arrive while
+  // the project is still loading (`enabled` false, the usual order at app open),
+  // this tick does nothing and the first run waits for the interval or a
+  // visibility change — exactly as before §701.
   useEffect(() => {
     const was = guidesReadyRef.current;
     guidesReadyRef.current = guidesReady;

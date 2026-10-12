@@ -59,8 +59,10 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   const tickRef = useRef<() => Promise<void>>(async () => {});
 
   // §701 — tick once when the guides finish loading: the mount tick skipped
-  // while they loaded, and the next interval may be minutes away. `guidesReady`
-  // never returns to false, so this fires at most once.
+  // while they loaded, and the next interval may be minutes away. It fires once
+  // per load; turning grounding on while the guides are still loading can flip
+  // it true→false→true and add one more tick, which is harmless (a tick runs
+  // only jobs that are due).
   useEffect(() => {
     const was = guidesReadyRef.current;
     guidesReadyRef.current = guidesReady;

@@ -233,21 +233,14 @@ export function actionGuideText(
   ].join("\n\n");
 }
 
-/** The AI actions a guide targets but will NOT reach, because it is over the
- *  cap or loses its place under the cap to higher-priority guides for that
- *  action (`selectActionGuides`). A disabled guide reaches nothing anyway and
- *  reports none. Used by the settings editor so a targeted guide that is never
- *  sent says so instead of failing silently. */
-export function actionTargetsNotSent(
-  guides: readonly OperatingGuide[],
-  guide: OperatingGuide,
-): Exclude<AiTarget, "chat">[] {
-  return actionTargetsNotSentByGuide(guides).get(guide.id) ?? [];
-}
-
-/** `actionTargetsNotSent` for every guide at once: one `selectActionGuides`
- *  per action (eleven), not one per guide per action, so the editor can compute
- *  it once per change to the library rather than on every keystroke. */
+/** Per guide id, the AI actions the guide targets but will NOT reach, because
+ *  it is over the cap or loses its place under the cap to higher-priority
+ *  guides for that action (`selectActionGuides`). A disabled guide reaches
+ *  nothing anyway and is absent. Drives the settings editor's "not sent to"
+ *  row note, so a targeted guide that is never sent says so instead of failing
+ *  silently. One `selectActionGuides` per action (eleven), not one per guide per
+ *  action, so the editor computes it once per change to the library rather than
+ *  on every keystroke. */
 export function actionTargetsNotSentByGuide(
   guides: readonly OperatingGuide[],
 ): Map<string, Exclude<AiTarget, "chat">[]> {

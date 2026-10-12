@@ -64,7 +64,10 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
       out.push(seed);
       continue;
     }
-    const scope = cur.scope.targets ? { ...seed.scope, targets: cur.scope.targets } : seed.scope;
+    // `Array.isArray`, not truthiness: stored scope is unvalidated JSON, and a
+    // malformed `targets` must fall back to the seed's, not be kept forever.
+    const stored = cur.scope?.targets;
+    const scope = Array.isArray(stored) ? { ...seed.scope, targets: stored } : seed.scope;
     if (
       cur.content !== seed.content ||
       cur.name !== seed.name ||

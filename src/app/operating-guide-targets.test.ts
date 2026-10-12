@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSent, actionTargetsNotSentByGuide, guideTargets, selectActionGuides, selectActiveGuides,
+  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSentByGuide, guideTargets, selectActionGuides, selectActiveGuides,
   type OperatingGuide,
 } from "./operating-guide";
 import { runForcedToolCall, withGuideText } from "./ai-forced-call";
@@ -247,27 +247,30 @@ describe("reconcileBuiltins keeps the user's targets on a built-in", () => {
 });
 
 // §701 review 2 — a guide that targets an action but is never sent says so.
-describe("actionTargetsNotSent", () => {
+// Per-guide view of the map the editor uses.
+const notSentFor = (guides: OperatingGuide[], guide: OperatingGuide) => actionTargetsNotSentByGuide(guides).get(guide.id) ?? [];
+
+describe("actionTargetsNotSentByGuide, per guide", () => {
   it("names an action a guide over the cap alone will never reach", () => {
     const big = g({ id: "big", content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1), scope: { targets: ["chat", "wbs"] } });
-    expect(actionTargetsNotSent([big], big)).toEqual(["wbs"]);
+    expect(notSentFor([big], big)).toEqual(["wbs"]);
   });
 
   it("names an action where higher-priority guides crowd it out under the cap", () => {
     const first = g({ id: "a", priority: 1, content: "x".repeat(ACTION_GUIDE_CHAR_CAP - 10), scope: { targets: ["wbs", "raci"] } });
     const second = g({ id: "b", priority: 2, content: "x".repeat(20), scope: { targets: ["wbs", "raci"] } });
     const raciOnly = [{ ...first, scope: { targets: ["wbs" as const] } }, second];
-    expect(actionTargetsNotSent([first, second], second)).toEqual(["wbs", "raci"]);
-    expect(actionTargetsNotSent(raciOnly, second)).toEqual(["wbs"]);
+    expect(notSentFor([first, second], second)).toEqual(["wbs", "raci"]);
+    expect(notSentFor(raciOnly, second)).toEqual(["wbs"]);
   });
 
   it("reports nothing for a guide that is sent, disabled, or chat-only", () => {
     const ok = g({ id: "ok", scope: { targets: ["wbs"] } });
-    expect(actionTargetsNotSent([ok], ok)).toEqual([]);
+    expect(notSentFor([ok], ok)).toEqual([]);
     const off = g({ id: "off", enabled: false, content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1), scope: { targets: ["wbs"] } });
-    expect(actionTargetsNotSent([off], off)).toEqual([]);
+    expect(notSentFor([off], off)).toEqual([]);
     const chat = g({ id: "chat", content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1) });
-    expect(actionTargetsNotSent([chat], chat)).toEqual([]);
+    expect(notSentFor([chat], chat)).toEqual([]);
   });
 });
 
@@ -296,5 +299,14 @@ describe("actionTargetsNotSentByGuide", () => {
     const m = actionTargetsNotSentByGuide([big, ok]);
     expect(m.get("big")).toEqual(["wbs", "raci"]);
     expect(m.has("ok")).toBe(false);
+  });
+});
+
+describe("reconcileBuiltins on a malformed stored targets", () => {
+  it("restores the seed's scope instead of keeping a non-array targets forever", () => {
+    const stored = builtinSeeds().map((s) => (s.id === "builtin-action-wbs" ? { ...s, scope: { targets: "wbs" as never } } : s));
+    const out = reconcileBuiltins(stored);
+    expect(out).toHaveLength(1);
+    expect(out[0].scope).toEqual(builtinSeeds().find((s) => s.id === "builtin-action-wbs")!.scope);
   });
 });
