@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Typechecks desktop/ (tsc -p desktop/tsconfig.json --noEmit), which the root tsc excludes, PLUS
-// desktop/tsconfig.test.json (updater.test.ts + updater-module-shape.test.ts — the two desktop
-// tests that import electron/electron-updater, so they must stay out of the root tsc program too;
+// desktop/tsconfig.test.json (updater.test.ts, updater-module-shape.test.ts, server-child.test.ts —
+// the desktop tests that import electron/electron-updater, so they must stay out of the root tsc program too;
 // desktop/tsconfig.json itself excludes every `src/**/*.test.ts`, so neither program sees them
 // without this second run). Needs desktop/node_modules (electron's and electron-updater's types).
 // Missing: locally a visible SKIP (exit 0); under CI (env CI set) exit 2, so a workflow that

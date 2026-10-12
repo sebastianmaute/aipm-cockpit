@@ -77,8 +77,9 @@ re-resolved by hand.
   run) and `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
   `desktop/tsconfig.json` then `desktop/tsconfig.test.json`, exiting with the worse of the two —
   covering `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes, PLUS
-  `updater.test.ts`/`updater-module-shape.test.ts`, excluded from the root program for the same
-  reason (they import `electron`/`electron-updater` via `./updater`) but ALSO excluded from
+  the desktop tests that import `electron`/`electron-updater` (`updater.test.ts`,
+  `updater-module-shape.test.ts`, `server-child.test.ts`), excluded from the root program for the same
+  reason but ALSO excluded from
   `desktop/tsconfig.json` (it drops every `src/**/*.test.ts`), so the second pass is what still
   typechecks them; without the desktop install above either pass would exit 2 rather than silently
   pass) — each one run even after an
@@ -112,7 +113,7 @@ re-resolved by hand.
   local install; CI is where it is enforced.
 - **`unit`** (45 min). `npm ci` then `npm --prefix desktop ci --ignore-scripts` (types only, no
   electron binary) — `vitest.config.ts`'s `include` covers `desktop/**/*.test.ts`, and
-  `updater.test.ts`/`updater-module-shape.test.ts` import `electron`/`electron-updater` directly;
+  `updater.test.ts`, `updater-module-shape.test.ts` and `server-child.test.ts` import `electron`/`electron-updater`;
   mocking those specifiers doesn't help since Vite resolves the import before a mock applies.
   `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit
   --outputFile=junit.xml`, piped through `tee unit.log` in a `shell: bash` step — GitHub's default

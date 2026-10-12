@@ -21,8 +21,8 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 ## What checks it
 
 - **Types.** The root `tsconfig.json` `exclude` lists `desktop/src/main.ts`, `server-child.ts`,
-  `updater.ts` and the two tests that import electron or electron-updater (`updater.test.ts`,
-  `updater-module-shape.test.ts`). The `lib/` modules are NOT excluded, so the root `npx tsc --noEmit`
+  `updater.ts` and the tests that import electron or electron-updater (`updater.test.ts`,
+  `updater-module-shape.test.ts`, `server-child.test.ts`). The `lib/` modules are NOT excluded, so the root `npx tsc --noEmit`
   covers them. The excluded files are typechecked by `npm run desktop:typecheck`
   (`scripts/check-desktop-types.mjs`: `tsc -p desktop/tsconfig.json`, then `desktop/tsconfig.test.json`),
   which runs in the `static` group of `scripts/gate-local.mjs` and in CI's `static` job.
