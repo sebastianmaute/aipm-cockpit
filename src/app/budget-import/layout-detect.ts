@@ -1,0 +1,219 @@
+// src/app/budget-import/layout-detect.ts — guesses where the forecast sits in a
+// sheet grid (§500). Pure: no i18n, no React, no DOM. The result is only a
+// first guess for the mapping step; the user can change every column.
+//
+// WIDE: one column per period ("Jan 2026", "KW03 2026"), one row per person.
+// LONG: one row per person and period, with a period column and an hours
+// column. A wide header with at least MIN_WIDE_PERIODS period cells is taken
+// first; a two-period wide sheet is only believed when no long reading fits,
+// because a long sheet's start/end date columns look the same.
+
+import { detectDecimalStyle, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
+import type { ColumnMapping } from "./forecast-types";
+
+export type LayoutDetection = {
+  kind: "wide" | "long" | "unknown";
+  mapping: ColumnMapping | null;
+};
+
+const MAX_HEADER_SCAN_ROWS = 10;
+const MIN_WIDE_PERIODS = 3;
+const MIN_WIDE_PERIODS_FALLBACK = 2;
+/** Share of a column's non-blank cells that must parse for it to count. */
+const COLUMN_SHARE = 0.8;
+/** Share of a column's non-blank cells that must be text for a person column. */
+const TEXT_SHARE = 0.5;
+
+const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
+const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
+const RATE_HEADER_RE = /rate|satz|€\/h|eur\/h/i;
+const EMAIL_HEADER_RE = /e-?mail/i;
+const SERIAL_RE = /^\d{5}(\.\d+)?$/;
+
+const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };
+
+type Rows = readonly string[][];
+
+const cellAt = (row: readonly string[] | undefined, col: number): string => row?.[col] ?? "";
+const isBlank = (s: string): boolean => s.trim() === "";
+const isTotalRow = (row: readonly string[]): boolean => row.some(isTotalLabel);
+
+/** The data rows under a header, total rows left out. */
+function dataRowsBelow(rows: Rows, headerRow: number): Rows {
+  return rows.slice(headerRow + 1).filter((row) => !isTotalRow(row));
+}
+
+/** A column's non-blank, trimmed cells. */
+function columnCells(data: Rows, col: number): string[] {
+  return data.map((row) => cellAt(row, col).trim()).filter((c) => c !== "");
+}
+
+function rowWidth(rows: Rows): number {
+  return rows.reduce((max, row) => Math.max(max, row.length), 0);
+}
+
+function shareOf(cells: readonly string[], predicate: (cell: string) => boolean): number {
+  return cells.length === 0 ? 0 : cells.filter(predicate).length / cells.length;
+}
+
+function isMostlyPeriods(cells: readonly string[]): boolean {
+  return shareOf(cells, (c) => parsePeriodLabel(c) !== null) >= COLUMN_SHARE;
+}
+
+function isMostlyNumbers(cells: readonly string[]): boolean {
+  const style = detectDecimalStyle(cells);
+  return shareOf(cells, (c) => parseNumberCell(c, style) !== null) >= COLUMN_SHARE;
+}
+
+function isMostlyText(cells: readonly string[]): boolean {
+  const style = detectDecimalStyle(cells);
+  return cells.length > 0 && shareOf(cells, (c) => parseNumberCell(c, style) === null) >= TEXT_SHARE;
+}
+
+function firstHeaderMatch(header: readonly string[], re: RegExp, skip: ReadonlySet<number>): number | undefined {
+  for (let col = 0; col < header.length; col++) {
+    if (!skip.has(col) && re.test(header[col] ?? "")) return col;
+  }
+  return undefined;
+}
+
+/** An e-mail column: by header, else by `@` in most of its cells. */
+function findEmailColumn(header: readonly string[], data: Rows, skip: ReadonlySet<number>): number | undefined {
+  const byHeader = firstHeaderMatch(header, EMAIL_HEADER_RE, skip);
+  if (byHeader !== undefined) return byHeader;
+  const width = Math.max(header.length, rowWidth(data));
+  for (let col = 0; col < width; col++) {
+    if (skip.has(col)) continue;
+    const cells = columnCells(data, col);
+    if (cells.length > 0 && shareOf(cells, (c) => c.includes("@")) >= TEXT_SHARE) return col;
+  }
+  return undefined;
+}
+
+/**
+ * The person column among `candidates`: the first mostly-text column, else
+ * the e-mail column when that is all there is to identify a person by.
+ */
+function pickPerson(
+  candidates: readonly number[],
+  data: Rows,
+  email: number | undefined,
+): number | null {
+  const text = candidates.find((col) => col !== email && isMostlyText(columnCells(data, col)));
+  if (text !== undefined) return text;
+  const emailIsText = email !== undefined && candidates.includes(email) && isMostlyText(columnCells(data, email));
+  return emailIsText ? email : null;
+}
+
+function withOptionals(base: ColumnMapping, extras: Partial<ColumnMapping>): ColumnMapping {
+  const out: ColumnMapping = { ...base };
+  if (extras.email !== undefined) out.email = extras.email;
+  if (extras.rate !== undefined) out.rate = extras.rate;
+  return out;
+}
+
+function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly number[]): ColumnMapping | null {
+  const header = rows[headerRow] ?? [];
+  const data = dataRowsBelow(rows, headerRow);
+  const periodSet = new Set(periodCols);
+  const email = findEmailColumn(header, data, periodSet);
+  const rate = firstHeaderMatch(header, RATE_HEADER_RE, new Set([...periodCols, ...(email === undefined ? [] : [email])]));
+  const leftOfPeriods = Array.from({ length: periodCols[0] }, (_, col) => col).filter((col) => col !== rate);
+  const person = pickPerson(leftOfPeriods, data, email);
+  if (person === null) return null;
+  return withOptionals(
+    { layout: "wide", headerRow, person, periodCols: [...periodCols] },
+    { email, rate },
+  );
+}
+
+function detectWide(rows: Rows, minPeriods: number): ColumnMapping | null {
+  const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
+  for (let headerRow = 0; headerRow < scanned; headerRow++) {
+    const header = rows[headerRow];
+    const periodCols: number[] = [];
+    for (let col = 0; col < header.length; col++) {
+      if (!isTotalLabel(header[col]) && parsePeriodLabel(header[col]) !== null) periodCols.push(col);
+    }
+    if (periodCols.length < minPeriods) continue;
+    const mapping = wideFromHeader(rows, headerRow, periodCols);
+    if (mapping !== null) return mapping;
+  }
+  return null;
+}
+
+/** Lower is better: a period-looking header, then a real date over a bare serial. */
+function periodRank(header: string, cells: readonly string[]): number {
+  if (PERIOD_HEADER_RE.test(header)) return 0;
+  return cells.every((c) => SERIAL_RE.test(c)) ? 2 : 1;
+}
+
+function findPeriodColumn(header: readonly string[], data: Rows, width: number): number | undefined {
+  let best: { col: number; rank: number } | undefined;
+  for (let col = 0; col < width; col++) {
+    const label = cellAt(header, col);
+    const cells = columnCells(data, col);
+    if (isBlank(label) || parsePeriodLabel(label) !== null || !isMostlyPeriods(cells)) continue;
+    const rank = periodRank(label, cells);
+    if (best === undefined || rank < best.rank) best = { col, rank };
+  }
+  return best?.col;
+}
+
+/** Numeric columns with a header, not the period column, not rate-like. */
+function numericColumns(header: readonly string[], data: Rows, width: number, period: number): number[] {
+  const out: number[] = [];
+  for (let col = 0; col < width; col++) {
+    const label = cellAt(header, col);
+    const cells = columnCells(data, col);
+    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && isMostlyNumbers(cells);
+    if (isCandidate) out.push(col);
+  }
+  return out;
+}
+
+function longFromHeader(rows: Rows, headerRow: number): ColumnMapping | null {
+  const header = rows[headerRow] ?? [];
+  const data = dataRowsBelow(rows, headerRow);
+  const width = Math.max(header.length, rowWidth(data));
+  const period = findPeriodColumn(header, data, width);
+  if (period === undefined) return null;
+
+  const numeric = numericColumns(header, data, width, period);
+  const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
+  const hoursCols = numeric.filter((col) => !rateCols.includes(col));
+  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
+  if (hours === undefined) return null;
+  const rate = rateCols[0];
+
+  const used = new Set([period, hours, ...(rate === undefined ? [] : [rate])]);
+  const email = findEmailColumn(header, data, used);
+  const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
+  const person = pickPerson(candidates, data, email);
+  if (person === null) return null;
+  return withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate });
+}
+
+function detectLong(rows: Rows): ColumnMapping | null {
+  const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
+  for (let headerRow = 0; headerRow < scanned; headerRow++) {
+    const mapping = longFromHeader(rows, headerRow);
+    if (mapping !== null) return mapping;
+  }
+  return null;
+}
+
+/**
+ * Guess the layout of a sheet grid and where its columns are. Scans the first
+ * 10 rows for the header. Ragged and empty rows are fine (a missing cell is
+ * blank). `unknown` when neither a wide nor a long reading fits.
+ */
+export function detectLayout(rows: readonly string[][]): LayoutDetection {
+  const wide = detectWide(rows, MIN_WIDE_PERIODS);
+  if (wide !== null) return { kind: "wide", mapping: wide };
+  const long = detectLong(rows);
+  if (long !== null) return { kind: "long", mapping: long };
+  const narrowWide = detectWide(rows, MIN_WIDE_PERIODS_FALLBACK);
+  if (narrowWide !== null) return { kind: "wide", mapping: narrowWide };
+  return UNKNOWN;
+}
