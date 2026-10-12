@@ -5,6 +5,7 @@
 // here: a period header ("Mär 2026", "KW03 2026", an Excel serial), a number
 // ("1.234,5" is 1234.5 in a German export, not 1.2345) or a total label.
 
+import { isoWeekParts } from "../resource-capacity";
 import { excelSerialToIso } from "./sheet-grid";
 import type { ColumnMapping, DropReason, ForecastRow } from "./forecast-types";
 
@@ -12,7 +13,10 @@ export type DecimalStyle = "dot" | "comma";
 
 const MIN_EXCEL_SERIAL_PERIOD = 20000;
 const MAX_EXCEL_SERIAL_PERIOD = 80000;
-const MAX_ISO_WEEK = 53;
+const DEC_28_MONTH_INDEX = 11;
+const DEC_28_DAY = 28; // always inside the last ISO week of its year
+const MAX_HOUR = 23;
+const MAX_MINUTE_OR_SECOND = 59;
 const TWO_DIGIT_YEAR_BASE = 2000;
 
 const MONTHS: Readonly<Record<string, number>> = {
@@ -36,8 +40,20 @@ function monthKey(year: number, month: number): string | null {
   return month >= 1 && month <= 12 ? `${year}-${pad2(month)}` : null;
 }
 
+/** Month key of a real calendar date (UTC round trip), else null. */
+function dateMonthKey(year: number, month: number, day: number): string | null {
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const isReal = d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
+  return isReal ? monthKey(year, month) : null;
+}
+
+/** ISO weeks in a year (52 or 53). */
+function isoWeeksInYear(year: number): number {
+  return isoWeekParts(new Date(Date.UTC(year, DEC_28_MONTH_INDEX, DEC_28_DAY))).week;
+}
+
 function weekKey(year: number, week: number): string | null {
-  return week >= 1 && week <= MAX_ISO_WEEK ? `${year}-W${pad2(week)}` : null;
+  return week >= 1 && week <= isoWeeksInYear(year) ? `${year}-W${pad2(week)}` : null;
 }
 
 function serialKey(cell: string): string | null {
@@ -59,19 +75,25 @@ export function parsePeriodLabel(cell: string): string | null {
   let m = /^(\d{4})-(\d{1,2})$/.exec(s);
   if (m) return monthKey(Number(m[1]), Number(m[2]));
 
-  m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  // ISO date, optionally with a time ("2026-01-15 00:00:00", "...T09:30:00.000Z").
+  m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ t](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?z?)?$/.exec(s);
   if (m) {
-    const day = Number(m[3]);
-    return day >= 1 && day <= 31 ? monthKey(Number(m[1]), Number(m[2])) : null;
+    const isTimeValid = Number(m[4] ?? 0) <= MAX_HOUR
+      && Number(m[5] ?? 0) <= MAX_MINUTE_OR_SECOND
+      && Number(m[6] ?? 0) <= MAX_MINUTE_OR_SECOND;
+    return isTimeValid ? dateMonthKey(Number(m[1]), Number(m[2]), Number(m[3])) : null;
   }
+
+  m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(s);
+  if (m) return dateMonthKey(Number(m[3]), Number(m[2]), Number(m[1]));
 
   m = /^(\d{1,2})[/.](\d{4})$/.exec(s);
   if (m) return monthKey(Number(m[2]), Number(m[1]));
 
-  m = /^(\d{4})-w(\d{1,2})$/.exec(s);
+  m = /^(\d{4})-(?:kw|w)(\d{1,2})$/.exec(s);
   if (m) return weekKey(Number(m[1]), Number(m[2]));
 
-  m = /^(?:kw|w)\s*(\d{1,2})[\s-]+(\d{4})$/.exec(s);
+  m = /^(?:kw|w)\s*(\d{1,2})[\s/-]+(\d{4})$/.exec(s);
   if (m) return weekKey(Number(m[2]), Number(m[1]));
 
   m = /^([a-zäöü]+)\.?[\s-]*(\d{4}|\d{2})$/.exec(s);
@@ -99,7 +121,7 @@ function stripNumberDecoration(cell: string): string {
 export function detectDecimalStyle(cells: readonly string[]): DecimalStyle {
   for (const cell of cells) {
     const s = stripNumberDecoration(cell).replace(/^-/, "");
-    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^\d+,\d+$/.test(s)) return "comma";
+    if (/^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s) || /^\d+,\d+$/.test(s)) return "comma";
   }
   return "dot";
 }

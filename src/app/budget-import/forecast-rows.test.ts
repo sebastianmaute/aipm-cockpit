@@ -44,7 +44,24 @@ describe("parsePeriodLabel", () => {
     ["W03 2026", "2026-W03"],
     ["KW03 2026", "2026-W03"],
     ["kw 3 2026", "2026-W03"],
+    ["KW53 2020", "2020-W53"],
+    ["2020-W53", "2020-W53"],
     ["KW53 2026", "2026-W53"],
+    ["2026-W53", "2026-W53"],
+    ["KW53/2026", "2026-W53"],
+    ["2026-KW53", "2026-W53"],
+    ["KW03/2026", "2026-W03"],
+    ["kw3/2026", "2026-W03"],
+    ["2026-KW03", "2026-W03"],
+    ["2026-kw3", "2026-W03"],
+    ["01.01.2026", "2026-01"],
+    ["15.3.2026", "2026-03"],
+    ["29.02.2028", "2028-02"],
+    ["2026-01-15 00:00:00", "2026-01"],
+    ["2026-01-15 09:30", "2026-01"],
+    ["2026-01-15T00:00:00", "2026-01"],
+    ["2026-01-15T00:00:00.000Z", "2026-01"],
+    ["2026-02-28", "2026-02"],
   ];
   it.each(accepted)("parses %j as %s", (cell, expected) => {
     expect(parsePeriodLabel(cell)).toBe(expected);
@@ -60,6 +77,18 @@ describe("parsePeriodLabel", () => {
     "2026-13",
     "2026-00",
     "2026-01-32",
+    "2026-02-31",
+    "2026-02-29",
+    "31.02.2026",
+    "00.01.2026",
+    "2026-02-31 00:00:00",
+    "2026-01-15T25:00:00",
+    "KW53 2025",
+    "2025-W53",
+    "KW53/2025",
+    "2025-KW53",
+    "2021-W53",
+    "2026-KW54",
     "2026-W00",
     "2026-W54",
     "KW54 2026",
@@ -90,6 +119,15 @@ describe("detectDecimalStyle", () => {
   });
   it("ignores a unit suffix and a minus sign", () => {
     expect(detectDecimalStyle(["-1.234,5 h"])).toBe("comma");
+  });
+  it("keeps a column dot when a cell is a leading-zero decimal like 0.125", () => {
+    expect(detectDecimalStyle(["0.125", "8"])).toBe("dot");
+    expect(detectDecimalStyle(["0.500"])).toBe("dot");
+    expect(detectDecimalStyle(["0.125.000"])).toBe("dot");
+  });
+  it("still reads 1.250 and 12.500 as dot-grouped thousands", () => {
+    expect(detectDecimalStyle(["1.250"])).toBe("comma");
+    expect(detectDecimalStyle(["12.500,5"])).toBe("comma");
   });
   it("is dot for an empty list", () => {
     expect(detectDecimalStyle([])).toBe("dot");
@@ -255,6 +293,24 @@ describe("gridToForecastRows — wide", () => {
     ];
     const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
     expect(out.rows[0].period).toBe("2025-01");
+  });
+});
+
+describe("gridToForecastRows — leading-zero decimals", () => {
+  const wide: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] };
+
+  it("does not inflate a dot-style column holding 0.125 by 1000x", () => {
+    const grid = [
+      ["Name", "Jan 2026", "Feb 2026"],
+      ["Ann", "0.125", "8"],
+    ];
+    const out = gridToForecastRows(grid, wide, "S");
+    expect(out.rows.map((r) => r.hours)).toEqual([0.125, 8]);
+  });
+  it("reads a lone 0.500 as 0.5 hours", () => {
+    const grid = [["Name", "Jan 2026"], ["Ann", "0.500"]];
+    const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
+    expect(out.rows.map((r) => r.hours)).toEqual([0.5]);
   });
 });
 
