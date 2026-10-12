@@ -15,6 +15,7 @@ import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
+import { useActionGuideText } from "./action-guides-context";
 import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
@@ -67,6 +68,12 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   const [plan, setPlan] = useState<EditPlan | null>(null);
   const [clarifyText, setClarifyText] = useState("");
   const [errorText, setErrorText] = useState("");
+  // §701 — the guides that target inline edit. Read HERE, not taken from the
+  // callers: both production callers (`use-tasks-inline-ai-edit.tsx`,
+  // `use-entity-inline-ai-edit.tsx`) render inside the root guide provider and
+  // pass `guides: []`, so a library threaded through `deps.guides` would reach
+  // nothing.
+  const inlineGuideText = useActionGuideText("inlineEdit");
   // Monotonic request generation: bumped on open/cancel/submit so a slow
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
@@ -189,7 +196,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang,
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
-        guides: deps.guides, groundInGuides: deps.ai.groundInGuides,
+        guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText,
         // ★ `historySearch` is NOT forwarded: `callInlineEdit` drops
         //   `search_history` unconditionally, because this path is single-shot
         //   and a search here can only yield an empty plan. Its own comment

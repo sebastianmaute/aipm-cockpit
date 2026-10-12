@@ -2351,7 +2351,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideScopeViews: "Ansichten",
   aiGuideTargets: "Gilt für",
   aiGuideTargetsHint: "Modi, Module und Ansichten grenzen ein, wo der Chat diesen Leitfaden nutzt; die KI-Aktionen ignorieren sie.",
-  aiGuideTargetsNone: "Wähle mindestens einen Ort, für den der Leitfaden gilt.",
+  aiGuideTargetsNone: "Wählen Sie mindestens einen Ort, für den der Leitfaden gilt.",
   aiGuideAppliesTo: "Gilt für: {0}",
   aiGuideTargetChat: "Chat-Assistent",
   aiGuideTargetWbs: "Mit KI optimieren (Arbeitsstruktur)",

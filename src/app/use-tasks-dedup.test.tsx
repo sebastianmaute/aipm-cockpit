@@ -284,7 +284,7 @@ describe("useTasksDedup operating guides (§701)", () => {
     vi.mocked(call.runDedupProposal).mockResolvedValue([]);
     render(
       <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
-        <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true }}>
+        <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>
           <Harness />
         </ActionGuidesProvider>
       </ToastProvider>,

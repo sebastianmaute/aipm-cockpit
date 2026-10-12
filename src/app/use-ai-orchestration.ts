@@ -46,6 +46,10 @@ export interface AiOrchestrationDeps {
    *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
    *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
   guides: readonly OperatingGuide[];
+  /** §701 — whether the guide library has loaded. The scheduled-job RUNNER is
+   *  unattended, so it waits for it while grounding is on rather than spend a
+   *  billed run without the guides. */
+  guidesReady: boolean;
   lang: Lang;
   today: string;
   project: ProjectMeta | undefined;
@@ -68,6 +72,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     isPopout,
     settings,
     guides,
+    guidesReady,
     lang,
     today,
     project,
@@ -195,7 +200,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     [lang],
   );
   useScheduledJobRunner({
-    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
+    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true
+      && (settings.ai?.groundInGuides !== true || guidesReady),
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,

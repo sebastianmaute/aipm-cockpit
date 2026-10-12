@@ -26,11 +26,12 @@ const guide: OperatingGuide = {
   priority: 1, scope: { targets: ["jobAnalysis"] }, builtIn: false,
 };
 
-function deps(groundInGuides: boolean): AiOrchestrationDeps {
+function deps(groundInGuides: boolean, guidesReady = true, scheduledJobs = false): AiOrchestrationDeps {
   return {
     isPopout: false,
-    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-k", groundInGuides } },
+    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-k", groundInGuides, scheduledJobs } },
     guides: [guide],
+    guidesReady,
     lang: "en-US",
     today: "2026-10-12",
     project: undefined,
@@ -62,5 +63,19 @@ describe("useAiOrchestration — operating guides (§701)", () => {
     renderHook(() => useAiOrchestration(deps(false)));
     expect(guideTextOf(analysisArgs)).toBe("");
     expect(runnerGuideTextOf()).toBe("");
+  });
+
+  // The runner is unattended: while grounding is on it waits for the library
+  // to load. Grounding off means there is nothing to wait for.
+  const runnerEnabled = () => (runnerArgs.at(-1) as { enabled: boolean }).enabled;
+  it("keeps the scheduled-job runner off until the guides load, while grounding is on", () => {
+    renderHook(() => useAiOrchestration(deps(true, false, true)));
+    expect(runnerEnabled()).toBe(false);
+  });
+  it("turns the runner on once the guides load, and does not wait when grounding is off", () => {
+    renderHook(() => useAiOrchestration(deps(true, true, true)));
+    expect(runnerEnabled()).toBe(true);
+    renderHook(() => useAiOrchestration(deps(false, false, true)));
+    expect(runnerEnabled()).toBe(true);
   });
 });

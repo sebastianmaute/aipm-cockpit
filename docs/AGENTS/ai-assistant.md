@@ -74,19 +74,27 @@
   `operating-guide.ts`) names the surfaces a guide reaches. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
   (`guideTargets`): every guide stored before §701 has none, so reading it as "everywhere" would send all of
   them to every action. `selectActiveGuides` (chat) drops a guide that does not target `chat`;
-  `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, the user's
-  own BEFORE built-ins (on purpose: "the earlier one wins", and a new guide is created at the lowest priority,
-  so by priority alone a built-in method guide would beat the team's rule), within `ACTION_GUIDE_CHAR_CAP`,
-  skipping a guide WHOLE. Views/modes/modules are ignored for actions. `runForcedToolCall` appends the text
-  after `system` via `guideText` (`withGuideText`), keeping the fixed prompt a stable prefix.
+  `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, in plain
+  PRIORITY order (the number Settings shows, as the chat orders them; a new guide defaults to priority 10, so
+  it already precedes the built-in action guides), within `ACTION_GUIDE_CHAR_CAP`, skipping a guide WHOLE. An
+  unknown stored target id is dropped. Views/modes/modules are ignored for actions. `runForcedToolCall`
+  appends the text after `system` via `guideText` (`withGuideText`) as its own LAST block carrying
+  `cache_control`, so tools + fixed prompt + guides cache as one prefix. `reconcileBuiltins` keeps a stored
+  `scope.targets` on a built-in (the editor always stores explicit targets for one), so "Applies to" on a
+  built-in survives the reload. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
+  while grounding is on and the guides are loading) gates the digest's auto-run, and a REQUIRED `guidesReady`
+  dep gates the scheduled-job and insight-recommendation runners; user-started actions do not wait.
   ★★★ **HOW A CALLER GETS THE TEXT DEPENDS ON WHERE IT RUNS.** `AiProviders` (`action-guides-context.tsx`) is
   rendered in task-manager's RETURNED JSX, so it wraps task-manager's CHILDREN only. A hook rendered inside a
   panel reads `useActionGuideText(target)`; a hook called in TASK-MANAGER'S OWN BODY (`useWbsPlan`,
   `useMeetingReportActions`, `useAiOrchestration`, `useInsightRecommendations`) would read the empty default
   there and silently send nothing — those take a REQUIRED `guides` dep and use `useGuideTextFrom`. Only a test
   through the real TaskManager sees the difference (`task-manager.action-guides.test.tsx`); a hook-level test
-  that mounts a provider passes either way. ★ Inline edit already carries the CHAT's guides, so its
-  `inlineEdit` guides skip any guide that also targets the chat (no double send). Built-in action guides come
+  that mounts a provider passes either way. ★★ Inline edit carries NO chat guides in production: both callers
+  (`use-tasks-inline-ai-edit.tsx`, `use-entity-inline-ai-edit.tsx`) pass `guides: []`, so `callInlineEdit`'s
+  chat path builds nothing. Its `inlineEdit` guides are read INSIDE `useInlineEntityEdit` with
+  `useActionGuideText` and passed as `guideText` — threading them through `guides` would reach nothing, and
+  passing the full library there would start sending the chat guides too. Built-in action guides come
   from `lib/ai-action-guides.md` (`<!-- targets: … -->`, `parseActionGuides`, `VALID_ACTION_TARGETS` mirrors
   `AI_TARGETS` minus chat — pinned by `operating-guide-targets.test.ts`). The settings size warning counts
   chat guides only.

@@ -40,15 +40,23 @@ export interface ForcedToolCallArgs {
   signal?: AbortSignal;
 }
 
-/** `system` with the guide text after it, in the shape `system` already has. */
+/** `system` with the guide text after it as its own block, carrying the cache
+ *  marker. Tools, the fixed prompt and the guides are all stable between runs
+ *  of one action, so marking the LAST system block caches the whole prefix —
+ *  which is what makes up to ~3k tokens of guides cheap on the recurring
+ *  background runners. Below the model's minimum cacheable length the marker
+ *  is simply not honoured, never an error. No guide text: `system` unchanged,
+ *  byte for byte. ★ A caller passing a block array with its own markers would
+ *  add one more; no forced caller does today (the 4-per-request limit). */
 export function withGuideText(
   system: string | SystemBlock[] | undefined,
   guideText: string | undefined,
 ): string | SystemBlock[] | undefined {
   if (!guideText) return system;
-  if (system === undefined) return guideText;
-  if (typeof system === "string") return `${system}\n\n${guideText}`;
-  return [...system, { type: "text", text: guideText }];
+  const guideBlock: SystemBlock = { type: "text", text: guideText, cache_control: { type: "ephemeral" } };
+  if (system === undefined) return [guideBlock];
+  if (typeof system === "string") return [{ type: "text", text: system }, guideBlock];
+  return [...system, guideBlock];
 }
 
 interface ToolUseBlock {

@@ -311,3 +311,24 @@ describe("AiGuidesSection applies-to targets", () => {
     expect(screen.queryByText(t("en-US", "aiGuideBudgetWarning"))).toBeNull();
   });
 });
+
+// §701 review — a built-in narrowed to the chat must store that explicitly, or
+// the reload restores the seed's targets.
+describe("AiGuidesSection built-in targets", () => {
+  it("stores explicit targets when a built-in action guide is narrowed to the chat", () => {
+    const g = { id: "builtin-action-wbs", name: "AI action: WBS", content: "c", enabled: true, priority: 25, scope: { targets: ["wbs" as const] }, builtIn: true };
+    const og = makeOperatingGuides({ guides: [g] });
+    render(<AiGuidesSection {...makeProps({ operatingGuides: og })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – AI action: WBS` }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetChat") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideSave") }));
+    expect(og.update).toHaveBeenCalledWith(expect.objectContaining({ scope: { targets: ["chat"] } }));
+  });
+
+  it("never renders an unknown stored target as a missing label", () => {
+    const g = { id: "f", name: "Future", content: "c", enabled: true, priority: 5, scope: { targets: ["futureAction"] as never }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    expect(screen.queryByText(/undefined/)).toBeNull();
+  });
+});

@@ -70,6 +70,10 @@ export interface InsightRecommendationDeps {
    *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
    *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
   guides: readonly OperatingGuide[];
+  /** §701 — whether the guide library has loaded. The recommendation RUNNER is
+   *  unattended, so it waits for it while grounding is on; the on-demand path
+   *  does not wait. */
+  guidesReady: boolean;
   lang: Lang;
   today: string;
   project: ProjectMeta | undefined;
@@ -98,6 +102,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     getScopeEpoch,
     settings,
     guides,
+    guidesReady,
     lang,
     today,
     project,
@@ -271,7 +276,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // §548 F1 item 9 — the RUNNER itself must not tick while a load/swap is pending, not just its
     // store (`applyInsightRecommendation` above): without this a billed AI call still runs during the
     // hold and its result is simply discarded when it lands.
-    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
+    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending
+      && (settings.ai.groundInGuides !== true || guidesReady),
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,

@@ -444,7 +444,7 @@ describe("useAllocPlan guide text", () => {
       <ActionGuidesProvider value={{ guides: [
       { id: "t", name: "Team", content: "TARGET-MARK", enabled: true, priority: 10, scope: { targets: ["alloc" as const] }, builtIn: false },
       { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
-    ], groundInGuides: true }}>
+    ], groundInGuides: true, ready: true }}>
         <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
           <Harness />
         </ToastProvider>

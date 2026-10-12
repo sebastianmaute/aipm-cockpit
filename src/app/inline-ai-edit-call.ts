@@ -21,7 +21,7 @@ import {
 const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
-import { actionGuideText, guideTargets, type OperatingGuide } from "./operating-guide";
+import { type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export interface InlineEditArgs {
@@ -35,6 +35,9 @@ export interface InlineEditArgs {
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
   groundInGuides: boolean;
+  /** §701 — the guides that target inline edit, from `actionGuideText`;
+   *  appended after the scope block. */
+  guideText?: string;
   // ★★ NO `historySearch` FIELD, deliberately. It was here so the kill switch
   //    could reach a path billed for the tool schema like any other — but this
   //    path is single-shot, so `search_history` can only ever produce a failed
@@ -129,15 +132,10 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
-  // §701 — guides that target inline edit itself. This path already carries the
-  // CHAT's guides (above, through `buildSystemPrompt`), so a guide that targets
-  // the chat too is left out here rather than sent twice.
-  const inlineGuides = actionGuideText(
-    args.guides.filter((g) => !guideTargets(g).includes("chat")),
-    args.groundInGuides,
-    "inlineEdit",
-  );
-  if (inlineGuides) system.push({ type: "text", text: inlineGuides });
+  // §701 — the guides that target inline edit itself. ★ `args.guides` (the
+  // CHAT path above) is `[]` from both production callers, so this path sends
+  // no chat guides; the inline-edit guides arrive as ready text instead.
+  if (args.guideText) system.push({ type: "text", text: args.guideText });
   const res = await callClaude(
     args.apiKey,
     args.model,

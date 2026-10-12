@@ -62,7 +62,9 @@ describe.each(Object.keys(CALLS))("%s call — operating guides (§701)", (name)
   it("appends the guide text after the fixed system prompt", async () => {
     const before = await sentSystem(() => run(undefined));
     const withGuide = await sentSystem(() => run(GUIDE));
-    expect(withGuide).toBe(before === undefined ? GUIDE : `${before as string}\n\n${GUIDE}`);
+    // The guides ride their own block, carrying the cache marker, after the fixed prompt.
+    const guideBlock = { type: "text", text: GUIDE, cache_control: { type: "ephemeral" } };
+    expect(withGuide).toEqual(before === undefined ? [guideBlock] : [{ type: "text", text: before }, guideBlock]);
   });
 
   it("sends the same system prompt as before for absent or empty guide text", async () => {

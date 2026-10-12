@@ -58,7 +58,7 @@ export const VALID_VIEWS = ["projects","open-points","dashboard","actions","insi
 
 /** The AI actions an action guide may target (§701). MUST mirror `AI_TARGETS`
  *  in src/app/operating-guide.ts minus "chat" — duplicated for the same reason
- *  as VALID_VIEWS; `operating-guide-builtin.test.ts` pins the two together. */
+ *  as VALID_VIEWS; `operating-guide-targets.test.ts` pins the two together. */
 export const VALID_ACTION_TARGETS = ["wbs","alloc","committeeReport","projectProposal","raci","digest","insightRecommend","jobAnalysis","dedup","weights","inlineEdit"];
 
 /** Parse lib/ai-action-guides.md: one guide per "## Title" section carrying a

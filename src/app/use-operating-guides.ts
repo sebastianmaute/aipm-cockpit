@@ -48,8 +48,13 @@ export function builtinSeeds(): OperatingGuide[] {
 const BUILTIN_IDS = new Set(builtinSeeds().map((g) => g.id));
 
 /** For each built-in: seed it if absent; if present, refresh content/name/scope
- *  but PRESERVE the user's enabled + priority. Returns only the rows that need
- *  saving (idempotent — an unchanged store yields an empty list). */
+ *  but PRESERVE the user's enabled + priority, and the user's `scope.targets`
+ *  (§701 — the "Applies to" choice in Settings). Returns only the rows that need
+ *  saving (idempotent — an unchanged store yields an empty list).
+ *  ★ Stored targets win from then on, so a later release that changes a built-in
+ *  guide's seeded targets does not reach a store that already holds them. The
+ *  editor always stores explicit targets for a built-in (`draftToScope`), so a
+ *  user who narrows one to the chat keeps that too. */
 export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] {
   const byId = new Map(existing.map((g) => [g.id, g]));
   const out: OperatingGuide[] = [];
@@ -59,12 +64,13 @@ export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] 
       out.push(seed);
       continue;
     }
+    const scope = cur.scope.targets ? { ...seed.scope, targets: cur.scope.targets } : seed.scope;
     if (
       cur.content !== seed.content ||
       cur.name !== seed.name ||
-      JSON.stringify(cur.scope) !== JSON.stringify(seed.scope)
+      JSON.stringify(cur.scope) !== JSON.stringify(scope)
     ) {
-      out.push({ ...seed, enabled: cur.enabled, priority: cur.priority });
+      out.push({ ...seed, scope, enabled: cur.enabled, priority: cur.priority });
     }
   }
   return out;

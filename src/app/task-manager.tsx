@@ -726,7 +726,7 @@ function TaskManagerInner() {
   // context builder + SP5 scheduled-job runner) extracted to useAiOrchestration.
   const { aiAnalysisBundle, buildWeightSuggestionContext } = useAiOrchestration({
     isPopout,
-    settings, guides: operatingGuides.guides,
+    settings, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     lang,
     today,
     project,
@@ -1125,7 +1125,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides,
+    isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
@@ -1977,7 +1977,7 @@ function TaskManagerInner() {
   if (isPopout) {
     return (
       <ActivityLogProvider value={logActivityAs}>
-        <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides}>
+        <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
@@ -2002,7 +2002,7 @@ function TaskManagerInner() {
 
   return (
     <ActivityLogProvider value={logActivityAs}>
-      <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides}>
+      <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>

@@ -40,7 +40,7 @@ describe("useWeightSuggestions operating guides (§701)", () => {
     priority: 1, scope: { targets: ["weights"] }, builtIn: false,
   };
   function wrapper({ children }: { children: ReactNode }) {
-    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true }}>{children}</ActionGuidesProvider>;
+    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>;
   }
 
   it("hands the provider's weights guide text to the call", async () => {
@@ -54,7 +54,7 @@ describe("useWeightSuggestions operating guides (§701)", () => {
 
   it("sends no guide text when grounding is off", async () => {
     function off({ children }: { children: ReactNode }) {
-      return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: false }}>{children}</ActionGuidesProvider>;
+      return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: false, ready: true }}>{children}</ActionGuidesProvider>;
     }
     const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }), { wrapper: off });
     await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });

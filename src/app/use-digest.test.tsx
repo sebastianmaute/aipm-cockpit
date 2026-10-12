@@ -514,7 +514,7 @@ describe("useDigest operating guides (§701)", () => {
     priority: 1, scope: { targets: ["digest"] }, builtIn: false,
   };
   function wrapper({ children }: { children: ReactNode }) {
-    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true }}>{children}</ActionGuidesProvider>;
+    return <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>;
   }
 
   it("hands the provider's digest guide text to the narrative call", async () => {
@@ -525,6 +525,25 @@ describe("useDigest operating guides (§701)", () => {
     const ctx = runNarrative.mock.calls[0][1] as { guideText?: string };
     expect(ctx.guideText).toBe(actionGuideText([guide], true, "digest"));
     expect(ctx.guideText).toContain("DIGEST-GUIDE-701");
+  });
+
+  // The due auto-run is unattended and once per cadence: it waits for the
+  // guide library rather than narrate without it until the next due date.
+  it("holds the due auto-run until the guides have loaded, then runs it with them", async () => {
+    advanceDigestState("p1", { now: "2026-07-02T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    let ready = false;
+    const gated = ({ children }: { children: ReactNode }) => (
+      <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready }}>{children}</ActionGuidesProvider>
+    );
+    const d = deps({ aiKey: "sk-ant-k", runNarrative, config: { enabled: true, cadenceDays: 7 } });
+    let hook!: ReturnType<typeof renderHook>;
+    await act(async () => { hook = renderHook(() => useDigest(d), { wrapper: gated }); });
+    expect(runNarrative).not.toHaveBeenCalled();
+    ready = true;
+    await act(async () => { hook.rerender(); });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+    expect((runNarrative.mock.calls[0][1] as { guideText?: string }).guideText).toContain("DIGEST-GUIDE-701");
   });
 
   it("sends no guide text outside a provider", async () => {

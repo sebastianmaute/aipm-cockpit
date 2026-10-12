@@ -23,6 +23,12 @@ describe("guideTargets", () => {
     expect(guideTargets(g({ scope: { targets: [] } }))).toEqual(["chat"]);
     expect(guideTargets(g({ scope: { targets: ["wbs", "raci"] } }))).toEqual(["wbs", "raci"]);
   });
+
+  it("drops a target id this build does not know, and reaches nothing when every id is unknown", () => {
+    const unknown = (targets: string[]) => g({ scope: { targets: targets as never } });
+    expect(guideTargets(unknown(["wbs", "futureAction"]))).toEqual(["wbs"]);
+    expect(guideTargets(unknown(["futureAction"]))).toEqual([]);
+  });
 });
 
 describe("selectActiveGuides (chat)", () => {
@@ -54,16 +60,22 @@ describe("selectActionGuides", () => {
     expect(r.map((x) => x.id)).toEqual(["v"]);
   });
 
-  it("puts the user's own guides ahead of built-ins whatever their priority, then orders by priority", () => {
+  it("orders by the priority the user sees, built-in or not", () => {
     const r = selectActionGuides(
       [
-        g({ id: "builtin", builtIn: true, priority: 1, scope: { targets: ["wbs"] } }),
         g({ id: "mine-late", priority: 50, scope: { targets: ["wbs"] } }),
-        g({ id: "mine-early", priority: 40, scope: { targets: ["wbs"] } }),
+        g({ id: "builtin", builtIn: true, priority: 25, scope: { targets: ["wbs"] } }),
+        g({ id: "mine-early", priority: 10, scope: { targets: ["wbs"] } }),
       ],
       "wbs",
     );
-    expect(r.map((x) => x.id)).toEqual(["mine-early", "mine-late", "builtin"]);
+    expect(r.map((x) => x.id)).toEqual(["mine-early", "builtin", "mine-late"]);
+  });
+
+  it("puts a default user guide ahead of every built-in action guide", () => {
+    const mine = g({ id: "mine", priority: 10, scope: { targets: ["wbs"] } });
+    const r = selectActionGuides([...builtinSeeds(), mine], "wbs");
+    expect(r[0].id).toBe("mine");
   });
 
   it("skips a guide that would pass the cap whole, and still takes a later one that fits", () => {
@@ -102,7 +114,9 @@ describe("actionGuideText", () => {
     const text = actionGuideText([wbs], true, "wbs");
     expect(text).toContain('"Team rules"');
     expect(text).toContain("Split anything over 3 days.");
-    expect(text).toMatch(/never override the instructions above/);
+    expect(text).toMatch(/never override this task's own instructions/);
+    // No "above": the digest and committee report have no fixed prompt over it.
+    expect(text).not.toMatch(/above/);
   });
 });
 
@@ -115,13 +129,13 @@ describe("withGuideText", () => {
     expect(withGuideText(undefined, "")).toBeUndefined();
   });
 
-  it("appends after a string prompt, after the last block, or stands alone", () => {
-    expect(withGuideText("fixed", "G")).toBe("fixed\n\nG");
-    expect(withGuideText([{ type: "text", text: "fixed" }], "G")).toEqual([
-      { type: "text", text: "fixed" },
-      { type: "text", text: "G" },
-    ]);
-    expect(withGuideText(undefined, "G")).toBe("G");
+  // The guides ride their own LAST block with the cache marker, so tools, the
+  // fixed prompt and the guides are cached as one prefix.
+  const G = { type: "text", text: "G", cache_control: { type: "ephemeral" } };
+  it("appends a cache-marked guide block after a string prompt, after the last block, or alone", () => {
+    expect(withGuideText("fixed", "G")).toEqual([{ type: "text", text: "fixed" }, G]);
+    expect(withGuideText([{ type: "text", text: "fixed" }], "G")).toEqual([{ type: "text", text: "fixed" }, G]);
+    expect(withGuideText(undefined, "G")).toEqual([G]);
   });
 });
 
@@ -142,7 +156,10 @@ describe("runForcedToolCall sends the guide text", () => {
   it("after the fixed prompt", async () => {
     const m = stubFetch();
     await runForcedToolCall({ ...base, system: "fixed", guideText: "G" });
-    expect(body(m).system).toBe("fixed\n\nG");
+    expect(body(m).system).toEqual([
+      { type: "text", text: "fixed" },
+      { type: "text", text: "G", cache_control: { type: "ephemeral" } },
+    ]);
   });
 
   it("not at all when there is none", async () => {
@@ -193,5 +210,26 @@ describe("parseActionGuides", () => {
     expect(() => parseActionGuides("## A\n- x\n", valid)).toThrow(/no "<!-- targets/);
     expect(() => parseActionGuides("## A\n<!-- targets: nope -->\n", valid)).toThrow(/unknown target "nope"/);
     expect(() => parseActionGuides("## A\n<!-- targets: wbs -->\n## B\n<!-- targets: wbs -->\n", valid)).toThrow(/two sections/);
+  });
+});
+
+// §701 review — "Applies to" on a built-in must survive the reload that
+// refreshes built-ins, or the choice reverts the moment it is saved.
+describe("reconcileBuiltins keeps the user's targets on a built-in", () => {
+  it("keeps targets the user set on a built-in, refreshing everything else", () => {
+    const seeds = builtinSeeds();
+    const leadership = seeds[0];
+    const stored = seeds.map((s) =>
+      s.id === leadership.id ? { ...s, content: "stale", scope: { targets: ["chat" as const, "committeeReport" as const] } } : s,
+    );
+    const out = reconcileBuiltins(stored);
+    expect(out).toHaveLength(1);
+    expect(out[0].content).toBe(leadership.content);
+    expect(out[0].scope.targets).toEqual(["chat", "committeeReport"]);
+  });
+
+  it("does not rewrite a built-in whose only difference from the seed is the user's targets", () => {
+    const stored = builtinSeeds().map((s) => (s.id === "builtin-action-wbs" ? { ...s, scope: { targets: ["wbs" as const, "alloc" as const] } } : s));
+    expect(reconcileBuiltins(stored)).toEqual([]);
   });
 });

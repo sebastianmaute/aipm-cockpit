@@ -85,11 +85,12 @@ describe("useProjectProposal guide text", () => {
       { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
     ];
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <ActionGuidesProvider value={{ guides, groundInGuides: true }}>{children}</ActionGuidesProvider>
+      <ActionGuidesProvider value={{ guides, groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>
     );
     const { result } = renderHook(() => useProjectProposal(ai), { wrapper });
     await act(async () => { await result.current.generate("x"); });
-    const system = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as string;
+    const blocks = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as { text: string }[];
+    const system = blocks.map((b) => b.text).join("\n");
     expect(system).toContain("PROPOSAL-MARK");
     expect(system).not.toContain("CHAT-ONLY");
   });

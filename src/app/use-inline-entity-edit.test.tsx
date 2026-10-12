@@ -11,6 +11,8 @@ import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-ent
 import { entityToken } from "./ai-entity-token";
 import { t, loadI18n } from "./i18n";
 import { type Task } from "./types";
+import type { ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -871,4 +873,30 @@ describe("§650 inline AI edit — a refused key shows the key message", () => {
     await act(async () => { await result.current.submit("x"); });
     expect(result.current.errorText).toBe(t("en-US", "inlineAiEditError"));
   });
+});
+
+// §701 — both production callers pass `guides: []`, so the inline-edit guides
+// must come from the provider, read inside this hook.
+it("sends the provider's inline-edit guides even though the caller passes no guides", async () => {
+  let captured: Record<string, unknown> | undefined;
+  vi.spyOn(call, "callInlineEdit").mockImplementation(
+    ((args: Record<string, unknown>) => {
+      captured = args;
+      return Promise.resolve({ blocks: [], text: "", usage: { input_tokens: 1, output_tokens: 1 } });
+    }) as unknown as typeof call.callInlineEdit,
+  );
+  const guides = [
+    { id: "i", name: "Inline", content: "INLINE-MARK", enabled: true, priority: 10, scope: { targets: ["inlineEdit" as const] }, builtIn: false },
+    { id: "c", name: "Chat", content: "CHAT-ONLY", enabled: true, priority: 11, scope: {}, builtIn: false },
+  ];
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <ActionGuidesProvider value={{ guides, groundInGuides: true, ready: true }}>{children}</ActionGuidesProvider>
+  );
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps({ guides: [] })), { wrapper });
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("mark done"); });
+  expect(captured, "callInlineEdit was never called").toBeDefined();
+  expect(captured!.guideText).toContain("INLINE-MARK");
+  expect(captured!.guideText).not.toContain("CHAT-ONLY");
+  expect(captured!.guides).toEqual([]);
 });

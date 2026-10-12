@@ -1,6 +1,6 @@
 # AI Action Guides
 
-Built-in operating guides for the single-request AI actions (§701). Each `##` section becomes one built-in guide, sent only to the actions its `<!-- targets: ... -->` marker names. They describe method, not app behaviour: what each action may write is fixed by its own tool and preview, and nothing here can widen it. Users can switch any of them off, or reprioritise them, in Settings → AI guides.
+Built-in operating guides for the single-request AI actions (§701). Each `##` section becomes one built-in guide, sent only to the actions its `<!-- targets: ... -->` marker names. They describe method, not app behaviour: what each action may write is fixed by its own tool and preview, and nothing here can widen it. Users can switch any of them off, or reprioritise them, in Settings → Operating guides.
 
 ## Work breakdown method
 <!-- targets: wbs -->

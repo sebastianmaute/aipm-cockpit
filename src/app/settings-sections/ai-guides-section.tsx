@@ -78,10 +78,13 @@ function draftFromGuide(g: OperatingGuide): GuideDraft {
   };
 }
 
-/** ★ A chat-only guide is stored WITHOUT `targets`, exactly as before §701, so
- *  re-saving an old guide does not change its stored scope. */
-function draftToScope(draft: GuideDraft): GuideScope {
-  const chatOnly = draft.targets.length === 1 && draft.targets[0] === "chat";
+/** ★ A chat-only guide of the user's own is stored WITHOUT `targets`, exactly as
+ *  before §701, so re-saving an old guide does not change its stored scope. A
+ *  BUILT-IN always stores explicit targets: `reconcileBuiltins` keeps a stored
+ *  `targets` and otherwise restores the seed's, so an omitted key would undo a
+ *  built-in action guide narrowed to the chat. */
+function draftToScope(draft: GuideDraft, builtIn = false): GuideScope {
+  const chatOnly = !builtIn && draft.targets.length === 1 && draft.targets[0] === "chat";
   return {
     ...(draft.scopeModes.length ? { modes: draft.scopeModes } : {}),
     ...(draft.scopeModules.length ? { modules: draft.scopeModules } : {}),
@@ -293,7 +296,7 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
           name: draft.name.trim(),
           content: draft.content,
           priority: draft.priority,
-          scope: draftToScope(draft),
+          scope: draftToScope(draft, existing.builtIn),
         });
       }
     }
@@ -358,9 +361,11 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="flex flex-1 flex-col">
                       <span className="text-xs font-medium text-foreground">{g.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {t(lang, "aiGuideAppliesTo", guideTargets(g).map((x) => t(lang, TARGET_LABEL[x])).join(", "))}
-                      </span>
+                      {guideTargets(g).length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {t(lang, "aiGuideAppliesTo", guideTargets(g).map((x) => t(lang, TARGET_LABEL[x])).join(", "))}
+                        </span>
+                      )}
                     </span>
                     {g.builtIn && (
                       <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-muted-foreground ring-1 ring-line">

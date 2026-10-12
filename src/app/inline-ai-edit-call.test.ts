@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { asTimeZoneForTests } from "./timezone";
 import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
-import type { OperatingGuide } from "./operating-guide";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -225,37 +224,34 @@ describe("callInlineEdit", () => {
   });
 });
 
-// §701 — inline edit already carries the CHAT's guides; guides that target
-// inline edit alone are appended after the scope block, never twice.
+// §701 — the guides that target inline edit arrive as ready text and are
+// appended after the scope block; without it the system blocks are unchanged.
 describe("callInlineEdit guide text", () => {
   const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = {
     content: [],
     stop_reason: "end_turn",
     usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
   };
-  const g = (over: Partial<OperatingGuide>): OperatingGuide => ({
-    id: "g", name: "G", content: "c", enabled: true, priority: 10, scope: {}, builtIn: false, ...over,
-  });
-  async function systemText(guides: OperatingGuide[], groundInGuides = true) {
+  async function systemBlocks(guideText?: string) {
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
     await callInlineEdit({
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
       entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
-      snapshot, guides, groundInGuides,
+      snapshot, guides: [], groundInGuides: true, guideText,
     });
-    const system = spy.mock.calls[0][2] as { text: string }[];
-    return { last: system[system.length - 1].text, all: system.map((b) => b.text).join("\n") };
+    return spy.mock.calls[0][2] as { text: string }[];
   }
-  it("appends a guide that targets inline edit after the scope block", async () => {
-    const { last } = await systemText([g({ content: "INLINE-ONLY", scope: { targets: ["inlineEdit"] } })]);
-    expect(last).toContain("INLINE-ONLY");
+  it("appends the guide text as the last block, after the scope block", async () => {
+    const without = await systemBlocks();
+    vi.restoreAllMocks();
+    const withText = await systemBlocks("INLINE-MARK");
+    expect(withText).toHaveLength(without.length + 1);
+    expect(withText[withText.length - 1].text).toBe("INLINE-MARK");
+    expect(withText[withText.length - 2].text).toMatch(/INLINE EDIT MODE/);
   });
-  it("sends a guide that targets both the chat and inline edit once, not twice", async () => {
-    const { all } = await systemText([g({ content: "BOTH-MARK", scope: { targets: ["chat", "inlineEdit"] } })]);
-    expect(all.split("BOTH-MARK").length - 1).toBe(1);
-  });
-  it("sends no inline guide when grounding is off", async () => {
-    const { all } = await systemText([g({ content: "INLINE-ONLY", scope: { targets: ["inlineEdit"] } })], false);
-    expect(all).not.toContain("INLINE-ONLY");
+  it("adds no block for empty guide text", async () => {
+    const without = await systemBlocks();
+    vi.restoreAllMocks();
+    expect(await systemBlocks("")).toHaveLength(without.length);
   });
 });

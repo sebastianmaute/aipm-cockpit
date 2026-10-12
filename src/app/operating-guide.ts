@@ -57,9 +57,17 @@ function dimensionMatches<T>(allowed: T[] | undefined, current: T | T[]): boolea
   return allowed.some((a) => have.includes(a));
 }
 
-/** The surfaces a guide reaches, with the chat-only default applied. */
+const KNOWN_TARGETS: ReadonlySet<string> = new Set(AI_TARGETS);
+
+/** The surfaces a guide reaches, with the chat-only default applied. A stored
+ *  id this build does not know (written by a newer build, or by hand) is
+ *  dropped, so it can neither match nor render as a missing label; a guide
+ *  whose ids are ALL unknown reaches nothing here rather than falling back to
+ *  the chat. */
 export function guideTargets(g: OperatingGuide): readonly AiTarget[] {
-  return g.scope.targets && g.scope.targets.length > 0 ? g.scope.targets : ["chat"];
+  const stored = g.scope.targets;
+  if (!stored || stored.length === 0) return ["chat"];
+  return stored.filter((x): x is AiTarget => KNOWN_TARGETS.has(x));
 }
 
 /** The CHAT's active guides: a guide that does not target the chat is left out
@@ -177,15 +185,13 @@ export function guidesCharCount(active: readonly OperatingGuide[]): number {
  *  rule. A later, shorter guide may still fit. */
 export const ACTION_GUIDE_CHAR_CAP = 12_000;
 
-/** The enabled guides that target `target`, within the cap: the user's own
- *  guides first, then the built-ins, each in priority order. Only `targets`
- *  decides: an action has no current view, mode or module to match the other
- *  scope dimensions against, so they are not consulted.
- *  ★ User guides lead ON PURPOSE, against plain priority order. "The earlier one
- *  wins", and a new guide is created at the lowest priority, so by priority
- *  alone a built-in method guide would beat the team's own convention ("split
- *  anything over 3 days" losing to the built-in task-size rule). Leading also
- *  gives them first claim on the cap. */
+/** The enabled guides that target `target`, in priority order (the number the
+ *  user sees and edits in Settings, exactly as the chat orders them), within
+ *  the cap. Only `targets` decides: an action has no current view, mode or
+ *  module to match the other scope dimensions against, so they are not
+ *  consulted. ★ A new guide defaults to priority 10 (`emptyDraft` in the
+ *  settings editor) and the built-in action guides sit after the feature
+ *  guides, so by default the user's own guide already comes first and wins. */
 export function selectActionGuides(
   guides: readonly OperatingGuide[],
   target: Exclude<AiTarget, "chat">,
@@ -193,7 +199,7 @@ export function selectActionGuides(
 ): OperatingGuide[] {
   const candidates = guides
     .filter((g) => g.enabled && guideTargets(g).includes(target))
-    .sort((a, b) => Number(a.builtIn) - Number(b.builtIn) || a.priority - b.priority || a.id.localeCompare(b.id));
+    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
   const out: OperatingGuide[] = [];
   let used = 0;
   for (const g of candidates) {
@@ -205,8 +211,9 @@ export function selectActionGuides(
 }
 
 /** The text an AI action appends to its fixed system prompt, or "" when guide
- *  grounding is off or no guide targets it. ★ The header says the fixed rules
- *  above it win: a guide may change how the model works, never what the tool
+ *  grounding is off or no guide targets it. ★ The header says the task's own
+ *  instructions win ("this task's", not "above": the digest and committee
+ *  report calls have no fixed system prompt, so nothing sits above it): a guide may change how the model works, never what the tool
  *  may write — each action's own grounding and preview stay the boundary. */
 export function actionGuideText(
   guides: readonly OperatingGuide[],
@@ -217,7 +224,7 @@ export function actionGuideText(
   const active = selectActionGuides(guides, target);
   if (active.length === 0) return "";
   return [
-    `The user's ${pluralGuideWord(active.length)} for this task follow, in priority order. ${CONFLICT_RULE} They refine how you work; they never override the instructions above, the tool's schema or the limits it states.`,
+    `The user's ${pluralGuideWord(active.length)} for this task follow, in priority order. ${CONFLICT_RULE} They refine how you work; they never override this task's own instructions, the tool's schema or the limits it states.`,
     ...guideParts(active, 1),
   ].join("\n\n");
 }

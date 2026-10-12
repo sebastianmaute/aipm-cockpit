@@ -53,6 +53,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     loadPending: false,
     getScopeEpoch: () => 0,
     guides: [],
+    guidesReady: true,
     settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",
@@ -329,6 +330,36 @@ it("DOES invoke the background runner's tick once the project load is no longer 
   renderHook(() => useInsightRecommendations(recommendationRunnerDeps(false, store)));
   await act(async () => {}); // flush the runner's mount-tick effect
   expect(generate).toHaveBeenCalled();
+});
+
+// §701 — the runner is unattended: while grounding is on it waits for the guide
+// library to load rather than spend a billed run without the guides. The
+// on-demand path does not wait. Grounding off means nothing to wait for.
+function runnerDepsWithGuides(groundInGuides: boolean, guidesReady: boolean, store: ReturnType<typeof mkStore>): InsightRecommendationDeps {
+  return mkDeps({
+    insights: store.read(),
+    setInsights: store.setInsights,
+    guidesReady,
+    settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true, groundInGuides } } as unknown as InsightRecommendationDeps["settings"],
+  });
+}
+
+it("does not tick the background runner while grounding is on and the guides have not loaded (§701)", async () => {
+  const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+  renderHook(() => useInsightRecommendations(runnerDepsWithGuides(true, false, mkStore([mkInsight()]))));
+  await act(async () => {});
+  expect(generate).not.toHaveBeenCalled();
+});
+
+it("ticks the background runner once the guides have loaded, or when grounding is off (§701)", async () => {
+  const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+  const first = renderHook(() => useInsightRecommendations(runnerDepsWithGuides(true, true, mkStore([mkInsight()]))));
+  await act(async () => {});
+  expect(generate).toHaveBeenCalledTimes(1);
+  first.unmount();
+  renderHook(() => useInsightRecommendations(runnerDepsWithGuides(false, false, mkStore([mkInsight()]))));
+  await act(async () => {});
+  expect(generate).toHaveBeenCalledTimes(2);
 });
 
 describe("§650 a refused key shows the key message on the insight recommendation toast", () => {
