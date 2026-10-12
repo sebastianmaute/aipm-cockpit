@@ -200,8 +200,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     [lang],
   );
   useScheduledJobRunner({
-    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true
-      && (settings.ai?.groundInGuides !== true || guidesReady),
+    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
+    guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,

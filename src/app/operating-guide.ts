@@ -63,11 +63,15 @@ const KNOWN_TARGETS: ReadonlySet<string> = new Set(AI_TARGETS);
  *  id this build does not know (written by a newer build, or by hand) is
  *  dropped, so it can neither match nor render as a missing label; a guide
  *  whose ids are ALL unknown reaches nothing here rather than falling back to
- *  the chat. */
+ *  the chat.
+ *  ★★ `scope` is stored JSON that neither store validates, and this runs during
+ *  RENDER (task-manager's body, every panel reading guides), so a malformed
+ *  value must not throw: anything that is not an array reads as absent (chat
+ *  only), and a non-string entry is dropped like an unknown id. */
 export function guideTargets(g: OperatingGuide): readonly AiTarget[] {
-  const stored = g.scope.targets;
-  if (!stored || stored.length === 0) return ["chat"];
-  return stored.filter((x): x is AiTarget => KNOWN_TARGETS.has(x));
+  const stored: unknown = g.scope?.targets;
+  if (!Array.isArray(stored) || stored.length === 0) return ["chat"];
+  return stored.filter((x): x is AiTarget => typeof x === "string" && KNOWN_TARGETS.has(x));
 }
 
 /** The CHAT's active guides: a guide that does not target the chat is left out
@@ -238,8 +242,23 @@ export function actionTargetsNotSent(
   guides: readonly OperatingGuide[],
   guide: OperatingGuide,
 ): Exclude<AiTarget, "chat">[] {
-  if (!guide.enabled) return [];
-  return guideTargets(guide)
-    .filter((t): t is Exclude<AiTarget, "chat"> => t !== "chat")
-    .filter((t) => !selectActionGuides(guides, t).some((g) => g.id === guide.id));
+  return actionTargetsNotSentByGuide(guides).get(guide.id) ?? [];
+}
+
+/** `actionTargetsNotSent` for every guide at once: one `selectActionGuides`
+ *  per action (eleven), not one per guide per action, so the editor can compute
+ *  it once per change to the library rather than on every keystroke. */
+export function actionTargetsNotSentByGuide(
+  guides: readonly OperatingGuide[],
+): Map<string, Exclude<AiTarget, "chat">[]> {
+  const out = new Map<string, Exclude<AiTarget, "chat">[]>();
+  for (const target of AI_TARGETS) {
+    if (target === "chat") continue;
+    const sent = new Set(selectActionGuides(guides, target).map((g) => g.id));
+    for (const g of guides) {
+      if (!g.enabled || !guideTargets(g).includes(target) || sent.has(g.id)) continue;
+      out.set(g.id, [...(out.get(g.id) ?? []), target]);
+    }
+  }
+  return out;
 }

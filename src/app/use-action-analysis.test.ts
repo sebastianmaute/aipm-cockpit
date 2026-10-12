@@ -92,5 +92,7 @@ describe("useActionAnalysis — operating guides (§701)", () => {
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "sk-ant-x", model: "m", guideText: "JOB-GUIDE-701" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(run.mock.calls[0][1].guideText).toBe("JOB-GUIDE-701");
+    // §701 — a user-started analysis is one request: it never asks to cache.
+    expect(run.mock.calls[0][1].cacheGuides).toBeUndefined();
   });
 });

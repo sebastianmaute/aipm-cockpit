@@ -27,6 +27,10 @@ export interface InsightRecommendRunnerArgs {
   /** Cadence in minutes. Re-clamped here — this hook drives BILLED calls, so it
    *  never trusts a caller-supplied rate. */
   intervalMinutes: number;
+  /** §701 — false while the operating guides the runs need are still loading
+   *  (only when guide grounding is on). A tick waits for it, and the runner
+   *  ticks once the moment it turns true. Default true. */
+  guidesReady?: boolean;
   /** Closes over the live workspace. */
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
@@ -64,6 +68,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
   useEffect(() => { snapshotEntitiesRef.current = args.snapshotEntities; }, [args.snapshotEntities]);
+  const guidesReady = args.guidesReady ?? true;
+  const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
@@ -83,7 +89,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   // reads nothing but refs. (Assigning tickRef.current during render instead
   // would trip the react-hooks purity rule.)
   const tickRef = useRef(async (): Promise<void> => {
-    if (!enabledRef.current) return;
+    if (!enabledRef.current || !guidesReadyRef.current) return;
     if (isRunningRef.current) return; // a run is already in flight
 
     const candidates = insightsRef.current
@@ -117,7 +123,9 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             apiKey: aiRef.current.apiKey,
             model: aiRef.current.model,
             guideText: aiRef.current.guideText,
-            cacheGuides: true,
+            // Cache the guide prefix only when this tick sends more than one
+            // request: a lone request would pay the cache write and never read it.
+            cacheGuides: candidates.length > 1,
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,
@@ -166,6 +174,17 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
+
+  // §701 — tick once when the guides finish loading: a tick skipped while they
+  // loaded, and the next interval may be an hour away. `guidesReady` never
+  // returns to false, so this fires at most once. Deliberately NOT keyed on
+  // `enabled`, which flips on every project load (§548) and would add a billed
+  // round per project switch.
+  useEffect(() => {
+    const was = guidesReadyRef.current;
+    guidesReadyRef.current = guidesReady;
+    if (!was && guidesReady) void tickRef.current();
+  }, [guidesReady]);
 
   // Cadence only: re-arms cleanly on a settings change, fires no extra tick.
   useEffect(() => {

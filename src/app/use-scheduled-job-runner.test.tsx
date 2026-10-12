@@ -164,7 +164,30 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     await act(async () => { vi.advanceTimersByTime(5 * 60 * 1000); for (let i = 0; i < 10; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-B");
-    // A tick can run several due jobs on one prefix, so the runner asks to cache it.
-    expect(mockRun.mock.calls[0][1].cacheGuides).toBe(true);
+    // One due job is one request: caching it would pay the write for nothing.
+    expect(mockRun.mock.calls[0][1].cacheGuides).toBe(false);
+  });
+
+  it("asks to cache the guide prefix when one tick runs several due jobs", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1 }), dailyJob({ id: 2, name: "Second" })] })));
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(mockRun.mock.calls.map((c) => c[1].cacheGuides)).toEqual([true, true]);
+  });
+
+  // The run on app open waits for the guides, then happens at once — not at
+  // the next 5-minute interval.
+  it("holds the tick while the guides load, then runs straight away when they arrive", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean }) => useScheduledJobRunner(baseArgs({ guidesReady: p.guidesReady })),
+      { initialProps: { guidesReady: false } },
+    );
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    rerender({ guidesReady: true });
+    await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); }); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
   });
 });

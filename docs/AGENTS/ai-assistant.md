@@ -86,8 +86,12 @@
   only. `actionTargetsNotSent` drives the editor's "not sent to …" row note (over the cap, or crowded out);
   only the two batching runners set `cacheGuides`, because the cache lives ~5 minutes and a single request
   would pay the write premium for nothing. Unattended runs wait for the library: `ActionGuidesValue.ready` (false only
-  while grounding is on and the guides are loading) gates the digest's auto-run, and a REQUIRED `guidesReady`
-  dep gates the scheduled-job and insight-recommendation runners; user-started actions do not wait.
+  while grounding is on and the guides are loading) gates the digest's auto-run (its effect re-runs on `ready`), and a REQUIRED `guidesReady`
+  dep reaches the scheduled-job and insight-recommendation runners as their own `guidesReady` arg: a tick
+  skips while it is false and each runner ticks ONCE when it turns true (never returns to false). ★ Keyed on
+  `guidesReady`, NOT on `enabled` — the insight runner's `enabled` flips on every project load (§548), so a
+  re-tick on it would add a billed round per project switch. Each runner sets `cacheGuides` only when its
+  tick sends more than one request. User-started actions do not wait.
   ★★★ **HOW A CALLER GETS THE TEXT DEPENDS ON WHERE IT RUNS.** `AiProviders` (`action-guides-context.tsx`) is
   rendered in task-manager's RETURNED JSX, so it wraps task-manager's CHILDREN only. A hook rendered inside a
   panel reads `useActionGuideText(target)`; a hook called in TASK-MANAGER'S OWN BODY (`useWbsPlan`,

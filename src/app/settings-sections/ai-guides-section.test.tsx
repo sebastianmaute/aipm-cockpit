@@ -350,7 +350,39 @@ describe("AiGuidesSection action character cap", () => {
     const big = { id: "big", name: "Big", content: "x".repeat(12_001), enabled: true, priority: 5, scope: { targets: ["wbs" as const] }, builtIn: false };
     const small = { id: "small", name: "Small", content: "y", enabled: true, priority: 6, scope: { targets: ["wbs" as const] }, builtIn: false };
     render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [big, small] }) })} />);
-    const note = t("en-US", "aiGuideNotSent", t("en-US", "aiGuideTargetWbs"), (12_000).toLocaleString("en-US"));
+    const note = t("en-US", "aiGuideNotSentTooLong", t("en-US", "aiGuideTargetWbs"), (12_000).toLocaleString("en-US"));
     expect(screen.getAllByText(note)).toHaveLength(1);
+    // A static note, not a live region: one per row must not announce on each render.
+    expect(screen.getByText(note)).toHaveAttribute("role", "note");
+  });
+
+  it("says a short guide is crowded out, not that it is too long", () => {
+    const first = { id: "a", name: "First", content: "x".repeat(11_990), enabled: true, priority: 1, scope: { targets: ["wbs" as const] }, builtIn: false };
+    const second = { id: "b", name: "Second", content: "y".repeat(20), enabled: true, priority: 2, scope: { targets: ["wbs" as const] }, builtIn: false };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [first, second] }) })} />);
+    const label = t("en-US", "aiGuideTargetWbs");
+    const cap = (12_000).toLocaleString("en-US");
+    expect(screen.getAllByText(t("en-US", "aiGuideNotSentCrowded", label, cap))).toHaveLength(1);
+    expect(screen.queryByText(t("en-US", "aiGuideNotSentTooLong", label, cap))).toBeNull();
+  });
+});
+
+// §701 review 3 — a built-in's stored targets outlive releases, so the editor
+// offers the way back to the shipped ones; a user's own guide has none.
+describe("AiGuidesSection built-in default targets", () => {
+  it("restores a built-in guide's shipped targets", () => {
+    const g = { id: "builtin-action-wbs", name: "AI action: WBS", content: "c", enabled: true, priority: 25, scope: { targets: ["raci" as const] }, builtIn: true };
+    render(<AiGuidesSection {...makeProps({ operatingGuides: makeOperatingGuides({ guides: [g] }) })} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – AI action: WBS` }));
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetRaci") })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuideTargetsDefault") }));
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetWbs") })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiGuideTargetRaci") })).not.toBeChecked();
+  });
+
+  it("offers no restore button for the user's own guide", () => {
+    render(<AiGuidesSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "aiGuideEdit")} – My Guide` }));
+    expect(screen.queryByRole("button", { name: t("en-US", "aiGuideTargetsDefault") })).toBeNull();
   });
 });

@@ -344,7 +344,32 @@ describe("useInsightRecommendRunner — operating guides (§701)", () => {
     await act(async () => { vi.advanceTimersByTime(60 * 60 * 1000); await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-B");
-    // A tick works through several insights on one prefix, so it asks to cache it.
-    expect(mockRun.mock.calls[0][0].cacheGuides).toBe(true);
+    // One candidate is one request: caching it would pay the write for nothing.
+    expect(mockRun.mock.calls[0][0].cacheGuides).toBe(false);
+  });
+
+  test("asks to cache the guide prefix when one tick has several candidates", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    renderRunner({ insights: [makeInsight(1), makeInsight(2)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun.mock.calls.map((c) => c[0].cacheGuides)).toEqual([true, true]);
+  });
+
+  // Held while the guides load, then run at once — not an hour later.
+  test("holds the tick while the guides load, then runs straight away when they arrive", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const { rerender } = renderHook(
+      (p: { guidesReady: boolean }) => useInsightRecommendRunner({
+        enabled: true, insights: [makeInsight(1)], ai: { apiKey: "sk-ant-test", model: "claude-test" },
+        today: "2026-01-01", intervalMinutes: 60, buildIndex: () => emptyIndex,
+        buildContextFor: (i) => `context for ${i.id}`, applyRecommendation: vi.fn(), guidesReady: p.guidesReady,
+      }),
+      { initialProps: { guidesReady: false } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    rerender({ guidesReady: true });
+    await act(async () => { await flushMicrotasks(); }); // no timer advance
+    expect(mockRun).toHaveBeenCalledTimes(1);
   });
 });

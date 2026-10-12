@@ -24,10 +24,10 @@ longer carries its own changelog comment.
   over 3 days" no longer has to be typed on every run. Eight built-in method guides ship for the actions where
   a method helps; each can be switched off, and its "Applies to" choice is kept. Existing guides keep applying
   to the chat only, and a guide never changes what an action is allowed to write. The weekly digest, scheduled
-  jobs and insight recommendations wait for the guides to load before they run on their own. While devices on
+  jobs and insight recommendations wait for the guides to load and then run straight away. While devices on
   an older version share the same Turso database, those devices ignore "Applies to" and show every guide,
   action-only ones included, to their chat; each time one of them loads it resets "Applies to" on the
-  built-in guides, and re-saving a guide there drops its "Applies to" choice. A guide too long for an AI
+  built-in guides it knows (not the new action guides), and re-saving a guide there drops its "Applies to" choice. A guide too long for an AI
   action, or crowded out by higher-priority guides, now says on its row which actions it is not sent to.
 
 - **A fifth TimeLog guardrail flags time booked while absent.** Switch it on under the TimeLog booking

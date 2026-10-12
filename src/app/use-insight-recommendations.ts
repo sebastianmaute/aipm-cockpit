@@ -276,8 +276,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // §548 F1 item 9 — the RUNNER itself must not tick while a load/swap is pending, not just its
     // store (`applyInsightRecommendation` above): without this a billed AI call still runs during the
     // hold and its result is simply discarded when it lands.
-    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending
-      && (settings.ai.groundInGuides !== true || guidesReady),
+    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
+    guidesReady: settings.ai.groundInGuides !== true || guidesReady,
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,

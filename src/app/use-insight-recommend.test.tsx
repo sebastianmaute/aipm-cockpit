@@ -34,6 +34,8 @@ describe("useInsightRecommend", () => {
     await act(async () => { await result.current.generate(1); });
     expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation, undefined);
     expect(runInsightRecommendation.mock.calls[0][0].signal).toBeInstanceOf(AbortSignal);
+    // §701 — an on-demand recommendation is one request: it never asks to cache.
+    expect(runInsightRecommendation.mock.calls[0][0].cacheGuides).toBeUndefined();
     expect(args.onError).not.toHaveBeenCalled();
     expect(result.current.generatingId).toBeNull();
     expect(result.current.busy).toBe(false);

@@ -65,17 +65,19 @@ describe("useAiOrchestration — operating guides (§701)", () => {
     expect(runnerGuideTextOf()).toBe("");
   });
 
-  // The runner is unattended: while grounding is on it waits for the library
-  // to load. Grounding off means there is nothing to wait for.
-  const runnerEnabled = () => (runnerArgs.at(-1) as { enabled: boolean }).enabled;
-  it("keeps the scheduled-job runner off until the guides load, while grounding is on", () => {
+  // The runner is unattended: while grounding is on it is told the guides are
+  // not ready (it holds its tick, then ticks once they arrive). It stays
+  // enabled throughout, so the hold is the guide gate alone.
+  const runnerArg = <K extends "enabled" | "guidesReady">(k: K) => (runnerArgs.at(-1) as Record<K, boolean>)[k];
+  it("tells the scheduled-job runner the guides are not ready while they load", () => {
     renderHook(() => useAiOrchestration(deps(true, false, true)));
-    expect(runnerEnabled()).toBe(false);
+    expect(runnerArg("enabled")).toBe(true);
+    expect(runnerArg("guidesReady")).toBe(false);
   });
-  it("turns the runner on once the guides load, and does not wait when grounding is off", () => {
+  it("tells it they are ready once loaded, and always when grounding is off", () => {
     renderHook(() => useAiOrchestration(deps(true, true, true)));
-    expect(runnerEnabled()).toBe(true);
+    expect(runnerArg("guidesReady")).toBe(true);
     renderHook(() => useAiOrchestration(deps(false, false, true)));
-    expect(runnerEnabled()).toBe(true);
+    expect(runnerArg("guidesReady")).toBe(true);
   });
 });

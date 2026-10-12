@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSent, guideTargets, selectActionGuides, selectActiveGuides,
+  AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSent, actionTargetsNotSentByGuide, guideTargets, selectActionGuides, selectActiveGuides,
   type OperatingGuide,
 } from "./operating-guide";
 import { runForcedToolCall, withGuideText } from "./ai-forced-call";
@@ -268,5 +268,33 @@ describe("actionTargetsNotSent", () => {
     expect(actionTargetsNotSent([off], off)).toEqual([]);
     const chat = g({ id: "chat", content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1) });
     expect(actionTargetsNotSent([chat], chat)).toEqual([]);
+  });
+});
+
+// §701 review 3 — scope is unvalidated stored JSON read during render: a
+// malformed `targets` must not throw.
+describe("guideTargets on malformed stored data", () => {
+  it("reads a non-array targets as absent (chat only) and drops non-string entries", () => {
+    const bad = (targets: unknown) => g({ scope: { targets: targets as never } });
+    expect(guideTargets(bad("wbs"))).toEqual(["chat"]);
+    expect(guideTargets(bad({ 0: "wbs" }))).toEqual(["chat"]);
+    expect(guideTargets(bad(42))).toEqual(["chat"]);
+    expect(guideTargets(bad(["wbs", 7, null]))).toEqual(["wbs"]);
+  });
+
+  it("never throws from the selection that runs while the app renders", () => {
+    const bad = g({ id: "bad", scope: { targets: "wbs" as never } });
+    expect(() => actionGuideText([bad], true, "wbs")).not.toThrow();
+    expect(() => selectActiveGuides([bad], CTX)).not.toThrow();
+  });
+});
+
+describe("actionTargetsNotSentByGuide", () => {
+  it("maps every guide that misses a ticked action, and only those", () => {
+    const big = g({ id: "big", priority: 1, content: "x".repeat(ACTION_GUIDE_CHAR_CAP + 1), scope: { targets: ["wbs", "raci"] } });
+    const ok = g({ id: "ok", priority: 2, scope: { targets: ["wbs"] } });
+    const m = actionTargetsNotSentByGuide([big, ok]);
+    expect(m.get("big")).toEqual(["wbs", "raci"]);
+    expect(m.has("ok")).toBe(false);
   });
 });

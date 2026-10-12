@@ -16,10 +16,10 @@ import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import { Button } from "../button";
 import { Checkbox, Input, Textarea } from "../form-controls";
-import type { UseOperatingGuidesResult } from "../use-operating-guides";
+import { builtinSeeds, type UseOperatingGuidesResult } from "../use-operating-guides";
 import type { AiTarget, OperatingGuide, GuideScope } from "../operating-guide";
 import {
-  ACTION_GUIDE_CHAR_CAP, AI_TARGETS, actionTargetsNotSent, guideTargets, guidesCharCount, GUIDE_CHAR_BUDGET,
+  ACTION_GUIDE_CHAR_CAP, AI_TARGETS, actionTargetsNotSentByGuide, guideTargets, guidesCharCount, GUIDE_CHAR_BUDGET,
 } from "../operating-guide";
 import type { TranslationKey } from "../i18n";
 import { FEATURE_MODULES } from "../feature-modules";
@@ -107,9 +107,18 @@ interface GuideFormProps {
   onSave: () => void;
   onCancel: () => void;
   busy: boolean;
+  /** §701 — a built-in's shipped targets. Its stored targets are kept across
+   *  releases (`reconcileBuiltins`), so this is the only way back to them. */
+  defaultTargets?: readonly AiTarget[];
 }
 
-function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormProps) {
+/** The targets a built-in guide ships with, or undefined for a user's own. */
+function builtinDefaultTargets(id: string): readonly AiTarget[] | undefined {
+  const seed = builtinSeeds().find((s) => s.id === id);
+  return seed ? guideTargets(seed) : undefined;
+}
+
+function GuideForm({ lang, draft, onChange, onSave, onCancel, busy, defaultTargets }: GuideFormProps) {
   function toggleMode(mode: AppMode) {
     const next = draft.scopeModes.includes(mode)
       ? draft.scopeModes.filter((m) => m !== mode)
@@ -196,6 +205,16 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           ))}
         </div>
         <FieldHint>{noTarget ? t(lang, "aiGuideTargetsNone") : t(lang, "aiGuideTargetsHint")}</FieldHint>
+        {defaultTargets && (
+          <Button
+            size="xs"
+            variant="secondary"
+            className="mt-1 self-start"
+            onClick={() => onChange({ ...draft, targets: [...defaultTargets] })}
+          >
+            {t(lang, "aiGuideTargetsDefault")}
+          </Button>
+        )}
         {overActionCap && (
           <Banner severity="warn" className="mt-1">
             {t(lang, "aiGuideOverActionCap", ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
@@ -277,6 +296,10 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
     () => buildRowTokens((guideList ?? []).map((g) => ({ id: g.id, name: g.name }))),
     [guideList],
   );
+  // §701 — per guide, the ticked AI actions it is NOT sent to. Once per change to
+  // the library, not per row per render (the draft state re-renders on every
+  // keystroke in the form).
+  const notSentById = useMemo(() => actionTargetsNotSentByGuide(guideList ?? []), [guideList]);
 
   // The budget is the CHAT's: action guides are capped per call instead (§701).
   const overBudget =
@@ -372,6 +395,7 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                     onSave={() => { void handleSave(); }}
                     onCancel={closeForm}
                     busy={og.busy}
+                    defaultTargets={g.builtIn ? builtinDefaultTargets(g.id) : undefined}
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
@@ -384,13 +408,17 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
                       )}
                       {(() => {
                         // §701 — targeted but never sent: over the cap alone, or
-                        // crowded out under it by higher-priority guides.
-                        const notSent = actionTargetsNotSent(og.guides, g);
-                        return notSent.length > 0 ? (
-                          <span className="text-xs text-foreground">
-                            {t(lang, "aiGuideNotSent", notSent.map((x) => t(lang, TARGET_LABEL[x])).join(", "), ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
-                          </span>
-                        ) : null;
+                        // crowded out under it by higher-priority guides. A static
+                        // note, so `role="note"` rather than Banner's default live
+                        // region (one per row would announce on every render).
+                        const notSent = notSentById.get(g.id) ?? [];
+                        if (notSent.length === 0) return null;
+                        const key = g.content.length > ACTION_GUIDE_CHAR_CAP ? "aiGuideNotSentTooLong" : "aiGuideNotSentCrowded";
+                        return (
+                          <Banner severity="warn" role="note" className="mt-1 text-xs">
+                            {t(lang, key, notSent.map((x) => t(lang, TARGET_LABEL[x])).join(", "), ACTION_GUIDE_CHAR_CAP.toLocaleString(lang))}
+                          </Banner>
+                        );
                       })()}
                     </span>
                     {g.builtIn && (

@@ -25,6 +25,11 @@ export interface ScheduledJobRunnerArgs {
   notify: (title: string, body: string) => void;
   /** Injectable for tests; default () => new Date(). */
   now?: () => Date;
+  /** §701 — false while the operating guides the runs need are still loading
+   *  (only when guide grounding is on). A tick waits for it, and the runner
+   *  ticks once the moment it turns true, so the run on app open is delayed by
+   *  the load, not skipped until the next interval. Default true. */
+  guidesReady?: boolean;
 }
 
 export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
@@ -44,13 +49,27 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
   useEffect(() => { notifyRef.current = args.notify; }, [args.notify]);
   useEffect(() => { nowRef.current = args.now; }, [args.now]);
+  const guidesReady = args.guidesReady ?? true;
+  const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
+  // The tick, reachable from the guides-ready effect below as well as the
+  // mount effect. Assigned in the mount effect (not during render).
+  const tickRef = useRef<() => Promise<void>>(async () => {});
+
+  // §701 — tick once when the guides finish loading: the mount tick skipped
+  // while they loaded, and the next interval may be minutes away. `guidesReady`
+  // never returns to false, so this fires at most once.
+  useEffect(() => {
+    const was = guidesReadyRef.current;
+    guidesReadyRef.current = guidesReady;
+    if (!was && guidesReady) void tickRef.current();
+  }, [guidesReady]);
 
   useEffect(() => {
     const tick = async () => {
-      if (!enabledRef.current) return;
+      if (!enabledRef.current || !guidesReadyRef.current) return;
       if (isRunningRef.current) return; // a run is already in flight
       const at = (nowRef.current ?? (() => new Date()))();
       const due = dueJobs(jobsRef.current, at);
@@ -67,7 +86,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         const ranAt = at.toISOString();
         for (const job of due) {
           try {
-            const analysis = await runJobAnalysis(buildContextRef.current(), { ...aiRef.current, cacheGuides: true });
+            // Cache the guide prefix only when this tick sends more than one
+            // request: a lone request would pay the cache write and never read it.
+            const analysis = await runJobAnalysis(buildContextRef.current(), { ...aiRef.current, cacheGuides: due.length > 1 });
             recordRunRef.current(job.id, {
               ranAt,
               summary: analysis.summary,
@@ -96,6 +117,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       }
     };
 
+    tickRef.current = tick;
     // Fire on mount.
     void tick();
 
