@@ -1321,8 +1321,10 @@
   everything. The flag was removed; do NOT reintroduce it. ★★ **ITS LIMIT, stated because the first
   version's whole failure was an assertion nobody could state the limits of: when both arms declare
   the SAME half, those checks pass WITHOUT proving the arms differ.** Relocation is proven only when
-  the two declared halves DIFFER. Until a gated slice registers a real variant, arm B is an alias of
-  arm A and a green run is an honest A/A self-test of the machinery, not evidence about a candidate.
+  the two declared halves DIFFER. Since §483 the candidate is slice G2, and `declaredHalf` in
+  `scripts/ai-eval.ts` gives each probe's half per layout: the `viewGuide` probe reads `system` on arm A
+  and the turn on arm B, and the other five read the turn on both, so a variant that moves an
+  undeclared block fails pre-flight. Runs recorded before §483 were A/A self-tests of the machinery.
   ★★ **THE FOUR GRADED AXES REPORT, THEY DO NOT GATE, AND TWO OF THEM CANNOT BE READ ALONE.**
   `adherence` is counted over HITS ONLY and is recorded with its denominator `adherenceOf`: a run
   that collapses to zero hits scores `adherence: 0`, which on a higher-is-worse axis reads as

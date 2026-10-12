@@ -37913,7 +37913,9 @@ Size S.
 
 ## 483. Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -c "slice G2" docs/AGENTS/ai-assistant.md` → 3, and
+**Status:** **Update 2026-10-12, G2 registered as the candidate:** arm B is no longer an alias. The harness's `g2` variant moves `system` block 1 (the current view's guides) to the head of the turn context, and a sixth probe, `viewGuide`, plants its code in a harness-only chat guide scoped to the budget view, after the built-in budget guide. `declaredHalf` makes it the one probe whose arms read it from different halves; pre-flight then proves every block sits where its arm declares. Mutants 7/7 killed; `npm run ai:eval` (dry) → pre-flight OK, 81 planned requests. Still owed: (1) the live run — the first attempt stopped at its first request because the configured `ANTHROPIC_API_KEY` was rejected (401), so nothing was measured or recorded, and it needs a valid key; (2) the usage-meter measurement (view switches against cache-write volume), which only the owner's own app can supply; (3) G2 in the app itself, which ships only if the eval shows no regression.
+
+**Earlier:** OPEN 2026-09-13 — `grep -c "slice G2" docs/AGENTS/ai-assistant.md` → 3, and
 `grep -n "deliberate alias" docs/ai-cost.md` → 1 ("candidate arm is at present a deliberate alias of the
 current layout"). Before this entry, `grep -c "G2" docs/open-followups.md` → 0.
 
