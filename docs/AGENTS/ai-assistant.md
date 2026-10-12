@@ -1673,11 +1673,11 @@
   alongside this split because it is a `system`-to-`user` role change and is gated on the
   answer-quality eval (see that bullet above for what "gated" means in practice). The tradeoff this
   bullet used to pose as unresolved — cheap for a user who never switches views mid-conversation vs.
-  fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Settle it with the usage
-  meter below (cache-write volume vs view-switch frequency) — that measurement is what slice G2
-  (named above) needs before it can be built, not a separate `docs/open-followups.md` entry; none
-  exists for this and none should be minted on a branch (a follow-up number is reserved only once
-  merged to `origin/main`).
+  fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Building G2 in the app is
+  tracked as `docs/open-followups.md` §702 (split from §483 on 2026-10-12, after the harness measured
+  G2 and it passed). The usage meter below cannot settle the cost side as it stands: it stores daily
+  token totals only and counts no view switches, so the saving stays modelled until §702 adds a
+  counter.
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
