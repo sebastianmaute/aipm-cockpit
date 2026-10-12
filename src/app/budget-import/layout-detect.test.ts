@@ -188,6 +188,101 @@ describe("detectLayout — long", () => {
   });
 });
 
+describe("detectLayout — date-heavy and titled sheets", () => {
+  const DATE_HEAVY = [
+    ["Name", "Start", "End", "Month", "Hours"],
+    ["Ann", "2026-01-01", "2026-01-28", "2026-01", "80"],
+    ["Bob", "2026-01-01", "2026-01-28", "2026-02", "40"],
+    ["Cid", "2026-02-01", "2026-02-28", "2026-02", "72"],
+  ];
+
+  it("does not take a long sheet's data row with three dates as a wide header", () => {
+    const out = detectLayout(DATE_HEAVY);
+    expect(out.kind).toBe("long");
+    expect(out.mapping).toEqual({
+      layout: "long",
+      headerRow: 0,
+      person: 0,
+      period: 3,
+      hours: 4,
+    });
+  });
+
+  it("agrees with gridToForecastRows end to end on the date-heavy long sheet", () => {
+    const { mapping } = detectLayout(DATE_HEAVY);
+    expect(mapping).not.toBeNull();
+    const out = gridToForecastRows(DATE_HEAVY, mapping!, "S");
+    expect(out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann", "2026-01", 80],
+      ["Bob", "2026-02", 40],
+      ["Cid", "2026-02", 72],
+    ]);
+    expect(out.dropped).toEqual([]);
+  });
+
+  it("still reads a wide sheet whose data cells are numbers or blanks", () => {
+    const grid = [
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "", "20", ""],
+      ["Bob", "1.234,5", "", "3"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({ layout: "wide", headerRow: 0 });
+  });
+
+  it("picks the real header under a full-width title row", () => {
+    const grid = [
+      ["Project", "Alpha", "Beta"],
+      ["Name", "Month", "Hours"],
+      ["Ann", "2026-01", "80"],
+      ["Ann", "2026-02", "72"],
+      ["Bob", "2026-01", "40"],
+      ["Bob", "2026-02", "40"],
+      ["Cid", "2026-01", "8"],
+    ];
+    expect(detectLayout(grid).mapping).toEqual({
+      layout: "long",
+      headerRow: 1,
+      person: 0,
+      period: 1,
+      hours: 2,
+    });
+  });
+});
+
+describe("detectLayout — rate header", () => {
+  it("does not take a word that merely contains 'rate' as the rate column", () => {
+    const grid = [
+      ["Name", "Month", "Generated", "Hours"],
+      ["Ann", "2026-01", "3", "80"],
+      ["Ann", "2026-02", "4", "72"],
+    ];
+    const mapping = detectLayout(grid).mapping;
+    expect(mapping).toMatchObject({ layout: "long", period: 1, hours: 3 });
+    expect(mapping?.rate).toBeUndefined();
+  });
+
+  it("still takes Rate and Stundensatz as the rate column", () => {
+    const rate = detectLayout([
+      ["Name", "Month", "Hours", "Rate"],
+      ["Ann", "2026-01", "80", "95"],
+    ]);
+    expect(rate.mapping?.rate).toBe(3);
+    const satz = detectLayout([
+      ["Name", "Monat", "Stunden", "Stundensatz"],
+      ["Ann", "2026-01", "80", "95"],
+    ]);
+    expect(satz.mapping).toMatchObject({ hours: 2, rate: 3 });
+  });
+
+  it("does not take 'Corporate' as the rate column of a wide sheet", () => {
+    const grid = [
+      ["Name", "Corporate", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "ACME", "1", "2", "3"],
+    ];
+    expect(detectLayout(grid).mapping?.rate).toBeUndefined();
+  });
+});
+
 describe("detectLayout — unknown", () => {
   it("rejects a prose grid", () => {
     const grid = [

@@ -26,7 +26,7 @@ const TEXT_SHARE = 0.5;
 
 const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
-const RATE_HEADER_RE = /rate|satz|€\/h|eur\/h/i;
+const RATE_HEADER_RE = /\brate\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
@@ -56,13 +56,17 @@ function shareOf(cells: readonly string[], predicate: (cell: string) => boolean)
   return cells.length === 0 ? 0 : cells.filter(predicate).length / cells.length;
 }
 
-function isMostlyPeriods(cells: readonly string[]): boolean {
-  return shareOf(cells, (c) => parsePeriodLabel(c) !== null) >= COLUMN_SHARE;
+const periodShare = (cells: readonly string[]): number =>
+  shareOf(cells, (c) => parsePeriodLabel(c) !== null);
+
+function numberShare(cells: readonly string[]): number {
+  const style = detectDecimalStyle(cells);
+  return shareOf(cells, (c) => parseNumberCell(c, style) !== null);
 }
 
-function isMostlyNumbers(cells: readonly string[]): boolean {
-  const style = detectDecimalStyle(cells);
-  return shareOf(cells, (c) => parseNumberCell(c, style) !== null) >= COLUMN_SHARE;
+/** True when the cells are numbers (or nothing at all) in at least COLUMN_SHARE. */
+function isNumericOrEmpty(cells: readonly string[]): boolean {
+  return cells.length === 0 || numberShare(cells) >= COLUMN_SHARE;
 }
 
 function isMostlyText(cells: readonly string[]): boolean {
@@ -116,6 +120,9 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
   const periodSet = new Set(periodCols);
+  // A real wide header has numbers (or nothing) under it; a long sheet's data
+  // row with several date cells has dates under it.
+  if (!isNumericOrEmpty(periodCols.flatMap((col) => columnCells(data, col)))) return null;
   const email = findEmailColumn(header, data, periodSet);
   const rate = firstHeaderMatch(header, RATE_HEADER_RE, new Set([...periodCols, ...(email === undefined ? [] : [email])]));
   const leftOfPeriods = Array.from({ length: periodCols[0] }, (_, col) => col).filter((col) => col !== rate);
@@ -148,16 +155,21 @@ function periodRank(header: string, cells: readonly string[]): number {
   return cells.every((c) => SERIAL_RE.test(c)) ? 2 : 1;
 }
 
-function findPeriodColumn(header: readonly string[], data: Rows, width: number): number | undefined {
-  let best: { col: number; rank: number } | undefined;
+function findPeriodColumn(
+  header: readonly string[],
+  data: Rows,
+  width: number,
+): { col: number; share: number } | undefined {
+  let best: { col: number; share: number; rank: number } | undefined;
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    if (isBlank(label) || parsePeriodLabel(label) !== null || !isMostlyPeriods(cells)) continue;
+    const share = periodShare(cells);
+    if (isBlank(label) || parsePeriodLabel(label) !== null || share < COLUMN_SHARE) continue;
     const rank = periodRank(label, cells);
-    if (best === undefined || rank < best.rank) best = { col, rank };
+    if (best === undefined || rank < best.rank) best = { col, share, rank };
   }
-  return best?.col;
+  return best && { col: best.col, share: best.share };
 }
 
 /** Numeric columns with a header, not the period column, not rate-like. */
@@ -166,18 +178,22 @@ function numericColumns(header: readonly string[], data: Rows, width: number, pe
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && isMostlyNumbers(cells);
+    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && numberShare(cells) >= COLUMN_SHARE;
     if (isCandidate) out.push(col);
   }
   return out;
 }
 
-function longFromHeader(rows: Rows, headerRow: number): ColumnMapping | null {
+/** A long reading of one candidate header row, with how well its columns fit. */
+type ScoredMapping = { mapping: ColumnMapping; score: number };
+
+function longFromHeader(rows: Rows, headerRow: number): ScoredMapping | null {
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
   const width = Math.max(header.length, rowWidth(data));
-  const period = findPeriodColumn(header, data, width);
-  if (period === undefined) return null;
+  const found = findPeriodColumn(header, data, width);
+  if (found === undefined) return null;
+  const period = found.col;
 
   const numeric = numericColumns(header, data, width, period);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
@@ -191,16 +207,25 @@ function longFromHeader(rows: Rows, headerRow: number): ColumnMapping | null {
   const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
   const person = pickPerson(candidates, data, email);
   if (person === null) return null;
-  return withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate });
+  return {
+    mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate }),
+    score: found.share + numberShare(columnCells(data, hours)),
+  };
 }
 
+/**
+ * Every header row in the scan window is scored (period share plus hours
+ * share); the best wins and a tie goes to the LATER row, so a title row whose
+ * columns happen to fit loses to the real header under it.
+ */
 function detectLong(rows: Rows): ColumnMapping | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
+  let best: ScoredMapping | null = null;
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
-    const mapping = longFromHeader(rows, headerRow);
-    if (mapping !== null) return mapping;
+    const candidate = longFromHeader(rows, headerRow);
+    if (candidate !== null && (best === null || candidate.score >= best.score)) best = candidate;
   }
-  return null;
+  return best?.mapping ?? null;
 }
 
 /**
