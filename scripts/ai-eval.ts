@@ -357,12 +357,12 @@ const CANDIDATE_VARIANT: Variant = "g2";
  *  arms says the candidate did not relocate anything. There is no way to leave
  *  it wrong and still spend money.
  *
- *  ★★★ WHY A FLAG AND NOT `CANDIDATE_VARIANT !== "current"`: the flag is the
- *  author's explicit claim about arm B, checked against the arms' bytes in both
- *  directions. A derived value would agree with whatever the variant did and so
- *  could never disagree with it. (Before §483 the derivation was also a TS2367
- *  error, because `variant` was typed as the literal "current"; `Variant` is a
- *  union now, so that reason no longer applies.)
+ *  ★★★ WHY A FLAG AND NOT `CANDIDATE_VARIANT !== "current"`: it was a TS2367
+ *  error until §483, because `variant` was typed as the literal "current". Now
+ *  that `Variant` is a union, the derivation would be equally safe — both checks
+ *  below compare the arms' BYTES, not the variant's name, so a no-op "g2" fails
+ *  either way. The flag is kept only as the author's explicit statement of what
+ *  arm B is meant to be.
  *
  *  ★★★ WHY THE CHECK EXISTS AT ALL. Without it, the moment a slice registers a
  *  real variant, "the variant moved the block" and "the variant is a silent
@@ -915,9 +915,11 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     //     marker); a variant that also moved or dropped block 0 would otherwise
     //     pass every pre-flight check and be measured as G2.
     const wantSystem = candidateSystem(CANDIDATE_VARIANT, armARaw);
-    if (wantSystem !== null && JSON.stringify(armBRaw.system) !== JSON.stringify(wantSystem)) {
+    //     Probe-independent, so it reports once, on the first active probe.
+    if (probe === activeProbes[0] && wantSystem !== null
+      && JSON.stringify(armBRaw.system) !== JSON.stringify(wantSystem)) {
       failures.push(
-        `${probe.id}: arm B's system is not what the ${CANDIDATE_VARIANT} variant must send — for G2 it is arm A's block 0 alone, byte for byte`,
+        `arm B's system is not what the ${CANDIDATE_VARIANT} variant must send — for G2 it is arm A's block 0 alone, byte for byte`,
       );
     }
     if (!ARMS_ARE_ALIAS && probe === activeProbes[0]

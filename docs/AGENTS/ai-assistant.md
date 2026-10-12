@@ -1431,7 +1431,7 @@
   in a way that looks identical to a regression — which is what the two runs above cost. Every
   question must keep exactly one answer a careful reader would agree on.
   ★★ `composition` may be on for AT MOST ONE probe — a CAP, pinned by a test that asserts the count
-  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all five**
+  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all six**
   (`PROBE_HARDENING` sets `composition: false` on every row and `compositionProbeId()` returns
   `null`), switched off on evidence — see the measurement below. It is implemented for `chatPointer`
   alone, whose block is the one that naturally holds a LIST to select from; the CLI REFUSES at

@@ -825,7 +825,7 @@ const otherHalf = (half) => (half === "system" ? "turn" : "system");
  *  assert "the target sits in arm A's `system`" as a constant. Measured against
  *  the app's real builders: `buildStableSystemBlocks` contains NONE of the
  *  relocatable block builders and `buildTurnContext` contains all of them, so
- *  every one of the five probes carries its target in the TURN half and the
+ *  every one of the five probes then carried its target in the TURN half and the
  *  assertion was false for all of them. It was then buried under an
  *  `expectRelocated: false` escape hatch, which is how a load-bearing check
  *  ends up permanently switched off: the next person to register a real variant
@@ -932,7 +932,7 @@ export function driftReferenceCheck(input) {
 
 /** Every arm a run can dispatch. A, B and X are per-probe and gate; N (the
  *  seeded anchor) and R (the rolling replay) are probe-independent drift arms
- *  and only ever inform; M (§454) asks all five codes in one reply and is a
+ *  and only ever inform; M (§454) asks every probe's code in one reply and is a
  *  measurement only. */
 export const ARM_IDS = Object.freeze(["A", "B", "X", "N", "R", "M"]);
 
