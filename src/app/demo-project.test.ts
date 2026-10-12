@@ -248,31 +248,33 @@ describe("the demo's start-card facts", () => {
   //   month granularity (pinned by "uses the master's own plan granularity" below) the built
   //   workspace changes only at a month boundary, so comparing against one built on the 1st of
   //   each month covers every distinct workspace the per-day build made, and a `demoHistoryFor`
-  //   that starts reading more of the workspace still fails here. (October's comparison is equal
-  //   by construction: `TODAY` falls in October too, so `WS` has the same shift.)
+  //   that starts reading more of the workspace, for either cadence, still fails here. (October's
+  //   comparison is equal by construction: `TODAY` falls in October too, so `WS` has the same shift.)
   // The monthly-cadence check pins the "before the current bucket" filter: for weekly records it
   //   never removes anything, but whenever the previous week's Friday capture falls in the current
-  //   month (most days from about the 5th) the thinned last record sits in the current month. It
-  //   must end in the previous month instead, which also catches a filter that drops too much.
+  //   month the thinned last record sits in the current month. It must end in the previous month
+  //   instead, which also catches a filter that drops too much.
   it("stores the whole file, ending in the week before today's, with no gap up to a live capture, on every day of a year", () => {
     const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
     let rebuilt = 0;
     for (let ms = Date.UTC(2026, 9, 1); ms < Date.UTC(2027, 9, 1); ms += 86_400_000) {
-      const today = new Date(ms).toISOString().slice(0, 10);
+      const day = new Date(ms);
+      const today = day.toISOString().slice(0, 10);
       const stored = demoHistoryFor(committed, WS, today, "weekly");
+      const monthly = demoHistoryFor(committed, WS, today, "monthly");
       if (today.endsWith("-01")) {
-        expect(demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly"), today).toEqual(stored);
+        const built = buildDemoWorkspace(MASTER, today);
+        expect(demoHistoryFor(committed, built, today, "weekly"), today).toEqual(stored);
+        expect(demoHistoryFor(committed, built, today, "monthly"), today).toEqual(monthly);
         rebuilt++;
       }
       expect(stored, today).toHaveLength(committed.length);
-      expect(stored.at(-1)!.bucket, today).toBe(bucketKey(new Date(ms - 7 * 86_400_000), "weekly"));
-      const day = new Date(ms);
-      const monthly = demoHistoryFor(committed, WS, today, "monthly");
+      expect(stored.at(-1)?.bucket, today).toBe(bucketKey(new Date(ms - 7 * 86_400_000), "weekly"));
       const thisMonth = bucketKey(day, "monthly");
       expect(monthly.filter((r) => r.bucket >= thisMonth), today).toEqual([]);
-      expect(monthly.at(-1)!.bucket, today).toBe(bucketKey(new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() - 1, 1)), "monthly"));
-      const live = { ...stored[0], capturedAt: `${today}T12:00:00.000Z`, bucket: bucketKey(new Date(ms), "weekly") };
-      expect(detectGaps([...stored, live], "weekly", new Date(ms)), today).toEqual([]);
+      expect(monthly.at(-1)?.bucket, today).toBe(bucketKey(new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() - 1, 1)), "monthly"));
+      const live = { ...stored[0], capturedAt: `${today}T12:00:00.000Z`, bucket: bucketKey(day, "weekly") };
+      expect(detectGaps([...stored, live], "weekly", day), today).toEqual([]);
     }
     expect(rebuilt).toBe(12); // control: the per-month comparison really ran
   });
