@@ -317,3 +317,32 @@ describe("useInsightRecommendRunner — the scope epoch (§548)", () => {
     expect(applyRecommendation).toHaveBeenCalledTimes(2);
   });
 });
+
+// §701 — the tick reads the guide text through `aiRef`, so a guide edited after mount
+// reaches the next billed call. Nothing is a candidate at mount, so the only call is
+// the interval tick after the rerender; a runner reading its mount-time `args.ai`
+// would send "GUIDE-A".
+describe("useInsightRecommendRunner — operating guides (§701)", () => {
+  test("a tick sends the latest guide text, not the one it mounted with", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const base: Omit<InsightRecommendRunnerArgs, "insights" | "ai"> = {
+      enabled: true,
+      today: "2026-01-01",
+      intervalMinutes: 60,
+      buildIndex: () => emptyIndex,
+      buildContextFor: (i) => `context for ${i.id}`,
+      applyRecommendation: vi.fn(),
+    };
+    const { rerender } = renderHook(
+      (p: { insights: Insight[]; guideText: string }) =>
+        useInsightRecommendRunner({ ...base, insights: p.insights, ai: { apiKey: "sk-ant-test", model: "claude-test", guideText: p.guideText } }),
+      { initialProps: { insights: [] as Insight[], guideText: "GUIDE-A" } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).not.toHaveBeenCalled(); // control: no candidate at mount
+    rerender({ insights: [makeInsight(1)], guideText: "GUIDE-B" });
+    await act(async () => { vi.advanceTimersByTime(60 * 60 * 1000); await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-B");
+  });
+});

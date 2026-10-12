@@ -142,3 +142,27 @@ describe("useScheduledJobRunner", () => {
     rendered?.unmount();
   });
 });
+
+// §701 — the runner hands `aiRef.current` to the call, so a guide edited after mount
+// reaches the next interval tick. Nothing is due at mount; the job turns due with the
+// rerender, so the only call is the tick after it, and a runner reading its mount-time
+// `args.ai` would send "GUIDE-A".
+describe("useScheduledJobRunner — operating guides (§701)", () => {
+  beforeEach(() => { mockRun.mockReset(); vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("a tick sends the latest guide text, not the one it mounted with", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const { rerender } = renderHook(
+      (p: { now: () => Date; guideText: string }) =>
+        useScheduledJobRunner(baseArgs({ now: p.now, ai: { apiKey: "k", model: "m", guideText: p.guideText } })),
+      { initialProps: { now: earlyMorning, guideText: "GUIDE-A" } },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled(); // control: not due at mount
+    rerender({ now: afternoon, guideText: "GUIDE-B" });
+    await act(async () => { vi.advanceTimersByTime(5 * 60 * 1000); for (let i = 0; i < 10; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-B");
+  });
+});
