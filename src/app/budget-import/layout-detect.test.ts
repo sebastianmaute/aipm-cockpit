@@ -186,6 +186,31 @@ describe("detectLayout — long", () => {
     const grid = [["Name", "Month", "Hours"], ...body, ["Ann", "soon", "10"]];
     expect(detectLayout(grid).kind).toBe("long");
   });
+
+  /** A header, then 8 good rows, with one unparseable period cell put at `badAt` (1-based data row). */
+  const withBadPeriod = (badAt: number, bad: string): string[][] => {
+    const body = Array.from({ length: 8 }, (_, i) => ["Ann", `2026-0${i + 1}`, "10"]);
+    body.splice(badAt - 1, 1, ["Ann", bad, "10"]);
+    return [["Name", "Month", "Hours"], ...body];
+  };
+
+  it("never takes a data row as the header: a bad period at data row 3 keeps headerRow 0", () => {
+    const grid = withBadPeriod(3, "soon");
+    const { mapping } = detectLayout(grid);
+    expect(mapping).toMatchObject({ layout: "long", headerRow: 0, period: 1, hours: 2 });
+    const out = gridToForecastRows(grid, mapping!, "S");
+    expect(out.rows).toHaveLength(7);
+    expect(out.rows.map((r) => r.period)).not.toContain("2026-03");
+    expect(out.dropped).toEqual([{ row: 4, reason: "bad-period" }]);
+  });
+
+  it("keeps headerRow 0 for a bad period at data row 1", () => {
+    expect(detectLayout(withBadPeriod(1, "TBD")).mapping).toMatchObject({ headerRow: 0 });
+  });
+
+  it("keeps headerRow 0 for a bad period at the last data row", () => {
+    expect(detectLayout(withBadPeriod(8, "TBD")).mapping).toMatchObject({ headerRow: 0 });
+  });
 });
 
 describe("detectLayout — date-heavy and titled sheets", () => {
@@ -272,6 +297,14 @@ describe("detectLayout — rate header", () => {
       ["Ann", "2026-01", "80", "95"],
     ]);
     expect(satz.mapping).toMatchObject({ hours: 2, rate: 3 });
+  });
+
+  it("takes the plural 'Rates' as the rate column", () => {
+    const grid = [
+      ["Name", "Month", "Hours", "Rates"],
+      ["Ann", "2026-01", "80", "95"],
+    ];
+    expect(detectLayout(grid).mapping?.rate).toBe(3);
   });
 
   it("does not take 'Corporate' as the rate column of a wide sheet", () => {

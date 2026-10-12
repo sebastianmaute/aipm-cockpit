@@ -26,7 +26,7 @@ const TEXT_SHARE = 0.5;
 
 const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
-const RATE_HEADER_RE = /\brate\b|satz|€\/h|eur\/h/i;
+const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
@@ -184,6 +184,18 @@ function numericColumns(header: readonly string[], data: Rows, width: number, pe
   return out;
 }
 
+/**
+ * A header is a row of labels. A row whose own hours cell is a number, or whose
+ * own period cell is a period, is a data row — typically the one with an
+ * unparseable period cell, which would otherwise score a perfect 2.0 as a
+ * "header" and silently drop every row above it.
+ */
+function isDataRowShaped(header: readonly string[], period: number, hours: number): boolean {
+  const hoursCell = cellAt(header, hours);
+  const isNumber = parseNumberCell(hoursCell, "dot") !== null || parseNumberCell(hoursCell, "comma") !== null;
+  return isNumber || parsePeriodLabel(cellAt(header, period)) !== null;
+}
+
 /** A long reading of one candidate header row, with how well its columns fit. */
 type ScoredMapping = { mapping: ColumnMapping; score: number };
 
@@ -199,7 +211,7 @@ function longFromHeader(rows: Rows, headerRow: number): ScoredMapping | null {
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
   const hoursCols = numeric.filter((col) => !rateCols.includes(col));
   const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
-  if (hours === undefined) return null;
+  if (hours === undefined || isDataRowShaped(header, period, hours)) return null;
   const rate = rateCols[0];
 
   const used = new Set([period, hours, ...(rate === undefined ? [] : [rate])]);
