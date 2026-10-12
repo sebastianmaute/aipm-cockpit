@@ -3,6 +3,7 @@
 // which nothing else can see: `getScopeEpoch` is OPTIONAL on `UseUndoStackDeps` (absent = never
 // stale), and task-manager reaches it through a forward ref whose fallback is `() => 0` — so a
 // dropped thread or an unfilled ref keeps every stale entry, silently, with tsc and eslint green.
+// §293 — the same file pins the undo stack's destructive-save arm, which travels the same way.
 //
 // ★ The storage hook's reader is REPLACED with a sentinel whose value the test moves. The real
 //   reader answers 0 until a switch, which is exactly what the `() => 0` fallback answers too, so
@@ -25,6 +26,10 @@
 //         "the scope-change prune is wired" is red.
 //   MU4 — `useUndoBatch(undoApi, readScopeEpochForUndo)` → `useUndoBatch(undoApi)`:
 //         "the undo batch gets the same reader" is red (a batch would stamp nothing).
+//   MU6 — §293: drop `allowDestructiveSave: armDestructiveForUndo` from the `useUndoStack({…})` deps:
+//         "an undo-stack arm reaches the storage hook's bypass" is red (no arm handed in).
+//   MU7 — §293: drop `allowDestructiveSaveRef.current = allowDestructiveSave;` from the forward-ref effect:
+//         the same test is red (the arm reaches an empty ref and authorises nothing).
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -38,6 +43,8 @@ const captured = vi.hoisted(() => {
     historyReset: undefined as unknown,
     batchReader: undefined as unknown,
     holdCalls: [] as { loadPending: boolean; prune: unknown }[],
+    storageArm: vi.fn(), // ONE stable function standing in for the storage hook's one-shot bypass
+    undoArm: undefined as (() => void) | undefined,
   };
   return c;
 });
@@ -48,7 +55,7 @@ vi.mock("./use-storage-backend", async (importOriginal) => {
     const result = actual.useStorageBackend(args);
     captured.storageLoadPending = result.loadPending;
     captured.historyReset = args.onUndoHistoryReset;
-    return { ...result, getUndoEpoch: captured.sentinel };
+    return { ...result, getUndoEpoch: captured.sentinel, allowDestructiveSave: captured.storageArm };
   }
   return { ...actual, useStorageBackend };
 });
@@ -57,6 +64,7 @@ vi.mock("./undo/use-undo-stack", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./undo/use-undo-stack")>();
   function useUndoStack(deps: Parameters<typeof actual.useUndoStack>[0]) {
     captured.undoReader = deps.getScopeEpoch;
+    captured.undoArm = deps.allowDestructiveSave;
     const api = actual.useUndoStack(deps);
     captured.undoPrune = api.pruneStale;
     return api;
@@ -104,6 +112,18 @@ describe("§628 task-manager scopes the undo stack", () => {
     expect(captured.undoReader!()).toBe(7);
     captured.epoch = 9;
     expect(captured.undoReader!()).toBe(9);
+  });
+
+  // §293 — `use-undo-stack.test.tsx` proves a redo that re-removes rows CALLS its arm, and the seam
+  // harness in `use-storage-backend.test.tsx` rebuilds task-manager's forward ref to prove that arm
+  // reaches the guard. Neither reads task-manager itself; this does. `allowDestructiveSave` is optional
+  // on `UseUndoStackDeps`, so a dropped thread is tsc- and eslint-green and every redo of a mass
+  // deletion is then refused by the guard.
+  it("an undo-stack arm reaches the storage hook's bypass (MU6, MU7)", () => {
+    expect(typeof captured.undoArm).toBe("function");
+    expect(captured.storageArm).not.toHaveBeenCalled(); // anti-vacuity: nothing armed during the mount
+    captured.undoArm!();
+    expect(captured.storageArm).toHaveBeenCalledTimes(1);
   });
 
   it("a restore prunes this undo stack (MU5)", () => {
