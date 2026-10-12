@@ -138,23 +138,42 @@ describe("matching", () => {
     expect(p.addResources[0].resourceIds).toEqual([2]);
   });
 
-  it("an override wins over an email match", () => {
+  it("an override does not re-route a row that resolved by email", () => {
     const resources = [person(1, "Ann", "Lee", { email: "ann@x.com" }), person(2, "Bob", "Ray")];
     const overrides = new Map<string, PersonOverride>([["ann lee", 2]]);
     const p = plan([row("Ann Lee", "2026-01", 10, { email: "ann@x.com" })], { resources, overrides });
-    expect(p.addResources[0].resourceIds).toEqual([2]);
+    expect(p.addResources[0].resourceIds).toEqual([1]);
+  });
+
+  it("settling an ambiguous namesake leaves the email-matched row where it was", () => {
+    const resources = [
+      person(1, "Ann", "Lee", { email: "ann@x.com", roleId: ROLE_A.id }),
+      person(2, "Ann", "Lee", { roleId: ROLE_B.id }),
+    ];
+    const overrides = new Map<string, PersonOverride>([["ann lee", 2]]);
+    const rows = [row("Ann Lee", "2026-01", 10, { email: "ann@x.com" }), row("Ann Lee", "2026-02", 4)];
+    const p = plan(rows, { resources, overrides });
+    expect(p.unresolved).toEqual([]);
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: 10 }, period: "2026-01", old: undefined, next: 10 },
+      { alloc: { kind: "role", roleId: 11 }, period: "2026-02", old: undefined, next: 4 },
+    ]);
+    // Without the override the email row is unaffected and the other stays ambiguous.
+    const bare = plan(rows, { resources });
+    expect(bare.changes).toHaveLength(1);
+    expect(bare.unresolved).toEqual([{ person: "Ann Lee", why: "ambiguous", candidates: [1, 2] }]);
   });
 
   it("an override to a missing resource id is no-match", () => {
-    const overrides = new Map<string, PersonOverride>([["ann lee", 99]]);
-    const p = plan([row("Ann Lee", "2026-01", 10)], { overrides });
-    expect(p.unresolved).toEqual([{ person: "Ann Lee", why: "no-match", candidates: [] }]);
+    const overrides = new Map<string, PersonOverride>([["zed zee", 99]]);
+    const p = plan([row("Zed Zee", "2026-01", 10)], { overrides });
+    expect(p.unresolved).toEqual([{ person: "Zed Zee", why: "no-match", candidates: [] }]);
   });
 
   it("an override to skip drops the rows and lists the person once", () => {
-    const overrides = new Map<string, PersonOverride>([["ann lee", "skip"]]);
-    const p = plan([row("Ann Lee", "2026-01", 10), row("ann lee", "2026-02", 5)], { overrides });
-    expect(p.skipped).toEqual(["Ann Lee"]);
+    const overrides = new Map<string, PersonOverride>([["zed zee", "skip"]]);
+    const p = plan([row("Zed Zee", "2026-01", 10), row("zed zee", "2026-02", 5)], { overrides });
+    expect(p.skipped).toEqual(["Zed Zee"]);
     expect(p.changes).toEqual([]);
     expect(p.unresolved).toEqual([]);
   });
@@ -208,7 +227,9 @@ describe("aggregation", () => {
     const w18 = p.changes.filter((c) => c.period === "2026-W18");
     expect(w18).toHaveLength(1);
     expect(w18[0].next).toBe(Math.round(((apr?.hours ?? 0) + (may?.hours ?? 0)) * 100) / 100);
-    expect(Math.round(p.changes.reduce((s, c) => s + c.next, 0) * 100)).toBe(20000);
+    // W14 starts Mar 30, before the bucket, so April's share of it is not written.
+    expect(p.changes.some((c) => c.period === "2026-W14")).toBe(false);
+    expect(p.outOfRange).toContainEqual({ person: "Ann Lee", period: "2026-W14" });
   });
 
   it("sums duplicate cents without float drift", () => {
@@ -238,12 +259,78 @@ describe("aggregation", () => {
   });
 });
 
+describe("hoursDelta rounding", () => {
+  it("reads a sub-cent change as 0, never -0", () => {
+    const bucket = bucketOf({ allocations: [alloc(10, { "2026-01": 10.004 })] });
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket });
+    expect(p.changes).toHaveLength(1);
+    expect(p.hoursDelta).toBe(0);
+  });
+});
+
+describe("partial cells", () => {
+  const weekly: ResourcePlan = { ...MONTH_PLAN, granularity: "week" };
+  const bucket = bucketOf({ startDate: "2026-01-01", endDate: "2026-04-30" });
+
+  it("flags a week only partly covered by the sheet's periods", () => {
+    const p = plan([row("Ann Lee", "2026-03", 100)], { bucket, plan: weekly });
+    const byPeriod = new Map(p.changes.map((c) => [c.period, c]));
+    expect(byPeriod.get("2026-W14")?.partial).toBe(true);
+    for (const w of ["2026-W10", "2026-W11", "2026-W12", "2026-W13"]) {
+      expect(byPeriod.get(w)).toBeDefined();
+      expect(byPeriod.get(w)?.partial).toBeUndefined();
+    }
+  });
+
+  it("does not flag the straddling week once both months are in the sheet", () => {
+    const p = plan([row("Ann Lee", "2026-03", 100), row("Ann Lee", "2026-04", 100)], { bucket, plan: weekly });
+    expect(p.changes.find((c) => c.period === "2026-W14")?.partial).toBeUndefined();
+  });
+
+  it("counts a period supplied by another person of the same role", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const p = plan([row("Ann Lee", "2026-03", 100), row("Bob Ray", "2026-04", 100)], {
+      bucket,
+      plan: weekly,
+      resources,
+    });
+    expect(p.changes.find((c) => c.period === "2026-W14")?.partial).toBeUndefined();
+  });
+
+  it("never flags a cell written at the sheet's own granularity", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10)]).changes[0].partial).toBeUndefined();
+  });
+});
+
 describe("range", () => {
   it("sends a period outside the bucket to outOfRange once per person and period", () => {
     const resources = [person(1, "Ann", "Lee")];
     const p = plan([row("Ann Lee", "2026-01", 10), row("Ann Lee", "2026-06", 5), row("ann lee", "2026-06", 5)], { resources });
     expect(p.outOfRange).toEqual([{ person: "Ann Lee", period: "2026-06" }]);
     expect(p.changes.map((c) => c.period)).toEqual(["2026-01"]);
+  });
+
+  it("uses the app's active periods: a period starting before the bucket is out", () => {
+    const bucket = bucketOf({ startDate: "2026-01-15", endDate: "2026-03-31" });
+    const p = plan([row("Ann Lee", "2026-01", 10), row("Ann Lee", "2026-02", 5)], { bucket });
+    expect(p.outOfRange).toEqual([{ person: "Ann Lee", period: "2026-01" }]);
+    expect(p.changes.map((c) => c.period)).toEqual(["2026-02"]);
+  });
+
+  it("keeps a Q2 bucket's weekly cells to weeks that start inside it", () => {
+    const bucket = bucketOf({ startDate: "2026-04-01", endDate: "2026-06-30" });
+    const p = plan([row("Ann Lee", "2026-04", 100)], { bucket, plan: { ...MONTH_PLAN, granularity: "week" } });
+    expect(p.outOfRange).toContainEqual({ person: "Ann Lee", period: "2026-W14" });
+    expect(p.changes.map((c) => c.period)).not.toContain("2026-W14");
+    expect(p.changes.map((c) => c.period)).toContain("2026-W15");
+  });
+
+  it("treats periods past the plan's end as out of range", () => {
+    const bucket = bucketOf({ startDate: "2026-01-01", endDate: "2026-06-30" });
+    const short: ResourcePlan = { ...MONTH_PLAN, endDate: "2026-03-31" };
+    const p = plan([row("Ann Lee", "2026-03", 10), row("Ann Lee", "2026-04", 5)], { bucket, plan: short });
+    expect(p.outOfRange).toEqual([{ person: "Ann Lee", period: "2026-04" }]);
+    expect(p.changes.map((c) => c.period)).toEqual(["2026-03"]);
   });
 
   it("does not add a person whose every period is out of range", () => {
@@ -272,6 +359,15 @@ describe("rate notes", () => {
 
   it("notes nothing within the 0.5% tolerance", () => {
     expect(plan([row("Ann Lee", "2026-01", 10, { rate: 100.4 })]).rateNotes).toEqual([]);
+  });
+
+  it("sits exactly on the 0.005 boundary: equal passes, just over is noted", () => {
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: 100.5 })]).rateNotes).toEqual([]);
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: 100.51 })]).rateNotes).toHaveLength(1);
+  });
+
+  it("does not note the rate of a row with no in-range period", () => {
+    expect(plan([row("Ann Lee", "2026-09", 10, { rate: 120 })]).rateNotes).toEqual([]);
   });
 
   it("notes a rate that matches neither, once per person and rate", () => {
@@ -363,6 +459,27 @@ describe("applyForecastImport", () => {
     const next = applyForecastImport(bucket, p);
     expect(next.disciplineAllocations?.[1]).toBe(d2);
     expect(next.disciplineAllocations?.[0].budgetHours).toEqual({ "2026-01": 5 });
+  });
+
+  it("dedupes a hand-built addResources against the stored ids and itself", () => {
+    const hand: ImportPlan = {
+      changes: [],
+      unresolved: [],
+      skipped: [],
+      outOfRange: [],
+      rateNotes: [],
+      addResources: [
+        { alloc: { kind: "role", roleId: 10 }, resourceIds: [1, 1, 2] },
+        { alloc: { kind: "role", roleId: 12 }, resourceIds: [3, 3] },
+      ],
+      newAllocations: [],
+      blockers: [],
+      hoursDelta: 0,
+    };
+    const bucket = bucketOf({ allocations: [alloc(10, {}, [1])] });
+    const next = applyForecastImport(bucket, hand);
+    expect(next.allocations[0].resourceIds).toEqual([1, 2]);
+    expect(next.allocations[1].resourceIds).toEqual([3]);
   });
 
   it("never mutates a deep-frozen bucket or plan", () => {

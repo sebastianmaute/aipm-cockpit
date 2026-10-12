@@ -1,10 +1,11 @@
 // src/app/budget-import/forecast-plan.ts — turns validated forecast rows into a
 // cell diff against ONE budget bucket (§500) and applies that diff immutably.
 // Pure: no i18n, no React, and no input is ever mutated.
-import { generatePeriods } from "../resource-capacity";
+import { bucketActivePeriods } from "../budget-report";
+import type { Period } from "../resource-capacity";
 import type { BucketAllocation, BudgetBucket, DisciplineAllocation, Resource, ResourcePlan, Role } from "../types";
 import type { ForecastRow } from "./forecast-types";
-import { splitToGranularity } from "./period-split";
+import { sourcePeriodBounds, splitToGranularity } from "./period-split";
 
 /** Relative rate difference above which a sheet rate is reported. */
 const RATE_MISMATCH = 0.005;
@@ -20,7 +21,15 @@ export type ImportCtx = {
   overrides: ReadonlyMap<string, PersonOverride>;
 };
 export type AllocationKey = { kind: "role"; roleId: number } | { kind: "discipline"; disciplineId: number };
-export type CellChange = { alloc: AllocationKey; period: string; old: number | undefined; next: number };
+/** `partial` is set when the target period has working days that no sheet period
+ *  for this allocation covers, so the written cell understates the period. */
+export type CellChange = {
+  alloc: AllocationKey;
+  period: string;
+  old: number | undefined;
+  next: number;
+  partial?: true;
+};
 export type UnresolvedPerson = {
   person: string;
   email?: string;
@@ -91,10 +100,7 @@ function candidateIds(row: ForecastRow, ix: Indexes): number[] {
   return ix.byName.get(normalisePerson(row.person)) ?? [];
 }
 
-function resolveRow(row: ForecastRow, ix: Indexes, overrides: ImportCtx["overrides"]): Resolution {
-  const override = overrides.get(normalisePerson(row.person));
-  if (override === "skip") return { kind: "skip" };
-  const ids = override !== undefined ? (ix.byId.has(override) ? [override] : []) : candidateIds(row, ix);
+function resolveIds(ids: readonly number[], ix: Indexes): Resolution {
   if (ids.length === 0) return { kind: "unresolved", why: "no-match", candidates: [] };
   if (ids.length > 1) return { kind: "unresolved", why: "ambiguous", candidates: [...ids] };
   const resource = ix.byId.get(ids[0]);
@@ -104,9 +110,27 @@ function resolveRow(row: ForecastRow, ix: Indexes, overrides: ImportCtx["overrid
   return { kind: "matched", resource, role };
 }
 
+/** An override only settles a row the automatic match could not: a row that
+ *  resolves by email or by a unique name ignores overrides, so settling one
+ *  ambiguous namesake never re-routes another person's rows. */
+function resolveRow(row: ForecastRow, ix: Indexes, overrides: ImportCtx["overrides"]): Resolution {
+  const auto = resolveIds(candidateIds(row, ix), ix);
+  if (auto.kind === "matched") return auto;
+  const override = overrides.get(normalisePerson(row.person));
+  if (override === undefined) return auto;
+  if (override === "skip") return { kind: "skip" };
+  return resolveIds(ix.byId.has(override) ? [override] : [], ix);
+}
+
 // ------------------------------------------------------------- aggregation
 
-type Acc = { alloc: AllocationKey; cents: Map<string, number>; people: Set<number> };
+type Acc = {
+  alloc: AllocationKey;
+  cents: Map<string, number>;
+  people: Set<number>;
+  /** Sheet periods that contributed an in-range share to this allocation. */
+  sources: Set<string>;
+};
 
 type Collector = {
   accs: Map<string, Acc>;
@@ -163,12 +187,14 @@ function addShare(
   key: string,
   cents: number,
   resourceId: number,
+  source: string,
   out: Collector,
 ): void {
-  const target = acc ?? { alloc, cents: new Map<string, number>(), people: new Set<number>() };
+  const target = acc ?? { alloc, cents: new Map<string, number>(), people: new Set<number>(), sources: new Set<string>() };
   out.accs.set(allocId(alloc), target);
   target.cents.set(key, (target.cents.get(key) ?? 0) + cents);
   target.people.add(resourceId);
+  target.sources.add(source);
 }
 
 function processMatched(
@@ -176,23 +202,23 @@ function processMatched(
   resource: Resource,
   role: Role,
   ctx: ImportCtx,
-  inRange: ReadonlySet<string>,
+  inRange: ReadonlyMap<string, Period>,
   out: Collector,
 ): void {
-  noteRate(row, resource, role, out);
   const alloc = allocKeyOf(role, ctx.bucket.planningMode === "blended");
   const shares = splitToGranularity(row.period, row.hours, ctx.plan.granularity, ctx.holidaySet);
+  if (shares.some((share) => inRange.has(share.key))) noteRate(row, resource, role, out);
   for (const share of shares) {
     if (!inRange.has(share.key)) {
       const key = `${normalisePerson(row.person)}|${share.key}`;
       if (!out.outOfRange.has(key)) out.outOfRange.set(key, { person: row.person, period: share.key });
       continue;
     }
-    addShare(out.accs.get(allocId(alloc)), alloc, share.key, toCents(share.hours), resource.id, out);
+    addShare(out.accs.get(allocId(alloc)), alloc, share.key, toCents(share.hours), resource.id, row.period, out);
   }
 }
 
-function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes): Collector {
+function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes, active: ReadonlyMap<string, Period>): Collector {
   const out: Collector = {
     accs: new Map(),
     unresolved: new Map(),
@@ -200,14 +226,13 @@ function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes): Col
     outOfRange: new Map(),
     rateNotes: new Map(),
   };
-  const inRange = new Set(generatePeriods(ctx.bucket.startDate, ctx.bucket.endDate, ctx.plan.granularity).map((p) => p.key));
   for (const row of rows) {
     const res = resolveRow(row, ix, ctx.overrides);
     if (res.kind === "skip") {
       const key = normalisePerson(row.person);
       if (!out.skipped.has(key)) out.skipped.set(key, row.person);
     } else if (res.kind === "unresolved") recordUnresolved(row, res, out);
-    else processMatched(row, res.resource, res.role, ctx, inRange, out);
+    else processMatched(row, res.resource, res.role, ctx, active, out);
   }
   return out;
 }
@@ -224,15 +249,36 @@ function findStored(bucket: BudgetBucket, key: AllocationKey): StoredAlloc | und
 
 type Diff = Pick<ImportPlan, "changes" | "addResources" | "newAllocations" | "hoursDelta">;
 
-function diffAllocation(acc: Acc, stored: StoredAlloc | undefined): Diff {
+type DiffScope = { active: ReadonlyMap<string, Period>; holidaySet: ReadonlySet<string> };
+
+/** True when a working day (Mon-Fri, not a holiday) of `target` lies in none of
+ *  the covering sheet periods. */
+function hasUncoveredWorkday(target: Period, covers: readonly Period[], holidaySet: ReadonlySet<string>): boolean {
+  const cur = new Date(`${target.start}T00:00:00Z`);
+  const last = new Date(`${target.end}T00:00:00Z`);
+  for (; cur <= last; cur.setUTCDate(cur.getUTCDate() + 1)) {
+    const weekday = cur.getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    const day = cur.toISOString().slice(0, 10);
+    if (holidaySet.has(day)) continue;
+    if (!covers.some((c) => day >= c.start && day <= c.end)) return true;
+  }
+  return false;
+}
+
+function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffScope): Diff {
   const changes: CellChange[] = [];
-  let deltaCents = 0;
+  const covers = [...acc.sources].map(sourcePeriodBounds);
+  let delta = 0;
   for (const period of [...acc.cents.keys()].sort()) {
-    const cents = acc.cents.get(period) ?? 0;
+    const next = (acc.cents.get(period) ?? 0) / 100;
     const old = stored?.budgetHours[period];
-    if (old === cents / 100) continue;
-    changes.push({ alloc: acc.alloc, period, old, next: cents / 100 });
-    deltaCents += cents - Math.round((old ?? 0) * 100);
+    if (old === next) continue;
+    const change: CellChange = { alloc: acc.alloc, period, old, next };
+    const target = scope.active.get(period);
+    if (target && hasUncoveredWorkday(target, covers, scope.holidaySet)) change.partial = true;
+    changes.push(change);
+    delta += next - (old ?? 0);
   }
   const present = new Set(stored?.resourceIds ?? []);
   const added = [...acc.people].filter((id) => !present.has(id));
@@ -240,7 +286,7 @@ function diffAllocation(acc: Acc, stored: StoredAlloc | undefined): Diff {
     changes,
     addResources: added.length > 0 ? [{ alloc: acc.alloc, resourceIds: added }] : [],
     newAllocations: stored ? [] : [acc.alloc],
-    hoursDelta: deltaCents / 100,
+    hoursDelta: delta,
   };
 }
 
@@ -254,8 +300,10 @@ function blockersOf(ctx: ImportCtx, changeCount: number): ImportBlocker[] {
 
 /** Diffs the forecast against the bucket. Rows must already be validated. */
 export function buildForecastImportPlan(rows: readonly ForecastRow[], ctx: ImportCtx): ImportPlan {
-  const collected = collect(rows, ctx, buildIndexes(ctx.resources, ctx.roles));
-  const diffs = [...collected.accs.values()].map((acc) => diffAllocation(acc, findStored(ctx.bucket, acc.alloc)));
+  const active = new Map(bucketActivePeriods(ctx.bucket, ctx.plan).map((p) => [p.key, p]));
+  const collected = collect(rows, ctx, buildIndexes(ctx.resources, ctx.roles), active);
+  const scope: DiffScope = { active, holidaySet: ctx.holidaySet };
+  const diffs = [...collected.accs.values()].map((acc) => diffAllocation(acc, findStored(ctx.bucket, acc.alloc), scope));
   const changes = diffs.flatMap((d) => d.changes);
   return {
     changes,
@@ -266,7 +314,8 @@ export function buildForecastImportPlan(rows: readonly ForecastRow[], ctx: Impor
     addResources: diffs.flatMap((d) => d.addResources),
     newAllocations: diffs.flatMap((d) => d.newAllocations),
     blockers: blockersOf(ctx, changes.length),
-    hoursDelta: Math.round(diffs.reduce((s, d) => s + Math.round(d.hoursDelta * 100), 0)) / 100,
+    // Exact differences summed first, rounded once; `|| 0` turns -0 into 0.
+    hoursDelta: Math.round(diffs.reduce((sum, d) => sum + d.hoursDelta, 0) * 100) / 100 || 0,
   };
 }
 

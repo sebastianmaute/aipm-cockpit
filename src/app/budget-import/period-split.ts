@@ -27,6 +27,11 @@ function boundsOf(period: string, granularity: PlanGranularity): Period {
   return bounds;
 }
 
+/** The dates a canonical sheet period ("YYYY-MM" or "YYYY-Www") covers. */
+export function sourcePeriodBounds(period: string): Period {
+  return boundsOf(period, granularityOf(period));
+}
+
 function calendarDays(start: string, end: string): number {
   if (start > end) return 0;
   return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / DAY_MS) + 1;
