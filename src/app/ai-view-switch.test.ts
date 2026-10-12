@@ -83,14 +83,15 @@ describe("classifySend", () => {
 describe("addViewSwitchSend", () => {
   const WED = new Date("2026-10-14T10:00:00");
 
-  it("counts every send, and keeps cache writes for switch and warm sends apart", () => {
+  it("counts every send and its API requests, and keeps cache writes for switch and warm sends apart", () => {
     let b: ViewSwitchBuckets = {};
-    b = addViewSwitchSend(b, WED, "cold", 20_000);
-    b = addViewSwitchSend(b, WED, "warm", 1_000);
-    b = addViewSwitchSend(b, WED, "switch", 9_000);
-    b = addViewSwitchSend(b, WED, "warm", 500);
+    b = addViewSwitchSend(b, WED, "cold", 20_000, 1);
+    b = addViewSwitchSend(b, WED, "warm", 1_000, 3);
+    b = addViewSwitchSend(b, WED, "switch", 9_000, 2);
+    b = addViewSwitchSend(b, WED, "warm", 500, 1);
     expect(b["2026-10-14"]).toEqual({
       sends: 4,
+      requests: 7,
       switches: 1,
       warmSends: 2,
       switchCacheWrite: 9_000,
@@ -100,24 +101,34 @@ describe("addViewSwitchSend", () => {
 
   it("does not mutate the input buckets", () => {
     const b: ViewSwitchBuckets = {};
-    addViewSwitchSend(b, WED, "switch", 1);
+    addViewSwitchSend(b, WED, "switch", 1, 1);
     expect(b).toEqual({});
   });
 
-  it("treats a non-finite cache write as 0", () => {
-    const b = addViewSwitchSend({}, WED, "switch", Number.NaN);
-    expect(b["2026-10-14"]).toEqual({ sends: 1, switches: 1, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 });
+  it("treats a non-finite cache write or request count as 0", () => {
+    const b = addViewSwitchSend({}, WED, "switch", Number.NaN, Number.POSITIVE_INFINITY);
+    expect(b["2026-10-14"]).toEqual({
+      sends: 1,
+      requests: 0,
+      switches: 1,
+      warmSends: 0,
+      switchCacheWrite: 0,
+      warmCacheWrite: 0,
+    });
   });
 });
+
+const ZERO = { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 };
 
 describe("weekViewSwitchStats", () => {
   it("sums Monday..now of the current week only", () => {
     let b: ViewSwitchBuckets = {};
-    b = addViewSwitchSend(b, new Date("2026-10-11T10:00:00"), "switch", 100); // previous Sunday — excluded
-    b = addViewSwitchSend(b, new Date("2026-10-12T10:00:00"), "switch", 10); // Monday
-    b = addViewSwitchSend(b, new Date("2026-10-14T09:00:00"), "warm", 2); // Wednesday
+    b = addViewSwitchSend(b, new Date("2026-10-11T10:00:00"), "switch", 100, 9); // previous Sunday — excluded
+    b = addViewSwitchSend(b, new Date("2026-10-12T10:00:00"), "switch", 10, 2); // Monday
+    b = addViewSwitchSend(b, new Date("2026-10-14T09:00:00"), "warm", 2, 3); // Wednesday
     expect(weekViewSwitchStats(b, new Date("2026-10-14T10:00:00"))).toEqual({
       sends: 2,
+      requests: 5,
       switches: 1,
       warmSends: 1,
       switchCacheWrite: 10,
@@ -126,26 +137,20 @@ describe("weekViewSwitchStats", () => {
   });
 
   it("is all zeros for no data", () => {
-    expect(weekViewSwitchStats({}, new Date(T0))).toEqual({
-      sends: 0,
-      switches: 0,
-      warmSends: 0,
-      switchCacheWrite: 0,
-      warmCacheWrite: 0,
-    });
+    expect(weekViewSwitchStats({}, new Date(T0))).toEqual(ZERO);
   });
 });
 
 describe("normalizeViewSwitchBuckets", () => {
   it("rebuilds every bucket field by field, defaulting missing or non-finite fields to 0", () => {
     expect(
-      normalizeViewSwitchBuckets({ "2026-10-12": { sends: 2, switches: "x", switchCacheWrite: Infinity } }),
-    ).toEqual({ "2026-10-12": { sends: 2, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 } });
+      normalizeViewSwitchBuckets({ "2026-10-12": { sends: 2, requests: 4, switches: "x", switchCacheWrite: Infinity } }),
+    ).toEqual({ "2026-10-12": { ...ZERO, sends: 2, requests: 4 } });
   });
 
   it("drops a bucket whose key is not a YYYY-MM-DD day, which no week filter could place", () => {
     expect(normalizeViewSwitchBuckets({ garbage: { sends: 5 }, "2026-10-12": { sends: 1 } })).toEqual({
-      "2026-10-12": { sends: 1, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
+      "2026-10-12": { ...ZERO, sends: 1 },
     });
   });
 

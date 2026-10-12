@@ -33,11 +33,16 @@ import { isoDate, mondayOf } from "./ai-usage";
 export const VIEW_SWITCH_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** The MODELLED break-even this counter exists to check: G2 pays
- *  `0.9 × view-guide` on every send and saves a transcript rewrite on every
- *  warm switch, which evens out at about one switch per this many sends.
- *  Source: docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md
- *  ("Break-even"). */
-export const G2_BREAK_EVEN_SENDS_PER_SWITCH = 46;
+ *  `0.9 × view-guide` on every API REQUEST and saves a transcript rewrite on
+ *  every warm switch, which evens out at about one switch per this many
+ *  requests. Source: docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md
+ *  ("Break-even"), which says "turns".
+ *  ★★ A TURN THERE IS ONE REQUEST, NOT ONE SEND. G2 puts the guide beside the
+ *  turn context, and `chat-panel.tsx` attaches the turn context on every
+ *  round-trip of a send (`buildWireMessages` runs inside the tool loop), so a
+ *  send with three tool calls pays G2's cost four times. Comparing switches
+ *  with SENDS would understate G2's cost and argue for it too early. */
+export const G2_BREAK_EVEN_REQUESTS_PER_SWITCH = 46;
 
 /** What one chat send put in front of the transcript, and when. */
 export type SendFingerprint = {
@@ -75,6 +80,8 @@ export function classifySend(
 
 export type ViewSwitchStats = {
   sends: number;
+  /** API requests (round-trips) across those sends: the break-even's unit. */
+  requests: number;
   switches: number;
   warmSends: number;
   switchCacheWrite: number;
@@ -82,7 +89,14 @@ export type ViewSwitchStats = {
 };
 export type ViewSwitchBuckets = Record<string, ViewSwitchStats>; // key: YYYY-MM-DD (local)
 
-const EMPTY_STATS: ViewSwitchStats = { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 };
+const EMPTY_STATS: ViewSwitchStats = {
+  sends: 0,
+  requests: 0,
+  switches: 0,
+  warmSends: 0,
+  switchCacheWrite: 0,
+  warmCacheWrite: 0,
+};
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -92,6 +106,7 @@ function normalizeStats(v: unknown): ViewSwitchStats {
   const o = (v && typeof v === "object" ? v : {}) as Partial<Record<keyof ViewSwitchStats, unknown>>;
   return {
     sends: finite(o.sends),
+    requests: finite(o.requests),
     switches: finite(o.switches),
     warmSends: finite(o.warmSends),
     switchCacheWrite: finite(o.switchCacheWrite),
@@ -117,6 +132,7 @@ export function addViewSwitchSend(
   when: Date,
   kind: SendKind,
   cacheWrite: number,
+  requests: number,
 ): ViewSwitchBuckets {
   const k = isoDate(when);
   const prev = normalizeStats(b[k] ?? EMPTY_STATS);
@@ -125,6 +141,7 @@ export function addViewSwitchSend(
     ...b,
     [k]: {
       sends: prev.sends + 1,
+      requests: prev.requests + finite(requests),
       switches: prev.switches + (kind === "switch" ? 1 : 0),
       warmSends: prev.warmSends + (kind === "warm" ? 1 : 0),
       switchCacheWrite: prev.switchCacheWrite + (kind === "switch" ? w : 0),
@@ -141,6 +158,7 @@ export function weekViewSwitchStats(b: ViewSwitchBuckets, now: Date): ViewSwitch
     if (d < start || d > now) continue;
     const s = normalizeStats(v);
     total.sends += s.sends;
+    total.requests += s.requests;
     total.switches += s.switches;
     total.warmSends += s.warmSends;
     total.switchCacheWrite += s.switchCacheWrite;

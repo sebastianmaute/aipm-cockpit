@@ -63,7 +63,7 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
-    viewSwitchWeek: { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
+    viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
     noteUnbilledChatSend: vi.fn(),
   },
@@ -3231,9 +3231,11 @@ describe("cache-token usage recording", () => {
 
   it("records cache tokens from every turn of a send", async () => {
     const recordSpy = vi.fn();
+    const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       record: recordSpy,
+      recordChatSend: recordChatSendSpy,
     });
 
     let call = 0;
@@ -3285,6 +3287,9 @@ describe("cache-token usage recording", () => {
     expect(recordSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
     );
+    // §702: one send, two API requests — the counter is told both numbers.
+    expect(recordChatSendSpy).toHaveBeenCalledTimes(1);
+    expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 500, 2);
   });
 
   // §702: the view-switch counter classifies sends by what each one put in
@@ -3432,6 +3437,40 @@ describe("cache-token usage recording", () => {
 
     expect(recordChatSendSpy).not.toHaveBeenCalled();
     expect(noteSpy).not.toHaveBeenCalled();
+  });
+
+  // Stop pressed while a request is in flight, and that request then answers:
+  // the loop breaks on the cancel without throwing, so this is the
+  // cancel-after-response branch, not the catch.
+  it("notes, without counting, a send stopped after its request answered", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let answer: (r: Response) => void = () => {};
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => { answer = resolve; }),
+    );
+
+    renderGuidedPanel();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
+    answer({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "late" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
   });
 });
 

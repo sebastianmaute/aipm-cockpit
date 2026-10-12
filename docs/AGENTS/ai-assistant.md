@@ -1678,7 +1678,8 @@
   G2 and it passed). The cost side is measured, not settled: `ai-view-switch.ts` counts warm view
   switches per chat send (the rule and why each condition is there sit in its header), `AiUsageProvider`
   stores them under their own key so the caps never read them, and the AI usage panel shows the week
-  beside the modelled break-even (`G2_BREAK_EVEN_SENDS_PER_SWITCH`). G2 waits on that data (§702).
+  beside the modelled break-even, stated per API request rather than per send (`G2_BREAK_EVEN_REQUESTS_PER_SWITCH`
+  says why). G2 waits on that data (§702).
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;

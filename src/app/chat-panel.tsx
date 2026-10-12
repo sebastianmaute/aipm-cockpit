@@ -707,9 +707,10 @@ function ChatPanelInner({
 
     // §702: what this send put in front of the transcript, for the view-switch
     // counter. Stamped BEFORE the first request: the cache window is measured
-    // to the send's start. `responded` marks that a prefix reached the cache.
+    // to the send's start. `requests` counts round-trips that answered (the
+    // break-even's unit); any of them means a prefix reached the cache.
     const sendStartedAt = Date.now();
-    let responded = false;
+    let requests = 0;
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
       stableText: system[0]?.text ?? "",
@@ -748,7 +749,7 @@ function ChatPanelInner({
           buildWireMessages(messages, turnContext).messages,
           ai, controller.signal,
         );
-        responded = true;
+        requests += 1;
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
         if (stale()) break;
@@ -1028,8 +1029,8 @@ function ChatPanelInner({
           cacheWrite: totalCacheWrite,
           cacheRead: totalCacheRead,
         });
-        recordChatSend(sendFingerprint(), totalCacheWrite);
-      } else if (responded) {
+        recordChatSend(sendFingerprint(), totalCacheWrite, requests);
+      } else if (requests > 0) {
         // Stopped after a response: not billed, but the prefix is cached.
         noteUnbilledChatSend(sendFingerprint());
       }
@@ -1042,7 +1043,7 @@ function ChatPanelInner({
       }
     } catch (err) {
       // §702: a failure after a response still left its prefix in the cache.
-      if (responded) noteUnbilledChatSend(sendFingerprint());
+      if (requests > 0) noteUnbilledChatSend(sendFingerprint());
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because
       // DOMException may not be instanceof Error across jsdom/Node boundaries.

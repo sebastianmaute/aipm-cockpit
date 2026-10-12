@@ -9,7 +9,7 @@ import {
   useAiUsageContext,
 } from "../ai-usage-context";
 import { nextWeekReset } from "../ai-usage";
-import { G2_BREAK_EVEN_SENDS_PER_SWITCH, type ViewSwitchStats } from "../ai-view-switch";
+import { G2_BREAK_EVEN_REQUESTS_PER_SWITCH, type ViewSwitchStats } from "../ai-view-switch";
 import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
 import {
@@ -229,10 +229,12 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
 function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; stats: ViewSwitchStats }) {
   if (stats.sends === 0) return null;
   const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
+  // ★ The rate is per API REQUEST, the break-even's unit — see
+  //   `G2_BREAK_EVEN_REQUESTS_PER_SWITCH` for why a send is the wrong one.
   const switchesLabel =
-    stats.switches === 0
-      ? fmt(0)
-      : t(lang, "aiViewSwitchRatio", fmt(stats.switches), fmt(stats.sends / stats.switches));
+    stats.switches === 0 || stats.requests === 0
+      ? fmt(stats.switches)
+      : t(lang, "aiViewSwitchRatio", fmt(stats.switches), fmt(stats.requests / stats.switches));
   // ★ The baseline is WARM non-switch sends only: cold sends write the whole
   //   prefix whatever G2 does, so averaging them in would understate the
   //   saving (see `ai-view-switch.ts`). "—" rather than 0 when a side has no
@@ -244,7 +246,7 @@ function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; 
       <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
         <div className="flex justify-between gap-2">
           <dt>{t(lang, "aiViewSwitchSends")}</dt>
-          <dd className="tabular-nums">{fmt(stats.sends)}</dd>
+          <dd className="tabular-nums">{t(lang, "aiViewSwitchSendsValue", fmt(stats.sends), fmt(stats.requests))}</dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt>{t(lang, "aiViewSwitchSwitches")}</dt>
@@ -256,7 +258,7 @@ function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; 
         </div>
       </dl>
       <p className="mt-1 text-xs text-muted-foreground">
-        {t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_SENDS_PER_SWITCH))}
+        {t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))}
       </p>
     </>
   );

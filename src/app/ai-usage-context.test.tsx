@@ -13,6 +13,7 @@ import {
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
+import { isoDate } from "./ai-usage";
 
 beforeEach(() => {
   localStorage.clear();
@@ -447,12 +448,13 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
-    act(() => { result.current.recordChatSend(fp("A", 1_000), 20_000); }); // cold: first send
-    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000); }); // switch
-    act(() => { result.current.recordChatSend(fp("B", 121_000), 200); }); // warm
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 20_000, 1); }); // cold: first send
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000, 3); }); // switch
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 200, 2); }); // warm
 
     expect(result.current.viewSwitchWeek).toEqual({
       sends: 3,
+      requests: 6,
       switches: 1,
       warmSends: 1,
       switchCacheWrite: 9_000,
@@ -464,9 +466,9 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
-    act(() => { result.current.recordChatSend(fp("A", 1_000, "p1:x"), 0); });
-    act(() => { result.current.recordChatSend(fp("A", 31_000, "p1:y"), 0); });
-    act(() => { result.current.recordChatSend(fp("B", 61_000, "p1:x"), 7_000); });
+    act(() => { result.current.recordChatSend(fp("A", 1_000, "p1:x"), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("A", 31_000, "p1:y"), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000, "p1:x"), 7_000, 1); });
 
     expect(result.current.viewSwitchWeek.switches).toBe(1);
     expect(result.current.viewSwitchWeek.switchCacheWrite).toBe(7_000);
@@ -478,12 +480,13 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
-    act(() => { result.current.recordChatSend(fp("A", 1_000), 0); });
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 0, 1); });
     act(() => { result.current.noteUnbilledChatSend(fp("B", 61_000)); });
-    act(() => { result.current.recordChatSend(fp("B", 121_000), 300); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 300, 1); });
 
     expect(result.current.viewSwitchWeek).toEqual({
       sends: 2,
+      requests: 2,
       switches: 0,
       warmSends: 1,
       switchCacheWrite: 0,
@@ -494,7 +497,7 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
   it("persists to its own key and reloads it, leaving the token buckets untouched", async () => {
     const first = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
-    act(() => { first.result.current.recordChatSend(fp("A", 1_000), 50); });
+    act(() => { first.result.current.recordChatSend(fp("A", 1_000), 50, 1); });
     first.unmount();
 
     expect(localStorage.getItem(AI_VIEW_SWITCH_KEY)).not.toBeNull();
@@ -507,14 +510,20 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
   });
 
   it("normalises a malformed stored blob instead of casting it", async () => {
-    localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify({ "2000-01-01": { sends: "x" }, junk: { sends: 9 } }));
+    // Today's bucket, so it is summed into the week: a cast would carry the
+    // string through and the totals below would not be numbers.
+    localStorage.setItem(
+      AI_VIEW_SWITCH_KEY,
+      JSON.stringify({ [isoDate(new Date())]: { sends: "x", requests: 2 }, junk: { sends: 9 } }),
+    );
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
-    act(() => { result.current.recordChatSend(fp("A", 1_000), 10); });
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 10, 1); });
 
     expect(result.current.viewSwitchWeek).toEqual({
       sends: 1,
+      requests: 3,
       switches: 0,
       warmSends: 0,
       switchCacheWrite: 0,

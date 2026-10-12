@@ -77,7 +77,7 @@ export type AiUsageContextValue = {
   viewSwitchWeek: ViewSwitchStats;
   /** Records one finished chat send: classifies it against the previous send
    *  in its thread and adds its cache writes to the matching side. */
-  recordChatSend: (fp: SendFingerprint, cacheWrite: number) => void;
+  recordChatSend: (fp: SendFingerprint, cacheWrite: number, requests: number) => void;
   /** A send stopped or failed AFTER a response: it is not billed or counted,
    *  but its prefix reached the cache, so it becomes the thread's baseline. */
   noteUnbilledChatSend: (fp: SendFingerprint) => void;
@@ -91,7 +91,7 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   weekTotal: 0,
   nextReset: new Date(),
   record: () => {},
-  viewSwitchWeek: { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
+  viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
   recordChatSend: () => {},
   noteUnbilledChatSend: () => {},
 });
@@ -282,10 +282,10 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   }, []);
 
   const recordChatSend = useCallback(
-    (fp: SendFingerprint, cacheWrite: number): void => {
+    (fp: SendFingerprint, cacheWrite: number, requests: number): void => {
       const kind = classifySend(lastSendsRef.current.get(fp.threadKey), fp);
       rememberSend(fp);
-      const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), kind, cacheWrite);
+      const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), kind, cacheWrite, requests);
       viewSwitchBucketsRef.current = next;
       setViewSwitchBuckets(next);
       saveViewSwitchBuckets(next);
