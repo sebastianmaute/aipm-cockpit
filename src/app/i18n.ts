@@ -4229,7 +4229,7 @@ const enUS = {
   aiViewSwitchSwitches: "View switches with a warm cache",
   aiViewSwitchRatio: "{0} (1 in {1})",
   aiViewSwitchCacheWrites: "Cache writes per send",
-  aiViewSwitchCacheWritesValue: "{0} on a switch, {1} otherwise",
+  aiViewSwitchCacheWritesValue: "{0} on a switch, {1} on other warm sends",
   aiViewSwitchHint: "Moving the view's guides out of the cached prompt (slice G2) pays off above about one view switch in {0} sends.",
   aiSessionCap: "Session token cap",
   aiWeeklyCap: "Weekly token cap",

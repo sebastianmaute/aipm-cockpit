@@ -22,7 +22,7 @@ import {
 } from "./ai-usage";
 import {
   addViewSwitchSend,
-  isWarmViewSwitch,
+  classifySend,
   normalizeViewSwitchBuckets,
   weekViewSwitchStats,
   type SendFingerprint,
@@ -75,9 +75,12 @@ export type AiUsageContextValue = {
   record: (u: Usage) => void;
   /** This week's chat sends and warm view switches (§702). */
   viewSwitchWeek: ViewSwitchStats;
-  /** Records one finished chat send: classifies it against the previous one
-   *  and adds its cache writes to the matching side. */
+  /** Records one finished chat send: classifies it against the previous send
+   *  in its thread and adds its cache writes to the matching side. */
   recordChatSend: (fp: SendFingerprint, cacheWrite: number) => void;
+  /** A send stopped or failed AFTER a response: it is not billed or counted,
+   *  but its prefix reached the cache, so it becomes the thread's baseline. */
+  noteUnbilledChatSend: (fp: SendFingerprint) => void;
 };
 
 const EMPTY_SESSION_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
@@ -88,8 +91,9 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   weekTotal: 0,
   nextReset: new Date(),
   record: () => {},
-  viewSwitchWeek: { sends: 0, switches: 0, switchCacheWrite: 0, otherCacheWrite: 0 },
+  viewSwitchWeek: { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
   recordChatSend: () => {},
+  noteUnbilledChatSend: () => {},
 });
 
 // ★ Named to surface its side effect at the call site (a lazy useState
@@ -269,18 +273,25 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const [viewSwitchBuckets, setViewSwitchBuckets] = useState<ViewSwitchBuckets>(loadViewSwitchBuckets);
   const viewSwitchBucketsRef = useRef<ViewSwitchBuckets>(viewSwitchBuckets);
-  // ★ Per provider lifetime, so the first send after a reload never counts as
-  //   a switch: the cache may well be warm, but nothing says what it holds.
-  const lastSendRef = useRef<SendFingerprint | null>(null);
-
-  const recordChatSend = useCallback((fp: SendFingerprint, cacheWrite: number): void => {
-    const isSwitch = isWarmViewSwitch(lastSendRef.current, fp);
-    lastSendRef.current = fp;
-    const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), isSwitch, cacheWrite);
-    viewSwitchBucketsRef.current = next;
-    setViewSwitchBuckets(next);
-    saveViewSwitchBuckets(next);
+  // ★ The previous send PER THREAD, since each thread has its own cached
+  //   prefix. Per provider lifetime, so the first send after a reload is cold:
+  //   the cache may well be warm, but nothing says what it holds.
+  const lastSendsRef = useRef<ReadonlyMap<string, SendFingerprint>>(new Map());
+  const rememberSend = useCallback((fp: SendFingerprint): void => {
+    lastSendsRef.current = new Map(lastSendsRef.current).set(fp.threadKey, fp);
   }, []);
+
+  const recordChatSend = useCallback(
+    (fp: SendFingerprint, cacheWrite: number): void => {
+      const kind = classifySend(lastSendsRef.current.get(fp.threadKey), fp);
+      rememberSend(fp);
+      const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), kind, cacheWrite);
+      viewSwitchBucketsRef.current = next;
+      setViewSwitchBuckets(next);
+      saveViewSwitchBuckets(next);
+    },
+    [rememberSend],
+  );
 
   const now = new Date();
   const weekTotal = weekToDate(buckets, now);
@@ -295,6 +306,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     record,
     viewSwitchWeek,
     recordChatSend,
+    noteUnbilledChatSend: rememberSend,
   };
 
   return <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>;

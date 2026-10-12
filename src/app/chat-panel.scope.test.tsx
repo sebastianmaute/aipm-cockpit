@@ -43,8 +43,9 @@ vi.mock("./ai-usage-context", () => ({
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
-    viewSwitchWeek: { sends: 0, switches: 0, switchCacheWrite: 0, otherCacheWrite: 0 },
+    viewSwitchWeek: { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
+    noteUnbilledChatSend: vi.fn(),
   })),
 }));
 

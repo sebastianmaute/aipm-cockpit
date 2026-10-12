@@ -13,6 +13,7 @@ import type { AiConfig, Settings } from "./settings-types";
 import { clampMaxChatTurns } from "./settings-types";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
+import type { SendFingerprint } from "./ai-view-switch";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useChatModels } from "./use-chat-models";
@@ -469,7 +470,7 @@ function ChatPanelInner({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
-  const { record: recordUsage, recordChatSend } = useAiUsageContext();
+  const { record: recordUsage, recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
@@ -704,6 +705,20 @@ function ChatPanelInner({
     // §575: earlier turns' attachments are budgeted here too — the stored history keeps them.
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
 
+    // §702: what this send put in front of the transcript, for the view-switch
+    // counter. Stamped BEFORE the first request: the cache window is measured
+    // to the send's start. `responded` marks that a prefix reached the cache.
+    const sendStartedAt = Date.now();
+    let responded = false;
+    const sendFingerprint = (): SendFingerprint => ({
+      threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
+      stableText: system[0]?.text ?? "",
+      viewText: system.slice(1).map((b) => b.text).join("\n\n"),
+      startedAt: sendStartedAt,
+      finishedAt: Date.now(),
+      priorTurns: newHistory.length - 1,
+    });
+
     try {
       // Accumulate token usage across all turns for this send.
       let totalInput = 0;
@@ -733,6 +748,7 @@ function ChatPanelInner({
           buildWireMessages(messages, turnContext).messages,
           ai, controller.signal,
         );
+        responded = true;
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
         if (stale()) break;
@@ -1012,18 +1028,10 @@ function ChatPanelInner({
           cacheWrite: totalCacheWrite,
           cacheRead: totalCacheRead,
         });
-        // §702: what this send put in front of the transcript, so the counter
-        // can tell a warm view switch (system block 1 changed) from the rest.
-        recordChatSend(
-          {
-            threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
-            stableText: system[0]?.text ?? "",
-            viewText: system.slice(1).map((b) => b.text).join("\n\n"),
-            at: Date.now(),
-            priorTurns: newHistory.length - 1,
-          },
-          totalCacheWrite,
-        );
+        recordChatSend(sendFingerprint(), totalCacheWrite);
+      } else if (responded) {
+        // Stopped after a response: not billed, but the prefix is cached.
+        noteUnbilledChatSend(sendFingerprint());
       }
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
@@ -1033,6 +1041,8 @@ function ChatPanelInner({
         setHistory(closeDanglingToolUses(messages));
       }
     } catch (err) {
+      // §702: a failure after a response still left its prefix in the cache.
+      if (responded) noteUnbilledChatSend(sendFingerprint());
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because
       // DOMException may not be instanceof Error across jsdom/Node boundaries.

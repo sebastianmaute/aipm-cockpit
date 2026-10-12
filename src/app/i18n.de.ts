@@ -3978,7 +3978,7 @@ export const de: Record<TranslationKey, string> = {
   aiViewSwitchSwitches: "Ansichtswechsel bei warmem Cache",
   aiViewSwitchRatio: "{0} (1 von {1})",
   aiViewSwitchCacheWrites: "Cache-Schreibvorgänge pro Anfrage",
-  aiViewSwitchCacheWritesValue: "{0} bei einem Wechsel, {1} sonst",
+  aiViewSwitchCacheWritesValue: "{0} bei einem Wechsel, {1} bei anderen warmen Anfragen",
   aiViewSwitchHint: "Die Leitfäden der Ansicht aus dem zwischengespeicherten Prompt zu nehmen (Slice G2) lohnt sich ab etwa einem Ansichtswechsel in {0} Anfragen.",
   aiUsageResetAt: "Zurückgesetzt {0}",
   aiSessionCap: "Sitzungs-Token-Limit",

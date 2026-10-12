@@ -63,8 +63,9 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
-    viewSwitchWeek: { sends: 0, switches: 0, switchCacheWrite: 0, otherCacheWrite: 0 },
+    viewSwitchWeek: { sends: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
+    noteUnbilledChatSend: vi.fn(),
   },
 }));
 
@@ -3296,8 +3297,14 @@ describe("cache-token usage recording", () => {
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
     });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
-      Promise.resolve({
+    // A clock that moves on every read, so "stamped before the request" and
+    // "stamped after it" are distinguishable rather than equal.
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      fetchTimes.push(Date.now());
+      return Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
         json: () =>
@@ -3306,8 +3313,8 @@ describe("cache-token usage recording", () => {
             stop_reason: "end_turn",
             usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 700, cache_read_input_tokens: 0 },
           }),
-      } as unknown as Response),
-    );
+      } as unknown as Response);
+    });
     const viewGuide: OperatingGuide = {
       id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
       scope: { views: ["open-points" as const] }, builtIn: true,
@@ -3335,7 +3342,7 @@ describe("cache-token usage recording", () => {
       system: { text: string }[];
     };
     const [firstFp, firstWrite] = recordChatSendSpy.mock.calls[0] as [
-      { threadKey: string; stableText: string; viewText: string; priorTurns: number },
+      { threadKey: string; stableText: string; viewText: string; startedAt: number; finishedAt: number; priorTurns: number },
       number,
     ];
     const [secondFp] = recordChatSendSpy.mock.calls[1] as [{ threadKey: string; priorTurns: number }, number];
@@ -3346,6 +3353,85 @@ describe("cache-token usage recording", () => {
     expect(firstFp.priorTurns).toBe(0);
     expect(secondFp.priorTurns).toBeGreaterThan(0);
     expect(secondFp.threadKey).toBe(firstFp.threadKey);
+    // The cache window is measured to the send's START, so the start stamp
+    // must precede its first request and the finish stamp follow its last.
+    expect(firstFp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(firstFp.finishedAt).toBeGreaterThan(fetchTimes[0]);
+  });
+
+  function renderGuidedPanel() {
+    const viewGuide: OperatingGuide = {
+      id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
+      scope: { views: ["open-points" as const] }, builtIn: true,
+    };
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true }}
+        guides={[viewGuide]}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  }
+
+  // A send that fails AFTER a response is not billed, but its prefix reached
+  // the cache — so the counter must still learn it as the thread's baseline.
+  it("notes, without counting, a send that failed after a response", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let call = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      if (call > 1) return Promise.reject(new Error("boom"));
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
+    });
+
+    renderGuidedPanel();
+    await screen.findByText(t("en-US", "chatError", "boom"));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      system: { text: string }[];
+    };
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(noteSpy).toHaveBeenCalledTimes(1);
+    expect(noteSpy.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ stableText: body.system[0].text, viewText: body.system[1].text }),
+    );
+  });
+
+  it("tells the counter nothing about a send whose first request failed", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new Error("boom")));
+
+    renderGuidedPanel();
+    await screen.findByText(t("en-US", "chatError", "boom"));
+
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(noteSpy).not.toHaveBeenCalled();
   });
 });
 

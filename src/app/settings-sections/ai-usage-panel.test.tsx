@@ -487,7 +487,7 @@ describe("AiUsagePanel", () => {
 });
 
 // §702: the week's view-switch counter, rendered under the weekly bar.
-type SendSeed = { viewText: string; at: number; cacheWrite: number };
+type SendSeed = { viewText: string; startedAt: number; cacheWrite: number };
 
 function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode }) {
   const { recordChatSend } = useAiUsageContext();
@@ -496,7 +496,10 @@ function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode
     if (firedRef.current) return;
     firedRef.current = true;
     for (const s of sends) {
-      recordChatSend({ threadKey: "p|t", stableText: "S", viewText: s.viewText, at: s.at, priorTurns: 2 }, s.cacheWrite);
+      recordChatSend(
+        { threadKey: "p|t", stableText: "S", viewText: s.viewText, startedAt: s.startedAt, finishedAt: s.startedAt + 5_000, priorTurns: 2 },
+        s.cacheWrite,
+      );
     }
   }, [recordChatSend, sends]);
   return <>{children}</>;
@@ -512,12 +515,14 @@ function sendsWrapper(lang: Lang, sends: SendSeed[]) {
   };
 }
 
-// Three sends in one thread: the second changes the view block inside the
-// cache window (a switch, 9,000 written), the other two do not (400 + 600).
+// Three sends in one thread: the first is cold (nothing before it, 20,000
+// written), the second changes the view block inside the cache window (a
+// switch, 9,000), the third changes nothing (warm, 600). The cold write must
+// stay out of both averages.
 const THREE_SENDS: SendSeed[] = [
-  { viewText: "A", at: 1_000, cacheWrite: 400 },
-  { viewText: "B", at: 61_000, cacheWrite: 9_000 },
-  { viewText: "B", at: 121_000, cacheWrite: 600 },
+  { viewText: "A", startedAt: 1_000, cacheWrite: 20_000 },
+  { viewText: "B", startedAt: 61_000, cacheWrite: 9_000 },
+  { viewText: "B", startedAt: 121_000, cacheWrite: 600 },
 ];
 
 describe("AiUsagePanel — view-switch counter (§702)", () => {
@@ -539,17 +544,20 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
     const switches = screen.getByText("View switches with a warm cache");
     expect(switches.nextElementSibling).toHaveTextContent("1 (1 in 3)");
     const writes = screen.getByText("Cache writes per send");
-    expect(writes.nextElementSibling).toHaveTextContent("9,000 on a switch, 500 otherwise");
+    expect(writes.nextElementSibling).toHaveTextContent("9,000 on a switch, 600 on other warm sends");
     expect(screen.getByText(/one view switch in 46 sends/)).toBeInTheDocument();
   });
 
-  it("says no ratio and no switch average when nothing switched", () => {
+  it("says no ratio and no average for a side with no sends", () => {
     render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
-      wrapper: sendsWrapper("en-US", [{ viewText: "A", at: 1_000, cacheWrite: 400 }]),
+      wrapper: sendsWrapper("en-US", [
+        { viewText: "A", startedAt: 1_000, cacheWrite: 20_000 },
+        { viewText: "A", startedAt: 61_000, cacheWrite: 400 },
+      ]),
     });
     expect(screen.getByText("View switches with a warm cache").nextElementSibling).toHaveTextContent(/^0$/);
     expect(screen.getByText("Cache writes per send").nextElementSibling).toHaveTextContent(
-      "— on a switch, 400 otherwise",
+      "— on a switch, 400 on other warm sends",
     );
   });
 
@@ -567,7 +575,7 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
         "1 (1 von 3)",
       );
       expect(screen.getByText("Cache-Schreibvorgänge pro Anfrage").nextElementSibling).toHaveTextContent(
-        "9.000 bei einem Wechsel, 500 sonst",
+        "9.000 bei einem Wechsel, 600 bei anderen warmen Anfragen",
       );
     });
   });

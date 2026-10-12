@@ -229,15 +229,16 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
 function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; stats: ViewSwitchStats }) {
   if (stats.sends === 0) return null;
   const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
-  const others = stats.sends - stats.switches;
   const switchesLabel =
     stats.switches === 0
       ? fmt(0)
       : t(lang, "aiViewSwitchRatio", fmt(stats.switches), fmt(stats.sends / stats.switches));
-  // ★ "—" rather than 0 when a side has no sends: an average over nothing is
-  //   undefined, and a 0 would read as "switches cost nothing".
+  // ★ The baseline is WARM non-switch sends only: cold sends write the whole
+  //   prefix whatever G2 does, so averaging them in would understate the
+  //   saving (see `ai-view-switch.ts`). "—" rather than 0 when a side has no
+  //   sends: an average over nothing is undefined, and a 0 would read as free.
   const switchAvg = stats.switches === 0 ? "—" : fmt(stats.switchCacheWrite / stats.switches);
-  const otherAvg = others === 0 ? "—" : fmt(stats.otherCacheWrite / others);
+  const warmAvg = stats.warmSends === 0 ? "—" : fmt(stats.warmCacheWrite / stats.warmSends);
   return (
     <>
       <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
@@ -251,7 +252,7 @@ function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; 
         </div>
         <div className="flex justify-between gap-2">
           <dt>{t(lang, "aiViewSwitchCacheWrites")}</dt>
-          <dd className="tabular-nums">{t(lang, "aiViewSwitchCacheWritesValue", switchAvg, otherAvg)}</dd>
+          <dd className="tabular-nums">{t(lang, "aiViewSwitchCacheWritesValue", switchAvg, warmAvg)}</dd>
         </div>
       </dl>
       <p className="mt-1 text-xs text-muted-foreground">

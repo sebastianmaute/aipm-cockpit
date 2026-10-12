@@ -434,21 +434,60 @@ describe("AiUsageProvider", () => {
 // §702: the view-switch counter lives beside the token meter but in its own
 // key, so nothing here may reach the cap arithmetic.
 describe("AiUsageProvider — view-switch counter (§702)", () => {
-  const fp = (viewText: string, at: number) => ({ threadKey: "p1:t1", stableText: "S", viewText, at, priorTurns: 2 });
+  const fp = (viewText: string, startedAt: number, threadKey = "p1:t1") => ({
+    threadKey,
+    stableText: "S",
+    viewText,
+    startedAt,
+    finishedAt: startedAt + 5_000,
+    priorTurns: 2,
+  });
 
   it("classifies each chat send against the previous one and totals the week", async () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
-    act(() => { result.current.recordChatSend(fp("A", 1_000), 800); });
-    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000); });
-    act(() => { result.current.recordChatSend(fp("B", 121_000), 200); });
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 20_000); }); // cold: first send
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000); }); // switch
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 200); }); // warm
 
     expect(result.current.viewSwitchWeek).toEqual({
       sends: 3,
       switches: 1,
+      warmSends: 1,
       switchCacheWrite: 9_000,
-      otherCacheWrite: 1_000,
+      warmCacheWrite: 200,
+    });
+  });
+
+  it("compares a send with the previous send in ITS thread, not with whatever ran last", async () => {
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000, "p1:x"), 0); });
+    act(() => { result.current.recordChatSend(fp("A", 31_000, "p1:y"), 0); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000, "p1:x"), 7_000); });
+
+    expect(result.current.viewSwitchWeek.switches).toBe(1);
+    expect(result.current.viewSwitchWeek.switchCacheWrite).toBe(7_000);
+  });
+
+  it("lets an unbilled send move the thread's baseline without counting it", async () => {
+    // A send stopped or failed after a response still wrote its prefix to the
+    // cache, so the next send must be compared with IT, not with the one before.
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 0); });
+    act(() => { result.current.noteUnbilledChatSend(fp("B", 61_000)); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 300); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 2,
+      switches: 0,
+      warmSends: 1,
+      switchCacheWrite: 0,
+      warmCacheWrite: 300,
     });
   });
 
@@ -468,12 +507,18 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
   });
 
   it("normalises a malformed stored blob instead of casting it", async () => {
-    localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify({ "2000-01-01": { sends: "x" } }));
+    localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify({ "2000-01-01": { sends: "x" }, junk: { sends: 9 } }));
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
     act(() => { result.current.recordChatSend(fp("A", 1_000), 10); });
 
-    expect(result.current.viewSwitchWeek).toEqual({ sends: 1, switches: 0, switchCacheWrite: 0, otherCacheWrite: 10 });
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 1,
+      switches: 0,
+      warmSends: 0,
+      switchCacheWrite: 0,
+      warmCacheWrite: 0,
+    });
   });
 });
