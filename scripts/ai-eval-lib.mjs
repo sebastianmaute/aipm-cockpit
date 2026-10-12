@@ -55,6 +55,9 @@ export const TOKEN_IDS = Object.freeze([
   //     time and read as catastrophic drift.
   "datePrev", "viewScopePrev", "insightsPrev", "activityRecapPrev",
   "chatPointerAlt1", "chatPointerAlt2",
+  // ★★ G2's probe (§483), appended for the same reason as the hardening ids:
+  //    every token above keeps its bytes at every salt.
+  "viewGuide",
 ]);
 
 /** A nonsense token for one id, derived from (id, salt).
@@ -140,7 +143,8 @@ function generateToken(id, salt, attempt) {
   return out;
 }
 
-/** The five relocatable blocks, one probe each.
+/** The probed blocks, one probe each: the five relocatable snapshot blocks,
+ *  then the view-scoped guide block slice G2 moves (§483).
  *
  *  `id`               which snapshot-derived block carries the target token
  *  `label`            how that block INTRODUCES its token in the prompt, and
@@ -253,6 +257,9 @@ export const PROBE_HARDENING = Object.freeze({
   //     than a saturated one. The mechanism stays here, off, because the shape
   //     is worth having available; the knob and its one-probe cap are unchanged.
   chatPointer: Object.freeze({ competitor: false, fillerBefore: 2, composition: false }),
+  // ★ The guide block has no list to pad and no near-miss line: its depth is
+  //   the built-in view guide it is planted AFTER (see the CLI's evalViewGuide).
+  viewGuide: Object.freeze({ competitor: false, fillerBefore: 0, composition: false }),
 });
 
 /** The two qualifiers a `competitor` probe writes into its block and its
@@ -287,6 +294,11 @@ const PROBE_SPECS = [
     compositionAsk:
       "the transcript code of the earlier conversation about the view you are currently looking at",
   },
+  // ★★ G2's probe (§483): the one block the CURRENT layout carries in the cached
+  //    `system` array (an operating guide scoped to the current view) rather than
+  //    on the turn. It is the block slice G2 moves, so it is the only probe whose
+  //    two arms declare different halves.
+  { id: "viewGuide", label: "guide code", distractorBlock: "viewScope", headroom: "depth" },
 ];
 
 function askFrom(spec) {
@@ -616,10 +628,10 @@ export function hitRate(outcomes) {
   return outcomes.filter((o) => o === "hit").length / outcomes.length;
 }
 
-/** ★★★ THE AGGREGATE QUESTION (§454) — all five codes in ONE reply, for arm M.
+/** ★★★ THE AGGREGATE QUESTION (§454) — every probe's code in ONE reply, for arm M.
  *  A MEASUREMENT, NEVER THE GATE: `verdict` reads A, B and X only, and the
  *  single-probe form stays the calibrated gate. This measures a different
- *  thing — five lookups in one pass, not five independent answers — so its
+ *  thing — several lookups in one pass, not independent answers — so its
  *  rates are not comparable with the per-probe ones and start their own series.
  *
  *  Built from the same `askFrom` text each probe's own question uses, so a
@@ -630,7 +642,7 @@ export const AGGREGATE_QUESTION =
 
 /** Per-code outcomes of the aggregate arm. A CODE-level shape, deliberately not
  *  `OUTCOMES`: `ambiguous` and `wrong-block` are reply-level ideas that a
- *  reply naming all five tokens would trip on every hit. */
+ *  reply naming every token would trip on every hit. */
 export const AGGREGATE_OUTCOMES = Object.freeze(["hit", "wrong", "absent"]);
 
 /** Score one aggregate reply, code by code.
@@ -813,7 +825,7 @@ const otherHalf = (half) => (half === "system" ? "turn" : "system");
  *  assert "the target sits in arm A's `system`" as a constant. Measured against
  *  the app's real builders: `buildStableSystemBlocks` contains NONE of the
  *  relocatable block builders and `buildTurnContext` contains all of them, so
- *  every one of the five probes carries its target in the TURN half and the
+ *  every one of the five probes then carried its target in the TURN half and the
  *  assertion was false for all of them. It was then buried under an
  *  `expectRelocated: false` escape hatch, which is how a load-bearing check
  *  ends up permanently switched off: the next person to register a real variant
@@ -920,7 +932,7 @@ export function driftReferenceCheck(input) {
 
 /** Every arm a run can dispatch. A, B and X are per-probe and gate; N (the
  *  seeded anchor) and R (the rolling replay) are probe-independent drift arms
- *  and only ever inform; M (§454) asks all five codes in one reply and is a
+ *  and only ever inform; M (§454) asks every probe's code in one reply and is a
  *  measurement only. */
 export const ARM_IDS = Object.freeze(["A", "B", "X", "N", "R", "M"]);
 
@@ -952,7 +964,7 @@ export function filterSpec(filter) {
 /** Read the diagnostic filter out of the environment.
  *
  *  ★★ A filter exists so one broken probe can be re-run for cents instead of
- *  the standard run's full sweep — 70 requests, from
+ *  the standard run's full sweep — 81 requests with six probes (70 with five), from
  *  `activeProbes * (A + B + X) + N + R + M` in `ai-eval.ts`. `R` is `reps` only
  *  when a rolling reference exists AND a previous run is recorded — BOTH
  *  preconditions, not just the committed file — so the pre-reference sweep of

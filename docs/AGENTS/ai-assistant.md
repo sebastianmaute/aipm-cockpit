@@ -1321,8 +1321,12 @@
   everything. The flag was removed; do NOT reintroduce it. ★★ **ITS LIMIT, stated because the first
   version's whole failure was an assertion nobody could state the limits of: when both arms declare
   the SAME half, those checks pass WITHOUT proving the arms differ.** Relocation is proven only when
-  the two declared halves DIFFER. Until a gated slice registers a real variant, arm B is an alias of
-  arm A and a green run is an honest A/A self-test of the machinery, not evidence about a candidate.
+  the two declared halves DIFFER. Since §483 the candidate is slice G2, and `declaredHalf` in
+  `scripts/ai-eval.ts` gives each probe's half per layout: the `viewGuide` probe reads `system` on arm A
+  and the turn on arm B, and the other five read the turn on both, so a variant that moves another
+  probed block fails pre-flight. Block 0 carries no probe, so pre-flight also checks that arm B's
+  `system` is arm A's block 0 byte for byte (`candidateSystem`). Runs recorded before §483 were A/A
+  self-tests of the machinery.
   ★★ **THE FOUR GRADED AXES REPORT, THEY DO NOT GATE, AND TWO OF THEM CANNOT BE READ ALONE.**
   `adherence` is counted over HITS ONLY and is recorded with its denominator `adherenceOf`: a run
   that collapses to zero hits scores `adherence: 0`, which on a higher-is-worse axis reads as
@@ -1386,7 +1390,7 @@
   the two calibration fixes below had landed, a full run was recorded that PASSES — verdict `0`,
   every probe hit on both arms, the negative control silent on all five, the seeded anchor and the
   rolling replay both 1.0, and zero tool reaches. ★★★ IT IS AN A/A SELF-TEST AND NOTHING MORE: arm B
-  is a deliberate alias of arm A until a gated slice registers a variant, so the two arms compare the
+  was then a deliberate alias of arm A (it stayed one until §483 registered G2), so the two arms compare the
   current layout with itself. It is evidence that the machinery measures what it claims to, and it is
   NOT evidence that any relocation is safe — which is the reading the sentence above forbids.
   ★★★ **THAT `wrongBlock: 0` WAS THE INSTRUMENT LYING, AND AN EARLIER REVISION OF THIS PARAGRAPH
@@ -1427,7 +1431,7 @@
   in a way that looks identical to a regression — which is what the two runs above cost. Every
   question must keep exactly one answer a careful reader would agree on.
   ★★ `composition` may be on for AT MOST ONE probe — a CAP, pinned by a test that asserts the count
-  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all five**
+  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all six**
   (`PROBE_HARDENING` sets `composition: false` on every row and `compositionProbeId()` returns
   `null`), switched off on evidence — see the measurement below. It is implemented for `chatPointer`
   alone, whose block is the one that naturally holds a LIST to select from; the CLI REFUSES at
@@ -1669,11 +1673,11 @@
   alongside this split because it is a `system`-to-`user` role change and is gated on the
   answer-quality eval (see that bullet above for what "gated" means in practice). The tradeoff this
   bullet used to pose as unresolved — cheap for a user who never switches views mid-conversation vs.
-  fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Settle it with the usage
-  meter below (cache-write volume vs view-switch frequency) — that measurement is what slice G2
-  (named above) needs before it can be built, not a separate `docs/open-followups.md` entry; none
-  exists for this and none should be minted on a branch (a follow-up number is reserved only once
-  merged to `origin/main`).
+  fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Building G2 in the app is
+  tracked as `docs/open-followups.md` §702 (split from §483 on 2026-10-12, after the harness measured
+  G2 and it passed). The usage meter below cannot settle the cost side as it stands: it stores daily
+  token totals only and counts no view switches, so the saving stays modelled unless a counter is
+  added; whether to measure before building is an open owner decision recorded in §702.
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;

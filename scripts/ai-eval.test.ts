@@ -79,7 +79,7 @@ const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
 /** The default `AI_EVAL_SALT`, i.e. what an env with no salt set resolves to. */
 const SALT = 1;
 
-/** The standard run's fixed shape, derived rather than restated: five probes,
+/** The standard run's fixed shape, derived rather than restated: six probes,
  *  five reps of arm A and of arm B, one control, five anchor reps, five
  *  aggregate (arm M, §454) reps, and no rolling replay while no rolling
  *  reference exists. */
@@ -227,11 +227,12 @@ describe("runEval — dry run", () => {
     // Act
     const code = await runEval(h.deps);
 
-    // Assert — pre-flight ran over all five probes and every assertion held.
-    // ★★ THIS IS THE `ARMS_ARE_ALIAS` PIN. Arm B is a byte-for-byte alias of
-    //    arm A today, so flipping the flag to `false` makes pre-flight push
-    //    "arm B is byte-identical to arm A" for every probe and this run
-    //    returns UNUSABLE instead. Mutation-proved.
+    // Assert — pre-flight ran over every probe and every assertion held.
+    // ★★ THIS IS THE `ARMS_ARE_ALIAS` PIN. Since §483 arm B is the G2 layout
+    //    and differs from arm A, so flipping the flag to `true` makes pre-flight
+    //    push "ARMS_ARE_ALIAS is true but arm B differs from arm A" for every
+    //    probe and this run returns UNUSABLE instead (mutation M6 on the §483
+    //    branch). Before §483 it pinned the opposite direction.
     expect(code).toBe(EXIT.PASS);
     expect(out).toContain("pre-flight OK");
     expect(h.sent).toHaveLength(0);
@@ -339,12 +340,12 @@ describe("runEval — the standard run", () => {
     //    ★★★ ITS OTHER DIRECTION CANNOT BE DRIVEN FROM HERE, BY CONSTRUCTION.
     //    The check is guarded on `filter === null`, and under that guard
     //    `activeProbes` IS `PROBES`, `reps` IS `REPS` and `armWanted` is
-    //    unconditionally true — so all five disjuncts are false for every
+    //    unconditionally true — so all six disjuncts are false for every
     //    input the seam accepts. It can only fire against a FUTURE narrowing
     //    that bypasses `parseFilter`, which is exactly what it is there for.
-    //    Verified by simulating one: `reps = filter?.reps ?? REPS - 2` makes it
-    //    push "unfiltered run planned 5 probes, reps 3 … the plan itself fell
-    //    short" and this test dies. Do not read a green run as that half
+    //    Verified by simulating one, when there were five probes: `reps =
+    //    filter?.reps ?? REPS - 2` made it push "unfiltered run planned 5 probes, reps 3 … the plan itself fell
+    //    short" and this test died. Do not read a green run as that half
     //    having been exercised by an input.
     expect(code).toBe(EXIT.PASS);
     const record = h.lastRecord();
@@ -362,9 +363,56 @@ describe("runEval — the standard run", () => {
     // Act
     await runEval(h.deps);
 
-    // Assert — 5 probes x (5 A + 5 B + 1 X) + 5 anchor reps, no replay.
+    // Assert — every probe x (5 A + 5 B + 1 X) + 5 anchor + 5 aggregate reps, no replay.
     expect(h.sent).toHaveLength(STANDARD_REQUESTS);
     expect(out.join("\n")).toContain(`planned requests: ${STANDARD_REQUESTS}`);
+  });
+
+  // ★★★ THE G2 CANDIDATE (§483). Arm A carries the view-scoped guide in the
+  //     cached `system` array; arm B carries it on the turn tail. Counting by
+  //     HALF, not by dispatch order: arm A's reps put the guide code in `system`
+  //     only, arm B's in the turn only, and the control in neither.
+  it("sends the view-scoped guide in system on arm A and on the turn tail on arm B", async () => {
+    // Arrange
+    const h = harness();
+    const probe = PROBES.find((p) => p.id === "viewGuide")!;
+    const target = plantedToken("viewGuide", SALT);
+
+    // Act
+    await runEval(h.deps);
+
+    // Assert
+    const asked = h.sent.filter((s) => s.whole.includes(probe.question));
+    const inSystemOnly = asked.filter((s) => occurrences(s.system, target) === 1 && occurrences(s.turn, target) === 0);
+    const inTurnOnly = asked.filter((s) => occurrences(s.turn, target) === 1 && occurrences(s.system, target) === 0);
+    const inNeither = asked.filter((s) => occurrences(s.whole, target) === 0);
+    expect(inSystemOnly).toHaveLength(REPS);
+    expect(inTurnOnly).toHaveLength(REPS);
+    expect(inNeither).toHaveLength(1);
+    // Only block 1 moved: arm B's system is arm A's block 0 alone, byte for byte.
+    for (const b of inTurnOnly) {
+      expect(inSystemOnly[0].system.startsWith(`${b.system}\n`)).toBe(true);
+      expect(b.system.length).toBeGreaterThan(30000);
+      // ...and it lands at the HEAD of the turn context, ahead of its first line
+      // (the date block), which is the placement the app's G2 must copy.
+      expect(b.turn.indexOf(target)).toBeLessThan(b.turn.indexOf(plantedToken("date", SALT)));
+    }
+  });
+
+  it("moves nothing else: every other probe's code rides the turn on both arms", async () => {
+    // Arrange
+    const h = harness();
+
+    // Act
+    await runEval(h.deps);
+
+    // Assert — a variant that moved a block it did not declare fails here.
+    for (const p of PROBES.filter((q) => q.id !== "viewGuide")) {
+      const target = plantedToken(p.id, SALT);
+      const asked = h.sent.filter((s) => s.whole.includes(p.question) && occurrences(s.whole, target) === 1);
+      expect(asked, p.id).toHaveLength(2 * REPS);
+      for (const s of asked) expect(occurrences(s.system, target), p.id).toBe(0);
+    }
   });
 
   it("groups every probe's arms together and dispatches its control last", async () => {
