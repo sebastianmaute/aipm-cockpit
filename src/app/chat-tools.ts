@@ -574,7 +574,7 @@ export {
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
 import { listTasksEnvelope, withRowTokens, withToken } from "./chat-tools-lists";
-import type { WbsOpenRefusal } from "./wbs-plan/wbs-plan";
+import type { WbsOpenRefusal } from "./wbs-plan/wbs-open-refusal";
 
 /** Why `optimize_wbs` opened nothing, in words the model can relay. A
  *  `Record` over the union, so a new refusal is a compile error here. */

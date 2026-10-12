@@ -132,7 +132,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const [phase, setPhaseState] = useState<Phase>("idle");
   const [instruction, setInstruction] = useState("");
   const [scope, setScope] = useState<WbsScope | null>(null);
-  const [items, setItems] = useState<readonly GroundedWbsItem[]>([]);
+  // ★ Not `setItems`: that name is how the counted task setter is handed on
+  // (destructive-save-arming.ui.test.ts), and this is the proposal, not a slice.
+  const [items, setProposalItems] = useState<readonly GroundedWbsItem[]>([]);
   const [skipped, setSkipped] = useState<readonly SkippedWbsItem[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -183,7 +185,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setPhaseState("idle");
     setInstruction("");
     setScope(null);
-    setItems([]);
+    setProposalItems([]);
     setSkipped([]);
     setTruncated(false);
     setSelected(new Set());
@@ -261,7 +263,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           reset();
           return;
         }
-        setItems(grounded.items);
+        setProposalItems(grounded.items);
         setSkipped(grounded.skipped);
         setTruncated(grounded.truncated);
         setSelected(new Set(grounded.items.map((g) => g.key)));

@@ -360,9 +360,7 @@ export type WbsSkipReason =
   | "duplicateRef" | "duplicateTarget" | "sameGroup"
   | "selfLink" | "duplicateLink" | "unresolvedRef" | "ambiguousPiece" | "cycle";
 
-/** Why `useWbsPlan().open` (the chat tool's entry point) opened nothing, so
- *  the tool can tell the model what to say instead of a generic refusal. */
-export type WbsOpenRefusal = "popout" | "aiOff" | "loading" | "busy" | "unknownGroup" | "noTasks";
+export type { WbsOpenRefusal } from "./wbs-open-refusal";
 
 export interface SkippedWbsItem {
   item: RawWbsItem;
