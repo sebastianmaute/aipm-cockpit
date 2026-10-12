@@ -39,7 +39,8 @@ import { SLICE_POLICY } from "./workspace-slice-policy";
  * other way than a lone spread (`next.slice()`, `[...next, x]`), a filtered local
  * or committer alias hidden by a same-named local in a sibling function or block
  * (each scope is searched whole, nested closures included, first match wins),
- * or a generic setter such as the undo runner's (it arms by hand; nothing checks it).
+ * or a generic setter such as the undo runner's (it arms by hand: `use-undo-stack.test.tsx` pins
+ * the arm and `task-manager.undo-scope-wiring.test.tsx` its wiring, §293).
  * Those stay a by-hand review, as §293 records.
  *
  * Since 2026-10-11 a setter HANDED ON under another name is followed (`aliasNames`):
