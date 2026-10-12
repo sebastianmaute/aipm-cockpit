@@ -242,15 +242,27 @@ describe("the demo's start-card facts", () => {
   });
 
   // A fresh demo created late in a month showed "2 gaps": the history ended weeks before today's.
+  // ★ The loop reuses `WS`: `demoHistoryFor` reads only `ws.plan.granularity`, which the date
+  //   shift leaves alone. Building the workspace for each of the 365 days took ~26 s on its own
+  //   and timed the test out under a busy runner (the weekly future-clock run). On the 1st of each
+  //   month the result is compared with one from a workspace built for that day, so a
+  //   `demoHistoryFor` that starts reading more of the workspace still fails here.
   it("stores the whole file, ending in the week before today's, with no gap up to a live capture, on every day of a year", () => {
     const committed = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-demo-snapshots.json"), "utf8")) as SnapshotRecord[];
+    let rebuilt = 0;
     for (let ms = Date.UTC(2026, 9, 1); ms < Date.UTC(2027, 9, 1); ms += 86_400_000) {
       const today = new Date(ms).toISOString().slice(0, 10);
-      const stored = demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly");
+      const stored = demoHistoryFor(committed, WS, today, "weekly");
+      if (today.endsWith("-01")) {
+        expect(demoHistoryFor(committed, buildDemoWorkspace(MASTER, today), today, "weekly"), today).toEqual(stored);
+        rebuilt++;
+      }
       expect(stored, today).toHaveLength(committed.length);
+      expect(stored.at(-1)!.bucket, today).toBe(bucketKey(new Date(ms - 7 * 86_400_000), "weekly"));
       const live = { ...stored[0], capturedAt: `${today}T12:00:00.000Z`, bucket: bucketKey(new Date(ms), "weekly") };
       expect(detectGaps([...stored, live], "weekly", new Date(ms)), today).toEqual([]);
     }
+    expect(rebuilt).toBe(12); // control: the per-month comparison really ran
   });
 
   it("uses the master's own plan granularity", () => {
