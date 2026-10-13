@@ -275,15 +275,24 @@ function detectLong(rows: Rows, ctx: Ctx): ColumnMapping | null {
   return best?.mapping ?? null;
 }
 
-/** Every pass in order (wide, long, two-period wide) under one reading. */
-function detectPasses(rows: Rows, ctx: Ctx): LayoutDetection {
-  const wide = detectWide(rows, MIN_WIDE_PERIODS, ctx);
-  if (wide !== null) return { kind: "wide", mapping: wide };
-  const long = detectLong(rows, ctx);
-  if (long !== null) return { kind: "long", mapping: long };
-  const narrowWide = detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, ctx);
-  if (narrowWide !== null) return { kind: "wide", mapping: narrowWide };
-  return UNKNOWN;
+type Pass = { kind: "wide" | "long"; run: () => ColumnMapping | null };
+
+/** The detection passes in order; the first that finds a layout wins (see
+ *  `detectLayout`). Passes with the year are left out when there is none. */
+function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undefined): Pass[] {
+  const bare: Ctx = { numbers };
+  const withYear: Ctx = { numbers, year };
+  const yearPasses = (passes: Pass[]): Pass[] => (year === undefined ? [] : passes);
+  return [
+    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, bare) },
+    ...yearPasses([{ kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, withYear) }]),
+    { kind: "long", run: () => detectLong(rows, bare) },
+    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare) },
+    ...yearPasses([
+      { kind: "long", run: () => detectLong(rows, withYear) },
+      { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear) },
+    ]),
+  ];
 }
 
 /**
@@ -291,12 +300,17 @@ function detectPasses(rows: Rows, ctx: Ctx): LayoutDetection {
  * 10 rows for the header. Ragged and empty rows are fine (a missing cell is
  * blank). `unknown` when neither a wide nor a long reading fits. `numbers` is
  * the grid's `SheetGrid.numbers` (a workbook's stored numbers read with a dot).
- * ★★ ALL passes run WITHOUT `defaultYear` first; only when that finds nothing
- * do they run again with it, reading month names and weeks without a year
- * ("Jan", "KW03") as periods. With the year first, a data column of month
- * names (a "Start" holding "Mai") counted as a period column and unseated a
- * sheet that had always been read correctly (fix-wave review). Either way the
- * mapping carries `defaultYear` as `year`, the year the mapping step shows.
+ * ★★ The passes run in a FIXED order and the first that finds a layout wins:
+ * (1) wide with 3+ periods, no default year; (2) the same WITH it; (3) long, no
+ * year; (4) two-period wide, no year; (5) long, then two-period wide, with the
+ * year. With the year it reads month names and weeks without one ("Jan",
+ * "KW03") as periods. Long ran with the year before (fix wave 1): a data
+ * column of month names ("Start" holding "Mai") became the period column of
+ * a correct wide sheet. Every year-less pass ran first (fix wave 2): a
+ * year-less WIDE sheet with any date column ("Start", "Eintritt") was then read
+ * as long, the hours in the date's month. Wide-with-year before long-without
+ * settles both. The mapping carries `defaultYear` as `year`, the year the
+ * mapping step shows.
  */
 export function detectLayout(
   rows: readonly string[][],
@@ -304,8 +318,10 @@ export function detectLayout(
 ): LayoutDetection {
   const numbers = opts.numbers ?? "text";
   const year = usableYear(opts.defaultYear);
-  let found = detectPasses(rows, { numbers });
-  if (found.mapping === null && year !== undefined) found = detectPasses(rows, { numbers, year });
-  if (found.mapping === null || opts.defaultYear === undefined) return found;
-  return { kind: found.kind, mapping: { ...found.mapping, year: opts.defaultYear } };
+  for (const pass of detectionPasses(rows, numbers, year)) {
+    const mapping = pass.run();
+    if (mapping === null) continue;
+    return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear } };
+  }
+  return UNKNOWN;
 }

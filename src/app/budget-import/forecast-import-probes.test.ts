@@ -177,3 +177,49 @@ describe("probe: a long sheet of Monday dates (round 2)", () => {
     expect(run.out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
   });
 });
+
+// Round 3 (rr2 Important 1): a year-less wide sheet with a date column was
+// detected as LONG once A2 ran the long pass before the wide pass with a year.
+describe("probe: a year-less wide sheet with a date column stays wide (round 3)", () => {
+  const months6 = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun"];
+  const periodsOf = (run: Run) => run.out.rows.map((r) => [r.person, r.period, r.hours]);
+
+  it("Name | Start | Jan | Feb | Mär", () => {
+    const rows = [["Name", "Start", "Jan", "Feb", "Mär"], ["Ann Lee", "01.02.2026", "8", "4", "2"], ["Bob Kay", "15.03.2026", "1", "2", "3"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("wide");
+    expect(periodsOf(readSheet(rows))).toEqual([
+      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Ann Lee", "2026-03", 2],
+      ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2], ["Bob Kay", "2026-03", 3],
+    ]);
+  });
+
+  it("Name | Startdatum | Jan…Dez with an ISO start date", () => {
+    const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+    const run = readSheet([["Name", "Startdatum", ...months], ["Ann Lee", "2026-02-01", ...months.map(() => "8")]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(months.map((_, i) => `2026-${String(i + 1).padStart(2, "0")}`));
+    expect(run.out.rows.every((r) => r.hours === 8)).toBe(true);
+    expect(run.out.ignoredColumns).toEqual([]);
+  });
+
+  it("Mitarbeiter | Start | Ende | Jan…Jun", () => {
+    const run = readSheet([["Mitarbeiter", "Start", "Ende", ...months6], ["Ann Lee", "01.01.2026", "30.06.2026", "8", "8", "8", "8", "8", "8"]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"]);
+  });
+
+  it("Name | Start | KW01 | KW02 | KW03", () => {
+    const run = readSheet([["Name", "Start", "KW01", "KW02", "KW03"], ["Ann Lee", "05.01.2026", "8", "8", "8"]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-W01", "2026-W02", "2026-W03"]);
+  });
+
+  it("a workbook Name | Rolle | Eintritt | Jan…Jun with Eintritt as a serial date", () => {
+    const run = readSheet([
+      ["Name", "Rolle", "Eintritt", ...months6],
+      ["Ann Lee", "Dev", "45000", "8", "8", "8", "8", "8", "8"],
+      ["Bob Kay", "QA", "45200", "4", "4", "4", "4", "4", "4"],
+    ], "dot");
+    expect(run.out.rows.filter((r) => r.person === "Ann Lee").map((r) => [r.period, r.hours])).toEqual(
+      ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"].map((p) => [p, 8]),
+    );
+    expect(run.out.rows).toHaveLength(12);
+  });
+});
