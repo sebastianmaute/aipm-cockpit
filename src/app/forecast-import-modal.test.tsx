@@ -603,6 +603,9 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(t("de", "forecastImportRejectSourceSheet", "Jan. 2026")).toBe("die erkannten oder bestätigten Spalten lesen diese Zelle als Jan. 2026");
     expect(t("de", "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("die Spaltenüberschrift sagt a, die erkannten oder bestätigten Spalten lesen aber b");
     expect(t("de", "forecastImportRejectSourceColumns")).toContain(`„${t("de", "forecastImportDetect")}“`);
+    // Round 7: the row-ambiguous reason names the same path.
+    expect(t(L, "forecastImportRejectSourceRowAmbiguous")).toBe(`this row holds more than one number for this period; use ${t(L, "forecastImportDetect")} to set the columns`);
+    expect(t("de", "forecastImportRejectSourceRowAmbiguous")).toContain(`„${t("de", "forecastImportDetect")}“`);
   });
 
   it("names the row's two periods when they disagree", async () => {

@@ -2453,6 +2453,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportRejectSourceSheetHeader: "die Spaltenüberschrift sagt {0}, die erkannten oder bestätigten Spalten lesen aber {1}",
   forecastImportRejectSourceRows: "die Zeile nennt zwei Perioden, {0} und {1}",
   forecastImportRejectSourceNotRead: "die erkannten oder bestätigten Spalten lesen diese Zelle nicht als Stunden",
+  forecastImportRejectSourceRowAmbiguous: "diese Zeile enthält mehr als eine Zahl für diese Periode; legen Sie die Spalten über „Spalten erkennen“ fest",
   forecastImportRejectSourceColumns: "die Spalten dieses Blatts sind nicht eindeutig. Verwenden Sie „Spalten erkennen“, um sie zu bestätigen, und fragen Sie Claude dann erneut",
   forecastImportRejectedRow: "{0} – {1}",
   forecastImportRowRef: "Zeile {0}: {1}",

@@ -252,13 +252,15 @@ describe("an unknown layout: no H, so U and every R cell must agree", () => {
     expect(detail(validateForecastRows([claim("Jan 2026", 10, "S!C12")], strictOn(rows)))).toEqual(["period-conflict"]);
   });
 
-  it("two cells of one long row collide: no sum without distinct date headers above", () => {
+  // Round 7 OOS-1: the row holds two numbers with the same (no) column header,
+  // so neither claim stands; it was a collision before.
+  it("two cells of one long row are refused row-ambiguous: no sum", () => {
     const rows = [...pad(10), ["Name", "Monat", "Plan", "Ist"], ["Ann", "Jan 2026", "40", "35"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Jan 2026", 35, "S!D12")], strictOn(rows));
     expect(out.ok).toEqual([]);
     expect(out.subPeriods).toEqual([]);
-    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C12", "S!D12"] }]);
+    expect(detail(out)).toEqual(["row-ambiguous", "row-ambiguous"]);
   });
 
   it("a row with its own period cell is no sub-period row: a month title's two dates over Plan | Ist never sum to 75", () => {
@@ -745,5 +747,40 @@ describe("with a hand reading, only the cells it reads back a claim (round 7 I-A
       const ist = claim("Feb 2026", 25, "S!D3", "Bob");
       expect(validateForecastRows([ist], strictOn(rows, undefined, mapping)).rejected).toEqual([{ row: ist, reason: "source", detail: "cell-not-read" }]);
     }
+  });
+});
+
+// Round 7 OOS-1 (rr10): on an unknown layout nothing tells Stunden from Ist,
+// so a claim is refused when its row holds ANOTHER number cell whose period
+// sources match the cited cell's: the same column-header period, or neither
+// under a period header. Period-shaped and person cells do not count; distinct
+// sprint dates and distinct month columns do not match.
+describe("an unknown layout refuses a row with two numbers for one period (round 7 OOS-1)", () => {
+  it("padded Name | Monat | Stunden | Ist: the Ist and the Stunden claims are refused row-ambiguous", () => {
+    const rows = [...pad(10), ["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Feb 2026", "30", "25"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const claims = [claim("Jan 2026", 35, "S!D12"), claim("Feb 2026", 25, "S!D13", "Bob"), claim("Jan 2026", 40, "S!C12")];
+    const out = validateForecastRows(claims, strictOn(rows));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["row-ambiguous", "row-ambiguous", "row-ambiguous"]);
+  });
+
+  it("an unknown wide sheet with month columns imports", () => {
+    const rows = [...pad(10), ["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const out = validateForecastRows([claim("Jan 2026", 10, "S!B12"), claim("Feb 2026", 20, "S!C12"), claim("Jan 2026", 11, "S!B13", "Bob")], strictOn(rows));
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Ann", "2026-02", 20], ["Bob", "2026-01", 11]]);
+  });
+
+  it("the cost: an unknown long row with a PersNr number refuses", () => {
+    const rows = [...pad(10), ["PersNr", "Name", "Monat", "Stunden"], ["4711", "Ann", "Jan 2026", "40"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!D12")], strictOn(rows)))).toEqual(["row-ambiguous"]);
+  });
+
+  it("a hand reading is unaffected: a clear long sheet with a PersNr column imports", () => {
+    const rows = [["PersNr", "Name", "Monat", "Stunden"], ["4711", "Ann", "Jan 2026", "40"], ["4712", "Bob", "Feb 2026", "30"]];
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
   });
 });
