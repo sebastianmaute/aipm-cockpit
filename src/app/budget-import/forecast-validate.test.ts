@@ -707,3 +707,19 @@ describe("validateForecastRows: a long sheet of Monday dates (round 2)", () => {
     expect(claim("2026-01").rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["period-not-near"]);
   });
 });
+
+describe("validateForecastRows: the header bounds the search for a period above (round 3)", () => {
+  it("accepts long-sheet claims under a title row that holds a date (rr2 probe)", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [["Forecast", "", "01.10.2026"], ["Name", "Monat", "Stunden"], ["Ann", "Okt 2026", "8"], ["Ann", "Nov 2026", "4"]],
+      truncated: false,
+    };
+    const out = validateForecastRows([
+      { person: "Ann", period: "Okt 2026", hours: 8, source: "S!C3" },
+      { person: "Ann", period: "Nov 2026", hours: 4, source: "S!C4" },
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => r.period)).toEqual(["2026-10", "2026-11"]);
+  });
+});

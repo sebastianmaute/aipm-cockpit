@@ -97,12 +97,22 @@ export function columnNaming(rowCells: readonly string[], citedCol: number, text
   return cols.find((col) => classifyPeriodCell(rowCells[col]) === null) ?? cols[0] ?? null;
 }
 
-/** The nearest row above `rowIdx` whose cell in `col` is period-shaped, else null. */
+/** The nearest row above `rowIdx` whose cell in `col` is period-shaped, else
+ *  null. ★ The header BOUNDS the search: it stops at the first non-blank cell
+ *  that is neither a period nor a number (a "Stunden" header), so a date in a
+ *  title row above a long sheet's header does not count as its period header. */
 export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {
   for (let r = rowIdx - 1; r >= 0; r--) {
-    if (classifyPeriodCell(sheet.rows[r]?.[col] ?? "") !== null) return r;
+    const cell = sheet.rows[r]?.[col] ?? "";
+    if (classifyPeriodCell(cell) !== null) return r;
+    if (cell.trim() !== "" && !isNumberLike(cell, sheet)) return null;
   }
   return null;
+}
+
+/** A number in either decimal style (a data cell, not a header). */
+function isNumberLike(cell: string, sheet: SheetGrid): boolean {
+  return parseNumberCell(cell, "dot", sheet.numbers) !== null || parseNumberCell(cell, "comma", sheet.numbers) !== null;
 }
 
 /** The ISO day of the date header a cell sits under (the nearest period cell
