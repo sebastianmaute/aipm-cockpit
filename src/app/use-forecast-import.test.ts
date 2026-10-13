@@ -1205,3 +1205,22 @@ describe("useForecastImport — a blank forecast row's Ist is never applied (rou
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 });
+
+// Round 7 I-B (rr10 P1/E1): two "-" in Stunden made Ist the only hours
+// candidate, and the actuals (83) were applied without a word.
+describe("useForecastImport — placeholders in the hours column ask (round 7 I-B)", () => {
+  it("Stunden with two '-' beside Ist opens on the mapping step, and the 83 of actuals is not applied", async () => {
+    const deps = depsOf();
+    const csv = "Name,Monat,Stunden,Ist\r\nAnn Lee,Jan 2026,40,35\r\nBob Ray,Jan 2026,-,12\r\nCid Fox,Jan 2026,30,28\r\nDora Kim,Jan 2026,-,8\r\n";
+    const { result } = await loaded(deps, csv);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.showPreview());
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});

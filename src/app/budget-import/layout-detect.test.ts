@@ -742,3 +742,31 @@ describe("detectLayout — more than one header row asks (fix 9 OOS-c)", () => {
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
   });
 });
+
+// Round 7 I-B (rr10): on a long sheet a column is an hours candidate when it
+// holds ONE number, and a period candidate when it holds ONE period, so a
+// placeholder can no longer push the right column out of the question. The
+// preselection keeps today's share-based ranking.
+describe("detectLayout — placeholders cannot push a long column out of the question (round 7 I-B)", () => {
+  it("Stunden with two '-' beside Ist asks for the hours", () => {
+    const rows = [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "-", "12"], ["Cid", "Jan 2026", "30", "28"], ["Dora", "Jan 2026", "-", "8"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("offen in Monat beside Erfasst am asks for the period", () => {
+    const rows = [["Name", "Monat", "Stunden", "Erfasst am"], ["Ann", "Jan 2026", "40", "15.03.2026"], ["Bob", "offen", "30", "15.03.2026"],
+      ["Cid", "Feb 2026", "20", "15.03.2026"], ["Dora", "Mär 2026", "10", "15.03.2026"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toContainEqual({ field: "period", candidates: [1, 3] });
+  });
+
+  it.each([
+    ["CSV", [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]], "text"],
+    ["workbook serials", [["Name", "Monat", "Stunden"], ["Ann", "46023", "40"], ["Bob", "46054", "30"]], "dot"],
+  ] as const)("plain Name | Monat | Stunden stays clear (%s)", (_label, rows, numbers) => {
+    const detected = detectLayout(rows.map((r) => [...r]), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "long", ambiguous: [], mapping: { period: 1, hours: 2 } });
+  });
+});

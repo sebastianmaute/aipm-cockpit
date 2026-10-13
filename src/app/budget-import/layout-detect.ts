@@ -320,8 +320,12 @@ function findPeriodColumn(
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
     const share = shareOf(cells, isPeriod);
-    if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share < COLUMN_SHARE) continue;
+    if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share === 0) continue;
+    // ★★ ONE period makes a candidate (round 7 I-B): an `offen` in `Monat` once
+    // pushed it under the share, and every row was read in `Erfasst am`'s month.
     candidates.push(col);
+    // The PRESELECTION (and whether the row is a header at all) keeps the share.
+    if (share < COLUMN_SHARE) continue;
     const rank = periodRank(label, cells);
     if (best === undefined || rank < best.rank) best = { col, share, rank };
   }
@@ -343,11 +347,13 @@ function findPeriodColumn(
  *   N1, rr7, rr8 N2). `Name | Monat | Stunden | Kosten` asks; one number
  *   column (`Name | Monat | Stunden`, `ID | Name | Month | Effort`) does not.
  */
-function ambiguityOf(header: readonly string[], periodCols: readonly number[], hoursCols: readonly number[]): ColumnAmbiguity[] {
-  const named = (cols: readonly number[], isNamed: (label: string) => boolean): number =>
-    cols.filter((col) => isNamed(cellAt(header, col))).length;
+function ambiguityOf(header: readonly string[], periodCols: readonly number[], hoursCols: readonly number[], period: number): ColumnAmbiguity[] {
+  const named = periodCols.filter((col) => isPeriodWordHeader(cellAt(header, col)));
   const out: ColumnAmbiguity[] = [];
-  if (periodCols.length > 1 && named(periodCols, isPeriodWordHeader) !== 1) out.push({ field: "period", candidates: [...periodCols] });
+  // One period-word column settles it only when the preselection is that column
+  // (round 7 I-B: the share can now preselect another one).
+  const settled = named.length === 1 && named[0] === period;
+  if (periodCols.length > 1 && !settled) out.push({ field: "period", candidates: [...periodCols] });
   if (hoursCols.length > 1) out.push({ field: "hours", candidates: [...hoursCols] });
   return out;
 }
@@ -358,18 +364,27 @@ function ambiguityOf(header: readonly string[], periodCols: readonly number[], h
  *  `Nr | … | Aufwand` the row numbers (final review I3). A period-shaped cell (a
  *  workbook's serial date) counts as no number here, so a serial `Erfasst`
  *  date column is no hours candidate. */
-function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): number[] {
-  const out: number[] = [];
+function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): NumericColumns {
+  const any: number[] = [];
+  const strong: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
     const isExcluded = skip.has(col) || isBlank(label) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells);
     const style = detectDecimalStyle(cells, ctx.numbers);
     const figureShare = shareOf(cells, (c) => !isPeriodShapedIn(c, ctx.numbers) && parseNumberCell(c, style, ctx.numbers) !== null);
-    if (!isExcluded && cells.length > 0 && figureShare >= COLUMN_SHARE) out.push(col);
+    if (isExcluded || figureShare === 0) continue;
+    any.push(col);
+    if (figureShare >= COLUMN_SHARE) strong.push(col);
   }
-  return out;
+  return { any, strong };
 }
+
+/** A long reading's number columns: `any` holds ONE number at least (the hours
+ *  QUESTION, round 7 I-B: two `-` in `Stunden` once left `Ist` the only
+ *  candidate, and the actuals were imported), `strong` passes the share (the
+ *  PRESELECTION, and whether the row is a header at all). */
+type NumericColumns = { any: number[]; strong: number[] };
 
 /**
  * A header is a row of labels. A row whose own hours cell is a number, or whose
@@ -402,7 +417,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const yearCol = needsYear ? yearFound : undefined;
   const skip = new Set([period, ...(yearFound === undefined ? [] : [yearFound])]);
 
-  const numeric = numericColumns(header, data, width, skip, ctx);
+  const { any: numeric, strong } = numericColumns(header, data, width, skip, ctx);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
   // ★★ A column headed by a period ("Jan", "Jan 2026", "KW03") is never a long
   // sheet's hours: `Name | Start | Jan 2026 | Feb 2026` once read long, the
@@ -410,13 +425,14 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   // January landed in her start month (final review I4). Such a sheet falls
   // through to two-period wide.
   const hoursCols = numeric.filter((col) => !rateCols.includes(col) && classifyPeriodCell(cellAt(header, col)) === null);
+  const strongHours = hoursCols.filter((col) => strong.includes(col));
   // The PRESELECTION only, which the user confirms whenever there is a choice
   // (`ambiguityOf`): the leftmost column with an hours word, else the LEFTMOST
   // number column. ★★ A rightmost pick (final review I3) imported `Ist`,
   // `Actual`, `Summe` or `Betrag` in place of `Plan` or `Forecast` (rr6 N1).
-  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
+  const hours = strongHours.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? strongHours[0];
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
-  const rate = rateCols[0];
+  const rate = rateCols.find((col) => strong.includes(col));
 
   const used = new Set([...skip, hours, ...(rate === undefined ? [] : [rate])]);
   const email = findEmailColumn(header, data, used);
@@ -425,7 +441,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   if (person === null) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),
-    ambiguous: ambiguityOf(header, found.candidates, hoursCols),
+    ambiguous: ambiguityOf(header, found.candidates.filter((col) => col !== person && col !== email), hoursCols.filter((col) => col !== person && col !== email), period),
     score: found.share + numberShare(columnCells(data, hours), ctx),
   };
 }
