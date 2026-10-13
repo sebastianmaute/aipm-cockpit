@@ -675,3 +675,131 @@ describe("wideMappingFor", () => {
     });
   });
 });
+
+// Fix 7 (owner decision 2026-10-13): when detection cannot tell which column
+// holds the hours or the period, the import opens on the mapping step and Apply
+// waits for the user to confirm — by choosing that field's column, or by
+// "These columns are right". Re-detecting asks again.
+describe("useForecastImport — ambiguous columns are confirmed before Apply (fix 7)", () => {
+  const PLAN_IST = "Name,Monat,Plan,Ist\r\nAnn Lee,Jan 2026,40,35\r\nAnn Lee,Feb 2026,30,25\r\n";
+  const DATUM_EINTRITT = "Name,Datum,Eintritt,Stunden\r\nAnn Lee,01.01.2026,03/2026,40\r\nAnn Lee,01.02.2026,03/2026,30\r\n";
+  const hoursWritten = (deps: ForecastImportDeps) => {
+    const [next] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[]];
+    return next[0].allocations[0].budgetHours;
+  };
+  const applyNow = (result: { current: ReturnType<typeof useForecastImport> }) => {
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    return outcome;
+  };
+
+  it("opens Plan | Ist on the mapping step, naming the hours candidates", async () => {
+    const { result } = await loaded(depsOf(), PLAN_IST);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.layoutDetected).toBe(true);
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(result.current.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+  });
+
+  it("refuses Apply in the preview until the columns are confirmed, then writes the confirmed hours", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    act(() => result.current.showPreview());
+    expect(result.current.step).toBe("preview");
+    expect(applyNow(result)).toBe("refused");
+    expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual({ "2026-01": 40, "2026-02": 30 });
+  });
+
+  it("choosing the hours column confirms it: Ist chosen, Ist written", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    act(() => result.current.setMapping({ ...result.current.mapping!, hours: 3 }));
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual({ "2026-01": 35, "2026-02": 25 });
+  });
+
+  it("choosing another column and back to Plan confirms Plan", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    act(() => result.current.setMapping({ ...result.current.mapping!, hours: 3 }));
+    act(() => result.current.setMapping({ ...result.current.mapping!, hours: 2 }));
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual({ "2026-01": 40, "2026-02": 30 });
+  });
+
+  it("an edit of another field does not confirm the hours column", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    act(() => result.current.setMapping({ ...result.current.mapping!, year: 2027 }));
+    act(() => result.current.setMapping({ ...result.current.mapping!, period: 1 }));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("asks for the period of Datum | Eintritt, and choosing it confirms", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, DATUM_EINTRITT);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    act(() => result.current.setMapping({ ...result.current.mapping!, period: 2 }));
+    act(() => result.current.setMapping({ ...result.current.mapping!, period: 1 }));
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual({ "2026-01": 40, "2026-02": 30 });
+  });
+
+  it("re-detecting asks again", async () => {
+    const { result } = await loaded(depsOf(), PLAN_IST);
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.detectColumns());
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("a clear sheet goes straight to the preview with nothing to confirm", async () => {
+    const { result } = await loaded(depsOf(), "Name,Monat,Stunden\r\nAnn Lee,Jan 2026,40\r\n");
+    expect(result.current.step).toBe("preview");
+    expect(result.current.ambiguous).toEqual([]);
+  });
+
+  it("leaves the Claude route ungated", async () => {
+    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.route).toBe("claude");
+    expect(result.current.ambiguous).toEqual([]);
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual({ "2026-01": 40 });
+  });
+
+  it("back on the hand route after Claude, the columns still wait for confirmation", async () => {
+    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    act(() => result.current.editMapping());
+    act(() => result.current.showPreview());
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(applyNow(result)).toBe("refused");
+  });
+});

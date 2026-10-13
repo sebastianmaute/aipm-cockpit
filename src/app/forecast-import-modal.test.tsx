@@ -4,6 +4,7 @@
 // Apply, the partial-period warning, the AI-off reason, and one commit.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { t } from "./i18n";
@@ -438,5 +439,90 @@ describe("ForecastImportModal — rows above the header row (round 3)", () => {
     await chooseFile(["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "", "Name,Jan 2027,Feb 2027,Mar 2027", "Ann Lee,40,50,60", ""].join("\r\n"));
     const section = screen.getByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(t(L, "forecastImportRowsAboveHeaderOne", 1))).toBeInTheDocument();
+  });
+});
+
+// Fix 7 (owner decision 2026-10-13): an ambiguous sheet opens on the mapping
+// step with a notice per field, and Apply stays disabled, saying why, until the
+// columns are confirmed.
+describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
+  const PLAN_IST = "Name,Monat,Plan,Ist\r\nAnn Lee,Jan 2026,40,35\r\nAnn Lee,Feb 2026,30,25\r\n";
+  const applyButton = () => screen.getByRole("button", { name: t(L, "forecastImportApply") });
+
+  async function chooseAmbiguous(text: string): Promise<void> {
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File([text], "forecast.csv", { type: "text/csv" })] } });
+    await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+  }
+
+  it("names the hours candidates by header and keeps Apply disabled with the reason", async () => {
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseAmbiguous(PLAN_IST);
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") })).toHaveValue("2");
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("the confirm button is keyboard operable and enables Apply", async () => {
+    const user = userEvent.setup();
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseAmbiguous(PLAN_IST);
+    const confirm = screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+    confirm.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    expect(screen.queryByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(applyButton()).toBeEnabled();
+    expect(applyButton()).not.toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+
+  it("choosing the hours column confirms it, and the preview shows that column's hours", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous(PLAN_IST);
+    fireEvent.change(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") }), { target: { value: "3" } });
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(within(diff).getByText("— → 35")).toBeInTheDocument();
+    expect(applyButton()).toBeEnabled();
+  });
+
+  it("names the period candidates of Name | Datum | Eintritt", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous("Name,Datum,Eintritt,Stunden\r\nAnn Lee,01.01.2026,03/2026,40\r\nAnn Lee,01.02.2026,03/2026,30\r\n");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousPeriod", "Datum, Eintritt"))).toBeInTheDocument();
+    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
+  });
+
+  it("says why Claude's row was refused when the row and the column header disagree", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          name: "propose_forecast_rows",
+          input: { rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!C3" }] },
+        }],
+      }),
+    } as unknown as Response);
+    render(<ForecastImportModal {...propsOf()} />);
+    const people = ["Bob Kay", "Cem Ott", "Dora Li", "Eve Wu"].map((p) => `${p},,1,2,3`);
+    await chooseFile([",,Jan 2026,Feb 2026,Mar 2026", "Name,Eintritt,Std,Std,Std", "Ann Lee,01.03.2026,10,20,30", ...people, ""].join("\r\n"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!C3/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "2026-03", "2026-01"));
   });
 });

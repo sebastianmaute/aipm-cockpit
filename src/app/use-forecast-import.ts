@@ -12,6 +12,13 @@
 // The preview's own plan is derived from the same live inputs, so its Apply
 // button disables too — but the refusal here is what holds under a race.
 //
+// ★★ AN AMBIGUOUS SHEET WAITS FOR THE USER (fix 7). When detection reports
+// that more than one column could hold the hours or the period (`ambiguous`),
+// the hand route opens on the mapping step, and Apply is refused until each
+// such field is confirmed: by choosing its column, or by `confirmColumns`.
+// Re-detecting (a new file, sheet, or Detect columns) asks again. The Claude
+// route is not gated: its rows are checked cell by cell instead.
+//
 // ★ The Claude route's rows are UNTRUSTED: they pass `validateForecastRows`
 // with `requireSource: true`, which rejects a row whose cited cell does not
 // hold its hours. The hand route's rows carry sources too, but are checked
@@ -24,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows";
 import { assignRunPeriods } from "./budget-import/period-assign";
-import type { AssumedYear, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
+import type { AssumedYear, ColumnAmbiguity, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
 import { findUnreadCells, type UnreadCells } from "./budget-import/unread-cells";
@@ -67,6 +74,12 @@ export interface ForecastImport {
   mapping: ColumnMapping | null;
   /** False when `detectLayout` found nothing and `mapping` is the default. */
   layoutDetected: boolean;
+  /** The hand route's fields detection could not settle and the user has not
+   *  confirmed yet: Apply is refused while any is left. Empty on the Claude
+   *  route. */
+  ambiguous: readonly ColumnAmbiguity[];
+  /** "These columns are right": confirms every field in `ambiguous`. */
+  confirmColumns: () => void;
   /** The target bucket is no longer in the live list (removed meanwhile). */
   bucketGone: boolean;
   setMapping: (next: ColumnMapping | null) => void;
@@ -124,6 +137,13 @@ const NO_OVERRIDES: ReadonlyMap<string, PersonOverride> = new Map();
 const NO_ROWS: readonly ForecastRow[] = [];
 const NO_COLLISIONS: readonly ForecastCollision[] = [];
 const NO_UNREAD: UnreadCells = { cells: [], rows: [] };
+const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
+
+/** `next` settles an ambiguous field: the user chose its column (a different
+ *  one than before, even if they come back), or left the long layout. */
+function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: ColumnMapping): boolean {
+  return next.layout !== "long" || next[a.field] !== before?.[a.field];
+}
 
 /** The message for a failed Claude read, or null for an abort (the user's own
  *  stop is not an error). Mirrors the other forced-call features' mapping. */
@@ -216,6 +236,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [sheetIndex, setSheetIndex] = useState(0);
   const [mapping, setMappingState] = useState<ColumnMapping | null>(null);
   const [layoutDetected, setLayoutDetected] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState<readonly ColumnAmbiguity[]>(NO_AMBIGUITY);
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
   const [claudeRows, setClaudeRows] = useState<unknown>(null);
   const [notes, setNotes] = useState("");
@@ -280,8 +301,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     return reqIdRef.current;
   }, []);
 
-  /** The hand route over one sheet: preview when a layout is found, else the
-   *  mapping step. `known` is a detection the caller already ran on `grid`. */
+  /** The hand route over one sheet: preview when a layout is found and clear,
+   *  else the mapping step. `known` is a detection the caller already ran on
+   *  `grid`. Every detection starts its own confirmation. */
   const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
     const detected = known ?? detectSheet(grid, year);
     setRoute("hand");
@@ -290,7 +312,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
     setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers));
-    setStep(detected.mapping ? "preview" : "mapping");
+    setUnconfirmed(detected.ambiguous);
+    setStep(detected.mapping && detected.ambiguous.length === 0 ? "preview" : "mapping");
   }, [year]);
 
   const loadFile = useCallback(async (file: File) => {
@@ -347,7 +370,15 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setError(null);
     setRoute("hand");
     setMappingState(next);
-    if (next !== null) setYear(next.year);
+    if (next !== null) {
+      setYear(next.year);
+      setUnconfirmed((prev) => prev.filter((a) => !confirmsField(a, mapping, next)));
+    }
+  }, [mapping]);
+
+  const confirmColumns = useCallback(() => {
+    setError(null);
+    setUnconfirmed(NO_AMBIGUITY);
   }, []);
 
   const editMapping = useCallback(() => {
@@ -411,6 +442,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     // Outside the preview the user has reviewed nothing. No message: Apply is
     // disabled there, and the bucket did not change.
     if (step !== "preview") return "refused";
+    // An ambiguous hand mapping the user has not confirmed is never applied.
+    if (route === "hand" && unconfirmed.length > 0) return refuse("forecastImportConfirmFirst");
     if (!live || !validated || live.status === "closed" || plan.budgetFollowsPlan === true) return refuse();
     const fresh = buildForecastImportPlan(validated.ok, {
       bucket: live, resources, roles, plan, holidaySet, overrides, collisions: validated.collisions,
@@ -424,7 +457,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     const next = { ...applyForecastImport(live, fresh), localModifiedAt: new Date().toISOString() };
     onChangeBuckets(buckets.map((b) => (b.id === bucketId ? next : b)), { kind: "budget.updated", name: live.name });
     return "applied";
-  }, [step, buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
+  }, [step, route, unconfirmed, buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
 
   return {
     step,
@@ -432,6 +465,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     sheetIndex,
     mapping,
     layoutDetected,
+    ambiguous: route === "hand" ? unconfirmed : NO_AMBIGUITY,
+    confirmColumns,
     bucketGone: liveBucket === undefined,
     setMapping,
     route,

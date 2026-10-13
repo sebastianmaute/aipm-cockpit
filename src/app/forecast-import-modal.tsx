@@ -8,9 +8,11 @@
 //
 // ★ Every control has an accessible name; the Apply button is disabled while
 // any blocker stands, and `apply()` re-checks against the live bucket anyway.
+// ★ It is disabled too while detection's ambiguous columns wait for the user
+// (`fi.ambiguous`, fix 7), with the reason as its accessible description.
 
 import { useId } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -22,7 +24,7 @@ import { SparklesIcon } from "./icons";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { columnLetters } from "./budget-import/forecast-rows";
-import type { ColumnMapping } from "./budget-import/forecast-types";
+import type { ColumnAmbiguity, ColumnMapping } from "./budget-import/forecast-types";
 import type { SheetGrid } from "./budget-import/sheet-grid";
 import type { Discipline, Grade } from "./types";
 import { PreviewStep } from "./forecast-import-preview";
@@ -61,8 +63,10 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
   const onApply = () => {
     if (fi.apply() === "applied") onClose();
   };
-  const canApply = !fi.bucketGone && fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy;
+  const mustConfirm = fi.ambiguous.length > 0;
+  const canApply = !fi.bucketGone && fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy && !mustConfirm;
   const sheet = fi.sheets[fi.sheetIndex];
+  const confirmReasonId = useId();
 
   return (
     <Modal open onClose={close} ariaLabel={title}>
@@ -114,11 +118,13 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
             <PreviewStep lang={lang} fi={fi} plan={fi.importPlan} resources={deps.resources} roles={deps.roles} disciplines={disciplines} grades={grades} />
           )}
         </div>
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-line px-6 py-4">
+        <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-6 py-4">
+          {/* Why Apply waits: also the button's accessible description. */}
+          {mustConfirm && <p id={confirmReasonId} className="mr-auto text-xs text-muted-foreground">{t(lang, "forecastImportConfirmFirst")}</p>}
           <Button variant="secondary" size="sm" onClick={close}>
             {t(lang, "cancel")}
           </Button>
-          <Button size="sm" onClick={onApply} disabled={!canApply}>
+          <Button size="sm" onClick={onApply} disabled={!canApply} aria-describedby={mustConfirm ? confirmReasonId : undefined}>
             {t(lang, "forecastImportApply")}
           </Button>
         </footer>
@@ -227,6 +233,28 @@ function ColumnSelect({ label, value, columns, optional, noneLabel, onChange }: 
   );
 }
 
+const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
+  hours: "forecastImportAmbiguousHours",
+  period: "forecastImportAmbiguousPeriod",
+};
+
+/** One notice per field more than one column could be, naming the candidates
+ *  by header (or column letter), and the button that confirms the mapping as
+ *  it stands. Choosing the field's column confirms it too. */
+function AmbiguityNotice({ lang, fi, header }: { lang: Lang; fi: ForecastImport; header: readonly string[] }) {
+  const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
+  return (
+    <div className="space-y-2">
+      {fi.ambiguous.map((a) => (
+        <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], a.candidates.map(nameOf).join(", "))}</Banner>
+      ))}
+      <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
+        {t(lang, "forecastImportConfirmColumns")}
+      </Button>
+    </div>
+  );
+}
+
 function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; sheet: SheetGrid }) {
   const rows = sheet.rows;
   const draft = draftOf(fi.mapping);
@@ -247,6 +275,7 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   return (
     <section className="space-y-3">
       {!fi.layoutDetected && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
+      {fi.ambiguous.length > 0 && <AmbiguityNotice lang={lang} fi={fi} header={header} />}
       <SegmentedControl
         ariaLabel={t(lang, "forecastImportLayout")}
         value={draft.layout}
