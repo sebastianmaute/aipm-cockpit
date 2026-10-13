@@ -55,8 +55,10 @@ longer carries its own changelog comment.
   row are, never the values, and chooses the planned hours, never the actuals. Its columns open on the
   column step with its notes, read exactly as if you had set them, with every question above asked of
   them, and Apply waits until you press “These columns are right” — changing a column is not that
-  press. If Claude names a column the sheet does not have, the dialog says so and you set the columns
-  yourself. Monthly figures are spread over a
+  press. Columns Claude leaves out are asked about too: a year column beside months without a year,
+  or month columns holding numbers (one block of a Plan/Ist sheet), which the column step names by
+  letter and the preview lists as left out. If Claude names a column the sheet does not have, the
+  dialog says so and you set the columns yourself. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the

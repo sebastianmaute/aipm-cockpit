@@ -424,7 +424,17 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`layout-detect.ts`): a long mapping's hours and period candidates, the mapped column always among them
   (`longQuestions`); a wide mapping's row period or row year column (`wideAmbiguity`); the header row
   when another row of the scan range reads as a header of the layout or repeats it; and one person's
-  differing rows. Detection's own mapping asks the same through it (pinned against `detectLayout`).
+  differing rows. ★★ Two questions only a mapping that is not detection's can raise (final review 2):
+  a long mapping that leaves out the sheet's year column while its period cells name no year asks for
+  the period, the year column among the candidates (`withLeftOutYear`, I1: `Name | Jahr | Monat |
+  Stunden` without `Jahr` summed Ann's 2027 into 2026); a wide mapping that leaves out period-headed
+  columns holding numbers asks for the period, those columns among the candidates
+  (`leftOutPeriodColumns`, M1: Claude's choice of the Ist block of a `Plan | Ist` sheet, the month
+  headers repeated over a sub-header row). The mapping step names period columns by letter (`D: Jan
+  2026`), and such a column is listed as left out by the mapping (`IgnoredColumn.isPeriodHeader`), never
+  as "its header is not a period". An edit of the person, email or rate column keeps a wide mapping's
+  period columns; a layout, header-row or year change rebuilds them from the header (M2). The converter
+  reads an empty optional field (`""`, `[]`) as absent and still refuses an empty required one (M3). Detection's own mapping asks the same through it (pinned against `detectLayout`).
   Claude naming `Ist` on `Name | Monat | Stunden | Ist` is therefore shown, named in the hours question,
   and written only after the press. Detect columns leaves the mapping for detection's own. An edit keeps
   the route (`setMapping` no longer resets it), and the mapping step previews Claude's mapping as it stands,

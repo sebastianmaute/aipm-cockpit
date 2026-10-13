@@ -1,6 +1,6 @@
 # Forecast import — design (§500)
 
-**Register:** §500 · **Work item:** #39 · **Status:** approved in conversation 2026-10-12, awaiting spec review
+**Register:** §500 · **Work item:** #39 · **Status:** approved in conversation 2026-10-12; implemented on `feat/500-forecast-import`; amended 2026-10-13 (§3.3, the Claude route proposes the mapping)
 
 ## 1. Problem and intent
 
