@@ -698,7 +698,14 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
-    const snapshot = dispatcher.getSnapshot({ originView: opts?.originView });
+    const originView = opts?.originView;
+    const snapshot = dispatcher.getSnapshot({ originView });
+    // §703: a `get_app_state` call later in this send answers with the same
+    // page, not the chat tab the press switched to, so the tool cannot
+    // contradict the turn context it was sent with. A typed send has no origin
+    // and keeps the dispatcher as it is.
+    const toolDispatcher: ToolDispatcher =
+      originView === undefined ? dispatcher : { ...dispatcher, getSnapshot: () => dispatcher.getSnapshot({ originView }) };
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
     const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, ai);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
@@ -894,7 +901,7 @@ function ChatPanelInner({
             let resultStr: string;
             let isError = false;
             try {
-              const r = await runTool(dispatcher, block.name, block.input);
+              const r = await runTool(toolDispatcher, block.name, block.input);
               resultStr = stringifyResult(r);
             } catch (err) {
               isError = true;

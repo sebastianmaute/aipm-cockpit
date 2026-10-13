@@ -17,6 +17,7 @@ import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
+import type { AppView } from "./nav-config";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
@@ -766,6 +767,62 @@ describe("SP1 seed + foundational chips", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
     expect(dispatcher.getSnapshot).toHaveBeenCalledWith({ originView: "dashboard" });
+  });
+
+  // §703: the request names the page an Ask-Claude press came from, and a
+  // `get_app_state` call later in the same send must not contradict it. The
+  // stub answers "chat" when no origin is passed, as the real dispatcher does
+  // once the chat tab is showing.
+  describe("get_app_state inside a send", () => {
+    type Block = { type: string; id?: string; name?: string; input?: unknown; text?: string; tool_use_id?: string; content?: unknown };
+    function toolTurnFetch(bodies: string[]) {
+      const usage = { input_tokens: 1, output_tokens: 1 };
+      const turns = [
+        { content: [{ type: "tool_use", id: "t1", name: "get_app_state", input: {} }], stop_reason: "tool_use", usage },
+        { content: [{ type: "text", text: "done" }], stop_reason: "end_turn", usage },
+      ];
+      return vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+        bodies.push(String(init?.body ?? ""));
+        const body = turns[Math.min(bodies.length - 1, turns.length - 1)];
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response);
+      });
+    }
+    function viewDispatcher(): ToolDispatcher {
+      const d = makeDispatcher();
+      const base = d.getSnapshot();
+      d.getSnapshot = vi.fn((opts?: { originView?: AppView }) => ({ ...base, currentView: opts?.originView ?? ("chat" as const) }));
+      return d;
+    }
+    /** The `currentView` the get_app_state tool result carried in the second request. */
+    function toolResultView(body: string): unknown {
+      const msgs = (JSON.parse(body) as { messages: { content: unknown }[] }).messages;
+      const blocks = msgs.flatMap((m) => (Array.isArray(m.content) ? (m.content as Block[]) : []));
+      const result = blocks.find((b) => b.type === "tool_result" && b.tool_use_id === "t1");
+      return (JSON.parse(String(result?.content)) as { currentView?: unknown }).currentView;
+    }
+
+    it("answers with the page an auto-sent seed came from", async () => {
+      const bodies: string[] = [];
+      toolTurnFetch(bodies);
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()}
+          chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
+      );
+      await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+      expect(bodies).toHaveLength(2);
+      expect(toolResultView(bodies[1])).toBe("dashboard");
+    });
+
+    it("answers with the chat tab for a typed message", async () => {
+      const bodies: string[] = [];
+      toolTurnFetch(bodies);
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "where am I?" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+      expect(bodies).toHaveLength(2);
+      expect(toolResultView(bodies[1])).toBe("chat");
+    });
   });
 
   it("does not auto-send when the api key is missing (seeds input only)", () => {

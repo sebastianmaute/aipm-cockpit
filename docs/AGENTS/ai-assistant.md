@@ -1728,8 +1728,9 @@
   passes it to `getSnapshot({ originView })`, which reports that view and the digest the dispatcher last
   held for it (none if the last page outside the chat tab was another one). ★ Do not "simplify" this back to
   the view ref: a green run of a press on a mounted panel proves nothing, since that case was right
-  before the fix too. ★ Residue: a `get_app_state` call during such a send still calls `getSnapshot()` with no
-  origin, so it answers `chat`.
+  before the fix too. ★ The tool loop of such a send gets a dispatcher
+  whose `getSnapshot` passes the same origin, so a `get_app_state` call answers with the page too and cannot
+  contradict the turn context; a typed send keeps the plain dispatcher and answers `chat`.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
   dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction
