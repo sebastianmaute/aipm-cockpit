@@ -4635,6 +4635,7 @@ const enUS = {
   historyRestoreNothingManaged: "Nothing to restore — every change in this version is document history, which is managed per document.",
   projectsSwitch: "Switch project",
   projectsEdit: "Edit project",
+  editProjectFunctionsHeading: "Functions",
   projectsExport: "Export project",
   projectFileFormat: "File format",
   projectStorage: "Storage",

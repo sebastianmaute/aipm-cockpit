@@ -1063,6 +1063,8 @@ export function WorkspaceSection({
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
               onUpdateCurrent={onUpdateCurrentProject}
+              features={features}
+              onCommitFeatures={workspace.setFeatures}
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}

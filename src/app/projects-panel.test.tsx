@@ -73,6 +73,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
   const onDelete = vi.fn();
   const onExportCurrent = vi.fn();
   const onLoadFromFile = vi.fn();
+  const onCommitFeatures = vi.fn();
   render(
     <ProjectsPanel
       projects={PROJECTS}
@@ -92,10 +93,12 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       onExportCurrent={onExportCurrent}
       onLoadFromFile={onLoadFromFile}
       onMigrateToTurso={vi.fn()}
+      features={["dashboard", "gantt"]}
+      onCommitFeatures={onCommitFeatures}
       {...overrides}
     />,
   );
-  return { onSwitch, onCreate, onUpdateCurrent, onDelete, onExportCurrent, onLoadFromFile };
+  return { onSwitch, onCreate, onUpdateCurrent, onDelete, onExportCurrent, onLoadFromFile, onCommitFeatures };
 }
 
 // --- ProjectForm fill helpers (mirrors project-form.test.tsx) -------------
@@ -219,6 +222,28 @@ describe("ProjectsPanel", () => {
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onUpdateCurrent.mock.calls[0][0].name).toBe("Apollo");
+  });
+
+  it("Save with changed functions calls onUpdateCurrent and onCommitFeatures (§706)", () => {
+    const { onUpdateCurrent, onCommitFeatures } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("checkbox", { name: t("en-US", "navMilestones") }));
+    fireEvent.click(dialog.getByRole("button", { name: "Edit project" }));
+    expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
+    expect(onCommitFeatures).toHaveBeenCalledTimes(1);
+    const next = onCommitFeatures.mock.calls[0][0] as string[];
+    expect(new Set(next)).toEqual(new Set(["dashboard", "gantt", "milestones"]));
+  });
+
+  it("Save with unchanged functions never calls onCommitFeatures (§706)", () => {
+    const { onUpdateCurrent, onCommitFeatures } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+    );
+    expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
+    expect(onCommitFeatures).not.toHaveBeenCalled();
   });
 
   it("calls onExportCurrent with the chosen format from the export menu", () => {

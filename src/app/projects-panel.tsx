@@ -30,6 +30,7 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
+import { type FeatureModuleId } from "./feature-modules";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
 import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
@@ -89,6 +90,10 @@ export interface ProjectsPanelProps {
   onCreate: (meta: ProjectMeta, format: CreateFormat, opts?: NewProjectOpts) => void;
   /** Save edited metadata back to the current project. */
   onUpdateCurrent: (meta: ProjectMeta) => void;
+  /** The current project's enabled functions (feature modules). */
+  features: readonly FeatureModuleId[];
+  /** Commit an edited functions set — called only when Save changed it. */
+  onCommitFeatures: (features: FeatureModuleId[]) => void;
   /** De-register a project (the confirm dialog is handled here). */
   onDelete: (id: string) => void;
   /** Export the CURRENT project's workspace in the given format. */
@@ -150,6 +155,8 @@ export function ProjectsPanel({
   onSwitch,
   onCreate,
   onUpdateCurrent,
+  features,
+  onCommitFeatures,
   onDelete,
   onExportCurrent,
   onLoadFromFile,
@@ -289,8 +296,9 @@ export function ProjectsPanel({
     closeModal();
   };
 
-  const handleEditSubmit = (meta: ProjectMeta) => {
+  const handleEditSubmit = (meta: ProjectMeta, nextFeatures: FeatureModuleId[] | null) => {
     onUpdateCurrent(meta);
+    if (nextFeatures !== null) onCommitFeatures(nextFeatures);
     closeModal();
   };
 
@@ -693,6 +701,7 @@ export function ProjectsPanel({
           stakeholderNames={stakeholderNames}
           addressBook={addressBook}
           resources={resources}
+          features={features}
           sizeKey="aipm-cockpit:create-modal-size"
           onSubmit={handleEditSubmit}
           onCancel={closeModal}

@@ -4357,6 +4357,7 @@ export const de: Record<TranslationKey, string> = {
   historyRestoreNothingManaged: "Nichts wiederherzustellen — alle Änderungen dieser Version gehören zur Dokumenthistorie und werden pro Dokument verwaltet.",
   projectsSwitch: "Projekt wechseln",
   projectsEdit: "Projekt bearbeiten",
+  editProjectFunctionsHeading: "Funktionen",
   projectsExport: "Projekt exportieren",
   projectFileFormat: "Dateiformat",
   projectStorage: "Speicher",
