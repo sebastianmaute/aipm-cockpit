@@ -800,6 +800,7 @@ export function WorkspaceSection({
               actualsByBucket={budgetActuals.byBucket} actualsFetchedAt={budgetActuals.fetchedAt}
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onOpenBudgetReport={isPopout ? undefined : () => setActiveTab("budget-report")}
+              onSetupGo={isPopout ? undefined : setActiveTab} onStartTour={isPopout ? undefined : onStartTour} onLoadDemo={isPopout ? undefined : onLoadDemo}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}

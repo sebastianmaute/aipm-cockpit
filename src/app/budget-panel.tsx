@@ -25,7 +25,8 @@ import { InfoTooltip } from "./info-tooltip";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
-import { AddFirstItemButton } from "./add-first-item-button";
+import { BudgetSetupChecklist, type BudgetSetupView } from "./budget-setup-checklist";
+import { budgetSetupSteps, isBudgetSetupDismissed, setBudgetSetupDismissed } from "./budget-setup";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { computeProjectForecast } from "./budget-forecast";
@@ -82,6 +83,11 @@ export interface BudgetPanelProps {
    *  omits this prop in a popout (Plan Ruling 12), so the link renders only
    *  when both this and a project forecast exist. */
   onOpenBudgetReport?: () => void;
+  /** First-run setup checklist links (§710). `workspace-section.tsx` omits all
+   *  three in a popout, which hides the go, tour and demo links. */
+  onSetupGo?: (view: BudgetSetupView) => void;
+  onStartTour?: (id: string) => void;
+  onLoadDemo?: () => void;
 }
 
 /** Module-level so the default is one stable identity, not a fresh `{}` per render. */
@@ -102,7 +108,7 @@ function blankBucket(id: number, plan: ResourcePlan, today: string): BudgetBucke
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
+  const { lang, buckets, roles, resources, plan, onSetupGo, onStartTour, onLoadDemo, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
   // Hoisted from `props.today` — a `react-hooks/exhaustive-deps` dep may not
@@ -225,6 +231,21 @@ export function BudgetPanel(props: BudgetPanelProps) {
     const fresh = blankBucket(id, plan, today);
     props.onChangeBuckets([...buckets, fresh], { kind: "budget.created", name: fresh.name });
     setEditingBucketId(id);
+  };
+
+  // §710 setup checklist. `timelogProjectId` is workspace-section's
+  // `currentProjectId ?? "default"`, i.e. the per-project key per-device state
+  // already uses. The dismissal is read on every render (a try/catch'd
+  // localStorage read) so a project switch can never show another project's flag.
+  const setupKey = timelogProjectId ?? "default";
+  const [setupHiddenNow, setSetupHiddenNow] = useState(false);
+  const setupSteps = budgetSetupSteps({ roles, resources, buckets });
+  const setupDismissed = setupHiddenNow || isBudgetSetupDismissed(setupKey);
+  const setupCollapsed = buckets.length > 0;
+  const showSetup = !setupCollapsed || (!setupSteps.bookingsDone && !setupDismissed);
+  const dismissSetup = () => {
+    setSetupHiddenNow(true);
+    if (!isPopout) setBudgetSetupDismissed(setupKey);
   };
 
   const updateBucket = (id: number, patch: Partial<BudgetBucket>) => {
@@ -373,6 +394,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
         </div>
       </div>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">
+      {showSetup && (
+        <BudgetSetupChecklist
+          lang={lang} steps={setupSteps} collapsed={setupCollapsed}
+          onAddBucket={addBucket} onGo={onSetupGo} onStartTour={onStartTour} onLoadDemo={onLoadDemo}
+          onDismiss={dismissSetup}
+        />
+      )}
       <section>
         <h2 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
@@ -466,9 +494,6 @@ export function BudgetPanel(props: BudgetPanelProps) {
         ))}
         {bucketQuery && visibleBuckets.length === 0 && (
           <p className="text-sm text-muted-foreground">{t(lang, "reportsNoMatches")}</p>
-        )}
-        {report.buckets.length === 0 && (
-          <AddFirstItemButton onAdd={addBucket} addLabel={`+ ${t(lang, "budgetAddBucket")}…`} padding={6} />
         )}
       </section>
       {editingBucketId != null && bucketById.get(editingBucketId) && (
