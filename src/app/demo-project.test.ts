@@ -216,6 +216,20 @@ describe("createDemo", () => {
     expect(onLocalFallback).not.toHaveBeenCalled();
   });
 
+  // A usable Turso is not enough: a sample with no project cannot be created there, so it takes the
+  // local path and meets the same refusal (the predicate is asked about the path taken, not about
+  // `tursoUsable` alone).
+  it("treats a sample without a project as the local path even when Turso is usable", async () => {
+    const noProject = { ...WS, project: undefined };
+    const blocked = deps({ ws: noProject, browserProject: BROWSER_PROJECT });
+    await expect(createDemo(blocked)).resolves.toBe("local-blocked");
+    expect(blocked.createLocal).not.toHaveBeenCalled();
+    expect(blocked.createTursoProject).not.toHaveBeenCalled();
+    const open = deps({ ws: noProject });
+    await expect(createDemo(open)).resolves.toBe("local");
+    expect(open.createLocal).toHaveBeenCalledWith(noProject);
+  });
+
   it("still creates the Turso demo while a browser-backed project is registered", async () => {
     const d = deps({ browserProject: BROWSER_PROJECT });
     await expect(createDemo(d)).resolves.toBe("turso");
@@ -493,6 +507,21 @@ describe("useLoadDemo — marks the dashboard demo banner done (§712)", () => {
       createDemoProject: vi.fn(async () => { markedBeforeCreate = readDemoBannerDone(); }),
     }));
     expect(markedBeforeCreate).toBe(true);
+  });
+
+  // The project exists the moment the create succeeds; the list re-fetch after it is bookkeeping.
+  // A throw there lands in the hook's catch (error toast, no tour), but the demo is real, so the
+  // banner must already be spent.
+  it("marks it even when re-fetching the project list throws after a successful Turso create", async () => {
+    const showToast = vi.fn();
+    const startTour = vi.fn();
+    await run(loadDeps({
+      portfolioMode: "turso", tursoConfig: CONFIG, showToast, startTour,
+      refreshTursoProjects: vi.fn(async () => { throw new Error("list unavailable"); }),
+    }));
+    expect(readDemoBannerDone()).toBe(true);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "tourDemoError"));
+    expect(startTour).not.toHaveBeenCalled();
   });
 
   it("leaves it unmarked when no demo was opened (blocked, or the Turso create failed)", async () => {

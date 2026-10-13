@@ -125,8 +125,12 @@ function historyFor(
 
 export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   const { ws } = deps;
-  if (!deps.tursoUsable || !ws.project) {
-    if (isLocalDemoBlocked(false, deps.browserProject)) return "local-blocked"; // this branch IS the local path
+  const { project } = ws;
+  // The Turso create runs only for a usable Turso AND a sample that carries a project; anything
+  // else is the local path, which is exactly when the browser-project refusal applies.
+  const usesTurso = deps.tursoUsable && !!project;
+  if (!usesTurso) {
+    if (isLocalDemoBlocked(usesTurso, deps.browserProject)) return "local-blocked";
     await deps.createLocal(ws);
     return "local";
   }
@@ -142,9 +146,12 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
       // reported as "turso-without-history" below
     }
   };
-  const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
+  const id = await deps.createTursoProject({ ...project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
   if (id === null) {
     if (deps.tursoProjectsExist) return "turso-failed";
+    // Not `isLocalDemoBlocked(deps.tursoUsable, …)`: Turso IS usable here, which would read as "not
+    // blocked". The Turso create just failed, so the local create is what runs next and the
+    // browser-project refusal applies unconditionally.
     if (deps.browserProject) return "local-blocked";
     deps.onLocalFallback?.();
     await deps.createLocal(ws);
@@ -217,13 +224,15 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         showToast("error", t(lang, "tourDemoError"));
         return;
       }
+      // The project exists from here on: spend the dashboard banner BEFORE the re-fetch, so a throw in
+      // it (caught below, error toast) cannot leave a created demo still being suggested.
+      markDemoBannerDone(); // the one place every entry point shares
       if (outcome === "turso" || outcome === "turso-without-history") await refreshTursoProjects();
       // The fallback that worked moved the portfolio to file mode and is reloading; the next boot
       // shows the stored notice. Still on Turso means it did not (it failed and said so, or it
       // returned early), so there is no local demo to announce.
       if (outcome === "local-after-turso-failure" && loadPortfolioMode() === "turso") clearDemoCreatedLocally();
       if (outcome === "turso-without-history") showToast("info", t(lang, "demoTrendsSeedFailedToast"));
-      markDemoBannerDone(); // the one place every entry point shares: the dashboard banner is spent
       startTour();
     } catch {
       showToast("error", t(lang, "tourDemoError"));

@@ -18,8 +18,6 @@ describe("DemoBanner", () => {
     expect(screen.getByText(t("en-US", "demoBannerText"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explore the demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide demo suggestion" })).toBeInTheDocument();
-    expect(EXPLORE).toBe("Explore the demo");
-    expect(HIDE).toBe("Hide demo suggestion");
   });
 
   it("hides on dismiss and a fresh mount stays hidden", () => {

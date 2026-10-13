@@ -1,4 +1,5 @@
 import { test, expect, gotoApp, openView } from "./seed";
+import { DEMO_BANNER_DONE_KEY } from "../src/app/demo-banner-state";
 
 // Visual-regression snapshots for the most visual views. Determinism is the
 // whole game here:
@@ -50,14 +51,15 @@ for (const name of VISUAL_VIEWS) {
     //   ★ Settings are a SHALLOW merge over defaults, so this leaves
     //   storageConfig and everything else untouched. Must run BEFORE the goto
     //   inside gotoApp, which is why it is not folded into that helper.
-    await page.addInitScript(() => {
+    await page.addInitScript((bannerDoneKey) => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
       // The Dashboard shows a one-time demo banner on a fresh device (§712), shifting the grid and
-      // breaking its baseline. The literal is DEMO_BANNER_DONE_KEY (demo-banner-state.ts): an init
-      // script is serialised into the page, so it cannot close over an import. Set here and NOT in
-      // gotoApp, so the axe gate keeps scanning the banner.
-      localStorage.setItem("aipm-cockpit:demo-banner-done", "1");
-    });
+      // breaking its baseline. An init script is serialised into the page, so it cannot close over
+      // the imported DEMO_BANNER_DONE_KEY: it is passed in as the script's argument instead, so a
+      // rename of the key follows. Set here and NOT in gotoApp, so the axe gate keeps scanning the
+      // banner.
+      localStorage.setItem(bannerDoneKey, "1");
+    }, DEMO_BANNER_DONE_KEY);
     // gotoApp freezes the clock to VISUAL_FROZEN_NOW (this file's own fixed
     // instant, not seed.ts's FROZEN_NOW — see the comment above) for
     // determinism that survives a DEMO_AS_OF refresh.
