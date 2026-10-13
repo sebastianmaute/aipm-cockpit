@@ -292,6 +292,22 @@ describe("ProjectsPanel", () => {
     expect(onConsumed).toHaveBeenCalledTimes(2);
   });
 
+  // The request is consumed even when it cannot be honoured, so it does not stay pending and
+  // fire later when a project appears.
+  it("a request with no current project opens nothing and is still consumed once (§706)", () => {
+    const onConsumed = vi.fn();
+    const props = { currentProject: undefined, currentProjectId: null, projectFunctionsRequest: 5, onProjectFunctionsRequestConsumed: onConsumed };
+    const { rerenderWith } = setup(props);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+    rerenderWith(props);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+    // ...and a project appearing later does not resurrect the spent request.
+    rerenderWith({ ...props, currentProject: CURRENT_META, currentProjectId: "p1" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("a null request opens nothing (§706)", () => {
     setup({ projectFunctionsRequest: null, onProjectFunctionsRequestConsumed: vi.fn() });
     expect(screen.queryByRole("dialog")).toBeNull();

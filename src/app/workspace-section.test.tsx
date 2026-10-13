@@ -4,7 +4,7 @@ import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -690,6 +690,57 @@ describe("WorkspaceSection — demo entry on the Projects panel", () => {
     window.history.replaceState(null, "", "/?popout=budget");
     await renderAtProjects(vi.fn());
     expect(screen.queryByRole("button", { name: "Explore a demo project" })).toBeNull();
+  });
+});
+
+// §707 — TimelogPanel is mocked in this file, so its notice cannot render; the contract the notice
+// depends on is the two props below: `features` (what is on) and `onCommitFeatures` (what Turn on
+// calls). Without the callback the notice is read-only, which is exactly the popout's behaviour.
+describe("WorkspaceSection — Time bookings features wiring", () => {
+  function Probe() {
+    const { setActiveTab } = useWorkspaceTab();
+    const { features } = useWorkspace();
+    return (
+      <>
+        <button data-testid="goto-timelog" onClick={() => setActiveTab("timelog")} />
+        <output data-testid="ws-features">{JSON.stringify(features ?? null)}</output>
+      </>
+    );
+  }
+  const renderAtTimelog = async () => {
+    timelogPanelMock.props.length = 0;
+    render(
+      <>
+        <Probe />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-timelog"));
+    await screen.findByTestId("timelog-panel");
+    return timelogPanelMock.props.at(-1)!;
+  };
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("hands TimelogPanel the live features and a callback that commits them to the workspace", async () => {
+    const props = await renderAtTimelog();
+    expect(props.features).toEqual(["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"]);
+    expect(typeof props.onCommitFeatures).toBe("function");
+    act(() => (props.onCommitFeatures as (next: FeatureModuleId[]) => void)(["timelog", "budget"]));
+    expect(screen.getByTestId("ws-features")).toHaveTextContent('["timelog","budget"]');
+  });
+
+  // Mutation: dropping the `isPopout ? undefined :` guard turns this red.
+  it("omits the commit callback in a popout, but still passes the features", async () => {
+    // "timelog" is not a popout slug; any valid one makes `isPopout` true, and the test then
+    // navigates to the tab itself.
+    window.history.replaceState(null, "", "/?popout=budget");
+    const props = await renderAtTimelog();
+    expect(props.onCommitFeatures).toBeUndefined();
+    expect(Array.isArray(props.features)).toBe(true);
   });
 });
 
