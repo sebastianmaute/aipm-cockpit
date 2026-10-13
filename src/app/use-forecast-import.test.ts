@@ -5,6 +5,10 @@
 // open preview (Review Focus 5).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
+import { createElement, useState, type ReactNode } from "react";
+import { ActionGuidesProvider } from "./action-guides-context";
+import type { OperatingGuide } from "./operating-guide";
+import { useBudgetBuckets } from "./use-budget-buckets";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { AiHttpError } from "./ai-errors";
@@ -302,6 +306,31 @@ describe("useForecastImport — moving between steps", () => {
 });
 
 describe("useForecastImport — apply", () => {
+  // §500 fix wave 2 (CR minor 11): one apply is ONE undo step, and undoing it
+  // restores the bucket — driven through the real commitBuckets, whose
+  // captured field patch is what the undo stack replays.
+  it("undoing an apply restores the bucket", async () => {
+    const captureComposite = vi.fn();
+    const noop = vi.fn();
+    const hook = renderHook(() => {
+      const [budgets, setBudgets] = useState<readonly BudgetBucket[]>([BUCKET, OTHER]);
+      const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, allowDestructiveSave: noop, capture: noop, captureComposite, logActivity: noop });
+      return { budgets, fi: useForecastImport(depsOf({ buckets: budgets, onChangeBuckets: commitBuckets })) };
+    });
+    await act(async () => {
+      await hook.result.current.fi.loadFile(csvFile(WIDE_CSV));
+    });
+    act(() => {
+      expect(hook.result.current.fi.apply()).toBe("applied");
+    });
+    expect(hook.result.current.budgets[0].allocations).toHaveLength(1);
+    expect(captureComposite).toHaveBeenCalledTimes(1);
+    const [, editPart] = captureComposite.mock.calls[0][0].parts;
+    act(() => editPart.restore({ current: new Map() }, true));
+    expect(hook.result.current.budgets[0]).toEqual(BUCKET);
+    expect(hook.result.current.budgets[1]).toBe(OTHER);
+  });
+
   it("commits ONE budget.updated change to the target bucket only", async () => {
     const deps = depsOf();
     const { result } = await loaded(deps);
@@ -414,6 +443,26 @@ describe("useForecastImport — apply", () => {
 });
 
 describe("useForecastImport — the Claude route", () => {
+  // §500 fix wave 2 (CR minor 11): the forecastImport guides reach the request.
+  it("sends the operating guides that target the forecast import", async () => {
+    const guide: OperatingGuide = {
+      id: "g", name: "Forecast rules", content: "Hours are per month, never per week.", enabled: true, priority: 1,
+      scope: { targets: ["forecastImport"] }, builtIn: false,
+    };
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(ActionGuidesProvider, { value: { guides: [guide], groundInGuides: true, ready: true }, children });
+    const fetchSpy = claudeResponds({ rows: [] });
+    const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: depsOf(), wrapper });
+    await act(async () => {
+      await hook.result.current.loadFile(csvFile(WIDE_CSV));
+    });
+    await act(async () => {
+      await hook.result.current.askClaude();
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain("Hours are per month, never per week.");
+  });
+
   // §500 fix wave 2 (CR I4): a reply that skips rows no longer looks complete.
   it("lists the cells a reply did not read, and nothing on the hand route", async () => {
     claudeResponds({
