@@ -226,6 +226,9 @@ function isWeekSpacedDates(cells: ReadonlyArray<PeriodCell | null>, numbers: Num
  *   steps BACKWARDS against the previous cell of the same kind: `Dez 2026 | Jan`
  *   is January 2027, a year-less `Jul … Jun` runs into the next year, and
  *   `KW52 | KW01` too. Week 53 is checked against the year the week lands in.
+ * - Year-less cells BEFORE the first labelled one count BACK from it, never
+ *   from `defaultYear`: `Nov | Dez | Jan 2027` is Nov and Dez 2026. Only a run
+ *   with no labelled cell at all reads in `defaultYear`.
  * - A run of dates a whole number of weeks apart, the closest exactly seven
  *   days, reads each date as its ISO week; any other dates read as their month.
  * Non-period cells are null and do not break the run. A LONG sheet's rows are
@@ -240,7 +243,34 @@ export function assignRunDetailed(
     return classes.map((c) =>
       c?.kind === "month" && c.date !== undefined ? { period: periodKeyForDate(c.date, "week"), assumed: false } : null);
   }
-  let year = usableYear(opts.defaultYear);
+  const out = readForwards(classes, usableYear(opts.defaultYear));
+  const first = classes.findIndex((c) => c?.year !== undefined);
+  if (first > 0) countBack(classes, out, first);
+  return out;
+}
+
+/** The cells before the run's first labelled cell, read backwards from it: a
+ *  cell whose index is HIGHER than the next one of its kind to its right lies
+ *  in the year before (`Dez | Jan 2027` → Dez 2026). Overwrites `out`. */
+function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<AssignedPeriod | null>, first: number): void {
+  const label = classes[first];
+  if (label?.year === undefined) return;
+  let year = label.year;
+  const next: { month?: number; week?: number } = { [label.kind]: label.index };
+  for (let i = first - 1; i >= 0; i--) {
+    const c = classes[i];
+    if (c === null) continue;
+    if ((next[c.kind] ?? Infinity) < c.index) year -= 1;
+    next[c.kind] = c.index;
+    const period = resolvePeriod(c, year);
+    out[i] = period === null ? null : { period, assumed: false };
+  }
+}
+
+/** The run read left to right: a labelled cell sets the running year, a
+ *  year-less one takes it and rolls it on when its index steps backwards. */
+function readForwards(classes: ReadonlyArray<PeriodCell | null>, defaultYear: number | undefined): Array<AssignedPeriod | null> {
+  let year = defaultYear;
   let assumed = year !== undefined;
   const previous: { month?: number; week?: number } = {};
   return classes.map((c) => {

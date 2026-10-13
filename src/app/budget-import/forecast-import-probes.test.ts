@@ -151,3 +151,12 @@ describe("probe: one sheet row naming a period twice (CR C1)", () => {
     expect(cellsOf(out)).toEqual([["2026-02", 5]]);
   });
 });
+
+describe("probe: year-less headers before the first labelled one (round 2)", () => {
+  it("Nov | Dez | Jan 2027 … reads every column, Nov and Dez in 2026, nothing assumed", () => {
+    const run = readSheet([["Name", "Nov", "Dez", "Jan 2027", "Feb 2027", "Mär 2027"], ["Ann Lee", "1", "2", "3", "4", "5"]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-11", "2026-12", "2027-01", "2027-02", "2027-03"]);
+    expect(run.out.ignoredColumns).toEqual([]);
+    expect(run.out.assumedYear).toBeUndefined();
+  });
+});

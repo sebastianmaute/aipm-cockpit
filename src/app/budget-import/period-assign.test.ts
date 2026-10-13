@@ -47,17 +47,28 @@ describe("assignRunPeriods — year rollover", () => {
     ]);
   });
 
-  it("reads nothing year-less before a year is known", () => {
-    expect(assignRunPeriods(["Nov", "Dez", "Jan 2027", "Feb"], {})).toEqual([null, null, "2027-01", "2027-02"]);
+  // Round 2: year-less cells BEFORE the first labelled one count back from it.
+  it("counts back from the first labelled year: Nov | Dez | Jan 2027 is Nov and Dez 2026", () => {
+    for (const defaultYear of [undefined, 2025, 2027]) {
+      expect(assignRunDetailed(["Nov", "Dez", "Jan 2027", "Feb"], { defaultYear })).toEqual([
+        { period: "2026-11", assumed: false },
+        { period: "2026-12", assumed: false },
+        { period: "2027-01", assumed: false },
+        { period: "2027-02", assumed: false },
+      ]);
+    }
+    expect(assignRunPeriods(["Jan", "Feb", "Mär 2026"], {})).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(assignRunPeriods(["KW51", "KW52", "KW01 2027"], {})).toEqual(["2026-W51", "2026-W52", "2027-W01"]);
+    expect(assignRunPeriods(["Dez", "Jan", "Mar 2027", "Apr"], { defaultYear: 2026 })).toEqual(["2026-12", "2027-01", "2027-03", "2027-04"]);
   });
 
-  it("marks which periods took their year from the default year", () => {
-    expect(assignRunDetailed(["Dez", "Jan", "Mar 2027", "Apr"], { defaultYear: 2026 })).toEqual([
+  it("keeps the default year when no cell names a year", () => {
+    expect(assignRunDetailed(["Okt", "Nov", "Dez"], { defaultYear: 2026 })).toEqual([
+      { period: "2026-10", assumed: true },
+      { period: "2026-11", assumed: true },
       { period: "2026-12", assumed: true },
-      { period: "2027-01", assumed: true },
-      { period: "2027-03", assumed: false },
-      { period: "2027-04", assumed: false },
     ]);
+    expect(assignRunPeriods(["Okt", "Nov", "Dez"], {})).toEqual([null, null, null]);
   });
 });
 
