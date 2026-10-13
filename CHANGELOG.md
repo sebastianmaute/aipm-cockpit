@@ -27,8 +27,10 @@ longer carries its own changelog comment.
   person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
   one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
   column could hold the hours or the period (any two number columns, such as `Plan | Ist`, `Stunden | Ist`,
-  `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; or a sheet of
-  month columns whose rows also hold a date column of their own, such as `Start`), the column
+  `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; a sheet of
+  month columns whose rows hold any date of their own outside the month columns, such as a `Start` or a
+  notes column, or a year column beside months without a year), or more than one row could be the header
+  row (stacked blocks), the column
   step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
   the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
@@ -46,13 +48,14 @@ longer carries its own changelog comment.
   year column, or a column of workbook dates — is listed instead of dropped without a word, as are data rows
   of an earlier block above the header row (a title or metadata row is not counted). Or
   Ask Claude to read the sheet: every row it returns cites the cell its hours came from, and a row whose
-  cell does not hold them, that is not on that person's row, or that is not under the period it claims is
-  not imported — the preview says which, and lists the number cells and the rows Claude did not read,
+  cell does not hold them, whose person is not in the person column of that row, or that is not under the
+  period it claims is not imported — the preview says which, and lists the number cells and the rows Claude did not read,
   including a person it left out entirely, by name. A placeholder such as `-` or `Urlaub`, a unit row or a
   Plan/Ist row under the month header does not stop Claude's rows being checked against that header. A row
   Claude cites is imported only when everything on the sheet that says which period its cell is in agrees:
-  the columns as Detect columns reads them (or as you confirmed or changed them), the column header above
-  the cell, and the period cells on its row. When any two disagree (a second year block under its own
+  the columns as Detect columns reads them (or as you confirmed or changed them) and the column header
+  above the cell, or, where Detect columns finds no layout, the column header and the period cells on its
+  row. When any two disagree (a second year block under its own
   header, a title row of dates above a long sheet, a start date on the row), the row is not imported and
   the preview names both periods, even if Claude read it right. On a sheet whose columns Detect columns
   asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a

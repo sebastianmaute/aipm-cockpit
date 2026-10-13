@@ -91,7 +91,7 @@ function periodLabel(lang: Lang, key: string): string {
 
 /** Why a Claude row's source did not back it. A period conflict names its
  *  periods, as labels: the column header's and then the detected columns', the
- *  one the detected columns read the cell in, the row's and then the column
+ *  one the detected or confirmed columns read the cell in, the row's and then the column
  *  header's, or the row's two. */
 function sourceWhy(lang: Lang, r: Extract<RejectedRow, { reason: "source" }>): string {
   const periods = r.periods;
