@@ -1,0 +1,143 @@
+// The Functions picker: mode badge, Simple / Advanced presets and one checkbox per
+// feature module. Extracted from the create-project wizard's step 3 (§706) so Edit
+// project and the Time bookings view share it.
+//
+// §707: a module that reads from other modules (`FeatureModule.uses`) shows a
+// `UsesNotice` under its checkbox while any of them is off. The notice only says so
+// and offers to turn them on — switching a module on never switches another one on.
+
+import { Button } from "./button";
+import {
+  ALL_MODULE_IDS,
+  FEATURE_MODULES,
+  type FeatureModuleId,
+  deriveMode,
+  missingUses,
+} from "./feature-modules";
+import { Checkbox } from "./form-controls";
+import { t, type Lang, type TranslationKey } from "./i18n";
+
+const MODE_LABEL_KEY = {
+  simple: "modeSimple",
+  modular: "modeModular",
+  advanced: "modeAdvanced",
+} as const;
+
+/** The sentence saying what a module uses. A module with `uses` but no entry here
+ *  still gets the "X is off" part of its notice. */
+const USES_SENTENCE_KEY: Partial<Record<FeatureModuleId, TranslationKey>> = {
+  timelog: "functionsUsesTimelog",
+};
+
+const LABEL_KEY_BY_ID = new Map<FeatureModuleId, TranslationKey>(
+  FEATURE_MODULES.map((m) => [m.id, m.labelKey]),
+);
+
+function moduleNames(lang: Lang, ids: readonly FeatureModuleId[]): string {
+  const names = ids.map((id) => t(lang, LABEL_KEY_BY_ID.get(id) ?? "modeModulesHeading"));
+  return names.length === 2 ? t(lang, "functionsUsesJoin", names[0], names[1]) : names.join(", ");
+}
+
+/** What a module uses and which of that is off. `onTurnOn` is optional: without it the
+ *  notice is read-only (no button). */
+export function UsesNotice({
+  lang,
+  moduleId,
+  missing,
+  onTurnOn,
+}: {
+  lang: Lang;
+  moduleId: FeatureModuleId;
+  missing: readonly FeatureModuleId[];
+  onTurnOn?: () => void;
+}) {
+  if (missing.length === 0) return null;
+  const sentenceKey = USES_SENTENCE_KEY[moduleId];
+  const names = moduleNames(lang, missing);
+  const offText =
+    missing.length === 1 ? t(lang, "functionsUsesOneOff", names) : t(lang, "functionsUsesBothOff");
+  return (
+    <div className="ml-6 flex flex-col items-start gap-1.5 text-sm text-muted-foreground">
+      <p>
+        {sentenceKey ? `${t(lang, sentenceKey)} ` : ""}
+        {offText}
+      </p>
+      {onTurnOn && (
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={t(lang, "functionsUsesTurnOnLabel", names)}
+          onClick={onTurnOn}
+        >
+          {t(lang, "functionsUsesTurnOn")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function FunctionsPicker({
+  lang,
+  features,
+  onChange,
+}: {
+  lang: Lang;
+  features: readonly FeatureModuleId[];
+  onChange: (next: FeatureModuleId[]) => void;
+}) {
+  const mode = deriveMode(features);
+  const toggle = (id: FeatureModuleId) =>
+    onChange(features.includes(id) ? features.filter((x) => x !== id) : [...features, id]);
+  const turnOn = (missing: readonly FeatureModuleId[]) => {
+    const next = new Set<FeatureModuleId>([...features, ...missing]);
+    onChange(ALL_MODULE_IDS.filter((id) => next.has(id)));
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
+        <span className="rounded-full bg-ui-green/15 px-3 py-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+          {t(lang, MODE_LABEL_KEY[mode])}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={t(lang, "modeApplySimplePreset")}
+          onClick={() => onChange([])}
+        >
+          {t(lang, "modePresetSimple")}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={t(lang, "modeApplyAdvancedPreset")}
+          onClick={() => onChange([...ALL_MODULE_IDS])}
+        >
+          {t(lang, "modePresetAdvanced")}
+        </Button>
+      </div>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-semibold text-foreground">
+          {t(lang, "modeModulesHeading")}
+        </legend>
+        {FEATURE_MODULES.map((m) => {
+          const missing = missingUses(m.id, features);
+          return (
+            <div key={m.id} className="flex flex-col gap-1.5">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={features.includes(m.id)} onChange={() => toggle(m.id)} />
+                <span>{t(lang, m.labelKey)}</span>
+              </label>
+              <UsesNotice lang={lang} moduleId={m.id} missing={missing} onTurnOn={() => turnOn(missing)} />
+            </div>
+          );
+        })}
+      </fieldset>
+    </>
+  );
+}

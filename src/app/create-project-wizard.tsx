@@ -25,7 +25,6 @@ import { CreateProjectForm } from "./create-project-form";
 import { suggestTemplate } from "./template-suggest";
 import {
   ALL_MODULE_IDS,
-  FEATURE_MODULES,
   type FeatureModuleId,
   deriveMode,
 } from "./feature-modules";
@@ -47,6 +46,7 @@ import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { Checkbox } from "./form-controls";
+import { FunctionsPicker } from "./functions-picker";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { FilePickerButton } from "./file-picker-button";
@@ -316,9 +316,6 @@ export function CreateProjectWizard({
     applyTemplateChoice(tpl);
   };
 
-  const toggleModule = (id: FeatureModuleId) =>
-    setFeatures((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
-
   const handleCreate = () => {
     if (!meta) return;
     onCreate(meta, format, {
@@ -330,7 +327,6 @@ export function CreateProjectWizard({
     });
   };
 
-  const mode = deriveMode(features);
   const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
   const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
@@ -548,46 +544,7 @@ export function CreateProjectWizard({
           <div className="flex flex-col gap-5 pb-2">
             <p className="text-sm text-muted-foreground">{t(lang, "wizardFunctionsIntro")}</p>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
-              <span className="rounded-full bg-ui-green/15 px-3 py-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-                {t(lang, MODE_LABEL_KEY[mode])}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-label={t(lang, "modeApplySimplePreset")}
-                onClick={() => setFeatures([])}
-              >
-                {t(lang, "modePresetSimple")}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-label={t(lang, "modeApplyAdvancedPreset")}
-                onClick={() => setFeatures([...ALL_MODULE_IDS])}
-              >
-                {t(lang, "modePresetAdvanced")}
-              </Button>
-            </div>
-
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-semibold text-foreground">
-                {t(lang, "modeModulesHeading")}
-              </legend>
-              {FEATURE_MODULES.map((m) => (
-                <label key={m.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={features.includes(m.id)}
-                    onChange={() => toggleModule(m.id)}
-                  />
-                  <span>{t(lang, m.labelKey)}</span>
-                </label>
-              ))}
-            </fieldset>
+            <FunctionsPicker lang={lang} features={features} onChange={setFeatures} />
 
             {offerSeed && (
               <label className="flex items-center gap-2 border-t border-line pt-4 text-sm">
