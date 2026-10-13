@@ -229,6 +229,26 @@ describe("routing", () => {
   });
 });
 
+// §500 fix wave 2 (CR minor 8): a covered cell is replaced whole, so a cell on
+// a line shared with people the sheet does not list names them.
+describe("cells on a line shared with people not in the sheet", () => {
+  const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+
+  it("names the line's members the sheet does not list", () => {
+    const bucket = bucketOf({ allocations: [alloc(ROLE_A.id, { "2026-01": 50 }, [1, 2])] });
+    const p = plan([row("Ann Lee", "2026-01", 10)], { resources, bucket });
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: ROLE_A.id }, period: "2026-01", old: 50, next: 10, othersOnLine: ["Bob Ray"] },
+    ]);
+  });
+
+  it("names nobody when every member of the line is in the sheet", () => {
+    const bucket = bucketOf({ allocations: [alloc(ROLE_A.id, {}, [1, 2])] });
+    const p = plan([row("Ann Lee", "2026-01", 10), row("Bob Ray", "2026-01", 5)], { resources, bucket });
+    expect(p.changes[0].othersOnLine).toBeUndefined();
+  });
+});
+
 describe("aggregation", () => {
   it("sums two people of one role in one month into one change", () => {
     const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];

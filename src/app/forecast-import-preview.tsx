@@ -258,6 +258,9 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
                         <span>{t(lang, "forecastImportPartial")}</span>
                       </span>
                     )}
+                    {c.othersOnLine && (
+                      <span className="text-xs text-muted-foreground">{t(lang, "forecastImportOthersOnLine", c.othersOnLine.join(", "))}</span>
+                    )}
                   </li>
                 ))}
               </ul>

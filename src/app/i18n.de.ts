@@ -2458,6 +2458,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportNewAllocation: "Neue Zeile: {0}",
   forecastImportAddResources: "{0}: neu dabei {1}",
   forecastImportPartial: "Das Blatt deckt nur einen Teil dieser Periode ab.",
+  forecastImportOthersOnLine: "deckt auch {0} ab (nicht im Blatt)",
   forecastImportTotalDelta: "Änderung gesamt: {0} h",
   forecastImportApply: "Übernehmen",
   forecastImportRefused: "Der Budget-Topf hat sich geändert, während die Vorschau offen war (geschlossen, entfernt oder „Budgetstunden folgen Planung“ eingeschaltet). Nichts wurde geschrieben.",

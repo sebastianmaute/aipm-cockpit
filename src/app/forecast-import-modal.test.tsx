@@ -388,3 +388,14 @@ describe("ForecastImportModal — archived resources", () => {
     expect(within(picker).queryByRole("option", { name: "Old Timer" })).toBeNull();
   });
 });
+
+describe("ForecastImportModal — a line shared with people not in the sheet", () => {
+  it("notes that a changed cell also covers them", async () => {
+    const BOB: Resource = { ...ANN, id: 2, firstName: "Bob", lastName: "Ray" };
+    const shared: BudgetBucket = { ...BUCKET, allocations: [{ roleId: ROLE.id, resourceIds: [ANN.id, BOB.id], budgetHours: {}, actualHours: {} }] };
+    render(<ForecastImportModal {...propsOf({ resources: [ANN, BOB], bucket: shared, buckets: [shared] })} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    const diff = screen.getByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(within(diff).getAllByText(t(L, "forecastImportOthersOnLine", "Bob Ray"))).toHaveLength(3);
+  });
+});

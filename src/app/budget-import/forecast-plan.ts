@@ -31,6 +31,9 @@ export type CellChange = {
   old: number | undefined;
   next: number;
   partial?: true;
+  /** Members of the allocation's line the sheet does not list: the imported
+   *  value replaces the whole cell, their share included. */
+  othersOnLine?: string[];
 };
 export type UnresolvedPerson = {
   person: string;
@@ -263,7 +266,17 @@ function findStored(bucket: BudgetBucket, key: AllocationKey): StoredAlloc | und
 
 type Diff = Pick<ImportPlan, "changes" | "addResources" | "newAllocations" | "hoursDelta">;
 
-type DiffScope = { active: ReadonlyMap<string, Period>; holidaySet: ReadonlySet<string> };
+type DiffScope = { active: ReadonlyMap<string, Period>; holidaySet: ReadonlySet<string>; byId: ReadonlyMap<number, Resource> };
+
+/** The names of a stored line's members the sheet did not match to it. */
+function othersOnLine(stored: StoredAlloc | undefined, matched: ReadonlySet<number>, byId: ReadonlyMap<number, Resource>): string[] {
+  return (stored?.resourceIds ?? [])
+    .filter((id) => !matched.has(id))
+    .map((id) => {
+      const r = byId.get(id);
+      return r ? `${r.firstName} ${r.lastName}`.trim() : `#${id}`;
+    });
+}
 
 /** True when a working day (Mon-Fri, not a holiday) of `target` lies in none of
  *  the covering sheet periods. */
@@ -283,6 +296,7 @@ function hasUncoveredWorkday(target: Period, covers: readonly Period[], holidayS
 function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffScope): Diff {
   const changes: CellChange[] = [];
   const covers = [...acc.sources].map(sourcePeriodBounds);
+  const others = othersOnLine(stored, acc.people, scope.byId);
   let delta = 0;
   for (const period of [...acc.cents.keys()].sort()) {
     const next = (acc.cents.get(period) ?? 0) / 100;
@@ -291,6 +305,7 @@ function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffSc
     const change: CellChange = { alloc: acc.alloc, period, old, next };
     const target = scope.active.get(period);
     if (target && hasUncoveredWorkday(target, covers, scope.holidaySet)) change.partial = true;
+    if (others.length > 0) change.othersOnLine = others;
     changes.push(change);
     delta += next - (old ?? 0);
   }
@@ -316,8 +331,9 @@ function blockersOf(ctx: ImportCtx, changeCount: number): ImportBlocker[] {
 /** Diffs the forecast against the bucket. Rows must already be validated. */
 export function buildForecastImportPlan(rows: readonly ForecastRow[], ctx: ImportCtx): ImportPlan {
   const active = new Map(bucketActivePeriods(ctx.bucket, ctx.plan).map((p) => [p.key, p]));
-  const collected = collect(rows, ctx, buildIndexes(ctx.resources, ctx.roles), active);
-  const scope: DiffScope = { active, holidaySet: ctx.holidaySet };
+  const ix = buildIndexes(ctx.resources, ctx.roles);
+  const collected = collect(rows, ctx, ix, active);
+  const scope: DiffScope = { active, holidaySet: ctx.holidaySet, byId: ix.byId };
   const diffs = [...collected.accs.values()].map((acc) => diffAllocation(acc, findStored(ctx.bucket, acc.alloc), scope));
   const changes = diffs.flatMap((d) => d.changes);
   return {
