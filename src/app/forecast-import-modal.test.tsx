@@ -215,7 +215,8 @@ describe("ForecastImportModal", () => {
     expect(apply()).toBeDisabled();
     expect(apply()).toHaveAccessibleDescription(t(L, "forecastImportConfirmClaudeFirst"));
     // An edit is no press.
-    fireEvent.change(screen.getByLabelText(t(L, "forecastImportYear")), { target: { value: "2026" } });
+    fireEvent.change(screen.getByLabelText(t(L, "forecastImportYear")), { target: { value: "2027" } });
+    expect(screen.getByLabelText(t(L, "forecastImportYear"))).toHaveValue(2027);
     expect(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
