@@ -495,10 +495,11 @@ describe("probe: a start-date column beside the period column (final review I2)"
     ["Name", "Start date", "Month", "Hours"],
     ["Resource", "Start date", "Period", "Hours"],
     ["Name", "Start", "Zeitraum", "Stunden"],
-    ["Name", "Beginn", "Wann", "Stunden"],
   ])("%s | %s | %s | %s reads the third column as the period: Jan 80, Feb 60", (...header) => {
     const rows = [header, ["Ann Lee", "01.01.2026", "Jan 2026", "80"], ["Ann Lee", "01.01.2026", "Feb 2026", "60"]];
-    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    expect(detected.ambiguous).toEqual([]);
     const run = readSheet(rows);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 60]]);
     // Not the start month's sum.
@@ -517,6 +518,19 @@ describe("probe: a start-date column beside the period column (final review I2)"
     const run = readSheet(rows, numbers);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 60]]);
     expect(run.validated.ok.some((r) => r.hours === 140)).toBe(false);
+  });
+
+  // Fix 7: with no period word on either header, nothing tells Beginn from
+  // Wann (a label-over-date rank once did, and summed rr6 N3's Datum sheets into
+  // their Eintritt month). Detection asks; the leftmost is only the default.
+  it("Name | Beginn | Wann | Stunden asks which column is the period", () => {
+    const rows = [["Name", "Beginn", "Wann", "Stunden"], ["Ann Lee", "01.01.2026", "Jan 2026", "80"], ["Ann Lee", "01.01.2026", "Feb 2026", "60"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 3 });
+    // Confirmed as Wann (the mapping step), the rows are right.
+    const out = gridToForecastRows(rows, { ...detected.mapping!, period: 2 }, "S");
+    expect(out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 60]]);
   });
 });
 
@@ -538,31 +552,38 @@ describe("probe: an ID or number column is never the hours (final review I3)", (
     expect(run.out.rows.some((r) => [1, 2, 3].includes(r.hours))).toBe(false);
   });
 
-  // The ID column to the RIGHT of the figures: neither a hours word nor the
-  // rightmost pick protects the figures, only the ID exclusion does.
-  it.each(["PersNr", "ID"])("Name | Monat | Menge | %s reads Menge, not the IDs", (idHeader) => {
+  // The ID column to the RIGHT of the figures. Only the ID exclusion keeps it
+  // out of the hours candidates, so the choice is clear (no question asked).
+  it.each(["PersNr", "ID"])("Name | Monat | Menge | %s reads Menge, not the IDs, without asking", (idHeader) => {
     const rows = [["Name", "Monat", "Menge", idHeader], ["Ann Lee", "Jan 2026", "40", "4711"], ["Ann Lee", "Feb 2026", "30", "4711"]];
-    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    expect(detected.ambiguous).toEqual([]);
     const run = readSheet(rows);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
     expect(run.out.ignoredColumns).toEqual([]);
   });
 
-  it("takes the rightmost of two unnamed number columns: Team | Menge reads Menge", () => {
+  // Fix 7: the rightmost pick read Menge here, and Ist / Actual / Summe on rr6
+  // N1's sheets. Two unnamed number columns are asked about instead.
+  it("asks between two unnamed number columns: Team | Menge, Team preselected", () => {
     const rows = [["Name", "Monat", "Team", "Menge"], ["Ann Lee", "Jan 2026", "7", "40"], ["Ann Lee", "Feb 2026", "7", "30"]];
-    const run = readSheet(rows);
-    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
-    expect(run.out.rows.some((r) => r.hours === 7)).toBe(false);
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(detected.mapping).toMatchObject({ hours: 2 });
   });
 
-  it("never takes a workbook's trailing serial-date column as the hours: Wert, not Erfasst", () => {
+  it("never takes a workbook's trailing serial-date column as the hours: Wert, not Erfasst, without asking", () => {
     const rows = [["Name", "Monat", "Wert", "Erfasst"], ["Ann Lee", "Jan 2026", "40", "46030"], ["Ann Lee", "Feb 2026", "30", "46060"]];
-    expect(detectLayout(rows, { numbers: "dot", defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    const detected = detectLayout(rows, { numbers: "dot", defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    expect(detected.ambiguous).toEqual([]);
     expect(triplesOf(readSheet(rows, "dot"))).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
   });
 
-  it("never takes a year column as the hours, even the rightmost: Wert, not Basisjahr", () => {
+  it("never takes a year column as the hours: Wert, not Basisjahr, without asking", () => {
     const rows = [["Name", "Jahr", "Monat", "Wert", "Basisjahr"], ["Ann Lee", "2026", "Jan", "40", "2025"], ["Ann Lee", "2026", "Feb", "30", "2025"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
     const run = readSheet(rows);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
     expect(run.out.rows.some((r) => r.hours === 2025)).toBe(false);
@@ -613,5 +634,64 @@ describe("probe: a column headed by a period is never a long sheet's hours (fina
     ];
     expect(detectLayout(rows, { numbers: "dot", defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 3, hours: 4 });
     expect(triplesOf(readSheet(rows, "dot"))).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2]]);
+  });
+});
+
+// Fix 7 (owner decision 2026-10-13): rr6's N1 and N3 sheets, end to end. Each
+// is reported ambiguous; read with the confirmed column, the hours are right.
+// The dialog keeps Apply disabled until that confirmation (use-forecast-import).
+describe("probe: ambiguous columns are asked about, and the confirmed column reads right (fix 7)", () => {
+  const months = ["Jan 2026", "Feb 2026", "Mär 2026"];
+  const people = ["Ann Lee", "Bob Kay"];
+  const PLAN = ["40", "35", "30"];
+  const n1 = (x: string, y: string, ys: readonly string[]): string[][] => [
+    ["Name", "Monat", x, y],
+    ...people.flatMap((p) => months.map((m, i) => [p, m, PLAN[i], ys[i]])),
+  ];
+  const expectedPlan = people.flatMap((p) => ["2026-01", "2026-02", "2026-03"].map((m, i) => [p, m, Number(PLAN[i])]));
+
+  it.each([
+    ["Plan", "Ist", ["35", "30", "25"], "text"],
+    ["Plan", "Ist", ["35", "30", "25"], "dot"],
+    ["Soll", "Ist", ["35", "30", "25"], "text"],
+    ["Forecast", "Ist", ["35", "30", "25"], "text"],
+    ["Forecast", "Actual", ["35", "30", "25"], "text"],
+    ["h", "Betrag", ["400", "350", "300"], "text"],
+    ["Menge", "Summe", ["100", "101", "102"], "text"],
+    ["Menge", "kumuliert", ["40", "80", "120"], "text"],
+  ] as const)("%s | %s (%s): asks, and the confirmed left column imports the plan hours", (x, y, ys, numbers) => {
+    const rows = n1(x, y, ys);
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    const out = gridToForecastRows(rows, { ...detected.mapping!, hours: 2 }, "S", numbers);
+    expect(out.rows.map((r) => [r.person, r.period, r.hours])).toEqual(expectedPlan);
+    // Negative: the right-hand column is never what the preselection reads.
+    expect(gridToForecastRows(rows, detected.mapping!, "S", numbers).rows.map((r) => r.hours)).not.toEqual(people.flatMap(() => ys.map(Number)));
+  });
+
+  it("the old 80 | 95 fixture asks, and reads 80 / 72 from the left column", () => {
+    const rows = [["Name", "Month", "A", "B"], ["Ann Lee", "2026-01", "80", "95"], ["Ann Lee", "2026-02", "72", "95"]];
+    const detected = detectLayout(rows);
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(triplesOf(readSheet(rows))).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 72]]);
+  });
+
+  const n3 = (second: string, value: string, dates: readonly string[]): string[][] => [
+    ["Name", "Datum", second, "Stunden"],
+    ...people.flatMap((p) => dates.map((d, i) => [p, d, value, PLAN[i]])),
+  ];
+
+  it.each([
+    ["Eintritt 03/2026 (CSV)", n3("Eintritt", "03/2026", ["01.01.2026", "01.02.2026", "01.03.2026"]), "text"],
+    ["Eintritt as serials (workbook)", n3("Eintritt", "46082", ["46023", "46054", "46082"]), "dot"],
+    ["Eintritt Mär 2026, Datum ISO (CSV)", n3("Eintritt", "Mär 2026", ["2026-01-01", "2026-02-01", "2026-03-01"]), "text"],
+    ["Startmonat (CSV)", n3("Startmonat", "Mär 2026", ["01.01.2026", "01.02.2026", "01.03.2026"]), "text"],
+  ] as const)("Name | Datum | %s: asks which is the period; Datum reads the hours month by month", (_label, rows, numbers) => {
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+    const run = gridToForecastRows(rows, { ...detected.mapping!, period: 1 }, "S", numbers);
+    expect(run.rows.map((r) => [r.person, r.period, r.hours])).toEqual(expectedPlan);
+    // Negative: no person's hours summed into one month.
+    expect(run.rows.some((r) => r.hours === 105)).toBe(false);
   });
 });

@@ -33,6 +33,12 @@ export type ColumnMapping = {
   yearCol?: number;
 };
 
+/** A long sheet's field that more than one column could be: `candidates` are
+ *  the 0-based columns, left to right. The mapping detection returns still
+ *  picks one (`detectLayout`), but the dialog asks the user to confirm it
+ *  before anything is applied (fix 7: the owner's "ask, don't guess"). */
+export type ColumnAmbiguity = { field: "hours" | "period"; candidates: number[] };
+
 /** A column, at any position and in either layout, that the import did not read
  *  although most data rows hold a number in it: not a mapped field, and its
  *  header is neither a period it reads (an unknown month spelling, a missing

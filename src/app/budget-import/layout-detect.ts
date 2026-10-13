@@ -9,20 +9,25 @@
 // because a long sheet's start/end date columns look the same.
 
 import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
-import type { ColumnMapping } from "./forecast-types";
+import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
+/** `ambiguous` lists the long-sheet fields more than one column could be
+ *  (`longFromHeader`); empty when the choice is clear, and always for a wide
+ *  sheet or none. */
 export type LayoutDetection = {
   kind: "wide" | "long" | "unknown";
   mapping: ColumnMapping | null;
+  ambiguous: ColumnAmbiguity[];
 };
 
 const MAX_HEADER_SCAN_ROWS = 10;
 /** The data rows under a candidate header that detection reads (`dataRowsBelow`):
  *  every pass scores up to `MAX_HEADER_SCAN_ROWS` candidates, and scoring them
- *  over a whole 250,000-cell sheet took seconds (final review M1). Reading the
- *  rows once the columns are known (`gridToForecastRows`) is never cut. */
+ *  over a whole 250,000-cell sheet took seconds (final review M1). Blank rows
+ *  are skipped, not counted (fix 7, rr6 N5). Reading the rows once the columns
+ *  are known (`gridToForecastRows`) is never cut. */
 export const DETECTION_SAMPLE_ROWS = 200;
 const MIN_WIDE_PERIODS = 3;
 const MIN_WIDE_PERIODS_FALLBACK = 2;
@@ -31,19 +36,26 @@ const COLUMN_SHARE = 0.8;
 /** Share of a column's non-blank cells that must be text for a person column. */
 const TEXT_SHARE = 0.5;
 
-/** A long sheet's period column by its header: ranked first (`periodRank`).
- *  This, `HOURS_HEADER_RE` and `PERSON_HEADER_RE` also tell the Claude route's
- *  header-search stop a header row (`isHeaderRowFor` in source-evidence.ts). */
-export const PERIOD_HEADER_RE = /month|monat|period|periode|zeitraum|week|woche|kw/i;
-/** A date column's header: ranked below `PERIOD_HEADER_RE`, above none. */
+/** A period WORD (`Month`, `Monat`, `Zeitraum`, `KW` …), matched as a whole
+ *  word of the header (`isPeriodWordHeader`): `Startmonat` or
+ *  `Abrechnungsmonat` holds one only as part of a longer word. */
+const PERIOD_WORD_RE = /^(months?|monate?|periods?|perioden?|zeitraum|weeks?|wochen?|kw)$/i;
+/** A date column's header: ranked below a period word, above none. */
 const DATE_HEADER_RE = /date|datum/i;
-export const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
+const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
-export const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
+const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
+const WORD_SPLIT_RE = /[^\p{L}]+/u;
 
-const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };
+/** A header with a period word as one of its words (`PERIOD_WORD_RE`):
+ *  `Month`, `Start month`, `Monat/Jahr`, `KW 05`. */
+export function isPeriodWordHeader(label: string): boolean {
+  return label.split(WORD_SPLIT_RE).some((word) => PERIOD_WORD_RE.test(word));
+}
+
+const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null, ambiguous: [] };
 
 type Rows = readonly string[][];
 
@@ -53,9 +65,23 @@ type Ctx = { numbers: NumberOrigin; year?: number };
 
 const isTotalRow = (row: readonly string[]): boolean => row.some(isTotalLabel);
 
-/** The first `DETECTION_SAMPLE_ROWS` rows under a header, total rows left out. */
+/** Per grid, the indices of its rows that hold data: not blank, not a total. */
+const DATA_ROW_INDICES = new WeakMap<Rows, number[]>();
+
+function dataRowIndices(rows: Rows): number[] {
+  const known = DATA_ROW_INDICES.get(rows);
+  if (known !== undefined) return known;
+  const out = rows.flatMap((row, i) => (row.some((c) => !isBlank(c)) && !isTotalRow(row) ? [i] : []));
+  DATA_ROW_INDICES.set(rows, out);
+  return out;
+}
+
+/** The first `DETECTION_SAMPLE_ROWS` data rows under a header: blank and total
+ *  rows are left out and do not count. */
 function dataRowsBelow(rows: Rows, headerRow: number): Rows {
-  return rows.slice(headerRow + 1, headerRow + 1 + DETECTION_SAMPLE_ROWS).filter((row) => !isTotalRow(row));
+  const indices = dataRowIndices(rows);
+  const first = indices.findIndex((i) => i > headerRow);
+  return first < 0 ? [] : indices.slice(first, first + DETECTION_SAMPLE_ROWS).map((i) => rows[i]);
 }
 
 /** A column's non-blank, trimmed cells. */
@@ -172,26 +198,22 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | n
 }
 
 /** Rank weights of `periodRank`, most significant first. */
-const RANK_NO_PERIOD_HEADER = 8;
-const RANK_DATE_CELLS = 4;
+const RANK_NO_PERIOD_WORD = 4;
 const RANK_NO_DATE_HEADER = 2;
 const RANK_SERIAL_CELLS = 1;
 
 /**
- * Lower is better, each test outranking every one after it: a period header
- * (`Month`, `Zeitraum`, `KW` …); cells that are period LABELS (`Jan 2026`,
- * `2026-01`, `KW03`) over full dates; a `Date` / `Datum` header; a real date
- * over a bare serial. Ties keep the leftmost column. ★★ `Start date` once
- * ranked with `Month`, and the leftmost won: every row's hours were summed into
- * the start month (final review I2).
+ * Lower is better, each test outranking every one after it: a period word in
+ * the header (`isPeriodWordHeader`: `Month`, `Zeitraum`, `KW` …); a `Date` /
+ * `Datum` header; a real date over a bare serial. Ties keep the leftmost
+ * column. ★★ `Start date` once ranked with `Month`, and the leftmost won: every
+ * row's hours were summed into the start month (final review I2). ★★ A rank of
+ * month-LABEL cells over full dates (final review I2 too) summed a `Datum`
+ * sheet into its `Eintritt` month (rr6 N3), and was removed: when the header
+ * words do not settle it, detection asks (`ambiguous`, fix 7).
  */
 function periodRank(header: string, cells: readonly string[]): number {
-  const isDateCell = (c: string): boolean => {
-    const p = classifyPeriodCell(c);
-    return p?.kind === "month" && p.date !== undefined;
-  };
-  return (PERIOD_HEADER_RE.test(header) ? 0 : RANK_NO_PERIOD_HEADER)
-    + (cells.some(isDateCell) ? RANK_DATE_CELLS : 0)
+  return (isPeriodWordHeader(header) ? 0 : RANK_NO_PERIOD_WORD)
     + (DATE_HEADER_RE.test(header) ? 0 : RANK_NO_DATE_HEADER)
     + (cells.length > 0 && cells.every((c) => SERIAL_RE.test(c)) ? RANK_SERIAL_CELLS : 0);
 }
@@ -208,34 +230,61 @@ function findYearColumn(header: readonly string[], data: Rows, width: number): n
   return undefined;
 }
 
+/** The period column (best `periodRank`), its period share, and every column
+ *  that qualified (`candidates`, left to right). */
+type PeriodPick = { col: number; share: number; candidates: number[] };
+
 function findPeriodColumn(
   header: readonly string[],
   data: Rows,
   width: number,
   ctx: Ctx,
   yearCol: number | undefined,
-): { col: number; share: number } | undefined {
+): PeriodPick | undefined {
   // With a year column, a year-less "Jan" is a period: the row supplies its year.
   const isPeriod = (c: string): boolean =>
     parsePeriodLabel(c, ctx.year) !== null || (yearCol !== undefined && classifyPeriodCell(c) !== null);
   let best: { col: number; share: number; rank: number } | undefined;
+  const candidates: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
     const share = shareOf(cells, isPeriod);
     if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share < COLUMN_SHARE) continue;
+    candidates.push(col);
     const rank = periodRank(label, cells);
     if (best === undefined || rank < best.rank) best = { col, share, rank };
   }
-  return best && { col: best.col, share: best.share };
+  return best && { col: best.col, share: best.share, candidates };
+}
+
+/**
+ * The fields of a long reading that more than one column could be (fix 7, the
+ * owner's "ask, don't guess" after three rounds of column-guessing rules each
+ * imported wrong hours):
+ * - the PERIOD, when two or more columns qualify and not exactly one of them
+ *   is headed by a period word (`Start date | Month` is clear; `Datum |
+ *   Eintritt` and `Datum | Startmonat` ask);
+ * - the HOURS, when two or more number columns are left after the exclusions
+ *   (`numericColumns`, rate and period-headed columns) and not exactly one of
+ *   them is headed by an hours word (`Plan | Stunden` is clear; `Plan | Ist`,
+ *   `h | Betrag`, `Menge | Summe` ask).
+ */
+function ambiguityOf(header: readonly string[], periodCols: readonly number[], hoursCols: readonly number[]): ColumnAmbiguity[] {
+  const named = (cols: readonly number[], isNamed: (label: string) => boolean): number =>
+    cols.filter((col) => isNamed(cellAt(header, col))).length;
+  const out: ColumnAmbiguity[] = [];
+  if (periodCols.length > 1 && named(periodCols, isPeriodWordHeader) !== 1) out.push({ field: "period", candidates: [...periodCols] });
+  if (hoursCols.length > 1 && named(hoursCols, (label) => HOURS_HEADER_RE.test(label)) !== 1) out.push({ field: "hours", candidates: [...hoursCols] });
+  return out;
 }
 
 /** Numeric columns with a header, not the period or year column, not an ID
  *  (`ID_HEADER`: `ID`, `Nr`, `PersNr` …) or year column (`isYearColumn`).
  *  ★★ `ID | Name | Month | Effort` once imported the employee IDs as hours, and
  *  `Nr | … | Aufwand` the row numbers (final review I3). A period-shaped cell (a
- *  workbook's serial date) counts as no number here, so with the rightmost
- *  pick (`longFromHeader`) a trailing `Erfasst` date column is not the hours. */
+ *  workbook's serial date) counts as no number here, so a serial `Erfasst`
+ *  date column is no hours candidate. */
 function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): number[] {
   const out: number[] = [];
   for (let col = 0; col < width; col++) {
@@ -261,8 +310,11 @@ function isDataRowShaped(header: readonly string[], period: number, hours: numbe
   return isNumber || parsePeriodLabel(cellAt(header, period), ctx.year) !== null;
 }
 
+/** A layout reading: the mapping and the fields it could not settle. */
+type Detected = { mapping: ColumnMapping; ambiguous: ColumnAmbiguity[] };
+
 /** A long reading of one candidate header row, with how well its columns fit. */
-type ScoredMapping = { mapping: ColumnMapping; score: number };
+type ScoredMapping = Detected & { score: number };
 
 function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping | null {
   const header = rows[headerRow] ?? [];
@@ -285,9 +337,10 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   // January landed in her start month (final review I4). Such a sheet falls
   // through to two-period wide.
   const hoursCols = numeric.filter((col) => !rateCols.includes(col) && classifyPeriodCell(cellAt(header, col)) === null);
-  // A named hours column, else the RIGHTMOST number column: a code or team
-  // number sits left of the figures more often than right of them.
-  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[hoursCols.length - 1];
+  // A named hours column, else the LEFTMOST number column. ★★ A rightmost pick
+  // (final review I3) imported `Ist`, `Actual`, `Summe` or `Betrag` in place of
+  // `Plan` or `Forecast` (rr6 N1); where it is not clear, `ambiguityOf` asks.
+  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   const rate = rateCols[0];
 
@@ -298,6 +351,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   if (person === null) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),
+    ambiguous: ambiguityOf(header, found.candidates, hoursCols),
     score: found.share + numberShare(columnCells(data, hours), ctx),
   };
 }
@@ -307,17 +361,20 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
  * share); the best wins and a tie goes to the LATER row, so a title row whose
  * columns happen to fit loses to the real header under it.
  */
-function detectLong(rows: Rows, ctx: Ctx): ColumnMapping | null {
+function detectLong(rows: Rows, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   let best: ScoredMapping | null = null;
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const candidate = longFromHeader(rows, headerRow, ctx);
     if (candidate !== null && (best === null || candidate.score >= best.score)) best = candidate;
   }
-  return best?.mapping ?? null;
+  return best === null ? null : { mapping: best.mapping, ambiguous: best.ambiguous };
 }
 
-type Pass = { kind: "wide" | "long"; run: () => ColumnMapping | null };
+type Pass = { kind: "wide" | "long"; run: () => Detected | null };
+
+/** A wide reading: no ambiguity is reported for one. */
+const asWide = (mapping: ColumnMapping | null): Detected | null => (mapping === null ? null : { mapping, ambiguous: [] });
 
 /** The detection passes in order; the first that finds a layout wins (see
  *  `detectLayout`). Passes with the year are left out when there is none. */
@@ -326,13 +383,13 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
   const withYear: Ctx = { numbers, year };
   const yearPasses = (passes: Pass[]): Pass[] => (year === undefined ? [] : passes);
   return [
-    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, bare) },
-    ...yearPasses([{ kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, withYear) }]),
+    { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS, bare)) },
+    ...yearPasses([{ kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS, withYear)) }]),
     { kind: "long", run: () => detectLong(rows, bare) },
-    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare) },
+    { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare)) },
     ...yearPasses([
       { kind: "long", run: () => detectLong(rows, withYear) },
-      { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear) },
+      { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear)) },
     ]),
   ];
 }
@@ -358,7 +415,8 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
  * Months beside a date column (`Name | Start | Jan | Feb`, `… | Jan 2026 | Feb
  * 2026`) still reach two-period wide: a long reading never takes a
  * period-headed hours column (`longFromHeader`, final review I4). The mapping
- * carries `defaultYear` as `year`, the year the mapping step shows.
+ * carries `defaultYear` as `year`, the year the mapping step shows; `ambiguous`
+ * is the long reading's unsettled fields (`ambiguityOf`).
  */
 export function detectLayout(
   rows: readonly string[][],
@@ -367,9 +425,10 @@ export function detectLayout(
   const numbers = opts.numbers ?? "text";
   const year = usableYear(opts.defaultYear);
   for (const pass of detectionPasses(rows, numbers, year)) {
-    const mapping = pass.run();
-    if (mapping === null) continue;
-    return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear } };
+    const found = pass.run();
+    if (found === null) continue;
+    const { mapping, ambiguous } = found;
+    return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear }, ambiguous };
   }
   return UNKNOWN;
 }
