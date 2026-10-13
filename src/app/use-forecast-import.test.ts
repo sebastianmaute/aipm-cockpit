@@ -1307,7 +1307,7 @@ describe("useForecastImport — merged cells and several detectable sheets (fina
     const grid = mergedMonths(months, sub);
     const file = kind === "csv" ? csvFile(csvOf(grid)) : await workbook([{ name: "Plan", grid }]);
     const { result } = await loadFileNow(deps, file);
-    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4, 5, 6] }]);
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4, 5, 6], blankHeaded: [2, 4, 6] }]);
     refusedBeforeConfirmation(result, deps);
     act(() => result.current.confirmColumns());
     expect(applyOutcome(result)).toBe("applied");

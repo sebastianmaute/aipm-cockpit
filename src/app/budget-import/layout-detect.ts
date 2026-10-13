@@ -286,15 +286,21 @@ function pastTwelveNumberColumns(rows: Rows, mapping: ColumnMapping): number[] {
 }
 
 function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
-  const own = [...new Set([
-    ...rowPeriodColumns(rows, mapping, ctx),
-    ...rowYearColumns(rows, mapping),
-    ...leftOutPeriodColumns(rows, mapping, ctx),
-    ...blankHeadedNumberColumns(rows, mapping, ctx),
-    ...pastTwelveNumberColumns(rows, mapping),
-  ])];
+  const unsure = [...rowPeriodColumns(rows, mapping, ctx), ...rowYearColumns(rows, mapping), ...leftOutPeriodColumns(rows, mapping, ctx)];
+  const blankHeaded = blankHeadedNumberColumns(rows, mapping, ctx);
+  const pastTwelve = pastTwelveNumberColumns(rows, mapping);
+  const own = [...unsure, ...blankHeaded, ...pastTwelve];
   if (own.length === 0) return [];
-  return [{ field: "period", candidates: [...new Set([...own, ...(mapping.periodCols ?? [])])].sort((a, b) => a - b) }];
+  const candidates = [...new Set([...own, ...(mapping.periodCols ?? [])])].sort((a, b) => a - b);
+  const isExplained = blankHeaded.length > 0 || pastTwelve.length > 0;
+  // ★ The reasons the notice can name (rr14 N1), present only when one applies.
+  return [{
+    field: "period",
+    candidates,
+    ...(blankHeaded.length > 0 ? { blankHeaded } : {}),
+    ...(pastTwelve.length > 0 ? { pastTwelve } : {}),
+    ...(isExplained && unsure.length > 0 ? { alsoUnsure: true as const } : {}),
+  }];
 }
 
 /**

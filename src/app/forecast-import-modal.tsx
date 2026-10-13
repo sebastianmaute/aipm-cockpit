@@ -14,7 +14,7 @@
 // description.
 
 import { useId, useRef } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -253,12 +253,12 @@ function ColumnSelect({ label, value, columns, optional, noneLabel, onChange }: 
   );
 }
 
-const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
+// The continuation key is singular/plural (`tPlural`), so it is looked up in `noticeText`.
+const AMBIGUOUS_KEY: Record<Exclude<ColumnAmbiguity["field"], "continuation">, TranslationKey> = {
   hours: "forecastImportAmbiguousHours",
   period: "forecastImportAmbiguousPeriod",
   header: "forecastImportAmbiguousHeader",
   rows: "forecastImportAmbiguousRows",
-  continuation: "forecastImportAmbiguousContinuation",
   sheet: "forecastImportAmbiguousSheet",
 };
 /** Rows a continuation notice names before it ends in "…": a merged person
@@ -266,15 +266,36 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
 const MAX_NAMED_ROWS = 5;
 
 /** A notice's text: rows and continuations quote their samples (a continuation
- *  without any reads the plain variant). */
+ *  without any reads the plain variant), and one row with no person reads
+ *  the singular (rr14 N4). */
 function noticeText(lang: Lang, a: ColumnAmbiguity, names: string): string {
   if (a.field === "rows") return t(lang, AMBIGUOUS_KEY.rows, names, a.samples.join(", "));
   if (a.field === "continuation") {
+    const n = a.candidates.length;
     return a.samples.length === 0
-      ? t(lang, "forecastImportAmbiguousContinuationPlain", names)
-      : t(lang, AMBIGUOUS_KEY.continuation, names, a.samples.join(", "));
+      ? tPlural(lang, "forecastImportAmbiguousContinuationPlain", n, names)
+      : tPlural(lang, "forecastImportAmbiguousContinuation", n, names, a.samples.join(", "));
   }
   return t(lang, AMBIGUOUS_KEY[a.field], names);
+}
+
+/** A wide period question that only the named reasons explain: its own notices
+ *  say what the press reads, and the generic Wide notice stays away (rr14 N1). */
+function isExplainedOnly(a: ColumnAmbiguity): boolean {
+  return a.field === "period" && (a.blankHeaded !== undefined || a.pastTwelve !== undefined) && a.alsoUnsure !== true;
+}
+
+/** The notices of a wide period question's named reasons (rr14 N1): the
+ *  blank-headed number columns beside the period columns (final review 3,
+ *  I1), and an `N/YYYY` run past 12 (M4), each saying what confirming reads. */
+function reasonNotices(lang: Lang, a: ColumnAmbiguity, periodCols: readonly number[], nameOf: (col: number) => string): string[] {
+  if (a.field !== "period") return [];
+  const letters = (cols: readonly number[]) => cols.map(columnLetters).join(", ");
+  const out: string[] = [];
+  if (a.blankHeaded) out.push(tPlural(lang, "forecastImportAmbiguousBlankHeaded", a.blankHeaded.length, letters(a.blankHeaded), periodCols.map(nameOf).join(", ")));
+  const run = a.pastTwelve ?? [];
+  if (run.length > 0) out.push(t(lang, "forecastImportAmbiguousPastTwelve", nameOf(run[0]), nameOf(run[run.length - 1])));
+  return out;
 }
 
 /** The Wide notice's candidate columns, by letter and header (round 7: it once named none). */
@@ -316,7 +337,8 @@ function AmbiguityNotice({ lang, fi, header, layout, onConfirmed }: {
     if (a.field === "sheet") return a.candidates.map((i) => fi.sheets[i]?.name ?? String(i + 1)).join(", ");
     return a.candidates.map(nameOf).join(", ");
   };
-  const columns = fi.ambiguous.filter((a) => a.field === "hours" || a.field === "period");
+  const columns = fi.ambiguous.filter((a) => (a.field === "hours" || a.field === "period") && !isExplainedOnly(a));
+  const reasons = layout === "wide" ? fi.ambiguous.flatMap((a) => reasonNotices(lang, a, fi.mapping?.periodCols ?? [], nameOf)) : [];
   const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field !== "hours" && a.field !== "period") : fi.ambiguous;
   // The notes sit inside a sentence that ends with its own full stop.
   const notesText = fi.notes.trim().replace(/[.!]+$/, "");
@@ -330,6 +352,9 @@ function AmbiguityNotice({ lang, fi, header, layout, onConfirmed }: {
       {layout === "wide" && columns.length > 0 && (
         <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide", wideNames(columns, nameOf))}</Banner>
       )}
+      {reasons.map((text) => (
+        <Banner key={text} severity="warn">{text}</Banner>
+      ))}
       {shown.map((a) => (
         <Banner key={a.field} severity="warn">{noticeText(lang, a, namesOf(a))}</Banner>
       ))}

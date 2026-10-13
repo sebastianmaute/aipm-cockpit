@@ -20,7 +20,7 @@ function mergedMonths(months: readonly string[], sub: readonly [string, string])
 
 const MONTHS_CSV = ["Jan 2026", "Feb 2026", "Mär 2026"];
 const MONTHS_SERIAL = ["46023", "46054", "46082"];
-const PERIOD_ASK = { field: "period", candidates: [1, 2, 3, 4, 5, 6] };
+const PERIOD_ASK = { field: "period", candidates: [1, 2, 3, 4, 5, 6], blankHeaded: [2, 4, 6] };
 
 describe("I1 — a month header merged over two sub-columns asks for the period", () => {
   it.each([
@@ -44,7 +44,7 @@ describe("I1 — a month header merged over two sub-columns asks for the period"
 
   it("a blank-headed number column right after the run asks; one with text, or one further right, does not", () => {
     const after = [["Name", "Jan 2026", "Feb 2026", "Mär 2026", ""], ...PEOPLE.map((p) => [p, "10", "20", "30", "500"])];
-    expect(detectLayout(after, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+    expect(detectLayout(after, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4], blankHeaded: [4] }]);
     const notes = [["Name", "Jan 2026", "Feb 2026", "Mär 2026", ""], ...PEOPLE.map((p) => [p, "10", "20", "30", "ok"])];
     expect(detectLayout(notes, { defaultYear: 2026 }).ambiguous).toEqual([]);
     const far = [["Name", "Jan 2026", "Feb 2026", "Mär 2026", "Notes", ""], ...PEOPLE.map((p) => [p, "10", "20", "30", "ok", "7"])];
@@ -117,7 +117,8 @@ describe("M4 — an N/YYYY header run that continues past 12 asks", () => {
   it("01/2026 … 14/2026 asks for the period, every such column a candidate", () => {
     const rows = [["Name", ...header(14)], ...PEOPLE.map((p) => [p, ...header(14).map(() => "40")])];
     const detected = detectLayout(rows, { defaultYear: 2026 });
-    expect(detected.ambiguous).toEqual([{ field: "period", candidates: Array.from({ length: 14 }, (_, i) => i + 1) }]);
+    const all = Array.from({ length: 14 }, (_, i) => i + 1);
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: all, pastTwelve: all }]);
   });
 
   it("a run that stops at 12 reads as months, as today", () => {

@@ -7,7 +7,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ForecastImportModal, type ForecastImportModalProps } from "./forecast-import-modal";
 import { buildZip } from "./zip";
@@ -700,7 +700,7 @@ describe("ForecastImportModal — the confirmation's focus and the merged-person
     const rows = ["Name;Art;Jan 2026;Feb 2026;Mär 2026", "Ann Lee;Ist;10;20;30", ";Plan;100;110;120", "Bob Ray;Ist;1;2;3", ";Plan;4;5;6"];
     render(<ForecastImportModal {...propsOf()} />);
     await choose(`${rows.join("\r\n")}\r\n`);
-    expect(screen.getByText(t(L, "forecastImportAmbiguousContinuation", "3, 5", "Ist, Plan"))).toBeInTheDocument();
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousContinuation", 2, "3, 5", "Ist, Plan"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
@@ -709,7 +709,7 @@ describe("ForecastImportModal — the confirmation's focus and the merged-person
   it("an unlabelled total row reads the plain notice", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     await choose("Name;Jan 2026;Feb 2026;Mar 2026\r\nAnn Lee;10;20;30\r\n;10;20;30\r\n");
-    expect(screen.getByText(t(L, "forecastImportAmbiguousContinuationPlain", "3"))).toBeInTheDocument();
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousContinuationPlain", 1, "3"))).toBeInTheDocument();
   });
 });
 
@@ -752,5 +752,67 @@ describe("ForecastImportModal — a person on two lines of the bucket (final rev
     expect(screen.getByText(t(L, "forecastImportWhySeveralLines"))).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: t(L, "forecastImportChanges") })).toBeNull();
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
+  });
+});
+
+// rr14 N1: the merged-month (I1) and past-12 (M4) questions once confirmed
+// through the generic Wide notice, which never said what the press would read.
+// rr14 N4: one row with no person is named in the singular.
+describe("ForecastImportModal — notices that say what confirming reads (rr14 N1, N4)", () => {
+  const PEOPLE = ["Ann Lee", "Bob Ray", "Cem Oz", "Dana Fox", "Eli Roe", "Fay Wu"];
+  const csv = (rows: readonly (readonly string[])[]) => `${rows.map((r) => r.join(";")).join("\r\n")}\r\n`;
+  const widePrefix = () => t(L, "forecastImportAmbiguousWide", "\u0000").split("\u0000")[0];
+  const genericWide = () => screen.queryByText((text) => text.startsWith(widePrefix()));
+
+  async function choose(text: string): Promise<void> {
+    fireEvent.change(screen.getByLabelText(t(L, "forecastImportFile")), { target: { files: [new File([text], "forecast.csv", { type: "text/csv" })] } });
+    await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+  }
+
+  it("a month header merged over Ist | Plan names the unread columns and the columns read, not the generic notice", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(csv([
+      ["Name", "Jan 2026", "", "Feb 2026", "", "Mär 2026", ""],
+      ["", "Ist", "Plan", "Ist", "Plan", "Ist", "Plan"],
+      ...PEOPLE.map((p) => [p, "10", "100", "20", "110", "30", "120"]),
+    ]));
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousBlankHeaded", 3, "C, E, G", "B: Jan 2026, D: Feb 2026, F: Mär 2026"))).toBeInTheDocument();
+    expect(genericWide()).toBeNull();
+  });
+
+  it("one blank-headed number column after the months reads the singular", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(csv([["Name", "Jan 2026", "Feb 2026", "Mär 2026", ""], ...PEOPLE.map((p) => [p, "10", "20", "30", "60"])]));
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousBlankHeaded", 1, "E", "B: Jan 2026, C: Feb 2026, D: Mär 2026"))).toBeInTheDocument();
+    expect(genericWide()).toBeNull();
+  });
+
+  it("an N/YYYY run past 12 names its first and last header and says 01–12 read as months, not the generic notice", async () => {
+    const headers = Array.from({ length: 14 }, (_, i) => `${String(i + 1).padStart(2, "0")}/2026`);
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(csv([["Name", ...headers], ...PEOPLE.map((p) => [p, ...headers.map(() => "40")])]));
+    expect(screen.getByText(t(L, "forecastImportAmbiguousPastTwelve", "B: 01/2026", "O: 14/2026"))).toBeInTheDocument();
+    expect(genericWide()).toBeNull();
+  });
+
+  it("beside another reason to ask, the generic notice shows too", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(csv([
+      ["Name", "Start", "Jan 2026", "", "Feb 2026", "", "Mär 2026", ""],
+      ...PEOPLE.map((p) => [p, "01.03.2026", "10", "100", "20", "110", "30", "120"]),
+    ]));
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousBlankHeaded", 3, "D, F, H", "C: Jan 2026, E: Feb 2026, G: Mär 2026"))).toBeInTheDocument();
+    expect(genericWide()).not.toBeNull();
+  });
+
+  it("names one row with no person in the singular, and two in the plural", async () => {
+    const { unmount } = render(<ForecastImportModal {...propsOf()} />);
+    await choose("Name;Jan 2026;Feb 2026;Mar 2026\r\nAnn Lee;10;20;30\r\n;10;20;30\r\n");
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousContinuationPlain", 1, "3"))).toBeInTheDocument();
+    expect(tPlural(L, "forecastImportAmbiguousContinuationPlain", 1, "3")).toMatch(/^Row 3 holds/);
+    unmount();
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose("Name;Art;Jan 2026;Feb 2026\r\nAnn Lee;Ist;10;20\r\n;Plan;1;2\r\nBob Ray;Ist;5;5\r\n;Plan;3;3\r\n");
+    expect(screen.getByText(tPlural(L, "forecastImportAmbiguousContinuation", 2, "3, 5", "Ist, Plan"))).toBeInTheDocument();
   });
 });
