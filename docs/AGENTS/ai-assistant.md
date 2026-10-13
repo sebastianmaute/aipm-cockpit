@@ -1720,8 +1720,9 @@
   ★★ **An auto-sent chat seed names the page it was requested from, NOT the dispatcher's view ref** (§703).
   `requestChat` switches to the chat tab and stores the seed in one update, and the view ref follows
   `currentView` in an effect of `TaskManager`, the parent. Which value a seeded send read therefore
-  depended on effect ORDER: the child's seed effect ran first on a mounted panel (the page), last on a
-  first press, where `ChatPanel` is a lazy chunk that mounts after the parent's effect (`chat`). The
+  depended on effect ORDER: the child's seed effect ran first on a mounted panel (the page), while a
+  first press reported `chat` (measured; probably because `ChatPanel` is a lazy chunk that mounts after
+  the parent's effect, which was never isolated, and the fix does not depend on it). The
   seed now carries `ChatSeed.originView`, captured when `requestChat` is called, and `submitPrompt`
   passes it to `getSnapshot({ originView })`, which reports that view and the digest the dispatcher last
   held for it (none if the last page outside the chat tab was another one). ★ Do not "simplify" this back to
