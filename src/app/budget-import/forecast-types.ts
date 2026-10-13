@@ -33,10 +33,11 @@ export type ColumnMapping = {
   yearCol?: number;
 };
 
-/** A wide sheet's column right of the first period column that the import did
- *  not read although most data rows hold a number in it: its header is not a
- *  period (an unknown month spelling, a missing year) and not a total. `col` is
- *  0-based; `header` is the header cell as written. */
+/** A column, at any position and in either layout, that the import did not read
+ *  although most data rows hold a number in it: not a mapped field, and its
+ *  header is neither a period it reads (an unknown month spelling, a missing
+ *  year) nor a total (`isTotalHeader`). `col` is 0-based; `header` is the header
+ *  cell as written. */
 export type IgnoredColumn = { col: number; header: string };
 
 /** Two or more cells of ONE sheet row that name the same person and period —

@@ -459,20 +459,35 @@ describe("gridToForecastRows — columns left out", () => {
     ]);
   });
 
-  it("does not report text, a mostly-empty column, totals, mapped columns or anything left of the periods", () => {
+  it("does not report text, a mostly-empty column, totals or mapped columns", () => {
     const grid = [
       ["Name", "Rate", "Jan 2026", "Notes", "Feb 2026", "Total", "Odd"],
       ["Ann", "95", "1", "late", "3", "4", "7"],
       ["Bob", "90", "1", "", "3", "4", ""],
       ["Cy", "90", "1", "", "3", "4", ""],
     ];
-    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 4] };
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, rate: 1, periodCols: [2, 4] };
     expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
   });
 
-  it("reports nothing for a long sheet", () => {
-    const grid = [["Name", "Month", "Hours", "Extra"], ["Ann", "2026-01", "4", "9"]];
-    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 };
+  // §500 fix wave 2 (RR minor 2, CR minor 10): every unread number column is
+  // reported, at any position and in either layout.
+  it("reports a number column left of every period column, such as a broken first month header", () => {
+    const grid = [["Name", "Januar 26x", "Feb 2026", "Mar 2026"], ["Ann", "1", "2", "3"]];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3] };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([{ col: 1, header: "Januar 26x" }]);
+  });
+
+  it("reports an unmapped number column of a long sheet, never a mapped one", () => {
+    const grid = [["Name", "Jahr", "Month", "Hours", "Extra"], ["Ann", "2027", "Jan", "4", "9"]];
+    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, yearCol: 1, period: 2, hours: 3 };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([{ col: 4, header: "Extra" }]);
+  });
+
+  it("does not report quarter, half-year and fiscal-year totals", () => {
+    const headers = ["Q1", "Q2 2026", "H1", "H2/26", "FY", "FY26", "GJ 2026", "Summe", "Gesamt", "Total"];
+    const grid = [["Name", "Jan 2026", ...headers], ["Ann", "1", ...headers.map(() => "5")]];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 0, periodCols: [1] };
     expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
   });
 });

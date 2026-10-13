@@ -78,6 +78,17 @@ export function isTotalLabel(cell: string): boolean {
   return TOTAL_WORDS.some((w) => s === w || s.startsWith(`${w} `) || s.startsWith(`${w}:`));
 }
 
+/** A quarter, half-year or fiscal-year total header, optionally with a year:
+ *  "Q1", "Q2 2026", "H1", "H2/26", "FY", "FY26", "GJ 2026". */
+const PERIOD_TOTAL_HEADER = /^(q[1-4]|h[12]|fy|gj)(\s*[-/'’]?\s*(\d{2}|\d{4}))?$/i;
+
+/** A COLUMN header that names a total: a total label (`isTotalLabel`) or a
+ *  quarter / half-year / fiscal-year total. Such a column's numbers are a sum,
+ *  never unread hours. */
+export function isTotalHeader(cell: string): boolean {
+  return isTotalLabel(cell) || PERIOD_TOTAL_HEADER.test(cell.trim());
+}
+
 /** 0-based column index as spreadsheet letters: 0 = A, 25 = Z, 26 = AA. */
 export function columnLetters(col: number): string {
   let n = col + 1;
@@ -203,29 +214,30 @@ export function gridToForecastRows(
   }
 
   dropped.sort((a, b) => a.row - b.row);
-  const ignoredColumns = wide ? unreadNumberColumns(header, mapping, columns, people, numbers) : [];
+  const readCols = wide ? columns.map((c) => c.col) : [mapping.period, mapping.hours, mapping.yearCol];
+  const ignoredColumns = unreadNumberColumns(header, mapping, readCols, people, numbers);
   const assumedYear = assumedYearOf(read, mapping.year);
   return assumedYear === undefined ? { rows: out, dropped, ignoredColumns } : { rows: out, dropped, ignoredColumns, assumedYear };
 }
 
-/** The columns from the first period column on that are not read, not a
- *  mapped field and not a total, yet hold a number in more than half of the
- *  person rows — hours the import would otherwise leave out without a word. */
+/** Every column, at any position and in either layout, that is not read, not a
+ *  mapped field and not headed as a total (`isTotalHeader`), yet holds a number
+ *  in more than half of the person rows — hours the import would otherwise
+ *  leave out without a word. */
 function unreadNumberColumns(
   header: readonly string[],
   mapping: ColumnMapping,
-  read: ReadonlyArray<{ col: number }>,
+  readCols: ReadonlyArray<number | undefined>,
   people: ReadonlyArray<{ row: readonly string[] }>,
   numbers: NumberOrigin,
 ): IgnoredColumn[] {
-  const periodCols = mapping.periodCols ?? [];
-  if (periodCols.length === 0 || people.length === 0) return [];
-  const skip = new Set<number | undefined>([mapping.person, mapping.email, mapping.rate, ...read.map((c) => c.col)]);
+  if (people.length === 0) return [];
+  const skip = new Set<number | undefined>([mapping.person, mapping.email, mapping.rate, ...readCols]);
   const width = people.reduce((max, { row }) => Math.max(max, row.length), header.length);
   const out: IgnoredColumn[] = [];
-  for (let col = Math.min(...periodCols); col < width; col++) {
+  for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
-    if (skip.has(col) || isTotalLabel(label)) continue;
+    if (skip.has(col) || isTotalHeader(label)) continue;
     const cells = people.map(({ row }) => cellAt(row, col));
     const style = detectDecimalStyle(cells, numbers);
     const numeric = cells.filter((c) => parseNumberCell(c, style, numbers) !== null).length;
