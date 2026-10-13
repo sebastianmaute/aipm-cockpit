@@ -377,3 +377,14 @@ describe("ForecastImportModal — cells Claude did not read", () => {
     expect(within(section).getByText(t(L, "forecastImportUnreadCells", 23, list))).toBeInTheDocument();
   });
 });
+
+describe("ForecastImportModal — archived resources", () => {
+  it("does not offer an archived resource in the person picker", async () => {
+    const archived: Resource = { ...ANN, id: 3, firstName: "Old", lastName: "Timer", active: false };
+    render(<ForecastImportModal {...propsOf({ resources: [ANN, archived] })} />);
+    await chooseFile(`${WIDE}Zed,1,1,1\r\n`);
+    const picker = screen.getByRole("combobox", { name: `${t(L, "forecastImportMatchPerson")} – Zed` });
+    expect(within(picker).getByRole("option", { name: "Ann Lee" })).toBeInTheDocument();
+    expect(within(picker).queryByRole("option", { name: "Old Timer" })).toBeNull();
+  });
+});

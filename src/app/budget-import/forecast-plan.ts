@@ -88,6 +88,8 @@ function buildIndexes(resources: readonly Resource[], roles: readonly Role[]): I
   const ix: Indexes = { byId: new Map(), byEmail: new Map(), byName: new Map(), roleById: new Map() };
   for (const r of resources) {
     ix.byId.set(r.id, r);
+    // An archived resource is never matched automatically (nor offered in the picker).
+    if (r.active === false) continue;
     for (const email of [r.email, ...(r.emails ?? [])]) addIndexed(ix.byEmail, normalisePerson(email ?? ""), r.id);
     addIndexed(ix.byName, normalisePerson(`${r.firstName} ${r.lastName}`), r.id);
   }
@@ -95,11 +97,21 @@ function buildIndexes(resources: readonly Resource[], roles: readonly Role[]): I
   return ix;
 }
 
-/** Email beats name: an address that matches anyone settles the question. */
+/** "Müller, Hans" as "Hans Müller"; null for a name without exactly one comma. */
+function firstLast(name: string): string | null {
+  const parts = name.split(",");
+  return parts.length === 2 ? `${parts[1]} ${parts[0]}` : null;
+}
+
+/** Email beats name: an address that matches anyone settles the question. A
+ *  name also matches written "Last, First". */
 function candidateIds(row: ForecastRow, ix: Indexes): number[] {
   const byEmail = ix.byEmail.get(normalisePerson(row.email ?? ""));
   if (byEmail && byEmail.length > 0) return byEmail;
-  return ix.byName.get(normalisePerson(row.person)) ?? [];
+  const byName = ix.byName.get(normalisePerson(row.person));
+  if (byName) return byName;
+  const reordered = firstLast(row.person);
+  return reordered === null ? [] : (ix.byName.get(normalisePerson(reordered)) ?? []);
 }
 
 function resolveIds(ids: readonly number[], ix: Indexes): Resolution {

@@ -30,6 +30,7 @@ const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
+const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
 const YEAR_HEADER_RE = /^(jahr|year|yr|gj|fy|geschäftsjahr|fiscal year)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
@@ -99,16 +100,22 @@ function findEmailColumn(header: readonly string[], data: Rows, skip: ReadonlySe
 }
 
 /**
- * The person column among `candidates`: the first mostly-text column, else
- * the e-mail column when that is all there is to identify a person by.
+ * The person column among `candidates`: a mostly-text column headed Name /
+ * Mitarbeiter / Person / Resource …, else the first mostly-text column (so
+ * `Team | Name | Jan…` takes Name, not Team), else the e-mail column when that
+ * is all there is to identify a person by.
  */
 function pickPerson(
   candidates: readonly number[],
+  header: readonly string[],
   data: Rows,
   email: number | undefined,
   ctx: Ctx,
 ): number | null {
-  const text = candidates.find((col) => col !== email && isMostlyText(columnCells(data, col), ctx));
+  const isText = (col: number): boolean => col !== email && isMostlyText(columnCells(data, col), ctx);
+  const named = candidates.find((col) => PERSON_HEADER_RE.test(cellAt(header, col).trim()) && isText(col));
+  if (named !== undefined) return named;
+  const text = candidates.find(isText);
   if (text !== undefined) return text;
   const emailIsText = email !== undefined && candidates.includes(email) && isMostlyText(columnCells(data, email), ctx);
   return emailIsText ? email : null;
@@ -132,7 +139,7 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
   const email = findEmailColumn(header, data, periodSet);
   const rate = firstHeaderMatch(header, RATE_HEADER_RE, new Set([...periodCols, ...(email === undefined ? [] : [email])]));
   const leftOfPeriods = Array.from({ length: periodCols[0] }, (_, col) => col).filter((col) => col !== rate);
-  const person = pickPerson(leftOfPeriods, data, email, ctx);
+  const person = pickPerson(leftOfPeriods, header, data, email, ctx);
   if (person === null) return null;
   return withOptionals(
     { layout: "wide", headerRow, person, periodCols: [...periodCols] },
@@ -247,7 +254,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const used = new Set([...skip, hours, ...(rate === undefined ? [] : [rate])]);
   const email = findEmailColumn(header, data, used);
   const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
-  const person = pickPerson(candidates, data, email, ctx);
+  const person = pickPerson(candidates, header, data, email, ctx);
   if (person === null) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),

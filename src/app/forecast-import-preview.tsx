@@ -277,9 +277,10 @@ function UnresolvedSection({ lang, fi, resources, roles }: {
   roles: readonly Role[];
 }) {
   const roleIds = new Set(roles.map((r) => r.id));
-  // Only a resource with a role can take hours; a role-less pick would stay unresolved.
+  // Only a resource with a role can take hours; a role-less pick would stay
+  // unresolved. An archived resource is not offered.
   const pickable = resources
-    .filter((r) => r.roleId != null && roleIds.has(r.roleId))
+    .filter((r) => r.active !== false && r.roleId != null && roleIds.has(r.roleId))
     .sort((a, b) => resourceDisplayName(a).localeCompare(resourceDisplayName(b), undefined, { sensitivity: "base" }));
   const tokens = buildRowTokens(fi.unresolvedPeople.map((p) => ({ id: normalisePerson(p.person), name: p.person })));
   return (

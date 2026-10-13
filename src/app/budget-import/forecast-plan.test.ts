@@ -178,9 +178,30 @@ describe("matching", () => {
     expect(p.unresolved).toEqual([]);
   });
 
-  it("still matches an archived resource", () => {
-    const resources = [person(1, "Ann", "Lee", { active: false })];
-    expect(plan([row("Ann Lee", "2026-01", 10)], { resources }).changes).toHaveLength(1);
+  // §500 fix wave 2 (CR minor 7): an archived resource is not matched, by name
+  // or by email — it supersedes the earlier "still matches" behaviour.
+  it("does not match an archived resource, by name or by email", () => {
+    const resources = [person(1, "Ann", "Lee", { active: false, email: "ann@x.com" })];
+    expect(plan([row("Ann Lee", "2026-01", 10)], { resources }).unresolved).toEqual([
+      { person: "Ann Lee", why: "no-match", candidates: [] },
+    ]);
+    expect(plan([row("Someone", "2026-01", 10, { email: "ann@x.com" })], { resources }).changes).toEqual([]);
+  });
+
+  it("matches the active one of an active and an archived namesake", () => {
+    const resources = [person(1, "Ann", "Lee", { active: false }), person(2, "Ann", "Lee")];
+    const p = plan([row("Ann Lee", "2026-01", 10)], { resources });
+    expect(p.unresolved).toEqual([]);
+    expect(p.addResources[0].resourceIds).toEqual([2]);
+  });
+
+  it("matches a name written Last, First", () => {
+    const resources = [person(1, "Hans", "Müller")];
+    for (const name of ["Müller, Hans", "müller,hans", " Müller ,  Hans "]) {
+      const p = plan([row(name, "2026-01", 10)], { resources });
+      expect(p.unresolved).toEqual([]);
+      expect(p.addResources[0].resourceIds).toEqual([1]);
+    }
   });
 });
 

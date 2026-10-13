@@ -381,6 +381,19 @@ describe("detectLayout — unknown", () => {
   });
 });
 
+// §500 fix wave 2 (CR minor 7): a column headed Name beats the first text column.
+describe("detectLayout — the person column by its header", () => {
+  it("takes Name over a Team column left of it in a wide sheet", () => {
+    const rows = [["Team", "Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Dev", "Ann Lee", "1", "2", "3"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ layout: "wide", person: 1 });
+  });
+
+  it("takes Mitarbeiter over a Team column in a long sheet", () => {
+    const rows = [["Team", "Mitarbeiter", "Monat", "Stunden"], ["Dev", "Ann Lee", "Jan 2026", "8"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ layout: "long", person: 1 });
+  });
+});
+
 // §500 fix wave 2 (CR I2): a long sheet whose year sits in its own column.
 describe("detectLayout — a year column beside year-less periods", () => {
   it("maps a Jahr column next to a Monat column of month names", () => {
