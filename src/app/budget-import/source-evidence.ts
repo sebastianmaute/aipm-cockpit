@@ -75,6 +75,32 @@ export function citedCell(source: string | undefined, sheet: SheetGrid): { rowId
   return at === null || cell === undefined ? null : { ...at, cell };
 }
 
+/** Per-column facts of one sheet, each computed once: `style` (`columnStyle`)
+ *  and `weekly` (`isWeekSpacedColumn`). Recomputing them per claim made the
+ *  Claude-route check take a second at the 4000-cell cap (re-review). Grids are
+ *  never mutated, so the facts are kept per grid object. */
+export type ColumnFacts = { style: (col: number) => DecimalStyle; weekly: (col: number) => boolean };
+
+const FACTS = new WeakMap<SheetGrid, ColumnFacts>();
+
+export function columnFacts(sheet: SheetGrid): ColumnFacts {
+  const known = FACTS.get(sheet);
+  if (known !== undefined) return known;
+  const memo = <T>(compute: (col: number) => T): ((col: number) => T) => {
+    const cache = new Map<number, T>();
+    return (col) => {
+      if (!cache.has(col)) cache.set(col, compute(col));
+      return cache.get(col) as T;
+    };
+  };
+  const facts: ColumnFacts = {
+    style: memo((col) => columnStyle(sheet, col)),
+    weekly: memo((col) => isWeekSpacedColumn(sheet.rows.map((r) => r[col] ?? ""), sheet.numbers)),
+  };
+  FACTS.set(sheet, facts);
+  return facts;
+}
+
 /** A column's decimal style, decided over all of its cells. */
 export function columnStyle(sheet: SheetGrid, col: number): DecimalStyle {
   return detectDecimalStyle(sheet.rows.map((row) => row[col] ?? ""), sheet.numbers);
@@ -83,7 +109,7 @@ export function columnStyle(sheet: SheetGrid, col: number): DecimalStyle {
 /** A cell as a number by the sheet's own rule: a workbook's stored numbers with
  *  a dot, every other cell in its column's detected style. Never "either style":
  *  a CSV's `7,5` once backed a claimed 75 that way. */
-export function sheetNumber(sheet: SheetGrid, col: number, cell: string, style = columnStyle(sheet, col)): number | null {
+export function sheetNumber(sheet: SheetGrid, col: number, cell: string, style = columnFacts(sheet).style(col)): number | null {
   return parseNumberCell(cell, style, sheet.numbers);
 }
 
@@ -164,7 +190,7 @@ export function periodNearCell(
   for (let col = 0; col < cells.length; col++) {
     if (skip(col)) continue;
     // A long sheet's column of dates a week apart is weekly, as the hand route reads it.
-    const weeks = isWeekSpacedColumn(sheet.rows.map((r) => r[col] ?? ""), sheet.numbers);
+    const weeks = columnFacts(sheet).weekly(col);
     const assigned = assignCellPeriod(cells[col], { rowYear, defaultYear, weeks });
     if (assigned && claimNames(claim, assigned.period)) return assigned;
   }

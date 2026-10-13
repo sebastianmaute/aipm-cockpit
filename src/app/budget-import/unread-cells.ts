@@ -10,7 +10,7 @@ import { columnLetters, isTotalLabel, type DecimalStyle } from "./forecast-rows"
 import type { ValidationResult } from "./forecast-validate";
 import { classifyPeriodCell } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
-import { columnStyle, nearestPeriodRowAbove, sheetNumber, sourcePosition } from "./source-evidence";
+import { columnFacts, nearestPeriodRowAbove, sheetNumber, sourcePosition } from "./source-evidence";
 
 /** A sheet row no row cites although it holds hours, with the text that names
  *  its person when there is one. `row` is 1-based. */
@@ -82,14 +82,7 @@ export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): Unr
   const citedRows = new Set(citedAt.map((p) => p.rowIdx));
   const acceptedRows = new Set(positions(accepted).map((p) => p.rowIdx));
 
-  const styles = new Map<number, DecimalStyle>();
-  const styleOf = (col: number): DecimalStyle => {
-    const known = styles.get(col);
-    if (known !== undefined) return known;
-    const style = columnStyle(sheet, col);
-    styles.set(col, style);
-    return style;
-  };
+  const styleOf = (col: number): DecimalStyle => columnFacts(sheet).style(col);
   const isPeriodShaped = (cell: string): boolean => {
     const c = classifyPeriodCell(cell);
     return c !== null && !(c.kind === "month" && c.serial === true && sheet.numbers !== "dot");
