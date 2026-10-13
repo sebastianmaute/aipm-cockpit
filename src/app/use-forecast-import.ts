@@ -185,24 +185,25 @@ function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: C
   return next.layout === "long" && next[a.field] !== before[a.field];
 }
 
-/** The fields of a `ColumnMapping` other than `periodCols`, compared one by one. */
-const MAPPING_FIELDS = ["layout", "headerRow", "person", "email", "rate", "period", "hours", "year", "yearCol"] as const;
+/** The COLUMN fields of a `ColumnMapping`: what a column edit changes. */
+const COLUMN_FIELDS = ["layout", "headerRow", "person", "period", "hours", "yearCol"] as const;
 
-/** Two mappings name the same columns and year, field by field. ★★ By VALUE
- *  (fix 9 I-2): the mapping step's Show preview passes a freshly built copy,
- *  and a reference compare counted that no-op as an edit, which made an
- *  unknown layout's default mapping the hand reading. */
-function isSameMapping(a: ColumnMapping, b: ColumnMapping): boolean {
-  return MAPPING_FIELDS.every((field) => a[field] === b[field])
-    && (a.periodCols ?? []).join(",") === (b.periodCols ?? []).join(",");
+/** Two mappings name the same columns, field by field (`COLUMN_FIELDS`).
+ *  ★★ By VALUE (fix 9 I-2): the mapping step's Show preview passes a freshly
+ *  built copy, and a reference compare counted that no-op as an edit, which
+ *  made an unknown layout's default mapping the hand reading. ★★ The year VALUE
+ *  is no column (round 5): changing it alone is no look at the columns, so it
+ *  does not make the default mapping H either. */
+function isSameColumns(a: ColumnMapping, b: ColumnMapping): boolean {
+  return COLUMN_FIELDS.every((field) => a[field] === b[field]);
 }
 
 /** What the Claude route's check reads the columns by (`validateForecastRows`'s
  *  `columns`): "unconfirmed" while an ambiguous field waits for the user; the
  *  hand mapping once the detection found a layout (confirmed if it asked) or
- *  the user changed a value of the mapping it opened with (`opened`,
- *  `isSameMapping`; a year counts); else nothing, so an unknown layout has no
- *  hand reading. */
+ *  the user changed a column of the mapping it opened with (`opened`,
+ *  `isSameColumns`; the year value alone does not count); else nothing, so an
+ *  unknown layout has no hand reading. */
 function claudeColumnsOf(
   unconfirmed: readonly ColumnAmbiguity[],
   mapping: ColumnMapping | null,
@@ -211,7 +212,7 @@ function claudeColumnsOf(
 ): ColumnMapping | "unconfirmed" | undefined {
   if (unconfirmed.length > 0) return "unconfirmed";
   if (mapping === null) return undefined;
-  return layoutDetected || opened === null || !isSameMapping(mapping, opened) ? mapping : undefined;
+  return layoutDetected || opened === null || !isSameColumns(mapping, opened) ? mapping : undefined;
 }
 
 /** The message for a failed Claude read, or null for an abort (the user's own

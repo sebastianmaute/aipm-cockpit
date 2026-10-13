@@ -1074,6 +1074,19 @@ describe("useForecastImport — only a changed value is an edited mapping (fix 9
     expect(result.current.importPlan?.changes).toEqual([]);
   });
 
+  // Round 5 ruling 2: the year value is no column. Changing it alone on an
+  // unknown layout leaves the sheet without a hand reading.
+  it("a year-only edit leaves an unknown layout without a hand reading", async () => {
+    claudeResponds(bobAsFebruary);
+    const { result } = await loaded(depsOf(), UNKNOWN);
+    act(() => result.current.setMapping({ ...result.current.mapping!, year: 2027 }));
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { row: "2026-03", header: "2026-02" } }]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+  });
+
   it("a real edit still makes the mapping the hand reading", async () => {
     claudeResponds(bobAsFebruary);
     const { result } = await loaded(depsOf(), UNKNOWN);
