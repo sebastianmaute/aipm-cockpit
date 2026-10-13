@@ -297,9 +297,14 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   NAMED hours column, later with a list of actuals words, read `Ist`, then `Iststunden`, `IstStd`,
   `Gebuchte Stunden`, `Spent hours` or `Logged hours` silently, one missed spelling per round (rr6 N1,
   rr7, rr8 N2); both are gone. So `Plan | Stunden`, `Stunden | Ist` and `Name | Monat | Stunden | Kosten`
-  ask, and only a sheet with ONE number column (`Name | Monat | Stunden`, `ID | Name | Month | Effort`,
-  `Nr | Name | Monat | Aufwand`) is clear; the hours word only preselects. And
-  the PERIOD when two or more columns qualify and not exactly one is headed by a period word (`Datum |
+  ask, and only a sheet with ONE column holding numbers (`Name | Monat | Stunden`, `ID | Name | Month |
+  Effort`, `Nr | Name | Monat | Aufwand`) is clear; the hours word only preselects. ★★★ A column is an
+  hours candidate when it holds ONE number, and a period candidate when it holds ONE period (round 7
+  I-B): a share once let two `-` in `Stunden` leave `Ist` the only candidate (the actuals imported), and
+  an `offen` in `Monat` leave `Erfasst am` the only period. The PRESELECTION, and whether a row is a
+  header at all, still need the 80 % share (`COLUMN_SHARE`). And
+  the PERIOD when two or more columns qualify and not exactly one is headed by a period word, that one
+  also the preselected column (`Datum |
   Eintritt`, `Datum | Startmonat` ask; `Start date | Month` does not). The mapping it returns is still the
   default above, but `useForecastImport` then opens on the mapping step with a notice per field naming the
   candidates, and refuses Apply — the button disabled, the reason its accessible description — until each
@@ -334,8 +339,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`readingEnd`; the preview counts the rows below it, `rowsBelowRepeatedHeader`), so header row 1 reads
   the Forecast block only and the later header the Ist block only; a second block under `Mitarbeiter` (below
   `Name`) ends the reading too. Only a second header of unrelated words matches none of this (residue 28). The
-  preselected row is unchanged, and the notice names the candidate rows (1-based). In the Wide layout, which has no hours or period select, ONE notice asks to
-  check the mapping and confirm (rr8 m2); a header notice is shown beside it. Detection
+  preselected row is unchanged, except that a candidate with no data row before the next candidate (an
+  empty first block) is skipped (`skipEmptyBlocks`, round 7 C1), and the notice names the candidate rows
+  (1-based). In the Wide layout, which has no hours or period select, ONE notice names the candidate
+  columns by header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice is shown
+  beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
   row. The CLAUDE route
@@ -407,10 +415,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   through, so no source decides alone and a disagreement is a visible refusal, never a pick
   (`periodNearCell`). The sources: H, the hand route's reading of the cell (`handReadingOf` in
   `hand-reading.ts`: the hand route's own `gridToForecastRows` over the sheet, per cell it READS — ★★★ a
-  cited cell on a row it reads but outside those cells, or on a row outside the rows it covers (above the
-  header row or from a repeated header on: another stacked block, round 5), is refused `cell-not-read`,
-  whatever it holds (fix 8 round 3: a long row's period once covered every cell of the row, so its `Ist`, a
-  `Kosten` 40 equal to the Stunden 40, or an ID stood in the row's month)); U, the nearest period header above the cell, read as part of
+  cited cell it does not read is refused `cell-not-read`, wherever it sits and whatever it holds, and the
+  row's own period cells are never consulted while H exists (fix 8 round 3, round 7 I-A: a long row's
+  period once covered every cell of the row, so its `Ist`, a `Kosten` 40 equal to the Stunden 40 or an ID
+  stood in the row's month, and a row it read nothing from — a blank or `-` forecast — fell back to its
+  own cells, writing Bob's Ist or a `Budget` total as hours)); U, the nearest period header above the cell, read as part of
   its row's run (above); and R, every period cell on the cited row (`rowPeriodCells`, the cited and
   PERSON cells skipped by position; a year-less one takes a year cell on the row before the default year),
   counted ONLY without H — with H, the hand route has already chosen the row's period column. A claim
@@ -432,7 +441,12 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   columns to confirm them, then ask Claude again", one line per refused row); once the user has confirmed
   or edited the mapping, `useForecastImport` passes it (`validateForecastRows`'s `columns`) and H is read
   with THAT mapping and its year, so a user who fixed the columns is not checked against the uncorrected
-  detection; a clear detection is H as detected; an unknown one has no H. ★★ "Edited" means a COLUMN field
+  detection; a clear detection is H as detected; an unknown one has no H. ★★ With no H, a claim is also
+  refused `row-ambiguous` when its row holds ANOTHER number cell (not period-shaped, not the person cell)
+  under the same period: the same column-header period, or neither under one (`hasTwinNumber`, round 7:
+  on an unknown layout nothing tells `Stunden` from `Ist`). Distinct month columns and distinct sprint
+  dates do not match; the cost is an unknown long row with a `PersNr` or year number (residue 31).
+  ★★ "Edited" means a COLUMN field
   differs from the mapping the hand route opened with (`isSameColumns`: layout, header row, person, period,
   hours, year column; fix 9 I-2, round 5): the mapping step's Show preview passes a fresh copy, and a
   reference compare once made an unknown layout's default mapping H on a no-op preview, writing Bob's

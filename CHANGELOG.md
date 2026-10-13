@@ -26,7 +26,7 @@ longer carries its own changelog comment.
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
   person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
   one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
-  column could hold the hours or the period (any two number columns, such as `Plan | Ist`, `Stunden | Ist`,
+  column could hold the hours or the period (any two columns holding numbers, however few, such as `Plan | Ist`, `Stunden | Ist`,
   `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; a sheet of
   month columns whose rows hold any date of their own outside the month columns, such as a `Start` or a
   notes column, or a year column beside months without a year), or more than one row could be the header
@@ -61,7 +61,9 @@ longer carries its own changelog comment.
   header, a title row of dates above a long sheet, a start date on the row), the row is not imported and
   the preview names both periods, even if Claude read it right. On a sheet whose columns Detect columns
   asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a
-  cell those columns do not read as hours (an Ist, cost or ID cell beside the hours) is not imported. Monthly figures are spread over a
+  cell those columns do not read as hours (an Ist, cost or ID cell beside the hours, or beside a blank
+  forecast) is not imported. Where no layout is found, a row holding two numbers for one period is not
+  imported either. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
