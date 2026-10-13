@@ -119,6 +119,14 @@ export function columnLetters(col: number): string {
   return out;
 }
 
+/** Upper-case spreadsheet letters as a 0-based column index, the inverse of
+ *  `columnLetters`: A = 0, Z = 25, AA = 26. */
+export function columnIndexOf(letters: string): number {
+  let index = 0;
+  for (const ch of letters) index = index * 26 + (ch.charCodeAt(0) - 64);
+  return index - 1;
+}
+
 /** A cell of a (possibly ragged or missing) row; "" for an absent cell or column. */
 export const cellAt = (row: readonly string[] | undefined, col: number | undefined): string =>
   col === undefined ? "" : (row?.[col] ?? "");
