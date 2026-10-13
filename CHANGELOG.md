@@ -37,8 +37,9 @@ longer carries its own changelog comment.
   row per month) that differ in another text column, such as a Plan and an Ist row or a task per row, whose
   hours would be added together, or a row below a person's row holds hours but no person (a name merged
   over two rows, or an unlabelled total row), which is not read, or more than one sheet of a workbook holds
-  a forecast, the column step opens with a note naming the candidates, and Apply waits until you choose the
-  column or the sheet or confirm that the columns are right; the confirmation moves on to Show preview. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  a forecast, the column step opens with a note naming the candidates (for a merged month header or a run
+  past 12, it also says what confirming will read), and Apply waits until you choose the column or the sheet
+  or confirm that the columns are right; confirming moves the keyboard focus to Show preview. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while

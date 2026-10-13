@@ -381,7 +381,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   decision 2026-10-13): the hook's own question (`sheetCandidates` / `sheetConfirmed`, never a mapping's),
   prepended to `ambiguous`, so the same gate holds Apply on either route; choosing a sheet or the press
   confirms it, and Detect columns and Ask Claude ask it again. The press moves the focus to Show preview,
-  since it unmounts its own notice (M5). Residue (36)–(39).
+  since it unmounts its own notice (M5). ★ The I1 and M4 reasons travel on the period question
+  (`blankHeaded`, `pastTwelve`, and `alsoUnsure` when another reason asks too), so each has a notice of its
+  own saying what the press reads, and the generic Wide notice ("Check the mapping, then confirm", with no
+  period control to check) shows only for the other reasons (rr14 N1). Residue (36)–(39).
 - ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the reader and detection alike, so
   the two cannot disagree. A single cell is `parsePeriodLabel` (a date is
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
