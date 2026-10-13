@@ -7,7 +7,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
-import { loadI18n, t } from "./i18n";
+import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ForecastImportModal, type ForecastImportModalProps } from "./forecast-import-modal";
 
@@ -191,23 +191,63 @@ describe("ForecastImportModal", () => {
     expect(screen.getByText(/forecast!B4/)).toHaveTextContent(t(L, "forecastImportRejectHours", "744"));
   });
 
-  it("says why Claude's row was not imported: the person is not on the cited row", async () => {
+  // Claude sets the mapping (owner decision 2026-10-13): its mapping opens the
+  // mapping step with its notes, and Apply waits for the press on any layout.
+  it("opens Claude's mapping on the mapping step with its notes; Apply waits for the press, not for an edit", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
         stop_reason: "tool_use",
         content: [{
           type: "tool_use",
-          name: "propose_forecast_rows",
-          input: { rows: [{ person: "Bob Ray", period: "Jan 2026", hours: 10, source: "forecast!B2" }] },
+          name: "propose_forecast_mapping",
+          input: { layout: "wide", headerRow: 1, person: "A", periodCols: ["B", "C"], notes: "Mar is a total." },
         }],
+      }),
+    } as unknown as Response);
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    expect(await screen.findByText(t(L, "forecastImportClaudeProposed", "Mar is a total"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportPeriodColsFound", "Jan 2026, Feb 2026"))).toBeInTheDocument();
+    const apply = () => screen.getByRole("button", { name: t(L, "forecastImportApply") });
+    expect(apply()).toBeDisabled();
+    expect(apply()).toHaveAccessibleDescription(t(L, "forecastImportConfirmClaudeFirst"));
+    // An edit is no press.
+    fireEvent.change(screen.getByLabelText(t(L, "forecastImportYear")), { target: { value: "2026" } });
+    expect(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(apply()).toBeDisabled();
+    fireEvent.click(apply());
+    expect(props.onChangeBuckets).not.toHaveBeenCalled();
+    // The press, on the mapping step, enables Apply.
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportEditColumns") }));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    expect(screen.queryByText(t(L, "forecastImportClaudeProposed", "Mar is a total"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(apply()).toBeEnabled();
+    fireEvent.click(apply());
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a mapping it cannot use as an error and keeps the hand route", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", name: "propose_forecast_mapping", input: { layout: "wide", headerRow: 1, person: "A", periodCols: ["Q"] } }],
       }),
     } as unknown as Response);
     render(<ForecastImportModal {...propsOf()} />);
     await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!B2/)).toHaveTextContent(t(L, "forecastImportRejectSourcePerson"));
+    expect(await screen.findByText(t(L, "forecastImportErrorBadMapping"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportDetect") }));
+    expect(screen.queryByText(t(L, "forecastImportErrorBadMapping"))).toBeNull();
   });
 
   it("disables Ask Claude with a reason when AI is off", async () => {
@@ -344,41 +384,6 @@ describe("ForecastImportModal — the assumed year", () => {
   });
 });
 
-describe("ForecastImportModal — cells Claude did not read", () => {
-  function replyWith(rows: unknown[]) {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
-    } as unknown as Response);
-  }
-
-  it("lists a skipped cell under Not imported, as information", async () => {
-    replyWith([
-      { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
-      { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
-    ]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(t(L, "forecastImportUnreadCellsOne", 1, "forecast!D2"))).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
-  });
-
-  it("lists the first 20 cells and counts the rest", async () => {
-    const header = ["Name", ...Array.from({ length: 24 }, (_, i) => `KW${String(i + 1).padStart(2, "0")} 2026`)].join(",");
-    const line = ["Ann Lee", ...Array.from({ length: 24 }, () => "1")].join(",");
-    replyWith([{ person: "Ann Lee", period: "KW01 2026", hours: 1, source: "forecast!B2" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(`${header}\r\n${line}\r\n`);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    const refs = ["C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V"].map((c) => `forecast!${c}2`);
-    const list = `${refs.join(", ")} ${t(L, "forecastImportUnreadMore", "3")}`;
-    expect(within(section).getByText(t(L, "forecastImportUnreadCells", 23, list))).toBeInTheDocument();
-  });
-});
-
 describe("ForecastImportModal — archived resources", () => {
   it("does not offer an archived resource in the person picker", async () => {
     const archived: Resource = { ...ANN, id: 3, firstName: "Old", lastName: "Timer", active: false };
@@ -409,27 +414,6 @@ describe("ForecastImportModal — date columns finer than the period (round 3)",
     expect(within(combined).getByText(new RegExp(t(L, "forecastImportSubPeriod", "Ann Lee", "2026-01", "2")))).toBeInTheDocument();
     expect(screen.queryByText(t(L, "forecastImportBlockerSameRow"))).toBeNull();
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
-  });
-});
-
-describe("ForecastImportModal — a person Claude skipped (round 3)", () => {
-  it("names the skipped row and its person under Not imported", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        stop_reason: "tool_use",
-        content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [
-          { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
-          { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
-          { person: "Ann Lee", period: "Mar 2026", hours: 30, source: "forecast!D2" },
-        ] } }],
-      }),
-    } as unknown as Response);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\nBob Kay,1,2,3\r\n`);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(t(L, "forecastImportUnreadRowsOne", 1, "3 (Bob Kay)"))).toBeInTheDocument();
   });
 });
 
@@ -528,108 +512,6 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
   });
 
-  const claudeSays = (rows: unknown[]) => vi.spyOn(globalThis, "fetch").mockResolvedValue({
-    ok: true,
-    json: async () => ({
-      stop_reason: "tool_use",
-      content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }],
-    }),
-  } as unknown as Response);
-
-  // Fix 9 I-1: the Eintritt date this used now makes the sheet ask, so the
-  // message is shown on a clear wide sheet: Mar claimed for February's cell.
-  it("says why Claude's row was refused when the detected columns read its cell in another period", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Mar 2026", hours: 20, source: "forecast!C2" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "Bob Kay,1,2,3", ""].join("\r\n"));
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C2/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", "Feb 2026"));
-  });
-
-  it("names a week by its label, not its key", async () => {
-    claudeSays([{ person: "Ann Lee", period: "2026-W05", hours: 10, source: "forecast!B2" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["Name,2026-01-05,2026-01-12,2026-01-19", "Ann Lee,10,20,30", ""].join("\r\n"));
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!B2/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", t(L, "forecastImportWeekLabel", "02", "2026")));
-    expect(t(L, "forecastImportWeekLabel", "02", "2026")).toBe("W02 2026");
-  });
-  /** Ten blank lines push the header past detection's scan: an unknown layout,
-   *  so the hand route reads nothing and the row and header decide (fix 8). */
-  const UNKNOWN_PAD = Array.from({ length: 10 }, () => "");
-  async function chooseUnknown(lines: string[]): Promise<void> {
-    const input = screen.getByLabelText(t(L, "forecastImportFile"));
-    fireEvent.change(input, { target: { files: [new File([[...UNKNOWN_PAD, ...lines, ""].join("\r\n")], "forecast.csv", { type: "text/csv" })] } });
-    await screen.findByText(t(L, "forecastImportNoLayout"));
-  }
-
-  it("says why Claude's row was refused when the row and the column header disagree", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C14" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    // Round 8: one number column, since a second one (Plan | Ist) now refuses row-ambiguous.
-    await chooseUnknown(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Ann Lee,Feb 2026,30"]);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C14/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "Jan 2026", "Mar 2026"));
-    // Read after the row and a dash, like its sibling reasons: lower case.
-    expect(t(L, "forecastImportRejectSourceConflict", "a", "b")).toMatch(/^the row says a/);
-  });
-
-  // Fix 8 (rr8 m1): the stacked block's header and the detected columns are
-  // two sources, and the reason names both.
-  it("names the column header's period and the detected columns' when they disagree", async () => {
-    // Round 6: stacked blocks no longer reach this message (a second header row
-    // ends the reading); a Q1 range title row over a clear long sheet does:
-    // its 31.03.2026 heads the Stunden column, the hand reading says January.
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C4" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Bob Kay,Feb 2026,30", ""].join("\r\n"));
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C4/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Mar 2026", "Jan 2026"));
-    expect(t(L, "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("the column header says a, but the detected or confirmed columns read b");
-  });
-
-  // Fix 9 m-b, m-c: the source reasons name confirmed columns as well as
-  // detected ones, and the unconfirmed-columns reason names the real path, the
-  // Detect columns button, by its exact label in both languages.
-  it("words the hand-reading reasons for detected or confirmed columns, and names Detect columns", async () => {
-    expect(t(L, "forecastImportRejectSourceSheet", "Jan 2026")).toBe("the detected or confirmed columns read this cell as Jan 2026");
-    expect(t(L, "forecastImportRejectSourceColumns")).toBe(
-      `the columns of this sheet are ambiguous. Use ${t(L, "forecastImportDetect")} to confirm them, then ask Claude again`,
-    );
-    await loadI18n("de");
-    expect(t("de", "forecastImportRejectSourceSheet", "Jan. 2026")).toBe("die erkannten oder bestätigten Spalten lesen diese Zelle als Jan. 2026");
-    expect(t("de", "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("die Spaltenüberschrift sagt a, die erkannten oder bestätigten Spalten lesen aber b");
-    expect(t("de", "forecastImportRejectSourceColumns")).toContain(`„${t("de", "forecastImportDetect")}“`);
-    // Round 7: the row-ambiguous reason names the same path.
-    expect(t(L, "forecastImportRejectSourceRowAmbiguous")).toBe(`this row holds more than one number for this period; use ${t(L, "forecastImportDetect")} to set the columns`);
-    expect(t("de", "forecastImportRejectSourceRowAmbiguous")).toContain(`„${t("de", "forecastImportDetect")}“`);
-  });
-
-  it("names the row's two periods when they disagree", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 8, source: "forecast!D12" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseUnknown(["Name,Von,Bis,Stunden", "Ann Lee,Jan 2026,Feb 2026,8"]);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!D12/)).toHaveTextContent(t(L, "forecastImportRejectSourceRows", "Jan 2026", "Feb 2026"));
-  });
-
-  // Fix 8: an ambiguous sheet refuses every Claude claim until its columns are confirmed.
-  it("says the columns must be confirmed first when Claude reads an ambiguous sheet", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }]);
-    const props = propsOf();
-    render(<ForecastImportModal {...props} />);
-    await chooseAmbiguous(PLAN_IST);
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C2/)).toHaveTextContent(t(L, "forecastImportRejectSourceColumns"));
-    expect(applyButton()).toBeDisabled();
-  });
-
   // Round 2: a wide sheet whose rows hold their own period column (a Start date)
   // asks for the period; the Wide notice and the confirm button carry it.
   it("asks about a wide sheet with a Start date column, and confirming it enables Apply", async () => {
@@ -650,17 +532,6 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toBeEnabled();
     fireEvent.click(applyButton());
     expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
-  });
-
-  // Round 3: a cited cell on a read row that the columns do not read as hours.
-  it("says why Claude's row was refused when it cites a cell the columns do not read", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!A2" }]);
-    render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["ID,Name,Monat,Aufwand", "40,Ann Lee,Jan 2026,40", "14,Bob Kay,Feb 2026,20", ""].join("\r\n"));
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
-    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!A2/)).toHaveTextContent(t(L, "forecastImportRejectSourceNotRead"));
-    expect(t(L, "forecastImportRejectSourceNotRead")).toBe("the detected or confirmed columns do not read this cell as hours");
   });
 
   // Fix 9 OOS-c: the notice names the candidate header rows; the header-row select clears it.

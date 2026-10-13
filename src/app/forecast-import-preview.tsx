@@ -122,24 +122,21 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
 
 /** Which year headers without one were read in. A detected layout with no
  *  ambiguous columns goes straight to the preview, so this is where that
- *  assumption is shown; the hand route links to the year field on the mapping
- *  step. */
+ *  assumption is shown, with a link to the year field on the mapping step. */
 function AssumedYearLine({ lang, fi, assumed }: { lang: Lang; fi: ForecastImport; assumed: AssumedYear }) {
   const text = t(lang, assumed.rolled ? "forecastImportAssumedYearFrom" : "forecastImportAssumedYear", String(assumed.year));
   return (
     <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
       <span>{text}</span>
-      {fi.route === "hand" && (
-        <Button variant="secondary" size="xs" onClick={fi.editMapping}>
-          {t(lang, "forecastImportChangeYear")}
-        </Button>
-      )}
+      <Button variant="secondary" size="xs" onClick={fi.editMapping}>
+        {t(lang, "forecastImportChangeYear")}
+      </Button>
     </div>
   );
 }
 
 /** Cells of one sheet row that landed on the same person and period: the import
- *  is blocked, and the hand route can go back to the mapping from here. */
+ *  is blocked, and the user can go back to the mapping from here. */
 function CollisionsSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   return (
     <Section title={t(lang, "forecastImportCollisions")}>
@@ -148,11 +145,9 @@ function CollisionsSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
           <li key={`${c.person}|${c.period}`}>{t(lang, "forecastImportCollision", c.person, c.period, c.sources.join(", "))}</li>
         ))}
       </ul>
-      {fi.route === "hand" && (
-        <Button variant="secondary" size="xs" onClick={fi.editMapping}>
-          {t(lang, "forecastImportChangeMapping")}
-        </Button>
-      )}
+      <Button variant="secondary" size="xs" onClick={fi.editMapping}>
+        {t(lang, "forecastImportChangeMapping")}
+      </Button>
     </Section>
   );
 }

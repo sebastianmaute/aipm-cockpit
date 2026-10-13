@@ -1,9 +1,9 @@
 "use client";
 
 // The forecast import's state machine (§500): a spreadsheet file becomes sheet
-// grids, one sheet becomes forecast rows (by its detected or hand-set columns,
-// or by Claude), the rows are validated, and the plan is a diff against ONE
-// budget bucket. Nothing is written until `apply()`.
+// grids, one sheet becomes forecast rows by its columns — detected, set by
+// hand, or proposed by Claude — the rows are validated, and the plan is a diff
+// against ONE budget bucket. Nothing is written until `apply()`.
 //
 // ★★ APPLY RE-PLANS FROM THE LIVE BUCKETS. The preview can sit open while the
 // bucket is closed, removed, or "Budget hours follow plan" is switched on;
@@ -16,16 +16,16 @@
 // that more than one column could hold the hours or the period (`ambiguous`),
 // the hand route opens on the mapping step, and Apply is refused until each
 // such field is confirmed: by choosing its column, or by `confirmColumns`.
-// Re-detecting (a new file, sheet, or Detect columns) asks again. ★★ The
-// Claude route waits too (fix 8): until the columns are confirmed it refuses
-// every claim (`columns-unconfirmed`), and once the user has confirmed or
-// edited the mapping, each claim is checked against THAT reading
-// (`claudeColumnsOf`), not the default detection.
+// Re-detecting (a new file, sheet, or Detect columns) asks again.
 //
-// ★ The Claude route's rows are UNTRUSTED: they pass `validateForecastRows`
-// with `requireSource: true`, which rejects a row whose cited cell does not
-// hold its hours. The hand route's rows carry sources too, but are checked
-// without that requirement — they were read from the grid, not proposed.
+// ★★★ CLAUDE SETS THE MAPPING, NEVER A VALUE (owner decision 2026-10-13).
+// "Ask Claude" returns a column mapping; the hand reader imports with it. It
+// opens on the mapping step, and Apply waits for an explicit "These columns
+// are right" (`confirmColumns`) on ANY layout, with or without a question: the
+// model can be wrong, and only the user confirms. An edit of a field is no
+// such press, and an edit after it asks for it again (`claudeConfirmed` holds
+// the mapping the press confirmed). Every question detection raises is asked
+// of the mapping IN EFFECT (`questionsFor`), Claude's or the user's edit of it.
 //
 // SECURITY: the api key is read from the in-memory hydrated settings and goes
 // straight to the call; it is never logged.
@@ -36,8 +36,8 @@ import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows"
 import { assignRunPeriods } from "./budget-import/period-assign";
 import type { AssumedYear, ColumnAmbiguity, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
-import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
-import { findUnreadCells, type UnreadCells } from "./budget-import/unread-cells";
+import { detectLayout, questionsFor, type LayoutDetection } from "./budget-import/layout-detect";
+import type { UnreadCells } from "./budget-import/unread-cells";
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -51,6 +51,8 @@ import type { BucketCommitMeta } from "./use-budget-buckets";
 import { useSettings } from "./use-settings";
 
 export type ForecastImportStep = "source" | "mapping" | "preview";
+/** Where the mapping in effect came from: detection or the user (`hand`), or
+ *  Claude's proposal, edited or not (`claude`). The rows are read the same way. */
 export type ForecastImportRoute = "hand" | "claude";
 /** A translated message, or a provider's own safe message shown verbatim. */
 export type ForecastImportError = { key: TranslationKey; args?: string[] } | { message: string };
@@ -71,17 +73,21 @@ export interface ForecastImport {
   step: ForecastImportStep;
   sheets: readonly SheetGrid[];
   sheetIndex: number;
-  /** The columns the hand route reads: the detected ones, or — when nothing
-   *  was detected — `defaultMappingFor`, so the mapping step's selects and its
-   *  sample agree from the start. Null only before a sheet is loaded. */
+  /** The columns the rows are read by: the detected ones, Claude's, or — when
+   *  nothing was detected — `defaultMappingFor`, so the mapping step's selects
+   *  and its sample agree from the start. Null only before a sheet is loaded. */
   mapping: ColumnMapping | null;
-  /** False when `detectLayout` found nothing and `mapping` is the default. */
+  /** False when `detectLayout` found nothing and the hand mapping is the default. */
   layoutDetected: boolean;
-  /** The hand route's fields detection could not settle and the user has not
-   *  confirmed yet: Apply is refused while any is left. Empty on the Claude
-   *  route. */
+  /** The fields the mapping in effect leaves open and the user has not
+   *  confirmed yet: Apply is refused while any is left. On the Claude route,
+   *  every question `questionsFor` asks of the mapping until the press. */
   ambiguous: readonly ColumnAmbiguity[];
-  /** "These columns are right": confirms every field in `ambiguous`. */
+  /** True on the Claude route until "These columns are right" is pressed for
+   *  the mapping in effect: Apply is refused meanwhile. */
+  claudeUnconfirmed: boolean;
+  /** "These columns are right": confirms every field in `ambiguous` and, on
+   *  the Claude route, the mapping itself. */
   confirmColumns: () => void;
   /** The target bucket is no longer in the live list (removed meanwhile). */
   bucketGone: boolean;
@@ -102,19 +108,18 @@ export interface ForecastImport {
   /** Cells of one sheet row landing on the same person and period: they block Apply. */
   collisions: readonly ForecastCollision[];
   dropped: readonly DropReason[];
-  /** The hand route's number columns left unread (header not a period). */
+  /** Number columns left unread (header not a period). */
   ignoredColumns: readonly IgnoredColumn[];
-  /** The hand route's rows above the header row that hold data (not read). */
+  /** Rows above the header row that hold data (not read). */
   rowsAboveHeader: number;
-  /** The hand route's non-blank rows below a repeated header row (not read). */
+  /** Non-blank rows below a repeated header row (not read). */
   rowsBelowRepeatedHeader: number;
-  /** The Claude route's number cells (and long-sheet rows) the reply did not
-   *  cite — information, not a blocker. Empty on the hand route. */
+  /** Always empty now that Claude cites no cells. */
   unread: UnreadCells;
   /** The default year headers without one were read in, when the preview's
-   *  rows used it (either route); the preview says so. */
+   *  rows used it; the preview says so. */
   assumedYear: AssumedYear | undefined;
-  /** The first rows the current hand mapping reads, for the mapping step. */
+  /** The first rows the current mapping reads, for the mapping step. */
   sample: readonly ForecastRow[];
   notes: string;
   error: ForecastImportError | null;
@@ -128,7 +133,7 @@ export interface ForecastImport {
   /** The hand route over the current sheet: re-detect, preview or map. */
   detectColumns: () => void;
   editMapping: () => void;
-  /** Preview with `next` (or the current mapping) as the hand route. */
+  /** Preview with `next` (or the current mapping). */
   showPreview: (next?: ColumnMapping) => void;
   askClaude: () => Promise<void>;
   /** Aborts an in-flight read or Claude call. Sets no error. */
@@ -190,34 +195,14 @@ function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: C
   return next.layout === "long" && next[a.field] !== before[a.field];
 }
 
-/** The COLUMN fields of a `ColumnMapping`: what a column edit changes. */
-const COLUMN_FIELDS = ["layout", "headerRow", "person", "period", "hours", "yearCol"] as const;
+/** Every field of a `ColumnMapping` but the period columns, compared apart. */
+const MAPPING_FIELDS = ["layout", "headerRow", "person", "email", "rate", "period", "hours", "year", "yearCol"] as const;
 
-/** Two mappings name the same columns, field by field (`COLUMN_FIELDS`).
- *  ★★ By VALUE (fix 9 I-2): the mapping step's Show preview passes a freshly
- *  built copy, and a reference compare counted that no-op as an edit, which
- *  made an unknown layout's default mapping the hand reading. ★★ The year VALUE
- *  is no column (round 5): changing it alone is no look at the columns, so it
- *  does not make the default mapping H either. */
-function isSameColumns(a: ColumnMapping, b: ColumnMapping): boolean {
-  return COLUMN_FIELDS.every((field) => a[field] === b[field]);
-}
-
-/** What the Claude route's check reads the columns by (`validateForecastRows`'s
- *  `columns`): "unconfirmed" while an ambiguous field waits for the user; the
- *  hand mapping once the detection found a layout (confirmed if it asked) or
- *  the user changed a column of the mapping it opened with (`opened`,
- *  `isSameColumns`; the year value alone does not count); else nothing, so an
- *  unknown layout has no hand reading. */
-function claudeColumnsOf(
-  unconfirmed: readonly ColumnAmbiguity[],
-  mapping: ColumnMapping | null,
-  opened: ColumnMapping | null,
-  layoutDetected: boolean,
-): ColumnMapping | "unconfirmed" | undefined {
-  if (unconfirmed.length > 0) return "unconfirmed";
-  if (mapping === null) return undefined;
-  return layoutDetected || opened === null || !isSameColumns(mapping, opened) ? mapping : undefined;
+/** Two mappings read the sheet the same way, every field (the year and the
+ *  period columns included) by VALUE: the press confirmed THIS mapping, and a
+ *  freshly built copy of it is still that mapping. */
+function isSameMapping(a: ColumnMapping, b: ColumnMapping): boolean {
+  return MAPPING_FIELDS.every((field) => a[field] === b[field]) && (a.periodCols ?? []).join(",") === (b.periodCols ?? []).join(",");
 }
 
 /** The message for a failed Claude read, or null for an abort (the user's own
@@ -227,6 +212,9 @@ export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
   if (errName === "AbortError") return null;
   if (e instanceof Error && !(e instanceof AiHttpError) && e.message === "too-large") {
     return { key: "forecastImportErrorTooLargeForClaude" };
+  }
+  if (e instanceof Error && !(e instanceof AiHttpError) && e.message === "bad-mapping") {
+    return { key: "forecastImportErrorBadMapping" };
   }
   if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") return { key: "aiUsageLimitReached" };
   const keyMsg = aiKeyMessageKeyForError(e);
@@ -310,23 +298,21 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [sheets, setSheets] = useState<readonly SheetGrid[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [mapping, setMappingState] = useState<ColumnMapping | null>(null);
-  // The mapping the hand route opened with, to tell a user's edit from it.
-  const [openedMapping, setOpenedMapping] = useState<ColumnMapping | null>(null);
   const [layoutDetected, setLayoutDetected] = useState(false);
   // The fields detection questioned, and what the user confirmed (`unconfirmedOf`).
   const [questioned, setQuestioned] = useState<readonly ColumnAmbiguity[]>(NO_AMBIGUITY);
   const [confirmations, setConfirmations] = useState<ReadonlyMap<string, string>>(NO_CONFIRMATIONS);
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
-  const [claudeRows, setClaudeRows] = useState<unknown>(null);
+  // The Claude route's press: the mapping "These columns are right" confirmed.
+  const [claudeConfirmed, setClaudeConfirmed] = useState<ColumnMapping | null>(null);
   const [notes, setNotes] = useState("");
   const [overrides, setOverrides] = useState<ReadonlyMap<string, PersonOverride>>(NO_OVERRIDES);
   const [error, setError] = useState<ForecastImportError | null>(null);
   const [busy, setBusy] = useState<false | "file" | "claude">(false);
-  // ★ ONE year value: detection, the hand route's mapping and the Claude
-  // validator all read year-less headers in it. It starts at the bucket's start
-  // year and follows the mapping step's year field; a CLEARED field means no
-  // default year on both routes (it once fell back to the start year on the
-  // Claude route only).
+  // ★ ONE year value: detection and the mapping read year-less headers in it.
+  // It starts at the bucket's start year and follows the mapping step's year
+  // field; a CLEARED field means no default year on both routes (Claude's
+  // mapping takes it when it names no year of its own).
   const [year, setYear] = useState<number | undefined>(startYear);
 
   // Monotonic request generation: a read or a Claude reply that resolves after
@@ -336,30 +322,32 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   // Cleanup-only: abort an in-flight call on unmount. Sets no state.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const unconfirmed = useMemo(() => unconfirmedOf(questioned, confirmations, mapping), [questioned, confirmations, mapping]);
   const sheet: SheetGrid | undefined = sheets[sheetIndex];
   const liveBucket = buckets.find((b) => b.id === bucketId);
+  const isClaude = route === "claude";
+  // The Claude route asks every question of the mapping in effect, live.
+  const claudeQuestions = useMemo(
+    () => (isClaude && sheet && mapping ? questionsFor(sheet.rows, mapping, { numbers: sheet.numbers }) : NO_AMBIGUITY),
+    [isClaude, sheet, mapping],
+  );
+  const claudePressed = isClaude && claudeConfirmed !== null && mapping !== null && isSameMapping(claudeConfirmed, mapping);
+  const unconfirmed = useMemo(
+    () => (isClaude ? (claudePressed ? NO_AMBIGUITY : claudeQuestions) : unconfirmedOf(questioned, confirmations, mapping)),
+    [isClaude, claudePressed, claudeQuestions, questioned, confirmations, mapping],
+  );
+  const claudeUnconfirmed = isClaude && !claudePressed;
 
   const handRows = useMemo(
     () => (sheet && mapping ? gridToForecastRows(sheet.rows, mapping, sheet.name, sheet.numbers) : null),
     [sheet, mapping],
   );
 
-  const validated = useMemo<Validated | null>(() => {
-    if (!sheet) return null;
-    // The Claude route reads year-less headers in the year the mapping step
-    // shows, and the columns as the user confirmed or edited them.
-    if (route === "claude") {
-      const columns = claudeColumnsOf(unconfirmed, mapping, openedMapping, layoutDetected);
-      return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear: year, columns });
-    }
-    return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null;
-  }, [sheet, route, claudeRows, handRows, year, unconfirmed, mapping, openedMapping, layoutDetected]);
-
-  const unread = useMemo(
-    () => (route === "claude" && sheet && validated ? findUnreadCells(sheet, validated) : NO_UNREAD),
-    [route, sheet, validated],
+  // Both routes read the sheet by the mapping in effect.
+  const validated = useMemo<Validated | null>(
+    () => (sheet && handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null),
+    [sheet, handRows, year],
   );
+
   const okRows = validated?.ok ?? NO_ROWS;
   const collisions = validated?.collisions ?? NO_COLLISIONS;
   const canPreview = step === "preview" && validated !== null && liveBucket !== undefined;
@@ -391,13 +379,11 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
     const detected = known ?? detectSheet(grid, year);
     setRoute("hand");
-    setClaudeRows(null);
+    setClaudeConfirmed(null);
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
-    const opened = detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers);
-    setMappingState(opened);
-    setOpenedMapping(opened);
+    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers));
     setQuestioned(detected.ambiguous);
     setConfirmations(NO_CONFIRMATIONS);
     setStep(detected.mapping && detected.ambiguous.length === 0 ? "preview" : "mapping");
@@ -452,14 +438,14 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   }, [sheet, nextRequest, openHandRoute]);
 
   // ★ The four user edits below each clear a stale error: a banner from an
-  // earlier failed action must not outlive the user moving on.
+  // earlier failed action must not outlive the user moving on. ★★ An edit
+  // keeps the route: Claude's mapping, edited, still waits for the press.
   const setMapping = useCallback((next: ColumnMapping | null) => {
     setError(null);
-    setRoute("hand");
     setMappingState(next);
     if (next !== null) {
       setYear(next.year);
-      const chosen = questioned.filter((a) => confirmsField(a, mapping, next));
+      const chosen = isClaude ? [] : questioned.filter((a) => confirmsField(a, mapping, next));
       if (chosen.length > 0) {
         setConfirmations((prev) => {
           const out = new Map(prev);
@@ -468,22 +454,26 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
         });
       }
     }
-  }, [mapping, questioned]);
+  }, [isClaude, mapping, questioned]);
 
-  // "These columns are right": confirms every questioned field as the current mapping reads it.
+  // "These columns are right": confirms every questioned field as the current
+  // mapping reads it, and on the Claude route the mapping itself.
   const confirmColumns = useCallback(() => {
     setError(null);
     if (mapping === null) return;
+    if (isClaude) {
+      setClaudeConfirmed(mapping);
+      return;
+    }
     setConfirmations((prev) => {
       const out = new Map(prev);
       for (const a of questioned) out.set(confirmationKey(mapping.layout, a.field), fieldValue(mapping, a.field));
       return out;
     });
-  }, [mapping, questioned]);
+  }, [isClaude, mapping, questioned]);
 
   const editMapping = useCallback(() => {
     setError(null);
-    setRoute("hand");
     setStep("mapping");
   }, []);
 
@@ -493,7 +483,6 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setError(null);
     setMappingState(chosen);
     setYear(chosen.year);
-    setRoute("hand");
     setStep("preview");
   }, [mapping]);
 
@@ -512,11 +501,15 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     try {
       const res = await runForecastImportCall(sheet, { apiKey, model, guideText }, controller.signal);
       if (reqId !== reqIdRef.current) return;
-      setClaudeRows(res.rows);
+      // A mapping that names no year reads year-less labels in the year in effect.
+      const proposed: ColumnMapping = res.mapping.year === undefined && year !== undefined ? { ...res.mapping, year } : res.mapping;
+      setMappingState(proposed);
+      setYear(proposed.year);
+      setClaudeConfirmed(null);
       setNotes(res.notes);
       setOverrides(NO_OVERRIDES);
       setRoute("claude");
-      setStep("preview");
+      setStep("mapping");
     } catch (e) {
       if (reqId !== reqIdRef.current) return;
       setError(forecastImportErrorOf(e));
@@ -526,7 +519,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
         setBusy(false);
       }
     }
-  }, [sheet, aiAvailable, nextRequest, apiKey, model, guideText]);
+  }, [sheet, aiAvailable, nextRequest, apiKey, model, guideText, year]);
 
   const cancel = useCallback(() => {
     nextRequest();
@@ -542,8 +535,10 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     // Outside the preview the user has reviewed nothing. No message: Apply is
     // disabled there, and the bucket did not change.
     if (step !== "preview") return "refused";
-    // An ambiguous hand mapping the user has not confirmed is never applied.
-    if (route === "hand" && unconfirmed.length > 0) return refuse("forecastImportConfirmFirst");
+    // Claude's mapping is never applied before the user's press, and an
+    // ambiguous mapping never before its fields are confirmed.
+    if (claudeUnconfirmed) return refuse("forecastImportConfirmClaudeFirst");
+    if (unconfirmed.length > 0) return refuse("forecastImportConfirmFirst");
     if (!live || !validated || live.status === "closed" || plan.budgetFollowsPlan === true) return refuse();
     const fresh = buildForecastImportPlan(validated.ok, {
       bucket: live, resources, roles, plan, holidaySet, overrides, collisions: validated.collisions,
@@ -557,7 +552,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     const next = { ...applyForecastImport(live, fresh), localModifiedAt: new Date().toISOString() };
     onChangeBuckets(buckets.map((b) => (b.id === bucketId ? next : b)), { kind: "budget.updated", name: live.name });
     return "applied";
-  }, [step, route, unconfirmed, buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
+  }, [step, claudeUnconfirmed, unconfirmed, buckets, bucketId, validated, plan, resources, roles, holidaySet, overrides, onChangeBuckets]);
 
   return {
     step,
@@ -565,7 +560,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     sheetIndex,
     mapping,
     layoutDetected,
-    ambiguous: route === "hand" ? unconfirmed : NO_AMBIGUITY,
+    ambiguous: unconfirmed,
+    claudeUnconfirmed,
     confirmColumns,
     bucketGone: liveBucket === undefined,
     setMapping,
@@ -578,12 +574,12 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     duplicates: validated?.duplicates ?? [],
     subPeriods: validated?.subPeriods ?? [],
     collisions,
-    dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
-    ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
-    rowsAboveHeader: route === "hand" ? (handRows?.rowsAboveHeader ?? 0) : 0,
-    rowsBelowRepeatedHeader: route === "hand" ? (handRows?.rowsBelowRepeatedHeader ?? 0) : 0,
-    assumedYear: route === "hand" ? handRows?.assumedYear : validated?.assumedYear,
-    unread,
+    dropped: handRows?.dropped ?? [],
+    ignoredColumns: handRows?.ignoredColumns ?? [],
+    rowsAboveHeader: handRows?.rowsAboveHeader ?? 0,
+    rowsBelowRepeatedHeader: handRows?.rowsBelowRepeatedHeader ?? 0,
+    assumedYear: handRows?.assumedYear,
+    unread: NO_UNREAD,
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,
     notes,
     error,

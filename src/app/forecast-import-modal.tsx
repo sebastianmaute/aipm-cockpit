@@ -1,15 +1,17 @@
 "use client";
 
 // The forecast import dialog (§500), opened from a budget bucket card's
-// "Import forecast…". Steps: Source (file, sheet) → Mapping (hand route) or
-// Claude → Preview → Apply. All logic is `useForecastImport`; this file only
-// renders it. Mounted only while open, so every open starts from Source. The
-// preview step is `forecast-import-preview.tsx`.
+// "Import forecast…". Steps: Source (file, sheet) → Mapping (detected, set by
+// hand, or proposed by Claude) → Preview → Apply. All logic is
+// `useForecastImport`; this file only renders it. Mounted only while open, so
+// every open starts from Source. The preview step is `forecast-import-preview.tsx`.
 //
 // ★ Every control has an accessible name; the Apply button is disabled while
 // any blocker stands, and `apply()` re-checks against the live bucket anyway.
-// ★ It is disabled too while detection's ambiguous columns wait for the user
-// (`fi.ambiguous`, fix 7), with the reason as its accessible description.
+// ★ It is disabled too while the mapping's open questions wait for the user
+// (`fi.ambiguous`, fix 7), and while Claude's mapping waits for "These columns
+// are right" (`fi.claudeUnconfirmed`), with the reason as its accessible
+// description.
 
 import { useId } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
@@ -63,7 +65,7 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
   const onApply = () => {
     if (fi.apply() === "applied") onClose();
   };
-  const mustConfirm = fi.ambiguous.length > 0;
+  const mustConfirm = fi.ambiguous.length > 0 || fi.claudeUnconfirmed;
   const canApply = !fi.bucketGone && fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy && !mustConfirm;
   const sheet = fi.sheets[fi.sheetIndex];
   const confirmReasonId = useId();
@@ -120,7 +122,11 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
         </div>
         <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-6 py-4">
           {/* Why Apply waits: also the button's accessible description. */}
-          {mustConfirm && <p id={confirmReasonId} className="mr-auto text-xs text-muted-foreground">{t(lang, "forecastImportConfirmFirst")}</p>}
+          {mustConfirm && (
+            <p id={confirmReasonId} className="mr-auto text-xs text-muted-foreground">
+              {t(lang, fi.claudeUnconfirmed ? "forecastImportConfirmClaudeFirst" : "forecastImportConfirmFirst")}
+            </p>
+          )}
           <Button variant="secondary" size="sm" onClick={close}>
             {t(lang, "cancel")}
           </Button>
@@ -150,7 +156,7 @@ function RouteBar({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
       <Button variant="secondary" size="xs" onClick={fi.detectColumns} disabled={fi.busy}>
         {t(lang, "forecastImportDetect")}
       </Button>
-      {fi.step === "preview" && fi.route === "hand" && (
+      {fi.step === "preview" && (
         <Button variant="secondary" size="xs" onClick={fi.editMapping} disabled={fi.busy}>
           {t(lang, "forecastImportEditColumns")}
         </Button>
@@ -247,11 +253,13 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
 
 /** One notice per field more than one column could be, naming the candidates
  *  by header (or column letter), and the button that confirms the mapping as
- *  it stands. Choosing the field's column confirms it too. ★ In the Wide
- *  layout there is no hours or period select to choose from, so ONE notice
- *  asks to check the mapping instead (rr8 m2). One person's differing rows
- *  (round 9 I-W) name their columns and sample values in either layout; only
- *  the button accepts their sum. */
+ *  it stands. Choosing the field's column confirms it too, on the hand route.
+ *  ★ In the Wide layout there is no hours or period select to choose from, so
+ *  ONE notice asks to check the mapping instead (rr8 m2). One person's
+ *  differing rows (round 9 I-W) name their columns and sample values in either
+ *  layout; only the button accepts their sum. ★★ Claude's mapping opens with
+ *  its own notice and the button, with or without a question: only the press
+ *  confirms it. */
 function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
   const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
   // A header ambiguity names its candidate ROWS (1-based), in either layout.
@@ -259,8 +267,15 @@ function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: Forecas
     (a.field === "header" ? a.candidates.map((row) => String(row + 1)) : a.candidates.map(nameOf)).join(", ");
   const columns = fi.ambiguous.filter((a) => a.field === "hours" || a.field === "period");
   const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header" || a.field === "rows") : fi.ambiguous;
+  // The notes sit inside a sentence that ends with its own full stop.
+  const notesText = fi.notes.trim().replace(/[.!]+$/, "");
   return (
     <div className="space-y-2">
+      {fi.claudeUnconfirmed && (
+        <Banner severity="info">
+          {notesText === "" ? t(lang, "forecastImportClaudeProposedPlain") : t(lang, "forecastImportClaudeProposed", notesText)}
+        </Banner>
+      )}
       {layout === "wide" && columns.length > 0 && (
         <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide", wideNames(columns, nameOf))}</Banner>
       )}
@@ -291,12 +306,14 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   const columns = [...offered].sort((a, b) => a - b).map((col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
   const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, sheet));
   const none = t(lang, "forecastImportColNone");
-  const next = mappingOf(draft, sheet);
+  // ★★ Claude's mapping is previewed as it stands: rebuilt from the draft, a
+  // wide mapping would take every period header instead of Claude's columns.
+  const next = fi.route === "claude" && fi.mapping !== null ? fi.mapping : mappingOf(draft, sheet);
   const periodLabels = (next.periodCols ?? []).map((c) => header[c]).join(", ");
   return (
     <section className="space-y-3">
-      {!fi.layoutDetected && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
-      {fi.ambiguous.length > 0 && <AmbiguityNotice lang={lang} fi={fi} header={header} layout={draft.layout} />}
+      {!fi.layoutDetected && fi.route === "hand" && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
+      {(fi.ambiguous.length > 0 || fi.claudeUnconfirmed) && <AmbiguityNotice lang={lang} fi={fi} header={header} layout={draft.layout} />}
       <SegmentedControl
         ariaLabel={t(lang, "forecastImportLayout")}
         value={draft.layout}

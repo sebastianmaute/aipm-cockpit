@@ -14,6 +14,7 @@ import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { AiHttpError } from "./ai-errors";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { buildZip } from "./zip";
+import { gridToForecastRows } from "./budget-import/forecast-rows";
 import { forecastImportErrorOf, useForecastImport, wideMappingFor, type ForecastImportDeps } from "./use-forecast-import";
 
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
@@ -74,8 +75,32 @@ async function loaded(deps: ForecastImportDeps, text = WIDE_CSV) {
 function claudeResponds(input: unknown) {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue({
     ok: true,
-    json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input }] }),
+    json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_mapping", input }] }),
   } as unknown as Response);
+}
+
+/** WIDE_CSV's columns as Claude names them: Name in A, the months in B–D. */
+const WIDE_MAPPING = { layout: "wide", headerRow: 1, person: "A", periodCols: ["B", "C", "D"] };
+
+type Hook = { current: ReturnType<typeof useForecastImport> };
+
+async function askClaudeNow(result: Hook): Promise<void> {
+  await act(async () => {
+    await result.current.askClaude();
+  });
+}
+
+function applyOutcome(result: Hook): string | undefined {
+  let outcome: string | undefined;
+  act(() => {
+    outcome = result.current.apply();
+  });
+  return outcome;
+}
+
+function hoursWrittenBy(deps: ForecastImportDeps) {
+  const [next] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[]];
+  return next[0].allocations[0].budgetHours;
 }
 
 beforeEach(() => stubSettings(AI_ON));
@@ -225,12 +250,11 @@ describe("useForecastImport — moving between steps", () => {
   });
 
   it("Detect columns returns from the Claude route to the detected columns", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" }], notes: "n" });
+    claudeResponds({ ...WIDE_MAPPING, periodCols: ["B"], notes: "n" });
     const { result } = await loaded(depsOf());
-    await act(async () => {
-      await result.current.askClaude();
-    });
+    await askClaudeNow(result);
     expect(result.current.route).toBe("claude");
+    expect(result.current.mapping?.periodCols).toEqual([1]);
     act(() => result.current.detectColumns());
     expect(result.current.route).toBe("hand");
     expect(result.current.notes).toBe("");
@@ -489,113 +513,87 @@ describe("useForecastImport — the Claude route", () => {
     // A plain function component (no hooks), called directly: this file is .ts, not .tsx.
     const wrapper = ({ children }: { children: ReactNode }) =>
       ActionGuidesProvider({ value: { guides: [guide], groundInGuides: true, ready: true }, children });
-    const fetchSpy = claudeResponds({ rows: [] });
+    const fetchSpy = claudeResponds(WIDE_MAPPING);
     const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: depsOf(), wrapper });
     await act(async () => {
       await hook.result.current.loadFile(csvFile(WIDE_CSV));
     });
-    await act(async () => {
-      await hook.result.current.askClaude();
-    });
+    await askClaudeNow(hook.result);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain("Hours are per month, never per week.");
   });
 
-  // §500 fix wave 2 (CR I4): a reply that skips rows no longer looks complete.
-  it("lists the cells a reply did not read, and nothing on the hand route", async () => {
-    claudeResponds({
-      rows: [
-        { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
-        { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
-      ],
-    });
+  it("opens the mapping step with Claude's mapping as the draft and its notes", async () => {
+    const fetchSpy = claudeResponds({ ...WIDE_MAPPING, periodCols: ["B", "C"], notes: "Mar is a total." });
     const { result } = await loaded(depsOf());
-    expect(result.current.unread).toEqual({ cells: [], rows: [] });
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.unread).toEqual({ cells: ["forecast!D2"], rows: [] });
-  });
-
-  it("validates Claude's rows with sources required: a source-less row is rejected", async () => {
-    const fetchSpy = claudeResponds({
-      rows: [
-        { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
-        { person: "Ann Lee", period: "Feb 2026", hours: 20 },
-      ],
-      notes: "Skipped the Mar column.",
-    });
-    const { result } = await loaded(depsOf());
-    await act(async () => {
-      await result.current.askClaude();
-    });
+    expect(result.current.step).toBe("preview");
+    await askClaudeNow(result);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeNull();
     expect(result.current.route).toBe("claude");
-    expect(result.current.step).toBe("preview");
-    expect(result.current.importPlan?.changes.map((c) => c.period)).toEqual(["2026-01"]);
-    expect(result.current.rejected).toHaveLength(1);
-    expect(result.current.rejected[0].reason).toBe("source");
-    expect(result.current.notes).toBe("Skipped the Mar column.");
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.mapping).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2], year: 2026 });
+    expect(result.current.notes).toBe("Mar is a total.");
+    expect(result.current.claudeUnconfirmed).toBe(true);
+    expect(result.current.sample.map((r) => r.period)).toEqual(["2026-01", "2026-02"]);
   });
 
-  it("reads a Claude row under a year-less header in the bucket's start year", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan", hours: 10, source: "forecast!B2" }] });
+  it("reads year-less headers in the bucket's start year when Claude names no year", async () => {
+    claudeResponds({ ...WIDE_MAPPING, periodCols: ["B"] });
     const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mar\r\nAnn Lee,10,20,30\r\n");
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toEqual([]);
+    await askClaudeNow(result);
+    expect(result.current.mapping?.year).toBe(2026);
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 10]]);
     expect(result.current.assumedYear).toEqual({ year: 2026, rolled: false });
   });
 
-  // §500 fix wave 2 (CR minor 9): ONE year value feeds detection, the hand
-  // route and the Claude validator — a cleared year field means "no default
-  // year" on both routes.
+  it("reads them in Claude's year when it names one", async () => {
+    claudeResponds({ ...WIDE_MAPPING, periodCols: ["B"], year: 2027 });
+    const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mar\r\nAnn Lee,10,20,30\r\n");
+    await askClaudeNow(result);
+    expect(result.current.sample.map((r) => r.period)).toEqual(["2027-01"]);
+  });
+
+  // §500 fix wave 2 (CR minor 9): ONE year value feeds detection and the
+  // mapping — a cleared year field means "no default year" on both routes.
   it("a cleared year field reads no year-less header on either route", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan", hours: 10, source: "forecast!B2" }] });
+    claudeResponds({ ...WIDE_MAPPING, periodCols: ["B"] });
     const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mar\r\nAnn Lee,10,20,30\r\n");
     expect(result.current.assumedYear).toEqual({ year: 2026, rolled: false });
     act(() => result.current.setMapping(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, undefined)));
     expect(result.current.sample).toEqual([]);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected.map((r) => r.reason)).toEqual(["period"]);
+    await askClaudeNow(result);
+    expect(result.current.mapping?.year).toBeUndefined();
+    expect(result.current.sample).toEqual([]);
     expect(result.current.assumedYear).toBeUndefined();
     act(() => result.current.detectColumns());
     expect(result.current.layoutDetected).toBe(false);
     expect(result.current.mapping?.year).toBeUndefined();
   });
 
-  // Reviewer probe (§500 final review): an email the model put on Ann's row
-  // matched Bob first and sent Ann's hours to him.
-  it("never lets a model-supplied email re-route a row's hours to another resource", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", email: "bob@corp", period: "Jan 2026", hours: 10, source: "forecast!B2" }] });
-    const bob: Resource = { ...BOB, email: "bob@corp" };
-    const { result } = await loaded(depsOf({ resources: [ANN, bob] }));
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toEqual([]);
-    expect(result.current.importPlan?.addResources).toEqual([{ alloc: { kind: "role", roleId: ROLE.id }, resourceIds: [ANN.id] }]);
-  });
-
-  it("refuses a reply cut off at the output budget with the too-large message", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  it.each([
+    ["a mapping it cannot use", () => claudeResponds({ ...WIDE_MAPPING, periodCols: ["Z"] }), { key: "forecastImportErrorBadMapping" }],
+    ["a reply cut off at the output budget", () => vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
-      json: async () => ({
-        stop_reason: "max_tokens",
-        content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [] } }],
-      }),
-    } as unknown as Response);
-    const { result } = await loaded(depsOf());
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.error).toEqual({ key: "forecastImportErrorTooLargeForClaude" });
+      json: async () => ({ stop_reason: "max_tokens", content: [{ type: "tool_use", name: "propose_forecast_mapping", input: WIDE_MAPPING }] }),
+    } as unknown as Response), { key: "forecastImportErrorTooLargeForClaude" }],
+    ["an HTTP error", () => vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false, status: 500, json: async () => ({ error: { type: "api_error", message: "Overloaded" } }),
+    } as unknown as Response), { message: "Overloaded" }],
+  ])("shows an error for %s and leaves the hand route usable", async (_label, respond, error) => {
+    respond();
+    const deps = depsOf();
+    const { result } = await loaded(deps);
+    await askClaudeNow(result);
+    expect(result.current.error).toEqual(error);
     expect(result.current.route).toBe("hand");
+    expect(result.current.step).toBe("preview");
+    act(() => result.current.detectColumns());
+    expect(result.current.error).toBeNull();
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 10, "2026-02": 20, "2026-03": 30 });
   });
 
   it("does nothing when AI is off", async () => {
@@ -603,24 +601,22 @@ describe("useForecastImport — the Claude route", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { result } = await loaded(depsOf());
     expect(result.current.aiAvailable).toBe(false);
-    await act(async () => {
-      await result.current.askClaude();
-    });
+    await askClaudeNow(result);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.current.route).toBe("hand");
   });
 
-  it("maps an oversized sheet to the too-large message without a request", async () => {
+  it("maps an oversized sheet to the too-large message without a request, and the hand route stays", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
     const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
     const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
-    await act(async () => {
-      await result.current.askClaude();
-    });
+    await askClaudeNow(result);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.current.error).toEqual({ key: "forecastImportErrorTooLargeForClaude" });
     expect(result.current.busy).toBe(false);
+    expect(result.current.route).toBe("hand");
+    expect(result.current.step).toBe("preview");
   });
 
   it("cancel aborts the in-flight call and sets no error", async () => {
@@ -651,6 +647,7 @@ describe("useForecastImport — the Claude route", () => {
 describe("forecastImportErrorOf", () => {
   it("maps each failure to its message, and an abort to none", () => {
     expect(forecastImportErrorOf(new Error("too-large"))).toEqual({ key: "forecastImportErrorTooLargeForClaude" });
+    expect(forecastImportErrorOf(new Error("bad-mapping"))).toEqual({ key: "forecastImportErrorBadMapping" });
     expect(forecastImportErrorOf(new AiHttpError(429))).toEqual({ key: "aiUsageLimitReached" });
     expect(forecastImportErrorOf(new AiHttpError(401))).toEqual({ key: "aiKeyRejected" });
     expect(forecastImportErrorOf(new AiHttpError(500, "api_error", "Overloaded"))).toEqual({ message: "Overloaded" });
@@ -792,311 +789,185 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     expect(result.current.ambiguous).toEqual([]);
   });
 
-  // Fix 8 (owner decision 2026-10-13): the Claude route waits for the columns
-  // too. It was ungated before, and its evidence rules decided such sheets.
-  it("refuses every Claude claim until the columns are confirmed, then checks it against them", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }] });
-    const deps = depsOf();
-    const { result } = await loaded(deps, PLAN_IST);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.route).toBe("claude");
-    expect(result.current.ambiguous).toEqual([]);
-    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "columns-unconfirmed" }]);
-    expect(applyNow(result)).toBe("refused");
-    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
-    act(() => result.current.editMapping());
-    act(() => result.current.confirmColumns());
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toEqual([]);
-    expect(applyNow(result)).toBe("applied");
-    expect(hoursWritten(deps)).toEqual({ "2026-01": 40 });
-  });
-
-  it("back on the hand route after Claude, the columns still wait for confirmation", async () => {
-    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }] });
-    const deps = depsOf();
-    const { result } = await loaded(deps, PLAN_IST);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    act(() => result.current.editMapping());
-    act(() => result.current.showPreview());
-    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
-    expect(applyNow(result)).toBe("refused");
-  });
 });
 
-// Fix 8: the Claude route reads the columns the user confirmed or edited. A
-// title row's dates over the hours column are a period source of their own
-// (U), so a confirmed reading (H) that disagrees with them is still refused.
-describe("useForecastImport — the Claude route checks claims against the confirmed columns (fix 8)", () => {
-  type Hook = { current: ReturnType<typeof useForecastImport> };
-  const claudeRepliesInOrder = (...replies: unknown[][]) => {
-    const spy = vi.spyOn(globalThis, "fetch");
-    for (const rows of replies) {
-      spy.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
-      } as unknown as Response);
-    }
-    return spy;
-  };
-  const ask = async (result: Hook) => {
-    await act(async () => {
-      await result.current.askClaude();
-    });
-  };
-  const confirmed = async (result: Hook) => {
-    act(() => result.current.editMapping());
-    act(() => result.current.confirmColumns());
-    await ask(result);
-  };
-  const details = (result: Hook) => result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
-  const changes = (result: Hook) => result.current.importPlan?.changes.map((c) => [c.period, c.next]);
-  const ann = (period: string, hours: number, source: string) => ({ person: "Ann Lee", period, hours, source });
+// Claude sets the mapping (owner decision 2026-10-13): its mapping is the
+// draft of the mapping step, the hand reader imports with it, and Apply waits
+// for an explicit "These columns are right" press on any layout. An edit is no
+// such press. Every question detection raises is asked of the mapping IN
+// EFFECT, Claude's or the user's edit of it.
+describe("useForecastImport — Claude's mapping waits for the user's press", () => {
+  const PLAN_IST = "Name,Monat,Stunden,Ist\r\nAnn Lee,Jan 2026,40,35\r\nAnn Lee,Feb 2026,30,25\r\n";
+  const STUNDEN = { layout: "long", headerRow: 1, person: "A", period: "B", hours: "C" };
 
-  const Q1 = "Projekt Alpha,Forecast,01.01.2026,31.03.2026\r\nName,Monat,Plan,Ist\r\n"
-    + "Ann Lee,01.01.2026,40,35\r\nAnn Lee,01.02.2026,30,25\r\nAnn Lee,01.03.2026,20,15\r\n";
-  const MONTH = "Projekt,Alpha,01.01.2026,31.01.2026\r\nName,Datum,Plan,Ist\r\nAnn Lee,15.01.2026,40,35\r\n";
-  const keyValue = (hours: string, actuals: string) => `Erstellt von,Max,01.03.2026,Stand,02.03.2026\r\nName,Monat,${hours},Bemerkung,${actuals}\r\n`
-    + "Ann Lee,Jan 2026,40,,35\r\nAnn Lee,Feb 2026,30,,25\r\n";
-
-  it("Projekt Alpha | Forecast | Q1: nothing before the columns are confirmed, then January's cell only, never 90", async () => {
-    const allJan = [ann("Jan 2026", 40, "forecast!C3"), ann("Jan 2026", 30, "forecast!C4"), ann("Jan 2026", 20, "forecast!C5")];
-    claudeRepliesInOrder(allJan, allJan, [ann("Feb 2026", 40, "forecast!C3")]);
-    const { result } = await loaded(depsOf(), Q1);
-    await ask(result);
-    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
-    expect(changes(result)).toEqual([]);
-    await confirmed(result);
-    expect(changes(result)).toEqual([["2026-01", 40]]);
-    expect(details(result)).toEqual(["period-conflict", "period-conflict"]);
-    // A wrong month for the one cell every source agrees on is still refused.
-    await ask(result);
-    expect(changes(result)).toEqual([]);
-    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-01" } }]);
-  });
-
-  // Round 3: the confirmed columns read Plan; the Ist cell is not read.
-  it("Projekt | Alpha | 01.01. | 31.01. over Datum | Plan | Ist: confirmed, the Ist cell is refused and Plan is written, never 75", async () => {
-    const both = [ann("Jan 2026", 40, "forecast!C3"), ann("Jan 2026", 35, "forecast!D3")];
-    claudeRepliesInOrder(both, both);
+  it("Apply is refused until the press, though the mapping raises no question", async () => {
+    claudeResponds(WIDE_MAPPING);
     const deps = depsOf();
-    const { result } = await loaded(deps, MONTH);
-    await ask(result);
-    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
-    await confirmed(result);
-    expect(details(result)).toEqual(["cell-not-read"]);
-    expect(result.current.subPeriods).toEqual([]);
-    expect(result.current.collisions).toEqual([]);
-    expect(changes(result)).toEqual([["2026-01", 40]]);
-    let outcome: string | undefined;
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("applied");
-  });
-
-  it("Erstellt von | Max | 01.03.2026 over Plan | Bemerkung | Ist: confirmed, the title's March refuses every month, and no March for January", async () => {
-    const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
-    claudeRepliesInOrder(reply, reply, [ann("Mar 2026", 40, "forecast!C3")]);
-    const { result } = await loaded(depsOf(), keyValue("Plan", "Ist"));
-    await ask(result);
-    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
-    await confirmed(result);
-    expect(changes(result)).toEqual([]);
-    expect(result.current.rejected).toMatchObject([
-      { detail: "period-conflict", periods: { sheet: "2026-01", header: "2026-03" } },
-      { detail: "period-conflict", periods: { sheet: "2026-02", header: "2026-03" } },
-    ]);
-    await ask(result);
-    expect(changes(result)).toEqual([]);
-    expect(details(result)).toEqual(["period-conflict"]);
-  });
-
-  // Round 9 I-D: the hours word preselects Ist-Stunden again (round 8 took
-  // Forecast), so after confirming as preselected the Forecast cells Claude
-  // cites are not read.
-  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the Forecast cells are not read", async () => {
-    const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
-    claudeRepliesInOrder(reply, reply);
-    const { result } = await loaded(depsOf(), keyValue("Forecast", "Ist-Stunden"));
-    await ask(result);
-    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
-    await confirmed(result);
-    expect(changes(result)).toEqual([]);
-    expect(details(result)).toEqual(["cell-not-read", "cell-not-read"]);
-  });
-
-  // A clear long sheet: detection reads Monat; the user moves the period to Start.
-  const START = "Name,Start,Monat,Stunden\r\nAnn Lee,01.03.2026,Jan 2026,40\r\nAnn Lee,01.03.2026,Feb 2026,30\r\n";
-
-  it("an edited mapping is the reading the claim is checked against: the hours cell's old month is refused", async () => {
-    claudeRepliesInOrder([ann("Jan 2026", 40, "forecast!D2")], [ann("Mar 2026", 40, "forecast!D2")]);
-    const { result } = await loaded(depsOf(), START);
+    const { result } = await loaded(deps);
+    await askClaudeNow(result);
     expect(result.current.ambiguous).toEqual([]);
-    act(() => result.current.setMapping({ ...result.current.mapping!, period: 1 }));
-    await ask(result);
-    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-03" } }]);
-    expect(changes(result)).toEqual([]);
-    await ask(result);
-    expect(result.current.rejected).toEqual([]);
-    expect(changes(result)).toEqual([["2026-03", 40]]);
+    expect(result.current.claudeUnconfirmed).toBe(true);
+    act(() => result.current.showPreview());
+    expect(result.current.step).toBe("preview");
+    expect(result.current.route).toBe("claude");
+    expect(applyOutcome(result)).toBe("refused");
+    expect(result.current.error).toEqual({ key: "forecastImportConfirmClaudeFirst" });
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 
-  it("without the edit, the detection's reading decides", async () => {
-    claudeRepliesInOrder([ann("Jan 2026", 40, "forecast!D2")]);
-    const { result } = await loaded(depsOf(), START);
-    await ask(result);
-    expect(result.current.rejected).toEqual([]);
-    expect(changes(result)).toEqual([["2026-01", 40]]);
+  it("an edit of a field is no press: Apply stays refused", async () => {
+    claudeResponds(STUNDEN);
+    const deps = depsOf();
+    const { result } = await loaded(deps, "Name,Monat,Stunden\r\nAnn Lee,Jan 2026,40\r\n");
+    await askClaudeNow(result);
+    act(() => result.current.setMapping({ ...result.current.mapping!, year: 2027 }));
+    act(() => result.current.setMapping({ ...result.current.mapping!, hours: 2 }));
+    expect(result.current.route).toBe("claude");
+    expect(result.current.claudeUnconfirmed).toBe(true);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("after the press, Apply writes exactly what the hand reader reads with that mapping", async () => {
+    claudeResponds({ ...WIDE_MAPPING, periodCols: ["B", "D"] });
+    const deps = depsOf();
+    const { result } = await loaded(deps);
+    await askClaudeNow(result);
+    act(() => result.current.confirmColumns());
+    expect(result.current.claudeUnconfirmed).toBe(false);
+    act(() => result.current.showPreview());
+    const read = gridToForecastRows(result.current.sheets[0].rows, result.current.mapping!, "forecast").rows;
+    expect(read.map((r) => [r.period, r.hours])).toEqual([["2026-01", 10], ["2026-03", 30]]);
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 10, "2026-03": 30 });
+  });
+
+  it("an edit after the press asks for the press again", async () => {
+    claudeResponds(WIDE_MAPPING);
+    const deps = depsOf();
+    const { result } = await loaded(deps);
+    await askClaudeNow(result);
+    act(() => result.current.confirmColumns());
+    expect(result.current.claudeUnconfirmed).toBe(false);
+    // A copy of the confirmed mapping is no edit; a changed column is.
+    act(() => result.current.setMapping(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, 2026)));
+    expect(result.current.claudeUnconfirmed).toBe(false);
+    act(() => result.current.setMapping({ ...result.current.mapping!, periodCols: [1, 2] }));
+    expect(result.current.claudeUnconfirmed).toBe(true);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("Claude's Ist column on Name | Monat | Stunden | Ist is shown, named in the hours question, and nothing is written before the press", async () => {
+    claudeResponds({ ...STUNDEN, hours: "D" });
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    await askClaudeNow(result);
+    expect(result.current.mapping).toMatchObject({ layout: "long", hours: 3 });
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(result.current.sample.map((r) => r.hours)).toEqual([35, 25]);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    // The user moves the hours to Stunden: still no press, still nothing written.
+    act(() => result.current.setMapping({ ...result.current.mapping!, hours: 2 }));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    // One press confirms the mapping and its open question.
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 40, "2026-02": 30 });
+  });
+
+  it("raises the rows question against Claude's mapping on Name | Art | months", async () => {
+    claudeResponds({ layout: "wide", headerRow: 1, person: "A", periodCols: ["C", "D"] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, "Name,Art,Jan 2026,Feb 2026\r\nAnn Lee,Plan,50,40\r\nAnn Lee,Ist,43,30\r\n");
+    await askClaudeNow(result);
+    expect(result.current.ambiguous).toEqual([{ field: "rows", candidates: [1], samples: ["Plan", "Ist"] }]);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("asks the rows and header questions of a person column detection did not choose", async () => {
+    // Detection takes Name as the person and asks nothing; Claude names Team.
+    const csv = "Team,Name,Jan 2026,Feb 2026\r\nCore,Ann Lee,50,40\r\nCore,Bob Ray,43,30\r\nTeam,Lead,,\r\nOps,Cid Fox,10,10\r\n";
+    claudeResponds({ layout: "wide", headerRow: 1, person: "A", periodCols: ["C", "D"] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, csv);
+    expect(result.current.mapping?.person).toBe(1);
+    expect(result.current.step).toBe("preview");
+    expect(result.current.ambiguous).toEqual([]);
+    await askClaudeNow(result);
+    expect(result.current.mapping?.person).toBe(0);
+    expect(result.current.ambiguous.map((a) => a.field)).toEqual(["header", "rows"]);
+    expect(result.current.ambiguous).toContainEqual({ field: "rows", candidates: [1], samples: ["Ann Lee", "Bob Ray"] });
+    expect(result.current.ambiguous).toContainEqual({ field: "header", candidates: [0, 3] });
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("Detect columns leaves Claude's mapping for the hand route's own detection and questions", async () => {
+    claudeResponds({ ...STUNDEN, hours: "D" });
+    const { result } = await loaded(depsOf(), PLAN_IST);
+    await askClaudeNow(result);
+    act(() => result.current.confirmColumns());
+    act(() => result.current.detectColumns());
+    expect(result.current.route).toBe("hand");
+    expect(result.current.claudeUnconfirmed).toBe(false);
+    expect(result.current.mapping).toMatchObject({ layout: "long", hours: 2 });
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 });
 
 // Round 2 (controller ruling on concern 1): a metadata row over a long sheet's
 // Monat | Stunden | Ist reads as a wide header; its rows' own Monat column now
-// makes that reading ask, on both routes.
+// makes that reading ask.
 describe("useForecastImport — a wide reading whose rows hold their own period column waits (round 2)", () => {
   const METADATA = [
     "Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
     "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cem Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", "",
   ].join("\r\n");
 
-  it("gates the hand route and refuses Claude, then reads the hours the user picked", async () => {
-    claudeResponds({ rows: [
-      { person: "Ann Lee", period: "Jan 2026", hours: 35, source: "forecast!D3" },
-      { person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" },
-    ] });
+  it("gates the hand route, then reads the hours the user picked", async () => {
     const deps = depsOf();
     const { result } = await loaded(deps, METADATA);
     expect(result.current.step).toBe("mapping");
     expect(result.current.mapping).toMatchObject({ layout: "wide", headerRow: 0 });
     expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
     act(() => result.current.showPreview());
-    let outcome: string | undefined;
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("refused");
+    expect(applyOutcome(result)).toBe("refused");
     expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
-    expect(result.current.importPlan?.changes).toEqual([]);
     // The user maps it as the long sheet it is and confirms: Stunden, never Ist or their sum.
     act(() => result.current.setMapping({ layout: "long", headerRow: 1, person: 0, period: 1, hours: 2, year: 2026 }));
     act(() => result.current.confirmColumns());
     act(() => result.current.showPreview());
     const written = result.current.importPlan?.changes.map((c) => [c.period, c.next]);
     expect(written).toEqual([["2026-01", 40], ["2026-02", 40]]);
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("applied");
+    expect(applyOutcome(result)).toBe("applied");
     expect(deps.onChangeBuckets).toHaveBeenCalledTimes(1);
   });
 });
 
-// Round 3: after the user confirms the long mapping, Claude may cite only the
-// cells that mapping reads.
-describe("useForecastImport — Claude must cite a cell the confirmed columns read (round 3)", () => {
-  it("refuses Ann's Ist cell as cell-not-read and writes her Stunden", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [
-        { person: "Ann Lee", period: "Jan 2026", hours: 35, source: "forecast!D3" },
-        { person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C3" },
-      ] } }] }),
-    } as unknown as Response);
-    const csv = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
-      "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cem Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
-    const { result } = await loaded(depsOf(), csv);
-    act(() => result.current.setMapping({ layout: "long", headerRow: 1, person: 0, period: 1, hours: 2, year: 2026 }));
-    act(() => result.current.confirmColumns());
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "cell-not-read" }]);
-    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
-  });
-});
-
 // Fix 9 I-1 (rr9 H5): with an "offen" in the Monat column the sheet once opened
-// straight on the preview, and Claude's February Ist cells were applied as January.
+// straight on the preview, and February Ist cells were applied as January.
 describe("useForecastImport — one placeholder does not switch the row-period question off (fix 9 I-1)", () => {
-  it("gates the sheet on the hand route and refuses Claude's claims", async () => {
-    claudeResponds({ rows: [
-      { person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" },
-      { person: "Dora Li", period: "Jan 2026", hours: 35, source: "forecast!D6" },
-    ] });
+  it("gates the sheet on the hand route", async () => {
     const csv = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist", "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35",
       "Cid Ott,offen,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
     const deps = depsOf();
     const { result } = await loaded(deps, csv);
     expect(result.current.step).toBe("mapping");
     expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
-    expect(result.current.importPlan?.changes).toEqual([]);
-    let outcome: string | undefined;
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("refused");
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
-  });
-});
-
-// Fix 9 I-2 (rr9 H1b): on an unknown layout, "Show preview" with nothing
-// changed passes a fresh copy of the default mapping. Compared by reference,
-// it counted as an edit and made the default mapping H, so Bob's March row was
-// written as February. An edit is a change of a mapping VALUE.
-describe("useForecastImport — only a changed value is an edited mapping (fix 9 I-2)", () => {
-  const UNKNOWN = ["Forecast Q1,Jan 2026,Feb 2026,Mar 2026", ...Array.from({ length: 10 }, () => ""),
-    "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Bob Ray,Mar 2026,40", ""].join("\r\n");
-  const bobAsFebruary = { rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 40, source: "forecast!C14" }] };
-
-  it("a no-op Show preview leaves an unknown layout without a hand reading: Bob's March as February is refused", async () => {
-    claudeResponds(bobAsFebruary);
-    const { result } = await loaded(depsOf(), UNKNOWN);
-    expect(result.current.layoutDetected).toBe(false);
-    act(() => result.current.showPreview({ ...result.current.mapping! }));
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { row: "2026-03", header: "2026-02" } }]);
-    expect(result.current.importPlan?.changes).toEqual([]);
-  });
-
-  // Round 5 ruling 2: the year value is no column. Changing it alone on an
-  // unknown layout leaves the sheet without a hand reading.
-  it("a year-only edit leaves an unknown layout without a hand reading", async () => {
-    claudeResponds(bobAsFebruary);
-    const { result } = await loaded(depsOf(), UNKNOWN);
-    act(() => result.current.setMapping({ ...result.current.mapping!, year: 2027 }));
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { row: "2026-03", header: "2026-02" } }]);
-    expect(result.current.importPlan?.changes).toEqual([]);
-  });
-
-  it("a real edit still makes the mapping the hand reading", async () => {
-    claudeResponds(bobAsFebruary);
-    const { result } = await loaded(depsOf(), UNKNOWN);
-    act(() => result.current.setMapping({ layout: "long", headerRow: 11, person: 0, period: 1, hours: 2, year: 2026 }));
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-03", header: "2026-02" } }]);
-    expect(result.current.importPlan?.changes).toEqual([]);
   });
 });
 
@@ -1143,14 +1014,13 @@ describe("useForecastImport — more than one header row waits for the user (fix
 
 // Fix 9 m-a (rr9 H2): a confirmation belongs to a (layout, field) pair and to
 // the column it confirmed. Choosing the period in Long once also cleared the
-// Wide reading's question, and Claude's Bob February Ist claim was applied as
-// January after the user flipped back to Wide.
+// Wide reading's question, so flipping back to Wide applied the very reading
+// that was questioned.
 describe("useForecastImport — a confirmation belongs to its layout and column (fix 9 m-a)", () => {
   const METADATA = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
     "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cid Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
 
-  it("flipping back to the questioned Wide reading re-arms its question, and Claude's claim is refused", async () => {
-    claudeResponds({ rows: [{ person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" }] });
+  it("flipping back to the questioned Wide reading re-arms its question, and Apply is refused", async () => {
     const deps = depsOf();
     const { result } = await loaded(deps, METADATA);
     const wide = result.current.mapping!;
@@ -1161,11 +1031,9 @@ describe("useForecastImport — a confirmation belongs to its layout and column 
     expect(result.current.ambiguous).toEqual([]);
     act(() => result.current.setMapping({ ...wide }));
     expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed"]);
-    expect(result.current.importPlan?.changes).toEqual([]);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 
   it("a chosen hours column reset by a layout round-trip waits for confirmation again", async () => {
@@ -1183,27 +1051,15 @@ describe("useForecastImport — a confirmation belongs to its layout and column 
   });
 });
 
-// Round 7 I-A (rr10 U1): after confirming Stunden, Claude's Ist cell on Bob's
-// blank-forecast row was applied as his February forecast (25).
+// Round 7 I-A (rr10 U1): after confirming Stunden, the Ist cell on Bob's
+// blank-forecast row was once applied as his February forecast (25).
 describe("useForecastImport — a blank forecast row's Ist is never applied (round 7 I-A)", () => {
-  it("refuses Bob's Ist claim as cell-not-read and applies nothing", async () => {
-    claudeResponds({ rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 25, source: "forecast!D3" }] });
-    const deps = depsOf();
+  it("reads nothing from Bob's blank Stunden cell once the Stunden column is confirmed", async () => {
     const csv = "Name,Monat,Stunden,Ist\r\nAnn Lee,Jan 2026,40,35\r\nBob Ray,Feb 2026,,25\r\nCid Fox,Jan 2026,30,28\r\nDora Kim,Feb 2026,20,18\r\n";
-    const { result } = await loaded(deps, csv);
+    const { result } = await loaded(depsOf(), csv);
     expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
     act(() => result.current.confirmColumns());
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "cell-not-read" }]);
-    expect(result.current.importPlan?.changes).toEqual([]);
-    let outcome: string | undefined;
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("refused");
-    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    expect(result.current.sample.map((r) => [r.person, r.hours])).toEqual([["Ann Lee", 40], ["Cid Fox", 30], ["Dora Kim", 20]]);
   });
 });
 
@@ -1217,29 +1073,6 @@ describe("useForecastImport — placeholders in the hours column ask (round 7 I-
     expect(result.current.step).toBe("mapping");
     expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
     act(() => result.current.showPreview());
-    let outcome: string | undefined;
-    act(() => {
-      outcome = result.current.apply();
-    });
-    expect(outcome).toBe("refused");
-    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
-  });
-});
-
-// Round 8 I-C (rr11 D2): on an unknown layout, Claude's Ist 25 beside Bob's
-// blank forecast was applied as his February forecast.
-describe("useForecastImport — an unknown layout's second number column refuses the Ist (round 8 I-C)", () => {
-  it("refuses Bob's Ist 25 as row-ambiguous and applies nothing", async () => {
-    claudeResponds({ rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 25, source: "forecast!D13" }] });
-    const deps = depsOf();
-    const csv = [...Array.from({ length: 10 }, () => ""), "Name,Monat,Stunden,Ist", "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,,25", ""].join("\r\n");
-    const { result } = await loaded(deps, csv);
-    expect(result.current.layoutDetected).toBe(false);
-    await act(async () => {
-      await result.current.askClaude();
-    });
-    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "row-ambiguous" }]);
-    expect(result.current.importPlan?.changes).toEqual([]);
     let outcome: string | undefined;
     act(() => {
       outcome = result.current.apply();
@@ -1291,9 +1124,9 @@ describe("useForecastImport — FTE | Stunden confirms the Stunden hours (round 
 });
 
 // Round 9 I-W (rr12): one person on several rows that differ in a text column
-// (Plan and Ist) was summed on both routes, unasked. The hand route is gated
-// and the Claude route refuses `columns-unconfirmed` until confirmed; once
-// confirmed, the sum is applied and shown.
+// (Plan and Ist) was summed on both routes, unasked. Both routes ask it of the
+// mapping in effect, detection's or Claude's; once confirmed, the sum is
+// applied and shown.
 describe("useForecastImport — one person, rows that differ in a text column (round 9 I-W)", () => {
   type Hook = { current: ReturnType<typeof useForecastImport> };
   const str = (ref: string, text: string) => `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
@@ -1331,34 +1164,18 @@ describe("useForecastImport — one person, rows that differ in a text column (r
     return next[0].allocations[0].budgetHours;
   };
   const changes = (result: Hook) => result.current.importPlan?.changes.map((c) => [c.period, c.next]) ?? [];
-  const details = (result: Hook) => result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
-  const ann = (period: string, hours: number, source: string) => ({ person: "Ann Lee", period, hours, source });
-  const replies = (...lists: unknown[][]) => {
-    const spy = vi.spyOn(globalThis, "fetch");
-    for (const rows of lists) {
-      spy.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
-      } as unknown as Response);
-    }
-  };
-  const ask = async (result: Hook) => {
-    await act(async () => {
-      await result.current.askClaude();
-    });
-  };
 
+  const wideMapping = { layout: "wide", headerRow: 1, person: "A", periodCols: ["C", "D"] };
+  const longMapping = { layout: "long", headerRow: 1, person: "A", period: "C", hours: "D" };
   const shapes = [
     { label: "wide CSV", kind: "csv", grid: [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"]],
-      claims: [ann("Jan 2026", 50, "forecast!C2"), ann("Feb 2026", 40, "forecast!D2"), ann("Jan 2026", 43, "forecast!C3"), ann("Feb 2026", 30, "forecast!D3")],
-      written: { "2026-01": 93, "2026-02": 70 } },
+      mapping: wideMapping, written: { "2026-01": 93, "2026-02": 70 } },
     { label: "wide serial", kind: "xlsx", grid: [["Name", "Art", "46023", "46054"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"]],
-      claims: [ann("Jan 2026", 50, "forecast!C2"), ann("Feb 2026", 40, "forecast!D2"), ann("Jan 2026", 43, "forecast!C3"), ann("Feb 2026", 30, "forecast!D3")],
-      written: { "2026-01": 93, "2026-02": 70 } },
+      mapping: wideMapping, written: { "2026-01": 93, "2026-02": 70 } },
     { label: "long CSV", kind: "csv", grid: [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "Jan 2026", "50"], ["Ann Lee", "Ist", "Jan 2026", "43"]],
-      claims: [ann("Jan 2026", 50, "forecast!D2"), ann("Jan 2026", 43, "forecast!D3")], written: { "2026-01": 93 } },
+      mapping: longMapping, written: { "2026-01": 93 } },
     { label: "long serial", kind: "xlsx", grid: [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "46023", "50"], ["Ann Lee", "Ist", "46023", "43"]],
-      claims: [ann("Jan 2026", 50, "forecast!D2"), ann("Jan 2026", 43, "forecast!D3")], written: { "2026-01": 93 } },
+      mapping: longMapping, written: { "2026-01": 93 } },
   ] as const;
 
   it.each(shapes)("$label, hand route: gated, nothing applied; confirmed, the sum is applied and shown", async ({ kind, grid, written }) => {
@@ -1378,17 +1195,19 @@ describe("useForecastImport — one person, rows that differ in a text column (r
     expect(hoursWritten(deps)).toEqual(written);
   });
 
-  it.each(shapes)("$label, Claude route: columns-unconfirmed until confirmed, then the sum", async ({ kind, grid, claims, written }) => {
-    replies([...claims], [...claims]);
+  it.each(shapes)("$label, Claude route: the rows question is asked of Claude's mapping; pressed, the sum", async ({ kind, grid, mapping, written }) => {
+    claudeResponds(mapping);
     const deps = depsOf();
     const { result } = await load(deps, grid, kind);
-    await ask(result);
-    expect(changes(result)).toEqual([]);
-    expect(details(result)).toEqual(claims.map(() => "columns-unconfirmed"));
-    act(() => result.current.editMapping());
+    await askClaudeNow(result);
+    expect(result.current.route).toBe("claude");
+    expect(result.current.ambiguous).toEqual([{ field: "rows", candidates: [1], samples: ["Plan", "Ist"] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
     act(() => result.current.confirmColumns());
-    await ask(result);
-    expect(details(result)).toEqual([]);
     expect(changes(result)).toEqual(Object.entries(written));
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual(written);
   });
 });

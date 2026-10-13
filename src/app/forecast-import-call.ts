@@ -1,24 +1,25 @@
 // ONE forced tool call for the forecast import's Claude route (§500): the model
-// reads a sheet and returns one row per person and period, each citing the cell
-// its hours came from. Mirrors raci-suggest-call.ts: no agentic loop, and the api
-// key goes to the shared never-log envelope only. The rows come back RAW — the
-// caller validates them with `validateForecastRows(…, { requireSource: true })`,
-// which is what makes a hallucinated row fail instead of reaching the plan.
+// reads a sheet and says WHERE its fields are — a column mapping in the prompt's
+// column letters and row numbers — never a value. Mirrors raci-suggest-call.ts:
+// no agentic loop, and the api key goes to the shared never-log envelope only.
+// ★★ The mapping is converted by `claudeMappingOf` and refused (`bad-mapping`)
+// when it cannot be used; the hand route's reader then imports with it, through
+// every question and refusal it has, and only after the user confirms it.
+import { claudeMappingOf } from "./budget-import/claude-mapping";
 import { columnLetters } from "./budget-import/forecast-rows";
+import type { ColumnMapping } from "./budget-import/forecast-types";
 import type { SheetGrid } from "./budget-import/sheet-grid";
 import { runForcedToolCallWithStop } from "./ai-forced-call";
 import { renderSheetMarkdown } from "./xlsx-extract";
 
-/** The reply's output budget. Each row the model returns costs about 35 output
- *  tokens, so 16,000 holds roughly 450 rows; a reply that reaches it stops with
- *  `stop_reason: "max_tokens"` and its tool input may be cut short, so such a
- *  reply is refused (`Error("too-large")`), never imported in part. */
-const MAX_TOKENS = 16_000;
+/** The reply's output budget: a mapping is a handful of letters and a note, so
+ *  2,000 tokens is ample. A reply that reaches it stops with `stop_reason:
+ *  "max_tokens"` and its tool input may be cut short, so such a reply is
+ *  refused (`Error("too-large")`), never used in part. */
+const MAX_TOKENS = 2_000;
 
-/** Non-blank cells a sheet may hold and still be sent. Bounds the prompt (context
- *  and cost) and, with it, how many rows the reply can owe: a sheet near this cap
- *  can still hold more hours cells than MAX_TOKENS can return, which the
- *  `max_tokens` refusal catches. Over it, `runForecastImportCall` throws
+/** Non-blank cells a sheet may hold and still be sent. Bounds the prompt
+ *  (context and cost). Over it, `runForecastImportCall` throws
  *  `Error("too-large")` before any request. */
 export const MAX_CLAUDE_IMPORT_CELLS = 4000;
 
@@ -28,55 +29,51 @@ export const MAX_CLAUDE_IMPORT_CELLS = 4000;
 export const MAX_CLAUDE_IMPORT_CHARS = 200_000;
 
 const SYSTEM =
-  "You read a project forecast spreadsheet and return one row per person and period with the hours planned. " +
-  "Copy values exactly as written; never compute, total or estimate. " +
-  "Every row must cite the cell its hours came from as Sheet!A1. " +
-  "Skip totals, subtotals and blank cells. If anything is ambiguous, leave it out and explain in notes.";
+  "You read a project forecast spreadsheet and say where its fields are; you never return values. " +
+  "Name the columns by their letters and the header row by its row number, as the sheet below shows them. " +
+  "Choose the planned or forecast hours, never actuals (Ist, booked, gebucht, logged). " +
+  "If the sheet holds several tables or blocks, map the forecast one and say so in notes. " +
+  "Explain your choice, and anything you are unsure of, in notes.";
 
-// The validator accepts only an UPPERCASE A1 cell, so the exact citation format
-// rides the schema descriptions rather than the fixed system prompt.
-export const FORECAST_ROWS_TOOL = {
-  name: "propose_forecast_rows",
+const letter = (description: string) => ({ type: "string" as const, description: `${description}, as its column letter (A, B, … AA)` });
+
+export const FORECAST_MAPPING_TOOL = {
+  name: "propose_forecast_mapping",
   description:
-    "Return the planned hours found in the spreadsheet, one row per person and period. " +
-    "Copy values exactly as written. Omit anything you are unsure of and say why in notes.",
+    "Say where the forecast's fields are in the spreadsheet: its layout, header row and columns. " +
+    "Return column letters and row numbers only, never values.",
   input_schema: {
     type: "object" as const,
     properties: {
-      rows: {
-        type: "array" as const,
-        items: {
-          type: "object" as const,
-          properties: {
-            person: { type: "string" as const, description: "The person exactly as written in the sheet" },
-            email: { type: "string" as const, description: "The person's email, only if the sheet shows one" },
-            period: {
-              type: "string" as const,
-              description: "The period exactly as written in the sheet's header or period cell",
-            },
-            hours: { type: "number" as const, description: "The planned hours, copied from the cell" },
-            rate: { type: "number" as const, description: "The hourly rate, only if the sheet shows one" },
-            source: {
-              type: "string" as const,
-              description:
-                "The cell the hours came from, as SheetName!A1 with an uppercase column letter, e.g. Sheet1!C7. " +
-                "Quote the sheet name in single quotes if it contains spaces: 'My Sheet'!C7.",
-            },
-          },
-          required: ["person", "period", "hours", "source"],
-        },
+      layout: {
+        type: "string" as const,
+        enum: ["wide", "long"],
+        description: "wide: one column per period, one row per person. long: one row per person and period",
       },
-      notes: { type: "string" as const, description: "Anything ambiguous you left out, and why" },
+      headerRow: { type: "integer" as const, description: "The header row, as its row number in the sheet (1 is the first row)" },
+      person: letter("The column naming the person"),
+      email: letter("The column holding the person's email, only if there is one"),
+      rate: letter("The column holding the hourly rate, only if there is one"),
+      periodCols: {
+        type: "array" as const,
+        items: { type: "string" as const },
+        description: "wide only: the column letters of the planned-hours period columns, never actuals",
+      },
+      period: letter("long only: the column naming the period"),
+      hours: letter("long only: the column of planned or forecast hours, never actuals"),
+      yearCol: letter("long only: a column holding each row's year, only if there is one"),
+      year: { type: "integer" as const, description: "The year for period labels written without one (Jan, KW03)" },
+      notes: { type: "string" as const, description: "Why you chose these columns, and anything you are unsure of" },
     },
-    required: ["rows"],
+    required: ["layout", "headerRow", "person"],
   },
 } as const;
 
-/** The sheet as a Markdown table the model can cite from: a `Sheet: <name>` line,
- *  a header of column letters (A, B, … AA) and a leading row-number column, so a
- *  value in column C of row 7 is `Name!C7`. Blank rows are skipped but keep their
- *  numbers. Rendered by the renderer `extractXlsx` uses, so the cell budget and
- *  the truncation marker are the same. */
+/** The sheet as a Markdown table the model can name fields in: a `Sheet: <name>`
+ *  line, a header of column letters (A, B, … AA) and a leading row-number
+ *  column, so a header in row 7 is row 7 and its third column is C. Blank rows
+ *  are skipped but keep their numbers. Rendered by the renderer `extractXlsx`
+ *  uses, so the cell budget and the truncation marker are the same. */
 export function sheetToPromptText(sheet: SheetGrid): string {
   const width = sheet.rows.reduce((max, r) => Math.max(max, r.length), 0);
   const header = ["", ...Array.from({ length: width }, (_, col) => columnLetters(col))];
@@ -90,11 +87,15 @@ function countNonBlankCells(sheet: SheetGrid): number {
   return sheet.rows.reduce((sum, row) => sum + row.filter((c) => c.trim() !== "").length, 0);
 }
 
+/** Claude's column mapping for `sheet`, converted to the hand route's
+ *  `ColumnMapping`, and its notes. Throws `Error("too-large")` over the caps
+ *  (before any request) or for a reply cut off at the output budget, and
+ *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`). */
 export async function runForecastImportCall(
   sheet: SheetGrid,
   ai: { apiKey: string; model: string; guideText?: string },
   signal?: AbortSignal,
-): Promise<{ rows: unknown; notes: string }> {
+): Promise<{ mapping: ColumnMapping; notes: string }> {
   if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
   const prompt = sheetToPromptText(sheet);
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
@@ -103,12 +104,14 @@ export async function runForecastImportCall(
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,
-    tools: [FORECAST_ROWS_TOOL],
-    toolName: FORECAST_ROWS_TOOL.name,
+    tools: [FORECAST_MAPPING_TOOL],
+    toolName: FORECAST_MAPPING_TOOL.name,
     messages: [{ role: "user", content: prompt }],
     maxTokens: MAX_TOKENS,
     signal,
   });
   if (stopReason === "max_tokens") throw new Error("too-large");
-  return { rows: raw.rows, notes: typeof raw.notes === "string" ? raw.notes : "" };
+  const converted = claudeMappingOf(raw, sheet);
+  if ("refused" in converted) throw new Error("bad-mapping");
+  return { mapping: converted.mapping, notes: typeof raw.notes === "string" ? raw.notes : "" };
 }
