@@ -7,16 +7,19 @@
 //
 // ★★ An Ask-Claude press reports the page it was pressed on, so the counter
 //    sees a view switch between it and a typed follow-up. Until §703 the press
-//    that MOUNTS the chat panel (the session's first) reported "chat": the
-//    report came from whichever value the view ref held when the chat's seed
-//    effect ran, and the panel is a lazy chunk that mounts after the parent's
-//    effect has written "chat". The seed now carries the view it was requested
-//    from (`ChatSeed.originView`), so no press depends on effect order.
+//    that MOUNTS the chat panel (made before the chat had been opened) reported
+//    "chat": the report came from whichever value the view ref held when the
+//    chat's seed effect ran. Probably because the panel is a lazy chunk that
+//    mounts after the parent's effect has written "chat"; that was never
+//    isolated, and the fix does not depend on it. The seed now carries the view
+//    it was requested from (`ChatSeed.originView`), so no press depends on
+//    effect order.
 //
-// ★ Full mount on purpose: the answer depends on React's effect ORDER between
-//   ChatPanel's seed effect (a child, which submits synchronously) and
-//   useChatDispatcher's view-ref effect (in TaskManager, the parent). A
-//   harness of either half alone could not see it.
+// ★ Full mount on purpose, as a regression guard: the old answer came from
+//   React's effect ORDER between ChatPanel's seed effect (a child, which
+//   submits synchronously) and useChatDispatcher's view-ref effect (in
+//   TaskManager, the parent). A harness of either half alone could not see a
+//   regression back to that.
 import "fake-indexeddb/auto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

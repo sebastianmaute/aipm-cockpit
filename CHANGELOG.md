@@ -23,9 +23,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **"Ask Claude" now always tells Claude which page you asked from.** The first press in a session, or
-  the first one before the chat had opened, told Claude it was on the chat tab, so a prompt about "this
-  page" reached it without the page, and without the visible-rows summary of Open Points, Workload, Gantt
+- **"Ask Claude" now always tells Claude which page you asked from.** A press made before the chat had
+  been opened told Claude it was on the chat tab, so a prompt about "this page" reached it without the page, and without the visible-rows summary of Open Points, Workload, Gantt
   or Budget. Every press now sends the page it was made on, and so does acting on an AI suggestion that
   opens the chat.
 
