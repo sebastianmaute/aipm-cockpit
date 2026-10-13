@@ -486,7 +486,7 @@ describe("the claimed person must sit in the person column (fix 9 OOS-a)", () =>
     expect(periodsOf(people)).toEqual([["Ann", "2026-01", 10], ["Cid", "2026-01", 11]]);
   });
 
-  it("an unknown long layout: the column most claims name their person in decides, so the deputy Bob is refused", () => {
+  it("an unknown long layout: the row's leftmost text cell is the person, so the deputy Bob is refused", () => {
     const rows = [...pad(10), ["Name", "Vertretung", "Monat", "Stunden"],
       ["Ann", "Bob", "Jan 2026", "40"], ["Cid", "Dan", "Feb 2026", "20"], ["Eve", "Bob", "Mar 2026", "30"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
@@ -505,7 +505,7 @@ describe("the claimed person must sit in the person column (fix 9 OOS-a)", () =>
     expect(out.rejected).toEqual([notOnRow(bob)]);
   });
 
-  it("on a tie, the leftmost column decides", () => {
+  it("the leftmost text cell decides on every row: the deputy Dan is refused", () => {
     const rows = [...pad(10), ["Name", "Vertretung", "Monat", "Stunden"], ["Ann", "Bob", "Jan 2026", "40"], ["Cid", "Dan", "Feb 2026", "20"]];
     const dan = claim("Feb 2026", 20, "S!D13", "Dan");
     const out = validateForecastRows([claim("Jan 2026", 40, "S!D12"), dan], strictOn(rows));
@@ -608,5 +608,33 @@ describe("a repeated header row ends the reading (round 5)", () => {
     const rows = [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Name", "Feb 2026", "30"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
     expect(gridToForecastRows(rows, detectLayout(rows, { defaultYear: 2026 }).mapping!, "S").rows).toHaveLength(2);
+  });
+});
+
+// Round 5 ruling 3: without a hand reading there is no vote; the claimed
+// person must be the cited row's LEFTMOST non-blank text cell (period-shaped
+// and email cells skipped). A single deputy claim once won the vote alone.
+describe("without a hand reading, the person is the row's leftmost text cell (round 5)", () => {
+  const rows = [...pad(10), ["Name", "Vertretung", "Monat", "Stunden"], ["Ann", "Bob", "Jan 2026", "40"]];
+
+  it("a single deputy claim on an unknown layout is refused", () => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const bob = claim("Jan 2026", 40, "S!D12", "Bob");
+    expect(validateForecastRows([bob], strictOn(rows)).rejected).toEqual([{ row: bob, reason: "source", detail: "person-not-on-row" }]);
+  });
+
+  it("Name | Vertretung accepts Ann", () => {
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D12")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
+  });
+
+  it("skips period-shaped and email cells: Mai | ann@x.de | Ann | 40 is Ann's row", () => {
+    const own = [...pad(10), ["Monat", "E-Mail", "Name", "Stunden"], ["Mai 2026", "ann@x.de", "Ann", "40"]];
+    expect(periodsOf(validateForecastRows([claim("Mai 2026", 40, "S!D12")], strictOn(own)))).toEqual([["Ann", "2026-05", 40]]);
+  });
+
+  it("the cost: Rolle | Name with no hand reading refuses the person", () => {
+    const rolle = [...pad(10), ["Rolle", "Name", "Monat", "Stunden"], ["Dev", "Ann", "Jan 2026", "40"]];
+    const ann = claim("Jan 2026", 40, "S!D12");
+    expect(validateForecastRows([ann], strictOn(rolle)).rejected).toEqual([{ row: ann, reason: "source", detail: "person-not-on-row" }]);
   });
 });

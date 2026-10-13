@@ -154,28 +154,21 @@ function isNamedBy(cell: string | undefined, text: string): boolean {
 }
 
 /**
- * Without a hand reading, the PERSON column of the Claude route's claims: the
- * column that holds the person cell (`columnNaming`) for most of them; on a
- * tie, the leftmost. Undefined when no claim names a cited cell of `sheet`.
- * ★★ A person named in ANY cell of the cited row once vouched for the claim,
- * so a deputy (`Vertretung`) or `Manager` column routed someone else's hours
- * to them (fix 9 OOS-a).
+ * Without a hand reading, the PERSON cell of the cited row: its LEFTMOST
+ * non-blank text cell, skipping a period-shaped cell, an email cell and any
+ * number (round 5 ruling 3). ★★ A person named in ANY cell of the row once
+ * vouched for the claim, so a deputy (`Vertretung`) or `Manager` column routed
+ * someone else's hours to them (fix 9 OOS-a); a majority vote over the claims
+ * that replaced it let a reply of one deputy claim win alone. The cost: a
+ * `Rolle | Name` sheet with no hand reading refuses its people.
  */
-export function personColumnOf(claims: readonly unknown[], sheet: SheetGrid): number | undefined {
-  const votes = new Map<number, number>();
-  for (const raw of claims) {
-    const rec = typeof raw === "object" && raw !== null ? (raw as { person?: unknown; source?: unknown }) : null;
-    if (rec === null || typeof rec.person !== "string" || typeof rec.source !== "string") continue;
-    const cited = citedCell(rec.source, sheet);
-    const col = cited === null ? null : columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, rec.person);
-    if (col !== null) votes.set(col, (votes.get(col) ?? 0) + 1);
-  }
-  let best: number | undefined;
-  for (const [col, count] of votes) {
-    const top = best === undefined ? 0 : votes.get(best) ?? 0;
-    if (best === undefined || count > top || (count === top && col < best)) best = col;
-  }
-  return best;
+function leftmostTextColumn(cells: readonly string[], numbers: SheetGrid["numbers"]): number | undefined {
+  const col = cells.findIndex((cell) => {
+    const text = cell.trim();
+    return text !== "" && !text.includes("@") && !isPeriodShapedIn(text, numbers)
+      && parseNumberCell(text, "dot", numbers) === null && parseNumberCell(text, "comma", numbers) === null;
+  });
+  return col < 0 ? undefined : col;
 }
 
 /** The nearest row above `rowIdx` that is a PERIOD HEADER for `col`, else null:
@@ -337,7 +330,8 @@ export type SourceCheck = { problem: SourceRejection; periods?: PeriodConflict }
 /**
  * What a cited cell proves for a row: it must hold the hours (by the sheet's
  * number rule), the cell of its row in the PERSON column (the hand reading's,
- * else `personColumn`) must name the person, and every period
+ * else the row's leftmost text cell: `leftmostTextColumn`) must name the
+ * person, and every period
  * source for the cell must agree on the claimed period (`periodNearCell`, with
  * the hand route's reading `hand` from `handReadingOf`). Where the hand route
  * reads the cited row, the cited cell must be one it reads (`cell-not-read`).
@@ -351,19 +345,16 @@ export function checkSource(
   sheet: SheetGrid,
   defaultYear: number | undefined,
   hand: HandReading | null = null,
-  personColumn?: number,
 ): SourceCheck {
   const cited = citedCell(row.source, sheet);
   if (cited === null) return { problem: "bad-ref" };
   const value = sheetNumber(sheet, cited.colIdx, cited.cell);
   if (value === null || Math.abs(value - row.hours) > SOURCE_HOURS_TOLERANCE) return { problem: "value-mismatch" };
   // The person must sit in the person column: the hand reading's, else the
-  // claims' own (`personColumnOf`), never any other cell of the row (fix 9 OOS-a).
-  const expected = hand?.person ?? personColumn;
+  // row's leftmost text cell, never any other cell of the row (fix 9 OOS-a, round 5).
   const cells = sheet.rows[cited.rowIdx] ?? [];
-  const personCol = expected === undefined
-    ? columnNaming(cells, cited.colIdx, row.person)
-    : expected !== cited.colIdx && isNamedBy(cells[expected], row.person) ? expected : null;
+  const expected = hand?.person ?? leftmostTextColumn(cells, sheet.numbers);
+  const personCol = expected !== undefined && expected !== cited.colIdx && isNamedBy(cells[expected], row.person) ? expected : null;
   if (personCol === null) return { problem: "person-not-on-row" };
   // A read row's other cells (Ist, Kosten, an ID) back nothing, whatever they hold (fix 8
   // round 3), nor do the rows of another stacked block (round 5).
