@@ -23,6 +23,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
+import { markDemoBannerDone } from "./demo-banner-state";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -1300,5 +1301,56 @@ describe("§1 — ResourcesPanel receives stable handler identities", () => {
     held(7, null);
     expect(second.onReassignTask).toHaveBeenCalledWith(7, null);
     expect(first.onReassignTask).not.toHaveBeenCalled();
+  });
+});
+
+describe("WorkspaceSection — the dashboard demo banner (§712)", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-dashboard" onClick={() => setActiveTab("dashboard")} />;
+  }
+  // The popout case starts on a popout-capable tab and navigates to the dashboard, so it is
+  // the popout gate and not the starting view that hides the banner.
+  const renderAtDashboard = (onLoadDemo: (() => void) | undefined) => {
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-dashboard"));
+  };
+  const TEXT = () => t("en-US", "demoBannerText");
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("shows above the dashboard and Explore calls onLoadDemo", () => {
+    const onLoadDemo = vi.fn();
+    renderAtDashboard(onLoadDemo);
+    expect(screen.getByText(TEXT())).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "demoBannerExplore") }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("is hidden in a popout, even with the handler", () => {
+    window.history.replaceState(null, "", "/?popout=budget");
+    renderAtDashboard(vi.fn());
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("is hidden without a demo handler", () => {
+    renderAtDashboard(undefined);
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("stays hidden on a fresh mount once the demo was opened on this device", () => {
+    markDemoBannerDone();
+    renderAtDashboard(vi.fn());
+    expect(screen.queryByText(TEXT())).toBeNull();
   });
 });

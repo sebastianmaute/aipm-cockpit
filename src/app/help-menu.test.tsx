@@ -302,3 +302,31 @@ describe("HelpMenu deep-link (§489)", () => {
     }
   });
 });
+
+describe("HelpMenu — Explore the demo project entry (§712)", () => {
+  const LABEL = "Explore the demo project";
+
+  it("shows the footer button, before the licence link, when onLoadDemo is given", () => {
+    render(<HelpMenu lang="en-US" onLoadDemo={vi.fn()} />);
+    openPanel();
+    const dialog = screen.getByRole("dialog", { name: "Help" });
+    const button = within(dialog).getByRole("button", { name: LABEL });
+    expect(LABEL).toBe(t("en-US", "helpExploreDemo"));
+    const licence = within(dialog).getByRole("link", { name: new RegExp(t("en-US", "versionLicense")) });
+    expect(button.compareDocumentPosition(licence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("omits the button without the prop (popouts, tests)", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    expect(within(screen.getByRole("dialog", { name: "Help" })).queryByRole("button", { name: LABEL })).toBeNull();
+  });
+
+  it("calls the callback when clicked", () => {
+    const onLoadDemo = vi.fn();
+    render(<HelpMenu lang="en-US" onLoadDemo={onLoadDemo} />);
+    openPanel();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+});

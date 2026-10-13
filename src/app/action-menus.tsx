@@ -39,6 +39,8 @@ interface ActionMenusProps {
   onSaveTemplate?: (input: SaveTemplateInput) => void;
   /** Expert mode reveals the Save-as-template / Apply-template menus. */
   expertMode?: boolean;
+  /** §712 — opens the demo project from the Help menu. Omitted in popouts (which render no header). */
+  onLoadDemo?: () => void;
 }
 
 /**
@@ -62,6 +64,7 @@ export function ActionMenus({
   onApplyTemplate,
   onSaveTemplate,
   expertMode = false,
+  onLoadDemo,
 }: ActionMenusProps) {
   const workspace = buildExportWorkspace(useWorkspace());
   return (
@@ -74,7 +77,7 @@ export function ActionMenus({
           <ApplyTemplateMenu lang={lang} templates={templates} onApply={onApplyTemplate ?? (() => {})} />
         </>
       )}
-      <HelpMenu lang={lang} />
+      <HelpMenu lang={lang} onLoadDemo={onLoadDemo} />
       <VersionMenu lang={lang} />
     </>
   );

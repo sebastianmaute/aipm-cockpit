@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
+import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
@@ -50,6 +51,7 @@ export function HelpMenu({
   lang,
   pendingHelpConcept,
   onHelpConceptConsumed,
+  onLoadDemo,
 }: {
   lang: Lang;
   /** §489 — open the panel at this Help entry id (a `HELP_ENTRIES` id), the
@@ -57,6 +59,9 @@ export function HelpMenu({
    *  `onHelpConceptConsumed`; re-requesting the same id after that fires again. */
   pendingHelpConcept?: string | null;
   onHelpConceptConsumed?: () => void;
+  /** §712 — opens the demo project. Set only where the demo can be opened (never in a popout):
+   *  the footer entry renders only with it. */
+  onLoadDemo?: () => void;
 }) {
   // ★ A LOCAL useSettings(), not a prop threaded through `ActionMenus` (which
   // mounts this component). That contract is guarded by
@@ -234,6 +239,9 @@ export function HelpMenu({
           <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} />
 
           <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
+            {onLoadDemo && (
+              <Button variant="ghost" size="xs" onClick={onLoadDemo}>{t(lang, "helpExploreDemo")}</Button>
+            )}
             <a
               href={APP_LICENSE_URL}
               target="_blank"

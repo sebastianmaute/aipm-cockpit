@@ -47,6 +47,7 @@ function makeDeps(overrides: Partial<ShellChromeDeps> = {}): ShellChromeDeps {
     settingsMenuOpen: undefined,
     onSettingsMenuOpenChange: undefined,
     exportForecast: null,
+    onLoadDemo: undefined,
     ...overrides,
   };
 }
@@ -95,5 +96,41 @@ describe("buildShellChrome — §650 the classic settings popover is controllabl
     const { appHeaderEl } = buildShellChrome(makeDeps());
     render(<>{appHeaderEl}</>, { wrapper: Wrapper });
     expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
+  });
+});
+
+// §712 — the Help menu's "Explore the demo project" entry must be wired into BOTH header mounts
+// (AGENTS.md "Top bar in TWO independent places"): the modern `topBarMenus` and the classic
+// `appHeaderEl`. Asserted on the rendered Help panel, so a layout that forgot the prop fails.
+describe("buildShellChrome — §712 the Help menu's demo entry reaches both header layouts", () => {
+  const LABEL = "Explore the demo project";
+  const openHelp = () => fireEvent.click(screen.getByRole("button", { name: "Help" }));
+
+  it("modern layout (topBarMenus): shows the entry and wires it to onLoadDemo", () => {
+    const onLoadDemo = vi.fn();
+    const { topBarMenus } = buildShellChrome(makeDeps({ onLoadDemo }));
+    render(<>{topBarMenus}</>, { wrapper: Wrapper });
+    openHelp();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("classic layout (appHeaderEl): shows the entry and wires it to onLoadDemo", () => {
+    const onLoadDemo = vi.fn();
+    const { appHeaderEl } = buildShellChrome(makeDeps({ onLoadDemo }));
+    render(<>{appHeaderEl}</>, { wrapper: Wrapper });
+    openHelp();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("neither layout shows the entry when onLoadDemo is withheld (the popout shape)", () => {
+    const { topBarMenus, appHeaderEl } = buildShellChrome(makeDeps({ onLoadDemo: undefined }));
+    for (const el of [topBarMenus, appHeaderEl]) {
+      const { unmount } = render(<>{el}</>, { wrapper: Wrapper });
+      openHelp();
+      expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+      unmount();
+    }
   });
 });

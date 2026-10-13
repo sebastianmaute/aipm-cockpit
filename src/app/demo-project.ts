@@ -7,6 +7,7 @@
 
 import { useCallback } from "react";
 import demoSnapshots from "../../sample-demo-snapshots.json";
+import { markDemoBannerDone } from "./demo-banner-state";
 import { clearDemoCreatedLocally, setDemoCreatedLocally } from "./demo-intent";
 import { buildDemoWorkspace, DEMO_AS_OF } from "./demo-workspace";
 import { shiftDemoSnapshots, thinForCadence } from "./demo-snapshot-shift";
@@ -171,7 +172,8 @@ export interface UseLoadDemoDeps {
  *  the project is what flips the empty-state gate off so the views and the tour overlay mount.
  *  The entry is reachable while projects exist (the Projects panel), so the local create, which
  *  rewrites the one shared browser store, is refused while the registry holds a browser-backed
- *  project (`browserProjectIn`, read at click time). Errors toast, never crash. */
+ *  project (`browserProjectIn`, read at click time). Errors toast, never crash. A demo that opened also retires the dashboard banner
+ *  (`markDemoBannerDone`), so every entry point (Help, header, Projects, empty state, boot intent, tour) does. */
 export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
   const {
     lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects,
@@ -196,7 +198,8 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         appendSnapshots,
         browserProject,
         tursoProjectsExist: hasTursoProjects,
-        onLocalFallback: setDemoCreatedLocally,
+        // The fallback create reloads the app, so the banner mark rides the same early hook.
+        onLocalFallback: () => { setDemoCreatedLocally(); markDemoBannerDone(); },
       });
       if (outcome === "local-blocked") {
         showToast("error", t(lang, "demoLocalBlocked", browserProject?.name ?? ""));
@@ -212,6 +215,7 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
       // returned early), so there is no local demo to announce.
       if (outcome === "local-after-turso-failure" && loadPortfolioMode() === "turso") clearDemoCreatedLocally();
       if (outcome === "turso-without-history") showToast("info", t(lang, "demoTrendsSeedFailedToast"));
+      markDemoBannerDone(); // the one place every entry point shares: the dashboard banner is spent
       startTour();
     } catch {
       showToast("error", t(lang, "tourDemoError"));

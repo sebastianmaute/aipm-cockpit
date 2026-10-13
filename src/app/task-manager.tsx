@@ -1782,7 +1782,7 @@ function TaskManagerInner() {
     handleApplyTemplate,
     undoControl: undoControlEl,
     settingsMenuOpen: isClassicLayout && classicSettingsOpen,
-    onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast,
+    onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast, onLoadDemo: isPopout ? undefined : () => { void loadDemo(); },
   });
 
   // The banner stack every returned tree renders above the workspace — see buildAppBanners.

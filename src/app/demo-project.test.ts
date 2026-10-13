@@ -14,6 +14,7 @@ import {
   type CreateDemoDeps, type UseLoadDemoDeps,
 } from "./demo-project";
 import { readDemoCreatedLocally } from "./demo-intent";
+import { readDemoBannerDone } from "./demo-banner-state";
 import { MODE_KEY } from "./portfolio-mode";
 import { addProject, emptyRegistry, saveRegistry, type ProjectRegistryEntry } from "./projects-registry";
 import { appendSnapshots } from "./snapshot-store";
@@ -448,5 +449,58 @@ describe("useLoadDemo", () => {
     await run(d);
     expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "tourDemoError"));
     expect(d.startTour).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLoadDemo — marks the dashboard demo banner done (§712)", () => {
+  afterEach(() => window.localStorage.clear());
+  beforeEach(() => {
+    vi.mocked(appendSnapshots).mockReset();
+    vi.mocked(appendSnapshots).mockResolvedValue(undefined);
+  });
+
+  function loadDeps(over: Partial<UseLoadDemoDeps> = {}): UseLoadDemoDeps {
+    return {
+      lang: "en-US", showToast: vi.fn(), startTour: vi.fn(),
+      createDemoProject: vi.fn(async () => {}),
+      createTursoProject: fakeCreate("id-1"),
+      refreshTursoProjects: vi.fn(async () => null),
+      portfolioMode: "file", tursoConfig: null, snapshots: undefined, hasTursoProjects: false,
+      ...over,
+    };
+  }
+
+  async function run(d: UseLoadDemoDeps): Promise<void> {
+    const { result } = renderHook(() => useLoadDemo(d));
+    await act(async () => { await result.current(); });
+  }
+
+  it("marks it once the local demo opened, so every entry point (Help, header, boot intent, tour) shares it", async () => {
+    expect(readDemoBannerDone()).toBe(false);
+    await run(loadDeps());
+    expect(readDemoBannerDone()).toBe(true);
+  });
+
+  it("marks it once the Turso demo opened", async () => {
+    await run(loadDeps({ portfolioMode: "turso", tursoConfig: CONFIG }));
+    expect(readDemoBannerDone()).toBe(true);
+  });
+
+  it("marks it BEFORE the local fallback's create, which reloads the app", async () => {
+    let markedBeforeCreate = false;
+    await run(loadDeps({
+      portfolioMode: "turso", tursoConfig: CONFIG, createTursoProject: fakeCreate(null),
+      createDemoProject: vi.fn(async () => { markedBeforeCreate = readDemoBannerDone(); }),
+    }));
+    expect(markedBeforeCreate).toBe(true);
+  });
+
+  it("leaves it unmarked when no demo was opened (blocked, or the Turso create failed)", async () => {
+    saveRegistry(addProject(emptyRegistry(), BROWSER_PROJECT, true));
+    await run(loadDeps());
+    expect(readDemoBannerDone()).toBe(false);
+    window.localStorage.clear();
+    await run(loadDeps({ portfolioMode: "turso", tursoConfig: CONFIG, createTursoProject: fakeCreate(null), hasTursoProjects: true }));
+    expect(readDemoBannerDone()).toBe(false);
   });
 });

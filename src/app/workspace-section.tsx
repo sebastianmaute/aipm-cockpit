@@ -51,6 +51,7 @@ import {
 import {
   DashboardPanel,
 } from "./dashboard-panel";
+import { DemoBanner } from "./demo-banner";
 import { pickHeroGroup, topGroupPrimaries } from "./next-actions/group";
 import {
   MilestonesPanel,
@@ -883,6 +884,7 @@ export function WorkspaceSection({
 
         {activeTab === "dashboard" && (
           <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
+            {!isPopout && onLoadDemo && <DemoBanner lang={lang} onExplore={onLoadDemo} />}
             <DashboardPanel
               lang={lang}
               tasks={tasks}
