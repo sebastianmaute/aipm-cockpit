@@ -19,6 +19,11 @@ export type LayoutDetection = {
 };
 
 const MAX_HEADER_SCAN_ROWS = 10;
+/** The data rows under a candidate header that detection reads (`dataRowsBelow`):
+ *  every pass scores up to `MAX_HEADER_SCAN_ROWS` candidates, and scoring them
+ *  over a whole 250,000-cell sheet took seconds (final review M1). Reading the
+ *  rows once the columns are known (`gridToForecastRows`) is never cut. */
+export const DETECTION_SAMPLE_ROWS = 200;
 const MIN_WIDE_PERIODS = 3;
 const MIN_WIDE_PERIODS_FALLBACK = 2;
 /** Share of a column's non-blank cells that must parse for it to count. */
@@ -46,9 +51,9 @@ type Ctx = { numbers: NumberOrigin; year?: number };
 
 const isTotalRow = (row: readonly string[]): boolean => row.some(isTotalLabel);
 
-/** The data rows under a header, total rows left out. */
+/** The first `DETECTION_SAMPLE_ROWS` rows under a header, total rows left out. */
 function dataRowsBelow(rows: Rows, headerRow: number): Rows {
-  return rows.slice(headerRow + 1).filter((row) => !isTotalRow(row));
+  return rows.slice(headerRow + 1, headerRow + 1 + DETECTION_SAMPLE_ROWS).filter((row) => !isTotalRow(row));
 }
 
 /** A column's non-blank, trimmed cells. */

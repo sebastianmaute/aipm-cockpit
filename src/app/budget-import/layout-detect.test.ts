@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gridToForecastRows } from "./forecast-rows";
-import { detectLayout } from "./layout-detect";
+import { DETECTION_SAMPLE_ROWS, detectLayout } from "./layout-detect";
 import { parseDelimited } from "./sheet-grid";
 
 const GERMAN_WIDE = [
@@ -417,5 +417,45 @@ describe("detectLayout — a year column beside year-less periods", () => {
     const mapping = detectLayout(rows).mapping;
     expect(mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
     expect(mapping?.yearCol).toBeUndefined();
+  });
+});
+
+// Final review M1: detection scored every candidate header over ALL data rows,
+// which froze the dialog on a large workbook. It samples the first
+// DETECTION_SAMPLE_ROWS rows under each candidate; reading stays complete.
+describe("detectLayout — samples the rows under a candidate header (final review M1)", () => {
+  const months = ["2026-01", "2026-02", "2026-03"];
+  const longRows = (n: number, hours: (i: number) => string = () => "10"): string[][] => [
+    ["Name", "Monat", "Stunden"],
+    ...Array.from({ length: n }, (_, i) => [`P${i}`, months[i % 3], hours(i)]),
+  ];
+  const wideRows = (n: number): string[][] => [
+    ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+    ...Array.from({ length: n }, (_, i) => [`P${i}`, "1", "2", "3"]),
+  ];
+
+  it("samples 200 rows", () => {
+    expect(DETECTION_SAMPLE_ROWS).toBe(200);
+  });
+
+  it("detects a wide and a long sheet past the sample as it does a short one, and reads every row", () => {
+    const n = DETECTION_SAMPLE_ROWS + 100;
+    for (const [short, long] of [[wideRows(2), wideRows(n)], [longRows(2), longRows(n)]]) {
+      const detected = detectLayout(long);
+      expect(detected).toEqual(detectLayout(short));
+      const perRow = detected.mapping?.layout === "wide" ? 3 : 1;
+      expect(gridToForecastRows(long, detected.mapping!, "S").rows).toHaveLength(n * perRow);
+    }
+  });
+
+  it("judges the columns by the sample: text past it does not unseat the hours column", () => {
+    // Over all 300 rows the Stunden column is two-thirds numbers, below the
+    // 80 % a column needs; over the sample it is all numbers.
+    const rows = longRows(DETECTION_SAMPLE_ROWS + 100, (i) => (i < DETECTION_SAMPLE_ROWS ? "10" : "n/a"));
+    const detected = detectLayout(rows);
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    const out = gridToForecastRows(rows, detected.mapping!, "S");
+    expect(out.rows).toHaveLength(DETECTION_SAMPLE_ROWS);
+    expect(out.dropped).toHaveLength(100);
   });
 });
