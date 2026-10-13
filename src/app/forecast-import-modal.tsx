@@ -236,6 +236,7 @@ function ColumnSelect({ label, value, columns, optional, noneLabel, onChange }: 
 const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
   hours: "forecastImportAmbiguousHours",
   period: "forecastImportAmbiguousPeriod",
+  header: "forecastImportAmbiguousHeader",
 };
 
 /** One notice per field more than one column could be, naming the candidates
@@ -245,13 +246,17 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
  *  asks to check the mapping instead (rr8 m2). */
 function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
   const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
+  // A header ambiguity names its candidate ROWS (1-based), in either layout.
+  const namesOf = (a: ColumnAmbiguity): string =>
+    (a.field === "header" ? a.candidates.map((row) => String(row + 1)) : a.candidates.map(nameOf)).join(", ");
+  const columns = fi.ambiguous.filter((a) => a.field !== "header");
+  const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header") : fi.ambiguous;
   return (
     <div className="space-y-2">
-      {layout === "wide"
-        ? <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide")}</Banner>
-        : fi.ambiguous.map((a) => (
-          <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], a.candidates.map(nameOf).join(", "))}</Banner>
-        ))}
+      {layout === "wide" && columns.length > 0 && <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide")}</Banner>}
+      {shown.map((a) => (
+        <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], namesOf(a))}</Banner>
+      ))}
       <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
         {t(lang, "forecastImportConfirmColumns")}
       </Button>

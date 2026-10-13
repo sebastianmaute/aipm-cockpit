@@ -577,7 +577,9 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
   it("names the column header's period and the detected columns' when they disagree", async () => {
     claudeSays([{ person: "Ann Lee", period: "Jan 2027", hours: 30, source: "forecast!B5" }]);
     render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Name,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
+    // Fix 9 OOS-c: the two header rows make the sheet ask; confirm, then ask Claude.
+    await chooseAmbiguous(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Name,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(/forecast!B5/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Jan 2027", "Jan 2026"));
@@ -634,6 +636,25 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(/forecast!A2/)).toHaveTextContent(t(L, "forecastImportRejectSourceNotRead"));
     expect(t(L, "forecastImportRejectSourceNotRead")).toBe("the detected or confirmed columns do not read this cell as hours");
+  });
+
+  // Fix 9 OOS-c: the notice names the candidate header rows; the header-row select clears it.
+  it("names the candidate header rows of stacked blocks, and choosing one clears the notice", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous("Name,Monat,Forecast\r\nAnn Lee,Jan 2026,40\r\nBob Kay,Feb 2026,30\r\nName,Monat,Ist\r\nAnn Lee,Jan 2026,35\r\nBob Kay,Feb 2026,25\r\n");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeInTheDocument();
+    expect(applyButton()).toBeDisabled();
+    fireEvent.change(screen.getByRole("combobox", { name: t(L, "forecastImportHeaderRow") }), { target: { value: "0" } });
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeNull();
+  });
+
+  it("names the candidate header rows in the Wide layout too, beside nothing else", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous("Name,Jan 2026,Feb 2026\r\nAnn Lee,10,20\r\nBob Kay,11,21\r\nName,Jan 2027,Feb 2027\r\nAnn Lee,30,40\r\nBob Kay,31,41\r\n");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeNull();
   });
 
   // rr8 m2: the Wide layout has no hours select to choose from.

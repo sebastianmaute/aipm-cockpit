@@ -148,7 +148,10 @@ const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
  *  defaults — the very preselection in question — and once cleared the gate on
  *  the way (rr7 I2). */
 function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: ColumnMapping): boolean {
-  return before?.layout === "long" && next.layout === "long" && next[a.field] !== before[a.field];
+  if (before === null || before.layout !== next.layout) return false;
+  // The header row has a select in either layout (fix 9 OOS-c).
+  if (a.field === "header") return next.headerRow !== before.headerRow;
+  return next.layout === "long" && next[a.field] !== before[a.field];
 }
 
 /** The fields of a `ColumnMapping` other than `periodCols`, compared one by one. */

@@ -1085,3 +1085,42 @@ describe("useForecastImport — only a changed value is an edited mapping (fix 9
     expect(result.current.importPlan?.changes).toEqual([]);
   });
 });
+
+// Fix 9 OOS-c: the hand route waits for the header row on stacked blocks.
+describe("useForecastImport — more than one header row waits for the user (fix 9 OOS-c)", () => {
+  const LONG = "Name,Monat,Forecast\r\nAnn Lee,Jan 2026,40\r\nBob Ray,Feb 2026,30\r\nName,Monat,Ist\r\nAnn Lee,Jan 2026,35\r\nBob Ray,Feb 2026,25\r\n";
+  const WIDE = "Name,Jan 2026,Feb 2026\r\nAnn Lee,10,20\r\nBob Ray,11,21\r\nName,Jan 2027,Feb 2027\r\nAnn Lee,30,40\r\nBob Ray,31,41\r\n";
+  const applyNow = (result: { current: ReturnType<typeof useForecastImport> }) => {
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    return outcome;
+  };
+
+  it("stacked long blocks: the Ist block is not applied without a confirmation; choosing header row 1 clears the gate", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, LONG);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    act(() => result.current.setMapping({ ...result.current.mapping!, headerRow: 0 }));
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.showPreview());
+    // Header row 1 reads every row below it, the Ist block too: the sums are
+    // listed under "Combined rows" (residue 28), never silent.
+    expect(result.current.duplicates.map((d) => [d.person, d.period, d.count])).toEqual([["Ann Lee", "2026-01", 2], ["Bob Ray", "2026-02", 2]]);
+  });
+
+  it("stacked wide year blocks: the 2026-only sum is not applied without a confirmation", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, WIDE);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});

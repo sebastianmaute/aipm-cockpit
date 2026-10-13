@@ -708,3 +708,37 @@ describe("detectLayout — a year column beside year-less wide headers asks (fix
     expect(detected).toMatchObject({ kind: "wide", ambiguous: [] });
   });
 });
+
+// Fix 9 OOS-c (rr9): more than one row of the scan range reads as a header for
+// the chosen layout — stacked long blocks (`Name|Monat|Forecast` over
+// `Name|Monat|Ist`, where the hand route took the Ist block) and stacked wide
+// year blocks (residue 9, the later block summed into the first block's year).
+// Detection asks which row is the header; the preselection stays.
+describe("detectLayout — more than one header row asks (fix 9 OOS-c)", () => {
+  const stackedLong = (numbers: "text" | "dot") => {
+    const [jan, feb] = numbers === "dot" ? ["46023", "46054"] : ["Jan 2026", "Feb 2026"];
+    return [["Name", "Monat", "Forecast"], ["Ann", jan, "40"], ["Bob", feb, "30"], ["Name", "Monat", "Ist"], ["Ann", jan, "35"], ["Bob", feb, "25"]];
+  };
+  const stackedWide = (numbers: "text" | "dot") => numbers === "dot"
+    ? [["Name", "46023", "46054"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "46388", "46419"], ["Ann", "30", "40"], ["Bob", "31", "41"]]
+    : [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+
+  it.each(["text", "dot"] as const)("stacked long blocks (%s) ask, the later header row preselected", (numbers) => {
+    const detected = detectLayout(stackedLong(numbers), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "long", mapping: { headerRow: 3, period: 1, hours: 2 } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+  });
+
+  it.each(["text", "dot"] as const)("stacked wide year blocks (%s) ask, the first header row preselected", (numbers) => {
+    const detected = detectLayout(stackedWide(numbers), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 0, periodCols: [1, 2] } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+  });
+
+  it.each([
+    ["Name | Monat | Stunden", [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]]],
+    ["Name | Jan 2026 | Feb 2026", [["Name", "Jan 2026", "Feb 2026"], ["Ann", "40", "50"], ["Bob", "30", "20"]]],
+  ])("a sheet with one header row stays clear: %s", (_label, rows) => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});

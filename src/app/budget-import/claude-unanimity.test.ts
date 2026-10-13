@@ -44,14 +44,29 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
     expect(out.ok.filter((r) => r.period.startsWith("2027"))).toEqual([]);
   };
 
-  it.each(["csv", "serials"] as const)("the detection is clear and wide (%s): the hand route reads block 2 as 2026", (kind) => {
+  // Fix 9 OOS-c: the second header row makes detection ask; with header row 1
+  // confirmed, the hand reading still reads block 2 as 2026, so the checks
+  // below run with that confirmed mapping.
+  const confirmedOn = (rows: string[][], numbers: NumberOrigin) =>
+    strictOn(rows, numbers, detectLayout(rows, { numbers, defaultYear: 2026 }).mapping!);
+
+  it.each(["csv", "serials"] as const)("the detection is wide and asks for the header row (%s)", (kind) => {
     const { rows, numbers } = sheets[kind];
-    expect(detectLayout(rows, { numbers, defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [] });
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 })).toMatchObject({
+      kind: "wide", mapping: { headerRow: 0 }, ambiguous: [{ field: "header", candidates: [0, 3] }],
+    });
+  });
+
+  it.each(["csv", "serials"] as const)("unconfirmed, every claim of either block is refused columns-unconfirmed (%s)", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    const out = validateForecastRows([claim("Jan 2026", 10, "S!B2"), claim("Jan 2027", 30, "S!B5"), claim("Jan 2026", 30, "S!B5")], strictOn(rows, numbers));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
   it.each(["csv", "serials"] as const)("P2a: the right 2027 claims for block 2 are refused, naming both periods (%s)", (kind) => {
     const { rows, numbers } = sheets[kind];
-    const out = validateForecastRows([claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 41, "S!C6", "Bob")], strictOn(rows, numbers));
+    const out = validateForecastRows([claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 41, "S!C6", "Bob")], confirmedOn(rows, numbers));
     expect(out.ok).toEqual([]);
     expect(out.rejected).toEqual([
       { row: claim("Jan 2027", 30, "S!B5"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01", header: "2027-01" } },
@@ -63,7 +78,7 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
     const { rows, numbers } = sheets[kind];
     const out = validateForecastRows([
       claim("Jan 2026", 10, "S!B2"), claim("Jan 2026", 30, "S!B5"), claim("Feb 2026", 41, "S!C6", "Bob"),
-    ], strictOn(rows, numbers));
+    ], confirmedOn(rows, numbers));
     expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10]]);
     expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
     expect(out.duplicates).toEqual([]);
@@ -72,7 +87,7 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
 
   it.each(["csv", "serials"] as const)("P2d: year-less Jan / Feb claims for block 2 are refused, not re-routed into 2026 (%s)", (kind) => {
     const { rows, numbers } = sheets[kind];
-    const out = validateForecastRows([claim("Jan", 30, "S!B5"), claim("Feb", 41, "S!C6", "Bob")], strictOn(rows, numbers));
+    const out = validateForecastRows([claim("Jan", 30, "S!B5"), claim("Feb", 41, "S!C6", "Bob")], confirmedOn(rows, numbers));
     expect(out.ok).toEqual([]);
     expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
   });
@@ -82,7 +97,7 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
     const out = validateForecastRows([
       claim("Jan 2026", 10, "S!B2"), claim("Feb 2026", 20, "S!C2"), claim("Jan 2026", 11, "S!B3", "Bob"), claim("Feb 2026", 21, "S!C3", "Bob"),
       claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 40, "S!C5"), claim("Jan 2027", 31, "S!B6", "Bob"), claim("Feb 2027", 41, "S!C6", "Bob"),
-    ], strictOn(rows, numbers));
+    ], confirmedOn(rows, numbers));
     expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Ann", "2026-02", 20], ["Bob", "2026-01", 11], ["Bob", "2026-02", 21]]);
     expect(detail(out)).toEqual(["period-conflict", "period-conflict", "period-conflict", "period-conflict"]);
     neverBlockTwo(out);
@@ -495,5 +510,16 @@ describe("a year column beside year-less wide headers waits for the columns (fix
       expect(out.ok).toEqual([]);
       expect(detail(out)).toEqual(["columns-unconfirmed"]);
     }
+  });
+});
+
+// Fix 9 OOS-c: stacked long blocks wait for the columns on the Claude route.
+describe("stacked long blocks wait for the header row (fix 9 OOS-c)", () => {
+  it.each(["text", "dot"] as const)("Name | Monat | Forecast over Name | Monat | Ist (%s): every claim is refused columns-unconfirmed", (numbers) => {
+    const [jan, feb] = numbers === "dot" ? ["46023", "46054"] : ["Jan 2026", "Feb 2026"];
+    const rows = [["Name", "Monat", "Forecast"], ["Ann", jan, "40"], ["Bob", feb, "30"], ["Name", "Monat", "Ist"], ["Ann", jan, "35"], ["Bob", feb, "25"]];
+    const out = validateForecastRows([claim("Jan 2026", 35, "S!C5"), claim("Feb 2026", 25, "S!C6", "Bob"), claim("Jan 2026", 40, "S!C2")], strictOn(rows, numbers));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 });

@@ -15,8 +15,9 @@ import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
  *  sheet's (`longFromHeader`), or a wide sheet's period when its data rows
- *  hold a period column of their own (`wideAmbiguity`); empty when the choice
- *  is clear, and always for none. */
+ *  hold a period column of their own (`wideAmbiguity`), and the header row
+ *  when more than one row reads as one (`headerAmbiguity`); empty when the
+ *  choice is clear, and always for none. */
 export type LayoutDetection = {
   kind: "wide" | "long" | "unknown";
   mapping: ColumnMapping | null;
@@ -237,8 +238,21 @@ function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbi
   return [{ field: "period", candidates: [...own, ...(mapping.periodCols ?? [])].sort((a, b) => a - b) }];
 }
 
+/**
+ * ★★ More than one row of the scan range reads as a header for the chosen
+ * layout (fix 9 OOS-c): stacked blocks. A long sheet's `Name | Monat |
+ * Forecast` over `Name | Monat | Ist` once imported the Ist block, and a wide
+ * sheet's second year block summed into the first block's year (residue 9).
+ * The preselected row stays; the dialog asks which one it is.
+ */
+function headerAmbiguity(headerRows: readonly number[]): ColumnAmbiguity[] {
+  return headerRows.length > 1 ? [{ field: "header", candidates: [...headerRows] }] : [];
+}
+
 function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
+  let first: ColumnMapping | null = null;
+  const headerRows: number[] = [];
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const header = rows[headerRow];
     // The header is read as a RUN: year rollover, dates a week apart as weeks.
@@ -249,9 +263,11 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
     }
     if (periodCols.length < minPeriods) continue;
     const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
-    if (mapping !== null) return { mapping, ambiguous: wideAmbiguity(rows, mapping, ctx) };
+    if (mapping === null) continue;
+    first ??= mapping;
+    headerRows.push(headerRow);
   }
-  return null;
+  return first === null ? null : { mapping: first, ambiguous: [...wideAmbiguity(rows, first, ctx), ...headerAmbiguity(headerRows)] };
 }
 
 /** Rank weights of `periodRank`, most significant first. */
@@ -425,11 +441,14 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
 function detectLong(rows: Rows, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   let best: ScoredMapping | null = null;
+  const headerRows: number[] = [];
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const candidate = longFromHeader(rows, headerRow, ctx);
-    if (candidate !== null && (best === null || candidate.score >= best.score)) best = candidate;
+    if (candidate === null) continue;
+    headerRows.push(headerRow);
+    if (best === null || candidate.score >= best.score) best = candidate;
   }
-  return best === null ? null : { mapping: best.mapping, ambiguous: best.ambiguous };
+  return best === null ? null : { mapping: best.mapping, ambiguous: [...best.ambiguous, ...headerAmbiguity(headerRows)] };
 }
 
 type Pass = { kind: "wide" | "long"; run: () => Detected | null };
