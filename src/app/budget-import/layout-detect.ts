@@ -26,7 +26,10 @@ const COLUMN_SHARE = 0.8;
 /** Share of a column's non-blank cells that must be text for a person column. */
 const TEXT_SHARE = 0.5;
 
-const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
+/** A long sheet's period column by its header: ranked first (`periodRank`). */
+const PERIOD_HEADER_RE = /month|monat|period|periode|zeitraum|week|woche|kw/i;
+/** A date column's header: ranked below `PERIOD_HEADER_RE`, above none. */
+const DATE_HEADER_RE = /date|datum/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
@@ -161,10 +164,29 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | n
   return null;
 }
 
-/** Lower is better: a period-looking header, then a real date over a bare serial. */
+/** Rank weights of `periodRank`, most significant first. */
+const RANK_NO_PERIOD_HEADER = 8;
+const RANK_DATE_CELLS = 4;
+const RANK_NO_DATE_HEADER = 2;
+const RANK_SERIAL_CELLS = 1;
+
+/**
+ * Lower is better, each test outranking every one after it: a period header
+ * (`Month`, `Zeitraum`, `KW` …); cells that are period LABELS (`Jan 2026`,
+ * `2026-01`, `KW03`) over full dates; a `Date` / `Datum` header; a real date
+ * over a bare serial. Ties keep the leftmost column. ★★ `Start date` once
+ * ranked with `Month`, and the leftmost won: every row's hours were summed into
+ * the start month (final review I2).
+ */
 function periodRank(header: string, cells: readonly string[]): number {
-  if (PERIOD_HEADER_RE.test(header)) return 0;
-  return cells.every((c) => SERIAL_RE.test(c)) ? 2 : 1;
+  const isDateCell = (c: string): boolean => {
+    const p = classifyPeriodCell(c);
+    return p?.kind === "month" && p.date !== undefined;
+  };
+  return (PERIOD_HEADER_RE.test(header) ? 0 : RANK_NO_PERIOD_HEADER)
+    + (cells.some(isDateCell) ? RANK_DATE_CELLS : 0)
+    + (DATE_HEADER_RE.test(header) ? 0 : RANK_NO_DATE_HEADER)
+    + (cells.length > 0 && cells.every((c) => SERIAL_RE.test(c)) ? RANK_SERIAL_CELLS : 0);
 }
 
 /** A long sheet's year column: by header ("Jahr", "FY"), else the first column

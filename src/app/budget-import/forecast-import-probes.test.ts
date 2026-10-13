@@ -468,3 +468,24 @@ describe("probe: a title row's date range over a long sheet (round 5)", () => {
     ]);
   });
 });
+
+const triplesOf = (run: Run) => run.out.rows.map((r) => [r.person, r.period, r.hours]);
+
+// Final review I2: a start-date column was taken as the period column ahead of
+// the real one, and every row's hours were summed into the start month.
+describe("probe: a start-date column beside the period column (final review I2)", () => {
+  it.each([
+    ["Name", "Start date", "Month", "Hours"],
+    ["Resource", "Start date", "Period", "Hours"],
+    ["Name", "Start", "Zeitraum", "Stunden"],
+    ["Name", "Beginn", "Wann", "Stunden"],
+  ])("%s | %s | %s | %s reads the third column as the period: Jan 80, Feb 60", (...header) => {
+    const rows = [header, ["Ann Lee", "01.01.2026", "Jan 2026", "80"], ["Ann Lee", "01.01.2026", "Feb 2026", "60"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 60]]);
+    // Not the start month's sum.
+    expect(run.validated.ok.some((r) => r.hours === 140)).toBe(false);
+    expect(run.validated.duplicates).toEqual([]);
+  });
+});
