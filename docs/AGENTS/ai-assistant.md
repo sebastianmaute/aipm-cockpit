@@ -912,10 +912,11 @@
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
   overflow.
-- **Forecast import, Claude route (§500):** ONE forced `propose_forecast_rows` call in
-  `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCall`) reads
-  one sheet and returns rows that each cite their cell; the rows are UNTRUSTED and reach the plan only through
-  `validateForecastRows` with `requireSource`. Engine, bounds and the single writer:
+- **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in
+  `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCallWithStop`)
+  reads one sheet and returns a COLUMN MAPPING, never a value. `claudeMappingOf` converts it or refuses it
+  (`bad-mapping`); the hand route's reader imports with it, and Apply waits for the user's explicit
+  "These columns are right". Engine, bounds and the single writer:
   [`budget.md`](budget.md) "Forecast import (§500)".
 - **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
   free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`

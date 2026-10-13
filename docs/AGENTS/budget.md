@@ -262,7 +262,7 @@ comments).
 A bucket card's "Import forecast" opens `ForecastImportModal`; all logic is `useForecastImport`, and the
 engines live in `src/app/budget-import/` (no i18n, no React).
 
-- **Two routes, one row list.** A file becomes `SheetGrid`s (`readSheetFile`: CSV, or xlsx through
+- **Two routes, one reader.** A file becomes `SheetGrid`s (`readSheetFile`: CSV, or xlsx through
   `extractXlsxGrid`). The HAND route finds the columns (`detectLayout`, editable on the mapping step) and
   reads them with `gridToForecastRows`, deciding the decimal style once over all hours columns
   (`detectDecimalStyle`), never per cell; in German style a dot is only a thousands mark in groups of
@@ -292,8 +292,8 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   reads two-period wide. ★★★ **WHERE THAT DOES NOT SETTLE IT, DETECTION ASKS (fix 7, the owner's decision
   of 2026-10-13).** Three rounds of column-guessing rules each imported wrong hours: a rightmost-hours pick
   took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan` (rr6 N1), a rank of month-LABEL cells over full
-  dates summed a `Datum` sheet into its `Eintritt` month (rr6 N3), and a header-row stop on the Claude route
-  (below) misfired on two-row headers. Both were removed. `detectLayout` reports `ambiguous`
+  dates summed a `Datum` sheet into its `Eintritt` month (rr6 N3), and a header-row stop in the removed
+  Claude claim checker misfired on two-row headers. All were removed. `detectLayout` reports `ambiguous`
   (`ColumnAmbiguity`, from `ambiguityOf`): the HOURS whenever two or more candidates remain. ★★★ No
   header word settles it (fix 8, the owner's "fail closed" of 2026-10-13): an escape for exactly one
   NAMED hours column, later with a list of actuals words, read `Ist`, then `Iststunden`, `IstStd`,
@@ -321,8 +321,8 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   "These columns are right". ★★ A confirmation belongs to its (layout, field) pair AND the value it
   confirmed (`unconfirmedOf`, fix 9 m-a): a period chosen in Long once also cleared the questioned Wide
   reading, so flipping back to Wide applied it; flipping back now re-arms the open fields, and a
-  round-trip that resets a chosen column waits again. Re-detecting asks again. ★★ The Claude route waits too (fix 8): until the columns are confirmed it refuses every claim
-  (`columns-unconfirmed`, below). ★★★ A WIDE reading asks for the PERIOD when its data rows hold a
+  round-trip that resets a chosen column waits again. Re-detecting asks again. ★★ Claude's mapping waits too,
+  for an explicit press (the Claude route, below). ★★★ A WIDE reading asks for the PERIOD when its data rows hold a
   period column of their own (`wideAmbiguity`, fix 8 round 2): a column outside the header's period
   columns and the person column with ANY period-shaped data cell (`rowPeriodColumns`; fix 9 I-1 — an
   80 % share let one `offen` in the `Monat` column turn the question off), or, beside year-less period
@@ -330,10 +330,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   as 2026), offered with those columns as the candidates. The cost: one date in a notes column asks,
   and in a WORKBOOK every integer that reads as a serial date (5-digit numbers such as a `PersNr`, a
   postal code or a cost centre) is period-shaped, so such a column outside the months asks too. A metadata row (`Erstellt | 01.01. | 15.01. | 20.01.`) over a long sheet's `Name |
-  Monat | Stunden | Ist` is read as a clear wide header once enough person rows sit under it, and the
-  Claude route then accepted Ist-only claims in the metadata row's month (Bob's February as January =
-  35), because the hand reading and the header above were the same wrong row; so `Name | Start | Jan
-  2026 | Feb 2026` asks too. ★★ Either layout asks for the HEADER ROW when more than one row of the scan
+  Monat | Stunden | Ist` is read as a clear wide header once enough person rows sit under it, and Ist-only
+  cells were once accepted in the metadata row's month (Bob's February as January = 35); so `Name |
+  Start | Jan 2026 | Feb 2026` asks too. ★★ Either layout asks for the HEADER ROW when more than one row of the scan
   range reads as a header for it (`headerAmbiguity`, `{ field: "header", candidates: [rows] }`, fix 9
   OOS-c): stacked long blocks (`Name | Monat | Forecast` over `Name | Monat | Ist`, which imported the Ist
   block) and stacked wide year blocks (residue 9). ★★★ A REPEATED HEADER (`repeatedHeaderRows`, round 5)
@@ -362,11 +361,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   rows notice are shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
-  row. The CLAUDE route
-  sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
-  from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
-- ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the hand route, detection and the
-  Claude near-cell check alike, so the three cannot disagree. A single cell is `parsePeriodLabel` (a date is
+  row. Both routes read the sheet with this one reader; they differ only in who sets the mapping.
+- ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the reader and detection alike, so
+  the two cannot disagree. A single cell is `parsePeriodLabel` (a date is
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
   names its year sets a running year; a year-less month or week takes it (starting at the default year)
   and moves it on at the turn of a year — a step BACK of at least half a year (6 months, 26 weeks),
@@ -384,10 +381,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG sheet's rows are never read
   as a run (they repeat Jan…Dec per person), but its period column gets the same week rule over its
   DISTINCT dates, sorted (`isWeekSpacedColumn`), so a long sheet of Monday dates is weekly while
-  first-of-month dates stay months; the Claude route's row search reads the column the same way. A
+  first-of-month dates stay months. A
   year-less period cell there takes the row's `ColumnMapping.yearCol` year (a column headed `Jahr` /
   `Year` / `FY` …, or holding only four-digit years), else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
-  follows the mapping step's field, and a cleared field means none on both routes. ★★ `detectLayout` runs
+  follows the mapping step's field, and a cleared field means none on both routes (a Claude mapping that
+  names no year takes it). ★★ `detectLayout` runs
   its passes in a FIXED order and takes the first that finds a layout: wide (3+ periods) without the
   default year, wide with it, long without it, two-period wide without it, then long and two-period wide
   with it. Both neighbouring orders shipped a bug: long WITH the year early let a `Start` column of month
@@ -401,97 +399,56 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   order once read long, reaches two-period wide because a long reading never takes a period-headed hours
   column. When a period took its year from the default,
   `assumedYear` makes the preview say so, with a link to the year field.
-- **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
-  period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
-  carries no `source`; `duplicates` lists the contributors, shown as "Combined rows"). ★★ Rows whose sources
-  share ONE sheet row are never summed: they are `collisions`, left out of `ok`, and the plan's
+- **The CLAUDE route proposes the MAPPING, never a value (owner decision 2026-10-13).** "Ask Claude"
+  sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_mapping`, prompt text
+  from `sheetToPromptText` over the shared `renderSheetMarkdown`: column letters and 1-based row numbers).
+  The tool returns the layout, the header row (as its row number), the person column and optional email
+  and rate columns as LETTERS; wide `periodCols`, long `period` and `hours` with an optional `yearCol`; an
+  optional `year` for year-less labels; and `notes`. The system prompt says to name where the fields are,
+  never values, to choose the planned or forecast hours and never actuals (Ist, booked, gebucht), and to
+  map the forecast block of a sheet with several and say so. `claudeMappingOf` (`claude-mapping.ts`) turns
+  the input into a 0-based `ColumnMapping` or refuses it, never repairing or guessing: a letter that is
+  not one or lies past the sheet's width, a header row outside the sheet, two fields (or two period
+  columns) on one column, a missing field the layout needs, an empty `periodCols`, a field of the other
+  layout, a year that is no whole year in `parseYearCell`'s range, or any other type. A refusal is
+  `Error("bad-mapping")` and its own message ("Set the columns by hand"); every error keeps the hand
+  route. ★★★ The mapping then goes through the HAND READER: it opens the mapping step as the draft, with
+  Claude's notes in a notice, and the rows are `gridToForecastRows` with it, so every question,
+  confirmation and refusal above applies. ★★★ **Apply waits for an explicit "These columns are right"**
+  (`confirmColumns`) on any layout, with or without a question: `claudeUnconfirmed` holds Apply (the
+  button disabled with its own reason, and `apply()` refusing `forecastImportConfirmClaudeFirst`) until the
+  press, and an edit of a field is no press. The press records the mapping it confirmed
+  (`claudeConfirmed`, compared by VALUE with `isSameMapping`, the year and period columns included), so
+  an edit after it asks for it again, and one press confirms every open question of that mapping. ★★ The
+  questions are asked of the mapping IN EFFECT, Claude's or the user's edit of it, through `questionsFor`
+  (`layout-detect.ts`): a long mapping's hours and period candidates, the mapped column always among them
+  (`longQuestions`); a wide mapping's row period or row year column (`wideAmbiguity`); the header row
+  when another row of the scan range reads as a header of the layout or repeats it; and one person's
+  differing rows. Detection's own mapping asks the same through it (pinned against `detectLayout`).
+  Claude naming `Ist` on `Name | Monat | Stunden | Ist` is therefore shown, named in the hours question,
+  and written only after the press. Detect columns leaves the mapping for detection's own. An edit keeps
+  the route (`setMapping` no longer resets it), and the mapping step previews Claude's mapping as it stands,
+  where a draft rebuild would take every period header of a wide sheet. ★★ The cell-claim checker that
+  came before (Claude returning rows, each citing its cell, checked against every period source of the
+  cell) was REMOVED after nine fail-closed rounds each moved the hole: do NOT reintroduce it. The accepted
+  cost: a sheet no mapping describes — several tables on one sheet, an unrecognised second header — cannot
+  be imported by either route; split the sheet first.
+- **`validateForecastRows` is the one gate.** Every row it sees was read from a cell of the sheet by
+  `gridToForecastRows`, on either route. Hours 0..744 rounded to two decimals, a canonical period, a
+  non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row carries no
+  `source`; `duplicates` lists the contributors, shown as "Combined rows"). ★★ Rows whose sources share
+  ONE sheet row are never summed: they are `collisions`, left out of `ok`, and the plan's
   `same-row-period` blocker holds Apply until the mapping or the sheet is fixed — UNLESS every one sits
-  under a DISTINCT date header and the row holds no period cell of its own (`headerDateOf`): date columns finer than the period (bi-weekly,
-  semi-monthly) are sub-period columns, summed as before and listed as `subPeriods` under "Combined
-  rows" (blocking them made such sheets unimportable). Identical or equivalent labels (`Jan 2026 | Jan
-  2026`, `2026-01 | Jan 2026`, one date twice) still block. A source cell backs ONE row
-  on either route — a second row citing it is rejected. With `requireSource` (the Claude route only, whose
-  rows are UNTRUSTED) a row passes only when its cited cell holds its hours by the sheet's own number rule,
-  the cell of that row in the PERSON column names the person, and every period source for the cell agrees (`checkSource`
-  in `source-evidence.ts`, below). U is the NEAREST period header above it in its column (`nearestPeriodRowAbove`: a
-  row whose run gives that column a period), read as part of that row's run. ★★ The PERSON column is the
-  hand reading's where there is one, else the cited row's LEFTMOST non-blank text cell, period-shaped,
-  email and number cells skipped (`leftmostTextColumn`, round 5): a person named in ANY cell of the row
-  once vouched for the claim, so a `Vertretung` or `Manager` column routed someone else's hours to them,
-  and a majority vote over the claims (fix 9) let a reply of one deputy claim win alone. The cost: a
-  `Rolle | Name` sheet with no hand reading refuses its people (residue 29). ★★ Text in the grid never
-  bounds that search: a placeholder (`-`, `Urlaub`), a unit row (`Std`) or a `Plan | Ist` sub-header
-  between the header and the cell is passed over. Round 3 stopped at such a cell, which rejected every valid
-  claim beneath it and, through `headerDateOf`, turned sprint-date sub-period columns under a `-` back into
-  the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
-  vouches for nothing; so does a run of exactly two dates more than 92 days apart
-  (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
-  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★★ **EVERY PERIOD SOURCE FOR THE CITED CELL MUST AGREE (fix 8, the
-  owner's "fail closed" of 2026-10-13).** Eight rounds of evidence rules each let a new wrong-hours case
-  through, so no source decides alone and a disagreement is a visible refusal, never a pick
-  (`periodNearCell`). The sources: H, the hand route's reading of the cell (`handReadingOf` in
-  `hand-reading.ts`: the hand route's own `gridToForecastRows` over the sheet, per cell it READS — ★★★ a
-  cited cell it does not read is refused `cell-not-read`, wherever it sits and whatever it holds, and the
-  row's own period cells are never consulted while H exists (fix 8 round 3, round 7 I-A: a long row's
-  period once covered every cell of the row, so its `Ist`, a `Kosten` 40 equal to the Stunden 40 or an ID
-  stood in the row's month, and a row it read nothing from — a blank or `-` forecast — fell back to its
-  own cells, writing Bob's Ist or a `Budget` total as hours)); U, the nearest period header above the cell, read as part of
-  its row's run (above); and R, every period cell on the cited row (`rowPeriodCells`, the cited and
-  PERSON cells skipped by position; a year-less one takes a year cell on the row before the default year),
-  counted ONLY without H — with H, the hand route has already chosen the row's period column. A claim
-  stands only when a source exists, all of them name one period and the claim names it. Two that
-  disagree refuse it `period-conflict`, right or wrong, and the preview names both by label: "the column
-  header says Jan 2027, but the detected or confirmed columns read Jan 2026" (H against U), "the row says … but the
-  column header says …" (R against U), "the row names two periods, … and …" (R against R). No source at
-  all, or a claim the agreeing sources do not name, is `period-not-near` — with H, `period-conflict`
-  naming H's period. ★★ Three rules this replaced each wrote wrong hours: H decided alone (rr7 I1) and
-  wrote a stacked 2027 block, two people per block (residue 9), into 2026 (rr8 N1); an exemption for a
-  row cell whose column the header row LABELS (`Name | Start | Jan 2026`) let a key/value title row
-  (`Erstellt von | Max | 01.03.2026`) vouch for March (rr7 I1, rr8 OOS-1) — removed, do NOT reintroduce it;
-  and the row search took ANY row cell naming the claim. Refusing a right claim is the accepted cost: a
-  title row's dates over a long sheet's hours column (a quarter `Zeitraum | 01.01.2026 | 31.03.2026`, a
-  `von | … | bis | …` pair, three `Erstellt / Stand / Druck` dates) refuse every row whose month they do
-  not share, on a clear sheet too, and a `Start` or `Eintritt` date on an unknown sheet's row refuses
-  the cells of other months. ★★ WHICH reading is H: with an ambiguous detection the user has not
-  confirmed, there is none, and every claim of the sheet is refused `columns-unconfirmed` ("Use Detect
-  columns to confirm them, then ask Claude again", one line per refused row); once the user has confirmed
-  or edited the mapping, `useForecastImport` passes it (`validateForecastRows`'s `columns`) and H is read
-  with THAT mapping and its year, so a user who fixed the columns is not checked against the uncorrected
-  detection; a clear detection is H as detected; an unknown one has no H. ★★ With no H, a claim is also
-  refused `row-ambiguous` when the sheet holds ANOTHER number-bearing column (a number in any row;
-  period-shaped cells and the cited row's person column excluded) whose column header at the cited row
-  does not differ from the cited cell's: the same period, neither under one, or only ONE of the two under
-  one (`hasTwinColumn`, `isIndependentKey`; round 7 judged the cited row only, so a blank forecast cell
-  or a title run over one column let the Ist through, rr11 I-C). Only different periods or distinct
-  sprint dates are independent, and distinct dates only on a row with no period cell of its own (round 9
-  I-C′, the `headerDateOf` condition: a padded key/value title's two March dates over `Plan | Ist` made
-  the Ist independent on March rows), so unknown month sheets, sprint sheets and one-number long sheets
-  import; the cost is an unknown long sheet with a second number column (residue 31).
-  ★★ "Edited" means a COLUMN field
-  differs from the mapping the hand route opened with (`isSameColumns`: layout, header row, person, period,
-  hours, year column; fix 9 I-2, round 5): the mapping step's Show preview passes a fresh copy, and a
-  reference compare once made an unknown layout's default mapping H on a no-op preview, writing Bob's
-  March row as February. The year value alone is no column edit. Readings are cached per grid
-  and mapping (or default year). ★★ Two cells of one row in one period are a collision, never a sum,
-  unless each sits under a distinct date header (U) AND the row holds no period cell of its own
-  (`headerDateOf`, both routes): a row with its own period is a long row. A metadata row (`Erstellt |
-  01.01. | 15.01. | 20.01.`) over enough person rows is detected as a clear WIDE header, and a first cut
-  of fix 8 that skipped the row check under H summed Stunden + Ist to 75; sprint dates beside a `Start`
-  date now collide instead of summing. On a long reading only the hours cell of a row is read, so two
-  cited cells of one long row can no longer both stand. ★★ The header-row stop that came before all this (`isHeaderRowFor` — removed, do NOT
-  reintroduce it) ended the upward search at a `Name | Monat | Stunden` row; it fired on two-row headers
-  (months on row 1, `Name | Std | Std` on row 2) and on placeholder rows, rejecting every right claim and
-  letting a date on the row vouch for a wrong month (rr6 N2, N4). Any row above, or a `Start` date on the
-  row, once vouched for the wrong period. That is the safety boundary against an
-  invented value; the prompt is not. A sheet's per-column style and week shape are computed once
-  (`columnFacts`). `findUnreadCells` (`unread-cells.ts`) then lists, as information, the number cells the
-  reply did not cite on rows it read, and every row it did not cite at all that holds a number under a
-  period header or in a column it cited as hours — a person it skipped entirely is "row 7 (Bob Kay)", read
-  from the column the accepted rows name their people in, else the row's first text cell; total
-  rows are left out, and a period-shaped cell (a workbook's serial date) is never an unread number. ★★ An email never vouches for the person, and an email the cited row does not hold is
-  STRIPPED from the accepted row: the model can write any email beside any name, and matching tries the
-  email first, so a model-supplied `bob@…` on Ann's row once routed Ann's hours to Bob (final review).
-  A rejected source names its cause (`SourceRejection`), and the preview shows each cause in its own words.
+  under a DISTINCT date header and the row holds no period cell of its own (`headerDateOf` in
+  `source-cells.ts`): date columns finer than the period (bi-weekly, semi-monthly) are sub-period columns,
+  summed and listed as `subPeriods` under "Combined rows" (blocking them made such sheets unimportable).
+  Identical or equivalent labels (`Jan 2026 | Jan 2026`, `2026-01 | Jan 2026`, one date twice) still
+  block. The date header is the NEAREST period header above the cell in its column
+  (`nearestPeriodRowAbove`), and text in the grid never bounds that search: a placeholder (`-`,
+  `Urlaub`) above a sprint column once turned its sub-periods back into the same-row blocker (round 3). A
+  row with its own period cell is a long row, so its cells collide: a metadata row (`Erstellt | 01.01. |
+  15.01. | 20.01.`) detected as a wide header over `Stunden | Ist` once summed the two to 75, and sprint
+  dates beside a `Start` date collide instead of summing.
 - **`buildForecastImportPlan` diffs against ONE bucket.** Periods are split to the plan's granularity by
   working days (`splitToGranularity`, total kept to the cent). ★★ The in-range set is
   `bucketActivePeriods(bucket, plan)` — the definition the card, the report, the burndown and the forecast
@@ -515,18 +472,17 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   "a cell the live bucket no longer owns" test).
 - **Size bounds.** The Claude route refuses before any request over `MAX_CLAUDE_IMPORT_CELLS` non-blank
   cells or `MAX_CLAUDE_IMPORT_CHARS` of prompt text — both bound the INPUT, its context and its cost. The
-  OUTPUT is bounded separately: each returned row costs about 35 output tokens, and the reply's budget
-  (`MAX_TOKENS` in `forecast-import-call.ts`) holds a few hundred rows, which a sheet under the cell cap
-  can still exceed. A turn that ends on `max_tokens` may carry a cut-off `tool_use` input, so
-  `runForecastImportCall` reads the stop reason (`runForcedToolCallWithStop`) and refuses such a reply
-  as `Error("too-large")`, never importing part of it. The xlsx reader is bounded per sheet (cells and rows,
+  OUTPUT is a mapping, so the reply's budget (`MAX_TOKENS` in `forecast-import-call.ts`) is small. A turn
+  that ends on `max_tokens` may carry a cut-off `tool_use` input, so `runForecastImportCall` reads the
+  stop reason (`runForcedToolCallWithStop`) and refuses such a reply as `Error("too-large")`, never
+  using part of it. The xlsx reader is bounded per sheet (cells and rows,
   `MAX_XLSX_SHEET_CELLS`), per workbook (`MAX_XLSX_TOTAL_ROWS`, `MAX_XLSX_TOTAL_CELLS`), and reads each
   worksheet path once (`sheetEntries` de-duplicates). Gap rows from a `<row r>` jump share one empty row.
   A CSV is bounded the same way: `readDelimited` stops before the row that would pass
   `MAX_XLSX_SHEET_CELLS` and the grid is `truncated`, which the modal's existing notice shows.
   ★★ These bounds protect the CHAT attachment path too — it is the same reader. The many-sheet wide-cell
-  blow-up they close predates §500; the row-gap one came with it (honouring `<row r>` so a cited row
-  number matches Excel).
+  blow-up they close predates §500; the row-gap one came with it (honouring `<row r>` so a row number
+  in the prompt matches Excel).
 
 ## Open register entries
 

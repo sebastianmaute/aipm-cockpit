@@ -51,23 +51,12 @@ longer carries its own changelog comment.
   of an earlier block above the header row (a title or metadata row is not counted). The reading stops at a
   repeated header row, so a sheet of stacked blocks (`Forecast` over `Ist`) imports only the block you
   choose, and the preview says how many rows below it were not read. Or
-  Ask Claude to read the sheet: every row it returns cites the cell its hours came from, and a row whose
-  cell does not hold them, whose person is not in the person column of that row, or that is not under the
-  period it claims is not imported — the preview says which, and lists the number cells and the rows Claude did not read,
-  including a person it left out entirely, by name. A placeholder such as `-` or `Urlaub`, a unit row or a
-  Plan/Ist row under the month header does not stop Claude's rows being checked against that header. A row
-  Claude cites is imported only when everything on the sheet that says which period its cell is in agrees:
-  the columns as Detect columns reads them (or as you confirmed or changed them) and the column header
-  above the cell, or, where Detect columns finds no layout, the column header and the period cells on its
-  row. When any two disagree (a second year block under its own
-  header, a title row of dates above a long sheet, a start date on the row), the row is not imported and
-  the preview names both periods, even if Claude read it right. On a sheet whose columns Detect columns
-  asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a
-  cell those columns do not read as hours (an Ist, cost or ID cell beside the hours, or beside a blank
-  forecast) is not imported. Where no layout is found, Claude's rows are not imported while the sheet
-  holds a second number column, unless the period headers above the two name different periods, or
-  different dates of one period on a row with no period of its own, such as sprint columns (set the
-  columns with Detect columns instead). Monthly figures are spread over a
+  Ask Claude to set the columns: Claude says where the person, period and hours columns and the header
+  row are, never the values, and chooses the planned hours, never the actuals. Its columns open on the
+  column step with its notes, read exactly as if you had set them, with every question above asked of
+  them, and Apply waits until you press “These columns are right” — changing a column is not that
+  press. If Claude names a column the sheet does not have, the dialog says so and you set the columns
+  yourself. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the

@@ -7,7 +7,7 @@
 Budget forecast hours are typed into each bucket by hand, cell by cell. A PM who already holds the
 forecast in a spreadsheet (resources × months × hours, often with a rate) must re-enter it. The
 2026-09-11 demo asked for an import. No sample sheet exists in the repo or the issue, so the design
-accepts two common shapes and lets Claude read anything else.
+accepts two common shapes and lets Claude set the columns of anything else.
 
 **Success:** a PM picks a sheet and a target bucket, sees exactly which role × period cells change
 (old → new), resolves any person the app cannot match, and applies the import as ONE undoable step.
@@ -22,7 +22,7 @@ changes.
 | Rate column | CHECK ONLY — compared against the role rate, mismatches listed; nothing writes a rate |
 | Existing hours | REPLACE COVERED CELLS — a role × period cell the sheet covers is overwritten; every other cell kept |
 | Unmatched person | PICK PER ROW — map to an existing person or skip; unresolved rows are skipped and reported |
-| Other shapes | An alternative "Ask Claude" route that reads the sheet and returns the same rows |
+| Other shapes | An alternative "Ask Claude" route that proposes the column mapping; the hand route's reader imports with it (amended 2026-10-13, §3.3) |
 
 ## 2. Non-goals
 
@@ -38,17 +38,18 @@ changes.
 
 ## 3. Architecture
 
-Both routes stop at one intermediate list, so the model can never write something the hand route could
-not, and every safety rule lives in code shared by both.
+Both routes read the sheet with one reader, so the model can never write something the hand route could
+not, and every safety rule lives in code shared by both. Claude only proposes the mapping (amended
+2026-10-13, §3.3).
 
 ```
-file ──► sheet-grid ──► layout-detect ──► forecast-rows ──┐
-                │                          (hand route)   │
-                └──► extractXlsx (Markdown) ──► Claude ───┤  ForecastRow[]
-                                          (Claude route)  │
-                                                          ▼
-                                              validateForecastRows
-                                                          ▼
+file ──► sheet-grid ──► layout-detect ──────────────► mapping ──► forecast-rows ──► ForecastRow[]
+                │          (hand route)               ▲  (questions, the user's
+                └──► sheetToPromptText ──► Claude ────┘   confirmation)
+                                          (Claude route: a mapping, never values)
+                                                                         ▼
+                                                             validateForecastRows
+                                                                         ▼
                                      buildForecastImportPlan (workspace) ──► preview ──► commitBuckets
 ```
 
@@ -59,7 +60,7 @@ file ──► sheet-grid ──► layout-detect ──► forecast-rows ──
 | `sheet-grid.ts` | `.xlsx`/`.xlsm` → `{ name, rows: string[][] }[]` per sheet; `.csv` → one sheet. XLSX reuses `xlsx-extract.ts`'s `sheetRows` (exported as `extractXlsxGrid`, so the Markdown path and the grid path read cells identically). CSV is read by a small delimiter-aware reader of its own (RFC 4180 quoting; `;` or `,` detected from the first non-blank line, since German Excel writes `;`). ★ The workspace codec `parseCsv` (`csv-codecs-core.ts`) is deliberately NOT changed: it sits on the byte-stable storage path pinned by `golden-workspace.test`. Cell caps follow `MAX_XLSX_SHEET_CELLS`. |
 | `layout-detect.ts` | `detectLayout(rows) → { kind: "wide" \| "long" \| "unknown", mapping }`. WIDE: a header row where ≥3 cells parse as periods and data rows name a person. LONG: one column parses as periods in most rows and another as numbers. The mapping names the person / email / period / hours / rate columns (and header row index); the UI may override every field. |
 | `forecast-rows.ts` | `gridToForecastRows(rows, mapping) → { rows: ForecastRow[], dropped: DropReason[] }`. Period labels: `2026-01`, `Jan 2026` / `January 2026` (EN + DE month names), `01/2026`, `1.2026`, an Excel date serial or ISO date (→ its month), and ISO week keys `2026-W03`. Numbers: the decimal convention is decided once per column (`1.234,5` vs `1,234.5`), never per cell. Blank cells are NOT covered; `0` is a real value. Rows whose person cell reads like a total (`Total`, `Summe`, `Gesamt`, `Σ`) or is blank are dropped and counted. |
-| `forecast-validate.ts` | `validateForecastRows(rows, sheet) → { ok: ForecastRow[], rejected }` — finite, `0 ≤ hours ≤ MAX_IMPORT_HOURS_PER_CELL` (744 — the hours in a 31-day month, per person per period, before aggregation), a parseable period, a non-empty person, and (Claude route) a `source` cell reference that exists in the sheet. Duplicates (same person + period) are summed with a warning. Both routes pass through it. |
+| `forecast-validate.ts` | `validateForecastRows(rows, sheet) → { ok: ForecastRow[], rejected }` — finite, `0 ≤ hours ≤ MAX_IMPORT_HOURS_PER_CELL` (744 — the hours in a 31-day month, per person per period, before aggregation), a parseable period, a non-empty person. Duplicates (same person + period) are summed with a warning; cells of one sheet row in one period collide. Both routes pass through it, with rows the reader read. (The Claude route's `source` check was removed on 2026-10-13, §3.3.) |
 | `forecast-plan.ts` | `buildForecastImportPlan(rows, ctx) → ImportPlan` — see 3.2. |
 
 ```ts
@@ -69,7 +70,7 @@ type ForecastRow = {
   period: string;          // canonical "YYYY-MM" or "YYYY-Www"
   hours: number;
   rate?: number;           // informational only
-  source?: string;         // "Sheet1!D7" — required on the Claude route
+  source?: string;         // "Sheet1!D7" — the cell the reader read the hours from
 };
 ```
 
@@ -103,13 +104,27 @@ everything else carried by reference.
 
 ### 3.3 Claude route
 
+> **Amendment 2026-10-13 (owner decision): Claude returns the MAPPING, never rows.** Checking Claude's
+> cell-by-cell row claims could not reliably tell Plan from Ist: nine fail-closed rounds each moved the hole,
+> and the cell-claim checker was removed. "Ask Claude" now calls `propose_forecast_mapping` once: the
+> layout, the header row (its 1-based row number), the person, email and rate columns as letters, wide
+> period columns or long period and hours columns (with an optional year column), an optional year for
+> year-less labels, and notes. The system prompt says where the fields are, never values; the planned or
+> forecast hours, never actuals (Ist, booked, gebucht); the forecast block of a sheet with several, saying
+> so in notes. A pure converter (`claudeMappingOf`) turns it into a `ColumnMapping` or refuses it
+> (`bad-mapping`: a letter outside the sheet, a header row outside it, two fields on one column, a missing
+> field, no period column, a bad year), never repairing it. The mapping opens the mapping step as the
+> draft, with the notes; the hand route's reader imports with it, through every question detection can
+> raise, evaluated for the mapping in effect (`questionsFor`), and Apply waits for an explicit "These
+> columns are right" on any layout — an edit is no such press. The cell and character caps and the
+> `max_tokens` refusal stay; the output budget is a mapping's. The cost, accepted: a sheet that no mapping
+> describes (several tables on one sheet, an unrecognised second header) cannot be imported by either
+> route. The original design below is kept only where it still holds.
+
 `forecast-import-call.ts`: a forced tool call through `runForcedToolCall` (`ai-forced-call.ts`), tool
-`propose_forecast_rows`, input schema `{ rows: ForecastRow[], notes?: string }`. The user message is the
-sheet as Markdown from `extractXlsx` (CSV rendered through the same table form), capped by the existing
-cell budget. The system prompt says: copy values, never compute or invent them; give every row its
-`source` cell; leave anything ambiguous out and say so in `notes`. The result goes through
-`validateForecastRows` exactly like the hand route; rows with a missing or out-of-sheet `source` are
-rejected and reported.
+`propose_forecast_mapping` (originally `propose_forecast_rows`, superseded by the amendment above). The
+user message is the sheet as a Markdown table with column letters and row numbers (`sheetToPromptText`
+over the renderer `extractXlsx` uses), capped by the existing cell budget.
 
 - Respects the AI master switch and the key requirement, like every other forced call.
 - Abortable (`AbortSignal`), and a cancelled call sets no error.
@@ -125,11 +140,11 @@ popouts (read-only). Steps, in one draggable `Modal`:
    sheet `detectLayout` does not call `unknown`), target bucket (preselected from the card).
 2. **Route** — "Detect columns" (default) or "Ask Claude". `unknown` layout opens the mapping empty with
    "Ask Claude" offered.
-3. **Mapping** (hand route) — the detected columns as selects, a 5-row sample showing what each row
-   parses to.
+3. **Mapping** — the detected or Claude's columns as selects, a 5-row sample showing what each row
+   parses to; Claude's columns with its notes and "These columns are right", which Apply waits for.
 4. **Preview** — blockers first; then unresolved people, each with a `ResourcePicker`-style picker
    (row-unique accessible names via `buildRowTokens`) or Skip; rate mismatches; skipped / out-of-range /
-   rejected rows with reasons (and the `source` cell on the Claude route); the cell diff grouped by role,
+   rejected rows with reasons (and their `source` cell); the cell diff grouped by role,
    old → new, with a total-hours delta.
 5. **Apply** — rebuilds the plan from LIVE state (the bucket may have changed while the modal was open);
    refuses with a message when the bucket is gone or closed; otherwise ONE `commitBuckets` call with
@@ -147,8 +162,9 @@ popouts (read-only). Steps, in one draggable `Modal`:
 | Period outside the bucket | Reported, skipped |
 | `budgetFollowsPlan` on | Apply disabled, notice names the setting |
 | Bucket closed or deleted before Apply | Apply refuses with a message, nothing written |
-| Claude: no key, AI off, HTTP error, abort | Same handling as other forced calls; hand route still available |
-| Claude: row without a valid `source` | Rejected and reported |
+| Claude: no key, AI off, HTTP error, abort, sheet too large, reply cut off | Same handling as other forced calls; hand route still available |
+| Claude: a mapping that cannot be used (`bad-mapping`) | Error with its own message; hand route still available (amended 2026-10-13) |
+| Claude: a mapping not yet confirmed | Apply disabled until "These columns are right" (amended 2026-10-13) |
 
 ## 5. Testing
 
@@ -159,18 +175,21 @@ popouts (read-only). Steps, in one draggable `Modal`:
   carries untouched allocations by reference.
 - **Property:** the working-day split preserves total hours to 2 decimals over random periods and
   holiday sets (seeded).
-- **Claude route:** mocked forced call returning good, invented (no `source`) and out-of-sheet rows; the
-  validator's verdicts asserted; a `forecastImport` guide appears in the system prompt and a chat-only one
-  does not.
+- **Claude route (amended 2026-10-13):** the converter's valid mappings and each refusal; a mocked forced
+  call using `propose_forecast_mapping`, the caps and the `max_tokens` refusal; the mapping step, Apply
+  waiting for the press (an edit is none), the questions asked of Claude's mapping (`Ist` named in the hours
+  question, a Plan/Ist rows question, a person column detection did not choose); a `forecastImport` guide
+  appears in the system prompt and a chat-only one does not.
 - **Modal (RTL):** each step; row-unique picker names; Apply calls `commitBuckets` once; undo restores the
   bucket; Apply against a bucket closed after opening refuses.
-- **Mutation:** each blocker and the `source` check, tallied in the register entry at closure.
+- **Mutation:** each blocker, and (amended 2026-10-13) the Claude press gate, an edit taken for the press,
+  an out-of-range letter accepted, and the questions read off the default detection.
 - **Not covered:** no e2e / axe run — the seed carries no import and the modal is not in `A11Y_VIEWS`;
   recorded as a gap at closure.
 
 ## 6. Files
 
-New: `src/app/budget-import/{sheet-grid,layout-detect,forecast-rows,forecast-validate,forecast-plan}.ts`,
+New: `src/app/budget-import/{sheet-grid,layout-detect,forecast-rows,forecast-validate,forecast-plan,claude-mapping}.ts`,
 `src/app/forecast-import-call.ts`, `src/app/forecast-import-modal.tsx`, tests beside each.
 Changed: `xlsx-extract.ts` (export the grid), `operating-guide.ts` (`forecastImport` target) and the built-in guide targets,
 `budget-panel-bucket-card.tsx` (the entry point), `i18n.ts` / `i18n.de.ts`, `docs/AGENTS/budget.md`,
