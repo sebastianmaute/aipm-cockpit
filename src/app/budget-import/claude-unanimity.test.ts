@@ -64,13 +64,15 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
-  it.each(["csv", "serials"] as const)("P2a: the right 2027 claims for block 2 are refused, naming both periods (%s)", (kind) => {
+  // Round 5: header row 1 confirmed, the repeated header row ends the reading,
+  // so block 2's cells are not read at all (they were refused period-conflict).
+  it.each(["csv", "serials"] as const)("P2a: the right 2027 claims for block 2 are refused, not read (%s)", (kind) => {
     const { rows, numbers } = sheets[kind];
     const out = validateForecastRows([claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 41, "S!C6", "Bob")], confirmedOn(rows, numbers));
     expect(out.ok).toEqual([]);
     expect(out.rejected).toEqual([
-      { row: claim("Jan 2027", 30, "S!B5"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01", header: "2027-01" } },
-      { row: claim("Feb 2027", 41, "S!C6", "Bob"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-02", header: "2027-02" } },
+      { row: claim("Jan 2027", 30, "S!B5"), reason: "source", detail: "cell-not-read" },
+      { row: claim("Feb 2027", 41, "S!C6", "Bob"), reason: "source", detail: "cell-not-read" },
     ]);
   });
 
@@ -80,7 +82,7 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
       claim("Jan 2026", 10, "S!B2"), claim("Jan 2026", 30, "S!B5"), claim("Feb 2026", 41, "S!C6", "Bob"),
     ], confirmedOn(rows, numbers));
     expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10]]);
-    expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
+    expect(detail(out)).toEqual(["cell-not-read", "cell-not-read"]);
     expect(out.duplicates).toEqual([]);
     neverBlockTwo(out);
   });
@@ -89,7 +91,7 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
     const { rows, numbers } = sheets[kind];
     const out = validateForecastRows([claim("Jan", 30, "S!B5"), claim("Feb", 41, "S!C6", "Bob")], confirmedOn(rows, numbers));
     expect(out.ok).toEqual([]);
-    expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
+    expect(detail(out)).toEqual(["cell-not-read", "cell-not-read"]);
   });
 
   it.each(["csv", "serials"] as const)("P2f: a fully correct reading writes block 1 and refuses block 2 (%s)", (kind) => {
@@ -99,8 +101,19 @@ describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, resi
       claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 40, "S!C5"), claim("Jan 2027", 31, "S!B6", "Bob"), claim("Feb 2027", 41, "S!C6", "Bob"),
     ], confirmedOn(rows, numbers));
     expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Ann", "2026-02", 20], ["Bob", "2026-01", 11], ["Bob", "2026-02", 21]]);
-    expect(detail(out)).toEqual(["period-conflict", "period-conflict", "period-conflict", "period-conflict"]);
+    expect(detail(out)).toEqual(["cell-not-read", "cell-not-read", "cell-not-read", "cell-not-read"]);
     neverBlockTwo(out);
+  });
+
+  // A second block whose header row names its person column differently is no
+  // repeated header: the reading runs on, and the hand reading and the block's
+  // own header disagree, so its claims are refused naming both (rr8 N1).
+  it("a second block under Mitarbeiter | Jan 2027, confirmed: block 2 is refused naming both periods", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Mitarbeiter", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+    const out = validateForecastRows([claim("Jan 2027", 30, "S!B5")], confirmedOn(rows, "text"));
+    expect(out.rejected).toEqual([
+      { row: claim("Jan 2027", 30, "S!B5"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01", header: "2027-01" } },
+    ]);
   });
 });
 
@@ -521,5 +534,79 @@ describe("stacked long blocks wait for the header row (fix 9 OOS-c)", () => {
     const out = validateForecastRows([claim("Jan 2026", 35, "S!C5"), claim("Feb 2026", 25, "S!C6", "Bob"), claim("Jan 2026", 40, "S!C2")], strictOn(rows, numbers));
     expect(out.ok).toEqual([]);
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
+  });
+});
+
+// Round 5 ruling 1: a REPEATED HEADER row (the header's person label in the
+// person column, no number in the hours or period columns) ends the hand
+// reading, and detection asks which header row is meant whatever the block
+// sizes. Header row 1 then reads the Forecast block only and the later one the
+// Ist block only; Claude's cells of the other block are not read.
+describe("a repeated header row ends the reading (round 5)", () => {
+  const longBlocks = (perBlock: 1 | 2, numbers: "text" | "dot") => {
+    const [jan, feb] = numbers === "dot" ? ["46023", "46054"] : ["Jan 2026", "Feb 2026"];
+    const block = (hours: [string, string]) => (perBlock === 1 ? [["Ann", jan, hours[0]]] : [["Ann", jan, hours[0]], ["Bob", feb, hours[1]]]);
+    return [["Name", "Monat", "Forecast"], ...block(["40", "30"]), ["Name", "Monat", "Ist"], ...block(["35", "25"])];
+  };
+  const wideBlocks = (numbers: "text" | "dot") => numbers === "dot"
+    ? [["Name", "46023", "46054"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "46388", "46419"], ["Ann", "30", "40"], ["Bob", "31", "41"]]
+    : [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+  const handRoute = (rows: string[][], numbers: "text" | "dot", headerRow: number) => {
+    const mapping = { ...detectLayout(rows, { numbers, defaultYear: 2026 }).mapping!, headerRow };
+    const read = gridToForecastRows(rows, mapping, "S", numbers);
+    return { mapping, read, validated: validateForecastRows(read.rows, { sheet: sheetOf(rows, numbers), requireSource: false, defaultYear: 2026 }) };
+  };
+  const cases = ([1, 2] as const).flatMap((n) => (["text", "dot"] as const).map((numbers) => [n, numbers] as const));
+
+  it.each(cases)("stacked long blocks of %i row(s) (%s) ask for the header row", (n, numbers) => {
+    const rows = longBlocks(n, numbers);
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 }).ambiguous).toContainEqual({ field: "header", candidates: [0, n + 1] });
+  });
+
+  it.each(cases)("header row 1 confirmed (%i row(s), %s): the Forecast block only, no Ist hours and no sum", (n, numbers) => {
+    const { read, validated } = handRoute(longBlocks(n, numbers), numbers, 0);
+    expect(read.rows.map((r) => [r.person, r.period, r.hours])).toEqual(n === 1 ? [["Ann", "2026-01", 40]] : [["Ann", "2026-01", 40], ["Bob", "2026-02", 30]]);
+    expect(validated.duplicates).toEqual([]);
+    expect(read.rowsBelowRepeatedHeader).toBe(n);
+  });
+
+  it.each(cases)("the later header row confirmed (%i row(s), %s): the Ist block only", (n, numbers) => {
+    const { read } = handRoute(longBlocks(n, numbers), numbers, n + 1);
+    expect(read.rows.map((r) => r.hours)).toEqual(n === 1 ? [35] : [35, 25]);
+  });
+
+  it.each(cases)("Claude, header row 1 confirmed (%i row(s), %s): the Ist cells are not read, the Forecast cells stand", (n, numbers) => {
+    const rows = longBlocks(n, numbers);
+    const { mapping } = handRoute(rows, numbers, 0);
+    const ist = claim("Jan 2026", 35, `S!C${n + 3}`);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C2"), ist], strictOn(rows, numbers, mapping));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40]]);
+    expect(out.rejected).toEqual([{ row: ist, reason: "source", detail: "cell-not-read" }]);
+  });
+
+  it.each(cases)("Claude, the later header row confirmed (%i row(s), %s): the Forecast cells above it are not read", (n, numbers) => {
+    const rows = longBlocks(n, numbers);
+    const { mapping } = handRoute(rows, numbers, n + 1);
+    const forecast = claim("Jan 2026", 40, "S!C2");
+    const out = validateForecastRows([forecast, claim("Jan 2026", 35, `S!C${n + 3}`)], strictOn(rows, numbers, mapping));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 35]]);
+    expect(out.rejected).toEqual([{ row: forecast, reason: "source", detail: "cell-not-read" }]);
+  });
+
+  it.each(["text", "dot"] as const)("stacked wide year blocks (%s), header row 1: block 2 is never read into 2026, on either route", (numbers) => {
+    const rows = wideBlocks(numbers);
+    const { mapping, read, validated } = handRoute(rows, numbers, 0);
+    expect(read.rows.map((r) => [r.person, r.period, r.hours])).toEqual([["Ann", "2026-01", 10], ["Ann", "2026-02", 20], ["Bob", "2026-01", 11], ["Bob", "2026-02", 21]]);
+    expect(validated.duplicates).toEqual([]);
+    const out = validateForecastRows([claim("Jan 2026", 30, "S!B5"), claim("Jan 2027", 30, "S!B5")], strictOn(rows, numbers, mapping));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["cell-not-read", "cell-not-read"]);
+  });
+
+  it("a sheet with one header row stays clear, and a person named like the header label is no repeated header when the row holds hours", () => {
+    expect(detectLayout([["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]], { defaultYear: 2026 }).ambiguous).toEqual([]);
+    const rows = [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Name", "Feb 2026", "30"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(gridToForecastRows(rows, detectLayout(rows, { defaultYear: 2026 }).mapping!, "S").rows).toHaveLength(2);
   });
 });

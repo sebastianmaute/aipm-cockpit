@@ -8,7 +8,7 @@
 // first; a two-period wide sheet is only believed when no long reading fits,
 // because a long sheet's start/end date columns look the same.
 
-import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
+import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
@@ -247,6 +247,15 @@ function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbi
  */
 function headerAmbiguity(headerRows: readonly number[]): ColumnAmbiguity[] {
   return headerRows.length > 1 ? [{ field: "header", candidates: [...headerRows] }] : [];
+}
+
+/** The header question with every repeated header row among its candidates
+ *  (round 5): a stacked block asks whatever its size, a one-row block too. */
+function withRepeatedHeaders(ambiguous: ColumnAmbiguity[], mapping: ColumnMapping, repeated: readonly number[]): ColumnAmbiguity[] {
+  if (repeated.length === 0) return ambiguous;
+  const asked = ambiguous.find((a) => a.field === "header")?.candidates ?? [];
+  const candidates = [...new Set([...asked, mapping.headerRow, ...repeated])].sort((a, b) => a - b);
+  return [...ambiguous.filter((a) => a.field !== "header"), { field: "header", candidates }];
 }
 
 function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
@@ -505,7 +514,8 @@ export function detectLayout(
   for (const pass of detectionPasses(rows, numbers, year)) {
     const found = pass.run();
     if (found === null) continue;
-    const { mapping, ambiguous } = found;
+    const { mapping } = found;
+    const ambiguous = withRepeatedHeaders(found.ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
     return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear }, ambiguous };
   }
   return UNKNOWN;

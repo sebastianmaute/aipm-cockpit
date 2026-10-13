@@ -621,11 +621,15 @@ describe("validateForecastRows: the nearest period header above the cited cell",
     expect(validateForecastRows([jan], confirmed).ok).toHaveLength(1);
   });
 
+  // Round 5: the repeated header row makes the sheet ask; confirmed as
+  // detected (the later block), the cell's own block decides.
   it("reads stacked year blocks by the block the cell sits in", () => {
-    const opts = strictOn([
+    const rows = [
       ["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"],
       ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"],
-    ]);
+    ];
+    expect(detail(validateForecastRows([{ person: "Ann", period: "Jan 2027", hours: 30, source: "S!B4" }], strictOn(rows)))).toEqual(["columns-unconfirmed"]);
+    const opts = { ...strictOn(rows), columns: detectLayout(rows).mapping! };
     expect(validateForecastRows([{ person: "Ann", period: "Jan 2027", hours: 30, source: "S!B4" }], opts).ok.map((r) => r.period)).toEqual(["2027-01"]);
     // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(validateForecastRows([{ person: "Ann", period: "Jan 2026", hours: 30, source: "S!B4" }], opts))).toEqual(["period-conflict"]);

@@ -171,14 +171,49 @@ function longCell(
 
 /** What `gridToForecastRows` returns. `rowsAboveHeader` counts the rows above
  *  the header row that hold data the import never reads — a stacked year block
- *  above the detected header (`rowsAboveHeaderCount`). */
+ *  above the detected header (`rowsAboveHeaderCount`); `rowsBelowRepeatedHeader`
+ *  the non-blank rows below the first REPEATED header row (`readingEnd`),
+ *  which the reading stops before. */
 export type ForecastRowsResult = {
   rows: ForecastRow[];
   dropped: DropReason[];
   ignoredColumns: IgnoredColumn[];
   rowsAboveHeader: number;
+  rowsBelowRepeatedHeader: number;
   assumedYear?: AssumedYear;
 };
+
+/** A cell holding a number in the sheet's number origin; a period-shaped cell
+ *  (a workbook's serial date) is no number. */
+function isNumberCell(cell: string, numbers: NumberOrigin): boolean {
+  return !isPeriodShapedIn(cell, numbers) && (parseNumberCell(cell, "dot", numbers) !== null || parseNumberCell(cell, "comma", numbers) !== null);
+}
+
+/**
+ * The rows, other than the header row, that REPEAT it (round 5): the header's
+ * person label in the mapping's person column (trimmed, case-insensitive), and
+ * no number in the hours and period columns (a wide reading's period columns).
+ * ★★ Stacked blocks (`Name | Monat | Forecast` over `Name | Monat | Ist`, or a
+ * second year block under its own month header) were read as one: header row
+ * 1 summed Forecast and Ist, and the later header read the Ist block silently.
+ * Detection asks about every such row (`detectLayout`), above or below.
+ */
+export function repeatedHeaderRows(rows: readonly string[][], mapping: ColumnMapping, numbers: NumberOrigin = "text"): number[] {
+  const label = cellAt(rows[mapping.headerRow], mapping.person).trim().toLowerCase();
+  if (label === "") return [];
+  const valueCols = mapping.layout === "wide" ? (mapping.periodCols ?? []) : [mapping.hours, mapping.period];
+  return rows.flatMap((row, index) => (
+    index !== mapping.headerRow
+      && cellAt(row, mapping.person).trim().toLowerCase() === label
+      && !valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))
+      ? [index] : []));
+}
+
+/** Where the hand reading ends (exclusive): the first repeated header row below
+ *  the header row (`repeatedHeaderRows`), else the end of the grid. */
+export function readingEnd(rows: readonly string[][], mapping: ColumnMapping, numbers: NumberOrigin = "text"): number {
+  return repeatedHeaderRows(rows, mapping, numbers).find((index) => index > mapping.headerRow) ?? rows.length;
+}
 
 /**
  * The rows above the header row that hold data: a text cell and a number (not
@@ -238,7 +273,9 @@ export function gridToForecastRows(
   // First pass: the data rows that name a person, so a total row's numbers
   // never vote on the decimal style.
   const people: Array<{ index: number; row: readonly string[] }> = [];
-  for (let index = mapping.headerRow + 1; index < rows.length; index++) {
+  // The reading stops before a repeated header row: the next block is not this one.
+  const end = readingEnd(rows, mapping, numbers);
+  for (let index = mapping.headerRow + 1; index < end; index++) {
     const row = rows[index];
     if (mappedCols.every((c) => isBlank(cellAt(row, c)))) continue;
     const person = cellAt(row, mapping.person);
@@ -281,8 +318,10 @@ export function gridToForecastRows(
   const readCols = wide ? columns.map((c) => c.col) : [mapping.period, mapping.hours, mapping.yearCol];
   const ignoredColumns = unreadNumberColumns(header, mapping, readCols, people, numbers);
   const rowsAboveHeader = rowsAboveHeaderCount(rows, mapping, columns.map((c) => c.col), numbers);
+  const repeated = new Set(repeatedHeaderRows(rows, mapping, numbers));
+  const rowsBelowRepeatedHeader = rows.slice(end + 1).filter((row, i) => !repeated.has(end + 1 + i) && row.some((c) => !isBlank(c))).length;
   const assumedYear = assumedYearOf(read, mapping.year);
-  const result: ForecastRowsResult = { rows: out, dropped, ignoredColumns, rowsAboveHeader };
+  const result: ForecastRowsResult = { rows: out, dropped, ignoredColumns, rowsAboveHeader, rowsBelowRepeatedHeader };
   return assumedYear === undefined ? result : { ...result, assumedYear };
 }
 

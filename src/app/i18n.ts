@@ -2560,6 +2560,8 @@ const enUS = {
   forecastImportIgnoredColumn: "Column {0} ({1}): holds numbers, but its header is not a period",
   forecastImportRowsAboveHeader: "{0} rows above the header row were not read",
   forecastImportRowsAboveHeaderOne: "1 row above the header row was not read",
+  forecastImportRowsBelowRepeatedHeader: "{0} rows below a repeated header row were not read",
+  forecastImportRowsBelowRepeatedHeaderOne: "1 row below a repeated header row was not read",
   forecastImportSample: "First rows read",
   forecastImportSampleEmpty: "No rows are read with these columns.",
   forecastImportShowPreview: "Show preview",

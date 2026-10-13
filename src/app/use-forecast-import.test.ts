@@ -1109,9 +1109,11 @@ describe("useForecastImport — more than one header row waits for the user (fix
     act(() => result.current.setMapping({ ...result.current.mapping!, headerRow: 0 }));
     expect(result.current.ambiguous).toEqual([]);
     act(() => result.current.showPreview());
-    // Header row 1 reads every row below it, the Ist block too: the sums are
-    // listed under "Combined rows" (residue 28), never silent.
-    expect(result.current.duplicates.map((d) => [d.person, d.period, d.count])).toEqual([["Ann Lee", "2026-01", 2], ["Bob Ray", "2026-02", 2]]);
+    // Round 5: the repeated header row ends the reading, so header row 1 reads
+    // the Forecast block only (it once summed Forecast + Ist, residue 28).
+    expect(result.current.duplicates).toEqual([]);
+    expect(result.current.rowsBelowRepeatedHeader).toBe(2);
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40], ["2026-02", 30]]);
   });
 
   it("stacked wide year blocks: the 2026-only sum is not applied without a confirmation", async () => {

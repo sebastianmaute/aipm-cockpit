@@ -2409,6 +2409,8 @@ export const de: Record<TranslationKey, string> = {
   forecastImportIgnoredColumn: "Spalte {0} ({1}): enthält Zahlen, aber die Überschrift ist keine Periode",
   forecastImportRowsAboveHeader: "{0} Zeilen über der Kopfzeile wurden nicht gelesen",
   forecastImportRowsAboveHeaderOne: "1 Zeile über der Kopfzeile wurde nicht gelesen",
+  forecastImportRowsBelowRepeatedHeader: "{0} Zeilen unter einer wiederholten Kopfzeile wurden nicht gelesen",
+  forecastImportRowsBelowRepeatedHeaderOne: "1 Zeile unter einer wiederholten Kopfzeile wurde nicht gelesen",
   forecastImportSample: "Erste gelesene Zeilen",
   forecastImportSampleEmpty: "Mit diesen Spalten wird keine Zeile gelesen.",
   forecastImportShowPreview: "Vorschau anzeigen",

@@ -6,7 +6,7 @@
 
 import { periodKeyForDate } from "../resource-capacity";
 import { detectDecimalStyle, parseNumberCell, type DecimalStyle } from "./forecast-rows";
-import { handPeriodAt, isUnreadCellOfReadRow, type HandReading } from "./hand-reading";
+import { handPeriodAt, isUnreadCellOfReading, type HandReading } from "./hand-reading";
 import {
   assignCellPeriod,
   isWeekSpacedColumn,
@@ -365,7 +365,8 @@ export function checkSource(
     ? columnNaming(cells, cited.colIdx, row.person)
     : expected !== cited.colIdx && isNamedBy(cells[expected], row.person) ? expected : null;
   if (personCol === null) return { problem: "person-not-on-row" };
-  // A read row's other cells (Ist, Kosten, an ID) back nothing, whatever they hold (fix 8 round 3).
-  if (isUnreadCellOfReadRow(hand, cited.rowIdx, cited.colIdx)) return { problem: "cell-not-read" };
+  // A read row's other cells (Ist, Kosten, an ID) back nothing, whatever they hold (fix 8
+  // round 3), nor do the rows of another stacked block (round 5).
+  if (isUnreadCellOfReading(hand, cited.rowIdx, cited.colIdx)) return { problem: "cell-not-read" };
   return periodNearCell(sheet, { ...cited, personCol }, claim, defaultYear, handPeriodAt(hand, cited.rowIdx, cited.colIdx));
 }

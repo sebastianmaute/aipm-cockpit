@@ -2,7 +2,7 @@
 // (§500), for the Claude route's check: H, one of the period sources that must
 // all agree (`periodNearCell`, fix 8). Pure: no i18n, no React, no DOM.
 
-import { gridToForecastRows } from "./forecast-rows";
+import { gridToForecastRows, readingEnd } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
 import { detectLayout } from "./layout-detect";
 import type { AssignedPeriod } from "./period-assign";
@@ -19,6 +19,10 @@ export type HandReading = {
   person: number;
   cells: ReadonlyMap<string, AssignedPeriod>;
   readRows: ReadonlySet<number>;
+  /** The rows the reading covers, `[from, to)`: below the header row and
+   *  before the first repeated header row (round 5, `readingEnd`). */
+  from: number;
+  to: number;
 };
 
 /** What the Claude route's check reads a sheet's columns by: the hand route's
@@ -35,10 +39,13 @@ export function handPeriodAt(hand: HandReading | null, rowIdx: number, colIdx: n
   return hand?.cells.get(`${rowIdx}:${colIdx}`);
 }
 
-/** The hand route reads other cells of this row but not this one: a claim
- *  citing it is refused `cell-not-read` (`checkSource`). */
-export function isUnreadCellOfReadRow(hand: HandReading | null, rowIdx: number, colIdx: number): boolean {
-  return hand !== null && hand.readRows.has(rowIdx) && handPeriodAt(hand, rowIdx, colIdx) === undefined;
+/** The hand route does not read this cell, though it reads other cells of its
+ *  row, or the row lies outside the rows it covers (another stacked block, above
+ *  the header row or past a repeated one, round 5): a claim citing it is
+ *  refused `cell-not-read` (`checkSource`). */
+export function isUnreadCellOfReading(hand: HandReading | null, rowIdx: number, colIdx: number): boolean {
+  if (hand === null || handPeriodAt(hand, rowIdx, colIdx) !== undefined) return false;
+  return hand.readRows.has(rowIdx) || rowIdx < hand.from || rowIdx >= hand.to;
 }
 
 /**
@@ -73,5 +80,5 @@ function readWith(sheet: SheetGrid, mapping: ColumnMapping): HandReading {
     cells.set(`${rowIdx}:${col}`, period);
     readRows.add(rowIdx);
   });
-  return { layout: mapping.layout, person: mapping.person, cells, readRows };
+  return { layout: mapping.layout, person: mapping.person, cells, readRows, from: mapping.headerRow + 1, to: readingEnd(sheet.rows, mapping, sheet.numbers) };
 }

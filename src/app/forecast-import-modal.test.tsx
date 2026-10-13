@@ -436,8 +436,12 @@ describe("ForecastImportModal — a person Claude skipped (round 3)", () => {
 describe("ForecastImportModal — rows above the header row (round 3)", () => {
   it("says how many rows above the header row were not read", async () => {
     render(<ForecastImportModal {...propsOf()} />);
-    await chooseFile(["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "", "Name,Jan 2027,Feb 2027,Mar 2027", "Ann Lee,40,50,60", ""].join("\r\n"));
-    const section = screen.getByRole("region", { name: t(L, "forecastImportNotImported") });
+    // Round 5: the repeated header row asks first; confirmed, the preview says so.
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File([["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "", "Name,Jan 2027,Feb 2027,Mar 2027", "Ann Lee,40,50,60", ""].join("\r\n")], "forecast.csv", { type: "text/csv" })] } });
+    fireEvent.click(await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(t(L, "forecastImportRowsAboveHeaderOne", 1))).toBeInTheDocument();
   });
 });
@@ -578,7 +582,8 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     claudeSays([{ person: "Ann Lee", period: "Jan 2027", hours: 30, source: "forecast!B5" }]);
     render(<ForecastImportModal {...propsOf()} />);
     // Fix 9 OOS-c: the two header rows make the sheet ask; confirm, then ask Claude.
-    await chooseAmbiguous(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Name,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
+    // Round 5: a second block under "Name" ends the reading; under "Mitarbeiter" it does not.
+    await chooseAmbiguous(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Mitarbeiter,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
@@ -669,6 +674,18 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
     expect(screen.queryByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeNull();
+  });
+
+  // Round 5: header row 1 of stacked blocks reads its own block; the preview
+  // says how many rows below the repeated header row were not read.
+  it("lists the rows below a repeated header row as not read", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous("Name,Monat,Forecast\r\nAnn Lee,Jan 2026,40\r\nBob Kay,Feb 2026,30\r\nName,Monat,Ist\r\nAnn Lee,Jan 2026,35\r\nBob Kay,Feb 2026,25\r\n");
+    fireEvent.change(screen.getByRole("combobox", { name: t(L, "forecastImportHeaderRow") }), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportRowsBelowRepeatedHeader", 2))).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: t(L, "forecastImportChanges") })).getByText("— → 40")).toBeInTheDocument();
   });
 
   // rr8 m2: the Wide layout has no hours select to choose from.
