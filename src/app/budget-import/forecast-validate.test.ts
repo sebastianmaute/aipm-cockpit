@@ -922,22 +922,18 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
-  const metadataOver = (hours: string[]) => strictOn([
-    ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], [],
-    ["Name", "Monat", ...hours],
-    ["Ann", "Jan 2026", "40", "35"],
-  ]);
-
-  it("never sums two cells of one long row under a metadata row's dates: Stunden | Ist, read by the hand route, collides", () => {
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], metadataOver(["Stunden", "Ist"]));
-    expect(out.rejected).toEqual([]);
-    expect(out.subPeriods).toEqual([]);
-    expect(out.ok).toEqual([]);
-    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C4", "S!D4"] }]);
-  });
-
-  it("never sums two cells of one long row under a metadata row's dates: Plan | Ist waits for the columns", () => {
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], metadataOver(["Plan", "Ist"]));
+  // Two number columns ask (fix 8), so neither shape reaches a sum; the
+  // unknown-layout twin, where the two cells collide, is in claude-unanimity.
+  it.each([
+    ["Stunden | Ist", ["Stunden", "Ist"]],
+    ["Plan | Ist", ["Plan", "Ist"]],
+  ])("never sums two cells of one long row under a metadata row's dates: %s waits for the columns", (_label, hours) => {
+    const opts = strictOn([
+      ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], [],
+      ["Name", "Monat", ...hours],
+      ["Ann", "Jan 2026", "40", "35"],
+    ]);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], opts);
     expect(out.ok).toEqual([]);
     expect(out.subPeriods).toEqual([]);
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
@@ -1053,8 +1049,9 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
 // rr7 I1, then fix 8: the hand route's reading (H) is one of the sources. Title
 // and metadata rows of key/value cells (`Erstellt von | Max | 01.03.2026`) once
 // let a wrong month through the evidence exemption, and summed Stunden + Ist to
-// 75. H no longer decides alone (fix 8): the title's dates above the hours
-// column are a source too, and where they disagree with H the claim is refused.
+// 75. With two number columns these sheets now ask (fix 8), so the Claude route
+// refuses them until the columns are confirmed; `claude-unanimity.test.ts`
+// pins what a confirmed reading accepts.
 describe("validateForecastRows: the hand route's reading is one of the sources (rr7 I1, fix 8)", () => {
   const strictOn = (rows: string[][], numbers?: "dot" | "text", defaultYear?: number) => ({
     sheet: { name: "S", rows, truncated: false, numbers } as SheetGrid,
@@ -1074,12 +1071,10 @@ describe("validateForecastRows: the hand route's reading is one of the sources (
       ["Ann", "46023", "40", "", "35"], ["Bob", "46054", "30", "", "25"]],
   };
 
-  it.each(["text", "dot"] as const)("Erstellt von | Max | 01.03.2026 title over Stunden | Bemerkung | Ist (%s): its March disagrees with every row, so no month stands", (numbers) => {
+  it.each(["text", "dot"] as const)("Erstellt von | Max | 01.03.2026 title over Stunden | Bemerkung | Ist (%s): every claim waits for the columns", (numbers) => {
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")], strictOn(keyValueTitle[numbers], numbers));
     expect(out.ok).toEqual([]);
-    expect(out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined))).toEqual([
-      { sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" },
-    ]);
+    expect(detail(out)).toEqual(unconfirmed(3));
   });
 
   const quarterTitle = {
@@ -1089,10 +1084,10 @@ describe("validateForecastRows: the hand route's reading is one of the sources (
       ["Ann", "46023", "40", "35"], ["Ann", "46054", "30", "25"], ["Ann", "46082", "20", "15"]],
   };
 
-  it.each(["text", "dot"] as const)("Projekt Alpha | Forecast | Q1 dates title over Stunden | Ist (%s): January's cell only, nothing sums to 90", (numbers) => {
+  it.each(["text", "dot"] as const)("Projekt Alpha | Forecast | Q1 dates title over Stunden | Ist (%s): nothing sums to 90", (numbers) => {
     const allJan = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 30, "S!C4"), claim("Jan 2026", 20, "S!C5")], strictOn(quarterTitle[numbers], numbers));
-    expect(periodsOf(allJan)).toEqual([["2026-01", 40]]);
-    expect(detail(allJan)).toEqual(["period-conflict", "period-conflict"]);
+    expect(allJan.ok).toEqual([]);
+    expect(detail(allJan)).toEqual(unconfirmed(3));
   });
 
   const monthTitle = {
@@ -1100,12 +1095,11 @@ describe("validateForecastRows: the hand route's reading is one of the sources (
     dot: [["Projekt", "Alpha", "46023", "46053"], ["Name", "Datum", "Stunden", "Ist"], ["Ann", "46037", "40", "35"]],
   };
 
-  it.each(["text", "dot"] as const)("Projekt | Alpha | 01.01. | 31.01. over Stunden | Ist (%s): the two cells collide, never 75", (numbers) => {
+  it.each(["text", "dot"] as const)("Projekt | Alpha | 01.01. | 31.01. over Stunden | Ist (%s): never 75", (numbers) => {
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")], strictOn(monthTitle[numbers], numbers));
-    expect(out.rejected).toEqual([]);
-    expect(out.subPeriods).toEqual([]);
     expect(out.ok).toEqual([]);
-    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C3", "S!D3"] }]);
+    expect(out.subPeriods).toEqual([]);
+    expect(detail(out)).toEqual(unconfirmed(2));
   });
 
   it("reads the hand route in the validation's own default year (one reading per sheet and year)", () => {

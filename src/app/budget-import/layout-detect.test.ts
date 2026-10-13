@@ -177,13 +177,14 @@ describe("detectLayout — long", () => {
     ]);
   });
 
-  it("prefers the hours-looking header when two numeric columns qualify", () => {
+  // Fix 8: the hours word only preselects; two number columns always ask.
+  it("preselects the hours-looking header when two numeric columns qualify, and asks", () => {
     const grid = [
       ["Name", "Month", "Cost", "Hrs"],
       ["Ann", "2026-01", "7600", "80"],
       ["Ann", "2026-02", "6840", "72"],
     ];
-    expect(detectLayout(grid).mapping).toMatchObject({ period: 1, hours: 3 });
+    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 1, hours: 3 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
   });
 
   // Fix 7: the rightmost pick of final review I3 imported the constant,
@@ -506,10 +507,26 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
-  it("is clear when exactly one candidate is headed by an hours word: Plan | Stunden reads Stunden", () => {
+  // Fix 8 (owner decision 2026-10-13, rr8 N2): no header word settles the
+  // hours. Each round's "named hours column" escape let a new actuals
+  // spelling through (`Ist`, then `Iststunden`, `Gebuchte Stunden` …).
+  it("asks for Plan | Stunden too, Stunden preselected: one hours word settles nothing", () => {
     const detected = detectLayout(twoFigures("Plan", "Stunden", ["35", "30", "25"], PLAN), { defaultYear: 2026 });
     expect(detected.mapping).toMatchObject({ hours: 3 });
-    expect(detected.ambiguous).toEqual([]);
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it.each(["Iststunden", "IstStd", "Gebuchte Stunden", "Geleistete Stunden", "Spent hours", "Logged hours"])(
+    "Forecast | %s asks (rr8 N2): a second number column is a choice, whatever its header", (actuals) => {
+      const detected = detectLayout(twoFigures("Forecast", actuals, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+      expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    },
+  );
+
+  it("asks for Name | Monat | Stunden | Kosten, Stunden preselected", () => {
+    const detected = detectLayout(twoFigures("Stunden", "Kosten", PLAN, ["4000", "3500", "3000"]), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
   it("asks when two candidates are headed by an hours word: Stunden | Std Plan", () => {
@@ -518,25 +535,21 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
-  // rr7 (controller ruling): a header that names ACTUALS — the whole word
-  // ist / actual(s) / gebucht / booked, also as a part of a hyphenated or
-  // spaced compound — is not a named hours column, for the pick or the gate.
-  it.each(["Ist-Stunden", "Stunden Ist", "Actual hours", "Actuals (h)", "Gebucht (Std)", "Booked hours"])(
-    "Forecast | %s asks, Forecast preselected: an actuals header is no named hours column", (actuals) => {
-      const detected = detectLayout(twoFigures("Forecast", actuals, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
-      expect(detected.mapping).toMatchObject({ hours: 2 });
-      expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
-    },
-  );
-
+  // The preselection is the leftmost column with an hours word, else the
+  // leftmost; the user confirms it either way.
   it.each([
-    ["Stunden | Ist", "Stunden", "Ist"],
-    ["Stunden | Std Ist", "Stunden", "Std Ist"],
-    ["Ist-Stunden | Plan stunden", "Ist-Stunden", "Plan stunden"],
-  ])("%s is clear: one named hours column that is not actuals", (_label, x, y) => {
+    ["Forecast | Ist-Stunden", "Forecast", "Ist-Stunden", 3],
+    ["Forecast | Actuals (h)", "Forecast", "Actuals (h)", 2],
+    ["Forecast | Booked hours", "Forecast", "Booked hours", 3],
+    ["Stunden | Ist", "Stunden", "Ist", 2],
+    ["Stunden | Std Ist", "Stunden", "Std Ist", 2],
+    ["Soll-Stunden | Ist-Stunden", "Soll-Stunden", "Ist-Stunden", 2],
+    ["Plan-Std | Ist-Std", "Plan-Std", "Ist-Std", 2],
+    ["Ist-Stunden | Plan stunden", "Ist-Stunden", "Plan stunden", 2],
+  ] as const)("%s asks, the preselection by the hours word", (_label, x, y, hours) => {
     const detected = detectLayout(twoFigures(x, y, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
-    expect(detected.ambiguous).toEqual([]);
-    expect(detected.mapping).toMatchObject({ hours: x === "Ist-Stunden" ? 3 : 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(detected.mapping).toMatchObject({ hours });
   });
 
   it("a lone actuals column is still the hours: Name | Monat | Ist-Stunden", () => {
